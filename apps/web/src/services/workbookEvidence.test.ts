@@ -3,6 +3,7 @@ import { buildEvidenceLifecycleViewModel } from "../workbook/models/evidenceLife
 import { csrfHeaderName } from "./browserApi";
 import {
   createAndAttachEvidenceBlob,
+  createEvidenceWithInitialBlob,
   evidenceAccessMessageLiveRegion,
   evidenceAttachPublicErrorMessage,
   evidencePublicErrorMessage,
@@ -184,6 +185,102 @@ describe("workbookEvidence", () => {
       object_blob_id: "00000000-0000-4000-8000-000000003001",
       base_row_version: 9,
       client_txn_id: "attach-txn-1",
+    });
+  });
+
+  it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {
+    let rowAttempts = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/base/api/v1/object-blobs") {
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "00000000-0000-4000-8000-000000001001",
+              object_blob_id: "00000000-0000-4000-8000-000000003001",
+              upload_state: "pending",
+              target_expires_at: "2026-07-26T12:05:00Z",
+              pending_expires_at: "2026-07-26T12:10:00Z",
+              upload_target: {
+                href: "/api/v1/object-uploads/upload-token",
+                method: "PUT",
+                expires_at: "2026-07-26T12:05:00Z",
+                headers: {},
+              },
+              accepted_contract: {
+                incident_id: "00000000-0000-4000-8000-000000001001",
+                byte_size: 3,
+                filename_hint: "evidence.txt",
+                content_type_hint: "text/plain",
+                sha256_hex: null,
+              },
+            },
+            meta: { request_id: "request-create" },
+          }),
+        );
+      }
+      if (url === "/base/api/v1/object-uploads/upload-token") {
+        return Promise.resolve(new Response("", { status: 200 }));
+      }
+      if (
+        url ===
+        "/base/api/v1/incidents/00000000-0000-4000-8000-000000001001/views/cartulary.view.evidence.v1/rows"
+      ) {
+        rowAttempts += 1;
+        if (rowAttempts === 1) {
+          return Promise.reject(new TypeError("response lost"));
+        }
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              view_schema_id: "cartulary.view.evidence.v1",
+              change_set_id: "00000000-0000-4000-8000-000000005001",
+              row: {
+                record_id: "00000000-0000-4000-8000-000000004001",
+                row_version: 1,
+                cells: {},
+              },
+            },
+            meta: { request_id: "request-row" },
+          }),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse({ error: { code: "unexpected" } }, 500),
+      );
+    });
+    const rowTxn = vi.fn(() => "row-txn-1");
+
+    const created = await createEvidenceWithInitialBlob({
+      apiBase: "/base",
+      createBlobClientTxnId: () => "blob-txn-1",
+      createRowClientTxnId: rowTxn,
+      file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+      incidentId: "00000000-0000-4000-8000-000000001001",
+      values: {
+        "evidence.title": "evidence.txt",
+        "evidence.collector_party_text": "Workbook upload",
+      },
+      viewSchemaId: "cartulary.view.evidence.v1",
+    });
+
+    expect(created).toEqual({
+      recordId: "00000000-0000-4000-8000-000000004001",
+      rowVersion: 1,
+    });
+    expect(rowTxn).toHaveBeenCalledTimes(1);
+    const firstRowBody = String(
+      (fetchMock.mock.calls[2]?.[1] as RequestInit).body,
+    );
+    const replayRowBody = String(
+      (fetchMock.mock.calls[3]?.[1] as RequestInit).body,
+    );
+    expect(replayRowBody).toBe(firstRowBody);
+    expect(JSON.parse(firstRowBody)).toEqual({
+      client_txn_id: "row-txn-1",
+      "evidence.collector_party_text": "Workbook upload",
+      "evidence.initial_object_blob_id": "00000000-0000-4000-8000-000000003001",
+      "evidence.title": "evidence.txt",
     });
   });
 });

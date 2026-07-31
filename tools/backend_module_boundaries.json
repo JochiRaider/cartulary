@@ -116,6 +116,33 @@
       "allowed_importers": ["internal/modules/evidence/**"]
     },
     {
+      "id": "evidence-projection-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider",
+      "allowed_importers": [
+        "internal/app/projectionassembly/**",
+        "internal/modules/evidence/**",
+        "internal/modules/projections/**"
+      ]
+    },
+    {
+      "id": "evidence-recovery-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider",
+      "allowed_importers": [
+        "internal/app/operator/operator_recovery.go",
+        "internal/app/serverprocess/recovery_sentinel_test.go",
+        "internal/modules/evidence/**",
+        "internal/modules/recovery/**"
+      ]
+    },
+    {
+      "id": "evidence-reporting-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider",
+      "allowed_importers": [
+        "internal/modules/evidence/**",
+        "internal/modules/reporting/**"
+      ]
+    },
+    {
       "id": "indicator-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore",
       "allowed_importers": ["internal/modules/indicators/**"]
@@ -185,6 +212,77 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "evidence-no-timeline-implementation",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/timeline"
+      ],
+      "scan_paths": [
+        "internal/modules/evidence/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "evidence-source-kernel-no-consumer-orchestration",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi"
+      ],
+      "scan_paths": [
+        "internal/modules/evidence/access_repository.go",
+        "internal/modules/evidence/persistence_components.go",
+        "internal/modules/evidence/source_kernel.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "evidence-mutation-coordinator-no-consumer-implementation",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi"
+      ],
+      "scan_paths": [
+        "internal/modules/evidence/mutation_coordinator.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "evidence-route-no-private-persistence-or-consumer-orchestration",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/records",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres"
+      ],
+      "scan_paths": [
+        "internal/modules/evidence/route_admission.go",
+        "internal/modules/evidence/route_dependencies.go",
+        "internal/modules/evidence/route_errors.go",
+        "internal/modules/evidence/routes.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "artifact-source-kernel-no-consumer-orchestration",
       "imports": [
@@ -516,7 +614,6 @@
         "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity",
         "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
-        "github.com/JochiRaider/cartulary/internal/modules/evidence/blobref",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
@@ -722,6 +819,7 @@
         "internal/modules/entities/mentions/reportingprovider/provider.go",
         "internal/modules/entities/mentions/rollbackprovider/mention.go",
         "internal/modules/entities/merge/merge_store.go",
+        "internal/modules/evidence/access_repository.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
         "internal/modules/evidence/deleterestore/provider.go",
         "internal/modules/evidence/projectionprovider/provider.go",
@@ -815,6 +913,18 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "workbook-assembly-no-evidence-construction",
+      "tokens": [
+        "evidence.NewWorkbookFacade(",
+        "evidence.NewWorkbookContribution("
+      ],
+      "scan_paths": [
+        "internal/app/workbookassembly/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "collaboration-no-broad-store-or-free-intent-writer",
       "tokens": [
@@ -1190,6 +1300,32 @@
         "internal/modules/timeline/deleterestore/**"
       ],
       "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "evidence-owner-runtime-only-server-constructed",
+      "tokens": ["evidence.NewOwnerRuntime("],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": ["internal/app/server/runtime.go"],
+      "production_only": true
+    },
+    {
+      "id": "evidence-store-no-cross-package-production-construction",
+      "tokens": [
+        "evidence.NewStore(",
+        "evidence.WithStore(",
+        "EvidenceStore"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**",
+        "internal/testutil/**"
+      ],
+      "allowed_paths": [
+        "internal/app/server/evidence_composition_characterization_test.go",
+        "internal/modules/evidence/**",
+        "internal/modules/imports/boundary_guard_test.go"
+      ],
       "production_only": true
     }
   ],

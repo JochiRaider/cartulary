@@ -314,6 +314,12 @@
       "filename": "00052_saved_views_storage_hardening.sql",
       "sha256": "4b6b08dd9034ea366748ef854191f7ab9e9b4a6c2cedba5d4c483638fd9044ba",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 53,
+      "filename": "00053_evidence_blob_association_uniqueness.sql",
+      "sha256": "72e81b33a3eb0374ea115fc42327195b5785f2656ac39130f6139e4e97b0b07b",
+      "historical_phase_shaped": false
     }
   ]
 }

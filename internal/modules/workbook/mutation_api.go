@@ -14,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -50,6 +49,11 @@ type CreateRequest struct {
 	ClientTxnID  string
 	Values       map[string]ValueChange
 	Collections  map[string]CollectionActionPayload
+	Inputs       map[string]CreateInputValue
+}
+
+type CreateInputValue struct {
+	UUID uuid.UUID
 }
 
 type LinkedNoteCreateRequest struct {
@@ -164,6 +168,9 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 			allowed[fieldKey] = struct{}{}
 		}
 	}
+	for _, input := range schema.CreateInputs {
+		allowed[input.InputKey] = struct{}{}
+	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
 			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
@@ -173,6 +180,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		ViewSchemaID: viewSchemaID,
 		Values:       map[string]ValueChange{},
 		Collections:  map[string]CollectionActionPayload{},
+		Inputs:       map[string]CreateInputValue{},
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
 		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
@@ -198,6 +206,35 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 		}
 		request.Values[fieldKey] = change
 		_ = canonical
+	}
+	for _, input := range schema.CreateInputs {
+		value, present := raw[input.InputKey]
+		if !present {
+			if input.Required {
+				return CreateRequest{}, invalidMutationPayload(input.InputKey, "missing_required_field")
+			}
+			continue
+		}
+		if string(value) == "null" {
+			if !input.Nullable {
+				return CreateRequest{}, invalidMutationPayload(input.InputKey, "field_not_nullable")
+			}
+			continue
+		}
+		switch input.ValueContractID {
+		case "object_blob_id_v1":
+			var opaqueID string
+			if err := json.Unmarshal(value, &opaqueID); err != nil {
+				return CreateRequest{}, invalidMutationPayload(input.InputKey, "invalid_value")
+			}
+			parsed, err := uuid.Parse(opaqueID)
+			if err != nil || parsed.String() != opaqueID {
+				return CreateRequest{}, invalidMutationPayload(input.InputKey, "invalid_value")
+			}
+			request.Inputs[input.InputKey] = CreateInputValue{UUID: parsed}
+		default:
+			return CreateRequest{}, invalidMutationPayload(input.InputKey, "invalid_value_contract")
+		}
 	}
 	return request, nil
 }
@@ -473,9 +510,6 @@ func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMe
 	if !ok {
 		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "invalid_value")
 	}
-	if fieldKey == "evidence.storage_ref" && blobref.IsServerManagedStorageRef(normalized) {
-		return ValueChange{}, nil, invalidMutationPayload(fieldKey, "reserved_server_managed_ref")
-	}
 	return ValueChange{Kind: "text", Text: &normalized}, normalized, nil
 }
 
@@ -703,10 +737,26 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 }
 
 func CreateRequestHash(request CreateRequest) []byte {
+	values := canonicalValues(request.Values)
+	if request.ViewSchemaID == EvidenceViewSchemaID {
+		if lifecycle, present := request.Values["evidence.lifecycle_state"]; !present {
+			values["evidence.lifecycle_state"] = "requested"
+		} else if lifecycle.Text != nil {
+			values["evidence.lifecycle_state"] = *lifecycle.Text
+		}
+		if requestedAt, present := request.Values["evidence.requested_at"]; present && requestedAt.Timestamp == nil {
+			values["evidence.requested_at"] = nil
+		}
+	}
+	inputs := make(map[string]any, len(request.Inputs))
+	for key, value := range request.Inputs {
+		inputs[key] = value.UUID.String()
+	}
 	payload := map[string]any{
 		"view_schema_id": request.ViewSchemaID,
-		"values":         canonicalValues(request.Values),
+		"values":         values,
 		"collection_ops": canonicalCollections(request.Collections),
+		"create_inputs":  inputs,
 	}
 	return hashRequestPayload(payload)
 }

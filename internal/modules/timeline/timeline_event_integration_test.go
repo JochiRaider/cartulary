@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
@@ -1941,6 +1942,7 @@ func timelineFacadeWithProjectionFailure(t testing.TB, server *httptestx.Server,
 		server.Runtime.Postgres,
 		server.Runtime.Revisions.Appender(),
 		server.Runtime.CollaborationIntents,
+		evidence.NewTimelineAttachmentContribution(server.Runtime.Postgres),
 	)
 	collaborators.Commit.Projection = fakeports.Projection{
 		Delegate:  collaborators.Commit.Projection,

@@ -3209,16 +3209,30 @@ describe("WorkbookShell surface selection", () => {
         expect.objectContaining({ method: "PUT" }),
       );
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob",
-        ),
-        expect.objectContaining({ method: "POST" }),
-      );
-      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/api/v1/records/timeline-1"),
         expect.objectContaining({ method: "PATCH" }),
       );
     });
+    const evidenceCreateCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(`/views/${evidenceViewSchemaId}/rows`) &&
+        (init as RequestInit).method === "POST",
+    );
+    expect(evidenceCreateCall).toBeDefined();
+    expect(
+      JSON.parse(String((evidenceCreateCall?.[1] as RequestInit).body)),
+    ).toEqual({
+      client_txn_id: expect.stringMatching(/^timeline-client-/u),
+      "evidence.title": "screenshot.txt",
+      "evidence.collector_party_text": "Workbook upload",
+      "evidence.lifecycle_state": "available",
+      "evidence.initial_object_blob_id": "00000000-0000-4000-8000-000000003001",
+    });
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes("/api/v1/evidence-records/"),
+      ),
+    ).toBe(false);
     const uploadCall = fetchMock.mock.calls.find(([url]) =>
       String(url).includes("/api/v1/object-uploads/test-token"),
     );

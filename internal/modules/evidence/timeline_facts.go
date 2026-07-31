@@ -6,15 +6,35 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
+
+// TimelineFact is Evidence-owned source data consumed by Timeline composition.
+// It intentionally contains no Timeline projection type.
+type TimelineFact struct {
+	RecordID       uuid.UUID
+	Title          string
+	LifecycleState string
+	UploadState    string
+}
 
 type TimelineFactReader struct{}
 
-func (TimelineFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]workbookprojection.EvidenceFact, error) {
+func (TimelineFactReader) LoadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]TimelineFact, error) {
+	return (sourceReadRepository{}).loadTimelineFactsTx(ctx, tx, incidentID, recordIDs)
+}
+
+// sourceReadRepository contains transaction-supplied source reads used by
+// Evidence-owned consumer contributions.
+type sourceReadRepository struct{}
+
+func (sourceReadRepository) loadTimelineFactsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordIDs []uuid.UUID,
+) ([]TimelineFact, error) {
 	if len(recordIDs) == 0 {
-		return []workbookprojection.EvidenceFact{}, nil
+		return []TimelineFact{}, nil
 	}
 	rows, err := tx.Query(ctx, `
 SELECT
@@ -32,9 +52,9 @@ SELECT
 		return nil, fmt.Errorf("load timeline evidence facts: %w", err)
 	}
 	defer rows.Close()
-	facts := make([]workbookprojection.EvidenceFact, 0, len(recordIDs))
+	facts := make([]TimelineFact, 0, len(recordIDs))
 	for rows.Next() {
-		var fact workbookprojection.EvidenceFact
+		var fact TimelineFact
 		if err := rows.Scan(&fact.RecordID, &fact.Title, &fact.LifecycleState, &fact.UploadState); err != nil {
 			return nil, fmt.Errorf("scan timeline evidence fact: %w", err)
 		}

@@ -482,6 +482,30 @@
           "feature_groups"
         ]
       },
+      "CreateInputDescriptor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input_key": {
+            "type": "string"
+          },
+          "value_contract_id": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "nullable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "input_key",
+          "value_contract_id",
+          "required",
+          "nullable"
+        ]
+      },
       "ViewSchemaResource": {
         "type": "object",
         "additionalProperties": false,
@@ -553,6 +577,12 @@
               "type": "string"
             }
           },
+          "create_inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateInputDescriptor"
+            }
+          },
           "inline_create": {
             "type": "object",
             "additionalProperties": false,
@@ -598,6 +628,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "create_inputs",
           "inline_create",
           "inspector_config",
           "fields"

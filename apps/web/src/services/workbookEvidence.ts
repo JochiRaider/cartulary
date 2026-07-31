@@ -77,23 +77,17 @@ async function uploadObjectBlobTarget(
   );
 }
 
-export async function createAndAttachEvidenceBlob({
+async function createAndUploadEvidenceBlob({
   apiBase,
-  attachClientTxnId,
-  baseRowVersion,
   createClientTxnId,
-  evidenceRecordId,
   file,
   incidentId,
 }: {
   readonly apiBase: string | undefined;
-  readonly attachClientTxnId: () => string;
-  readonly baseRowVersion: number;
   readonly createClientTxnId: () => string;
-  readonly evidenceRecordId: string;
   readonly file: File;
   readonly incidentId: string;
-}): Promise<void> {
+}): Promise<string> {
   const createBlobRequest = {
     incident_id: incidentId,
     client_txn_id: createClientTxnId(),
@@ -121,9 +115,35 @@ export async function createAndAttachEvidenceBlob({
     createBlob.payload,
   );
   await uploadObjectBlobTarget(apiBase, blobEnvelope.data.upload_target, file);
+  return blobEnvelope.data.object_blob_id;
+}
+
+export async function createAndAttachEvidenceBlob({
+  apiBase,
+  attachClientTxnId,
+  baseRowVersion,
+  createClientTxnId,
+  evidenceRecordId,
+  file,
+  incidentId,
+}: {
+  readonly apiBase: string | undefined;
+  readonly attachClientTxnId: () => string;
+  readonly baseRowVersion: number;
+  readonly createClientTxnId: () => string;
+  readonly evidenceRecordId: string;
+  readonly file: File;
+  readonly incidentId: string;
+}): Promise<void> {
+  const objectBlobId = await createAndUploadEvidenceBlob({
+    apiBase,
+    createClientTxnId,
+    file,
+    incidentId,
+  });
 
   const attachRequest = {
-    object_blob_id: blobEnvelope.data.object_blob_id,
+    object_blob_id: objectBlobId,
     base_row_version: baseRowVersion,
     client_txn_id: attachClientTxnId(),
   } satisfies EvidenceAttachBlobRequest;
@@ -148,6 +168,77 @@ export async function createAndAttachEvidenceBlob({
   ) {
     throw new Error("invalid_public_contract_response");
   }
+}
+
+type EvidenceRowCreateEnvelope = {
+  readonly data: {
+    readonly view_schema_id: string;
+    readonly change_set_id: string;
+    readonly row: {
+      readonly record_id: string;
+      readonly row_version: number;
+      readonly cells: Readonly<Record<string, unknown>>;
+    };
+  };
+};
+
+export async function createEvidenceWithInitialBlob({
+  apiBase,
+  createBlobClientTxnId,
+  createRowClientTxnId,
+  file,
+  incidentId,
+  values,
+  viewSchemaId,
+}: {
+  readonly apiBase: string | undefined;
+  readonly createBlobClientTxnId: () => string;
+  readonly createRowClientTxnId: () => string;
+  readonly file: File;
+  readonly incidentId: string;
+  readonly values: Readonly<Record<string, unknown>>;
+  readonly viewSchemaId: string;
+}): Promise<{ readonly recordId: string; readonly rowVersion: number }> {
+  const objectBlobId = await createAndUploadEvidenceBlob({
+    apiBase,
+    createClientTxnId: createBlobClientTxnId,
+    file,
+    incidentId,
+  });
+  const clientTxnId = createRowClientTxnId();
+  const request = {
+    client_txn_id: clientTxnId,
+    ...values,
+    "evidence.initial_object_blob_id": objectBlobId,
+  };
+  const path = apiPath(
+    apiBase,
+    `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
+  );
+  let result:
+    | Awaited<ReturnType<typeof fetchWorkbookJSON<EvidenceRowCreateEnvelope>>>
+    | undefined;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      result = await fetchWorkbookJSON<EvidenceRowCreateEnvelope>(path, {
+        method: "POST",
+        body: JSON.stringify(request),
+      });
+      break;
+    } catch (error) {
+      if (attempt === 1) {
+        throw error;
+      }
+    }
+  }
+  if (result === undefined || !result.ok) {
+    throw new Error(evidencePublicErrorMessage(result?.payload));
+  }
+  const envelope = readEnvelope<EvidenceRowCreateEnvelope>(result.payload);
+  return {
+    recordId: envelope.data.row.record_id,
+    rowVersion: envelope.data.row.row_version,
+  };
 }
 
 async function readUploadFailureDetail(response: Response): Promise<string> {

@@ -32,6 +32,7 @@ var (
 		"synthetic_filter_predicates",
 		"grouping_fields",
 		"create_capable",
+		"create_inputs",
 		"inline_create",
 		"inspector_config",
 		"fields",
@@ -408,6 +409,34 @@ func validateViewSchemaShape(value any, relativePath string) error {
 	}
 	if _, err := requiredBool(object, "create_capable", relativePath); err != nil {
 		return err
+	}
+	createInputs, err := objectArrayAllowEmpty(object["create_inputs"], relativePath+".create_inputs")
+	if err != nil {
+		return err
+	}
+	seenCreateInputs := map[string]struct{}{}
+	for index, input := range createInputs {
+		label := fmt.Sprintf("%s.create_inputs[%d]", relativePath, index+1)
+		if err := requireAllowedKeys(input, stringSet("input_key", "value_contract_id", "required", "nullable"), label); err != nil {
+			return err
+		}
+		inputKey, err := requiredString(input, "input_key", label)
+		if err != nil {
+			return err
+		}
+		if _, exists := seenCreateInputs[inputKey]; exists {
+			return fmt.Errorf("%s duplicate input_key %s", relativePath, inputKey)
+		}
+		seenCreateInputs[inputKey] = struct{}{}
+		if _, err := requiredString(input, "value_contract_id", label); err != nil {
+			return err
+		}
+		if _, err := requiredBool(input, "required", label); err != nil {
+			return err
+		}
+		if _, err := requiredBool(input, "nullable", label); err != nil {
+			return err
+		}
 	}
 	if _, ok := object["base_projection"]; ok {
 		if _, err := requiredString(object, "base_projection", relativePath); err != nil {

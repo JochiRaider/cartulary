@@ -27,6 +27,7 @@ func NewContributionCatalog(
 	projectionCatalog *projections.Catalog,
 	projectionQuery *projections.QueryService,
 	timelineOwner *timeline.Facade,
+	evidenceOwner evidence.WorkbookContribution,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
@@ -40,6 +41,9 @@ func NewContributionCatalog(
 	if timelineOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
 	}
+	if evidenceOwner == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
+	}
 	if intents == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
 	}
@@ -51,7 +55,6 @@ func NewContributionCatalog(
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
 	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
-	evidenceOwner := evidence.NewWorkbookFacade(pool, conflictTokens, appender, intents)
 	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
 	taskDecisionOwner := tasksdecisions.NewWorkbookFacade(pool, conflictTokens, appender)
 	sourceQueries := map[string]workbook.QueryProvider{

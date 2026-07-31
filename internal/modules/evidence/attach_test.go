@@ -2,6 +2,7 @@ package evidence_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,13 +10,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -353,6 +357,136 @@ SELECT COUNT(*)
 	}
 	if count != want {
 		t.Fatalf("record revision count got %d want %d", count, want)
+	}
+}
+
+func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
+	harness := appsupport.StartStore(t, "evidence-blob-association-characterization")
+	revisionComposition := revisionsupport.MustComposition(t)
+	store := evidence.NewStore(
+		harness.DB,
+		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
+		evidence.WithCollaborationIntents(revisionComposition.Intents),
+	)
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
+	firstRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
+	secondRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
+	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+		ByteSize:            4,
+		ObservedSize:        ptrInt64(4),
+		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
+		ObservedContentType: ptrString("text/plain"),
+	})
+	now := time.Date(2026, time.July, 30, 18, 0, 0, 0, time.UTC)
+
+	firstRequest := evidence.AttachBlobRequest{
+		ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-association-first",
+	}
+	if _, err := store.AttachBlob(context.Background(), actor, firstRecordID, firstRequest, evidence.AttachBlobRequestHash(firstRequest), nil, "req-association-first", now); err != nil {
+		t.Fatalf("attach shared blob to first record: %v", err)
+	}
+	secondRequest := evidence.AttachBlobRequest{
+		ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-association-second",
+	}
+	_, err := store.AttachBlob(context.Background(), actor, secondRecordID, secondRequest, evidence.AttachBlobRequestHash(secondRequest), nil, "req-association-second", now)
+	requireAttachRejectedReason(t, err, evidence.AttachReasonBlobNotVisible)
+	if !errors.Is(err, evidence.ErrBlobNotAttachable) {
+		t.Fatalf("second association error = %v, want concealed blob rejection", err)
+	}
+
+	var associationCount int
+	if err := harness.DB.QueryRow(context.Background(), `
+SELECT count(*)
+  FROM evidence
+ WHERE object_blob_id = $1
+`, blobID).Scan(&associationCount); err != nil {
+		t.Fatalf("count blob associations: %v", err)
+	}
+	if associationCount != 1 {
+		t.Fatalf("association count = %d, want 1", associationCount)
+	}
+	requireChangeSetCount(t, harness.DB, secondRecordID, 0)
+}
+
+func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.NewMigrationDatabaseT(t, "evidence-blob-association-race")
+	migrationDB, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := postgres.Migrate(context.Background(), migrationDB, dbmigrations.Source(), "up"); err != nil {
+		_ = migrationDB.Close()
+		t.Fatalf("migrate concurrent association database: %v", err)
+	}
+	if err := migrationDB.Close(); err != nil {
+		t.Fatalf("close migration connection: %v", err)
+	}
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open concurrent association pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	harness := &appsupport.StoreHarness{DB: pool}
+	revisionComposition := revisionsupport.MustComposition(t)
+	store := evidence.NewStore(
+		harness.DB,
+		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
+		evidence.WithCollaborationIntents(revisionComposition.Intents),
+	)
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
+	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
+	recordIDs := []uuid.UUID{
+		seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received"),
+		seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received"),
+	}
+	blobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{
+		ByteSize:            4,
+		ObservedSize:        ptrInt64(4),
+		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
+		ObservedContentType: ptrString("text/plain"),
+	})
+	start := make(chan struct{})
+	results := make(chan error, len(recordIDs))
+	for index, recordID := range recordIDs {
+		go func(index int, recordID uuid.UUID) {
+			<-start
+			request := evidence.AttachBlobRequest{
+				ObjectBlobID:   blobID,
+				BaseRowVersion: 1,
+				ClientTxnID:    "txn-association-race-" + string(rune('1'+index)),
+			}
+			_, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-association-race", time.Now().UTC())
+			results <- err
+		}(index, recordID)
+	}
+	close(start)
+
+	successes := 0
+	rejections := 0
+	for range recordIDs {
+		err := <-results
+		if err == nil {
+			successes++
+			continue
+		}
+		var rejected evidence.AttachRejectedError
+		if errors.As(err, &rejected) && rejected.ReasonCode == evidence.AttachReasonBlobNotVisible {
+			rejections++
+			continue
+		}
+		t.Fatalf("race result error = %v, want success or concealed rejection", err)
+	}
+	if successes != 1 || rejections != 1 {
+		t.Fatalf("race results successes=%d rejections=%d, want 1 and 1", successes, rejections)
+	}
+	var associations int
+	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM evidence WHERE object_blob_id = $1`, blobID).Scan(&associations); err != nil {
+		t.Fatalf("count race associations: %v", err)
+	}
+	if associations != 1 {
+		t.Fatalf("race associations = %d, want 1", associations)
 	}
 }
 

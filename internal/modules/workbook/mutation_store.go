@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -221,11 +224,16 @@ func evidenceValueFromWorkbook(value ValueChange) evidence.WorkbookFieldValue {
 }
 
 func evidenceCreateRequestFromWorkbook(request CreateRequest) evidence.WorkbookCreateRequest {
-	return evidence.WorkbookCreateRequest{
+	converted := evidence.WorkbookCreateRequest{
 		ViewSchemaID: request.ViewSchemaID,
 		ClientTxnID:  request.ClientTxnID,
 		Values:       evidenceValuesFromWorkbook(request.Values),
 	}
+	if value, ok := request.Inputs["evidence.initial_object_blob_id"]; ok {
+		objectBlobID := value.UUID
+		converted.InitialObjectBlobID = &objectBlobID
+	}
+	return converted
 }
 
 func evidencePatchRequestFromWorkbook(request PatchRequest) evidence.WorkbookPatchRequest {
@@ -272,6 +280,54 @@ func adaptEvidenceWorkbookOwnerError(err error) error {
 	if errors.As(err, &validation) {
 		return mutationValidationError(validation.Field, validation.ReasonCode)
 	}
+	var attachRejected evidence.AttachRejectedError
+	if errors.As(err, &attachRejected) {
+		return &publicMutationError{apiError: &httpapi.APIError{
+			Status:  http.StatusConflict,
+			Code:    "evidence_attach_rejected",
+			Message: "evidence attach rejected",
+			Details: map[string]any{"reason_code": attachRejected.ReasonCode},
+		}}
+	}
+	if errors.Is(err, evidence.ErrBlobNotFound) || errors.Is(err, evidence.ErrIncidentMismatch) {
+		return &publicMutationError{apiError: &httpapi.APIError{
+			Status:  http.StatusConflict,
+			Code:    "evidence_attach_rejected",
+			Message: "evidence attach rejected",
+			Details: map[string]any{"reason_code": evidence.AttachReasonBlobNotVisible},
+		}}
+	}
+	if errors.Is(err, evidence.ErrObjectStoreUnavailable) {
+		return workbookObjectStoreUnavailable("dependency_unavailable")
+	}
+	if reasonCode, ok := evidence.PersistedObjectBlobStorageKeyErrorReason(err); ok {
+		return &publicMutationError{apiError: &httpapi.APIError{
+			Status:  http.StatusInternalServerError,
+			Code:    "object_store_invalid_request",
+			Details: map[string]any{"reason_code": reasonCode},
+		}}
+	}
+	if adapterError, ok := objectstore.AsAdapterError(err); ok {
+		switch adapterError.Code {
+		case objectstore.ErrorCodeAccessRejected:
+			return &publicMutationError{apiError: &httpapi.APIError{
+				Status:    http.StatusServiceUnavailable,
+				Code:      "object_store_access_rejected",
+				Retryable: false,
+				Details:   map[string]any{"reason_code": "credential_denied"},
+			}}
+		case objectstore.ErrorCodeUnavailable:
+			return workbookObjectStoreUnavailable("endpoint_unreachable")
+		case objectstore.ErrorCodeDeadlineExceeded, objectstore.ErrorCodeRetryExhausted:
+			return workbookObjectStoreUnavailable("retry_exhausted")
+		default:
+			return &publicMutationError{apiError: &httpapi.APIError{
+				Status:  http.StatusInternalServerError,
+				Code:    "object_store_invalid_request",
+				Details: map[string]any{"reason_code": "invalid_request"},
+			}}
+		}
+	}
 	var lifecycleValidation *evidence.LifecycleValidationError
 	if errors.As(err, &lifecycleValidation) {
 		return &LifecycleValidationError{
@@ -294,6 +350,15 @@ func adaptEvidenceWorkbookOwnerError(err error) error {
 		return &SameFieldConflictError{Conflict: sameConflict.Conflict}
 	}
 	return err
+}
+
+func workbookObjectStoreUnavailable(reasonCode string) error {
+	return &publicMutationError{apiError: &httpapi.APIError{
+		Status:    http.StatusServiceUnavailable,
+		Code:      "object_store_unavailable",
+		Retryable: true,
+		Details:   map[string]any{"reason_code": reasonCode},
+	}}
 }
 
 func partyValuesFromWorkbook(values map[string]ValueChange) map[string]parties.FieldValue {

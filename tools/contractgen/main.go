@@ -757,6 +757,12 @@ type InspectorConfig struct {
 	Panels []InspectorPanel ` + "`json:\"panels\"`" + `
 	FeatureGroups []InspectorFeatureGroup ` + "`json:\"feature_groups\"`" + `
 }
+type CreateInput struct {
+	InputKey string ` + "`json:\"input_key\"`" + `
+	ValueContractID string ` + "`json:\"value_contract_id\"`" + `
+	Required bool ` + "`json:\"required\"`" + `
+	Nullable bool ` + "`json:\"nullable\"`" + `
+}
 
 type Document struct {
 	Schema string ` + "`json:\"$schema\"`" + `
@@ -778,6 +784,7 @@ type Document struct {
 	SyntheticFilterPredicates []SyntheticFilterPredicate ` + "`json:\"synthetic_filter_predicates\"`" + `
 	GroupingFields []string ` + "`json:\"grouping_fields\"`" + `
 	CreateCapable bool ` + "`json:\"create_capable\"`" + `
+	CreateInputs []CreateInput ` + "`json:\"create_inputs\"`" + `
 	InlineCreate InlineCreate ` + "`json:\"inline_create\"`" + `
 	InspectorConfig InspectorConfig ` + "`json:\"inspector_config\"`" + `
 	Fields []Field ` + "`json:\"fields\"`" + `
@@ -917,6 +924,12 @@ export type ViewSchemaSourceDocument = {
   readonly synthetic_filter_predicates: readonly ViewSchemaSourceSyntheticFilterPredicate[];
   readonly grouping_fields: readonly string[];
   readonly create_capable: boolean;
+  readonly create_inputs: readonly {
+    readonly input_key: string;
+    readonly value_contract_id: string;
+    readonly required: boolean;
+    readonly nullable: boolean;
+  }[];
   readonly inline_create: {
     readonly minimum_create_field_sets: readonly (readonly string[])[];
     readonly permits_zero_field_create: boolean;

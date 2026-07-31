@@ -1100,19 +1100,37 @@ Verified by: AC-001, AC-002, AC-125, AC-191, AC-193, AC-231
 ### 8.1 Two-step upload
 
 **REQ-03-116**
-Binary evidence attachment MUST use a two-step flow:
+Binary Evidence work MUST use slot creation and later explicit finalization.
+Attaching to an existing Evidence record remains the two-step route flow:
 
 1. create a pending blob slot for one intended upload by sending `incident_id`, `client_txn_id`, `byte_size`, and optional `filename_hint`, `content_type_hint`, and `sha256_hex`, and receive an opaque upload target plus `accepted_contract`,
-2. finalize the evidence attachment after the upload completes.
+2. after upload, finalize against the selected Evidence record.
+
+Creating a new blob-backed Evidence row in one visible workbook flow MUST use:
+
+1. open a client-local Evidence draft with no authoritative `record_id` or
+   `row_version`,
+2. create one pending blob slot,
+3. upload bytes through the returned opaque capability without creating a row,
+   association, projection, available state, or collaboration event,
+4. call the generic Evidence row-create route with authored fields and optional
+   `evidence.initial_object_blob_id`,
+5. finalize the blob and atomically commit the first Evidence row and all
+   structured effects.
+
+Before step 5 succeeds, the draft and selected file MUST remain client-local
+and retryable. They MUST NOT be queryable, collaborative, searchable,
+saved-view state, revision history, export, backup, portability, or other
+authoritative incident state.
 Profiles: base
-Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
+Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-521, AC-524
 
 **REQ-03-117**
-When exposed over the public HTTP surface, step 1 MUST use `POST /api/v1/object-blobs`. In the base profile, the returned `upload_target.href` MUST be an opaque same-origin `PUT /api/v1/object-uploads/{upload_token}` capability; clients MUST treat it as an opaque URL, MUST honor returned upload target `method` and `headers`, and MUST NOT parse, replace, persist, or infer bucket names, storage keys, presigned-object-store query parameters, or object-store hostnames from it. Step 2 MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob` or the normal record-creation path that binds the returned `object_blob_id` during evidence-row creation. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary. When step 2 targets an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, the client MUST send `object_blob_id`, `base_row_version`, and `client_txn_id`, MUST treat the action as record-scoped optimistic finalization rather than as a blind blob mutation, and, if it cannot tell whether attach succeeded, MUST replay the same normalized attach request with the same `client_txn_id`.
+When exposed over the public HTTP surface, slot creation MUST use `POST /api/v1/object-blobs`. In the base profile, the returned `upload_target.href` MUST be an opaque same-origin `PUT /api/v1/object-uploads/{upload_token}` capability; clients MUST treat it as an opaque URL, MUST honor returned upload target `method` and `headers`, and MUST NOT parse, replace, persist, or infer bucket names, storage keys, presigned-object-store query parameters, or object-store hostnames from it. Existing-record finalization MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob`. New-record finalization MUST use `POST /api/v1/incidents/{incident_id}/views/cartulary.view.evidence.v1/rows` with optional non-null `evidence.initial_object_blob_id`; no Evidence-specific row-create route is permitted. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary. When finalization targets an existing evidence record, the client MUST send `object_blob_id`, `base_row_version`, and `client_txn_id`, MUST treat the action as record-scoped optimistic finalization rather than as a blind blob mutation, and, if it cannot tell whether attach succeeded, MUST replay the same normalized attach request with the same `client_txn_id`. When finalization creates a new row, an uncertain response MUST be retried with the same normalized generic row-create request and `client_txn_id`; a definitive `client_txn_conflict` requires the ordinary retry-with-new-ID workflow rather than silently changing the blob or field set under the old key.
 
 A successful selected-row evidence attachment or screenshot-only Timeline create MUST keep the active Timeline workbook surface mounted. The refreshed Timeline row MUST render through ordinary workbook mutation application, replay, or refresh behavior, including projection-backed evidence fields such as `timeline.evidence_count` and `timeline.has_evidence`; clients MUST NOT satisfy this workflow by navigating away from the workbook surface or by replacing it with an evidence-only surface.
 Profiles: base
-Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
+Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-521, AC-524
 
 **REQ-03-118**
 If the client does not know whether blob-slot creation succeeded, it MUST replay the same normalized create request with the same `client_txn_id`. In the base profile, the upload target expires 60 minutes after issuance and the pending blob slot expires 24 hours after creation. The pending slot is a single-upload lease. If replay returns the original slot after target expiry, the client MUST request a fresh slot with a new `client_txn_id` rather than attempt same-slot upload-target refresh. The base profile MUST NOT require same-slot upload-target refresh or resumable upload semantics.

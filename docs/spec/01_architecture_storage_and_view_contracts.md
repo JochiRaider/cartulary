@@ -1408,7 +1408,7 @@ Clipboard-paste and explicit bulk-mutation record targets MUST be scoped to the 
 
 
 **REQ-01-057**
-New row creation MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. The request body MUST be a JSON object. It MUST include required `client_txn_id` and MAY include zero or more additional top-level members. Every additional top-level member name MUST be a writable `field_key` declared by the addressed `view_schema_id` and not otherwise forbidden for create by that view contract. The route's top-level namespace is therefore closed to `client_txn_id` plus `field_key` members allowed for create by that view. A request with no field-keyed initial values is permitted only when the addressed view contract explicitly allows zero-field create. Row-create idempotency MUST be keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)`.
+New row creation MUST use `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`. The request body MUST be a JSON object. It MUST include required `client_txn_id` and MAY include zero or more additional top-level members. Every additional top-level member name MUST be either a writable `field_key` allowed for create by the addressed `view_schema_id` or an exact create-only `input_key` declared in that view's `create_inputs[]`. The route's top-level namespace is therefore closed to `client_txn_id`, allowed create-writable field keys, and exact declared create-input keys. Field values and create inputs are separate typed collections after admission; a source owner receives only the fields and inputs declared by its addressed view. A create input is operation input and MUST NOT become a projection cell, patch field, query key, saved-layout key, clipboard field, or import field unless a later owner explicitly adopts that behavior. A request with neither field-keyed initial values nor create inputs is permitted only when the addressed view contract explicitly allows zero-field create. Row-create idempotency MUST be keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)`.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -1439,7 +1439,7 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-061**
-When `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` supplies initial writable values keyed directly by `field_key`, a direct-write field MUST use its direct field value as the JSON value and a write-action field MUST use the same object that a patch `changes[]` entry would carry in `action_payload`. For row-create idempotency comparison, the normalized request MUST include only recognized create members after active-view validation and create-time normalization. `client_txn_id` is the idempotency key and MUST NOT be part of that normalized request comparison. For direct-write fields, comparison MUST use the create-time normalized value that would be persisted. For write-action fields, comparison MUST use the semantically validated action payload after any field-specific normalization. Unknown or forbidden top-level members are never part of normalized comparison because the route rejects them. When a field contract makes omission and explicit JSON `null` equivalent for create-time authoritative state, they MUST compare equal. When a field contract declares a create-time default, omission and explicit transmission of that same default MUST compare equal.
+When `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` supplies initial writable values keyed directly by `field_key`, a direct-write field MUST use its direct field value as the JSON value and a write-action field MUST use the same object that a patch `changes[]` entry would carry in `action_payload`. A declared create input MUST use the value shape named by its `value_contract_id` and MUST be normalized independently of field values. For row-create idempotency comparison, the normalized request MUST include only recognized create members after active-view validation and create-time normalization: normalized create-writable fields plus normalized declared create inputs. `client_txn_id` is the idempotency key and MUST NOT be part of that normalized request comparison. For direct-write fields, comparison MUST use the create-time normalized value that would be persisted. For write-action fields, comparison MUST use the semantically validated action payload after any field-specific normalization. For create inputs, comparison MUST use the value-contract-normalized input; `evidence.initial_object_blob_id` compares as one exact opaque identifier. Unknown or forbidden top-level members are never part of normalized comparison because the route rejects them. When a field contract makes omission and explicit JSON `null` equivalent for create-time authoritative state, they MUST compare equal. When a field contract declares a create-time default, omission and explicit transmission of that same default MUST compare equal.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -1500,11 +1500,30 @@ Profiles: base, snapshot_reporting
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-233
 
 **REQ-01-069**
+Within this requirement, create-route validation treats allowed create-writable
+field keys and exact `create_inputs[].input_key` values as separate recognized
+member classes. References below to recognized create-time `field_key` members
+or to a request with no field-keyed values include this adopted create-input
+extension: an input is legal only when declared by the addressed view; a
+non-nullable input rejects `null`; malformed, duplicate, unknown, or
+foreign-view inputs fail with `invalid_mutation_payload`; and
+`error.details.field` identifies the input key when attributable. These input
+rules do not widen patch, query, saved-view, clipboard, or import admission.
+
 The server MUST validate each requested change against the active view contract, enforce per-field writeability and `conflict_resolution_class`, and route the write to the authoritative source field or declared write action without exposing internal table layout. For `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows`, this validation MUST also reject a body that is not a JSON object, a missing required `client_txn_id`, a supplied `null` for a required non-nullable member, any top-level member other than `client_txn_id` and recognized create-time `field_key` members allowed by the addressed view contract, a field not allowed as an initial writable value for create, a malformed direct value, a malformed action payload, an attempted direct client write to a read-only or server-managed field, or a request with no field-keyed initial values when the addressed view contract does not permit zero-field create. Public JSON mutation bodies in this route family MUST decode as exactly one JSON object, MUST reject duplicate object members at any nesting level, and MUST reject any trailing non-whitespace JSON token or scalar after the object. If mutation payload validation fails, the server MUST fail with `400 Bad Request` using the common error envelope and `error.code = invalid_mutation_payload`. At minimum, this applies to an unknown payload `kind`, an unknown action `op`, an action not allowed for the active `field_key`, an invalid or foreign `item_ref`, a malformed direct value, or an action object that contains unknown members for its declared `op`. When the failure is attributable to one top-level request member, `error.details.field` MUST identify that member. For `collection_actions_v1`, the server MUST apply `actions[]` atomically and in request order within the parent field mutation. The public API surface MUST NOT require raw comma-delimited strings or blind full-collection replacement for `collection_review` fields. For `PATCH /api/v1/records/{record_id}`, normalized idempotency comparison MUST run only after request-shape validation, authorization, and target-record visibility succeed. `client_txn_id` is the idempotency lookup key and MUST NOT be part of the normalized request. The normalized request MUST include exact `view_schema_id`, exact `base_row_version`, and canonical `changes[]`. Top-level `changes[]` defines one unordered mutation set keyed by `field_key`. Top-level `changes[]` order MUST NOT be semantically significant for validation, acceptance, execution, or idempotency comparison. An empty `changes[]` array is invalid mutation payload and MUST be rejected rather than treated as a no-op. A duplicate `field_key` entry in `changes[]` is invalid mutation payload and MUST be rejected rather than normalized away. Canonicalization MUST sort outer `changes[]` by `field_key asc`; for direct-write fields comparison MUST use the authoritative normalized `value`, and for write-action fields comparison MUST use the semantically validated normalized `action_payload`. When an action payload is inherently ordered, such as `collection_actions_v1.actions[]`, that inner order MUST remain significant. If one requested patch would yield different valid outcomes depending on the client-supplied outer `changes[]` order, the request is ambiguous and MUST fail with `400 Bad Request`, the common error envelope, and `error.code = invalid_mutation_payload` rather than relying on outer-array order. Any behavior that needs ordered multi-step semantics across different writable concerns MUST be modeled either as one field-scoped `action_payload` whose own contract defines order or as a dedicated action route. For `PATCH /api/v1/records/{record_id}`, a `changes[]` array whose raw parsed length exceeds `32` MUST fail during request-shape validation with `400 Bad Request`, the common error envelope, `error.code = invalid_mutation_payload`, `error.details.reason_code = change_count_exceeded`, `error.details.field = changes`, `error.details.requested_count = <raw count>`, and `error.details.max_count = 32`. For any `collection_actions_v1` payload accepted by `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` or `PATCH /api/v1/records/{record_id}`, an empty `actions[]` array MUST fail during request-shape validation with `400 Bad Request`, the common error envelope, `error.code = invalid_mutation_payload`, `error.details.reason_code = empty_collection_actions`, `error.details.field` identifying the containing member path, and `error.details.field_key` identifying the active collection field. For any such `collection_actions_v1` payload, an `actions[]` array whose raw parsed length exceeds `64` MUST fail during request-shape validation with `400 Bad Request`, the common error envelope, `error.code = invalid_mutation_payload`, `error.details.reason_code = collection_action_count_exceeded`, `error.details.field` identifying the containing member path, `error.details.field_key` identifying the active collection field, `error.details.requested_count = <raw count>`, and `error.details.max_count = 64`. These count failures MUST be evaluated before idempotency replay comparison or write execution, so an oversize mutation never becomes replayable committed state.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-299
 
 **REQ-01-070**
+When a declared create input causes source-owner finalization or association
+work, that work is part of the same row-create transaction and replay result.
+Success MUST still return only `data.view_schema_id`, `data.change_set_id`, and
+`data.row`; an input value, including `evidence.initial_object_blob_id`, MUST
+NOT be duplicated as a sibling response member. A failed input-dependent create
+MUST commit no record envelope, source row, association, custody event,
+revision, projection, durable collaboration intent, or successful idempotency
+result.
+
 Row-refreshing success responses for `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` and `PATCH /api/v1/records/{record_id}` MUST return the common success envelope with `data.view_schema_id`, `data.change_set_id`, and `data.row`, where `data.row` is exactly `view_row_v1` for the addressed `view_schema_id`. `data.row` is the single authoritative carrier of `record_id` and `row_version` for that refresh. Those two members MUST NOT be duplicated as sibling response members outside `data.row`.
 
 A first-time successful `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` MUST return `201 Created`. If the same authenticated actor replays the same normalized row-create request within the idempotency scope defined by REQ-01-057, the server MUST return `200 OK` with the originally committed create result rather than current mutable row state. If the same authenticated actor reuses `client_txn_id` within that same scope for a different normalized row-create request, the server MUST fail with `409` and `error.code = client_txn_conflict`; `error.details` MUST include at least `client_txn_id`. That divergent-key rejection MUST commit no source state, record, `change_set`, revision entry, idempotency success, projection update, or collaboration event. The replay response MUST therefore return the original `data.view_schema_id`, original `data.change_set_id`, and original committed `data.row`, and MUST create no second record, no second `change_set`, no second revision entry, and no second replayable collaboration event.
@@ -3110,7 +3129,7 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `record_delete_blocked` | `409` | `false` | The caller attempted to soft-delete a record whose type-specific owner preconditions reject deletion while active incoming references or equivalent integrity dependencies exist. `error.details.reason_code` MUST identify the blocking precondition. |  |  |  |
 | `record_not_deleted` | `409` | `false` | The caller attempted to restore a record that is not currently soft-deleted. |  |  |  |
 | `record_locked` | `409` | `true` | An overlapping in-flight destructive operation already holds one or more required protected-set locks for the requested restore, rollback, or merge. |  |  |  |
-| `evidence_attach_rejected` | `409` | `false` | An evidence attach request cannot commit because the supplied blob is not visible or is not attachable, the target evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
+| `evidence_attach_rejected` | `409` | `false` | An Evidence initial-blob create or existing-record attach cannot commit because the supplied blob is not visible or attachable, is already associated, the target Evidence row is quarantined or inconsistent, or observed upload bytes violate the accepted blob contract. `error.details.reason_code` MUST use the `evidence_attach_rejected` registry in §3.3.6.2. |  |  |  |
 | `evidence_access_unavailable` | `409` | `false` | Preview or download cannot currently proceed because the visible evidence or linked blob is unavailable, pending, failed, missing, quarantined, inconsistent, or not previewable for the requested preview contract or preview-size ceiling. |  |  |  |
 | `object_store_unavailable` | `503` | `true` | An object-store-backed route reached the object-store dependency and the dependency cannot currently be reached or used, including unreachable endpoint, missing bucket, or exhausted retry budget. `error.details.reason_code` MUST use the `object_store_unavailable` registry in §3.3.6.2. |  |  |  |
 | `object_store_access_rejected` | `503` | `false` | An object-store-backed route reached the object-store dependency, but credentials, policy, required capability, or browser-upload CORS behavior rejected the required operation. `error.details.reason_code` MUST use the `object_store_access_rejected` registry in §3.3.6.2. |  |  |  |
@@ -3272,13 +3291,18 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 
 | `reason_code` | Canonical meaning |
 | --- | --- |
-| `blob_not_visible` | The supplied `object_blob_id` is missing or is not visible in the target evidence record's incident. Cross-incident blob identifiers MUST use this reason rather than revealing the foreign blob. |
+| `blob_not_visible` | The supplied `object_blob_id` is missing, foreign to the target incident, or already associated with another Evidence row. These cases MUST use one concealed reason rather than revealing foreign or competing ownership. |
 | `blob_pending` | The supplied blob is still pending and cannot be attached yet without a successful observed upload. |
 | `blob_failed` | The supplied blob is in terminal `failed` state and cannot be attached. |
 | `blob_quarantined` | The supplied blob is quarantined and cannot be attached. |
 | `accepted_contract_mismatch` | Observed uploaded bytes do not match the accepted blob contract, including declared size or expected SHA-256 mismatch. |
 | `evidence_quarantined` | The target evidence record is quarantined and cannot accept a new blob attachment. |
 | `evidence_inconsistent` | The target evidence or blob state is inconsistent and must fail closed until repaired. |
+
+For `invalid_mutation_payload`, `minimum_create_signal_missing` is the canonical
+`error.details.reason_code` when an Evidence create has no qualifying
+user-supplied field and no successfully finalized same-flow blob. The retired
+spelling `missing_minimum_create_signal` MUST NOT be accepted or emitted.
 
 
 `invalid_enterprise_auth_request` `error.details.reason_code` values:
@@ -3790,6 +3814,13 @@ Blob-slot creation idempotency MUST be keyed by `(actor_user_id, incident_id, cl
 - attach the returned `object_blob_id` to an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, or
 - create a new evidence record through the normal view or record-creation path using that `object_blob_id` as declared input.
 
+The normal new-record path MUST be the generic row-create route for
+`cartulary.view.evidence.v1`. It declares exactly the optional, non-null input
+`evidence.initial_object_blob_id` under REQ-01-288 and REQ-01-328. Supplying
+that input makes blob finalization mandatory for the create attempt; the server
+MUST NOT fall back to field-only creation if finalization or association fails.
+No Evidence-specific new-record route is defined.
+
 When finalization targets an existing evidence record through `POST /api/v1/evidence-records/{record_id}/attach-blob`, the route MUST be record-scoped rather than blob-scoped. It MUST accept only a JSON object with required `object_blob_id`, required `base_row_version`, and required `client_txn_id`. The base profile defines no optional top-level members for this route. A non-object body, a missing required member, a supplied `null` for one of those required members, or any unknown top-level member MUST fail with `400` and `error.code = invalid_mutation_payload`.
 
 Attach idempotency for this route MUST be keyed by `(actor_user_id, record_id, client_txn_id)`. Normalized request comparison for this route MUST include exact `object_blob_id` and exact `base_row_version`. Because the base profile defines no nullable request members for this route, omission-versus-`null` equivalence does not apply. A first-time successful attach MUST return `200 OK`. If the same authenticated actor replays the same normalized attach request with the same key, the server MUST return `200 OK` with the original committed attach result and MUST create no second attach or replacement transition. If the same actor reuses that key with a different normalized attach request, the server MUST fail with `409` and `error.code = client_txn_conflict`. If the current evidence-row version differs from `base_row_version`, the route MUST fail with `409` and `error.code = row_version_conflict`.
@@ -4258,6 +4289,7 @@ For public discovery, `view_schema_resource_v2` MUST expose the semantic workboo
 - `filter_fields`,
 - `synthetic_filter_predicates`,
 - `grouping_fields`,
+- `create_inputs`,
 - `inspector_config`,
 - `fields`.
 
@@ -4273,8 +4305,30 @@ For `view_schema_resource_v2`:
 - `filter_fields` MUST contain only keys also present in `fields[].field_key`,
 - filter-only synthetic predicate keys MUST appear only in `synthetic_filter_predicates[]`,
 - `synthetic_filter_predicates[]` MUST use canonical ascending `field_key` order,
+- `create_inputs[]` MUST preserve declared order, MUST be `[]` when a view
+  declares no create-only inputs, and MUST contain no duplicate `input_key`,
 - `inspector_config` MUST be `inspector_config_v1` and MUST describe only semantic row-context inspector behavior for the same `view_schema_id`,
 - clients MUST ignore unknown additive response members they do not use.
+
+Each `create_inputs[]` entry MUST use exactly these required members:
+
+```json
+{
+  "input_key": "evidence.initial_object_blob_id",
+  "value_contract_id": "object_blob_id_v1",
+  "required": false,
+  "nullable": false
+}
+```
+
+`input_key` is a stable operation-input identity, `value_contract_id` names the
+normalization and validation contract, and `required` and `nullable` are
+booleans. Every current-profile view other than
+`cartulary.view.evidence.v1` MUST declare `create_inputs=[]`. Evidence MUST
+declare exactly the descriptor above. `object_blob_id_v1` accepts one non-null
+opaque public identifier; clients MUST NOT parse or synthesize it or treat it
+as a bucket, object key, URL, upload capability, storage reference, or
+authorization claim.
 
 Each `default_sort[]` entry MUST use exactly:
 
@@ -5119,6 +5173,10 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
 - surface: built-in `Evidence` sheet
 - source record types: `evidence`
 - base projection: `evidence_grid_projection`
+- `create_inputs`: exactly one optional, non-null descriptor with
+  `input_key=evidence.initial_object_blob_id`,
+  `value_contract_id=object_blob_id_v1`, `required=false`, and
+  `nullable=false`
 - `default_visible_fields`: `evidence.title`, `evidence.lifecycle_state`, `evidence.requested_at`, `evidence.received_at`, `evidence.storage_ref`, `evidence.blob_hash`, `evidence.collector_party_text`, `evidence.source_party_text`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`
 - `default_hidden_fields`: `record_id`, `row_version`, `evidence.collector_party_id`, `evidence.source_party_id`
 - these default-hidden direct-reference fields remain part of every full `view_row_v1.cells` object for this schema; default-hidden affects presentation only
@@ -5150,8 +5208,96 @@ Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
   - `evidence.source_party_id`: read the canonical source party reference; write target `evidence_records.source_party_id`; `direct_reference_contract_id=same_incident_party_ref_v1`; `clearable=true`; `conflict_resolution_class=atomic_replace`
 - read-only computed fields: `evidence.blob_hash`, `evidence.upload_state`, `evidence.linked_record_count`, `evidence.edited_at`. `evidence.blob_hash` and `evidence.upload_state` are derived fields and MUST NOT satisfy the minimum create signal.
 - blob attach or replacement MUST remain an explicit evidence action. It MUST NOT be modeled as a direct write to `evidence.blob_hash` or `evidence.upload_state`.
+
+The Evidence minimum-create signal is evaluated after field normalization and,
+when `evidence.initial_object_blob_id` is supplied, after successful blob
+finalization and association validation:
+
+| Supplied create content | Qualifies | Required disposition |
+| --- | --- | --- |
+| Non-empty normalized `evidence.title` | yes | May commit without a blob. |
+| Explicit valid `evidence.lifecycle_state`, including explicit `requested` | yes | The explicit semantic choice qualifies. |
+| Non-null valid `evidence.requested_at` or `evidence.received_at` | yes | May commit without a blob. |
+| Non-empty external `evidence.storage_ref` | yes | Reserved `object://...` user input remains forbidden. |
+| Non-empty normalized `evidence.collector_party_text` or `evidence.source_party_text` | yes | May commit without a stable Party reference. |
+| `evidence.collector_party_id` or `evidence.source_party_id` alone | no | Requires another qualifying signal. |
+| Party ID plus qualifying Party text | yes | Both persist; text is not erased. |
+| Server-filled lifecycle or timestamp default | no | Defaults do not validate a blank create. |
+| Read-only or derived field | no | Reject as an unsupported write. |
+| Text normalized to empty or explicit `null` for a clearable field | no | Treat as absent for minimum-signal evaluation. |
+| Pending initial blob without a successfully observed upload | no | Return `blob_pending`; commit no row. |
+| Initial blob successfully finalized in this create | yes | Create exactly one Evidence row. |
+| Qualifying field plus supplied blob whose finalization fails | no commit | Blob finalization is mandatory when supplied. |
+| Preseeded related-record context | no | Context alone does not create a row. |
+
+Omitted lifecycle defaults to `requested`, but that default does not qualify.
+Explicit `requested` qualifies. For persisted normalization and replay,
+omitted lifecycle and explicit `requested` compare equal. When lifecycle is
+omitted, omitted `requested_at` defaults to the commit timestamp.
+`evidence.requested_at:null` is an explicit clear, suppresses that timestamp
+default, and does not qualify.
+
+Creation is an initial-state operation. The exact initial lifecycle matrix is:
+
+| Initial Evidence lifecycle | No blob | Same-flow blob finalized `available` |
+| --- | --- | --- |
+| `requested` | allowed | allowed |
+| `pending_receipt` | allowed | allowed |
+| `received` | allowed | allowed |
+| `available` | rejected | allowed |
+| `quarantined` | allowed | rejected |
+| `released` | rejected | rejected |
+
+Omitted lifecycle remains `requested` for blob-backed create. Finalizing a blob
+does not auto-promote Evidence to `available`. A finalized blob linked to
+`requested`, `pending_receipt`, or `received` Evidence remains non-previewable
+until a later legal Evidence lifecycle change. Entry to `released` requires a
+later explicit `available -> released` transition.
+
+For a non-replay Evidence create, evaluation order MUST be authentication,
+cookie CSRF, incident visibility and create role, view-schema resolution,
+strict closed-shape decode, field/input normalization, committed replay or
+divergent conflict, minimum-signal evaluation, concealed blob visibility and
+state, object-store verification, in-transaction incident and mutable-state
+recheck, atomic structured commit, then post-commit collaboration delivery and
+HTTP response.
+
+The final PostgreSQL transaction MUST lock the supplied blob row, recheck
+incident, state, and association, transition a valid pending blob to
+`available`, create the record envelope and Evidence row, associate the blob,
+generate the server-managed logical `object://...` reference, apply defaults,
+append custody and revision history, refresh projections, append the durable
+Collaboration intent, and persist the idempotency result. Those structured
+effects commit together or not at all. Uploaded bytes remain outside the
+transaction; a structured failure leaves the hidden pending slot retryable
+unless an observed accepted-contract mismatch legally made it terminal
+`failed`.
+
+The exact public failure mapping is:
+
+| Condition | Public result | Durable result |
+| --- | --- | --- |
+| No qualifying field or finalized blob | `400 invalid_mutation_payload`, `reason_code=minimum_create_signal_missing` | Nothing commits. |
+| Missing, null, or malformed create input | `400 invalid_mutation_payload`, field `evidence.initial_object_blob_id` | Nothing commits. |
+| Missing, cross-incident, or already-associated blob | `409 evidence_attach_rejected`, `reason_code=blob_not_visible` | No Evidence row commits. |
+| No successfully observed upload | `409 evidence_attach_rejected`, `reason_code=blob_pending` | No row; slot remains pending. |
+| Failed blob | `409 evidence_attach_rejected`, `reason_code=blob_failed` | No Evidence row commits. |
+| Quarantined blob | `409 evidence_attach_rejected`, `reason_code=blob_quarantined` | No Evidence row commits. |
+| Size or expected-hash mismatch | `409 evidence_attach_rejected`, `reason_code=accepted_contract_mismatch` | Blob may become terminal `failed`; no row or projection commits. |
+| Illegal initial lifecycle | `409 illegal_transition` | No row or association commits. |
+| Object-store dependency failure | Existing stable redacted object-store result after visibility/state checks | No row; existing retry rules apply. |
+| Incident closes before commit | `409 incident_closed` | No fresh source mutation commits. |
+| Exact successful replay | `200 OK` with the original create result | No new effect. |
+| Same key with different fields or blob | `409 client_txn_conflict` | No new effect. |
+
+One object blob MUST be associated with at most one Evidence row. Competing
+creates or an existing-row attach race for one blob permit at most one winner;
+every loser creates no row or association and returns concealed
+`evidence_attach_rejected/blob_not_visible`. No failure may expose a bucket,
+physical object key, backend endpoint, credential, provider error, foreign
+incident identifier, or foreign Evidence association.
 Profiles: base
-Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231, AC-278, AC-279, AC-280, AC-300, AC-301, AC-303, AC-315, AC-316, AC-317, AC-318
+Verified by: AC-100, AC-118, AC-124, AC-125, AC-128, AC-231, AC-278, AC-279, AC-280, AC-300, AC-301, AC-303, AC-315, AC-316, AC-317, AC-318, AC-521, AC-522, AC-523, AC-524
 
 #### 7.4.5 `cartulary.view.notes.v1`
 

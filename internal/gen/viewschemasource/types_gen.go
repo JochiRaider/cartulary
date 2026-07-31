@@ -94,6 +94,12 @@ type InspectorConfig struct {
 	Panels                     []InspectorPanel        `json:"panels"`
 	FeatureGroups              []InspectorFeatureGroup `json:"feature_groups"`
 }
+type CreateInput struct {
+	InputKey        string `json:"input_key"`
+	ValueContractID string `json:"value_contract_id"`
+	Required        bool   `json:"required"`
+	Nullable        bool   `json:"nullable"`
+}
 
 type Document struct {
 	Schema                    string                     `json:"$schema"`
@@ -115,6 +121,7 @@ type Document struct {
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
 	CreateCapable             bool                       `json:"create_capable"`
+	CreateInputs              []CreateInput              `json:"create_inputs"`
 	InlineCreate              InlineCreate               `json:"inline_create"`
 	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []Field                    `json:"fields"`

@@ -929,6 +929,7 @@ export interface ViewSchemaEnvelope {
  * via the `definition` "ViewSchemaResource".
  */
 export interface ViewSchemaResource {
+  create_inputs: CreateInputDescriptor[];
   default_sort: SortEntry[];
   fields: ViewFieldEntry[];
   filter_fields: string[];
@@ -947,6 +948,16 @@ export interface ViewSchemaResource {
   technical_fields: string[];
   title: string;
   view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CreateInputDescriptor".
+ */
+export interface CreateInputDescriptor {
+  input_key: string;
+  nullable: boolean;
+  required: boolean;
+  value_contract_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

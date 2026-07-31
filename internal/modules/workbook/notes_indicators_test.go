@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -29,7 +30,7 @@ func TestLinkedNotesCreateContextualArtifactLinks_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-03-notes")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	store := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-03-incident", "IR-U903", "Workbook inspector workbook-storage")
@@ -118,7 +119,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	harness := appsupport.StartStore(t, "workbook_interaction-i-9-02-notes-indicators")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	indicatorStore := indicators.NewStore(harness.DB, appender)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
@@ -163,7 +164,7 @@ func TestAssessmentsQueryThroughWorkbookProjections_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-i-9-02-assessments")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-assessment-incident", "IR-I902-ASSESS", "Workbook inspector workbook-interaction assessments")
@@ -246,7 +247,7 @@ func TestTaskRequestsAndDecisionsQueryThroughWorkbookProjections_Integration(t *
 	harness := appsupport.StartStore(t, "workbook_interaction-i-9-02-tasks-decisions")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-task-decision-incident", "IR-I902-TD", "Workbook inspector workbook-interaction tasks decisions")
@@ -324,7 +325,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-i-9-02-hot-projections")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	projectionStore := projections.NewStore(harness.DB, timelineBundle.ProjectionCatalog.Catalog)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
@@ -423,7 +424,7 @@ func TestCoordinationSurfacesQueryThroughWorkbookProjections_Integration(t *test
 	harness := appsupport.StartStore(t, "workbook_interaction-i-9-02-coordination")
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents)
+	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-coordination-incident", "IR-I902-COORD", "Workbook inspector workbook-interaction coordination")
@@ -555,11 +556,13 @@ func newCatalogBackedWorkbookStore(
 ) *workbook.Store {
 	t.Helper()
 	conflictTokens := workbookTestConflictTokens()
+	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents)
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
 		timelineBundle.Facade,
+		evidenceContribution,
 		conflictTokens,
 		appender,
 		intents,

@@ -2100,6 +2100,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.workbook.unit.generic_decoder_defers_evidence_policy_to_owner_48d36a71bc",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookMutationDecoderDefersReservedEvidenceStorageRefToOwner"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.workbook.unit.openapi_record_mutation_contract_12a2ffaaf6",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

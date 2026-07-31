@@ -49,7 +49,20 @@ func (adapter collectionReadAdapter) LoadTimelineCollectionFactsTx(
 		Mentions:            mentions,
 		ResolvedLinks:       linkFacts.ResolvedLinks,
 		Tags:                linkFacts.Tags,
-		AttachedEvidence:    evidenceFacts,
+		AttachedEvidence:    mapEvidenceTimelineFacts(evidenceFacts),
 		ReplacementRecordID: linkFacts.ReplacementRecordID,
 	}, nil
+}
+
+func mapEvidenceTimelineFacts(facts []evidence.TimelineFact) []workbookprojection.EvidenceFact {
+	mapped := make([]workbookprojection.EvidenceFact, len(facts))
+	for index, fact := range facts {
+		mapped[index] = workbookprojection.EvidenceFact{
+			RecordID:       fact.RecordID,
+			Title:          fact.Title,
+			LifecycleState: fact.LifecycleState,
+			UploadState:    fact.UploadState,
+		}
+	}
+	return mapped
 }

@@ -1,21 +1,75 @@
 package evidence
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+)
 
 func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
+	if value, ok := params.Values["evidence.storage_ref"]; ok &&
+		value.Text != nil &&
+		blobref.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
+		return &ValidationError{Field: "evidence.storage_ref", ReasonCode: "reserved_server_managed_ref"}
+	}
+	lifecycle, lifecyclePresent := params.Values["evidence.lifecycle_state"]
+	if lifecyclePresent && (lifecycle.Text == nil || !ValidLifecycleState(*lifecycle.Text)) {
+		return &ValidationError{Field: "evidence.lifecycle_state", ReasonCode: "invalid_value"}
+	}
+	effectiveLifecycle := "requested"
+	if lifecyclePresent && lifecycle.Text != nil {
+		effectiveLifecycle = *lifecycle.Text
+	}
+	hasBlob := params.InitialBlobFinalized
+	switch effectiveLifecycle {
+	case "available":
+		if !hasBlob && !params.InitialBlobWasSupplied {
+			return &LifecycleValidationError{
+				FromStatus:     "",
+				ToStatus:       effectiveLifecycle,
+				ReasonCode:     "violated_lifecycle_guards",
+				ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
+			}
+		}
+	case "quarantined":
+		if hasBlob || params.InitialBlobWasSupplied {
+			return &LifecycleValidationError{
+				FromStatus:     "",
+				ToStatus:       effectiveLifecycle,
+				ReasonCode:     "violated_lifecycle_guards",
+				ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
+			}
+		}
+	case "released":
+		return &LifecycleValidationError{
+			FromStatus:     "",
+			ToStatus:       effectiveLifecycle,
+			ReasonCode:     "illegal_status_transition",
+			ViolatedGuards: []string{"evidence.lifecycle_state"},
+		}
+	}
 	if !hasWorkbookText(params.Values, "evidence.title") &&
 		!hasWorkbookText(params.Values, "evidence.storage_ref") &&
 		!hasWorkbookText(params.Values, "evidence.collector_party_text") &&
-		!hasWorkbookText(params.Values, "evidence.source_party_text") {
-		return &ValidationError{Field: "payload", ReasonCode: "missing_minimum_create_signal"}
-	}
-	if value, ok := params.Values["evidence.lifecycle_state"]; ok && !ValidLifecycleState(derefWorkbookText(value.Text)) {
-		return &ValidationError{Field: "evidence.lifecycle_state", ReasonCode: "invalid_value"}
+		!hasWorkbookText(params.Values, "evidence.source_party_text") &&
+		!lifecyclePresent &&
+		!hasWorkbookTimestamp(params.Values, "evidence.requested_at") &&
+		!hasWorkbookTimestamp(params.Values, "evidence.received_at") &&
+		!hasBlob {
+		if params.InitialBlobWasSupplied {
+			return nil
+		}
+		return &ValidationError{Field: "payload", ReasonCode: "minimum_create_signal_missing"}
 	}
 	return nil
 }
 
 func ValidateWorkbookDirectPatchChange(fieldKey string, value WorkbookFieldValue) error {
+	if fieldKey == "evidence.storage_ref" &&
+		value.Text != nil &&
+		blobref.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
+		return &ValidationError{Field: fieldKey, ReasonCode: "reserved_server_managed_ref"}
+	}
 	if fieldKey == "evidence.lifecycle_state" && value.Text != nil && !ValidLifecycleState(*value.Text) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 	}
@@ -25,6 +79,11 @@ func ValidateWorkbookDirectPatchChange(fieldKey string, value WorkbookFieldValue
 func hasWorkbookText(values map[string]WorkbookFieldValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
+}
+
+func hasWorkbookTimestamp(values map[string]WorkbookFieldValue, field string) bool {
+	value, ok := values[field]
+	return ok && value.Timestamp != nil
 }
 
 func derefWorkbookText(value *string) string {

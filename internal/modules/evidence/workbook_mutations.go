@@ -20,7 +20,16 @@ type WorkbookFieldValue struct {
 }
 
 type WorkbookCreateParams struct {
-	Values map[string]WorkbookFieldValue
+	Values                 map[string]WorkbookFieldValue
+	InitialBlob            *InitialBlobAssociation
+	InitialBlobFinalized   bool
+	InitialBlobWasSupplied bool
+}
+
+type InitialBlobAssociation struct {
+	ObjectBlobID uuid.UUID
+	StorageRef   string
+	SHA256Hex    *string
 }
 
 type WorkbookLifecyclePatchChange struct {
@@ -58,34 +67,49 @@ func ValidLifecycleState(value string) bool {
 }
 
 func (s *Store) InsertWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params WorkbookCreateParams, now time.Time) error {
-	lifecycleState := nullableTextValue(params.Values, "evidence.lifecycle_state")
-	if lifecycleState == nil {
-		lifecycleState = "requested"
+	lifecycleState := "requested"
+	if lifecycleValue, present := params.Values["evidence.lifecycle_state"]; present && lifecycleValue.Text != nil {
+		lifecycleState = *lifecycleValue.Text
 	}
-	requestedAt := nullableTimestampValue(params.Values, "evidence.requested_at")
-	if requestedAt == nil && lifecycleState == "requested" {
+	var requestedAt any
+	if _, requestedPresent := params.Values["evidence.requested_at"]; requestedPresent {
+		requestedAt = nullableTimestampValue(params.Values, "evidence.requested_at")
+	} else if lifecycleState == "requested" {
 		requestedAt = now
+	}
+	var objectBlobID any
+	var uploadState any = "pending"
+	var blobHash any
+	var storageRef any = nullableTextValue(params.Values, "evidence.storage_ref")
+	if params.InitialBlob != nil {
+		objectBlobID = params.InitialBlob.ObjectBlobID
+		uploadState = "available"
+		blobHash = params.InitialBlob.SHA256Hex
+		storageRef = params.InitialBlob.StorageRef
 	}
 	_, err := tx.Exec(ctx, `
 INSERT INTO evidence (
     record_id, incident_id, title, lifecycle_state, requested_at, received_at,
     storage_ref, collector_party_text, collector_party_id, source_party_text,
-    source_party_id, created_at, updated_at
+    source_party_id, object_blob_id, upload_state, blob_hash, created_at, updated_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10,
-    $11, $12, $12
+    $11, $12, $13, $14, $15, $15
 )
 `, recordID, incidentID,
 		nullableTextValue(params.Values, "evidence.title"),
 		lifecycleState,
 		requestedAt,
 		nullableTimestampValue(params.Values, "evidence.received_at"),
-		nullableTextValue(params.Values, "evidence.storage_ref"),
+		storageRef,
 		nullableTextValue(params.Values, "evidence.collector_party_text"),
 		nullableUUIDValue(params.Values, "evidence.collector_party_id"),
 		nullableTextValue(params.Values, "evidence.source_party_text"),
 		nullableUUIDValue(params.Values, "evidence.source_party_id"),
+		objectBlobID,
+		uploadState,
+		blobHash,
 		now)
 	if err != nil {
 		return fmt.Errorf("insert evidence: %w", err)

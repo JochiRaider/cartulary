@@ -113,6 +113,7 @@ type Runtime struct {
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
 	cleanups             []func()
+	evidenceOwner        *evidence.OwnerRuntime
 	stagedJanitorContext context.Context
 }
 
@@ -764,11 +765,24 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		return nil, fmt.Errorf("compose Revisions runtime: %w", err)
 	}
 	runtime.Revisions = revisionRuntime
-	timelineBundle := timelineassembly.NewBundle(
+	workbookConflictTokens := conflicttokens.NewConflictTokenCodec(keys)
+	timelineProjection := timelineassembly.NewProjectionBundle(postgresHandle)
+	evidenceOwner := evidence.NewOwnerRuntime(
 		postgresHandle,
-		conflicttokens.NewConflictTokenCodec(keys),
+		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		intentAppender,
+		runtime.ObjectStore,
+		evidence.WithProjectionPort(timelineProjection.EvidenceProjectionPort()),
+	)
+	runtime.evidenceOwner = evidenceOwner
+	timelineBundle := timelineassembly.NewBundleWithProjection(
+		postgresHandle,
+		workbookConflictTokens,
+		revisionRuntime.Appender(),
+		intentAppender,
+		timelineProjection,
+		evidenceOwner.TimelineAttachmentContribution(),
 	)
 	runtime.Timeline = timelineBundle
 	revisionCommands, err := revisionRuntime.NewCommandService(
@@ -949,12 +963,12 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
 	}
-	workbookConflictTokens := conflicttokens.NewConflictTokenCodec(keys)
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		postgresHandle,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
 		timelineFacade,
+		evidenceOwner.WorkbookContribution(),
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		intentAppender,
@@ -977,7 +991,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		})},
 		{id: "evidence", registrar: evidence.RegisterRoutes(
 			evidenceSettings(normalizedCfg),
-			evidence.WithStore(timelineBundle.EvidenceStore),
+			evidence.WithRouteService(evidenceOwner.RouteService()),
 		)},
 		{
 			id: "workbook",

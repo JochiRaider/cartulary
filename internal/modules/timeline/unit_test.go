@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -319,6 +320,7 @@ func newResolutionTimelineCommands(t testing.TB, pool postgres.DB) *resolutionTi
 			conflicttest.NewCodec("timeline"),
 			revisionComposition.Runtime.Appender(),
 			revisionComposition.Intents,
+			evidence.NewTimelineAttachmentContribution(pool),
 		).Facade,
 	}
 }

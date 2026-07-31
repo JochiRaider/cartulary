@@ -71,6 +71,7 @@
     "identity.reset_status"
   ],
   "create_capable": true,
+  "create_inputs": [],
   "inline_create": {
     "permits_zero_field_create": false,
     "minimum_create_field_sets": [

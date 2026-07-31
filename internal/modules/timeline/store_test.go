@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -927,8 +928,14 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		conflicttest.NewCodec("timeline-query"),
 		appender,
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(pool),
 	)
-	collaborators := timelineassembly.NewCollaborators(pool, appender, revisionComposition.Intents)
+	collaborators := timelineassembly.NewCollaborators(
+		pool,
+		appender,
+		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(pool),
+	)
 	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
 		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),

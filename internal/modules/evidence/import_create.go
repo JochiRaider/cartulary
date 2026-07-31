@@ -8,7 +8,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -52,22 +51,18 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	now := command.Now.UTC()
-	recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
-		IncidentID:      request.IncidentID,
-		RecordType:      "evidence",
-		CreatedByUserID: request.ActorUserID,
-		CreatedAt:       now,
-		UpdatedByUserID: request.ActorUserID,
-		UpdatedAt:       now,
-		RowVersion:      1,
-	})
+	recordID, err := s.source.createRecordTx(
+		ctx,
+		tx,
+		request.IncidentID,
+		request.ActorUserID,
+		params,
+		now,
+	)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	if err := s.InsertWorkbookRowTx(ctx, tx, recordID, request.IncidentID, params, now); err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, err
-	}
-	row, err := s.RefreshImportRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
+	row, err := s.source.refreshRowTx(ctx, tx, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}

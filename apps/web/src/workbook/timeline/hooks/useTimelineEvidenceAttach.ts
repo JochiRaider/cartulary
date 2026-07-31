@@ -6,9 +6,8 @@ import {
   readEnvelope,
 } from "../../../services/workbookApi";
 import {
-  createAndAttachEvidenceBlob,
+  createEvidenceWithInitialBlob,
   evidenceAttachPublicErrorMessage,
-  evidencePublicErrorMessage,
 } from "../../../services/workbookEvidence";
 import {
   evidenceViewSchemaId,
@@ -20,15 +19,6 @@ import {
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
-
-type EvidenceRowCreateEnvelope = {
-  data: {
-    row: {
-      record_id: string;
-      row_version: number;
-    };
-  };
-};
 
 type TimelineEvidenceViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
@@ -85,38 +75,20 @@ export function useTimelineEvidenceAttach({
 }) {
   const createAndAttachEvidenceFile = useCallback(
     async (file: File): Promise<string> => {
-      const createEvidence = await fetchWorkbookJSON<EvidenceRowCreateEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/rows`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            client_txn_id: nextClientTxnId(),
-            "evidence.title": evidenceTitleFromFile(file),
-            "evidence.collector_party_text": "Workbook upload",
-          }),
-        },
-      );
-      if (!createEvidence.ok) {
-        throw new Error(evidencePublicErrorMessage(createEvidence.payload));
-      }
-      const evidenceEnvelope = readEnvelope<EvidenceRowCreateEnvelope>(
-        createEvidence.payload,
-      );
-      const evidenceRecord = evidenceEnvelope.data.row;
-
-      await createAndAttachEvidenceBlob({
+      const evidenceRecord = await createEvidenceWithInitialBlob({
         apiBase,
-        attachClientTxnId: nextClientTxnId,
-        baseRowVersion: evidenceRecord.row_version,
-        createClientTxnId: nextClientTxnId,
-        evidenceRecordId: evidenceRecord.record_id,
+        createBlobClientTxnId: nextClientTxnId,
+        createRowClientTxnId: nextClientTxnId,
         file,
         incidentId,
+        values: {
+          "evidence.title": evidenceTitleFromFile(file),
+          "evidence.collector_party_text": "Workbook upload",
+          "evidence.lifecycle_state": "available",
+        },
+        viewSchemaId: evidenceViewSchemaId,
       });
-      return evidenceRecord.record_id;
+      return evidenceRecord.recordId;
     },
     [apiBase, incidentId, nextClientTxnId],
   );

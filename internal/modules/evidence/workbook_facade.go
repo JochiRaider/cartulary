@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictwindows"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -40,12 +41,15 @@ type WorkbookFacade struct {
 	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
 	collaboration    collaboration.IntentAppender
+	mutations        evidenceMutationCoordinator
+	objects          objectstore.Store
 }
 
 type WorkbookCreateRequest struct {
-	ViewSchemaID string
-	ClientTxnID  string
-	Values       map[string]WorkbookFieldValue
+	ViewSchemaID        string
+	ClientTxnID         string
+	Values              map[string]WorkbookFieldValue
+	InitialObjectBlobID *uuid.UUID
 }
 
 type WorkbookPatchRequest struct {
@@ -122,21 +126,43 @@ func NewWorkbookFacade(
 	if intents == nil {
 		panic("compose Evidence workbook facade: Collaboration intent appender is required")
 	}
+	store := NewStore(
+		pool,
+		WithRevisionAppender(appender),
+		WithCollaborationIntents(intents),
+	)
+	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil)
+}
+
+func newWorkbookFacade(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+	store *Store,
+	objects objectstore.Store,
+) *WorkbookFacade {
+	recordStore := records.NewStore()
+	projectionRows := projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...)
+	incidentAccess := incidents.NewAccess(pool)
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
-		incidentAccess:   incidents.NewAccess(pool),
-		recordStore:      records.NewStore(),
-		projectionRows:   projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
+		incidentAccess:   incidentAccess,
+		recordStore:      recordStore,
+		projectionRows:   projectionRows,
 		revisionHistory:  historyquery.NewReader(),
 		revisionAppender: appender,
-		store: NewStore(
-			pool,
-			WithRevisionAppender(appender),
-			WithCollaborationIntents(intents),
-		),
-		conflictTokens: conflictTokens,
-		collaboration:  intents,
+		store:            store,
+		conflictTokens:   conflictTokens,
+		collaboration:    intents,
+		objects:          objects,
+		mutations: evidenceMutationCoordinator{
+			incidents:     incidentAccess,
+			source:        store.source,
+			revisions:     newRevisionAppendAdapter(appender),
+			collaboration: intents,
+		},
 	}
 }
 
@@ -164,8 +190,20 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return WorkbookMutationResult{}, fmt.Errorf("query evidence create idempotency: %w", err)
 	}
-	if err := ValidateWorkbookCreateParams(WorkbookCreateParams{Values: request.Values}); err != nil {
+	createParams := WorkbookCreateParams{
+		Values:                 request.Values,
+		InitialBlobWasSupplied: request.InitialObjectBlobID != nil,
+	}
+	if err := ValidateWorkbookCreateParams(createParams); err != nil {
 		return WorkbookMutationResult{}, err
+	}
+	var observed *ObservedObject
+	if request.InitialObjectBlobID != nil {
+		var observeErr error
+		observed, observeErr = f.observeInitialBlob(ctx, command.IncidentID, *request.InitialObjectBlobID)
+		if observeErr != nil {
+			return WorkbookMutationResult{}, observeErr
+		}
 	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -177,86 +215,37 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := validateEvidenceReferencesTx(ctx, tx, command.IncidentID, request.Values); err != nil {
+	if request.InitialObjectBlobID != nil {
+		initialBlob, commitRejection, finalizeErr := f.finalizeInitialBlobTx(
+			ctx,
+			tx,
+			command.IncidentID,
+			*request.InitialObjectBlobID,
+			observed,
+			command.Now.UTC(),
+		)
+		if finalizeErr != nil {
+			if commitRejection {
+				if err := tx.Commit(ctx); err != nil {
+					return WorkbookMutationResult{}, fmt.Errorf("commit rejected evidence blob finalization: %w", err)
+				}
+			}
+			return WorkbookMutationResult{}, finalizeErr
+		}
+		createParams.InitialBlob = initialBlob
+		createParams.InitialBlobFinalized = true
+	}
+	if err := ValidateWorkbookCreateParams(createParams); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	now := command.Now.UTC()
-	recordID, err := f.recordStore.InsertTx(ctx, tx, records.InsertParams{
-		IncidentID:      command.IncidentID,
-		RecordType:      "evidence",
-		CreatedByUserID: command.Actor.ID,
-		CreatedAt:       now,
-		UpdatedByUserID: command.Actor.ID,
-		UpdatedAt:       now,
-		RowVersion:      1,
-	})
+	result, err := f.mutations.createTx(ctx, tx, command, createParams)
 	if err != nil {
+		if request.InitialObjectBlobID != nil && isEvidenceBlobUniqueViolation(err) {
+			return WorkbookMutationResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		}
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.store.InsertWorkbookRowTx(ctx, tx, recordID, command.IncidentID, WorkbookCreateParams{Values: request.Values}, now); err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	row, err := f.projectionRows.LoadTx(ctx, tx, recordID)
-	if err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	changeSetID, err := f.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
-		IncidentID:  command.IncidentID,
-		ActorUserID: command.Actor.ID,
-		Source:      command.RouteKey,
-		ClientTxnID: &request.ClientTxnID,
-		RequestID:   &command.RequestID,
-		CreatedAt:   now,
-	})
-	if err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	afterVersionID := workbookVersionID(recordID, 1)
-	if err := f.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
-		ChangeSetID:    changeSetID,
-		SequenceNo:     1,
-		TargetKind:     "record",
-		TargetID:       recordID.String(),
-		OperationKind:  "create",
-		AfterVersionID: &afterVersionID,
-		AfterValue:     row,
-	}); err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	if err := f.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    recordID,
-		RowVersion:  1,
-		AfterValue:  row,
-	}); err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	createChangedFieldKeys := changedFieldKeys(nil, row)
-	if err := appendEvidenceRecordChangeIntentsTx(
-		ctx,
-		tx,
-		f.collaboration,
-		command.IncidentID,
-		command.Actor.ID,
-		request.ClientTxnID,
-		changeSetID,
-		AttachRecordChange{
-			RecordID:         recordID,
-			RowVersion:       1,
-			ViewSchemaID:     request.ViewSchemaID,
-			ChangedFieldKeys: createChangedFieldKeys,
-		},
-		row,
-		nil,
-		now,
-	); err != nil {
-		return WorkbookMutationResult{}, err
-	}
-	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, row)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusCreated, payload); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusCreated, result.payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return WorkbookMutationResult{}, authn.ErrClientTxnConflict
 		}
@@ -266,15 +255,15 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 		return WorkbookMutationResult{}, fmt.Errorf("commit evidence create transaction: %w", err)
 	}
 	return WorkbookMutationResult{
-		Payload:          payload,
+		Payload:          result.payload,
 		StatusCode:       http.StatusCreated,
 		IncidentID:       command.IncidentID,
-		RecordID:         recordID,
-		ChangeSetID:      changeSetID,
+		RecordID:         result.recordID,
+		ChangeSetID:      result.changeSetID,
 		ClientTxnID:      request.ClientTxnID,
 		RowVersion:       1,
 		ViewSchemaID:     request.ViewSchemaID,
-		ChangedFieldKeys: createChangedFieldKeys,
+		ChangedFieldKeys: result.changedFieldKeys,
 	}, nil
 }
 

@@ -9464,6 +9464,30 @@
         "pattern": "^v[1-9][0-9]*$",
         "type": "string"
       },
+      "CreateInputDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "input_key": {
+            "type": "string"
+          },
+          "nullable": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "value_contract_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_key",
+          "value_contract_id",
+          "required",
+          "nullable"
+        ],
+        "type": "object"
+      },
       "CredentialPasswordStateResource": {
         "additionalProperties": false,
         "properties": {
@@ -10178,6 +10202,10 @@
             ]
           },
           "evidence.collector_party_text": {
+            "type": "string"
+          },
+          "evidence.initial_object_blob_id": {
+            "format": "uuid",
             "type": "string"
           },
           "evidence.lifecycle_state": {
@@ -16601,6 +16629,12 @@
       "ViewSchemaResource": {
         "additionalProperties": false,
         "properties": {
+          "create_inputs": {
+            "items": {
+              "$ref": "#/components/schemas/CreateInputDescriptor"
+            },
+            "type": "array"
+          },
           "default_sort": {
             "items": {
               "$ref": "#/components/schemas/SortEntry"
@@ -16713,6 +16747,7 @@
           "filter_fields",
           "synthetic_filter_predicates",
           "grouping_fields",
+          "create_inputs",
           "inline_create",
           "inspector_config",
           "fields"

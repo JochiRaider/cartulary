@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -113,6 +114,89 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	}
 	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
 		t.Fatalf("evidence row has duplicate or missing blob link: got %d want 1", got)
+	}
+}
+
+func TestObjectUploadAtomicEvidenceCreate_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "evidence-atomic-initial-blob-create")
+	login, _ := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+		"client_txn_id": "txn-evidence-atomic-create-incident",
+		"incident_key":  "evidence-atomic-create",
+		"title":         "Evidence atomic initial blob create",
+	})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	payload := []byte("atomic evidence object")
+	sum := sha256.Sum256(payload)
+
+	createSlot := func(clientTxnID string) map[string]any {
+		response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+			"incident_id":       incidentID.String(),
+			"client_txn_id":     clientTxnID,
+			"byte_size":         len(payload),
+			"filename_hint":     "atomic.txt",
+			"content_type_hint": "text/plain",
+			"sha256_hex":        fmt.Sprintf("%x", sum[:]),
+		}, authOptions(login)...)
+		return httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
+	}
+
+	pending := createSlot("txn-evidence-atomic-create-pending-slot")
+	pendingCreate := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{
+		"client_txn_id":                   "txn-evidence-atomic-create-pending-row",
+		"evidence.initial_object_blob_id": pending["object_blob_id"],
+	}, authOptions(login)...)
+	pendingError := httptestx.RequireErrorEnvelope(t, pendingCreate, http.StatusConflict, "evidence_attach_rejected")
+	httptestx.RequireErrorDetail(t, pendingError, "reason_code", evidence.AttachReasonBlobPending)
+
+	slot := createSlot("txn-evidence-atomic-create-slot")
+	target := slot["upload_target"].(map[string]any)
+	putObject(t, harness.Server.HTTP.URL, target["href"].(string), payload, "text/plain")
+	createBody := map[string]any{
+		"client_txn_id":                   "txn-evidence-atomic-create-row",
+		"evidence.initial_object_blob_id": slot["object_blob_id"],
+	}
+	createResponse := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", createBody, authOptions(login)...)
+	createData := httptestx.RequireSuccessEnvelope(t, createResponse, http.StatusCreated)["data"].(map[string]any)
+	if _, exposed := createData["object_blob_id"]; exposed {
+		t.Fatalf("generic create response exposed sibling object_blob_id: %#v", createData)
+	}
+	row := createData["row"].(map[string]any)
+	recordID := appsupport.MustUUID(t, row["record_id"].(string))
+	cells := row["cells"].(map[string]any)
+	if lifecycle := cells["evidence.lifecycle_state"].(map[string]any)["value"]; lifecycle != "requested" {
+		t.Fatalf("blob-backed create lifecycle = %#v, want requested", lifecycle)
+	}
+	if got := countEvidenceBlobLinks(t, harness, recordID); got != 1 {
+		t.Fatalf("blob-backed create links = %d, want 1", got)
+	}
+	if got := countEvidenceRevisions(t, harness, recordID); got != 1 {
+		t.Fatalf("blob-backed create revisions = %d, want 1", got)
+	}
+
+	replayResponse := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", createBody, authOptions(login)...)
+	replayData := httptestx.RequireSuccessEnvelope(t, replayResponse, http.StatusOK)["data"].(map[string]any)
+	if replayData["change_set_id"] != createData["change_set_id"] {
+		t.Fatalf("replay change_set_id = %#v, want %#v", replayData["change_set_id"], createData["change_set_id"])
+	}
+
+	reuseResponse := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/rows", map[string]any{
+		"client_txn_id":                   "txn-evidence-atomic-create-reuse",
+		"evidence.title":                  "must not commit",
+		"evidence.initial_object_blob_id": slot["object_blob_id"],
+	}, authOptions(login)...)
+	reuseError := httptestx.RequireErrorEnvelope(t, reuseResponse, http.StatusConflict, "evidence_attach_rejected")
+	httptestx.RequireErrorDetail(t, reuseError, "reason_code", evidence.AttachReasonBlobNotVisible)
+	var rowCount int
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT count(*)
+  FROM evidence
+ WHERE incident_id = $1
+`, incidentID).Scan(&rowCount); err != nil {
+		t.Fatalf("count Evidence rows: %v", err)
+	}
+	if rowCount != 1 {
+		t.Fatalf("Evidence row count after losing create = %d, want 1", rowCount)
 	}
 }
 
@@ -519,7 +603,7 @@ INSERT INTO record_links (
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
 
 	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
-	quarantine, err := harness.Server.Runtime.Timeline.EvidenceStore.QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
+	quarantine, err := newEvidenceLifecycleTestStore(harness).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("quarantine entity-linked evidence: %v", err)
 	}
@@ -569,6 +653,17 @@ func AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected ma
 		t.Fatalf("timed out waiting for record_changed set: got=%d want=%d", len(changes), len(expected))
 	}
 	return changes
+}
+
+func newEvidenceLifecycleTestStore(harness *appsupport.ServerHarness) *evidence.Store {
+	return evidence.NewStore(
+		harness.Server.Runtime.Postgres,
+		evidence.WithRevisionAppender(harness.Server.Runtime.Revisions.Appender()),
+		evidence.WithCollaborationIntents(harness.Server.Runtime.CollaborationIntents),
+		evidence.WithProjectionPort(
+			timelineassembly.EvidenceProjectionPortFor(harness.Server.Runtime.Timeline.ProjectionCatalog),
+		),
+	)
 }
 
 func requireEntityEvidenceProjectionCount(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, fieldKey string, want int) {
@@ -906,7 +1001,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
 
-		store := harness.Server.Runtime.Timeline.EvidenceStore
+		store := newEvidenceLifecycleTestStore(harness)
 		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-evidence_lifecycle-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
 		}
@@ -947,8 +1042,8 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 			"evidence_attach_rejected",
 		)
 		attachDetails := attachBlocked["error"].(map[string]any)["details"].(map[string]any)
-		if got := attachDetails["reason_code"]; got != evidence.AttachReasonBlobQuarantined {
-			t.Fatalf("quarantined attach reason got %v want %s", got, evidence.AttachReasonBlobQuarantined)
+		if got := attachDetails["reason_code"]; got != evidence.AttachReasonBlobNotVisible {
+			t.Fatalf("associated quarantined blob reason got %v want %s", got, evidence.AttachReasonBlobNotVisible)
 		}
 
 		pendingID := uuid.New()

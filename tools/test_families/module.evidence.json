@@ -54,7 +54,7 @@
           "scenario_450ec4542517"
         ],
         "titles": [
-          "persists a screenshot-only Timeline row through the two-step evidence path"
+          "persists a screenshot-only Timeline row through atomic Evidence create"
         ]
       },
       "evidence_class": "browser",
@@ -302,6 +302,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.evidence.frontend_unit.atomic_initial_blob_create_reuses_row_transaction_4b2f89cd31",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/workbookEvidence.test.ts",
+        "titles": [
+          "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.frontend_unit.verify_evidence_state_view_models_cover_requeste_634061c1db",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.frontend_unit",
@@ -446,6 +472,56 @@
       "status": "active"
     },
     {
+      "row_id": "module.evidence.integration.blob_association_concurrent_race_has_one_winner_9d6a5c2e1b",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestBlobAssociation_ConcurrentRaceHasOneWinner"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.integration.blob_uniqueness_migration_round_trip_6de21f480c",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestEvidenceBlobUniquenessMigration53PreflightAndEnforcement_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_io_heavy",
+      "fixture_profile_id": "postgres_migration_scratch",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.integration.expired_slot_replay_returns_the_same_expired_slo_6d29ac9f3a",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -458,6 +534,31 @@
         "package": "./internal/modules/evidence",
         "tests": [
           "TestExpiredSlotReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.integration.initial_blob_create_atomic_replay_concealment_73c81fe329",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestObjectUploadAtomicEvidenceCreate_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -560,6 +661,29 @@
       "resource_profile_id": "go_clone_heavy",
       "fixture_profile_id": "postgres_template_clone",
       "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.store.blob_association_reuse_is_concealed_8b3e27a14f",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestBlobAssociation_RejectsReuseWithConcealment"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
     },
@@ -750,6 +874,59 @@
       "status": "active"
     },
     {
+      "row_id": "module.evidence.unit.create_effect_order_and_fault_boundary_5d70a3c812",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.unit.create_signal_and_initial_lifecycle_matrix_4f9a8b671c",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestWorkbookCreateValidation_AdoptedSignalAndLifecycleMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.evidence.unit.evidence_and_timeline_evidence_derived_field_key_57b5d6b63a",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -785,6 +962,33 @@
         "package": "./internal/modules/evidence",
         "tests": [
           "TestReasonCodeRegistryConformance_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "go_balanced",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.unit.source_owner_contributions_remain_exact_f247686138",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.recovery",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceSourceOwnerContributionsRemainExact"
         ]
       },
       "evidence_class": "unit",

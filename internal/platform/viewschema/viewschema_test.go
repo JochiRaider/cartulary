@@ -22,6 +22,22 @@ func TestViewSchemaDiscovery_Unit(t *testing.T) {
 		if !internal.CreateCapable {
 			t.Fatalf("%s must be create-capable in the current profile", resource.ViewSchemaID)
 		}
+		if !reflect.DeepEqual(resource.CreateInputs, internal.CreateInputs) {
+			t.Fatalf("%s public create_inputs diverged from internal schema: public=%#v internal=%#v", resource.ViewSchemaID, resource.CreateInputs, internal.CreateInputs)
+		}
+		if resource.ViewSchemaID == "cartulary.view.evidence.v1" {
+			want := []CreateInputDescriptor{{
+				InputKey:        "evidence.initial_object_blob_id",
+				ValueContractID: "object_blob_id_v1",
+				Required:        false,
+				Nullable:        false,
+			}}
+			if !reflect.DeepEqual(resource.CreateInputs, want) {
+				t.Fatalf("Evidence create_inputs = %#v, want %#v", resource.CreateInputs, want)
+			}
+		} else if len(resource.CreateInputs) != 0 {
+			t.Fatalf("%s create_inputs = %#v, want []", resource.ViewSchemaID, resource.CreateInputs)
+		}
 		if !reflect.DeepEqual(resource.TechnicalFields, []string{"record_id", "row_version"}) {
 			t.Fatalf("%s has unexpected technical_fields: %#v", resource.ViewSchemaID, resource.TechnicalFields)
 		}

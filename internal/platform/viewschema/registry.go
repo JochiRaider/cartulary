@@ -24,12 +24,14 @@ type InspectorSeedSource = gensource.InspectorSeedSource
 type InspectorSeedBinding = gensource.InspectorSeedBinding
 type InspectorFeatureGroup = gensource.InspectorFeatureGroup
 type InspectorConfig = gensource.InspectorConfig
+type CreateInputDescriptor = gensource.CreateInput
 type schemaDocument = gensource.Document
 type registryIndex = gensource.RegistryIndex
 
 type Schema struct {
 	ViewSchemaID           string
 	CreateCapable          bool
+	CreateInputs           []CreateInputDescriptor
 	MinimumCreateFieldSets [][]string
 	PermitsZeroFieldCreate bool
 	BaseProjection         string
@@ -76,6 +78,7 @@ type ViewSchemaResource struct {
 	FilterFields              []string                   `json:"filter_fields"`
 	SyntheticFilterPredicates []SyntheticFilterPredicate `json:"synthetic_filter_predicates"`
 	GroupingFields            []string                   `json:"grouping_fields"`
+	CreateInputs              []CreateInputDescriptor    `json:"create_inputs"`
 	InlineCreate              inlineCreate               `json:"inline_create"`
 	InspectorConfig           InspectorConfig            `json:"inspector_config"`
 	Fields                    []ViewFieldEntry           `json:"fields"`
@@ -208,6 +211,7 @@ func loadRegistry() {
 			schemas[document.ViewSchemaID] = Schema{
 				ViewSchemaID:           document.ViewSchemaID,
 				CreateCapable:          document.CreateCapable,
+				CreateInputs:           cloneCreateInputs(document.CreateInputs),
 				MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),
 				PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
 				BaseProjection:         document.BaseProjection,
@@ -281,6 +285,7 @@ func buildPublicResource(document schemaDocument) ViewSchemaResource {
 		FilterFields:              cloneStrings(document.FilterFields),
 		SyntheticFilterPredicates: cloneSyntheticFilterPredicates(document.SyntheticFilterPredicates),
 		GroupingFields:            cloneStrings(document.GroupingFields),
+		CreateInputs:              cloneCreateInputs(document.CreateInputs),
 		InlineCreate: inlineCreate{
 			MinimumCreateFieldSets: cloneStringMatrix(document.InlineCreate.MinimumCreateFieldSets),
 			PermitsZeroFieldCreate: document.InlineCreate.PermitsZeroFieldCreate,
@@ -299,10 +304,15 @@ func cloneResource(resource ViewSchemaResource) ViewSchemaResource {
 	resource.FilterFields = cloneStrings(resource.FilterFields)
 	resource.SyntheticFilterPredicates = cloneSyntheticFilterPredicates(resource.SyntheticFilterPredicates)
 	resource.GroupingFields = cloneStrings(resource.GroupingFields)
+	resource.CreateInputs = cloneCreateInputs(resource.CreateInputs)
 	resource.InlineCreate.MinimumCreateFieldSets = cloneStringMatrix(resource.InlineCreate.MinimumCreateFieldSets)
 	resource.InspectorConfig = cloneInspectorConfig(resource.InspectorConfig)
 	resource.Fields = cloneViewFieldEntries(resource.Fields)
 	return resource
+}
+
+func cloneCreateInputs(inputs []CreateInputDescriptor) []CreateInputDescriptor {
+	return append([]CreateInputDescriptor(nil), inputs...)
 }
 
 func cloneInspectorConfig(config InspectorConfig) InspectorConfig {

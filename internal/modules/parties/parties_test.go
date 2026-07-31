@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -335,6 +336,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 		conflicttest.NewCodec("timeline"),
 		revisionRuntime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(harness.DB),
 	)
 	store, err := revisionRuntime.NewCommandService(
 		harness.DB,

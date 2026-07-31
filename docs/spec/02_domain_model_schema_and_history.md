@@ -1889,6 +1889,26 @@ A write that leaves `lifecycle_state` unchanged is a legal idempotent in-state w
 
 Direct transition into `released` is legal only from `available`. Direct transition from `quarantined` to `released`, or from `released` to `requested`, `pending_receipt`, or `received`, is illegal.
 
+Evidence creation establishes an initial state and MUST NOT invent a prior
+state solely to apply the later-transition graph. The exact legal initial-state
+matrix is:
+
+| Initial Evidence lifecycle | No blob | Blob finalized `available` in the same create |
+| --- | --- | --- |
+| `requested` | allowed | allowed |
+| `pending_receipt` | allowed | allowed |
+| `received` | allowed | allowed |
+| `available` | rejected | allowed |
+| `quarantined` | allowed | rejected |
+| `released` | rejected | rejected |
+
+An omitted initial lifecycle is `requested`, including for blob-backed create.
+Finalizing and associating a blob MUST NOT auto-promote the Evidence lifecycle.
+A linked available blob on Evidence in `requested`, `pending_receipt`, or
+`received` remains non-previewable until a later legal lifecycle change.
+Initial or later entry to `released` without the documented
+`available -> released` transition is forbidden.
+
 ### 13.2 Blob-upload lifecycle machine
 
 The authoritative machine condition is determined by persisted `object_blobs.upload_state` together with `terminal_reason`, `failed_at`, `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `cleanup_due_at`, and `cleaned_up_at`.
@@ -1934,8 +1954,17 @@ The evidence-custody guards and blob bridge rules are:
 - if a linked blob is `quarantined` while the evidence row is `requested`, `pending_receipt`, or `received`, the evidence row MAY remain in that current state, but it MUST remain non-previewable and MUST NOT surface as `available` or `released`,
 - recovery from `quarantined` is legal only to `received` or `available`; after quarantine clears, re-entering `released` requires a later explicit transition from `available`,
 - any attempted evidence-state write that violates these guards or the legal transition set above MUST be rejected as an illegal transition.
+
+One `object_blob_id` MUST be associated with at most one Evidence row. This is
+an authoritative persistence invariant, not an application-only precheck.
+Every create or existing-record attach that associates a blob MUST lock the
+blob's authoritative row, recheck incident ownership, upload state, and current
+association in the caller transaction, and rely on a database uniqueness
+constraint as the final concurrent-write guard. Competing association or
+uniqueness failure MUST leave the losing transaction with no partial Evidence
+row, custody, history, projection, collaboration, or idempotency effect.
 Profiles: base
-Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
+Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313, AC-522, AC-523
 
 **REQ-02-191**
 Abandoned pending uploads MUST fail closed. A blob slot left in `pending` without successful finalization MUST NOT create or imply an attached evidence record, MUST NOT increment visible evidence counts, and MUST remain eligible only for retry, timeout handling, or administrative cleanup.

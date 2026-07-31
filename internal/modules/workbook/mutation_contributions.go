@@ -460,7 +460,7 @@ func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.WorkbookFac
 	})
 }
 
-func NewEvidenceCreateProvider(owner *evidence.WorkbookFacade) CreateProvider {
+func NewEvidenceCreateProvider(owner evidence.WorkbookContribution) CreateProvider {
 	return newGenericCreateProvider(EvidenceViewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
 		result, err := owner.Create(ctx, evidence.WorkbookCreateCommand{
 			Actor:       command.Actor,
@@ -612,7 +612,7 @@ func NewArtifactPatchProvider(owner *artifacts.WorkbookFacade) PatchProvider {
 	})
 }
 
-func NewEvidencePatchProvider(owner *evidence.WorkbookFacade) PatchProvider {
+func NewEvidencePatchProvider(owner evidence.WorkbookContribution) PatchProvider {
 	return newGenericPatchProvider("evidence", []string{EvidenceViewSchemaID}, func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
 		result, err := owner.Patch(ctx, evidence.WorkbookPatchCommand{
 			Actor:            command.Actor,
@@ -800,7 +800,7 @@ func NewArtifactConflictProvider(owner *artifacts.WorkbookFacade) ConflictProvid
 	)
 }
 
-func NewEvidenceConflictProvider(owner *evidence.WorkbookFacade) ConflictProvider {
+func NewEvidenceConflictProvider(owner evidence.WorkbookContribution) ConflictProvider {
 	return newGenericConflictProvider(
 		"evidence",
 		[]string{EvidenceViewSchemaID},

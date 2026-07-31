@@ -150,19 +150,24 @@ func TestWorkbookMutationDecoderAdmitsStructurallyValidOwnerSpecificCollectionOp
 	}
 }
 
-func TestWorkbookMutationDecoderRejectsReservedEvidenceStorageRef(t *testing.T) {
+func TestWorkbookMutationDecoderDefersReservedEvidenceStorageRefToOwner(t *testing.T) {
 	body := `{"client_txn_id":"txn-reserved-ref","evidence.title":"Reserved ref","evidence.storage_ref":"object://00000000-0000-0000-0000-000000210004"}`
-	if _, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(body)); apiErr == nil {
-		t.Fatalf("expected reserved evidence storage_ref create to fail")
-	} else if apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "evidence.storage_ref" || apiErr.Details["reason_code"] != "reserved_server_managed_ref" {
-		t.Fatalf("unexpected create error: %#v", apiErr)
+	create, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(body))
+	if apiErr != nil {
+		t.Fatalf("generic create decoder rejected owner-specific storage ref: %#v", apiErr)
+	}
+	if value := create.Values["evidence.storage_ref"]; value.Text == nil || *value.Text != "object://00000000-0000-0000-0000-000000210004" {
+		t.Fatalf("generic create decoder changed storage ref: %#v", value)
 	}
 
 	patch := `{"view_schema_id":"cartulary.view.evidence.v1","base_row_version":1,"client_txn_id":"txn-reserved-ref-patch","changes":[{"field_key":"evidence.storage_ref","value":"object://00000000-0000-0000-0000-000000210005"}]}`
-	if _, apiErr := DecodePatchRequest(strings.NewReader(patch)); apiErr == nil {
-		t.Fatalf("expected reserved evidence storage_ref patch to fail")
-	} else if apiErr.Code != "invalid_mutation_payload" || apiErr.Details["field"] != "evidence.storage_ref" || apiErr.Details["reason_code"] != "reserved_server_managed_ref" {
-		t.Fatalf("unexpected patch error: %#v", apiErr)
+	decodedPatch, apiErr := DecodePatchRequest(strings.NewReader(patch))
+	if apiErr != nil {
+		t.Fatalf("generic patch decoder rejected owner-specific storage ref: %#v", apiErr)
+	}
+	value := decodedPatch.Changes[0].Value
+	if value == nil || value.Text == nil || *value.Text != "object://00000000-0000-0000-0000-000000210005" {
+		t.Fatalf("generic patch decoder changed storage ref: %#v", value)
 	}
 }
 
@@ -481,5 +486,50 @@ func TestWorkbookMutationRequestHashNormalization(t *testing.T) {
 	}
 	if !bytes.Equal(CreateRequestHash(createLeft), CreateRequestHash(createRight)) {
 		t.Fatalf("create hash should ignore client_txn_id and object member order while using normalized values")
+	}
+
+	const blobID = "00000000-0000-4000-8000-000000210101"
+	evidenceOmittedDefault, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(`{"client_txn_id":"txn-evidence-left","evidence.title":"Disk image","evidence.initial_object_blob_id":"`+blobID+`"}`))
+	if apiErr != nil {
+		t.Fatalf("decode Evidence create input: %#v", apiErr)
+	}
+	if got := evidenceOmittedDefault.Inputs["evidence.initial_object_blob_id"].UUID.String(); got != blobID {
+		t.Fatalf("Evidence create input = %q, want %q", got, blobID)
+	}
+	evidenceExplicitDefault, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(`{"client_txn_id":"txn-evidence-right","evidence.lifecycle_state":"requested","evidence.title":"Disk image","evidence.initial_object_blob_id":"`+blobID+`"}`))
+	if apiErr != nil {
+		t.Fatalf("decode Evidence explicit default: %#v", apiErr)
+	}
+	if !bytes.Equal(CreateRequestHash(evidenceOmittedDefault), CreateRequestHash(evidenceExplicitDefault)) {
+		t.Fatal("Evidence create hash must equate omitted lifecycle with explicit requested")
+	}
+	differentBlob, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(`{"client_txn_id":"txn-evidence-left","evidence.title":"Disk image","evidence.initial_object_blob_id":"00000000-0000-4000-8000-000000210102"}`))
+	if apiErr != nil {
+		t.Fatalf("decode divergent Evidence create input: %#v", apiErr)
+	}
+	if bytes.Equal(CreateRequestHash(evidenceOmittedDefault), CreateRequestHash(differentBlob)) {
+		t.Fatal("Evidence create hash must include the initial blob identifier")
+	}
+	explicitRequestedAtClear, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(`{"client_txn_id":"txn-evidence-clear","evidence.title":"Disk image","evidence.requested_at":null,"evidence.initial_object_blob_id":"`+blobID+`"}`))
+	if apiErr != nil {
+		t.Fatalf("decode explicit requested_at clear: %#v", apiErr)
+	}
+	if bytes.Equal(CreateRequestHash(evidenceOmittedDefault), CreateRequestHash(explicitRequestedAtClear)) {
+		t.Fatal("explicit requested_at null must remain distinct from the omitted timestamp default")
+	}
+	for name, body := range map[string]string{
+		"null":               `{"client_txn_id":"txn","evidence.title":"Disk image","evidence.initial_object_blob_id":null}`,
+		"malformed":          `{"client_txn_id":"txn","evidence.title":"Disk image","evidence.initial_object_blob_id":"not-a-uuid"}`,
+		"foreign view input": `{"client_txn_id":"txn","party.display_name":"Acme","evidence.initial_object_blob_id":"` + blobID + `"}`,
+	} {
+		viewSchemaID := EvidenceViewSchemaID
+		if name == "foreign view input" {
+			viewSchemaID = PartiesViewSchemaID
+		}
+		if _, apiErr := DecodeCreateRequest(viewSchemaID, strings.NewReader(body)); apiErr == nil {
+			t.Fatalf("%s create input unexpectedly accepted", name)
+		} else if apiErr.Details["field"] != "evidence.initial_object_blob_id" {
+			t.Fatalf("%s error field = %#v", name, apiErr.Details)
+		}
 	}
 }

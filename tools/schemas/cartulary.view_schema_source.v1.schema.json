@@ -21,6 +21,7 @@
     "synthetic_filter_predicates",
     "grouping_fields",
     "create_capable",
+    "create_inputs",
     "inline_create",
     "inspector_config",
     "fields"
@@ -59,6 +60,11 @@
     },
     "grouping_fields": { "$ref": "#/$defs/stringArray" },
     "create_capable": { "type": "boolean" },
+    "create_inputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/createInput" }
+    },
     "inline_create": { "$ref": "#/$defs/inlineCreate" },
     "inspector_config": { "$ref": "#/$defs/inspectorConfig" },
     "fields": {
@@ -117,6 +123,17 @@
           "items": { "$ref": "#/$defs/stringArray" }
         },
         "permits_zero_field_create": { "type": "boolean" }
+      }
+    },
+    "createInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_key", "value_contract_id", "required", "nullable"],
+      "properties": {
+        "input_key": { "$ref": "#/$defs/stableKey" },
+        "value_contract_id": { "$ref": "#/$defs/stableKey" },
+        "required": { "type": "boolean" },
+        "nullable": { "type": "boolean" }
       }
     },
     "syntheticFilterPredicate": {

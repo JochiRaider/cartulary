@@ -59,6 +59,7 @@
   "synthetic_filter_predicates": [],
   "grouping_fields": [],
   "create_capable": true,
+  "create_inputs": [],
   "inline_create": {
     "minimum_create_field_sets": [],
     "permits_zero_field_create": false

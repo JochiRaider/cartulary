@@ -15,6 +15,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
@@ -42,6 +43,7 @@ func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassemb
 		conflicttest.NewCodec("timeline"),
 		revisionComposition.Runtime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(pool),
 	)
 }
 

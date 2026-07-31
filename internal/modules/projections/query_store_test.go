@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -39,6 +40,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		conflicttest.NewCodec("timeline"),
 		appender,
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(harness.DB),
 	)
 	projectionCatalog := timelineBundle.ProjectionCatalog
 	workbookStore := appsupport.NewWorkbookStore(

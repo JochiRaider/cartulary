@@ -89,7 +89,7 @@ test("attaches a screenshot to a selected Timeline row without leaving the workb
   expect(objectUploadRoutes.length).toBeGreaterThan(0);
 });
 
-test("persists a screenshot-only Timeline row through the two-step evidence path", async ({
+test("persists a screenshot-only Timeline row through atomic Evidence create", async ({
   page,
 }) => {
   const incidentId = await createIncident(

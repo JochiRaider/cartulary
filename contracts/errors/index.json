@@ -306,7 +306,7 @@
     {
       "code": "evidence_attach_rejected",
       "http_status": 409,
-      "summary": "An evidence attach request cannot commit because the blob or evidence state is not attachable."
+      "summary": "An Evidence initial-blob create or existing-row attach cannot commit because the blob or Evidence state is not attachable."
     },
     {
       "code": "invalid_evidence_handle_request",
@@ -1477,6 +1477,10 @@
           "summary": "A mutation field value has the wrong shape or scalar type."
         },
         {
+          "code": "minimum_create_signal_missing",
+          "summary": "An Evidence create has no qualifying normalized field and no successfully finalized same-flow blob."
+        },
+        {
           "code": "invalid_scope",
           "summary": "A saved-view scope value is outside the exact private, shared, or system vocabulary."
         },
@@ -1753,7 +1757,7 @@
       "reason_codes": [
         {
           "code": "blob_not_visible",
-          "summary": "The supplied object_blob_id is missing or is not visible in the evidence record's incident."
+          "summary": "The supplied object_blob_id is missing, foreign to the target incident, or already associated with another Evidence row."
         },
         {
           "code": "blob_pending",

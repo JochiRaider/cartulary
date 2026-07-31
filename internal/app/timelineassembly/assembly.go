@@ -39,7 +39,6 @@ type Bundle struct {
 	MentionEffects        *mentioneffects.Provider
 	EntityMentionStore    *mentions.Store
 	EntityMergeStore      *merge.Store
-	EvidenceStore         *evidence.Store
 	ProjectionCatalog     *projectionassembly.Bundle
 	ProjectionCoordinator *projections.Coordinator
 	RestoreRebuilder      restorecontract.ProjectionRebuilder
@@ -51,18 +50,17 @@ type composition struct {
 	mentionEffects        *mentioneffects.Provider
 	entityMentionStore    *mentions.Store
 	entityMergeStore      *merge.Store
-	evidenceStore         *evidence.Store
 	projectionCatalog     *projectionassembly.Bundle
 	projectionCoordinator *projections.Coordinator
 	restoreRebuilder      restorecontract.ProjectionRebuilder
 	collaborators         timeline.Collaborators
 }
 
-type projectionComposition struct {
-	source      *timeline.ProjectionSource
-	catalog     *projectionassembly.Bundle
-	coordinator *projections.Coordinator
-	rebuilder   restorecontract.ProjectionRebuilder
+type ProjectionBundle struct {
+	Source      *timeline.ProjectionSource
+	Catalog     *projectionassembly.Bundle
+	Coordinator *projections.Coordinator
+	Rebuilder   restorecontract.ProjectionRebuilder
 }
 
 func NewBundle(
@@ -70,6 +68,25 @@ func NewBundle(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
+	evidenceAttachments evidence.TimelineAttachmentContribution,
+) *Bundle {
+	return NewBundleWithProjection(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		NewProjectionBundle(pool),
+		evidenceAttachments,
+	)
+}
+
+func NewBundleWithProjection(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+	projection *ProjectionBundle,
+	evidenceAttachments evidence.TimelineAttachmentContribution,
 ) *Bundle {
 	if appender == nil {
 		panic("compose Timeline bundle: Revisions appender is required")
@@ -77,14 +94,19 @@ func NewBundle(
 	if intents == nil {
 		panic("compose Timeline bundle: Collaboration intent appender is required")
 	}
-	components := compose(pool, appender, intents)
+	if projection == nil {
+		panic("compose Timeline bundle: validated projection bundle is required")
+	}
+	if evidenceAttachments == nil {
+		panic("compose Timeline bundle: Evidence attachment contribution is required")
+	}
+	components := compose(pool, appender, intents, projection, evidenceAttachments)
 	return &Bundle{
 		Facade:                timeline.NewFacade(pool, components.collaborators, conflictTokens),
 		ProjectionSource:      components.projectionSource,
 		MentionEffects:        components.mentionEffects,
 		EntityMentionStore:    components.entityMentionStore,
 		EntityMergeStore:      components.entityMergeStore,
-		EvidenceStore:         components.evidenceStore,
 		ProjectionCatalog:     components.projectionCatalog,
 		ProjectionCoordinator: components.projectionCoordinator,
 		RestoreRebuilder:      components.restoreRebuilder,
@@ -98,6 +120,7 @@ func NewCollaborators(
 	pool postgres.DB,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
+	evidenceAttachments evidence.TimelineAttachmentContribution,
 ) timeline.Collaborators {
 	if appender == nil {
 		panic("compose Timeline collaborators: Revisions appender is required")
@@ -105,50 +128,45 @@ func NewCollaborators(
 	if intents == nil {
 		panic("compose Timeline collaborators: Collaboration intent appender is required")
 	}
-	return compose(pool, appender, intents).collaborators
+	if evidenceAttachments == nil {
+		panic("compose Timeline collaborators: Evidence attachment contribution is required")
+	}
+	return compose(pool, appender, intents, NewProjectionBundle(pool), evidenceAttachments).collaborators
 }
 
 func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
-	return composeProjection(pool).rebuilder
+	return NewProjectionBundle(pool).Rebuilder
 }
 
 func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
-	components := composeProjection(pool)
+	components := NewProjectionBundle(pool)
 	registry, err := workbookrestoreprobe.NewRegistry(
-		components.catalog.Query,
+		components.Catalog.Query,
 		timeline.RestoreWorkbookProbeRegistration(),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("compose restore workbook probe registry: %w", err)
 	}
-	return components.rebuilder, registry, nil
+	return components.Rebuilder, registry, nil
 }
 
 func compose(
 	pool postgres.DB,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
+	projection *ProjectionBundle,
+	evidenceAttachments evidence.TimelineAttachmentContribution,
 ) composition {
-	projection := composeProjection(pool)
 	recordsPort := recordAdapter{
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(pool),
 	}
 	collectionFacts := newCollectionReadAdapter()
 	timelineWriter := timelineProjectionAdapter{
-		timeline: projection.catalog.Timeline,
-		entities: projection.catalog.Entities,
+		timeline: projection.Catalog.Timeline,
+		entities: projection.Catalog.Entities,
 	}
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
-	evidenceStore := evidence.NewStore(
-		pool,
-		evidence.WithRevisionAppender(appender),
-		evidence.WithProjectionPort(evidenceProjectionAdapter{
-			rows:    projection.catalog.Evidence,
-			rebuild: projection.catalog.Rebuild,
-		}),
-		evidence.WithCollaborationIntents(intents),
-	)
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
 			Idempotency: idempotencyAdapter{store: authn.NewStore(pool)},
@@ -160,7 +178,7 @@ func compose(
 			Links:    linkAdapter{store: links.NewStore()},
 			Mentions: mentionAdapter{store: mentions.NewStore(nil, appender)},
 			Entities: entityAdapter{store: hostidentity.NewStore(pool, appender)},
-			Evidence: evidenceAdapter{store: evidenceStore},
+			Evidence: evidenceAdapter{attachments: evidenceAttachments},
 			Facts:    collectionFacts,
 		},
 		Commit: timeline.CommitCollaborators{
@@ -169,7 +187,7 @@ func compose(
 		},
 	}
 	return composition{
-		projectionSource: projection.source,
+		projectionSource: projection.Source,
 		mentionEffects:   mentionEffects,
 		entityMentionStore: mentions.NewStore(
 			pool,
@@ -182,20 +200,19 @@ func compose(
 			appender,
 			merge.WithAssessmentEffects(assessmentassembly.NewMergeEffects(
 				pool,
-				projection.catalog.Catalog,
+				projection.Catalog.Catalog,
 			)),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(intents),
 		),
-		evidenceStore:         evidenceStore,
-		projectionCatalog:     projection.catalog,
-		projectionCoordinator: projection.coordinator,
-		restoreRebuilder:      projection.rebuilder,
+		projectionCatalog:     projection.Catalog,
+		projectionCoordinator: projection.Coordinator,
+		restoreRebuilder:      projection.Rebuilder,
 		collaborators:         collaborators,
 	}
 }
 
-func composeProjection(pool postgres.DB) projectionComposition {
+func NewProjectionBundle(pool postgres.DB) *ProjectionBundle {
 	recordsPort := recordAdapter{
 		store:   records.NewStore(),
 		targets: records.NewRouteTargetResolver(pool),
@@ -206,12 +223,23 @@ func composeProjection(pool postgres.DB) projectionComposition {
 	if err != nil {
 		panic(fmt.Sprintf("compose projection catalog: %v", err))
 	}
-	return projectionComposition{
-		source:      source,
-		catalog:     catalog,
-		coordinator: catalog.Coordinator,
-		rebuilder:   catalog.Rebuild.RestoreRebuilder(),
+	return &ProjectionBundle{
+		Source:      source,
+		Catalog:     catalog,
+		Coordinator: catalog.Coordinator,
+		Rebuilder:   catalog.Rebuild.RestoreRebuilder(),
 	}
+}
+
+func (bundle *ProjectionBundle) EvidenceProjectionPort() evidence.ProjectionPort {
+	return EvidenceProjectionPortFor(bundle.Catalog)
+}
+
+func EvidenceProjectionPortFor(catalog *projectionassembly.Bundle) evidence.ProjectionPort {
+	if catalog == nil {
+		panic("compose Evidence projection port: projection catalog is required")
+	}
+	return evidenceProjectionAdapter{rows: catalog.Evidence, rebuild: catalog.Rebuild}
 }
 
 type timelineProjectionAdapter struct {
@@ -514,11 +542,11 @@ func (a entityAdapter) ValidateResolvedTargetTx(ctx context.Context, tx pgx.Tx, 
 }
 
 type evidenceAdapter struct {
-	store *evidence.Store
+	attachments evidence.TimelineAttachmentContribution
 }
 
 func (a evidenceAdapter) ValidateTimelineAttachmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) error {
-	err := a.store.ValidateTimelineAttachmentsTx(ctx, tx, incidentID, recordIDs)
+	err := a.attachments.ValidateTimelineAttachmentsTx(ctx, tx, incidentID, recordIDs)
 	if errors.Is(err, evidence.ErrEvidenceNotFound) {
 		return &links.CollectionValidationError{
 			Field:      "timeline.attached_evidence_ids",

@@ -704,6 +704,30 @@
       "classification": "additive",
       "owner_id": "module.assessments",
       "rationale": "Publish the bounded create-only assessment support-reference action envelope."
+    },
+    {
+      "fingerprint": "021de42fe0dc515e72c2e445dead7d522f9f7055f2cf11b84f65ef171694a3e1",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Publish the closed descriptor for source-owner create-only inputs adopted by Core 01."
+    },
+    {
+      "fingerprint": "1fac88355a9251c301f6004ab4341592b5c5196603a8d5f8c91942b948c9e2f1",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Add the discoverable create-input collection to every view-schema resource."
+    },
+    {
+      "fingerprint": "c4a8a58076ebe1c4d818afc6a138211271af0e8c6af1e224d5bef49087eb6275",
+      "classification": "breaking",
+      "owner_id": "platform.viewschema",
+      "rationale": "Require every view-schema resource to declare create_inputs so omission cannot create an ambiguous discovery contract."
+    },
+    {
+      "fingerprint": "cf618eb5b98611a8790b65085b74926fd44520b25e1d577582aea01cdf61cfd6",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Allow Evidence's generic row-create request to carry its optional opaque initial object-blob identifier."
     }
   ]
 }

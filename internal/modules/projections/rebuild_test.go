@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -69,6 +70,7 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 		conflicttest.NewCodec("timeline"),
 		revisionComposition.Runtime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(harness.DB),
 	).ProjectionSource
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
@@ -152,6 +154,7 @@ func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *t
 		conflicttest.NewCodec("timeline"),
 		revisionComposition.Runtime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(harness.DB),
 	).ProjectionCatalog.AssessmentSource
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
@@ -209,6 +212,7 @@ func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 			conflicttest.NewCodec("timeline"),
 			revisionComposition.Runtime.Appender(),
 			revisionComposition.Intents,
+			evidence.NewTimelineAttachmentContribution(failingDB),
 		).ProjectionCatalog.Catalog,
 	)
 	result, err := rebuilder.RebuildRestoreProjections(context.Background(), validProjectionRebuildRequest())
@@ -243,6 +247,7 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 			conflicttest.NewCodec("timeline"),
 			revisionComposition.Runtime.Appender(),
 			revisionComposition.Intents,
+			evidence.NewTimelineAttachmentContribution(harness.DB),
 		).ProjectionCatalog.Catalog,
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)

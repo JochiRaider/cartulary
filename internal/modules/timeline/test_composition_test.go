@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -21,5 +22,6 @@ func newTestTimelineBundle(
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(pool),
 	)
 }

@@ -22,6 +22,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -267,6 +268,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 		conflicttest.NewCodec("timeline"),
 		revisionComposition.Runtime.Appender(),
 		revisionComposition.Intents,
+		evidence.NewTimelineAttachmentContribution(harness.DB),
 	).Facade
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {

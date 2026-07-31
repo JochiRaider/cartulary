@@ -1,0 +1,133 @@
+package evidence
+
+import (
+	"context"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"net/url"
+	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+)
+
+type uploadCapabilityService struct {
+	keys authn.MasterKeys
+}
+
+func (service uploadCapabilityService) createTarget(
+	claims objectUploadTokenClaims,
+) (objectstore.UploadTarget, error) {
+	token, err := encodeObjectUploadToken(service.keys, claims)
+	if err != nil {
+		return objectstore.UploadTarget{}, err
+	}
+	return objectstore.UploadTarget{
+		Href:    "/api/v1/object-uploads/" + url.PathEscape(token),
+		Method:  "PUT",
+		Headers: map[string]string{},
+	}, nil
+}
+
+// routeObjectStoreAdapter contains the transport-to-platform object-store
+// adaptation. It owns no Evidence database state or authorization decisions.
+type routeObjectStoreAdapter struct {
+	store objectstore.Store
+}
+
+func (adapter routeObjectStoreAdapter) observeUploadedObject(
+	ctx context.Context,
+	blob BlobRecord,
+) (*ObservedObject, error) {
+	if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+		return nil, err
+	}
+	stat, err := adapter.head(ctx, blob.StorageKey, objectstore.PurposeProductUpload)
+	if err != nil {
+		return nil, err
+	}
+	object, _, err := adapter.get(ctx, blob.StorageKey, objectstore.ReadOptions{}, objectstore.PurposeProductRead)
+	if err != nil {
+		return nil, err
+	}
+	defer object.Close()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, object); err != nil {
+		return nil, err
+	}
+	contentType := strings.TrimSpace(stat.ContentType)
+	if contentType == "" {
+		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
+	}
+	return &ObservedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
+}
+
+func (adapter routeObjectStoreAdapter) verifyEvidenceObjectAvailable(
+	ctx context.Context,
+	access EvidenceAccessRecord,
+) (string, *httpapi.APIError) {
+	if access.StorageKey == nil || access.ObjectBlobID == nil {
+		return "evidence_inconsistent", nil
+	}
+	if err := validatePersistedObjectBlobStorageKey(*access.StorageKey, access.IncidentID, *access.ObjectBlobID); err != nil {
+		return "", objectStoreDependencyAPIError(err)
+	}
+	if _, err := adapter.head(ctx, *access.StorageKey, objectstore.PurposeProductRead); err != nil {
+		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
+			return "", apiErr
+		}
+		return "blob_missing", nil
+	}
+	return "", nil
+}
+
+func (adapter routeObjectStoreAdapter) put(
+	ctx context.Context,
+	key string,
+	body io.Reader,
+	size int64,
+	contentType string,
+	purpose objectstore.Purpose,
+) error {
+	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
+		_, err := typed.Put(ctx, objectstore.PutObjectRequest{
+			Key:         key,
+			Body:        body,
+			Size:        size,
+			ContentType: contentType,
+			Purpose:     purpose,
+		})
+		return err
+	}
+	return adapter.store.PutObject(ctx, key, body, size, contentType)
+}
+
+func (adapter routeObjectStoreAdapter) head(
+	ctx context.Context,
+	key string,
+	purpose objectstore.Purpose,
+) (objectstore.ObjectInfo, error) {
+	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
+		return typed.Head(ctx, objectstore.HeadObjectRequest{Key: key, Purpose: purpose})
+	}
+	return adapter.store.StatObject(ctx, key)
+}
+
+func (adapter routeObjectStoreAdapter) get(
+	ctx context.Context,
+	key string,
+	options objectstore.ReadOptions,
+	purpose objectstore.Purpose,
+) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
+		return typed.Get(ctx, objectstore.GetObjectRequest{
+			Key:        key,
+			RangeStart: options.RangeStart,
+			RangeEnd:   options.RangeEnd,
+			Purpose:    purpose,
+		})
+	}
+	return adapter.store.ReadObject(ctx, key, options)
+}
