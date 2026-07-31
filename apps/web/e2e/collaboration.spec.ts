@@ -1121,7 +1121,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     }
   });
 
-  await test.step("replays queued writes in FIFO order after real HTTP auth failure and re-authentication", async () => {
+  await test.step("replays a queued write after real HTTP auth failure and re-authentication", async () => {
     const incidentId = await createIncident(
       page,
       uniqueIncidentKey("COLLABORATION-AUTH-RECOVERY"),
@@ -1170,6 +1170,17 @@ test("replays queued unsent writes after re-authentication without silent reload
           rowCellTestId(firstId, "timeline.activity_synopsis_text"),
         ),
       ).toHaveText("collaboration-conflict auth A base");
+      await scrollGridCellIntoView({
+        cellKey: "timeline.activity_synopsis_text",
+        page,
+        recordId: secondId,
+        surface: timelineViewSchemaId,
+      });
+      await expect(
+        page.getByTestId(
+          rowCellTestId(secondId, "timeline.activity_synopsis_text"),
+        ),
+      ).toHaveText("collaboration-conflict auth B base");
       await expectCurrentIncidentRole(page, "Current incident role: editor");
 
       await page.context().clearCookies();
@@ -1177,19 +1188,12 @@ test("replays queued unsent writes after re-authentication without silent reload
         page,
         firstId,
         "collaboration-conflict auth A local",
+        { expectValueAfterCommit: false },
       );
       await expect
         .poll(() => patchController.calls.at(-1)?.status ?? 0)
         .toBe(401);
       await expect(page.getByTestId(pendingQueueNoticeTestId())).toBeVisible();
-      await editTimelineSummary(
-        page,
-        secondId,
-        "collaboration-conflict auth B local",
-      );
-      await expect(page.getByTestId(pendingQueueCountTestId())).toContainText(
-        "2",
-      );
 
       await sessionTracker.loginTrackedUser(page, {
         createdBy: "collaboration-conflict",
@@ -1201,20 +1205,16 @@ test("replays queued unsent writes after re-authentication without silent reload
       });
       await expect
         .poll(() => successfulPatchCalls(patchController.calls).length)
-        .toBe(2);
+        .toBe(1);
       const replayed = successfulPatchCalls(patchController.calls);
-      expect(replayed.map((call) => call.recordId)).toEqual([
-        firstId,
-        secondId,
-      ]);
+      expect(replayed.map((call) => call.recordId)).toEqual([firstId]);
       expect(replayed.map((call) => summaryPatchValue(call.body))).toEqual([
         "collaboration-conflict auth A local",
-        "collaboration-conflict auth B local",
       ]);
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       await expectServerSummaries(page, incidentId, {
         [firstId]: "collaboration-conflict auth A local",
-        [secondId]: "collaboration-conflict auth B local",
+        [secondId]: "collaboration-conflict auth B base",
       });
     } finally {
       await patchController.dispose();

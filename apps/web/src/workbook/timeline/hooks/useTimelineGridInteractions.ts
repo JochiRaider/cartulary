@@ -1,7 +1,9 @@
 import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
 import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import { useCallback, useState } from "react";
-import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
+import { useWorkbookGridContinuity } from "../../continuity/useWorkbookGridContinuity";
+import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 type TimelineMutableRef<T> = {
@@ -19,16 +21,16 @@ export type TimelineGridInteractionRefs = {
     readonly GridColumn<WorkbookRow>[]
   >;
   readonly viewportContinuityTokenRef: TimelineMutableRef<number>;
-  readonly workbookFocusAnchorRef: TimelineMutableRef<WorkbookFocusAnchor | null>;
+  readonly workbookFocusAnchorRef: TimelineMutableRef<WorkbookContinuityAnchor | null>;
 };
 
 export function useTimelineGridInteractions<TViewportContinuityRequest>({
+  continuityResetKey,
   refs,
 }: {
+  readonly continuityResetKey: string;
   readonly refs: TimelineGridInteractionRefs;
 }) {
-  const [workbookFocusAnchor, setWorkbookFocusAnchor] =
-    useState<WorkbookFocusAnchor | null>(null);
   const {
     gridShellRef,
     gridHandleRef,
@@ -40,13 +42,23 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
   } = refs;
   const [viewportContinuityRequest, setViewportContinuityRequest] =
     useState<TViewportContinuityRequest | null>(null);
+  const continuity = useWorkbookGridContinuity({
+    columns: timelineAnchorColumnsRef.current,
+    continuityResetKey,
+    gridHandleRef,
+    selectionRef: workbookFocusAnchorRef,
+    viewSchemaId: timelineViewSchemaId,
+  });
 
   const updateWorkbookFocusAnchor = useCallback(
-    (anchor: WorkbookFocusAnchor | null) => {
-      workbookFocusAnchorRef.current = anchor;
-      setWorkbookFocusAnchor(anchor);
+    (anchor: WorkbookContinuityAnchor | null) => {
+      if (anchor === null) {
+        continuity.port.clear();
+      } else {
+        continuity.port.select(anchor);
+      }
     },
-    [workbookFocusAnchorRef],
+    [continuity.port],
   );
 
   const updateTimelineFocusAnchor = useCallback(
@@ -64,7 +76,6 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
       updateWorkbookFocusAnchor({
         fieldKey,
         recordId,
-        surface,
         viewSchemaId: surface,
       });
     },
@@ -88,7 +99,8 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
     },
     snapshot: {
       viewportContinuityRequest,
-      workbookFocusAnchor,
+      workbookFocusAnchor: continuity.snapshot.anchor,
     },
+    continuityPort: continuity.port,
   };
 }

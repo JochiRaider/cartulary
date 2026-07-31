@@ -6,12 +6,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 import {
   applyFilterDraft,
   defaultFilterDraft,
-  emptyWorkbookQueryState,
   type FilterDraft,
   removeFilterField,
   replaceWorkbookSort,
@@ -29,17 +27,12 @@ import {
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import {
+  useWorkbookQueryState,
+  type WorkbookQueryStateSetter,
+} from "../view-state/useWorkbookQueryState";
 
-type WorkbookQueryEntry = {
-  readonly filterDraft: FilterDraft;
-  readonly queryState: WorkbookQueryState;
-};
-
-const defaultEntryByViewSchemaId = new Map<string, WorkbookQueryEntry>();
-
-export type WorkbookQueryStateSetter = Dispatch<
-  SetStateAction<WorkbookQueryState>
->;
+export type { WorkbookQueryStateSetter };
 
 export type WorkbookActiveQueryControls = {
   readonly contract: ViewContract;
@@ -53,31 +46,6 @@ export type WorkbookActiveQueryControls = {
   readonly queryState: WorkbookQueryState;
   readonly surface: WorkbookSurface;
 };
-
-function newQueryEntry(viewSchemaId: string): WorkbookQueryEntry {
-  return {
-    filterDraft: defaultFilterDraft(
-      workbookContractForViewSchemaId(viewSchemaId),
-    ),
-    queryState: emptyWorkbookQueryState(),
-  };
-}
-
-function defaultQueryEntry(viewSchemaId: string): WorkbookQueryEntry {
-  const existing = defaultEntryByViewSchemaId.get(viewSchemaId);
-  if (existing !== undefined) {
-    return existing;
-  }
-  const created = newQueryEntry(viewSchemaId);
-  defaultEntryByViewSchemaId.set(viewSchemaId, created);
-  return created;
-}
-
-function resolveStateAction<T>(current: T, action: SetStateAction<T>): T {
-  return typeof action === "function"
-    ? (action as (current: T) => T)(current)
-    : action;
-}
 
 function clearAppliedFilterDraft(current: FilterDraft): FilterDraft {
   return {
@@ -94,56 +62,30 @@ export function useWorkbookQueryController({
   readonly startupSheetRef: WorkbookSheetRef;
   readonly surface: string;
 }) {
-  const [entries, setEntries] = useState<
-    Readonly<Record<string, WorkbookQueryEntry>>
-  >(() => ({}));
-
-  const entryFor = useCallback(
-    (viewSchemaId: string) =>
-      entries[viewSchemaId] ?? defaultQueryEntry(viewSchemaId),
-    [entries],
+  const viewSchemaIds = useMemo(
+    () => [
+      assessmentsViewSchemaId,
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+      surface,
+      timelineViewSchemaId,
+    ],
+    [surface],
   );
+  const {
+    entryFor,
+    resetEntry,
+    setFilterDraftForSurface,
+    setQueryStateForSurface,
+    updateEntry,
+  } = useWorkbookQueryState(viewSchemaIds);
 
-  const updateEntry = useCallback(
-    (
-      viewSchemaId: string,
-      update: (current: WorkbookQueryEntry) => WorkbookQueryEntry,
-    ) => {
-      setEntries((current) => {
-        const previous =
-          current[viewSchemaId] ?? defaultQueryEntry(viewSchemaId);
-        return { ...current, [viewSchemaId]: update(previous) };
-      });
+  const resetSurfaceQuery = useCallback(
+    (viewSchemaId: string) => {
+      resetEntry(viewSchemaId);
     },
-    [],
+    [resetEntry],
   );
-
-  const setQueryStateForSurface = useCallback(
-    (viewSchemaId: string, action: SetStateAction<WorkbookQueryState>) => {
-      updateEntry(viewSchemaId, (current) => ({
-        ...current,
-        queryState: resolveStateAction(current.queryState, action),
-      }));
-    },
-    [updateEntry],
-  );
-
-  const setFilterDraftForSurface = useCallback(
-    (viewSchemaId: string, action: SetStateAction<FilterDraft>) => {
-      updateEntry(viewSchemaId, (current) => ({
-        ...current,
-        filterDraft: resolveStateAction(current.filterDraft, action),
-      }));
-    },
-    [updateEntry],
-  );
-
-  const resetSurfaceQuery = useCallback((viewSchemaId: string) => {
-    setEntries((current) => ({
-      ...current,
-      [viewSchemaId]: newQueryEntry(viewSchemaId),
-    }));
-  }, []);
 
   const applyQueryStateForSurface = useCallback(
     (viewSchemaId: string, queryState: WorkbookQueryState) => {

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookMutationRuntime } from "./WorkbookMutationRuntime";
 
+const transactionIds = {
+  create: (prefix: string) => `${prefix}-txn`,
+};
+
 function successResponse(recordId: string, rowVersion: number): Response {
   return new Response(
     JSON.stringify({
@@ -22,6 +26,41 @@ afterEach(() => {
 });
 
 describe("WorkbookMutationRuntime", () => {
+  it("keeps secure transaction identity failure local without queue admission", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const runtime = new WorkbookMutationRuntime(
+      {
+        clientInstanceId: "client-1",
+        incidentId: "incident-1",
+      },
+      {
+        create: () => {
+          throw new Error("randomness unavailable");
+        },
+      },
+    );
+
+    expect(
+      runtime.enqueuePatch({
+        baseRowVersion: 1,
+        changes: [{ field_key: "task.title", value: "Local title" }],
+        fieldKey: "task.title",
+        localValue: "Local title",
+        recordId: "task-1",
+        rowLabel: "Task 1",
+        surfaceLabel: "Tasks",
+        viewSchemaId: "cartulary.view.tasks.v1",
+      }),
+    ).toEqual({
+      kind: "rejected_mutation",
+      message:
+        "This edit remains local because a secure transaction ID could not be created.",
+    });
+    expect(runtime.pending().model.snapshot().units).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("retains queued drafts and refresh debt across surface unmounts", async () => {
     const releaseRequest: { current: (() => void) | null } = {
       current: null,
@@ -36,10 +75,13 @@ describe("WorkbookMutationRuntime", () => {
           }),
       ),
     );
-    const runtime = new WorkbookMutationRuntime({
-      clientInstanceId: "client-1",
-      incidentId: "incident-1",
-    });
+    const runtime = new WorkbookMutationRuntime(
+      {
+        clientInstanceId: "client-1",
+        incidentId: "incident-1",
+      },
+      transactionIds,
+    );
     const firstRefresh = vi.fn();
     const unregister = runtime.registerSurface(
       "cartulary.view.tasks.v1",
@@ -90,10 +132,13 @@ describe("WorkbookMutationRuntime", () => {
         }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const runtime = new WorkbookMutationRuntime({
-      clientInstanceId: "client-1",
-      incidentId: "incident-1",
-    });
+    const runtime = new WorkbookMutationRuntime(
+      {
+        clientInstanceId: "client-1",
+        incidentId: "incident-1",
+      },
+      transactionIds,
+    );
     runtime.enqueuePatch({
       baseRowVersion: 1,
       changes: [{ field_key: "task.title", value: "First" }],

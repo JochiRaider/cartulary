@@ -37,6 +37,7 @@ import { AuthGateway } from "./AuthGateway";
 import {
   type AccountPreferencesResource,
   type CredentialState,
+  createAppAuthorizationRecoveryPort,
   type ExtensionProfileResource,
   loadAccountPreferences,
   loadCredentialState,
@@ -220,6 +221,13 @@ function incidentCreateOptionalBody(fields: {
 export function App({ readingProfile = "default", themeId }: AppProps = {}) {
   const { commitRoute, route, routeRef } = useAppRouteRuntime();
   const [session, setSession] = useState<SessionData | null>(null);
+  const workbookAuthorizationRecovery = useMemo(
+    () =>
+      createAppAuthorizationRecoveryPort({
+        onSessionRecovered: setSession,
+      }),
+    [],
+  );
   const [, setCredentialState] = useState<CredentialState | null>(null);
   const [accountPreferences, setAccountPreferences] =
     useState<AccountPreferencesResource | null>(null);
@@ -1214,6 +1222,7 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
             }
           >
             <LazyWorkbookShell
+              authorizationRecovery={workbookAuthorizationRecovery}
               account={currentWorkbookAccount}
               accountDensityMode={accountPreferences?.density_mode ?? null}
               accountApplicationMenu={({

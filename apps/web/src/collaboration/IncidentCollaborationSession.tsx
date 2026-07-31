@@ -12,18 +12,10 @@ import {
   useRef,
   useState,
 } from "react";
-
-export type CollaborationSheetRef =
-  | { readonly kind: "view_schema"; readonly id: string }
-  | { readonly kind: "saved_view"; readonly id: string }
-  | {
-      readonly kind: "extension_workspace";
-      readonly extension_profile_id: string;
-      readonly workspace_key: string;
-    };
+import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 
 export type CollaborationPresence = {
-  readonly sheet_ref: CollaborationSheetRef;
+  readonly sheet_ref: WorkbookSheetRef;
   readonly mode: "viewing" | "editing" | "idle";
   readonly record_id?: string;
   readonly field_key?: string;

@@ -23,6 +23,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import { fetchJSON } from "../services/browserApi";
 import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
@@ -33,12 +35,27 @@ import {
   buildAssessmentCreatePayload,
   confidenceScoreFromBand,
 } from "./models/assessmentWorkbookModel";
-import { WorkbookShell } from "./WorkbookShell";
+import { WorkbookShell as WorkbookShellImpl } from "./WorkbookShell";
 
 vi.mock(
   "@cartulary/grid-adapter",
   async () => import("@cartulary/grid-adapter/test-support"),
 );
+
+const authorizationRecovery = createAppAuthorizationRecoveryPort({
+  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
+});
+
+function WorkbookShell(
+  props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
+) {
+  return (
+    <WorkbookShellImpl
+      {...props}
+      authorizationRecovery={authorizationRecovery}
+    />
+  );
+}
 
 const assessmentsViewSchemaId = "cartulary.view.assessments.v1";
 const hostsViewSchemaId = "cartulary.view.hosts.v1";

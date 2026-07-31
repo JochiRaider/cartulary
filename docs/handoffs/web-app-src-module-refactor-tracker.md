@@ -1,6 +1,1173 @@
-# web-app-src Module Refactoring Tracker and Handoff
+# Web Workbook Application-Composition Modular-Refactor Tracker
 
-## 1. Scope and Source Posture
+## 1. Session, Authority, and Scope
+
+### 1.1 Session header
+
+| Field | Value |
+| --- | --- |
+| Planning discovery date/time | `2026-07-30T21:55:10-04:00` |
+| Tracker implementation date/time | `2026-07-30T22:18:40-04:00` |
+| Branch | `main` |
+| Discovery commit | `e2b57a73bf7388a35404fa9b74f73c317d3e2cd8` |
+| Implementation-session commit | `680d35d30ae1eb090fb9a4ff2768b1b5b407a09c` |
+| Baseline change explanation | The repository advanced after discovery through an unrelated committed UI-contracts tracker. No `apps/web/src` path changed between the two commits. |
+| Dirty-tree state at discovery | Clean |
+| Dirty-tree state before the original staged tracker edit | Clean |
+| Dirty-tree state before this closure-contract revision | Only `docs/handoffs/web-app-src-module-refactor-tracker.md` was staged; that user-owned index state was preserved. |
+| Actual tracker path | `docs/handoffs/web-app-src-module-refactor-tracker.md` |
+| Requested alternative path | `docs/handoffs/web-workbook-modular-refactor-tracker.md` was not created because this canonical tracker already covers substantially the same source boundary. |
+| Controlling framework | `docs/handoffs/cartulary_modular_refactor_planning_framework.md` |
+| Full task instructions | `temp/planner-prompt.md` |
+| Closure-analysis input | `temp/analysis-notes.md` |
+| NLSpec writing model | `docs/research/nlspec-spec.md` |
+| Primary target | The workbook application-composition boundary inside `apps/web/src`. |
+| Implementation-edit permission | `tracker only` |
+| Source limitations | Static source archaeology, existing repository evidence, closure analysis, and corroborative research only. No refactor was implemented and no browser session was run. R01-R09 and external guidance corroborate decisions but create no Cartulary requirement. |
+| Pre-existing handoff | The completed 2026-07-28 remediation record is retained in Appendix H as historical evidence, not current completion evidence. |
+
+Bootstrap and discovery commands:
+
+```text
+date --iso-8601=seconds
+git branch --show-current
+git rev-parse HEAD
+git status --short --untracked-files=all
+git log --oneline --decorate -6
+git diff --name-status e2b57a73bf7388a35404fa9b74f73c317d3e2cd8..HEAD -- apps/web/src
+rg --files -g AGENTS.md
+rg --files apps/web/src | sort
+rg --files apps/web/src | wc -l
+rg --files apps/web/src -g '*.ts' -g '*.tsx'
+rg -n '<symbols, route names, contract IDs, event names, state keys, and package imports>' apps/web/src apps/web/e2e packages tools contracts
+make task-guide ROLE=module-author OWNER=web.workbook
+make task-guide ROLE=module-author OWNER=module.workbook
+make task-guide ROLE=module-author OWNER=web.architecture
+make explain-target TARGET=frontend-import-boundary-check DETAIL=summary
+make explain-target TARGET=frontend-typecheck DETAIL=summary
+make explain-target TARGET=build-web DETAIL=summary
+make frontend-import-boundary-check
+make frontend-typecheck
+```
+
+### 1.2 Authority posture
+
+Authority is applied in this order:
+
+1. adopted subsystem NLSpecs inside their named scope;
+2. Core 00 through Core 04 for current conformance behavior;
+3. Core 05 only for claim-bearing timed or fixture-sensitive publication;
+4. `docs/domain.md`, `docs/design.md`, frontend guides, developer guides, and harness guidance;
+5. current code and tests;
+6. prior trackers and research as evidence only.
+
+This tracker is a prescriptive implementation contract for the planned
+refactor. Subject to the authority order above, an authorized implementation
+MUST satisfy its interfaces, ordering rules, state partitions, lifecycle
+rules, stop rules, and binary completion criteria. This tracker MUST NOT
+create, amend, or override product behavior. If this tracker and an adopted
+owner conflict, the owner prevails and source movement MUST stop.
+
+The requirement terms have the following meanings:
+
+- **MUST** and **MUST NOT** identify requirements for a conforming refactor.
+- **SHOULD** identifies the expected implementation choice; a deviation
+  requires recorded evidence that the choice cannot satisfy an adopted owner.
+- **MAY** identifies an intentionally optional implementation choice whose
+  alternatives do not change observable behavior.
+
+Risk state is closed and exhaustive:
+
+| State | Meaning |
+| --- | --- |
+| `CLEAR` | No active implementation blocker exists. |
+| `CONDITIONALLY_CLOSED` | The closure contract is complete, but every named implementation-evidence criterion has not yet passed. |
+| `CLOSED` | Every named binary closure criterion has passed. |
+| `BLOCKED: <reason>` | Source movement MUST stop until the named reason is resolved by the required authority or evidence. |
+
+The controlling clauses include Core 03 REQ-03-027 through REQ-03-032 for
+startup identity and fallback, REQ-03-013 and REQ-03-291 through REQ-03-292 for
+saved-view and inspector-local state, REQ-03-086 through REQ-03-100 and
+REQ-03-275 for stable addressing, collaboration, query continuation, pending
+work, and replay, REQ-03-286 and REQ-03-289 for geometry and density, and
+REQ-03-301 through REQ-03-303 for transaction identity and extension
+availability. Core 01 owns the public HTTP, WebSocket, `sheet_ref`, view
+contract, and generated-contract surfaces. Core 04 owns authorization and
+security outcomes. Core 05 is not applicable because this tracker publishes no
+claim-bearing result.
+
+No owner contradiction was found. A later contradiction has the exact
+disposition `BLOCKED: owner contradiction`; an implementation session must not
+choose an interpretation silently.
+
+### 1.3 Scope and non-goals
+
+The target includes workbook entry and teardown, shell composition, active
+surface identity, query and layout state, saved-view application, query
+execution, mutations, pending replay, conflicts, collaboration, inspector
+coordination, evidence interaction, selection/focus/viewport continuity,
+extension-workspace integration, and direct package/contract seams.
+
+Adjacent packages, OpenAPI inputs, generated contracts, E2E support, and
+harness catalogs are evidence only unless a listed slice demonstrates an
+import cycle, vendor leak, wire parsing leak, missing seam, validation
+constraint, lifecycle/security hazard, or inseparable dependency. No backend
+refactor is planned.
+
+Explicit exclusions:
+
+- no implementation in this session;
+- no HTTP, WebSocket, source-record, projection, saved-view, authorization,
+  extension-claim, or persistence behavior change;
+- no custom sheets, new built-in/system surfaces, grid replacement, UI
+  redesign, or incidental styling change;
+- no keyboard, paste, row-creation, selection, focus, viewport, inspector,
+  conflict, or pending-queue behavior change;
+- no hand-edited generated artifact, microservice, phase-shaped production
+  module, or unrelated defect repair.
+
+Known UI defects may be recorded only as separately authorized behavior-change
+candidates. They cannot be hidden in the structural slices below.
+
+## 2. Current Repository and Ownership Inventory
+
+### 2.1 Exact-path reconciliation
+
+| Population | Count | Evidence and disposition |
+| --- | ---: | --- |
+| Live `apps/web/src` paths | 297 | `rg --files apps/web/src`; exact rows are retained and rebaselined in Appendix H.2. |
+| Runtime `.ts`/`.tsx` paths outside `testing/` | 194 | Production ownership groups in Section 2.2. |
+| Colocated `.test.ts`/`.test.tsx` paths | 93 | Existing evidence is summarized in Section 9 and remains exact in Appendix H.2. |
+| Non-test files under `apps/web/src/testing` | 9 | Test-support ownership in Section 2.2 and Appendix H.2. |
+| Source ownership README | 1 | Documentation-only path. |
+| Legacy tracker rows | 293 | Missing five live paths and retaining one deleted path. |
+| `apps/web/src/README.md` rows | 293 | Missing the same five live paths and retaining the same deleted path. |
+
+The five omitted live paths are:
+
+- `apps/web/src/services/importTargetContractAdapter.test.ts`;
+- `apps/web/src/services/importTargetContractAdapter.ts`;
+- `apps/web/src/workbook/components/WorkbookRecordCandidatePicker.tsx`;
+- `apps/web/src/workbook/features/ImportAssistantFeature.test.tsx`;
+- `apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts`.
+
+The stale path is
+`apps/web/src/workbook/hooks/useAssessmentSupportRows.ts`. This tracker
+replaces that exact ledger row with the current candidate hook and adds the
+other four rows, producing 297 exact current paths. The source README is not
+repaired because the user authorized only this tracker.
+
+### 2.2 Semantic production ownership
+
+The exact-path ledger in Appendix H.2 supplies per-file callers, imports, test
+touchpoints, and contract/package surfaces. The table below adds the required
+state, side-effect, visibility, and target-ownership decisions. Patterns are
+mutually exclusive within this table; tests remain owned by the behavior they
+characterize rather than becoming runtime modules.
+
+| Path | Current responsibility | Current callers | Current dependencies | Side effects owned | State owned | Proposed target owner | Public/private | Contract surfaces touched | Risk | Existing test evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `apps/web/src/README.md` | Local source ownership map | Maintainers | Repository paths | None | None | `/apps/web` implementation-support documentation | Private documentation | None | medium because it is stale | Inventory reconciliation in this tracker |
+| `apps/web/src/main.tsx` | Vite mount shim | Browser entry | React, `AppRoot` | DOM root mount | None | `/apps/web` application entry | Public browser entry | Asset/bootstrap contract | low | App integration tests |
+| `apps/web/src/app/**` excluding tests | Auth gateway, routes, landing/admin composition, incident entry | `main.tsx`, app tests | Services, UI contracts, Workbook shell | Route/history, auth/account/admin HTTP | App route, account/session presentation | `/apps/web` application facade | Public facade with private panels | HTTP, selectors, route state | high | `App.*`, panel, route, and E2E suites |
+| `apps/web/src/collaboration/IncidentCollaborationSession.tsx` | Incident WebSocket transport/session facade | Workbook and Network Flow reconciliation | Protocol facade, React, browser WebSocket/session storage | Socket connect/resume/reconnect, presence publication, session storage | Connection, replay high-water, client instance | Browser collaboration transport | Public app-local facade | WebSocket v1, presence, session lifecycle | high | `IncidentCollaborationSession.test.tsx`, collaboration E2E |
+| `apps/web/src/extensions/**` excluding tests | Discovery/support/availability admission and workspace identity | Workbook shell and extension features | Generated extension adapter, Web Crypto | Availability generation, invalidation | Incident/client availability epoch and cache | Extension availability owner | Public app-local facade | Extension discovery and workspace identity | high | `extensionAvailability.test.ts`, extension E2E |
+| `apps/web/src/imports/importCoordinator.ts` | Import workflow choreography | Import Assistant, Network Flow | Import adapters, availability | Import HTTP and job polling | Workflow-local session/unit state | Imports frontend owner | Public app-local facade | Import/job HTTP | high | `importCoordinator.test.ts` |
+| `apps/web/src/networkFlow/**` excluding tests | Network Flow extension workspace | Workbook feature facade | Grid/UI facades, services, Imports | Extension HTTP, query/paging, local focus | Extension workspace/query/layout/import state | Network Flow extension frontend | Public only through `Workbook/features/NetworkFlowFeature.tsx` | Extension routes and semantic grid | high but adjacent | Network Flow unit/E2E suites |
+| `apps/web/src/services/browserApi.ts`, `httpTransport.ts`, `workbookApi.ts` | Browser transport primitives and broad HTTP facade | App, Workbook, extensions | Protocol facade, fetch, cookies | HTTP, CSRF header, response decoding | No application state | `/apps/web` transport adapters | Public app-local utility facade | HTTP and public errors | high due fan-in | Service tests and transport policy |
+| `apps/web/src/services/*ContractAdapter.ts` | Generated protocol/registry adapters | Feature and app clients | `@cartulary/protocol-ts` | Artifact read/validation only | Immutable generated projections | `/apps/web` generated-contract adapters | Public app-local adapters | Generated protocol/import/extension contracts | medium | Adapter and policy tests |
+| `apps/web/src/services/clientTransactionId.ts` | Secure transaction identifier generation | Currently re-exported through `browserApi.ts` | Web Crypto | Secure random generation | None | Browser mutation identity adapter | Narrow public facade | `client_txn_id` | high | ID and policy tests |
+| `apps/web/src/services/workbookEvidence.ts` | Evidence transport plus error/access presentation helpers | Workbook evidence bindings | Protocol facade, raw upload target, Workbook view model | Blob slot, upload, attach, handle issue | Retry-local state only | Split: transport stays in services; presentation moves to `workbook/evidence` | Transport facade public; presentation private | Evidence HTTP and object-upload target | high; invalid reverse dependency | Evidence service, shell, and browser tests |
+| `apps/web/src/shared/**` | Public errors, stable sheet references, shell contracts | App, collaboration, Workbook | Pure TypeScript/React types | None | None | Cross-feature semantic contracts | Narrow public app-local facades | `sheet_ref`, public error, shell props | medium | Call-site and collaboration tests |
+| `apps/web/src/testing/**` excluding tests | Reusable Vitest fixtures/support | App and Workbook tests | Production facades and Testing Library | Test-only fetch/DOM setup | Test scenario state | `/apps/web` test support; browser choreography remains in `packages/test-utils` | Test-only | Selectors, fixtures, harness | medium | Self-tests and boundary policy |
+| `apps/web/src/workbook/WorkbookShell.tsx` | Workbook composition root | App | All Workbook facades, collaboration session, extension availability | Session-role load and composition lifecycle | Shell-owned runtime instances and UI composition state | Workbook shell composition facade | Public app-local facade | All frozen Workbook interaction surfaces | very high | Split `WorkbookShell.*` suites and browser rows |
+| `apps/web/src/workbook/components/{WorkbookShellSlots,WorkbookStatusStrip,WorkbookViewBar,WorkbookGridControls,SystemViewSwitcher,ActiveSurfaceSavedViewSelector,IncidentControlsDrawer}.tsx` and styles | Shell presentation | `WorkbookShell.tsx` | UI contracts, view state, React | Focus/menu events only | Local open/draft presentation state | `workbook/shell` and `workbook/layout` | Private presentation | Selectors, density, geometry | medium | Shell, a11y, visual tests |
+| `apps/web/src/workbook/components/WorkbookActiveSurface.tsx` | Active-surface renderer and broad prop bridge | `WorkbookShell.tsx` | Timeline/entity/assessment/generic facades | Delegated | No authoritative state | `workbook/surfaces` composition facade | Public only to shell | Surface registry and interaction contracts | very high | Surface, query, inspector, mutation tests |
+| `apps/web/src/workbook/components/{AssessmentWorkbookSurface,EntityWorkbookSurface,GenericWorkbookSurface,GenericMutationControl,WorkbookRecordCandidatePicker}.tsx` | Surface-owned presentation and mutation dispatch | Active-surface facade | Grid/UI/view contracts, services, Workbook runtime | Query/mutation/action HTTP in current components | Draft, selection, inspector, form state | Respective assessment/entity/generic surface owners | Private behind surface facades | View query/mutation, stable row identity | very high | Assessment, entity, generic, payload, browser suites |
+| `apps/web/src/workbook/components/{WorkbookConflictResolver,WorkbookInspectorFeatureGroups,WorkbookPresenceMarkers}.tsx` | Conflict, inspector, and presence presentation | Shell and surface facades | Runtime models, UI contracts | User commands only | Local presentation state | `workbook/conflicts`, `workbook/inspector`, `workbook/collaboration` | Private presentation | Conflict and presence semantics | high | Collaboration, inspector, history tests |
+| `apps/web/src/workbook/features/**` excluding tests | Lazy extension/import integration plus coordination/evidence bindings | Shell and surface owners | Owner services/runtime ports | Owner-specific HTTP/actions | Feature-local state | Existing feature owners; evidence gains `workbook/evidence` facade | Public only through named feature facade | Import, extension, coordination, Evidence | high | Feature, shell, module-owner, browser tests |
+| `apps/web/src/workbook/hooks/useWorkbookStartupController.ts` | Stable sheet identity, URL writes, preference commands, focus intent | Shell runtime | Startup/saved-view models, services | History and preference HTTP | Active `sheet_ref`, schema, reload/focus token | `workbook/startup` | Narrow public hook facade | Startup/preferences | high | Controller, startup model, surface tests |
+| `apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts` | Composes startup, query, layout, saved views and owns startup admission effect | `WorkbookShell.tsx` | Services, extension availability, models, four controllers | Workbook-startup HTTP and state application | Aggregated controller state | Shell composition plus new `workbook/startup` admission facade | Public only to shell | Startup, saved views, query/layout | very high | Surface, saved-view, query tests |
+| `apps/web/src/workbook/hooks/{useWorkbookQueryController,useWorkbookLayoutController,useWorkbookSavedViewController}.ts` | Per-view query/layout and saved-view lifecycle | Shell runtime | Models, view contracts, services | Saved-view HTTP | Per-view query/layout/saved views | `workbook/view-state` | Narrow public hook facades | Saved views, query/layout | high | Direct controller/model and shell tests |
+| `apps/web/src/workbook/hooks/useWorkbookSurfaceLoaders.ts` | Entity, assessment and generic data loading/reconciliation | `WorkbookShell.tsx` | Services, view contracts, models, collaboration ports | Query HTTP and cancellation | Four row collections and three load lifetimes | Split owner ports under `workbook/query` | Private hooks behind query facade | View query, auth loss, live patch | very high | Surface/assessment/collaboration tests |
+| Remaining `apps/web/src/workbook/hooks/*.ts` | Incident identity, focus, responsive layout, reference and owner helpers | Shell/surfaces | Models, services, React | Focus, query, incident HTTP where named | Hook-local lifecycle state | Named semantic owner from target catalog | Private unless used by shell facade | Incident, focus, responsive contracts | medium-high | Colocated and shell suites |
+| `apps/web/src/workbook/models/**` excluding tests | Pure Workbook schemas, normalization, query/layout/startup/inspector models | Controllers, surfaces, runtime | View/UI contract facades | None | Immutable model values | Matching semantic target module | Private model exports through owner facade | Stable IDs, view contracts, saved views | high | Extensive colocated model tests |
+| `apps/web/src/workbook/policies/**` excluding tests | Pure surface ownership/policy registry | Surface registry and components | Model contracts only | None | Immutable policy data | `workbook/surfaces` policy owner | Narrow public registry | Base/system surface contracts | medium | Ownership policy and registry tests |
+| `apps/web/src/workbook/runtime/**` excluding tests | Mutation, pending/conflict and collaboration reconciliation | Workbook shell and Timeline | Services, collaboration events, pure queue models | Mutation HTTP, timers, auth probe, presence publication | Pending/conflict/committed projections and presence | `workbook/mutations` and `workbook/collaboration` | Narrow runtime facades | Mutation, replay, conflict, WebSocket | very high | Runtime, shell, browser collaboration tests |
+| `apps/web/src/workbook/services/referenceQueryBroker.ts` | Deduplicated reference queries | Assessment/entity/reference hooks | Services, query models, Timeline row type | Query HTTP | Module-level in-flight map | `workbook/query`, instance-scoped | Private behind query port | View query and authorization epoch | high | Broker tests |
+| `apps/web/src/workbook/timeline/**` excluding tests | Timeline surface composition, queries, editing, paste, evidence and pending coordination | Active-surface facade | Grid/UI/view contracts, Workbook runtime, services | Timeline query/mutation/action HTTP | Timeline rows, drafts, focus, inspector, pending projections | Timeline Workbook owner with private submodules | Public only through Timeline facade | Timeline interaction and mutation contracts | very high | Timeline, shell, module, browser, a11y/visual tests |
+| `apps/web/src/workbook/utils/**` excluding tests | Semantic continuity, queue, keyboard, clipboard, presence, formatting, styles | Workbook owners | Grid/UI facades and pure models | Focus and before-unload helpers where named | Pure values except DOM focus helpers | Matching `continuity`, `mutations`, `collaboration`, or `layout` owner | Private; no generic shared bucket | Stable anchors, keyboard, pending semantics | high | Colocated utility and browser tests |
+
+No production path is assigned to a generic global store. State ownership follows
+authority, lifetime, persistence, and invalidation.
+
+## 3. Dependency Map and Findings
+
+### 3.1 Intended direction
+
+```text
+app entry
+  -> WorkbookShell composition
+     -> startup | view-state | query | mutations | collaboration
+        | inspector | evidence | continuity | layout
+        -> app-local transport/generated adapters
+           -> @cartulary/protocol-ts and @cartulary/view-contracts
+     -> surface feature facades
+        -> @cartulary/grid-adapter and @cartulary/ui-contracts
+
+IncidentCollaborationSession
+  -> decoded session events
+     -> workbook/collaboration reconciliation
+        -> narrow active-surface and mutation ports
+```
+
+Direct vendor integration remains exclusively in
+`packages/grid-adapter`. Generated view-contract adaptation remains in
+`packages/view-contracts`; selectors remain in `packages/ui-contracts`; browser
+test choreography remains in `packages/test-utils`.
+
+### 3.2 Current graph evidence
+
+- Static inspection found 203 non-test TypeScript modules in the import graph.
+- High fan-out nodes include `TimelineWorkbook.tsx` (62 local imports),
+  `WorkbookShell.tsx` (35), `EntityWorkbookSurface.tsx` (32),
+  `GenericWorkbookSurface.tsx` (31), and
+  `AssessmentWorkbookSurface.tsx` (27).
+- High fan-in nodes include `services/browserApi.ts` (48 local importers),
+  `workbookSurfaceRegistry.ts` (44), `workbookTimelineModel.ts` (44),
+  `services/workbookApi.ts` (31), and `workbookQuery.ts` (22).
+- Cross-owner pressure is concentrated in `workbook -> services`,
+  `networkFlow -> services`, `app -> services`, and `workbook -> shared`.
+- There is one static strongly connected component:
+  `timelineRowsModel.ts -> workbookTimelineModel.ts -> timelineRowsModel.ts`.
+  The return edge is a re-export and does not create a post-erasure runtime
+  cycle, but it is still a bidirectional model-ownership defect.
+
+The production ownership graph MUST count every row in the following mapping.
+Runtime erasure does not erase compile-time ownership.
+
+| Source construct | Counted as an ownership edge? | Required target |
+| --- | --- | --- |
+| Static value import | Yes | Resolved local or package module |
+| `import type` | Yes | Resolved local or package module |
+| `export { ... } from` | Yes | Re-export source |
+| `export type { ... } from` | Yes | Re-export source |
+| Wildcard re-export | Yes | Re-export source |
+| Static-string dynamic import | Yes | Resolved dynamic module |
+| Package-facade import | Yes | Package facade |
+| Computed dynamic import | Yes when targets are statically enumerable; otherwise the graph check cannot pass | Every enumerable target; the implementation MUST make the dependency accountable or extend the owner-approved scanner. |
+
+For every migrated Workbook owner, the production graph MUST contain no
+strongly connected component larger than one. A facade MAY depend inward on
+its private implementation modules; a private implementation module MUST NOT
+import its own facade. S-02 MUST resolve the existing Timeline component
+through
+`apps/web/src/workbook/timeline/models/workbookRecordFreshness.ts`; it MUST NOT
+introduce a temporary allowlist.
+
+### 3.3 Important dependency edges
+
+| Current edge | Why it exists | Valid now? | Desired direction | Replacement facade/port/event | Regression prevention |
+| --- | --- | --- | --- | --- | --- |
+| `useWorkbookShellRuntime.ts -> services/browserApi.ts, workbookApi.ts` | Startup request and envelope read live inside aggregate composition | No | Shell runtime -> `workbook/startup` facade -> transport | `useWorkbookStartupAdmission` | New exact-file import-boundary rule plus focused startup tests |
+| `useWorkbookShellRuntime.ts -> startup/query/layout/saved-view internals` | It composes four controllers and applies startup state across them | Transitional | Shell -> narrow owner facades | Startup selection and saved-view state ports | Port-level tests and no peer-internal imports |
+| `timelineRowsModel.ts <-> workbookTimelineModel.ts` | Grid-row builder needs `WorkbookRow`; broad model re-exports freshness | No | Both -> dedicated pure freshness model | `timeline/models/workbookRecordFreshness.ts` | Import-cycle/static boundary check |
+| `services/workbookEvidence.ts -> workbook/models/evidenceLifecycleViewModel.ts` | Transport helper also formats access presentation | No | Workbook Evidence -> service transport; never service -> Workbook | Evidence transport result plus Workbook presentation mapper | Service import rule and Evidence tests |
+| `useWorkbookQueryController.ts -> defaultEntryByViewSchemaId` module map | Memoizes default state across hook calls | No | Workbook instance owns defaults | Instance initializer/private reducer | Two-shell isolation characterization |
+| Callers -> singleton `referenceQueryBroker` | Deduplicates reference view requests | Transitional | Workbook/query runtime owns broker lifetime | Constructed `ReferenceQueryBroker` port keyed by incident/auth epoch | Teardown/auth-loss tests and no exported singleton |
+| `IncidentCollaborationSession.tsx` duplicates `WorkbookSheetRef` | Transport defined a structurally identical local type | No | Collaboration consumes shared semantic identity | `shared/workbookSheetRef.ts` | Type/import policy |
+| `WorkbookCollaborationProjection.ts -> /auth/session` | Re-auth recovery is embedded in reconciliation | No | App authorization recovery -> collaboration command port | `AuthorizationRecoveryPort` | Runtime tests with injected fake; transport import restriction |
+| Surface components -> `browserApi.ts` and inline request objects | Components submit creates, patches, merges, party actions | Transitional | Presentation -> owner command -> transport adapter | Per-owner mutation command ports | Payload characterization and component import rules |
+| Workbook features -> grid adapter | Components render semantic rows/cells | Yes | Workbook -> `@cartulary/grid-adapter` facade | Existing semantic grid API | Existing vendor boundary |
+| Workbook -> `@cartulary/protocol-ts` | Generated messages/resources are needed | Valid only in adapters/session | UI -> app adapter -> generated facade | Existing services/collaboration layers | Existing protocol-facade boundary |
+| Shell -> Network Flow implementation | Lazy extension workspace composition | Valid only through feature facade | Shell -> `NetworkFlowFeature` -> extension owner | Existing feature facade | Existing Network Flow import rule |
+
+No direct `react-data-grid` import exists under `apps/web/src`. No current route,
+surface, collaboration, or inspector identity was found to depend on visible
+labels or row positions.
+
+## 4. State-Ownership Matrix
+
+| State class | Current owner | Authoritative source | Lifetime | Persistence | Writers | Readers | Reset/invalidation triggers | Current problems | Target owner |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Authenticated session | `AuthGateway`, app client, collaboration session | Server session | Browser session | Cookie/server | Auth routes | App, shell, transport | Expiry, revoke-all, password/TOTP changes | Recovery signals span app and collaboration | App authorization/session owner |
+| Current incident and role | `App`, `WorkbookShell`, `useWorkbookIncidentIdentity` | Incident/session HTTP | Incident route | Server | App and identity loader | Shell and features | Route change, access loss, closure | Role/session request remains in shell | App incident context port |
+| Active `sheet_ref` | `useWorkbookStartupController` | Startup response or user selection | Workbook mount | URL plus optional server preferences | Startup controller, saved-view/surface commands | Shell, collaboration, menus | Surface/saved-view/extension switch | Coupled to URL, focus, query/layout application | `workbook/view-state` |
+| Active `view_schema_id` | Startup controller `surface` | Selected base/saved surface | Workbook mount | URL for base surface | Startup/surface commands | Query, layout, active renderer | Surface switch, fallback, access loss | Separate but coordinated manually with `sheet_ref` | `workbook/view-state` |
+| Startup selection | Effect in `useWorkbookShellRuntime` | `GET .../workbook-startup` | Initial mount/request | Server preferences | Startup effect | View-state controllers | Cancellation, newer user selection, availability rejection | Transport and cross-controller application mixed | `workbook/startup` |
+| Selected saved view | Startup/saved-view controllers | Saved-view resource | Workbook mount | Server saved-view object | Startup and saved-view commands | Selector, query/layout controls | Delete, surface switch, hard refresh | Startup hydration crosses three controller APIs | `workbook/view-state` |
+| Query/sort/filter/group state | `useWorkbookQueryController` | Client state or saved-view `query_json` | Per workbook/per schema | Saved view only when user saves | Query controls, startup/saved-view apply | Loaders and controls | Reset, base-surface switch, saved-view apply | Module-level default map escapes workbook lifetime | `workbook/view-state` |
+| Pagination/cursor state | Timeline/generic/Network Flow query hooks | Server opaque cursors | Query chain | Memory only | Query hooks | Paging controls | Refresh, invalid cursor, query change, auth loss | Split across owner-specific implementations | Matching `workbook/query` or extension owner |
+| Layout/order/width/hidden fields | `useWorkbookLayoutController`, surface hooks | View contract plus saved-view layout | Per workbook/per schema | Portable subset in saved view | Grid/layout controls, saved-view apply | Grid renderers | Reset, saved-view/base view switch | Correctly separate from local focus; application crosses startup | `workbook/view-state` and `workbook/layout` |
+| Account density | App account preference plus `resolveEffectiveWorkbookDensity` | Account preference contract | Account session | Server account preference | Account settings | Shell/surfaces | Account update, surface switch when null | Composition remains shell-level as required | `workbook/layout` |
+| Row data | Timeline hooks and `useWorkbookSurfaceLoaders` | View-query responses plus accepted live patches | Surface/query lifetime | Memory only | Query loaders, mutation/live reconciliation | Grids, inspectors | Query, invalidation, remove, auth loss | Three unrelated loader lifetimes in one hook | Owner-specific `workbook/query` stores |
+| Per-record version high-water | Row models, Timeline runtime, collaboration projection | Authoritative query/mutation/event row version | Incident/workbook | Memory only | Accepted responses/events | Mutation and stale-event guards | Remove, full refresh, access loss | Logic is distributed; one freshness model cycle exists | Query/mutation owner via stable row port |
+| Active cell/grid selection | Surface grids and continuity helpers | Local user interaction | Active surface | Memory only | Grid callbacks, action completion | Presence, inspector, mutation | Surface switch, removal, auth loss | Passed through broad component callbacks | `workbook/continuity` |
+| Bulk selection | Surface components/models | Local interaction | Active surface | Memory only | Grid selection | Bulk actions | Query/surface change, removal, access loss | Surface-local and should remain so | Surface owner through continuity port |
+| Draft row | Timeline and generic/entity/assessment surfaces | Local editor | Active surface/workbook | Memory only | Grid editors/paste | Mutation commands/status | Commit, discard, closure, access loss | Correctly local but payload construction leaks into UI | Surface owner plus mutation command port |
+| Invalid editor drafts | Timeline/editor controls | Local invalid input | Cell/surface | Memory only | Editors | Grid/status | Correction, cancel, subject/surface reset | Must not be folded into authoritative/pending state | Surface owner |
+| In-flight mutations | `WorkbookMutationRuntime` plus Timeline controllers | Submitted logical action | Workbook/incident | Memory only | Mutation runtime | Save state, controls | Response, closure, access loss | Multiple mutation entry paths bypass one command facade | `workbook/mutations` |
+| Local pending queue | Mutation runtime and pending queue utilities | Client-local replay units | Incident + client instance + tab | Memory only | Autosave admission/replay/recovery | Save state, conflict UI | Commit, discard, terminal closure; preserved over auth outage | Runtime owns correct lifetime; API surface remains broad | `workbook/mutations` |
+| Same-field conflict queue | Mutation runtime/conflict model | Server structured conflict plus local draft | Workbook incident | Memory only | Mutation/replay and resolver | Conflict UI/status | Explicit resolution/discard, access loss/closure | Must remain distinct from pending and committed state | `workbook/conflicts` inside mutations |
+| `client_txn_id` | Service generator reached through `browserApi` | Web Crypto | Logical action/replay unit | Request/pending memory | Components and runtimes | Transport/replay | New action or explicit conflict recovery only | Broad facade and direct UI generation obscure ownership | Mutation identity port |
+| Inspector open/panel/subject | Individual surface components plus reset hook | Local user selection and view contract | Active surface | Memory only | Inspector controls and selection | Panels/actions | Surface/saved-view/hard refresh, row/version/access/closure/delete/merge | Lifecycle is duplicated across surface owners | `workbook/inspector` |
+| Confirmation/workflow forms | Inspector feature components | Local explicit workflow | Selected subject/version | Memory only | Inspector actions | Panels | Subject/version/surface/access/closure/delete/merge | Invalidation distributed across panels | Inspector owner with feature-private forms |
+| Presence | Collaboration session and Workbook projection | WebSocket snapshot/delta | Incident connection | Memory only | Session events/local publication | Header/gutters/cells | Disconnect, surface mismatch, access loss | Sheet-ref type duplicated; projection also owns auth probe | `workbook/collaboration` |
+| Collaboration replay high-water | `IncidentCollaborationSession` | WebSocket stream sequence | Incident connection/tab | Private session/runtime state | Session decoder | Reconciliation/reset | Gap, reset-required, new incident/session | Correct transport ownership; must stay outside UI stores | Browser collaboration transport |
+| Background jobs | Imports, Network Flow, app panels | Job HTTP/WebSocket resources | Feature action | Server job resource plus memory | Feature controllers | Result/status UI | Terminal state, cancel, access loss | Owner-specific and intentionally not centralized | Source feature owner |
+| Evidence preview/attachment | Evidence bindings, surface state, service helper | Opaque server handle and Evidence record | Selected evidence/action | Memory; blob server-side | Evidence commands | Surface/inspector | Subject change, expiry, access loss | Transport imports presentation model | `workbook/evidence` over service adapter |
+| Status/notifications | Mutation runtime, load states, feature components | Derived local/server outcomes | Shell/surface/action | Memory only | Runtimes/controllers | Status strip and inline notices | Next successful transition, surface/access reset | Many producers; should remain projections over owner state | Shell presentation over typed owner snapshots |
+
+### 4.1 Runtime-owner lifecycle catalog
+
+Every mutable owner MUST have the instance key, creation point, invalidation
+or disposal trigger, and permitted survivor state in this table. A future
+implementation MAY choose an internal representation not named here, provided
+these lifecycle semantics remain identical.
+
+| Owner | Instance key | Creation point | Invalidation or disposal trigger | State permitted to survive |
+| --- | --- | --- | --- | --- |
+| Startup admission | One request ordinal within one shell | Startup request begins | New request, incident change, or effect teardown | None |
+| Workbook view state | Workbook shell plus `incident_id` | Workbook opens | Incident changes or shell is definitively destroyed | Explicitly persisted saved-view or preference state only |
+| Query owner | Workbook runtime plus private authorization generation | Authorized query runtime begins | Authorization generation changes, incident changes, or owner teardown | No query result or cursor |
+| Reference-query broker | Same key as its query owner | Query owner is created | Query owner invalidation or disposal | No in-flight entry |
+| Mutation runtime | `(client_instance_id, incident_id)` | Incident runtime is first needed | Browser runtime ends or an explicit safe-disposal path completes | Pending queue and local drafts only where Core 03 permits |
+| Collaboration reconciler | Incident connection/runtime identity | Incident subscription is admitted | Access loss, incident switch, session teardown, or connection disposal | No connection-local high-water across a new connection identity |
+| Extension availability | `(client_instance_id, incident_id)` | Incident runtime is created | Availability epoch replacement or incident-runtime disposal | Current 256-bit epoch and generation only |
+| Inspector | Active surface identity | Surface becomes active | Surface or saved-view switch, subject invalidation, access loss, or disposal | None |
+| Continuity | Active surface plus grid instance | Surface mounts | Surface/grid disposal or loss of semantic anchor | None |
+| Layout | Workbook shell | Shell mounts | Shell disposal | Portable layout persisted through a saved view only |
+
+`invalidate` and `dispose` MUST be idempotent. External-store snapshots MUST
+be immutable, and every subscription MUST return or expose a removal
+operation. The refactor MUST NOT introduce a mutable module singleton, an
+exported store instance, a callback bus, or a generic application-wide store.
+An owner whose lifetime exceeds one surface MUST be retained by an
+app-created, explicitly keyed provider or registry rather than promoted to a
+module singleton.
+
+Lifecycle evidence MUST prove all of the following:
+
+1. two shells for the same incident do not share view defaults;
+2. two client instances do not share pending queues;
+3. tearing down one shell does not abort another shell's broker requests;
+4. changing the authorization generation aborts and clears that query broker;
+5. session reauthentication preserves the Base pending queue in the same
+   browser runtime;
+6. extension invalidation clears extension state without clearing Base state;
+7. disposal removes timers, socket subscriptions, focus listeners, and query
+   consumers.
+
+### 4.2 Closed state-partition contract
+
+The state classes below MUST remain distinct in both type and authority. Save
+state is a derived projection and MUST NOT become independently mutable.
+
+| State | Authority | Permitted contents | Prohibited contents |
+| --- | --- | --- | --- |
+| Committed projection | Accepted query, mutation response, or live event | Current row, stable identifiers, accepted `row_version` | Unsaved local values |
+| In-flight mutation | One dispatched logical action | Stable local unit, request identity, mutation intent | Any claim that the value is committed |
+| Pending replay queue | Client-local retryable work | FIFO replay units and stable transaction identity | Same-field conflict objects |
+| Same-field conflict queue | Server conflict plus local draft | Conflict token, current saved value, local unsaved value | Retryable transport work |
+| Invalid editor draft | Local editor | Exact invalid text and original semantic anchor | Server-authoritative row state |
+| Blocked `client_txn_conflict` unit | Current FIFO blocker | Original mutation intent and transaction identifier | A new identifier before explicit recovery |
+| Save-state label | Derived projection only | Exactly `Syncing`, `Saved`, or `Conflict` | Independent mutable authority |
+
+The transition rules are:
+
+1. A retryable transport failure MUST move its in-flight replay unit to the
+   pending queue.
+2. `same_field_conflict` MUST remove the applicable unit from pending replay
+   and insert a same-field conflict entry.
+3. `client_txn_conflict` MUST leave the current FIFO blocker halted until
+   explicit re-key or discard.
+4. An invalid editor value MUST remain a draft and MUST NOT enter committed
+   projection state.
+5. An accepted authoritative row MUST advance the per-record high-water mark.
+6. A stale row or event MUST NOT replace a higher committed version.
+7. `Saved` MUST be derived only when there is no in-flight work, no pending
+   work, and no unresolved conflict draft.
+8. Presence MUST NOT alter save state.
+
+## 5. Runtime-Flow Characterization
+
+| Flow | Entry point | Components/modules traversed | State mutated | Network or storage side effects | Contract owner | Current coupling problem | Characterization evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1. Authenticated application entry | `main.tsx` | `AppRoot -> AuthGateway -> App -> WorkbookShell` | Session/account/route/incident | Session/account HTTP, route history | Core 01/Core 04 | App and Workbook both derive incident/session presentation | `App.auth*`, landing E2E |
+| 2. Incident workbook bootstrap | `WorkbookShell` mount | Collaboration provider -> extension controller -> shell runtime -> startup effect | Runtime instances, availability, startup identity | WebSocket plus `GET workbook-startup` | Core 01; Core 03 §2.4/§21 | Startup request/admission/application lives in aggregate shell hook | Startup model/controller and shell surface tests |
+| 3. Surface or saved-view selection | Tabs/system switcher/saved-view selector | Startup controller -> query/layout/saved-view controllers -> active renderer | `sheet_ref`, schema, query/layout, focus token | URL history; preference or saved-view HTTP when requested | Core 03 §2.2-§2.4 | One logical transition crosses several command sets | Controller, saved-view, shell surface tests |
+| 4. Query and viewport render | Query controls or active surface | Query controller -> surface loaders/Timeline loader -> semantic grid | Query/load state, rows, viewport | POST view query and continuation | Core 01/Core 03 §14 | Common loader mixes multiple owners and lifetimes | Query/model, shell query/grid, browser query rows |
+| 5. Blank/low-friction row creation | Draft grid row | Surface editor -> payload builder -> mutation/runtime or direct client -> reconcile | Draft, pending/in-flight, committed row | Row create HTTP | Core 03 §7/§19 | UI components construct owner/wire payloads directly | Autosave/grid/payload, assessment and browser tests |
+| 6. Existing-row inline edit | Grid editor | Grid adapter callback -> surface handler -> mutation runtime | Local draft, visible edit, pending/in-flight | Patch HTTP | Core 03 §4/§13 | Mutation entry differs by surface | Autosave, payload, generic/entity tests |
+| 7. Autosave dispatch | Enter/Tab/blur/paste completion | Surface -> `WorkbookMutationRuntime`/Timeline pending controller | Save state and replay unit | Mutation HTTP with stable transaction ID | Core 03 REQ-03-087-089/301 | ID creation and payload ownership are broad | Autosave and mutation runtime tests |
+| 8. Transient failure/pending replay | Failed mutation | Pending queue -> replay runtime -> auth/query recovery -> dispatch | FIFO queue, pause/halt state | Retry HTTP; session/query recovery | Core 03 §4.4 | Timeline and common runtime paths need one explicit boundary | Pending queue/runtime, collaboration and stateful browser tests |
+| 9. `client_txn_conflict` | Replay response | Mutation runtime -> recovery panel -> retry/discard | FIFO blocker and transaction ID | Optional retried mutation | Core 03 REQ-03-301-302 | Recovery UI and generator reached through broad facade | Runtime, conflict UI, E2E mutation lifecycle |
+| 10. Same-field conflict/resolution | Patch response/replay | Runtime conflict model -> resolver -> resolution command -> reconcile | Local conflict queue and committed row | Explicit conflict-resolution HTTP | Core 03 §3.3 | Correctly distinct state, but callbacks cross shell layers | Collaboration/runtime/conflict tests |
+| 11. WebSocket connect/resume/gap | Collaboration provider mount | Session decoder -> subscribers -> reset port | Connection/high-water/reset generation | WebSocket hello/resume/presence | Core 01/Core 03 §4.3 | Transport is sound; shared identity type is duplicated | Session unit and collaboration E2E |
+| 12. Live `record_changed` | Decoded session message | Workbook projection -> active surface port -> patch/requery/remove | Rows, versions, pending reconciliation | HTTP refresh for invalidation/gap | Core 03 REQ-03-096-098 | Active-surface port is good; loader reconciliation is centralized | Collaboration, grid freshness/history tests |
+| 13. Selection/focus/scroll continuity | Mutation/action completion | Surface -> continuity helpers -> grid adapter focus | Semantic anchor and local viewport | None | Core 03 inspector/pivot/party clauses | Helpers and callbacks are scattered across surfaces | Sentinel, history, entity, browser tests |
+| 14. Inspector open/retarget/action/close | Row/action control | Surface inspector state -> reset hook -> feature groups -> commands | Open/panel/subject/forms/confirmations | Owner action/history HTTP | Core 03 REQ-03-291-292 | Lifecycle duplicated and broad panels know owner actions | Inspector/history/entity browser evidence |
+| 15. Evidence preview/attachment | Evidence surface/Timeline action | Evidence binding -> service -> opaque handle/upload/attach -> refresh | Preview/attach action and selected evidence state | Blob slot, raw upload target, attach/handle HTTP | Core 01/Core 03 §8/Core 04 | Service combines transport with Workbook presentation | Evidence service, shell and browser evidence tests |
+| 16. Session expiry/revocation/access loss | HTTP error or socket event | App/session -> collaboration projection -> mutation pause -> loaders clear -> callback | Protected rows, availability, mutation pause, session state | Session probe/re-auth/query | Core 03 REQ-03-100/303; Core 04 | Cleanup and recovery authority crosses several owners | Auth, collaboration, surface access-loss tests |
+| 17. Saved-view CRUD/apply/reset | Saved-view selector/controls | Saved-view controller -> query/layout/startup identity | Saved views and active view state | List/create/update/delete HTTP | Core 03 §2.3 | Startup hydration and ordinary selection duplicate coordinated writes | Saved-view controller/model/shell/E2E tests |
+| 18. Extension visibility/teardown | Discovery/startup/socket event | Extension controller -> shell menu -> feature facade -> extension interpreter | Availability generation, workspace selection, feature caches | Startup/extension routes and shared socket | Core 03 REQ-03-011A/303 plus extension owner | Gating is correct but spread between startup, shell, and feature | Availability unit, shell, extension stateful E2E |
+
+### 5.1 Startup-admission sequence
+
+S-01 MUST preserve the live two-stage admission algorithm in this exact order:
+
+1. Capture the URL query and current selection version.
+2. Reserve extension availability and retain its
+   `ExtensionAvailabilityTag`.
+3. If reservation is unavailable, select Timeline and terminate this startup
+   attempt without dispatching the request.
+4. Otherwise, dispatch the current Workbook startup request.
+5. Reject the result when the effect is cancelled or the response is non-OK.
+6. Decode the response envelope. A malformed envelope MUST produce no startup
+   identity, saved-view, query, or layout application.
+7. Admit `extension_workspace_availability` only through the current
+   reservation.
+8. Notify the existing availability-change callback. If availability
+   admission fails, perform the existing Timeline fallback and terminate the
+   attempt.
+9. Normalize the startup selection. A normalization failure MUST terminate
+   the attempt without applying selection-owned state.
+10. Compare the current selection version with the dispatch-time version.
+    When they differ, reject identity and saved-view hydration.
+11. If the selected extension is not renderable, perform the existing
+    Timeline fallback and terminate the attempt.
+12. If the normalized selection is a valid selected saved view, hydrate it in
+    the existing order: upsert saved view, apply query, then apply layout.
+13. Apply the startup identity.
+
+Availability admission and selection admission are separate stages.
+Availability effects admitted in steps 7-8 MUST NOT be rolled back merely
+because the later selection-version guard in step 10 rejects identity
+hydration. Conversely, a selection-version rejection MUST prevent saved-view
+insertion, query application, layout application, and identity application.
+This is the live behavior; the broader “no partial application” rule applies
+within each admission stage, not across an already-committed availability
+stage.
+
+The hook MUST retain the current cancellation boolean. S-01 MUST NOT add
+`AbortController`, retries, or changed cancellation semantics. Those are
+separate behavior tasks requiring later authorization.
+
+CP-01 MUST characterize all ten cases:
+
+| Case | Binary required result |
+| --- | --- |
+| Ordinary base-surface startup | Exact selected `sheet_ref`, `view_schema_id`, URL behavior, and fallback source remain unchanged. |
+| Saved-view startup | Saved identity remains distinct from its base schema; upsert, query, and portable layout each apply once and in that order before identity. |
+| Delayed startup after user selection | The later user selection wins; previously admitted availability may remain, but identity and saved-view hydration do not apply. |
+| Two overlapping startup requests | Only the newest admissible request applies selection-owned effects. |
+| Stale extension-availability reservation | Availability is rejected, the callback executes in current order, and Timeline fallback occurs exactly once. |
+| Unavailable selected extension | The existing Timeline fallback occurs exactly once. |
+| Non-OK response | No availability or selection-owned response state applies. |
+| Malformed response | No selection-owned response state applies; any envelope-reader failure behavior remains unchanged. |
+| Effect teardown during request | No post-teardown response application or callback occurs. |
+| Late saved-view response after later selection | The later selection is not overwritten and no saved-view/query/layout hydration applies. |
+
+### 5.2 Typed invalidation and cleanup contract
+
+The planned owner boundary MUST use this closed invalidation model. It uses the
+live `WorkbookIncidentRole`; the reason alias is defined here because no live
+closed alias currently exists.
+
+```ts
+type ExtensionUnavailabilityReason =
+  | "missing_availability"
+  | "malformed_availability"
+  | "support_mismatch"
+  | "secure_random_unavailable"
+  | "stale_generation"
+  | "authorization_lost"
+  | "capability_activation_failed";
+
+type WorkbookInvalidationReason =
+  | { kind: "startup_superseded" }
+  | { kind: "session_unavailable" }
+  | { kind: "incident_access_lost" }
+  | { kind: "incident_role_changed"; role: WorkbookIncidentRole }
+  | { kind: "incident_closed" }
+  | {
+      kind: "extension_unavailable";
+      extensionProfileId: string;
+      reason: ExtensionUnavailabilityReason;
+    }
+  | { kind: "collaboration_reset_required" }
+  | { kind: "incident_changed"; nextIncidentId: string }
+  | { kind: "runtime_disposed" };
+```
+
+There MUST NOT be a generic “clear everything” callback or event bus. Each
+owner MUST receive only the reason variants it can interpret. Server
+authorization remains authoritative; client cleanup is confidentiality and
+presentation hygiene and MUST NOT substitute for server authorization.
+
+| Trigger | Clear, abort, or hide | Preserve | Required next action |
+| --- | --- | --- | --- |
+| Superseded startup request | Request-local result and pending callbacks | Current user selection, current view state, Base state, extension state already admitted by its current reservation | Apply nothing from the superseded request |
+| HTTP authorization failure or `session_revoked` | Protected server-derived rows while unauthenticated, evidence preview, socket presence, stale query work, extension state | Base pending queue, Base local drafts, `client_instance_id` | Reauthenticate, rederive incident authorization, requery when required, then replay FIFO |
+| Confirmed incident-access loss | Protected rows, cursors, result caches, selections, inspector data, confirmations, evidence handles/object URLs, presence, and protected server portions of conflicts | Blocked Base replay units and separable user-authored local values only, without protected display context | Enter `permission_denied`; do not replay until authorization is restored and rederived |
+| Role downgrade with read access | In-flight or newly admitted writes, mutation affordances, destructive confirmations | Authorized readable rows; local drafts and pending work remain halted | Render read-only; every future dispatch rechecks role |
+| Extension missing, malformed, stale, unsupported, unauthorized, or activation failure | Extension caches, cursors, requests, queued extension mutations, optimistic state, and extension drafts | Base caches, Base in-flight requests, Base pending queue, Base drafts, client and socket resume identity | Perform ordinary Base fallback; do not start an automatic retry loop |
+| WebSocket gap or `reset_required` | Incremental-apply admission state | Current authorized rows as stale presentation, local pending work, conflicts, drafts | Complete an HTTP requery before synchronized presentation resumes |
+| Incident becomes closed | Write affordances and in-flight source mutations | Readable committed rows; queued writes become non-authoritative rejected drafts | Never auto-replay after reopen; require a fresh user action |
+| Surface or grid unmount | Surface-local listeners, focus handles, grid instance, inspector, request consumers | Incident mutation owner when its wider lifetime remains active | Perform idempotent teardown |
+| Full reload, tab close, browser restart, or crash | All memory-local state | Nothing is promised | Do not restore or silently replay |
+
+Every cleanup MUST execute in this order:
+
+1. advance or invalidate the applicable request or generation token;
+2. halt new dispatch;
+3. abort reads, consumers, timers, subscriptions, and other work;
+4. clear protected projections and feature caches;
+5. clear dependent selection, inspector subjects, confirmations, previews, and
+   focus anchors;
+6. revoke evidence object URLs or discard opaque preview handles;
+7. establish the required fallback or permission state;
+8. only after authorization is newly established, requery and consider
+   replay.
+
+One focused test MUST cover every cleanup-table row. Each test MUST prove that
+late async work cannot repopulate state cleared by the trigger.
+
+Confirmed membership loss does not promise that a former member can view,
+copy, export, recover, or later replay protected local context. Any such
+promise requires a separate Core 03/Core 04 owner amendment before
+implementation.
+
+## 6. Public-Contract Freeze
+
+| Surface | Specific contract | Owner source | Current implementation path | Current evidence | Characterization required? | Refactor risk |
+| --- | --- | --- | --- | --- | --- | --- |
+| HTTP | Existing `/api/v1` route roots, methods, query/body/response envelopes, CSRF, errors, cursor opacity | Core 01, subsystem owners, OpenAPI | `services/*`, app clients, Workbook hooks/components/runtime | Service/unit/browser route tests and generated adapters | Yes before moving each caller | high |
+| WebSocket | Incident path, hello/resume, sequence/gap/reset, presence, `record_changed`, extension events | Core 01/Core 03 | `IncidentCollaborationSession`, Workbook/Network Flow interpreters | Session/runtime/browser collaboration tests | Yes for collaboration slices | very high |
+| Workbook UI | Grid-first editing, stable surface identity, startup order, saved views, keyboard/paste, inspector, conflicts, pending, density/layout | Core 03 | Workbook shell, controllers, surfaces, runtime | Workbook unit, browser, a11y/visual evidence | Yes per risky seam | very high |
+| Storage/revision/projection visible to client | `record_id`, `row_version`, `field_key`, derived rows, source/projection separation | Core 01-03 and subsystem owners | View adapters, row models, mutation and live reconciliation | Model, mutation, projection, browser tests | Yes where row models move | high |
+| Generated artifacts | Generated protocol/view/UI files remain downstream and read-only | Adopted owners and generated policy | Package facades and contract adapters | Drift/artifact checks | No refresh for pure moves; generator only for authored harness inputs | medium |
+| Harness accounting | Tests remain mapped to semantic owners, not phases | Testing Harness NLSpec and `tools/test_families/**` | Make targets and owner manifests | Task guides/explain-target and retained artifacts | Yes for added/renamed tests | medium |
+| Accessibility/visual | Stable selectors, focus, announcements, shell geometry and visual baselines | Core 03 plus design guidance | UI-contract selectors, grid adapter, E2E | A11y/visual suites as readiness evidence | Only when composition/DOM changes | high |
+
+Every slice freezes route and socket shapes; stable identifiers; row creation,
+editing, keyboard and paste; selection/focus/scroll; saved-view identity and
+portable layout/query state; startup/fallback; inspector default-closed and
+retarget rules; pending/conflict/committed separation; replay and stale-event
+handling; presence; Evidence; closure/read-only behavior; access-loss cleanup;
+density; extension gating; selectors; and harness accounting.
+
+Any behavior change becomes a separate future task naming its owner clause,
+rationale, migration impact, new characterization, and explicit user
+authorization. It cannot share a structural slice.
+
+### 6.1 Zero-UX-delta covenant
+
+Structural slices S-01 through S-12 MUST preserve every observable row below.
+The default for every row is **no change**.
+
+| Observable surface | Frozen behavior |
+| --- | --- |
+| Copy and labels | Public labels, messages, status text, conflict text, and recovery text |
+| Selectors | Stable selectors, test identifiers, and exact selector values |
+| Accessibility | ARIA roles, names, descriptions, live regions, tab order, and roving focus |
+| Input | Keyboard commands and paste, fill, create, edit, and autosave triggers |
+| Selection | Active cell, selected row, bulk selection, and inspector subject remain distinct |
+| Continuity | Semantic focus and viewport restoration |
+| Geometry | Shell work area, inspector geometry, independent scroll regions |
+| Density | Density tokens and effective-density defaults |
+| Extension behavior | Extension omission, availability admission, and Base/Timeline fallback |
+| Transport | Public HTTP routes/envelopes and WebSocket paths/events |
+| Package boundary | Package versions and vendor ownership remain unchanged |
+
+A structural slice MUST NOT update a visual baseline to accept a difference.
+Any difference is either a defect that MUST be reverted or a separate
+behavior/UI task that requires explicit authorization. This tracker does not
+authorize the latter.
+
+## 7. Target Architecture
+
+### 7.1 Module catalog
+
+| Target module | Public responsibility | Public facade | Inputs | Outputs/events | Private complexity hidden | State owned | Side effects owned | Allowed dependencies | Forbidden dependencies | Migration source files |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `WorkbookShell` | Compose one incident Workbook | Existing `WorkbookShell` props | Incident/account/extension/app ports | Rendered shell and access-loss callback | Runtime construction and facade wiring | Shell UI composition only | Mount/teardown only | Public Workbook facades, app/collaboration ports | Raw services, generated types, surface internals | `WorkbookShell.tsx`, shell slots |
+| `workbook/startup` | Admit startup response and apply server-selected identity without overriding later user selection | `useWorkbookStartupAdmission`; later startup controller facade | Incident/base URL, URL params, availability/selection/saved-state ports | Identity application or Timeline fallback | Fetch, availability tag, normalization, cancellation flag, stale-version check | Request-local only | Startup GET and state commands | Services, pure startup models, narrow ports | Components, grid, surface implementations, peer internals | `useWorkbookShellRuntime.ts:118-215`, `useWorkbookStartupController.ts`, `workbookStartup.ts` |
+| `workbook/view-state` | Own active identities and per-schema query/layout/saved-view state | `useWorkbookViewState` snapshot/commands | Startup and user commands, view contracts | Stable identity/query/layout snapshots | Defaulting, saved-view hydration, portable/local split | Workbook-instance view state | Saved-view/preference commands through adapters | Pure models, view contracts, startup/query ports | WebSocket, grid vendor, generated internals | Query/layout/saved-view controllers and models |
+| `workbook/query` | Execute and admit view/reference queries | `WorkbookQueryPort`, owner hooks | Incident/auth epoch, contract/query, abort signal | Typed rows/load status/refresh commands | Continuation, cancellation, stale admission, dedupe | Per query owner and instance | View-query HTTP | Services, view contracts, row ports | Presentation components, mutation/conflict state | `useWorkbookSurfaceLoaders.ts`, `referenceQueryBroker.ts` |
+| `workbook/mutations` | Coordinate logical mutations, committed versions, pending FIFO and conflicts | Existing runtime evolved into narrow command/snapshot ports | Owner intents, row/version, transaction-ID port | Save-state/conflict/row outcomes | Queue/replay/coalescing/recovery/timers | Incident/client-instance mutation state | Mutation HTTP and retry timers | Transport adapters, pure queue/conflict models | Grid vendor, surface UI, collaboration transport internals | `WorkbookMutationRuntime*`, pending/conflict utilities and hooks |
+| `workbook/collaboration` | Reconcile decoded events into Workbook state and present presence | Projection/session hook plus active-surface port | Decoded events, shared sheet ref, mutation/query/auth ports | Patch/requery/remove/reset/presence projections | Stale/self/gap handling and throttling | Workbook presence/reconciliation state | Presence publication; auth recovery delegated | Collaboration session, shared identity, narrow ports | Direct auth HTTP, surface components | `WorkbookCollaborationProjection*`, collaboration messages |
+| `workbook/inspector` | Own default-closed lifecycle and stable subject invalidation | `useWorkbookInspectorCoordinator` | View config, selection, row version, owner action ports | Open/retarget/close/complete commands | Subject/panel/form/confirmation invalidation | Active-surface inspector state | No raw HTTP | Pure models and owner commands | Raw routes, generated wire parsing, grid vendor | Inspector reset/model/components and surface state |
+| `workbook/evidence` | Bind Workbook evidence presentation to opaque service operations | Evidence interaction hook/command port | Stable Evidence subject, mutation/continuity ports | Preview/attach outcomes and refresh command | Lifecycle/access presentation and safe messages | Evidence interaction-local state | Calls Evidence transport adapter | Evidence service, pure models, continuity port | Protocol internals; services importing Workbook | Existing Evidence feature bindings and view model |
+| `workbook/continuity` | Preserve selection, focus and viewport through semantic anchors | `WorkbookContinuityPort` | `view_schema_id`, `record_id`, `field_key`, action outcome | Focus/select/clear/restore commands | Adapter translation and invalidation | Surface-local anchors | DOM focus through grid adapter | Grid-adapter facade, pure stable IDs | Vendor coordinates/types, visible labels | Continuity/focus/grid-state utilities and callbacks |
+| `workbook/layout` | Own shell geometry, responsive band and density projection | Layout/density hooks and styles | Container/account preference/active schema | Layout snapshot and semantic props | Breakpoints, default density, independent scroll regions | Presentation-only | Resize observation | UI contracts, React, CSS | Transport, row-count-derived height, surface-specific viewport arithmetic | Responsive/layout/density hooks/models/styles |
+
+### 7.2 Dependency rules
+
+- App entry may import `WorkbookShell`; it may not import Workbook internals.
+- `WorkbookShell` composes public facades only.
+- Surface owners may depend on Workbook command/continuity ports and package
+  facades; they may not import peer-owner internals.
+- Transport/generated adapters are below application coordinators and never
+  import Workbook presentation models.
+- Collaboration transport publishes decoded events; Workbook reconciliation
+  owns application meaning.
+- Grid adapter receives stable semantic identities and alone translates vendor
+  coordinates.
+
+### 7.3 S-01 startup interface
+
+`useWorkbookStartupAdmission` is the sole new runtime export in S-01. Its
+public interface MUST be:
+
+```ts
+type StartupFallbackReason =
+  | "availability_reservation_unavailable"
+  | "availability_rejected"
+  | "selected_extension_not_renderable";
+
+interface WorkbookStartupAvailabilityPort {
+  reserve(): ExtensionAvailabilityTag | null;
+  acceptWorkbookStartup(
+    tag: ExtensionAvailabilityTag,
+    availability: unknown,
+  ): boolean;
+  isRenderable(identity: ExtensionWorkspaceIdentity): boolean;
+}
+
+interface WorkbookStartupSelectionPort {
+  readSelectionVersion(): number;
+  applyStartupIdentity(identity: WorkbookIdentity): void;
+  selectTimeline(reason: StartupFallbackReason): void;
+}
+
+interface WorkbookStartupSavedViewStatePort {
+  upsertSavedView(savedView: SavedViewResource): void;
+  applyQueryStateForSurface(
+    viewSchemaId: string,
+    query: WorkbookQueryState,
+  ): void;
+  applyLayoutStateForSurface(
+    viewSchemaId: string,
+    layout: WorkbookLayoutState,
+  ): void;
+}
+
+useWorkbookStartupAdmission({
+  apiBase,
+  incidentId,
+  urlParams,
+  availabilityPort,
+  selectionPort,
+  savedViewStatePort,
+  onAvailabilityChange,
+}: {
+  readonly apiBase?: string | undefined;
+  readonly incidentId: string;
+  readonly urlParams: URLSearchParams;
+  readonly availabilityPort: WorkbookStartupAvailabilityPort;
+  readonly selectionPort: WorkbookStartupSelectionPort;
+  readonly savedViewStatePort: WorkbookStartupSavedViewStatePort;
+  readonly onAvailabilityChange: () => void;
+}): void
+```
+
+The type names `ExtensionAvailabilityTag`,
+`ExtensionWorkspaceIdentity`, `WorkbookIdentity`,
+`SavedViewResource`, `WorkbookQueryState`, and `WorkbookLayoutState` refer to
+their existing live definitions. The new hook MUST NOT mutate `urlParams`.
+`apiBase` defaults to the existing same-origin behavior when omitted.
+
+For each dispatched request, the hook MUST privately retain:
+
+```ts
+interface StartupAdmissionGuard {
+  readonly incidentId: string;
+  readonly requestOrdinal: number;
+  readonly selectionVersionAtDispatch: number;
+  readonly availabilityTag: ExtensionAvailabilityTag;
+}
+```
+
+`requestOrdinal` MUST be a monotonically increasing positive safe integer
+within one hook instance. It is private admission identity, not a public
+contract. A request without an availability reservation terminates at the
+step-3 Timeline fallback and therefore does not create this guard.
+
+The interface MUST NOT expose generic state setters, raw React dispatch
+functions, a callback bus, transport envelopes, or query/layout/saved-view
+controller internals.
+
+## 8. Architectural Guardrails
+
+| # | Guardrail | Current violations/evidence | Files involved | First slice? | Enforcement | Exact validation | Temporary allowlist/removal |
+| ---: | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Grid-vendor imports stay in grid adapter | No violation | `packages/grid-adapter`, boundary manifest | No | Existing import rule | `make frontend-import-boundary-check` | None |
+| 2 | Application identity uses stable semantic IDs | No identity violation found; broad callbacks remain | Surface/continuity files | No | Semantic types and tests | Workbook sentinel/browser rows | None |
+| 3 | UI does not parse wire contracts ad hoc | Startup effect and several surfaces use handwritten envelopes/payloads | Shell runtime, loaders, surface components | Yes for startup response ownership | Adapter/coordinator imports and payload tests | Boundary, typecheck, owner slices | Existing surface callers removed one owner at a time |
+| 4 | Generated files are never hand-edited | No violation | Generated roots | No | Generated artifact policy | `make generated-artifact-policy-check`, `make generate-drift` | None |
+| 5 | Modules do not import peer internals; every migrated owner has no SCC larger than one | Timeline model cycle; services -> Workbook view model | Timeline models, Evidence service/model | No | All Section 3.2 edge classes, no own-facade back edge | Boundary, cycle scan, typecheck, build | None; S-02 MUST NOT add a temporary allowlist |
+| 6 | Shared coordinators use narrow typed ports and no callback bus | Shell runtime and active surface expose broad command/prop sets | Shell runtime, active surface, runtime classes | Yes | Section 7.3 startup ports; later owner ports | Typecheck and facade import rules | Remove direct callbacks as each slice lands |
+| 7 | Domain behavior stays out of transport/grid/presentation utilities | Evidence access presentation is in service; payload logic in components | Evidence and major surfaces | No | Reverse-import and component-service rules | Boundary plus payload tests | Per-owner migration only |
+| 8 | UI controls are not authorization authority | No violation found | App/shell/features | No | Preserve server outcomes and access-loss tests | Auth/module/browser slices | None |
+| 9 | Protected state clears in the Section 5.2 order on every named invalidation | Behavior exists but is distributed | Collaboration projection, loaders, extension controller, mutation runtime | Startup capability failure only | Typed invalidation reasons and owner cleanup matrix | One focused case per matrix row; stale-work rejection | None |
+| 10 | HTTP/WebSocket semantics remain unchanged | No current violation | Services/session | Yes, frozen | Contract/payload characterization | Owner tests and browser routes | None |
+| 11 | Extension workspaces require current discovery/support/startup admission | Existing implementation conforms | Extension controller, startup effect, shell | Yes | Availability port and existing policy | Extension unit/stateful E2E | None |
+| 12 | Saved views are configs over stable schemas, not custom sheets | Existing implementation conforms | Saved-view/startup models | Yes, frozen | Stable identity types/tests | Workbook saved-view rows | None |
+| 13 | Local presentation state is not persisted into saved views | Existing implementation conforms | Query/layout/inspector/continuity | Yes, frozen | View-state facade and tests | Saved-view/query/browser rows | None |
+| 14 | Committed, in-flight, pending, same-field conflict, invalid-draft, blocked-transaction, and derived-save state remain distinct | Existing runtime largely conforms | Mutation runtime/queue/conflict | No | Section 4.2 types and transition rules | Runtime/collaboration/stateful tests | None |
+| 15 | One logical mutation retains its transaction ID across uncertain replay | Existing tests conform; generator is broadly exposed | Browser API, mutation runtime, surfaces | No | Direct mutation-ID port and policy test | ID policy/runtime/E2E | Remove `browserApi.clientTxnID` Workbook callers incrementally |
+| 16 | Tests use runtime/machine contracts, not normative prose | Existing harness posture conforms | Tests/harness | Yes | Test-family accounting | Focused owner slices | None |
+| 17 | Historical phase identity is not a runtime/package boundary | No violation | Tracker/harness | No | Naming review and boundary policy | `make frontend-import-boundary-check` | None |
+| 18 | Layout is independent of row count and surface viewport arithmetic | No current violation found | Shell styles/responsive hooks/surfaces | No | Layout policy, visual/a11y fixtures | Measurement, visual, a11y targets when touched | None |
+| 19 | Every mutable owner has an explicit lifecycle | Module map and broker singleton violate desired posture | View state, query broker, runtime owners | No | Section 4.1 lifecycle catalog; idempotent invalidation/disposal | Two-shell, two-client, incident-switch, auth-generation, teardown cases | None |
+| 20 | Source ownership is machine-accounted without reading Markdown | README omits five paths and retains one stale path | `apps/web/src/README.md`, `tools/frontend_source_ownership.json`, its schema, and its owner check | Yes at CP-03 | Authored machine-readable source-ownership manifest checked against every live `.ts`/`.tsx` path; README is reconciled narrative only | Focused `web.architecture` owner check plus `make json-shape-check` | No test, generator, runtime, or conformance tool may read, stat, hash, or parse Markdown |
+| 21 | Structural slices have zero UX delta | Future large component moves can accidentally alter output | S-01-S-12 | Yes | Section 6.1 covenant and diff review | Risk-targeted browser/a11y/visual evidence | Visual baselines MUST NOT be updated to accept structural drift |
+| 22 | App logic remains app-local until promotion criteria pass | Relative-import cleanup can encourage premature package creation | All proposed facades | No | D-014 promotion threshold | Architecture review and consumer evidence | Tests, stories, generated consumers, and relative-import convenience do not qualify |
+
+## 9. Ordered Refactor Roadmap
+
+| Slice ID | One primary seam | Current paths | Target paths | Problem demonstrated | Target facade/direction | Behavior frozen | Characterization prerequisite | Guardrail added | Validation after move | Rollback point | Dependencies | Stop condition | Explicit exclusions | Docs/generated |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S-01 | Startup admission | `hooks/useWorkbookShellRuntime.ts:118-215` | `startup/useWorkbookStartupAdmission.ts` | Raw startup transport and cross-controller application live in aggregate hook | Shell -> Section 7.3 startup facade -> transport and narrow state ports | Section 5.1 sequence, cancellation boolean, fallback, availability, saved-view hydration, stale-selection behavior | All ten CP-01 cases | Shell runtime cannot import raw services/startup parser | Generate only when authored test-family input changes; boundary, typecheck, focused owners, build | Revert one atomic slice | None | Shell hook contains one facade call and no startup effect; ten cases remain green | No retry, `AbortController`, cancellation, UI, public contract, generated contract, or behavior change | Reconcile README and add authored source-ownership manifest/check at CP-03; generated harness changes only through changed authored inputs |
+| S-02 | Timeline freshness dependency | `timelineRowsModel.ts`, `workbookTimelineModel.ts`, two hooks/callers | `timeline/models/workbookRecordFreshness.ts` | Type/re-export SCC | Both models -> pure freshness leaf | Version comparison | Existing grid freshness/stale tests | All Section 3.2 edge classes; no SCC and no own-facade back edge | Boundary, typecheck, Workbook rows, build | Revert file move/imports | S-01 | No migrated-owner SCC larger than one | No row normalization change and no temporary allowlist | README/ownership-manifest support only |
+| S-03 | Evidence dependency direction | `services/workbookEvidence.ts`, Evidence lifecycle model/bindings | Service transport plus `workbook/evidence/evidenceAccessPresentation.ts` | Service imports presentation model | Workbook Evidence -> service adapter | Upload/attach/handle/errors/access copy | Evidence service/shell/browser tests | Services cannot import `workbook/**` | Boundary, typecheck, Evidence owner/browser | Revert split | S-02 | Reverse edge absent | No Evidence route/retry/copy behavior change | README support only |
+| S-04 | Query default lifetime | `hooks/useWorkbookQueryController.ts` | `view-state/useWorkbookQueryState.ts` private initializer/reducer | Module-global mutable defaults | Workbook instance owns all entries | Query defaults/reset/saved-view apply | Add two-shell isolation test | No mutable module query cache | Typecheck, query/saved-view owners | Revert reducer move | S-01 | No module-level `Map` and behavior identical | No global store/library | README support only |
+| S-05 | Reference-query lifetime | `services/referenceQueryBroker.ts` and callers | `query/ReferenceQueryBroker.ts` constructed per Workbook/auth epoch | Exported singleton outlives shell | Shell/query provider -> instance broker | Deduplication and consumer abort behavior | Broker tests plus teardown/auth-epoch case | No exported broker singleton | Boundary, typecheck, broker/surface owners | Revert construction change | S-04 | In-flight map dies with owner and clears by auth epoch | No query-envelope change | README support only |
+| S-06A | Entity query owner | Entity branch in `useWorkbookSurfaceLoaders.ts` | `query/useEntitySurfaceQuery.ts` | Common hook mixes entity and active-surface lifetimes | Shell/active surface -> entity query port | Dual host/identity load, stale/error/access cleanup | Existing entity/access/live-patch tests | Owner hook cannot import assessment/generic | Boundary, Workbook/entity owners | Restore branch | S-05 | Entity branch removed from common hook | No entity UI/mutation move | README support only |
+| S-06B | Assessment query owner | Assessment branch in loader | `query/useAssessmentSurfaceQuery.ts` | Same mixed hook | Assessment facade -> query port | Cancellation, row admission, access loss | Assessment rapid-filter/access tests | Assessment hook isolated | Boundary, assessment/Workbook owners | Restore branch | S-06A | Assessment branch removed | No assessment workflow change | README support only |
+| S-06C | Generic query owner | Generic branch in loader | `query/useGenericSurfaceQuery.ts` | Same mixed hook and changing-schema state | Generic facade -> query port | Schema match, stale retention, Notes normalization | Generic query mismatch/stale/access tests | Generic hook isolated | Boundary, Workbook owner | Restore branch | S-06B | Common loader deleted or reduced to facade only | No generic UI/payload change | README support only |
+| S-07 | Mutation command/ID boundary | Runtime plus direct surface `browserApi.clientTxnID` callers | `mutations` commands plus secure ID port | Presentation constructs IDs/wire intents | Surface -> semantic mutation command -> transport | IDs, FIFO, row versions, payloads, conflicts | Per-owner payload/autosave/recovery evidence | Workbook presentation cannot import ID generator directly | Boundary, typecheck, runtime/owner/E2E | One owner caller family per commit | S-06C | Selected owner has no direct ID/wire construction | No queue algorithm rewrite | README/harness support only |
+| S-08 | Collaboration identity/recovery | Session sheet-ref type and Workbook projection auth probe | Shared sheet ref plus `collaboration` reconciliation and injected auth port | Duplicate identity and direct auth HTTP | Session -> decoded events -> reconciler; app -> auth recovery port | Resume/gap/presence/access-loss behavior | Session/projection/browser collaboration tests | Reconciler cannot import auth transport | Boundary, collaboration owners, stateful E2E | Revert shared type/port | S-07 | Duplicate type and direct probe gone | No WebSocket/retry timing change | README support only |
+| S-09 | Inspector lifecycle | Surface inspector state, reset hook, inspector models/components | `inspector/useWorkbookInspectorCoordinator.ts` | Default/retarget/invalidation duplicated | Surface -> inspector coordinator -> owner commands | All REQ-03-291/292 behavior and focus continuity | Inspector/history/entity browser evidence | Inspector core cannot import raw routes | Typecheck, inspector owner, a11y/stateful | One surface adoption at a time | S-06C,S-08 | Adopted surface has one subject lifecycle | No panel redesign/action change | README/test support only |
+| S-10 | Semantic continuity | Focus/continuity helpers and surface callbacks | `continuity/workbookContinuityPort.ts` | Selection/focus/viewport commands scattered | Surface actions -> semantic continuity port -> grid adapter | Stable anchor, scroll/focus restoration | Sentinel/history/entity/browser tests | No vendor coordinates outside adapter | Boundary, Workbook, a11y/browser | Revert one surface adoption | S-09 | Public commands use only stable IDs | No keyboard/navigation behavior change | README support only |
+| S-11 | Active surface composition | `WorkbookActiveSurface.tsx`, `WorkbookShell.tsx` broad props | `surfaces` facade plus owner snapshots/commands | Large callback bridge exposes internals | Shell -> one active-surface facade -> owner facade | Rendering, lazy features, mutations, inspector, continuity | Full affected shell unit set | Shell cannot import surface internals | Typecheck, Workbook owner, targeted browser/a11y | One facade adoption commit | S-06C-S-10 | Shell/dispatcher are composition only | No component-tree redesign | README support only |
+| S-12 | Layout/density ownership | Shell styles, responsive/layout/density hooks and surface geometry | `layout` facade/private styles | Geometry rules spread across shell and surfaces | Shell/surfaces -> layout snapshot/styles | REQ-03-286/289 and existing visuals | Measurement/visual/a11y baselines | Row-count/viewport arithmetic policy | Boundary, typecheck, measurement/visual/a11y | Revert layout-only slice | S-11 | One geometry owner and policy passes | No aesthetic redesign | README support only |
+
+Every slice MUST satisfy Section 6.1. S-09 through S-12 have no UI-change
+budget: they MUST preserve copy, selectors, ARIA, keyboard, focus, selection,
+geometry, density, routes, sockets, and the grid-vendor boundary. Any required
+observable change is outside this roadmap and requires later authorization.
+
+### 9.1 First-slice checkpoint plan
+
+S-01 MUST implement only the Section 7.3 interface and the Section 5.1
+algorithm. It remains the next implementation-ready slice, but this tracker
+does not authorize its execution.
+
+| Checkpoint | Edit scope | Files expected to change | Characterization required first | Validation | Expected diff | Rollback point | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CP-01 characterize | Observable startup outcomes only | Existing focused startup test or tests; authored `module.workbook`/`web.workbook` test-family inputs only if test accounting changes; generated projections only via generator | All ten Section 5.1 cases | Focused `module.workbook` and `web.workbook` rows; `make generate` only if an authored generated input changes | Characterization and necessary owner-catalog accounting only | Revert CP-01 if expectation contradicts an owner; otherwise stop as `BLOCKED: owner contradiction` | All ten cases pass before source movement |
+| CP-02 extract | Move the exact live effect without semantic edits | New `workbook/startup/useWorkbookStartupAdmission.ts`; `hooks/useWorkbookShellRuntime.ts` | CP-01 | Focused owner rows and typecheck | One new module; aggregate hook shrinks by the moved effect | Revert CP-02 while retaining characterization | All characterized outcomes and the two-stage admission invariant remain unchanged |
+| CP-03 guard and account | Enforce direct dependency and live source ownership | `tools/frontend_import_boundaries.json`; `tools/frontend_source_ownership.json`; `tools/schemas/cartulary.frontend_source_ownership.v1.schema.json`; its schema attachment and `web.architecture` owner check; `apps/web/src/README.md`; tracker; generated harness only if authored test-family inputs changed | CP-02 | Boundary, JSON shape, typecheck, focused `web.architecture` and Workbook rows | Exact-file rule, README reconciliation, and machine path accounting; no DOM/style/contract change | Revert guard/accounting with CP-02 | Shell runtime has no raw services/startup-parser import; every live `.ts`/`.tsx` path is accounted exactly once; README has no exhaustive machine-enforced claim and is not an executable input |
+| CP-04 complete | Review and broader build | Tracker checkpoint only | CP-01-03 | `make build-web`; targeted startup/extension browser rows only if the slice risk demands them | Atomic reviewable slice | Revert S-01 as a unit | App runnable; no public/generated/UX contract delta; checkpoint evidence recorded |
+
+Tests and generators MUST NOT read, stat, hash, or parse
+`apps/web/src/README.md` or any Markdown file. CP-03 MUST reconcile the five
+missing and one stale README paths against the live checkpoint tree, not the
+historical count of 297. The machine-readable ownership manifest becomes the
+path-accounting input for `.ts` and `.tsx` files only; the README remains
+non-authoritative narrative and is excluded from every executable inventory.
+
+## 10. Characterization Plan
+
+| Behavior | Owner contract | Existing unit evidence | Existing integration evidence | Existing browser/E2E evidence | Existing visual/a11y evidence | Gap | Required pre-move characterization | Intended stable assertion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Workbook startup order/identity | Core 03 §2.4 | `workbookStartup.test.ts`, startup controller test | Shell surface startup tests | Workbook startup/fallback E2E | Saved-view a11y/visual support | Admission effect lacks focused failure/hydration cases | S-01 CP-01 | Exact `sheet_ref`, schema, fallback order, and URL remain stable |
+| Surface switching | Core 03 §2 | Registry/controller tests | Shell surfaces | Workbook browser | A11y/visual shell | Broad prop bridge only | Reuse before S-11 | Stable schema ID and focus intent |
+| Saved-view apply/CRUD/reset | Core 03 §2.3 | Saved-view/controller/query/layout tests | Shell query/surface tests | Saved-view persistence E2E | Saved-view a11y/visual | Startup query/layout hydration not isolated | Add CP-01 assertion | Saved identity distinct; portable query/layout only |
+| Query dispatch/continuation | Core 01/Core 03 §14/REQ-03-275 | Query model/controller tests | Shell query/grid tests | Workbook query/paging E2E | None needed | Multi-owner loader isolation | Add owner-specific teardown/isolation cases | Exact body/schema/cursor and stale admission |
+| Row creation | Core 03 §7/§19 | Surface models/payload tests | Shell grid/assessment tests | Workbook interaction E2E | Grid visual/a11y | Per-owner movement only | Reuse exact payload/outcome evidence | Same minimum signal, IDs and draft retention |
+| Inline editing/autosave | Core 03 §4/§13 | Mutation/queue models | Shell autosave/payload | Mutation lifecycle E2E | Keyboard a11y | Direct surface payload/ID callers | Reuse per S-07 caller family | Same trigger, logical action and row version |
+| Keyboard navigation | Core 03 §13 | Keyboard/anchor tests | Shell sentinel | Timeline/workbook E2E | A11y | Continuity port not isolated | Reuse/add semantic-port case | Same `record_id`/`field_key` focus outcome |
+| Paste | Core 03 §11 | Clipboard/payload tests | Shell sentinel/surface | Paste browser rows | A11y where applicable | Owner routing scattered | Reuse per moved surface | Same scalar/multirow routing and commit |
+| Pending replay | Core 03 §4.4 | Queue/runtime tests | Shell collaboration/autosave | Stateful mutation E2E | None | Multiple entry paths | Reuse before mutations changes | FIFO, capacity, pause and blocker unchanged |
+| Same-field conflict | Core 03 §3.3 | Conflict/runtime tests | Shell resolver tests | Collaboration/stateful E2E | Conflict a11y | Port boundary only | Reuse before S-07/S-11 | Local draft remains distinct until explicit outcome |
+| Transaction-ID recovery | Core 03 REQ-03-301/302 | ID policy/runtime tests | Recovery panel tests | Mutation lifecycle E2E | Keyboard recovery evidence | Direct generator callers | Add per-owner command-port test | Replay retains ID; explicit recovery alone rekeys |
+| Collaboration resume/gap | Core 03 §4.3 | Session/projection tests | Shell collaboration | Collaboration E2E | Presence visual/a11y | Auth recovery mixed into projection | Injected auth-port cases | Same high-water/reset/requery sequence |
+| Stale event rejection | Core 03 REQ-03-096/097 | Row reconciliation/freshness tests | Shell grid/collaboration | Stateful collaboration | None | Timeline model cycle | Reuse for S-02 | No row regression or compensating stale refresh |
+| Selection/focus/scroll continuity | Core 03 inspector/action clauses | Continuity/focus tests | Sentinel/history/entity tests | Workbook/inspector E2E | A11y | No single semantic port | Port contract cases before S-10 | Stable record/field anchor and viewport |
+| Inspector open/retarget | Core 03 REQ-03-291/292 | Inspector/reset/model tests | Shell inspector/history | Inspector actions E2E | Inspector a11y/visual | Lifecycle duplicated | Add per-surface adoption cases | Default closed; synchronous invalidation; focus restored |
+| Incident closure | Core 03 REQ-03-287/288 | Lifecycle/runtime tests | Shell surface closed test | Closure E2E | Closed-state visual/a11y | Cross-owner disable/terminal handling | Reuse before shell/mutation moves | Readable shell; writes disabled; no replay after reopen |
+| Authorization loss | Core 03/Core 04 | Extension/runtime/loader tests | Surface access-loss tests | Auth/collaboration E2E | None | Cleanup/recovery split | Add injected port/teardown cases | Protected state clears; drafts/pending follow owner rules |
+| Layout/density | Core 03 REQ-03-286/289 | Density/responsive/layout tests | Shell composition | Workbook browser | Measurement/visual/a11y | Ownership spread | Capture zero/one/three/many plus density before S-12 | Stable independent scroll and row-count-independent geometry |
+| Extension omission/teardown | Core 03 REQ-03-011A/303 | Availability/interpreter tests | Shell/lazy feature tests | Extension stateful E2E | Extension visual if touched | Startup failure application not focused | CP-01 plus S-08 teardown cases | Exact availability intersection and Base fallback |
+
+Evidence MUST be placed at the narrowest level that observes the owned
+behavior:
+
+| Evidence level | Required purpose | Permitted assertions |
+| --- | --- | --- |
+| Owner unit | Pure state, admission, and lifecycle behavior | Stable identifiers, typed state partitions, transitions, ordering, idempotent disposal |
+| Facade integration | Port wiring and side-effect admission | Exact narrow-port calls, cancellation, cleanup, and transport-adapter use |
+| Shell/browser | User-visible composition | Surface selection, focus, accessibility, status, route, and zero-UX outcomes |
+
+Shell tests MUST verify composition. They MUST NOT be the sole evidence for a
+startup, query-admission, mutation-queue, inspector-invalidation, or cleanup
+state machine.
+
+| Risk | Mandatory focused evidence |
+| --- | --- |
+| R-001 | All ten Section 5.1 startup cases and both admission-stage invariants |
+| R-002 | All Section 3.2 edge classes, zero migrated-owner SCC, and zero private-to-own-facade back edge |
+| R-003 | Two-shell, two-client, incident-switch, authorization-generation, and teardown isolation |
+| R-004 | Every Section 4.2 transition and proof that local state is never presented as committed |
+| R-005 | One case per Section 5.2 cleanup row and stale-work non-repopulation |
+| R-006 | Owner-unit and facade evidence before source movement; shell evidence for composition |
+| R-007 | Machine ownership manifest exactly matches the live `.ts`/`.tsx` tree; README discrepancy is reconciled without executable Markdown dependency |
+| R-008 | Authored input, generator, focused owner, drift, policy, and provenance evidence |
+| R-009 | Risk-targeted browser/a11y/visual evidence with no observable or baseline delta |
+
+Assertions must use observable behavior and stable IDs, not component names,
+private hook names, vendor coordinates, transient DOM structure, or normative
+Markdown parsing. Visual/a11y results are readiness evidence unless an owner
+separately makes them conformance evidence.
+
+## 11. Validation Plan
+
+| Validation target | Exact command | Scope | Cost | Required checkpoint | Expected artifact/output | Baseline result | Failure classification |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Import boundary | `make frontend-import-boundary-check` | Frontend architecture | low | Tracker baseline; every slice | Tool summary and owner accounting | PASS `.cartulary/test-results/20260731T080402Z-p1635241` | Type/import policy |
+| Frontend typecheck | `make frontend-typecheck` | Workspace TypeScript | low | Tracker baseline; every source slice | Tool summary | PASS `.cartulary/test-results/20260731T080402Z-p1635245` | Type/build configuration |
+| Workbook contract model | `make test-slice OWNER=module.workbook ROWS=module.workbook.frontend_unit.verify_startup_surface_resolution_order_explicit_3db34a3795` | Startup model | low | S-01 CP-01 onward | Owner row summary | PASS in final 88-test owner slice `.cartulary/test-results/20260731T080708Z-p1651823` | Product/unit or harness |
+| Workbook startup controllers/shell | `make test-slice OWNER=web.workbook ROWS=web.workbook.regression.useworkbookstartupcontroller_suite_d6a9bfa13c,web.workbook.regression.useworkbooksavedviewcontroller_suite_d3f1a57e5d,web.workbook.regression.workbookshell_surfaces_suite_668e482b1e` | Startup/saved-view/surface behavior | medium | S-01 CP-01 onward | Owner row summaries | PASS in final 112-test owner slice `.cartulary/test-results/20260731T075710Z-p1516195` | Product/unit, fixture, or harness |
+| Authored generation | `make generate` | Harness projections when test catalog changes | medium | S-01 CP-01 and catalog-changing slices | Generator run root | PASS `.cartulary/test-results/20260731T075633Z-p1511166` | Generated drift/input defect |
+| Generated drift/policy | `make generate-drift` and `make generated-artifact-policy-check` | Generated roots | medium | Any generator/contract-adjacent slice | Drift/policy summaries | PASS drift `.cartulary/test-results/20260731T080434Z-p1641078`; policy `.cartulary/test-results/20260731T080434Z-p1641085` | Generated-artifact drift |
+| Web build | `make build-web` | Production web bundle | medium | End of every source slice | Build summary/artifact | PASS `.cartulary/test-results/20260731T080434Z-p1641468` | Build/bundle |
+| Focused Workbook owner | `make test-slice OWNER=web.workbook` | Workbook unit/static | medium-high | Risky shell/runtime changes | Owner evidence | PASS 112/112 `.cartulary/test-results/20260731T075710Z-p1516195` | Product, fixture, or harness |
+| Focused architecture | `make test-slice OWNER=web.architecture` | Selector/import/architecture policies | low-medium | Guardrail changes | Owner evidence | PASS 11/11 `.cartulary/test-results/20260731T075710Z-p1516183` | Boundary/harness |
+| Browser webserver | `make browser-e2e-webserver-backed` | Public browser flows | high | Startup/query/shell changes when unit evidence is insufficient | Browser run root | PASS `.cartulary/test-results/20260731T073505Z-p1415696` | Product or browser infrastructure |
+| Stateful browser | `make browser-e2e-stateful` | Mutation/collaboration lifecycle | high | S-07-S-11 | Browser run root | PASS `.cartulary/test-results/20260731T073949Z-p1445043` | Product, fixture, or environment |
+| Accessibility | `make browser-e2e-a11y` | Keyboard/focus/semantics | high | S-09-S-12 | A11y artifact root | PASS `.cartulary/test-results/20260731T080034Z-p1592667` | Product accessibility or browser infrastructure |
+| Measurement | `make browser-e2e-measurement` | Geometry/performance fixtures | high | S-12 | Measurement artifacts | PASS `.cartulary/test-results/20260731T075939Z-p1572818` | Product geometry, fixture, or environment |
+| Visual | `make browser-e2e-visual` | Stable visual readiness | high | Only DOM/layout/rendering changes | Visual artifacts | PASS without baseline update `.cartulary/test-results/20260731T080154Z-p1613532` | Visual product, fixture, or infrastructure |
+| Broader fast check | `make test-fast` | Repository fast verification | high | Final risky slice | Run root | PASS 1002/1002 `.cartulary/test-results/20260731T081040Z-p1695576` | Product/tool/harness |
+| Tracker Markdown | `make lint-markdown` | Documentation | low | This tracker only | Tool summary/run root | PASS after S-12 `.cartulary/test-results/20260731T080552Z-p1649655`; V-01 terminal pass `.cartulary/test-results/20260731T081555Z-p1754738` | Markdown/tooling |
+| Diff hygiene | `git diff --check HEAD -- docs/handoffs/web-app-src-module-refactor-tracker.md` | Combined index/worktree tracker patch | low | This tracker and every checkpoint | Exit status | PASS after every slice; final terminal audit recorded in V-01 | Patch hygiene |
+| Index/worktree name audit | `git diff --cached --name-only` and `git diff --name-only` | Staged and unstaged names separately | low | This tracker only | Exact path lists | PASS: the pre-existing staged name remains only this tracker; implementation paths are classified in the V-01 ledger | Scope violation |
+
+Generated or harness projections MUST follow this workflow:
+
+```text
+edit authored owner input
+    -> make generate
+    -> run focused owner tests
+    -> make generate-drift
+    -> make generated-artifact-policy-check
+    -> review generated diff and provenance
+```
+
+Generated outputs MUST NOT be edited directly. A generated failure MUST be
+repaired in its authored input or generator. Authored and generated changes
+MUST be reviewed and rolled back as one logical change. A test rename or
+addition MUST update its semantic owner input, not a generated row. Pure file
+moves MUST NOT trigger incidental protocol, OpenAPI, lockfile, or package
+surface regeneration.
+
+Future implementation MUST use this ordered validation ladder:
+
+1. Run `make generate` only when an authored generated input changes.
+2. Run `make frontend-import-boundary-check`.
+3. Run `make frontend-typecheck`.
+4. Run focused `module.workbook`, `web.workbook`, and `web.architecture` owner
+   slices applicable to the change.
+5. Run `make build-web`.
+6. Run `make generate-drift` and
+   `make generated-artifact-policy-check`.
+7. Run targeted stateful, browser, accessibility, measurement, and visual
+   checks according to slice risk.
+8. Run `make agent-finalize`, then the appropriate broader final check.
+
+A product failure, type/lint failure, generated drift, harness failure,
+browser infrastructure failure, fixture failure, and environment failure MUST
+be reported distinctly. This documentation-only revision MUST run only the
+tracker Markdown check, the scoped diff check, and the two name audits. It
+MUST NOT claim a new product, build, browser, generated, or full-check result.
+
+## 12. Top-Level Tracker and Workflow Map
+
+### 12.1 T-001 through T-011
+
+| ID | Task | Type | Status | Depends on | Evidence | Exit criterion |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-001 | Define target module and scope | scope | DONE | none | Section 1 | One Workbook composition seam and exclusions explicit |
+| T-002 | Inspect current repo state | discovery | DONE | T-001 | Sections 1-3 and Appendix H.2; 297-path reconciliation | Files, imports, tests, packages and commands mapped |
+| T-003 | Map owner contracts | contracts | DONE | T-002 | Sections 1.2, 5, 6 | Public behavior and owners frozen |
+| T-004 | Freeze characterization evidence | tests | DONE | T-003 | Sections 5 and 10 | Existing/gap/pre-move evidence named |
+| T-005 | Plan boundary guardrails | architecture | DONE | T-003 | Sections 3, 7, 8 | All 22 guardrails dispositioned |
+| T-006 | Plan behavior-preserving moves | implementation | DONE | T-004,T-005 | Section 9 | Twelve bounded reversible slices defined |
+| T-007 | Plan validation loop | validation | DONE | T-006 | Section 11 | Canonical commands and checkpoint costs named |
+| T-008 | Define documentation and source-accounting closure | docs | DONE | T-003 | D-006, CP-03, Guardrail 20 | README repair and non-Markdown machine ownership accounting are mandatory at CP-03 |
+| T-009 | Execute or hand off | handoff | DONE | T-006,T-007,T-008 | Sections 9.1 and 14 | Next actor can author S-01 goal without repository-wide rediscovery |
+| T-010 | Convert R-001-R-009 to binary closure contracts | risk | DONE | T-003-T-008 | Sections 4-6, 10, 13, 15 | Each risk has a decision, artifact/interface, evidence, and traceable Definition of Done |
+| T-011 | Produce implementation closure evidence | implementation | DONE | T-009,T-010 and separate authorization | S-01 through S-12 and V-01 ledger evidence; `WEB-RF-CLOSE-001` through `WEB-RF-CLOSE-014` | Every criterion passes and R-001 through R-009 are `CLOSED` |
+
+### 12.2 Applicable workflows
+
+| Workflow | Status | Exact inputs | Planning work completed | Evidence | Blockers | Next action | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| WF-00 Session/source bootstrap | DONE (planning) | Git/date/status, AGENTS, framework, prompt | Recorded two baselines and tracker-only authority | Section 1 | None | Preserve baseline in later checkpoint | Context and limits explicit |
+| WF-01 Current-state scan | DONE (planning) | 297 paths, imports, tests, manifests, Make guidance | Reconciled tree and graph | Sections 2-3, Appendix H.2 | None | Re-run only changed-slice searches | Exact inventory/current findings recorded |
+| WF-02 Ownership inventory | DONE (planning) | Source responsibilities/callers/state | Assigned semantic owner groups and exact ledger | Section 2 | None | Apply one owner per slice | No generic shared/global owner |
+| WF-03 Public contract freeze | DONE (planning) | Core/NLSpec/contracts/tests | Froze seven contract surfaces and behaviors | Sections 5-6 | None | Recheck affected owner before each slice | Drift surface and evidence known |
+| WF-04 Slice selection | DONE (planning) | Findings, owners, freeze | Ordered twelve one-seam slices | Section 9 | None | Start S-01 CP-01 | Each slice reviewable/reversible |
+| WF-05 Characterization plan | DONE (planning) | Existing tests/catalog/browser evidence | Mapped gaps and stable assertions | Section 10 | None | Add S-01 characterization before movement | Risky moves gated |
+| WF-06 Guardrail plan | DONE (planning) | Import manifest/policy tests | Dispositioned all 22 rules | Section 8 | None | Add S-01 exact-file and source-accounting rules after extraction | Enforcement/removal explicit |
+| WF-08 Frontend seam plan | DONE (planning) | App and package boundaries | Preserved package facades; defined app-local modules | Section 7 | None | No package extraction in S-01 | Dependency direction complete |
+| WF-09 Checkpoint plan | DONE (planning) | Slices, tests, guardrails | Defined CP-01-CP-04 | Section 9.1 | None | Execute CP-01 only when authorized | Validation/rollback after risk |
+| WF-10 Validation/accounting plan | DONE (planning) | Task guides, explain-target, family rows | Named ladder, artifacts and classifications | Section 11 | None | Run narrow rows in S-01 | No invented direct command |
+| WF-11 Docs/generated plan | DONE (planning) | Generated policy, README discrepancy, owner order | Classified every slice and closed D-006 | Roadmap, CP-03, Section 11 | None at planning stage | Reconcile README and add machine ownership accounting in S-01; generator owns outputs | No hand edit, executable Markdown dependency, or normative churn |
+| WF-12 Cleanup/anti-drift plan | DONE (planning) | Guardrails, old paths, public facades | Defined stale import/path and diff checks per slice | Sections 8-11 | None | Remove allowlists in same owning slice | No compatibility debris |
+| WF-13 Handoff/bootstrap | DONE (planning) | Complete tracker | First slice is goal-ready | Sections 9.1 and 14 | None | Next session starts with safe restart commands | No repository-wide rediscovery |
+
+WF-07 is omitted because no backend module facade is in scope. No
+implementation workflow was executed in this tracker-only session.
+
+## 13. Risks, Blockers, and Decisions
+
+### 13.1 Risks
+
+| ID | Closure decision | Required interface or artifact | Binary closure evidence | Status |
+| --- | --- | --- | --- | --- |
+| R-001 | One startup-admission owner MUST apply selection-owned effects only when request identity, incident identity, selection version, and availability reservation satisfy Section 5.1. Availability already admitted by the current reservation remains admitted after a later selection-version rejection. | Section 7.3 ports and guard; exact Section 5.1 sequence | CP-01 passes before movement; all ten cases and two-stage invariants pass after extraction | `CLOSED` |
+| R-002 | Every Section 3.2 edge class MUST enter the ownership graph. Migrated owners MUST have no SCC larger than one and no private-to-own-facade back edge. | Frontend boundary owner plus Timeline freshness leaf | Existing Timeline SCC is absent without an allowlist; boundary, typecheck, focused owner, and build evidence pass | `CLOSED` |
+| R-003 | Every mutable Workbook owner MUST be instance-created for the Section 4.1 lifecycle; no mutable module singleton, exported store, callback bus, or generic store may be introduced. | Lifecycle catalog; idempotent `invalidate`/`dispose`; immutable snapshots; removable subscriptions | Two-shell, two-client, incident-switch, authorization-generation, and teardown isolation pass | `CLOSED` |
+| R-004 | Committed, in-flight, pending, same-field conflict, invalid-draft, blocked-transaction, and derived-save state MUST remain separately typed and owned. | Section 4.2 state and transition matrix | Owner and stateful evidence proves every transition and proves local values never appear committed | `CLOSED` |
+| R-005 | Authorization and capability changes MUST invoke typed owner cleanup in the Section 5.2 order. Server authorization remains authoritative. | `WorkbookInvalidationReason`, cleanup matrix, and owner-specific cleanup ports | One focused test per cleanup row passes; stale async work cannot repopulate cleared protected state | `CLOSED` |
+| R-006 | Every slice MUST begin with owner-focused characterization. Shell tests MUST prove composition and MUST NOT be the sole state-machine evidence. | Authored test-family cases at the three Section 10 levels | Focused owner rows pass before and after movement; a failure identifies one owner | `CLOSED` |
+| R-007 | CP-03 MUST reconcile the README and replace its exhaustive/machine-enforced inventory claim with non-authoritative narrative. `tools/frontend_source_ownership.json` MUST account for the live `.ts`/`.tsx` tree. | README repair; `cartulary.frontend_source_ownership.v1` schema; owner-approved path-accounting check that never reads Markdown | Every live `.ts`/`.tsx` checkpoint path appears exactly once, no nonexistent or out-of-root path appears, and no test/generator/runtime/conformance tool depends on Markdown | `CLOSED` |
+| R-008 | Generated and harness projections MUST change only through authored owner inputs and the generator workflow in Section 11. | Authored input, generator, generated-root policy, provenance review | Generate, focused owner, drift, and policy evidence pass; no direct generated edit exists | `CLOSED` |
+| R-009 | Every structural slice MUST have zero UX delta and MUST NOT rebaseline a visual difference. | Section 6.1 covenant and risk-targeted evidence | Copy, selector, ARIA, keyboard, focus, selection, geometry, density, route, socket, visual, and vendor-boundary outcomes remain unchanged | `CLOSED` |
+
+### 13.2 Blockers
+
+| ID | State | Evidence | Effect |
+| --- | --- | --- | --- |
+| B-001 | `CLEAR` | No owner contradiction or other stop-rule trigger has been demonstrated through S-12. | V-01 validation and handoff completion is the next authorized workstream. |
+
+The stop-rule mapping is exhaustive for this roadmap:
+
+| Trigger | Required status | Required resolution |
+| --- | --- | --- |
+| Adopted owner and characterization disagree | `BLOCKED: owner contradiction` | The primary Core or adopted-NLSpec owner resolves the behavior before source movement. |
+| Current behavior violates an unambiguous adopted owner | `BLOCKED: pre-existing conformance defect` | Repair and validate the defect separately; MUST NOT freeze it as conforming characterization. |
+| An affected focused baseline fails before movement | `BLOCKED: affected baseline not green` | Classify and repair the failure or explicitly establish that it is unrelated before movement. |
+| Security cleanup requires a new user-visible retention or recovery promise | `BLOCKED: security disposition missing` | Obtain a Core 03/Core 04 owner decision. |
+| The seam requires a public HTTP, WebSocket, or generated-contract change | `BLOCKED: public-contract change required` | Complete a separate contract-owner and compatibility task. |
+| The seam requires an inseparable backend or adjacent-module refactor | `BLOCKED: scope expansion required` | Revisit D-002 with exact dependency evidence and separate authorization. |
+| A generated change has no corresponding authored owner input | `BLOCKED: generated ownership contradiction` | Identify and update the owner input or generator before regenerating. |
+| `apps/web/src` changes materially after this baseline | `CLEAR` pending re-audit | Re-run the affected inventory, graph, characterization, and baseline. Apply a blocker only if another row's trigger is then demonstrated. |
+
+### 13.3 Decisions
+
+| ID | Decision | Alternatives considered | Evidence | Consequences | Revisit trigger |
+| --- | --- | --- | --- | --- | --- |
+| D-001 | Update this canonical tracker | Create requested alternate file | Existing tracker has same source scope and historical evidence | One authoritative handoff path | Existing tracker is formally retired |
+| D-002 | Target Workbook composition, not all `apps/web/src` | Whole app rewrite; directory-as-module | Prompt and live graph show multiple valid owners | Adjacent app/extension code is evidence only | A demonstrated inseparable hazard |
+| D-003 | Start with startup admission | Timeline cycle; broad component split | Demonstrated shell transport/state coupling, strong tests, reversible effect boundary | Establishes a narrow facade without UI movement | Pre-move characterization contradicts owner |
+| D-004 | Keep state instance-scoped by lifetime | Generic global store | Core local-state rules and current lifecycle evidence | More explicit ports; no store dependency | Owner establishes durable/global state |
+| D-005 | Preserve existing package facades | Move app logic into packages immediately | No vendor leak; current package boundaries pass | App-local seams land before any package proposal | Repeated cross-app consumer proves package need |
+| D-006 | Repair `apps/web/src/README.md` in S-01 CP-03, remove its claim to be the machine-enforced exhaustive inventory, and introduce `tools/frontend_source_ownership.json` checked against every live `.ts`/`.tsx` path | Leave drift indefinitely; make Markdown executable input | Five missing paths, one stale path, 296 non-Markdown baseline paths, and repository prohibition on executable Markdown dependencies | README remains narrative; live TypeScript path membership becomes machine-accounted without freezing a count | Repository adopts a different authored machine owner for source accounting |
+| D-007 | Record both commits | Pretend discovery commit remained current | Clean repository advanced through unrelated tracker only | Honest provenance without restarting analysis | `apps/web/src` changes before handoff |
+| D-008 | Startup uses separate availability-reservation admission and selection-version admission | One all-or-nothing response transaction | Live sequence in `useWorkbookShellRuntime.ts` | Admitted availability is not rolled back by a later selection rejection | An adopted owner changes startup admission |
+| D-009 | Every mutable owner has an explicit instance key and idempotent lifetime operations | Module singleton; implicit component lifetime | Section 4.1 and current state owners | Isolation and cleanup become testable; wider-lived owners use app-created providers | An owner requires a different persistent lifetime |
+| D-010 | Committed, in-flight, pending, conflict, invalid-draft, blocked-transaction, and save-label state remain separate | Unified status/store record | Core 03 and Section 4.2 | Save label stays derived; presence never changes it | Adopted owner changes mutation semantics |
+| D-011 | Security and lifecycle cleanup follows the typed matrix and fixed order | Generic clear-all event; client visibility as authorization | Core 03/Core 04 and distributed live cleanup | Late work cannot restore cleared protected state; server reauthorization precedes requery/replay | A new post-access-loss recovery promise is proposed |
+| D-012 | Static, type-only, re-export, wildcard, static-string dynamic, and facade imports all count as ownership edges; migrated owners have no SCC | Runtime-only cycle scan; temporary allowlist | Existing Timeline re-export cycle and TypeScript ownership | S-02 resolves through the freshness leaf without an allowlist | Owner-approved scanner gains an equivalent stronger model |
+| D-013 | Structural slices have zero UX delta and cannot accept a visual difference by rebaselining | Opportunistic cleanup/redesign | Public freeze and R-009 | Any observable delta is reverted or separately authorized | Explicit behavior/UI task |
+| D-014 | Workbook code remains app-local until it has at least two independent production consumers or embodies a hard platform/vendor boundary | Promote by directory shape, relative-import inconvenience, tests, stories, or generated use | Current single-app ownership and valid package facades | Refactor seams do not automatically become packages | Threshold evidence is demonstrated and package ownership is reviewed |
+
+### 13.4 Authority and artifact mapping
+
+| Subject | Required owner or artifact |
+| --- | --- |
+| Public `/api/v1` or `/ws/v1` shape, startup envelope, `sheet_ref`, generated protocol surface | Core 01 and authored contract inputs |
+| Startup fallback, saved-view interaction, queue/conflict behavior, focus, inspector, closed-mode behavior | Core 03 |
+| Authorization and protected-state outcome | Core 04 |
+| Current profile, owner vocabulary, and extension profile identity | Core 00 and adopted subsystem owners |
+| Claim-bearing timed or fixture-sensitive publication | Core 05 only when applicable; not applicable to this tracker |
+| App-local ports, lifecycles, state partitions, cleanup ordering | This subordinate tracker, constrained by adopted owners |
+| Import direction, SCC policy, path accounting | Authored machine policy/manifest and its owner-approved check |
+| Characterization rows and routing | Authored test-family inputs and Testing Harness projections |
+| Generated outputs | Generator-owned projections; never authored directly |
+| Human source navigation | Reconciled README as non-authoritative narrative |
+| Research and external guidance | Appendix G corroboration only |
+
+No Core amendment is currently required. A Core 03/Core 04 amendment becomes
+mandatory before any post-membership-loss copy, export, recovery, or replay
+promise is implemented.
+
+## 14. Handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | `2026-07-31T04:15:29-04:00` V-01 implementation closure |
+| Branch/commit | `main` / baseline `680d35d30ae1eb090fb9a4ff2768b1b5b407a09c`; implementation remains in the shared worktree |
+| Tracker | `docs/handoffs/web-app-src-module-refactor-tracker.md` |
+| Target seam | Workbook application composition inside `apps/web/src` |
+| Planning workflows completed | WF-00-WF-06 and WF-08-WF-13; implementation P-00, S-01 through S-12, and V-01 |
+| Revision inputs inspected | Adopted owner navigation, this controlling tracker, every affected Workbook source owner, authored harness inputs, generated topology projections, browser evidence, and final worktree/name audits |
+| Repository inventory retained | Exact 320-path `.ts`/`.tsx` ownership manifest; `README.md` reconciled manually and excluded from executable accounting |
+| Commands run for this revision | Per-slice owner, architecture, type, build, browser, generated, Markdown, and diff gates in Section 17; final `agent-finalize` and `test-fast` roots are recorded in V-01 |
+| Retained prior baseline | Every workstream row retains its characterization, passing owner results, rollback point, and any repaired intermediate failure |
+| New product/build/browser/generated/full-check result | Final `module.workbook` 88/88; `test-fast` 1002/1002; S-12 measurement/a11y/visual pass with no baseline update; generation drift and policy pass |
+| Decisions | D-001 through D-014 |
+| Risk posture | R-001 through R-009 are `CLOSED`; `WEB-RF-CLOSE-001` through `WEB-RF-CLOSE-014` pass |
+| Unresolved questions | None |
+| Blockers | B-001 is `CLEAR`; Section 13.2 defines every stop condition |
+| First implementation slice | Complete: S-01 startup admission |
+| Next workflow | Review and commit the completed structural refactor; no remediation workstream remains |
+| Safe restart commands | `git status --short`; `git rev-parse HEAD`; `make explain-run RESULTS_DIR=.cartulary/test-results/20260731T081040Z-p1695576`; `make frontend-import-boundary-check` |
+| Dirty-worktree disposition | The user's pre-existing staged tracker revision remains staged and was never reset or replaced. All implementation, test, README, authored harness, and generated projection changes are unstaged; the tracker is `MM`, preserving the staged baseline plus the required sequential execution ledger. |
+
+## 15. Definition of Done
+
+### 15.1 Tracker-revision acceptance
+
+| ID | Result | Evidence or explanation |
+| --- | --- | --- |
+| RF-AC-001 | PASS | Section 1 names exactly one Workbook composition seam. |
+| RF-AC-002 | PASS | Section 2 plus rebaselined Appendix H.2 account for all 297 paths; no relevant unseen file remains. |
+| RF-AC-003 | PASS | Section 6 freezes every applicable public surface. |
+| RF-AC-004 | PASS | Sections 1.3, 6, and 9 separate structural work from behavior changes. |
+| RF-AC-005 | PASS | Section 10 identifies existing evidence and exact gaps. |
+| RF-AC-006 | PASS | Section 9.1 contains validation and rollback after every risky checkpoint. |
+| RF-AC-007 | PASS | Sections 7-8 preserve app/package/import boundaries. |
+| RF-AC-008 | PASS | Generated output is changed only through owner inputs and `make generate`. |
+| RF-AC-009 | PASS | No phase identity is a production or harness boundary. |
+| RF-AC-010 | PASS | Sections 9.1, 11, and 14 are restart-ready. |
+| WEB-RF-AC-001 | PASS | Primary target is the required Workbook application-composition boundary. |
+| WEB-RF-AC-002 | PASS | Section 1.3 and each adjacent finding apply the demonstrated-coupling rule. |
+| WEB-RF-AC-003 | PASS | Section 4 covers every discovered state class. |
+| WEB-RF-AC-004 | PASS | Section 5 traces all 18 required flows. |
+| WEB-RF-AC-005 | PASS | Saved views are frozen as schema configurations; custom sheets are excluded. |
+| WEB-RF-AC-006 | PASS | No grid-vendor leak exists; Guardrail 1 preserves the adapter boundary. |
+| WEB-RF-AC-007 | PASS | Behavior changes require a separate authorized task. |
+| WEB-RF-AC-008 | PASS | S-01 is behavior-preserving, reversible, and independently reviewable. |
+| WEB-RF-AC-009 | PASS | Roadmap and characterization tables gate every risky move. |
+| WEB-RF-AC-010 | PASS | No generated hand edit, client authorization substitution, label identity, or phase module is planned. |
+| WEB-RF-AC-011 | PASS | Section 16 confirms this tracker is the sole tracked change. |
+| WEB-RF-AC-012 | PASS | Section 9.1 can be converted directly into the first implementation `/goal`. |
+
+### 15.2 Final implementation closure
+
+The refactor is complete because every binary row below is true. A row cannot
+be waived by prose; changing a criterion requires revising this subordinate
+contract or its controlling owner.
+
+| ID | Result | Binary criterion | Trace |
+| --- | --- | --- | --- |
+| `WEB-RF-CLOSE-001` | PASS | Immediately before S-01, the checkpoint records current branch, HEAD, staged/unstaged/untracked state, and the affected `apps/web/src` diff. | R-006; CP-01; Section 11 |
+| `WEB-RF-CLOSE-002` | PASS | CP-01 passes every ordinary startup, saved-view hydration, delayed user selection, overlapping request, stale availability, unavailable extension, non-OK, malformed response, teardown, and late hydration case in Section 5.1. | R-001; Section 5.1; CP-01 |
+| `WEB-RF-CLOSE-003` | PASS | S-01 moves only the characterized startup effect and changes no retry, cancellation, public contract, DOM, style, or observable behavior. | R-001; D-008; CP-02; Section 6.1 |
+| `WEB-RF-CLOSE-004` | PASS | The production ownership graph contains no SCC larger than one among migrated owners, counts every Section 3.2 edge class, and contains no private-to-own-facade back edge or temporary allowlist. | R-002; D-012; Guardrail 5; S-02 |
+| `WEB-RF-CLOSE-005` | PASS | Two-shell, two-client, incident-switch, authorization-generation, and teardown tests prove that owner state and work do not bleed across instance lifetimes. | R-003; D-009; Section 4.1; Guardrail 19 |
+| `WEB-RF-CLOSE-006` | PASS | Committed, in-flight, pending, same-field conflict, invalid-draft, blocked-transaction, and derived-save state remain distinguishable in types and observed behavior; presence does not alter save state. | R-004; D-010; Section 4.2; Guardrail 14 |
+| `WEB-RF-CLOSE-007` | PASS | Every cleanup-matrix trigger has focused passing evidence, and stale async work cannot repopulate cleared protected state. | R-005; D-011; Section 5.2; Guardrail 9 |
+| `WEB-RF-CLOSE-008` | PASS | At CP-03, the authored source-ownership manifest matches every live `.ts`/`.tsx` path exactly once, the README discrepancy is reconciled manually, and no executable system depends on Markdown. | R-007; D-006; CP-03; Guardrail 20 |
+| `WEB-RF-CLOSE-009` | PASS | Every generated change originates in an authored input and passes focused owner, drift, and generated-artifact policy checks with reviewed provenance. | R-008; Section 11 generated workflow |
+| `WEB-RF-CLOSE-010` | PASS | No copy, selector, ARIA, keyboard, focus, selection, geometry, density, route, socket, visual output, package version, or vendor boundary changes. | R-009; D-013; Section 6.1; Guardrail 21 |
+| `WEB-RF-CLOSE-011` | PASS | Import boundary, frontend typecheck, applicable focused `module.workbook`, `web.workbook`, and `web.architecture` slices, and `make build-web` pass. | R-002, R-006; Section 11 steps 2-5 |
+| `WEB-RF-CLOSE-012` | PASS | The targeted stateful/browser/accessibility/measurement/visual checks required by the affected slice risk pass; structural slices accept no baseline delta. | R-009; Section 10; Section 11 step 7 |
+| `WEB-RF-CLOSE-013` | PASS | Every completed slice checkpoint records source paths, tests, retained artifacts, rollback point, command results/run roots, and final status. | R-006; CP-04; Sections 9.1, 11, and 14 |
+| `WEB-RF-CLOSE-014` | PASS | B-001 remains `CLEAR`, or implementation stops under exactly one applicable Section 13.2 `BLOCKED: <reason>` state; no ambiguity is silently resolved in code. | B-001; Section 13.2; authority rule in Section 1.2 |
+
+## 16. Tracker-Only Verification
+
+Closure-contract verification completed at `2026-07-30T23:20:40-04:00`:
+
+| Command | Result |
+| --- | --- |
+| `make lint-markdown` | PASS; initial root `.cartulary/test-results/20260731T031807Z-p3919644`, post-revision rerun root `.cartulary/test-results/20260731T031847Z-p3921474` |
+| `git diff --check HEAD -- docs/handoffs/web-app-src-module-refactor-tracker.md` | PASS; no whitespace errors |
+| `git diff --cached --name-only` | Only `docs/handoffs/web-app-src-module-refactor-tracker.md` |
+| `git diff --name-only` | Only `docs/handoffs/web-app-src-module-refactor-tracker.md` |
+| `git status --short --untracked-files=all` | `MM docs/handoffs/web-app-src-module-refactor-tracker.md`; the pre-existing staged revision and this unstaged revision are both limited to the tracker |
+| Appendix H fingerprint | PASS; SHA-256 remains `ec782f3e011d473869d5cd1c3d87f047115cd4c67c0de274833c7c9facde63a1` |
+
+No implementation, test, generated, manifest, README, package, build
+configuration, or normative-owner file changed. Product, build, browser,
+generated, full-check, and retained-run maintenance targets were intentionally
+not run.
+
+## 17. Authorized Implementation Execution
+
+Implementation was authorized on `2026-07-30T23:34:00-04:00`.
+The implementation baseline is `main` at
+`680d35d30ae1eb090fb9a4ff2768b1b5b407a09c`. At authorization, the user's
+staged tracker revision was preserved, no `apps/web/src` path differed from
+the baseline, and the live source tree contained 297 paths: 296
+`.ts`/`.tsx` paths and one documentation-only `README.md`.
+
+The pure type leaf
+`apps/web/src/workbook/lifecycle/workbookInvalidation.ts` owns only the closed
+invalidation vocabulary from Section 5.2. It MUST NOT own mutable state,
+subscriptions, a callback bus, or cleanup execution. Each runtime owner
+accepts only the variants it can interpret.
+
+### 17.1 Cleanup evidence routing
+
+| Cleanup trigger | Primary slice | Required supporting owners | Closure evidence |
+| --- | --- | --- | --- |
+| Superseded startup request | S-01 | Startup and view-state | Startup admission cases `.cartulary/test-results/20260731T034304Z-p3943186` |
+| HTTP authorization failure or `session_revoked` | S-08 | Query, mutations, Evidence, extensions, inspector | Coordinator cleanup `.cartulary/test-results/20260731T054806Z-p499997`; authorized replay `.cartulary/test-results/20260731T061119Z-p750521` |
+| Confirmed incident-access loss | S-08 | Query, mutations, Evidence, inspector, continuity | Coordinator protected-state and late-work rejection `.cartulary/test-results/20260731T054806Z-p499997`; stateful cleanup `.cartulary/test-results/20260731T060330Z-p687879` |
+| Role downgrade with read access | S-07, S-08 | Mutations and app authorization | Coordinator dispatch halt `.cartulary/test-results/20260731T054806Z-p499997`; `module.auth` 53/53 `.cartulary/test-results/20260731T055627Z-p642901` |
+| Extension unavailability | S-01, S-08 | Extensions and startup | Startup availability cases `.cartulary/test-results/20260731T034304Z-p3943186`; `module.extensions` `.cartulary/test-results/20260731T054824Z-p500678` |
+| WebSocket gap or `reset_required` | S-08 | Collaboration and query | Coordinator requery barrier `.cartulary/test-results/20260731T054806Z-p499997`; collaboration owner `.cartulary/test-results/20260731T060726Z-p721066` |
+| Incident becomes closed | S-07, S-08, S-09 | Mutations and inspector | Stateful closure/replay prohibition `.cartulary/test-results/20260731T060330Z-p687879`; inspector closure `.cartulary/test-results/20260731T063531Z-p893238` |
+| Surface or grid unmount | S-05, S-08, S-09, S-10 | Query, collaboration, inspector, continuity | Broker disposal `.cartulary/test-results/20260731T042242Z-p42866`; coordinator disposal `.cartulary/test-results/20260731T054806Z-p499997`; inspector `.cartulary/test-results/20260731T062438Z-p787477`; continuity `.cartulary/test-results/20260731T065513Z-p966441` |
+| Full reload, tab close, browser restart, or crash | S-07, S-08 | Mutations and collaboration | Mutation runtime characterization `.cartulary/test-results/20260731T045946Z-p281335`; stateful pending/reconnect evidence `.cartulary/test-results/20260731T052430Z-p455357` |
+
+### 17.2 Workstream execution ledger
+
+The active workstream MUST update this table after its validation passes and
+before the next workstream begins. `Evidence` records exact commands and
+retained roots; `Rollback` names the independently reversible boundary.
+
+| Workstream | Status | Paths or seam | Evidence | Rollback | Risk closure |
+| --- | --- | --- | --- | --- | --- |
+| P-00 | DONE | Tracker execution contract and live baseline | `2026-07-30T23:34:00-04:00`; 297 total paths, 296 TypeScript paths; staged tracker preserved; no source diff; Markdown PASS `.cartulary/test-results/20260731T033508Z-p3933056` | Revert Section 17 and the execution clarifications only | R-007 contract clarified |
+| S-01 | DONE | `workbook/startup/useWorkbookStartupAdmission.ts`; `workbook/lifecycle/workbookInvalidation.ts`; shell facade wiring; ten startup tests; exact-file boundary; 300-path TypeScript ownership manifest/schema/policy; README reconciliation; authored test-family routing and generated topology index | PASS: startup row `.cartulary/test-results/20260731T034304Z-p3943186`; source ownership row `.cartulary/test-results/20260731T034304Z-p3943191`; `module.workbook` `.cartulary/test-results/20260731T034524Z-p4003926`; `module.savedviews` `.cartulary/test-results/20260731T034322Z-p3944274`; `module.extensions` `.cartulary/test-results/20260731T034322Z-p3944261`; `web.workbook` `.cartulary/test-results/20260731T034322Z-p3944258`; boundary `.cartulary/test-results/20260731T034230Z-p3941453`; build `.cartulary/test-results/20260731T034837Z-p4041094`; JSON `.cartulary/test-results/20260731T034903Z-p4044293`; generated policy `.cartulary/test-results/20260731T034903Z-p4044286`; generation `.cartulary/test-results/20260731T034210Z-p3938944`; drift `.cartulary/test-results/20260731T034903Z-p4044301`; Markdown `.cartulary/test-results/20260731T035055Z-p4049599`; typecheck exit 0 | Revert S-01 source, authored harness inputs, generated topology projection, and README changes as one unit while retaining characterization | R-001 and R-007 closed; S-01 evidence satisfies R-006; no owner contradiction |
+| S-02 | DONE | `timeline/models/workbookRecordFreshness.ts`; direct freshness imports; split leaf/grid characterization; production acyclic graph over imports, type imports, all re-exports, and static dynamic imports; computed dynamic imports rejected; JSON-shape validation for the authored acyclic-graph declaration; 302-path ownership checkpoint | PASS: focused freshness/grid rows `.cartulary/test-results/20260731T035611Z-p4058329`; `module.timeline` `.cartulary/test-results/20260731T035619Z-p4058792`; `web.architecture` `.cartulary/test-results/20260731T035817Z-p4085683`; `web.workbook` `.cartulary/test-results/20260731T035817Z-p4085688`; boundary/SCC `.cartulary/test-results/20260731T035529Z-p4054827`; build `.cartulary/test-results/20260731T035929Z-p4091422`; generation `.cartulary/test-results/20260731T035551Z-p4055841`; drift `.cartulary/test-results/20260731T035929Z-p4090933`; generated policy `.cartulary/test-results/20260731T035929Z-p4090948`; Markdown `.cartulary/test-results/20260731T040004Z-p4098900`; typecheck and script lint exit 0. S-06A closure audit found the JSON-shape checker had not admitted `acyclic_import_graphs`; the checker was repaired, regenerated, script-linted, and passed JSON shape `.cartulary/test-results/20260731T044020Z-p146768`, drift `.cartulary/test-results/20260731T044020Z-p146755`, and policy `.cartulary/test-results/20260731T044020Z-p146766` | Revert S-02 leaf, direct imports, scanner/config/shape validation, source ownership, README, authored family rows, and generated topology projection | R-002 Timeline SCC condition closed without allowlist or compatibility re-export; global facade-edge condition remains enforced as later facades land |
+| S-03 | DONE | `workbook/evidence/evidenceAccessPresentation.ts`; live-region test ownership; Evidence binding import; production services-to-Workbook prohibition; 304-path ownership checkpoint | PASS: presentation row `.cartulary/test-results/20260731T040308Z-p4105548`; `module.evidence` clean rerun `.cartulary/test-results/20260731T040533Z-p4134545`; transport rows `.cartulary/test-results/20260731T040732Z-p4160948`; `web.architecture` `.cartulary/test-results/20260731T040732Z-p4160921`; `web.workbook` `.cartulary/test-results/20260731T040732Z-p4160934`; boundary `.cartulary/test-results/20260731T040309Z-p4105686`; build `.cartulary/test-results/20260731T040845Z-p4166914`; generation `.cartulary/test-results/20260731T040252Z-p4103165`; drift `.cartulary/test-results/20260731T040845Z-p4166518`; generated policy `.cartulary/test-results/20260731T040845Z-p4166553`; Markdown `.cartulary/test-results/20260731T040939Z-p4174145`; typecheck exit 0. Earlier owner run `.cartulary/test-results/20260731T040327Z-p4106934` had passing child targets but failed harness accounting on an immutable terminal browser-startup diagnostic; the fresh rerun is authoritative | Revert S-03 presentation files/import, boundary rule, source ownership, README, authored family ownership, and generated topology projection | Evidence transport/application direction condition of R-002 closed; R-006 owner-level characterization satisfied; routes, retry, handle, error-safety, and attachment outcomes retained |
+| S-04 | DONE | `view-state/useWorkbookQueryState.ts`; reducer-backed per-instance schema defaults; controller composition; explicit two-shell isolation; no mutable module cache; 305-path ownership checkpoint | PASS: focused query rows `.cartulary/test-results/20260731T041327Z-p4182361`; `module.savedviews` `.cartulary/test-results/20260731T041338Z-p4182732`; `web.architecture` `.cartulary/test-results/20260731T041523Z-p17160`; `web.workbook` `.cartulary/test-results/20260731T041523Z-p17150`; boundary `.cartulary/test-results/20260731T041248Z-p4180779`; build `.cartulary/test-results/20260731T041631Z-p22969`; generation `.cartulary/test-results/20260731T041235Z-p4178294`; drift `.cartulary/test-results/20260731T041631Z-p22461`; generated policy `.cartulary/test-results/20260731T041631Z-p22475`; formatter `.cartulary/test-results/20260731T041652Z-p30399`; Markdown `.cartulary/test-results/20260731T041758Z-p34570`; typecheck and final Biome lint exit 0. Initial focused run `.cartulary/test-results/20260731T041248Z-p4180671` exposed retained DOM between two catalog selectors and was repaired with explicit test cleanup; initial Biome run `.cartulary/test-results/20260731T041631Z-p22749` reported formatting/import ordering only | Revert S-04 view-state hook, controller/test changes, source ownership, README, authored family row, and generated topology projection | Query-default lifetime condition of R-003 closed; no persistence or saved-view migration |
+| S-05 | DONE | Instance-scoped `ReferenceQueryBrokerPort`; shell-owned `(apiBase, incidentId, authorizationGeneration)` factory lifetime; broker-owned abort controllers; shared-consumer accounting; typed invalidation; idempotent disposal; no singleton export | PASS: broker suite `.cartulary/test-results/20260731T042242Z-p42866`; `web.architecture` `.cartulary/test-results/20260731T042302Z-p43871`; `web.workbook` `.cartulary/test-results/20260731T042302Z-p43875`; boundary `.cartulary/test-results/20260731T042207Z-p41389`; build `.cartulary/test-results/20260731T042408Z-p49733`; generation `.cartulary/test-results/20260731T042150Z-p38865`; drift `.cartulary/test-results/20260731T042408Z-p49213`; generated policy `.cartulary/test-results/20260731T042408Z-p49199`; formatter `.cartulary/test-results/20260731T042428Z-p57741`; Markdown `.cartulary/test-results/20260731T042519Z-p61856`; final typecheck and Biome lint exit 0. Initial typecheck `.cartulary/test-results/20260731T042207Z-p41370` identified test-mock tuple inference and was repaired; initial Biome `.cartulary/test-results/20260731T042408Z-p49465` reported only broker-file formatting/import order | Revert S-05 broker factory/port, shell/component injection, consumer hook, tests, README, authored family titles, and any generated projection | Reference-query lifetime condition of R-003 and applicable typed cleanup condition of R-005 closed; deduplication retained without cross-shell or cross-authorization coupling |
+| S-06A | DONE | `query/WorkbookQueryRow.ts`; pure shared row-patch helper; `useEntitySurfaceQuery.ts`; direct owner tests; Shell composition; entity branch removed from `useWorkbookSurfaceLoaders.ts`; all `EntityApiRow` aliases/imports removed; 309-path ownership checkpoint | PASS: entity-owner row `.cartulary/test-results/20260731T043552Z-p83454`; `module.entities` `.cartulary/test-results/20260731T043616Z-p85002`; `web.workbook` `.cartulary/test-results/20260731T043616Z-p85212`; `web.architecture` `.cartulary/test-results/20260731T043616Z-p85056`; boundary/SCC `.cartulary/test-results/20260731T044039Z-p151752`; build `.cartulary/test-results/20260731T043754Z-p117531`; targeted webserver-backed entity scenario `.cartulary/test-results/20260731T043801Z-p120598`; final generation `.cartulary/test-results/20260731T044009Z-p144434`; JSON `.cartulary/test-results/20260731T044020Z-p146768`; drift `.cartulary/test-results/20260731T044020Z-p146755`; generated policy `.cartulary/test-results/20260731T044020Z-p146766`; formatter `.cartulary/test-results/20260731T043529Z-p77879`; final typecheck, Biome, and script lint exit 0. Initial JSON audit `.cartulary/test-results/20260731T043845Z-p138218` exposed the S-02 checker omission and the first repaired rerun `.cartulary/test-results/20260731T043952Z-p143336` correctly required regeneration; both were resolved by the recorded checker/generator closure | Revert S-06A query-row leaf/helper, entity owner/test, Shell wiring, type-import migration, README, ownership manifest, authored entity family row, and generated projection; restore the entity branch atomically | Entity-query conditions of R-003 and R-005 closed with owner-level R-006 evidence; shared query contracts no longer depend on Timeline; no route, payload, row, error, or UX migration |
+| S-06B | DONE | `query/useAssessmentSurfaceQuery.ts`; direct owner tests; shared `WorkbookQueryRow` consumption with duplicate `AssessmentApiRow` removed; Shell composition; assessment branch removed from `useWorkbookSurfaceLoaders.ts`; 311-path ownership checkpoint | PASS: final assessment-owner row `.cartulary/test-results/20260731T044546Z-p163301`; `module.assessments` `.cartulary/test-results/20260731T044602Z-p164354`; `web.workbook` `.cartulary/test-results/20260731T044602Z-p164370`; `web.architecture` `.cartulary/test-results/20260731T044602Z-p164383`; boundary/SCC `.cartulary/test-results/20260731T044603Z-p164560`; build `.cartulary/test-results/20260731T044715Z-p189635`; targeted assessment browser scenario `.cartulary/test-results/20260731T044725Z-p192721`; generation `.cartulary/test-results/20260731T044505Z-p159345`; JSON `.cartulary/test-results/20260731T044800Z-p210314`; drift `.cartulary/test-results/20260731T044800Z-p210299`; generated policy `.cartulary/test-results/20260731T044800Z-p210317`; formatter `.cartulary/test-results/20260731T044457Z-p156202`; final typecheck and Biome exit 0. Initial typecheck `.cartulary/test-results/20260731T044517Z-p161824` identified the nullable `RequestInit.signal` test type and was repaired without product change | Revert S-06B assessment owner/test, Shell wiring, shared-row migration, README, ownership manifest, authored assessment family row, and generated projection; restore the assessment branch atomically | Assessment-query conditions of R-003 and R-005 closed with owner-level R-006 evidence; stale rows, rapid-filter admission, access cleanup, live patches, and teardown remain independently verified |
+| S-06C | DONE | `query/useGenericSurfaceQuery.ts`; direct schema-keyed owner tests; Shell composition; Notes normalization and schema matching retained; `hooks/useWorkbookSurfaceLoaders.ts` deleted with no forwarding wrapper or stale import; 312-path ownership checkpoint | PASS: generic-owner row `.cartulary/test-results/20260731T045217Z-p223388`; `module.artifacts` `.cartulary/test-results/20260731T045241Z-p225035`; `module.tasksdecisions` `.cartulary/test-results/20260731T045241Z-p225051`; `web.workbook` `.cartulary/test-results/20260731T045241Z-p225011`; `web.architecture` `.cartulary/test-results/20260731T045241Z-p225030`; boundary/SCC `.cartulary/test-results/20260731T045358Z-p251503`; build `.cartulary/test-results/20260731T045406Z-p252127`; targeted task/decision generic-surface browser scenario `.cartulary/test-results/20260731T045413Z-p255212`; generation `.cartulary/test-results/20260731T045204Z-p221016`; JSON `.cartulary/test-results/20260731T045455Z-p273047`; drift `.cartulary/test-results/20260731T045455Z-p273033`; generated policy `.cartulary/test-results/20260731T045455Z-p273055`; formatter `.cartulary/test-results/20260731T045155Z-p217864`; final typecheck and Biome exit 0 | Revert S-06C generic owner/test, Shell wiring, README, ownership manifest, authored Workbook family row, and generated projection; restore the generic branch only if rolling back this slice | Generic-query conditions of R-003 and R-005 closed with owner-level R-006 evidence; query ownership phase has no mixed loader, duplicate row alias, compatibility re-export, or Timeline-owned common contract |
+| S-07 | DONE | `mutations/secureTransactionId.ts`; named Timeline, generic, entity, assessment, Evidence, and coordination command ports; incident-scoped command assembly; runtime ID injection; component wire-intent removal; obsolete `models/workbookMutations.ts` deleted; exact payload/local-randomness policy tests; 315-path ownership checkpoint | PASS: runtime baseline `.cartulary/test-results/20260731T045946Z-p281335`; Timeline `.cartulary/test-results/20260731T050550Z-p284922`; generic surface `.cartulary/test-results/20260731T050827Z-p312531`; entities `.cartulary/test-results/20260731T050938Z-p314279`; assessments `.cartulary/test-results/20260731T051151Z-p342023`; Evidence `.cartulary/test-results/20260731T051307Z-p362792`; coordination `.cartulary/test-results/20260731T051611Z-p391875`; exact command payloads `.cartulary/test-results/20260731T052047Z-p431366`; secure-runtime failure `.cartulary/test-results/20260731T052221Z-p444829`; source/ID boundary `.cartulary/test-results/20260731T052113Z-p432180`; retry/rekey queue `.cartulary/test-results/20260731T052116Z-p432504`; `web.workbook` 111/111 `.cartulary/test-results/20260731T052317Z-p447101`; boundary/SCC `.cartulary/test-results/20260731T052257Z-p445431`; build `.cartulary/test-results/20260731T052422Z-p451608`; stateful browser `.cartulary/test-results/20260731T052430Z-p455357`; generation `.cartulary/test-results/20260731T052213Z-p442615`; JSON `.cartulary/test-results/20260731T052653Z-p479417`; drift `.cartulary/test-results/20260731T052656Z-p479926`; generated policy `.cartulary/test-results/20260731T052708Z-p483761`; formatter `.cartulary/test-results/20260731T052209Z-p439508`; final typecheck and Biome exit 0. Initial typecheck roots `.cartulary/test-results/20260731T050449Z-p283343`, `.cartulary/test-results/20260731T050910Z-p313114`, `.cartulary/test-results/20260731T051119Z-p340819`, and `.cartulary/test-results/20260731T051240Z-p361650` exposed only incremental port-prop/unused-import migration points; initial command test `.cartulary/test-results/20260731T051952Z-p427225` exposed an expected schema-id typo; initial source policy `.cartulary/test-results/20260731T052056Z-p431732` exposed a false positive on an underscore-prefixed local variable. All were repaired before closure | Revert command assembly, owner-port injection, caller-family migrations, policy/tests, README, ownership manifest, authored family rows, and generated projection as one structural slice; the family-by-family checkpoints remain usable rollback boundaries | S-07 contribution to R-004 closed: logical IDs survive retryable replay, only explicit `client_txn_conflict` recovery rekeys, state partitions remain distinct, and presence does not alter save state. Applicable R-005 mutation cleanup remains typed; final cross-owner cleanup ordering lands in S-08 |
+| S-08 | DONE | Shared `WorkbookSheetRef` collaboration identity; `shared/authorizationRecovery.ts`; app-composed validating recovery adapter; `workbook/collaboration/WorkbookCollaborationCoordinator.ts` and session hook; typed query/mutation/extension/inspector/Evidence/presence/continuity invalidation in Section 5.2 order; Strict Mode-safe lifetime lease; old runtime projection/messages/port paths deleted without re-exports; direct Workbook auth transport removed; 316-path ownership checkpoint | PASS: focused coordinator and cleanup cases `.cartulary/test-results/20260731T054806Z-p499997`; `module.auth` 53/53 `.cartulary/test-results/20260731T055627Z-p642901`; `module.extensions` `.cartulary/test-results/20260731T054824Z-p500678`; `web.architecture` `.cartulary/test-results/20260731T054824Z-p500696`; `web.workbook` 111/111 `.cartulary/test-results/20260731T060616Z-p716680`; collaboration owner’s eight unaffected work units `.cartulary/test-results/20260731T060726Z-p721066` plus repaired HTTP-auth replay row `.cartulary/test-results/20260731T061119Z-p750521`; boundary/SCC `.cartulary/test-results/20260731T060312Z-p683511`; typecheck `.cartulary/test-results/20260731T060237Z-p678645`; Biome `.cartulary/test-results/20260731T060310Z-p682952`; build `.cartulary/test-results/20260731T060320Z-p684137`; stateful browser `.cartulary/test-results/20260731T060330Z-p687879`; generation `.cartulary/test-results/20260731T054755Z-p497752`; JSON `.cartulary/test-results/20260731T060553Z-p711928`; drift `.cartulary/test-results/20260731T060556Z-p712440`; generated policy `.cartulary/test-results/20260731T060607Z-p716276`; formatter `.cartulary/test-results/20260731T060306Z-p679771`. Initial typecheck `.cartulary/test-results/20260731T053915Z-p489830` exposed incremental move/catalog imports. Parallel auth `.cartulary/test-results/20260731T054824Z-p500660` hit an unrelated Vite port collision. Collaboration roots `.cartulary/test-results/20260731T054824Z-p500653`, `.cartulary/test-results/20260731T055311Z-p587459`, `.cartulary/test-results/20260731T055415Z-p606116`, and `.cartulary/test-results/20260731T060726Z-p721066` exposed a stale browser characterization that attempted or asserted protected-row interaction after a 401; it now queues only authorized work and proves cleanup plus replay after reauthentication. Initial Workbook root `.cartulary/test-results/20260731T055847Z-p673147` exposed abbreviated direct-shell session fixtures at the new validating adapter and was repaired by test-only loader injection | Revert the shared authorization port, app adapter injection, collaboration directory, typed owner invalidation wiring/tests, README and ownership manifest changes, authored family rows/generated topology, and the HTTP-auth characterization as one slice; restore the former runtime paths only with all callers atomically | Collaboration and authorization-lifetime conditions of R-003 closed; HTTP/session/access-loss/role-downgrade/gap/disposal cleanup rows of R-005 closed with late-work rejection; no socket shape, reconnect interval, resume identity, route, persistence, generated protocol, or UX contract changed |
+| S-09 | DONE | `inspector/useWorkbookInspectorCoordinator.ts`; pure semantic subject/open/panel/status/invalidation state machine; named feature reset, lifecycle, selection, and focus action ports; Timeline, entity, assessment, and generic surface adoption; row-version preview re-admission; obsolete reset hook deleted without a forwarding wrapper; README and 316-path ownership checkpoint | PASS: focused coordinator `.cartulary/test-results/20260731T062438Z-p787477`; inspector model `.cartulary/test-results/20260731T062449Z-p787859`; affected history rows `.cartulary/test-results/20260731T062818Z-p795036`; surface composition `.cartulary/test-results/20260731T062828Z-p795408`; `web.workbook` 111/111 `.cartulary/test-results/20260731T062844Z-p795799`; `module.assessments` `.cartulary/test-results/20260731T062957Z-p800209`; `module.timeline` `.cartulary/test-results/20260731T063350Z-p864334`; repaired entity merge browser row `.cartulary/test-results/20260731T063306Z-p845687`; `web.architecture` `.cartulary/test-results/20260731T062513Z-p788803`; boundary/SCC `.cartulary/test-results/20260731T062500Z-p788271`; typecheck `.cartulary/test-results/20260731T064005Z-p944347`; Biome `.cartulary/test-results/20260731T064015Z-p944936`; build `.cartulary/test-results/20260731T063524Z-p890075`; stateful `.cartulary/test-results/20260731T063531Z-p893238`; a11y `.cartulary/test-results/20260731T063748Z-p917089`; generation `.cartulary/test-results/20260731T062255Z-p780096`; JSON `.cartulary/test-results/20260731T064043Z-p945653`; drift `.cartulary/test-results/20260731T064046Z-p946159`; generated policy `.cartulary/test-results/20260731T064057Z-p950000`; formatter `.cartulary/test-results/20260731T063954Z-p941135`. Initial coordinator roots `.cartulary/test-results/20260731T062335Z-p786170` and `.cartulary/test-results/20260731T062403Z-p786917` exposed initial subject admission and lifecycle re-admission. Initial Workbook root `.cartulary/test-results/20260731T062525Z-p789937` exposed history cancellation on semantic retarget. Initial Entities owner root `.cartulary/test-results/20260731T063038Z-p819798` exposed missing dependent-preview reload after survivor row-version advancement. Initial formatter root `.cartulary/test-results/20260731T063931Z-p937810` identified dependency declarations only. All were repaired and narrowly rerun before closure | Revert the coordinator/model/tests, four owner-surface adoptions, preview re-admission dependency, README, ownership manifest, authored family rows, and generated topology projection as one slice; the surface adoptions remain individually identifiable rollback seams | Inspector conditions of R-005 closed for subject/version/surface/access/closure/delete/merge invalidation; S-09 contribution to R-009 closed with unchanged selectors, copy, focus behavior, stateful outcomes, and a11y evidence; no raw route, compatibility hook, panel redesign, or UX baseline change |
+| S-10 | DONE | Pure `continuity/workbookContinuityPort.ts`; private `useWorkbookGridContinuity.tsx` grid/DOM translation; opaque one-shot capture tokens; stable schema/record/field anchors; generic, entity, assessment, and Timeline selection/focus/inspector/action/conflict/live-refresh adoption; viewport helpers moved under continuity ownership; obsolete focus utility deleted without a forwarding wrapper; semantic-port import prohibition; README and 318-path ownership checkpoint | PASS: focused semantic-port and viewport rows `.cartulary/test-results/20260731T065513Z-p966441`; `web.workbook` 112/112 `.cartulary/test-results/20260731T065642Z-p970946`; `package.grid_adapter` 27/27 `.cartulary/test-results/20260731T065642Z-p970951`; `web.design` `.cartulary/test-results/20260731T065642Z-p970960`; Timeline keyboard/clipboard, scroll-to-cell, focus-restoration browser rows `.cartulary/test-results/20260731T065824Z-p1019114`; grouped-conflict selection-continuity browser row `.cartulary/test-results/20260731T065904Z-p1037048`; entity merge/survivor-continuity browser row `.cartulary/test-results/20260731T065936Z-p1054582`; a11y `.cartulary/test-results/20260731T070034Z-p1072533`; `web.architecture` `.cartulary/test-results/20260731T065625Z-p969693`; boundary/SCC `.cartulary/test-results/20260731T065524Z-p967147`; typecheck `.cartulary/test-results/20260731T070157Z-p1096504`; Biome `.cartulary/test-results/20260731T070157Z-p1096567`; build `.cartulary/test-results/20260731T070034Z-p1072525`; generation `.cartulary/test-results/20260731T065500Z-p964185`; JSON `.cartulary/test-results/20260731T070157Z-p1096257`; drift `.cartulary/test-results/20260731T070157Z-p1096259`; generated policy `.cartulary/test-results/20260731T070157Z-p1096283`; formatter `.cartulary/test-results/20260731T065447Z-p961015`. Initial architecture root `.cartulary/test-results/20260731T065524Z-p967041` correctly rejected unsorted newly authored ownership paths; the paths were placed in lexical owner order and the full architecture owner passed before closure | Revert the semantic port/adapter/tests, four owner-surface adoptions, Timeline adapter wiring, viewport-helper move, obsolete utility deletion, README, ownership manifest, boundary rule, authored family rows, and generated topology projection as one slice; the surface adoptions remain individually identifiable rollback seams | Continuity conditions of R-003 and R-005 closed with instance disposal and typed lifecycle clearing; S-10 contribution to R-009 closed with stable semantic anchors, private vendor coordinates, preserved keyboard/selection/scroll/focus behavior, targeted browser continuity, and a11y evidence; no DOM, vendor, route, selector, copy, or UX contract leaked into the public port |
+| S-11 | DONE | `surfaces/WorkbookSurfacesFacade.tsx`; stable registration-selected renderer composition; cohesive view-state, query, mutation, collaboration, inspector, continuity, layout, and incident owner inputs; concrete Timeline/entity/assessment/generic imports facade-private; no shell back edge; explicit continuity invalidation generation; old broad `components/WorkbookActiveSurface.tsx` deleted without a re-export; stable generic field identity retained across authoritative row-version refresh; private opaque focus snapshots retain a connected opener and latest Timeline semantic anchor | PASS: final `web.workbook` 112/112 `.cartulary/test-results/20260731T074330Z-p1489503`; `module.timeline` 50/50 `.cartulary/test-results/20260731T071202Z-p1120675`; `module.entities` 23/23 `.cartulary/test-results/20260731T071202Z-p1120681`; repaired `module.assessments` 15/15 `.cartulary/test-results/20260731T071802Z-p1252012`; `module.artifacts` `.cartulary/test-results/20260731T071839Z-p1270464`; `module.tasksdecisions` `.cartulary/test-results/20260731T071855Z-p1272287`; repaired Timeline keyboard/inspector continuity row `.cartulary/test-results/20260731T072838Z-p1336414`; repaired Parties generic collection row `.cartulary/test-results/20260731T073421Z-p1396949`; full webserver-backed `.cartulary/test-results/20260731T073505Z-p1415696`; stateful `.cartulary/test-results/20260731T073949Z-p1445043`; a11y `.cartulary/test-results/20260731T074204Z-p1468737`; `web.architecture` `.cartulary/test-results/20260731T074330Z-p1489611`; boundary/SCC `.cartulary/test-results/20260731T074330Z-p1490069`; typecheck `.cartulary/test-results/20260731T074330Z-p1489721`; Biome `.cartulary/test-results/20260731T074330Z-p1489795`; JSON `.cartulary/test-results/20260731T074330Z-p1489753`; build `.cartulary/test-results/20260731T074330Z-p1490384`; formatter `.cartulary/test-results/20260731T073410Z-p1393770`. Initial parallel Assessments root `.cartulary/test-results/20260731T071202Z-p1120690` ended in scheduler accounting; isolated roots `.cartulary/test-results/20260731T071346Z-p1192899` and `.cartulary/test-results/20260731T071525Z-p1212113` exposed nested assessment action focus overwriting. Initial full browser root `.cartulary/test-results/20260731T072053Z-p1298333` exposed the stale Timeline close anchor and generic field identity loss; isolated Parties roots `.cartulary/test-results/20260731T072921Z-p1355079` and `.cartulary/test-results/20260731T073129Z-p1374387` localized the latter. All product failures were repaired at owner/private-adapter boundaries and narrowly rerun before the passing full gates | Revert the facade move/grouped contract, Shell owner composition, private-renderer/back-edge rules, explicit continuity generation, owner-specific continuity/form repairs, README, and ownership-manifest path move as one slice; concrete owner inputs remain separately identifiable rollback seams | Facade/private-edge condition of R-002 closed without a compatibility re-export; S-11 contribution to R-003 closed with owner snapshots/commands rather than a generic store or callback bus; R-009 closed through unchanged component tree, lazy extension/import behavior, selectors, rendering, mutation, inspector, continuity, collaboration, stateful, full webserver-backed, and a11y evidence |
+| S-12 | DONE | `layout/useWorkbookLayoutFacade.ts`; semantic density, responsive, interaction, column-state, and surface-layout snapshot/commands; shared `WorkbookSurfaceLayout.tsx` work-area/inspector geometry; column-layout controller/model, responsive owner/model, density model, and shell styles moved under layout ownership with no old-path re-export; concrete surfaces consume one layout owner; shared fixed-overlay viewport slot; row-count/viewport-subtraction/synthetic-row/surface-minimum-height policy; private responsive-hook and column-controller boundaries; README and 320-path ownership checkpoint | PASS: `web.architecture` 11/11 `.cartulary/test-results/20260731T075710Z-p1516183`; `web.workbook` 112/112 `.cartulary/test-results/20260731T075710Z-p1516195`; `web.design` 5/5 `.cartulary/test-results/20260731T075710Z-p1516206`; isolated `package.grid_adapter` 27/27 `.cartulary/test-results/20260731T075849Z-p1552849`; measurement `.cartulary/test-results/20260731T075939Z-p1572818`; a11y `.cartulary/test-results/20260731T080034Z-p1592667`; visual with no baseline update `.cartulary/test-results/20260731T080154Z-p1613532`; boundary/SCC `.cartulary/test-results/20260731T080402Z-p1635241`; typecheck `.cartulary/test-results/20260731T080402Z-p1635245`; Biome `.cartulary/test-results/20260731T080427Z-p1640466`; JSON `.cartulary/test-results/20260731T080402Z-p1635054`; build `.cartulary/test-results/20260731T080434Z-p1641468`; generation `.cartulary/test-results/20260731T075633Z-p1511166`; drift `.cartulary/test-results/20260731T080434Z-p1641078`; generated policy `.cartulary/test-results/20260731T080434Z-p1641085`; formatter `.cartulary/test-results/20260731T080423Z-p1637276`. Initial typecheck `.cartulary/test-results/20260731T075554Z-p1509752` exposed one moved-test import; initial JSON `.cartulary/test-results/20260731T075554Z-p1509638` correctly required generation; initial parallel grid slice `.cartulary/test-results/20260731T075710Z-p1516225` had all 49 unit assertions pass but hit a concurrent Vite public-font copy race in browser readiness; isolated build and owner reruns passed. Initial Biome `.cartulary/test-results/20260731T080402Z-p1635295` reported only moved-test import ordering. All were resolved before closure | Revert the layout directory move/facade, grouped surface layout inputs, shared geometry slot, policy/boundary rules, README, ownership manifest, authored family paths/row, and generated topology projection as one structural slice; restore the old component/hook/model paths only with every caller atomically | Layout contribution to R-002 and R-003 closed through private lifecycle owners and semantic snapshots/commands; S-12 contribution to R-009 closed with row-count-independent geometry, preserved density and responsive behavior, independent scrolling, no visual delta, and passing measurement/a11y/visual evidence; no compatibility re-export, synthetic row, surface-specific height workaround, selector, copy, DOM, route, or UX migration |
+| V-01 | DONE | Obsolete-path, compatibility re-export, singleton/store, raw transport/session/transaction-ID caller, temporary-adapter, cleanup-routing, ownership-parity, generated-provenance, staged/unstaged/untracked, and SCC audits; all Section 15.2 criteria and handoff fields closed | PASS: final `module.workbook` 88/88 `.cartulary/test-results/20260731T080708Z-p1651823`; `agent-finalize` `.cartulary/test-results/20260731T081015Z-p1689060` with generated outputs unchanged and retained-run maintenance skipped because `RESULTS_DIR` was unset; `test-fast` 1002/1002 `.cartulary/test-results/20260731T081040Z-p1695576`; terminal Markdown `.cartulary/test-results/20260731T081555Z-p1754738`; final source ownership exact and unique at 320/320; 23 obsolete paths absent; no Workbook compatibility re-export, temporary allowlist, mutable module broker/default cache, presentation raw fetch/session recovery, or presentation `clientTxnID` caller; final diff hygiene and name classification pass. V-01 retains S-11 webserver/stateful evidence and S-12 boundary/type/build/generated/measurement/a11y/visual evidence without rerunning unchanged risk gates | No source rollback. Reopen the first failing owner slice only if retained evidence or a terminal audit is invalidated | R-001 through R-009 `CLOSED`; `WEB-RF-CLOSE-001` through `WEB-RF-CLOSE-014` PASS; B-001 `CLEAR`; no residual compatibility shim or unclassified remediation debt |
+
+## G. Non-Authoritative Supporting Evidence
+
+This appendix records corroboration only. It does not supersede Core, an
+adopted subsystem NLSpec, the Testing Harness owner, or live behavior.
+
+| Evidence | Decisions corroborated | Limited use |
+| --- | --- | --- |
+| R01 Aurora and R03 Kanvas analyses cited in `temp/analysis-notes.md` | D-004, D-009, D-011 | Support explicit instance ownership and owner-specific cleanup; do not define Cartulary state behavior. |
+| R04 responsive browser-spreadsheet analysis | D-010, D-013 | Supports explicit provisional state and a responsive interaction path; does not authorize durable pending storage because Core 03 keeps the queue memory-local. |
+| R08 Handsontable analysis | D-009, D-013 | Supports adapter-owned initialization, updates, and destruction for imperative grid instances; does not authorize vendor types above `@cartulary/grid-adapter`. |
+| R09 React Data Grid analysis | D-012, D-013 | Supports stable row identity, controlled selection, and semantic focus ownership; does not define Workbook contracts. |
+| R02 CRM/TEM, R05 responsive-interface, R06 SoD DFIR, and R07 SoD analyses | D-013 | Corroborate preservation of the low-friction grid workflow; do not authorize redesign or added ceremony. |
+| Official React guidance cited in `temp/analysis-notes.md` | D-009, D-011 | Corroborates symmetric effect cleanup, instance-aligned state, immutable external snapshots, and removable subscriptions. |
+| Official TypeScript guidance cited in `temp/analysis-notes.md` | D-012 | Confirms type-only imports are runtime-erased and therefore require source-ownership accounting independent of runtime cycle detection. |
+| OWASP authorization guidance cited in `temp/analysis-notes.md` | D-011 | Corroborates server-side authorization on every request; client cleanup remains presentation/confidentiality hygiene. |
+| React Data Grid project guidance cited in `temp/analysis-notes.md` | D-013 | Corroborates stable row keys and owner-controlled selection/focus behind the adapter boundary. |
+
+## H. Historical 2026-07-28 Remediation Record
+
+The material below is retained for provenance. Its completion claims apply only
+to the earlier S-00 through S-05 remediation at the commits and run roots it
+names. They do not close the current Workbook composition roadmap.
+
+### H.1 Scope and Source Posture
 
 | Field | Current execution posture |
 | --- | --- |
@@ -64,14 +1231,18 @@ current tree contains 293 files. The planning adaptation is therefore to
 diagnose and sequence those boundaries, not to promote the directory name
 `web-app-src` into a new runtime owner.
 
-## 2. Current-State Repository Inventory
+### H.2 Rebaselined Exact-Path Repository Ledger
 
-This inventory contains one row per live path. The responsibilities were seeded
-from the exhaustive local ownership map, then checked by reading every exact
-file and scanning its exports, relative importers, test importers, and workspace
-package imports. The read covered 293 files and 3,195,695 bytes; the README map
-and live file list matched 293-for-293. “No importer found” means no app-local
-relative-import edge was found and does not, by itself, prove dead code.
+This ledger began as the 293-path exhaustive inventory produced by the
+historical remediation. The current rebaseline compared it with the live
+297-path tree, opened the five new/current paths, replaced the deleted
+`useAssessmentSupportRows.ts` row with
+`useAssessmentSupportCandidates.ts`, and added the other four missing rows.
+The resulting table matches the live tree 297-for-297. Historical caller and
+dependency notes remain evidence from their named baseline; current structural
+findings and target ownership are controlled by Sections 2-9 above. “No
+importer found” means no app-local relative-import edge was found and does not,
+by itself, prove dead code.
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -163,6 +1334,8 @@ relative-import edge was found and does not, by itself, prove dead code.
 | `apps/web/src/services/clientTransactionIdPolicy.test.ts` | Static policy test excluding counters, clocks, and insecure randomness from browser mutation IDs. | Test module; no runtime package surface | No app-local relative importer found | `node:fs`, `node:path`, `node:url`, `vitest` | `services/clientTransactionIdPolicy.test.ts` (self) | None directly imported | /apps/web transport adapter | low | Characterization or policy evidence; not a runtime architecture boundary. |
 | `apps/web/src/services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. | `parseExtensionContractArtifact`, `GeneratedExtensionProfileResource` | `extensions/extensionAvailability.ts`, `workbook/WorkbookShell.tsx` | `@cartulary/protocol-ts` | No direct source-level test importer found | protocol-ts facade; no generated file edit | /apps/web transport adapter | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/services/importContractAdapter.ts` | Thin generated-protocol alias facade for Import and common-job operations and workflow resource types. | Generated operation request/response aliases and derived Import/job resource types | `imports/importCoordinator.ts`, `networkFlow/networkFlowImportModel.ts` | `@cartulary/protocol-ts` | `imports/importCoordinator.test.ts`, `networkFlow/networkFlowImportModel.test.ts` | protocol-ts facade; no generated file edit | /apps/web transport adapter | high | S-01B removed the coordinator's handwritten wire-shape authority. |
+| `apps/web/src/services/importTargetContractAdapter.test.ts` | Tests generated import-target registry projection and fail-closed analytical/view target admission. | Test module; no runtime package surface | No app-local relative importer found | `vitest`, `./importTargetContractAdapter` | `services/importTargetContractAdapter.test.ts` (self) | protocol-ts generated registry through the package facade | /apps/web transport adapter | low | Current generated import-target adapter evidence. |
+| `apps/web/src/services/importTargetContractAdapter.ts` | Typed facade over the generated import-target registry for selectable view targets and claim-gated analytical targets. | `importTargetRegistryDigest`, `importTargetSemantics`, `selectableViewImportTargets`, `requireClaimGatedAnalyticalImportTarget` | Import Assistant and Network Flow import mapping | `@cartulary/protocol-ts` | `services/importTargetContractAdapter.test.ts`, `workbook/features/ImportAssistantFeature.test.tsx`, Network Flow mapping tests | protocol-ts generated import-target registry | /apps/web transport adapter | high | Generated facts are consumed through the authored package facade; no generated file is edited. |
 | `apps/web/src/services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. | `csrfCookieName`, `csrfHeaderName`, `HTTPTransportError`, `HTTPTransportResult`, `readCookie`, +2 more | `app/IncidentImportPanel.tsx`, `app/referencePackAdminClient.ts`, `services/browserApi.ts`, +2 more | `@cartulary/protocol-ts` | No direct source-level test importer found | protocol-ts facade; no generated file edit | /apps/web transport adapter | high | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. | `NetworkFlowContributor`, `NetworkFlowContributorResult`, `NetworkFlowDiagnostic`, `NetworkFlowEdgeAnnotation`, `NetworkFlowGraphResult`, +45 more | `networkFlow/NetworkFlowGridLoadFixture.tsx`, `networkFlow/NetworkFlowMappingModal.tsx`, `networkFlow/NetworkFlowQueryControls.tsx`, +13 more | `@cartulary/protocol-ts` | `services/networkFlowContractAdapter.test.ts`, `networkFlow/networkFlowController.test.ts`, `networkFlow/networkFlowPresentation.test.tsx`, +1 more | protocol-ts facade; no generated file edit | /apps/web transport adapter | high | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/services/networkFlowContractAdapter.test.ts` | Claimed-profile and supported compiled-contract-major admission tests. | Test module; no runtime package surface | No app-local relative importer found | `vitest`, `./networkFlowContractAdapter` | `services/networkFlowContractAdapter.test.ts` (self) | protocol-ts facade; no generated file edit | /apps/web transport adapter | low | S-02 retained the live contract admission evidence while deleting obsolete routing tests. |
@@ -217,16 +1390,18 @@ relative-import edge was found and does not, by itself, prove dead code.
 | `apps/web/src/workbook/components/WorkbookGridEditorControl.tsx` | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. | `workbookGridEditorAdapter`, `WorkbookGridEditorKind`, `workbookGridEditorKind` | `workbook/WorkbookShell.query.test.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, `workbook/components/GenericWorkbookSurface.tsx` | `@cartulary/grid-adapter`, `@cartulary/view-contracts`, `react`, `../models/workbookReferenceOptions`, +1 more | `workbook/WorkbookShell.query.test.tsx` | view-contracts facade, grid-adapter facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/workbook/components/WorkbookInspectorFeatureGroups.tsx` | Inspector feature-group renderer and disabled-state presentation helpers. | `InspectorDisabledToken`, `WorkbookInspectorPanelSection` | `workbook/components/AssessmentWorkbookSurface.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, `workbook/components/GenericWorkbookSurface.tsx`, +1 more | `@cartulary/ui-contracts`, `@cartulary/view-contracts`, `react`, `../models/workbookInspectorModel` | No direct source-level test importer found | view-contracts facade, UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. | `WorkbookCellPresenceMarker`, `WorkbookRowGutterContent`, `WorkbookRowPresenceMarker` | `workbook/components/AssessmentWorkbookSurface.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, `workbook/components/GenericWorkbookSurface.tsx`, +2 more | `@cartulary/ui-contracts`, `react`, `../utils/workbookPresence` | No direct source-level test importer found | UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
+| `apps/web/src/workbook/components/WorkbookRecordCandidatePicker.tsx` | Reusable semantic multi-select for stable Workbook record candidates. | `WorkbookRecordCandidatePicker` | Assessment and other owner surfaces requiring explicit candidate selection | `react` | Assessment and Import feature tests through consumers | Stable `record_id`; no generated artifact | Workbook surface presentation support | medium | Keeps option identity on `recordId`; it owns no query or mutation behavior. |
 | `apps/web/src/workbook/components/WorkbookShellSlots.tsx` | Stable shell slot IDs, labels, and layout slot helpers. | `workbookShellId`, `WorkbookShellSlotRegion` | `workbook/WorkbookShell.tsx`, `workbook/components/WorkbookSurfaceFrame.tsx` | `@cartulary/ui-contracts`, `react` | No direct source-level test importer found | UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/workbook/components/WorkbookShellStyles.ts` | Workbook shell chrome and responsive layout style constants. | `panelStyle`, `shellTopBarStyle`, `shellTopBarUnsupportedStyle`, `shellTopBarActionsStyle`, `shellTopBarValueStyle`, +17 more | `workbook/WorkbookShell.tsx` | No static imports found | No direct source-level test importer found | None directly imported | /apps/web workbook shell/controller | low | Exact source read; app-local relative imports and test touchpoints statically mapped. |
 | `apps/web/src/workbook/components/WorkbookStatusStrip.tsx` | Status strip presentation for save/load/selection state. | `WorkbookStatusSaveState`, `WorkbookStatusStrip`, `WorkbookSurfaceStatusStrip`, `WorkbookPresenceSummary` | `workbook/WorkbookShell.tsx`, `workbook/components/AssessmentWorkbookSurface.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, +2 more | `@cartulary/ui-contracts`, `react`, `../utils/workbookGridFocus`, `../utils/workbookPresence`, +1 more | No direct source-level test importer found | UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/workbook/components/WorkbookSurfaceFrame.tsx` | Shared surface frame and style primitives for workbook grid/inspector layouts. | `WorkbookSurfaceFrame`, `workbookSurfaceGridShellStyle`, `workbookSurfaceInspectorPanelStyle`, `workbookSurfaceOverlayPanelStyle` | `workbook/components/AssessmentWorkbookSurface.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, `workbook/components/GenericWorkbookSurface.tsx`, +3 more | `react`, `../models/workbookResponsiveLayout`, `../utils/workbookStyles`, `./WorkbookShellSlots` | No direct source-level test importer found | None directly imported | /apps/web workbook shell/controller | medium | Exact source read; app-local relative imports and test touchpoints statically mapped. |
 | `apps/web/src/workbook/components/WorkbookViewBar.tsx` | Shared saved-view, query, inspector, and create control composition. | `WorkbookViewBar` | `workbook/components/AssessmentWorkbookSurface.tsx`, `workbook/components/EntityWorkbookSurface.tsx`, `workbook/components/GenericWorkbookSurface.tsx`, +1 more | `@cartulary/ui-contracts`, `lucide-react`, `react` | No direct source-level test importer found | UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
-| `apps/web/src/workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. | `ImportAssistantFeature` | `workbook/WorkbookShell.tsx` | `@cartulary/ui-contracts`, `@cartulary/view-contracts`, `react`, `../../extensions/extensionAvailability`, +3 more | No direct source-level test importer found | view-contracts facade, UI-selector facade; no generated file edit | imports workbook integration seam | medium | defer: no app-local relative importer found; confirm config/dynamic/package reachability before movement. |
+| `apps/web/src/workbook/features/ImportAssistantFeature.test.tsx` | Import Assistant selection, approved-mapping reuse, generated target, and operator-region characterization. | Test module; no runtime package surface | No app-local relative importer found | Testing Library, Vitest, Imports facade, extension availability fixture, `ImportAssistantFeature` | `workbook/features/ImportAssistantFeature.test.tsx` (self) | Generated import target facts through adapter consumers | imports workbook integration seam | low | Confirms the dynamically reached feature without using component paths as runtime identity. |
+| `apps/web/src/workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. | `ImportAssistantFeature` | Dynamically imported and rendered by `workbook/WorkbookShell.tsx` | `@cartulary/ui-contracts`, `@cartulary/view-contracts`, `react`, `../../extensions/extensionAvailability`, +3 more | `workbook/features/ImportAssistantFeature.test.tsx`, shell and browser Import evidence | view-contracts facade, UI-selector facade; no generated file edit | imports workbook integration seam | medium | Confirmed lazy reachability; preserve the Workbook feature facade. |
 | `apps/web/src/workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering, debug-fixture composition, and stable extension identity. | `NetworkFlowFeature`, `NetworkFlowGridLoadFeature`, `networkAnalysisSheetRef`, `networkAnalysisWorkspaceKey`, `networkFlowActivityProfileId` | `app/debug/DebugHarnessShell.tsx`, `workbook/WorkbookShell.tsx` | `react`, `../../extensions/extensionWorkspaceIdentities`, `../../networkFlow/NetworkAnalysisWorkspace`, `../../networkFlow/NetworkFlowGridLoadFixture` | No direct source-level test importer found | None directly imported | Network Flow workbook integration seam | medium | Exact source read; app-local relative imports and test touchpoints statically mapped. |
 | `apps/web/src/workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession UI/transport binding. | `CoordinationWorkflowBindings` | `workbook/components/GenericWorkbookSurface.tsx` | `@cartulary/view-contracts`, `react`, `../../../services/browserApi`, `../../../services/workbookApi`, +6 more | No direct source-level test importer found | view-contracts facade; no generated file edit | links/coordination frontend seam | medium | Consumes authored package facade; generated roots remain read-only. |
 | `apps/web/src/workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and attachment binding for the contract surface. | `useEvidenceWorkbookBindings` | `workbook/components/GenericWorkbookSurface.tsx` | `@cartulary/ui-contracts`, `react`, `../../../services/browserApi`, `../../../services/workbookEvidence`, +6 more | No direct source-level test importer found | UI-selector facade; no generated file edit | evidence frontend seam | medium | Consumes authored package facade; generated roots remain read-only. |
-| `apps/web/src/workbook/hooks/useAssessmentSupportRows.ts` | Loads and normalizes Timeline support rows needed by assessment workflows. | `useAssessmentSupportRows` | `workbook/components/AssessmentWorkbookSurface.tsx` | `react`, `../../services/browserApi`, `../../services/workbookApi`, `../models/workbookSurfaceRegistry`, +1 more | No direct source-level test importer found | None directly imported | assessments workbook seam | medium | Exact source read; app-local relative imports and test touchpoints statically mapped. |
+| `apps/web/src/workbook/hooks/useAssessmentSupportCandidates.ts` | Queries Timeline support rows and translates them into assessment-owned stable record candidates. | `useAssessmentSupportCandidates` | `workbook/components/AssessmentWorkbookSurface.tsx` | `react`, `../../services/browserApi`, `../../services/workbookApi`, assessment model, Timeline normalization adapter | Assessment shell and model tests | View query plus stable `record_id`; no generated artifact | assessments workbook query adapter | high | This is the sole allowed Assessment-to-Timeline candidate translation edge under the existing import boundary. |
 | `apps/web/src/workbook/hooks/useEntityTimelinePreview.ts` | Loads Timeline preview rows for entity-related workbook workflows. | `useEntityTimelinePreview` | `workbook/components/EntityWorkbookSurface.tsx` | `react`, `../../services/browserApi`, `../../services/workbookApi`, `../models/workbookSurfaceRegistry`, +1 more | No direct source-level test importer found | None directly imported | entities workbook seam | medium | Exact source read; app-local relative imports and test touchpoints statically mapped. |
 | `apps/web/src/workbook/hooks/useGenericSurfaceMutationController.ts` | Contract-surface mutation state and refresh coordination. | `GenericMutationSaveState`, `GenericViewMutationEnvelope`, `GenericPatchMutationRequest`, `GenericSurfaceMutationController`, `useGenericSurfaceMutationController` | `workbook/components/GenericWorkbookSurface.tsx`, `workbook/features/coordination/CoordinationWorkflowBindings.tsx`, `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | `react`, `../../services/browserApi`, `../../services/workbookApi`, `../models/genericWorkbookModel`, +3 more | No direct source-level test importer found | None directly imported | /apps/web workbook shell/controller | high | Exact source read; app-local relative imports and test touchpoints statically mapped. |
 | `apps/web/src/workbook/hooks/useIncidentControlsDrawer.ts` | Incident controls drawer state, selection, and focus restoration. | `useIncidentControlsDrawer` | `workbook/WorkbookShell.tsx` | `@cartulary/ui-contracts`, `react`, `../../shared/workbookShellContracts` | No direct source-level test importer found | UI-selector facade; no generated file edit | /apps/web workbook shell/controller | medium | Consumes authored package facade; generated roots remain read-only. |
@@ -371,7 +1546,7 @@ relative-import edge was found and does not, by itself, prove dead code.
 
 No file is excluded from the inventory.
 
-## 3. Module Boundary Diagnosis
+### H.3 Module Boundary Diagnosis
 
 The target is a **mixed-responsibility frontend application source root**. It
 contains a legitimate application composition facade, browser shell/controller
@@ -399,7 +1574,7 @@ sound permanent module boundary.
 | Grid vendor integration | package consumption throughout workbook/Network Flow | `@cartulary/grid-adapter` | keep | Package imports, static boundary manifest, targeted source scan | No direct runtime `react-data-grid` import was found under the target. |
 | Shared runtime selectors | selected app-local selector families | `@cartulary/ui-contracts` when cross-surface | split | `testing/selectorContractPolicy.test.ts` allowlist reasons | Promote only proven cross-boundary builders; keep debug, mock, and genuinely local selectors local. |
 
-## 4. Public Contract and Behavior Freeze Map
+### H.4 Public Contract and Behavior Freeze Map
 
 | Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -421,7 +1596,7 @@ sound permanent module boundary.
 | Browser selectors, focus targets, and accessibility semantics | UI-contract owner for shared identities; app owner for local controls | selector policy and semantic-grid tests | selector policy, workbook sentinel, Network Flow a11y tests | Add browser evidence for any promoted selector used cross-suite | medium | App-local allowlists are debt/accounting evidence, not runtime architecture. |
 | Verification owner rows, browser evidence, visual/a11y artifacts, and retained-run accounting | Testing Harness owner | owner catalog, family manifests, Make targets | harness-owned validation | Update only when the test/evidence surface changes | medium | Phase maps and rows account for evidence; they do not define runtime modules or prove spec completeness. |
 
-## 5. Coupling and Boundary Findings
+### H.5 Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
 | --- | --- | --- | --- | --- | --- |
@@ -443,7 +1618,7 @@ sound permanent module boundary.
 The two `must_fix` Import findings are corrective projections of existing
 owners, not new normative behavior. No current owner contradiction was found.
 
-## 6. Refactor Workstreams
+### H.6 Refactor Workstreams
 
 All workstreams are serialized. The final action in each workstream is a
 tracker update followed by a passing `make lint-markdown`; the next workstream
@@ -460,7 +1635,7 @@ does not start earlier.
 | S-04 | S-03G | Remove the dead Timeline presence hook and finalize reachability dispositions. | Workbook Timeline hook, README, tracker | Duplicate presence authority or speculative composition splits | Hook is absent, dynamic Import Assistant reachability is recorded, and composition roots remain evidence-gated. |
 | S-05 | S-04 | Validate, reconcile generated/harness evidence, and complete handoff. | All changed surfaces and tracker | Incomplete proof or unexplained generated/accounting diff | Required focused/browser/repository checks pass or have explicit evidence-based dispositions; every item is `DONE` or dispositioned. |
 
-## 7. Authorized Refactor Slice Plan
+### H.7 Authorized Refactor Slice Plan
 
 | Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -473,7 +1648,7 @@ does not start earlier.
 | S-04 | S-03G | Delete unused Timeline presence hook; retain lazy Import Assistant; disposition composition roots. | Workbook hook, README, tracker | Removing live code or recreating presence authority | Workbook/collaboration owners, typecheck/boundary. | Focused workbook/collaboration commands | Restore hook only if a caller is proven. | Dead hook absent; lazy reachability and no-action roots recorded. |
 | S-05 | S-04 | Format, finalize, run focused-to-broad validation, inspect diff, and close ledger. | Complete authorized diff | Generated hand edit, stale path/selector, or unexplained harness change | All affected owner and broad suites. | Commands in Section 8 and `git diff --check` | Roll back only the independently failing slice. | Final inventory, commands/run roots, skips, compatibility, and rollback evidence are complete. |
 
-## 8. Validation Plan
+### H.8 Validation Plan
 
 Commands below come from the current public Make surface and module-author task
 guides. S-00 froze these passing implementation-session baselines:
@@ -539,7 +1714,7 @@ Selector strings and rendered design behavior are unchanged, no golden was
 updated, and these suites would not add behavior-specific evidence for this
 remediation. Visual rows reached through affected owner slices remained green.
 
-## 9. Top-Level Work Tracker
+### H.9 Top-Level Work Tracker
 
 | ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -562,9 +1737,9 @@ remediation. Visual rows reached through affected owner slices remained green.
 | T-017 | Resolve reachability and delete dead hook | S-04 | DONE | T-016 | Hook removal and reachability ledger | Workbook/collaboration evidence passes. |
 | T-018 | Complete final validation and handoff | S-05 | DONE | T-017 | Section 10 run ledger and final diff | All required checks pass or are explicitly dispositioned. |
 
-## 10. Session Handoff Log
+### H.10 Session Handoff Log
 
-### Scope and authority
+#### Scope and authority
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -572,13 +1747,13 @@ remediation. Visual rows reached through affected owner slices remained green.
 | 2026-07-28 | Codex remediation S-00 | User authorized the complete serialized plan; baseline is clean `main` at `82999ef3c4aa12c55cc4aff5070c76a22a270704` with 293 web source files. | Tracker; live source and owner/task-guide evidence | `git status --short`; `git rev-parse`; source count; baseline owner/static targets | Replaced planning posture with live execution ledger; no owner contradiction. | None. | Pass Markdown lint, record its run root, then begin S-01A. |
 | 2026-07-28 | Codex remediation S-00 | Rebaseline checkpoint complete. | Tracker | `make lint-markdown` | PASS at `.cartulary/test-results/20260728T191042Z-p373875`. | None. | Begin S-01A generated Import protocol surface. |
 
-### Backend module boundary
+#### Backend module boundary
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-28 | Codex tracker implementation | Not applicable: target contains TypeScript/React browser code, tests, and local docs; no backend or persistence implementation is in scope. | Inspected all target paths and package manifest; touched tracker only. | File-extension/tree scan; source import scan | Backend facade, SQL, storage adapter, and migration edits excluded. | None for tracker. | Reopen backend owners only if a later frontend slice exposes an actual owner-contract gap. |
 
-### Frontend module boundary
+#### Frontend module boundary
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -596,7 +1771,7 @@ remediation. Visual rows reached through affected owner slices remained green.
 | 2026-07-28 | Codex remediation S-04 | The unreachable Timeline presence hook and its live ownership rows are gone. The Import Assistant remains intentionally lazy-reached, and size-only extraction of the three composition roots remains explicitly evidence-gated. | Deleted hook, source README, controlling tracker, Workbook lazy-import/render path | Workbook and Collaboration owners; typecheck; import boundary; full-repository live-source reachability search | Current source count is 293: S-01B added one adapter and S-04 removed one hook. No runtime/test caller of the deleted hook exists; the only other repository mention is preserved in an older completed handoff as historical evidence. S-03G Markdown checkpoint passed at `.cartulary/test-results/20260728T205538Z-p974934`. | None. | Pass the S-04 Markdown checkpoint, then begin final validation and handoff. |
 | 2026-07-28 | Codex remediation S-05 | The authorized remediation is implemented and validated end to end. | 70 final diff paths spanning authored protocol/OpenAPI inputs, generated projections, Imports/services, Network Flow cleanup, UI selectors and consumers, dead-code removal, harness/accounting inputs, README, and this tracker | Formatting, agent finalization, final focused owners, frontend/drift/browser/check matrix, diff and stale-path audits | Current source inventory is 293. No public route, persistence, authorization, CSRF, WebSocket, or rendered-selector identity changed. The user-observable correction is complete Import discovery beyond page one. | None. | Handoff complete. |
 
-### Contract and codegen
+#### Contract and codegen
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -605,7 +1780,7 @@ remediation. Visual rows reached through affected owner slices remained green.
 | 2026-07-28 | Codex remediation S-01B | Closed browser validation exposed stale machine projections for canonical jobs and structured Import locators. Their adopted Core 01 behavior was already implemented by the server. | Job API and Imports OpenAPI owner fragments; v2 release change set; composed OpenAPI; regenerated protocol outputs | `make generate`; platform OpenAPI and protocol owners; compatibility/drift checks | Replaced flattened/non-canonical job fields with `scope`, `status_route`, `submitted_at`, `retained_until`, typed summaries, owner-accurate progress/cancel shapes, and structured locators. Release change-set entries account for the v2 projection correction. Final generate PASS `.cartulary/test-results/20260728T193357Z-p450809`; OpenAPI owner PASS `.cartulary/test-results/20260728T193658Z-p511564`; protocol owner PASS `.cartulary/test-results/20260728T193652Z-p511203`; drift PASS `.cartulary/test-results/20260728T193707Z-p512349`. | Additive/breaking labels describe the 1.0-to-2.0 machine projection delta; runtime/public behavior did not change. | Preserve the corrected projection while moving its browser consumer. |
 | 2026-07-28 | Codex remediation S-01C | Browser response validation exposed one remaining stale Imports projection: the server and Core 01 support mutually exclusive view-schema and analytical-extension mapping request/read variants, while the OpenAPI fragment projected only the view-schema variant. | Imports OpenAPI owner fragment, v2 release change set, composed/generated OpenAPI and protocol artifacts, protocol facade/test | `make generate`; `make test-slice OWNER=package.protocol_ts`; `make frontend-typecheck` | Corrected the machine projection without changing normative behavior or public runtime behavior. Generate PASS `.cartulary/test-results/20260728T195139Z-p594768`; protocol owner PASS `.cartulary/test-results/20260728T195327Z-p598944`; typecheck exit 0. | The failed generate at `.cartulary/test-results/20260728T195052Z-p593458` correctly required twelve release-ledger fingerprints before generation could complete. | Preserve both closed mapping variants and their validator evidence. |
 
-### Tests and harness
+#### Tests and harness
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -623,20 +1798,20 @@ remediation. Visual rows reached through affected owner slices remained green.
 | 2026-07-28 | Codex remediation S-04 | Reachability dispositions and dead-code removal are validated. | Deleted Timeline hook, README/tracker rows, retained lazy Import Assistant, composition-root findings | Workbook, web Collaboration, module Collaboration, typecheck, import boundary | PASS: Workbook `.cartulary/test-results/20260728T205621Z-p976974`; web Collaboration `.cartulary/test-results/20260728T205621Z-p976981`; module Collaboration `.cartulary/test-results/20260728T205621Z-p976992`; boundary `.cartulary/test-results/20260728T205621Z-p977213`; typecheck exit 0. | None. | Checkpoint, then S-05. |
 | 2026-07-28 | Codex remediation S-05 | Final focused-to-broad validation and hygiene inspection are complete. | Complete authorized diff and generated/harness evidence | `make format`; `make agent-finalize`; final focused owners; frontend type/unit/boundary/Biome; drift/artifact/JSON; three browser targets; `make check`; `git diff --check`; stale-path/selector/inventory audits | PASS: exact roots are recorded in Section 8; `make check` passed 174/174 units; diff and stale searches are clean. Standalone visual and measurement targets were skipped for the recorded no-rendered-change reason. | None. | Handoff complete. |
 
-### Security and authorization
+#### Security and authorization
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-28 | Codex tracker implementation | Auth/session, CSRF, authorization-loss, WebSocket revocation, and Evidence upload boundaries included in freeze map. | App-shell client, collaboration session, transport policy, Evidence adapter, relevant Core/NLSpec guidance; touched tracker only. | Targeted source and route/event searches | No security or authorization behavior changed. | Any correction requires owner authority and later authorization. | Preserve exact failure and cleanup outcomes in characterization before movement. |
 
-### Open risks and next session
+#### Open risks and next session
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-28 | Codex remediation S-00 | S-00 rebaseline is complete except for its final Markdown checkpoint. | Tracker and current static/owner baselines | Inventory count; reachability and operation-selection inspection; three baseline Make targets | Work is serialized as S-01A through S-05 with per-slice rollback and exit criteria. | None. | Run and record `make lint-markdown`, then start S-01A. |
 | 2026-07-28 | Codex remediation S-05 | No open implementation or validation risk remains. | Final diff, validation matrix, compatibility and rollback disposition | Full final audit | Public protocol package additions and UI builders are additive; private web paths changed without shims because no external consumers exist. Roll back authored protocol/OpenAPI inputs with generated output, or one selector family with its callers/policy, as atomic units if ever required. Restore the dead hook only if a real caller is proven. | None. | No next remediation action. |
 
-## 11. Open Questions and Blockers
+### H.11 Open Questions and Blockers
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
@@ -646,7 +1821,7 @@ Targeted inspection found no current owner contradiction. Dynamic Import
 Assistant reachability, dead Timeline-hook status, and composition-root
 dispositions are resolved and closed in Section 5.
 
-## 12. Binary Completion Criteria
+### H.12 Binary Completion Criteria
 
 | Criterion | Result | Evidence |
 | --- | --- | --- |

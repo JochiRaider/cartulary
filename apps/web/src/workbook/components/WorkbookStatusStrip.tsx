@@ -6,10 +6,8 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
-import {
-  type WorkbookFocusAnchor,
-  WorkbookFocusAnchorStatus,
-} from "../utils/workbookGridFocus";
+import { WorkbookContinuityAnchorStatus } from "../continuity/useWorkbookGridContinuity";
+import type { WorkbookContinuityAnchor } from "../continuity/workbookContinuityPort";
 import {
   displayInitials,
   type PresenceRecord,
@@ -44,7 +42,7 @@ export function WorkbookStatusStrip({
   readonly saveStateSecondaryMessage: string | null;
   readonly showPresence?: boolean | undefined;
   readonly onActivateConflict?: (() => void) | undefined;
-  readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
+  readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
 }) {
   return (
     <>
@@ -94,7 +92,7 @@ export function WorkbookStatusStrip({
       {showPresence ? (
         <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
       ) : null}
-      <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
+      <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
 }
@@ -110,7 +108,7 @@ export function WorkbookSurfaceStatusStrip({
   readonly mutationError?: string | null | undefined;
   readonly mutationState: WorkbookStatusSaveState;
   readonly showPresence?: boolean | undefined;
-  readonly workbookFocusAnchor: WorkbookFocusAnchor | null;
+  readonly workbookFocusAnchor: WorkbookContinuityAnchor | null;
 }) {
   return (
     <>
@@ -139,7 +137,7 @@ export function WorkbookSurfaceStatusStrip({
       {showPresence ? (
         <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
       ) : null}
-      <WorkbookFocusAnchorStatus anchor={workbookFocusAnchor} />
+      <WorkbookContinuityAnchorStatus anchor={workbookFocusAnchor} />
     </>
   );
 }

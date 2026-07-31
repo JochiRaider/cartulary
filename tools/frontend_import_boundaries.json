@@ -25,6 +25,27 @@
     ".cache/**",
     ".pnpm-store/**"
   ],
+  "acyclic_import_graphs": [
+    {
+      "id": "frontend-web-production-acyclic-import-graph",
+      "level": "error",
+      "message": "Production web source imports, type imports, re-exports, and dynamic imports must form an enumerable acyclic graph.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/**"
+        ]
+      }
+    }
+  ],
   "singleton_imports": [
     {
       "id": "frontend-rdg-stylesheet-singleton",
@@ -131,6 +152,51 @@
       ]
     },
     {
+      "id": "frontend-workbook-shell-runtime-startup-boundary",
+      "level": "error",
+      "message": "The aggregate Workbook shell runtime must consume startup admission through its facade.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/services"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/models/workbookStartup"
+        }
+      ]
+    },
+    {
+      "id": "frontend-services-workbook-direction",
+      "level": "error",
+      "message": "Production service adapters must not depend on Workbook application or presentation modules.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/services/**"
+        ],
+        "exclude": [
+          "apps/web/src/services/*.test.ts",
+          "apps/web/src/services/*.test.tsx",
+          "apps/web/src/services/**/*.test.ts",
+          "apps/web/src/services/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook"
+        }
+      ]
+    },
+    {
       "id": "frontend-workbook-policy-transport-boundary",
       "level": "error",
       "message": "Workbook surface policies must remain transport and authorization independent.",
@@ -172,6 +238,152 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/timeline"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-continuity-port-semantic-boundary",
+      "level": "error",
+      "message": "The Workbook continuity port may expose only semantic identities; grid-vendor and presentation translation belongs to private adapters.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/continuity/workbookContinuityPort.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/grid-adapter",
+          "include_subpaths": true
+        },
+        {
+          "kind": "package",
+          "name": "@cartulary/ui-contracts",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/components"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-column-layout-controller-private-to-shell-runtime",
+      "level": "error",
+      "message": "Workbook column-layout lifecycle is private to the shell runtime; consumers receive semantic layout snapshots and commands.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/**"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/hooks/useWorkbookShellRuntime.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/layout/useWorkbookColumnLayoutController"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-responsive-layout-private-to-facade",
+      "level": "error",
+      "message": "Viewport subscription and responsive classification must enter Workbook composition through the layout facade.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/**"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/layout/useWorkbookLayoutFacade.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/layout/useWorkbookResponsiveLayout"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-surface-renderers-private-to-facade",
+      "level": "error",
+      "message": "Concrete Workbook surface renderers are private to the surfaces composition facade.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/**"
+        ],
+        "exclude": [
+          "apps/web/src/*.test.ts",
+          "apps/web/src/*.test.tsx",
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx",
+          "apps/web/src/**/*TestSupport.ts",
+          "apps/web/src/**/*TestSupport.tsx",
+          "apps/web/src/testing/**"
+        ]
+      },
+      "allowed_importers": [
+        "apps/web/src/workbook/surfaces/WorkbookSurfacesFacade.tsx"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/components/AssessmentWorkbookSurface.tsx"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/components/EntityWorkbookSurface.tsx"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/components/GenericWorkbookSurface.tsx"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/components/TimelineWorkbook.tsx"
+        }
+      ]
+    },
+    {
+      "id": "frontend-workbook-surfaces-facade-no-shell-back-edge",
+      "level": "error",
+      "message": "The Workbook surfaces facade must not depend back on its shell composition root.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/surfaces/WorkbookSurfacesFacade.tsx"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/WorkbookShell.tsx"
         }
       ]
     },

@@ -13,7 +13,6 @@ import {
   validateHTTPOperationResponse,
 } from "@cartulary/protocol-ts";
 import { publicErrorStatusText } from "../shared/publicError";
-import type { EvidenceLifecycleViewModel } from "../workbook/models/evidenceLifecycleViewModel";
 import { apiPath } from "./browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "./workbookApi";
 
@@ -405,26 +404,6 @@ export async function issueEvidenceAccessHandle({
     href,
     previewKind: envelope.data.preview_kind ?? null,
   };
-}
-
-export function evidenceAccessMessageLiveRegion(
-  message: string,
-  evidenceAccess: EvidenceLifecycleViewModel,
-): { ariaLive: "assertive" | "polite"; role: "alert" | "status" } {
-  const normalized = message.toLowerCase();
-  const isBlockingMessage =
-    evidenceAccess.messageTone === "danger" ||
-    evidenceAccess.stateKey === "blocked" ||
-    evidenceAccess.stateKey === "failed" ||
-    evidenceAccess.stateKey === "inconsistent" ||
-    evidenceAccess.stateKey === "preview_blocked" ||
-    evidenceAccess.stateKey === "public_error" ||
-    /\b(?:blob_failed|evidence_access_unavailable|failed|inconsistent|quarantined|unavailable|unsupported_preview)\b/u.test(
-      normalized,
-    );
-  return isBlockingMessage
-    ? { ariaLive: "assertive", role: "alert" }
-    : { ariaLive: "polite", role: "status" };
 }
 
 export function resolvePublicEvidenceHandleHref(href: string): string | null {

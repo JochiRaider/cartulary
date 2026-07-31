@@ -25,8 +25,8 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import { referenceQueryBroker } from "../services/referenceQueryBroker";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 
 const allRecordViewSchemaIds = [
   timelineViewSchemaId,
@@ -111,13 +111,13 @@ export function useIncidentMemberReferenceOptions({
 
 export function useOwnerReferenceOptions({
   apiBase,
-  authorizationEpoch,
   incidentId,
+  referenceQueryBroker,
   viewSchemaId,
 }: {
   readonly apiBase: string | undefined;
-  readonly authorizationEpoch: string;
   readonly incidentId: string;
+  readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly viewSchemaId: string;
 }) {
   const requirements =
@@ -159,11 +159,7 @@ export function useOwnerReferenceOptions({
     const referenceRequest =
       requirements.length === 0
         ? Promise.resolve([])
-        : referenceQueryBroker.execute(
-            requirements,
-            { apiBase, authorizationEpoch, incidentId },
-            controller.signal,
-          );
+        : referenceQueryBroker.execute(requirements, controller.signal);
     void referenceRequest
       .then((results) => {
         if (
@@ -172,7 +168,7 @@ export function useOwnerReferenceOptions({
         ) {
           return;
         }
-        const rowsByView = new Map<string, readonly EntityApiRow[]>(
+        const rowsByView = new Map<string, readonly WorkbookQueryRow[]>(
           results.map((result) => [
             result.requirement.viewSchemaId,
             result.rows,
@@ -218,7 +214,7 @@ export function useOwnerReferenceOptions({
         );
       });
     return () => controller.abort();
-  }, [apiBase, authorizationEpoch, incidentId, refreshVersion, requirements]);
+  }, [referenceQueryBroker, refreshVersion, requirements]);
 
   const resolvedReferenceOptions = useMemo(
     () => ({

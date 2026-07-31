@@ -5,23 +5,35 @@ import type {
   ViewContract,
 } from "@cartulary/view-contracts";
 
-export type WorkbookInspectorRowSubject = {
-  readonly recordId: string | null;
-  readonly rowVersion: number | null;
+export type WorkbookInspectorSubject = {
+  readonly viewSchemaId: string;
+  readonly recordId: string;
+  readonly rowVersion: number;
 };
+
+export type WorkbookInspectorStatus = "closed" | "no_row_selected" | "ready";
+
+export type WorkbookInspectorInvalidationReason =
+  | "action_completed"
+  | "authorization_lost"
+  | "hard_refresh"
+  | "incident_closed"
+  | "record_deleted"
+  | "record_merged"
+  | "surface_changed";
 
 export type WorkbookInspectorState = {
   readonly activePanelId: InspectorPanelId | null;
   readonly configViewSchemaId: string;
+  readonly invalidationGeneration: number;
+  readonly invalidationCause:
+    | WorkbookInspectorInvalidationReason
+    | "close"
+    | "retarget"
+    | null;
   readonly isOpen: boolean;
-  readonly localFormKey: string | null;
-  readonly mergePlanKey: string | null;
-  readonly pendingConfirmationKey: string | null;
-  readonly rollbackPreviewKey: string | null;
-  readonly selectedRecordId: string | null;
-  readonly selectedRowVersion: number | null;
-  readonly stalePreviewKey: string | null;
-  readonly workflowFormKey: string | null;
+  readonly status: WorkbookInspectorStatus;
+  readonly subject: WorkbookInspectorSubject | null;
 };
 
 export type WorkbookInspectorAction =
@@ -35,30 +47,16 @@ export type WorkbookInspectorAction =
     }
   | { readonly type: "close" }
   | {
-      readonly type: "select_row";
-      readonly row: WorkbookInspectorRowSubject;
-    }
-  | { readonly type: "row_version_changed"; readonly rowVersion: number | null }
-  | {
-      readonly type:
-        | "incident_closed"
-        | "authorization_lost"
-        | "record_deleted"
-        | "record_merged"
-        | "hard_refresh";
+      readonly type: "retarget";
+      readonly subject: WorkbookInspectorSubject | null;
     }
   | {
-      readonly type: "active_surface_switch";
-      readonly config: InspectorConfig;
+      readonly type: "select_panel";
+      readonly panelId: InspectorPanelId;
     }
   | {
-      readonly type: "stage_row_bound_state";
-      readonly localFormKey?: string | null | undefined;
-      readonly mergePlanKey?: string | null | undefined;
-      readonly pendingConfirmationKey?: string | null | undefined;
-      readonly rollbackPreviewKey?: string | null | undefined;
-      readonly stalePreviewKey?: string | null | undefined;
-      readonly workflowFormKey?: string | null | undefined;
+      readonly type: "invalidate";
+      readonly reason: WorkbookInspectorInvalidationReason;
     };
 
 export function selectInspectorConfig(contract: ViewContract): InspectorConfig {
@@ -71,15 +69,11 @@ export function initialWorkbookInspectorState(
   return {
     activePanelId: firstPanelId(config),
     configViewSchemaId: config.viewSchemaId,
-    isOpen: config.defaultOpen,
-    localFormKey: null,
-    mergePlanKey: null,
-    pendingConfirmationKey: null,
-    rollbackPreviewKey: null,
-    selectedRecordId: null,
-    selectedRowVersion: null,
-    stalePreviewKey: null,
-    workflowFormKey: null,
+    invalidationGeneration: 0,
+    invalidationCause: null,
+    isOpen: false,
+    status: "closed",
+    subject: null,
   };
 }
 
@@ -89,80 +83,77 @@ export function workbookInspectorReducer(
 ): WorkbookInspectorState {
   switch (action.type) {
     case "reset_config":
-      return initialWorkbookInspectorState(action.config);
+      return {
+        ...initialWorkbookInspectorState(action.config),
+        invalidationCause: "surface_changed",
+        invalidationGeneration: state.invalidationGeneration + 1,
+      };
     case "open":
       return {
         ...state,
         activePanelId: action.panelId ?? state.activePanelId,
         isOpen: true,
+        status: state.subject === null ? "no_row_selected" : "ready",
       };
     case "close":
       return {
-        ...clearRowBoundInspectorState(state),
+        ...state,
+        invalidationCause: "close",
+        invalidationGeneration: state.invalidationGeneration + 1,
         isOpen: false,
+        status: "closed",
       };
-    case "select_row":
-      if (
-        state.selectedRecordId === action.row.recordId &&
-        state.selectedRowVersion === action.row.rowVersion
-      ) {
+    case "retarget":
+      if (workbookInspectorSubjectsEqual(state.subject, action.subject)) {
         return state;
       }
-      return {
-        ...clearRowBoundInspectorState(state),
-        selectedRecordId: action.row.recordId,
-        selectedRowVersion: action.row.rowVersion,
-      };
-    case "row_version_changed":
-      if (state.selectedRowVersion === action.rowVersion) {
-        return state;
-      }
-      return {
-        ...clearRowBoundInspectorState(state),
-        selectedRowVersion: action.rowVersion,
-      };
-    case "incident_closed":
-    case "authorization_lost":
-    case "record_deleted":
-    case "record_merged":
-      return clearRowBoundInspectorState(state);
-    case "hard_refresh":
-      return {
-        ...clearRowBoundInspectorState(state),
-        activePanelId: state.activePanelId,
-        isOpen: false,
-        selectedRecordId: null,
-        selectedRowVersion: null,
-      };
-    case "active_surface_switch":
-      return initialWorkbookInspectorState(action.config);
-    case "stage_row_bound_state":
       return {
         ...state,
-        localFormKey: action.localFormKey ?? state.localFormKey,
-        mergePlanKey: action.mergePlanKey ?? state.mergePlanKey,
-        pendingConfirmationKey:
-          action.pendingConfirmationKey ?? state.pendingConfirmationKey,
-        rollbackPreviewKey:
-          action.rollbackPreviewKey ?? state.rollbackPreviewKey,
-        stalePreviewKey: action.stalePreviewKey ?? state.stalePreviewKey,
-        workflowFormKey: action.workflowFormKey ?? state.workflowFormKey,
+        invalidationCause: "retarget",
+        invalidationGeneration: state.invalidationGeneration + 1,
+        status: state.isOpen
+          ? action.subject === null
+            ? "no_row_selected"
+            : "ready"
+          : "closed",
+        subject: action.subject,
+      };
+    case "select_panel":
+      return {
+        ...state,
+        activePanelId: action.panelId,
+      };
+    case "invalidate":
+      return {
+        ...state,
+        invalidationCause: action.reason,
+        invalidationGeneration: state.invalidationGeneration + 1,
+        isOpen: action.reason === "action_completed" ? state.isOpen : false,
+        status:
+          action.reason === "action_completed"
+            ? state.isOpen
+              ? state.subject === null
+                ? "no_row_selected"
+                : "ready"
+              : "closed"
+            : "closed",
+        subject: action.reason === "action_completed" ? state.subject : null,
       };
   }
 }
 
-function clearRowBoundInspectorState(
-  state: WorkbookInspectorState,
-): WorkbookInspectorState {
-  return {
-    ...state,
-    localFormKey: null,
-    mergePlanKey: null,
-    pendingConfirmationKey: null,
-    rollbackPreviewKey: null,
-    stalePreviewKey: null,
-    workflowFormKey: null,
-  };
+export function workbookInspectorSubjectsEqual(
+  left: WorkbookInspectorSubject | null,
+  right: WorkbookInspectorSubject | null,
+): boolean {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.viewSchemaId === right.viewSchemaId &&
+      left.recordId === right.recordId &&
+      left.rowVersion === right.rowVersion)
+  );
 }
 
 export function inspectorPanelIsDeclared(

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_source_ownership.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "source_root", "included_extensions", "entries"],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_source_ownership.v1"
+    },
+    "source_root": {
+      "const": "apps/web/src"
+    },
+    "included_extensions": {
+      "const": [".ts", ".tsx"]
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["owner_id", "paths"],
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "pattern": "^web\\.[a-z][a-z0-9_]*$"
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^apps/web/src/.+\\.tsx?$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

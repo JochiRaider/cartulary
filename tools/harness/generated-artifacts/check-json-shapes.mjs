@@ -255,6 +255,7 @@ const frontendBoundaryKeys = new Set([
   "schema_id",
   "scan_roots",
   "scan_excludes",
+  "acyclic_import_graphs",
   "singleton_imports",
   "rules",
   "raw_design_token_literal_checks",
@@ -591,6 +592,12 @@ const frontendBoundaryRuleKeys = new Set([
   "applies_to",
   "allowed_importers",
   "restricted_imports",
+]);
+const frontendBoundaryAcyclicGraphKeys = new Set([
+  "id",
+  "level",
+  "message",
+  "applies_to",
 ]);
 const frontendBoundaryAppliesToKeys = new Set(["include", "exclude"]);
 const frontendBoundaryRawDesignLiteralCheckKeys = new Set([
@@ -1936,6 +1943,13 @@ function validateSingletonImport(singletonImport, label) {
   );
 }
 
+function validateAcyclicImportGraph(graph, label) {
+  requireString(graph.id, `${label}.id`);
+  requireFrontendBoundaryLevel(graph.level, `${label}.level`);
+  requireString(graph.message, `${label}.message`);
+  validateFrontendBoundaryAppliesTo(graph.applies_to, `${label}.applies_to`);
+}
+
 function validateFrontendBoundaryRule(rule, label) {
   requireString(rule.id, `${label}.id`);
   requireFrontendBoundaryLevel(rule.level, `${label}.level`);
@@ -1969,6 +1983,12 @@ function validateFrontendImportBoundariesShape(file) {
     nonEmpty: true,
   });
   requireStringArray(config.scan_excludes ?? [], `${file}.scan_excludes`);
+  validateObjectArray(
+    config.acyclic_import_graphs ?? [],
+    `${file}.acyclic_import_graphs`,
+    { keys: frontendBoundaryAcyclicGraphKeys },
+    validateAcyclicImportGraph,
+  );
   validateObjectArray(
     config.singleton_imports ?? [],
     `${file}.singleton_imports`,

@@ -8,7 +8,7 @@ import {
   reorderWorkbookColumns,
   setWorkbookColumnHidden,
   setWorkbookColumnWidth,
-} from "./workbookLayout";
+} from "../layout/workbookColumnLayout";
 import {
   applyFilterDraft,
   buildQueryRequest,

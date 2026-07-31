@@ -221,6 +221,33 @@
       "status": "active"
     },
     {
+      "row_id": "module.entities.frontend_unit.entity_surface_query_owner_8826ee00f6",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx",
+        "titles": [
+          "useEntitySurfaceQuery clears protected rows on access loss and aborts both queries on teardown",
+          "useEntitySurfaceQuery owns dual host and identity admission, indexing, live patching, and explicit cleanup",
+          "useEntitySurfaceQuery rejects obsolete dual-query results after a rapid refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": false,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.entities.frontend_unit.verify_mention_chip_view_models_preserve_unresol_7b3b773609",
       "owner_id": "module.entities",
       "family_id": "module.entities.frontend_unit",

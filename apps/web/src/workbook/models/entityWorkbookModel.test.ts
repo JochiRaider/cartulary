@@ -1,6 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import {
   buildMergePlan,
   entityContractColumnWidth,
@@ -14,8 +14,8 @@ import {
 
 function entityRow(
   recordId: string,
-  cells: EntityApiRow["cells"],
-): EntityApiRow {
+  cells: WorkbookQueryRow["cells"],
+): WorkbookQueryRow {
   return {
     record_id: recordId,
     row_version: 7,

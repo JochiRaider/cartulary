@@ -1,10 +1,8 @@
 import {
   type GridColumn,
   type GridDataRow,
-  type GridDensity,
   type GridGroupingDescriptor,
   type GridHandle,
-  type GridInteractionMode,
   GridViewport,
   SemanticDataGrid,
 } from "@cartulary/grid-adapter";
@@ -23,19 +21,30 @@ import {
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { apiPath, clientTxnID } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-} from "../../services/workbookApi";
+import { parseErrorMessage } from "../../services/workbookApi";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
-import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
-import { useInspectorLifecycleReset } from "../hooks/useInspectorLifecycleReset";
+import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
+import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import {
-  type AssessmentApiRow,
+  useWorkbookGridContinuity,
+  WorkbookContinuityCell,
+} from "../continuity/useWorkbookGridContinuity";
+import type {
+  WorkbookContinuityPort,
+  WorkbookContinuityToken,
+} from "../continuity/workbookContinuityPort";
+import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
+import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
+import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
+import {
+  WorkbookSurfaceLayout,
+  workbookSurfaceGridShellStyle,
+  workbookSurfaceInspectorPanelStyle,
+} from "../layout/WorkbookSurfaceLayout";
+import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
+import {
   type AssessmentCreateDraft,
   assessmentColumnWidth,
-  buildAssessmentCreatePayload,
   followOnAssessmentDraft,
   initialAssessmentDraft,
   isAssessmentConfidenceBand,
@@ -54,22 +63,12 @@ import {
   inspectorPanelIsDeclared,
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
-import {
-  applyWorkbookLayoutToColumns,
-  type WorkbookResolvedLayoutState,
-} from "../models/workbookLayout";
-import type { ViewMutationEnvelope } from "../models/workbookMutations";
 import type { WorkbookQueryState } from "../models/workbookQuery";
-import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
-import { useWorkbookCollaborationProjection } from "../runtime/useWorkbookCollaborationProjection";
+import type { AssessmentMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
-import type { WorkbookCollaborationProjection } from "../runtime/WorkbookCollaborationProjection";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import {
-  FocusableWorkbookCell,
-  useWorkbookGridFocus,
-} from "../utils/workbookGridFocus";
 import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
@@ -77,73 +76,74 @@ import {
 import { WorkbookCellPresenceMarker } from "./WorkbookPresenceMarkers";
 import { WorkbookRecordCandidatePicker } from "./WorkbookRecordCandidatePicker";
 import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
-import {
-  WorkbookSurfaceFrame,
-  workbookSurfaceGridShellStyle,
-  workbookSurfaceInspectorPanelStyle,
-} from "./WorkbookSurfaceFrame";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
 export type AssessmentWorkbookSurfaceProps = {
-  chromeMode: WorkbookChromeMode;
   apiBase?: string | undefined;
-  assessmentRows: AssessmentApiRow[];
+  assessmentRows: WorkbookQueryRow[];
+  continuityResetKey: string;
   currentIncidentRole: WorkbookIncidentRole | null;
-  density: GridDensity;
   inspectorResetKey: string;
   queryControls?: ReactNode | undefined;
   savedViewSelector?: ReactNode | undefined;
-  showStatusPresence: boolean;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
   incidentId: string;
-  layoutState: WorkbookResolvedLayoutState;
+  layout: WorkbookSurfaceLayoutOwner;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
-  collaborationProjection: WorkbookCollaborationProjection;
-  interactionMode: GridInteractionMode;
+  mutationCommands: AssessmentMutationCommandPort;
+  collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
   onRefreshAssessmentRows: () => Promise<void>;
-  onColumnReorder: (sourceFieldKey: string, targetFieldKey: string) => void;
-  onColumnWidthChange: (fieldKey: string, width: number) => void;
   onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   queryState: WorkbookQueryState;
 };
 
 export function AssessmentWorkbookSurface({
-  chromeMode,
   apiBase,
   assessmentRows,
+  continuityResetKey,
   currentIncidentRole,
-  density,
   inspectorResetKey,
   queryControls,
   savedViewSelector,
-  showStatusPresence,
   hostRows,
   identityRows,
   incidentId,
-  layoutState,
+  layout,
   loadState,
   mutationRuntime,
+  mutationCommands,
   collaborationProjection,
-  interactionMode,
   onClearFilters,
   onRefreshAssessmentRows,
-  onColumnReorder,
-  onColumnWidthChange,
   onSortChange,
   queryState,
 }: AssessmentWorkbookSurfaceProps) {
+  const {
+    commands: { onColumnReorder, onColumnWidthChange },
+    snapshot: {
+      chromeMode,
+      density,
+      interactionMode,
+      showStatusPresence,
+      state: layoutState,
+    },
+  } = layout;
   const [selectedAssessmentRecordId, setSelectedAssessmentRecordId] = useState<
     string | null
   >(null);
   const [selectedAssessmentSnapshot, setSelectedAssessmentSnapshot] =
-    useState<AssessmentApiRow | null>(null);
+    useState<WorkbookQueryRow | null>(null);
+  const inspectorContinuityTokenRef = useRef<WorkbookContinuityToken | null>(
+    null,
+  );
+  const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
   const mutation = useWorkbookMutationRuntime(mutationRuntime);
-  const collaboration = useWorkbookCollaborationProjection(
+  const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
   const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
@@ -152,7 +152,6 @@ export function AssessmentWorkbookSurface({
   const [draftMode, setDraftMode] = useState<"follow_on" | "standalone">(
     "standalone",
   );
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const inspectorConfig = selectInspectorConfig(assessmentsContract);
   const showWorkflowPanel = inspectorPanelIsDeclared(
     inspectorConfig,
@@ -177,6 +176,40 @@ export function AssessmentWorkbookSurface({
     (selectedAssessmentSnapshot?.record_id === selectedAssessmentRecordId
       ? selectedAssessmentSnapshot
       : null);
+  const inspector = useWorkbookInspectorCoordinator({
+    actionPorts: {
+      clearLocalForm: () => {
+        setDraft(initialAssessmentDraft(assessmentsContract));
+        setDraftMode("standalone");
+        setMessage(null);
+      },
+      clearLifecycleState: () => {
+        continuityPortRef.current?.clear();
+      },
+      clearSelection: () => {
+        setSelectedAssessmentRecordId(null);
+        setSelectedAssessmentSnapshot(null);
+      },
+      restoreFocus: () => {
+        const token = inspectorContinuityTokenRef.current;
+        inspectorContinuityTokenRef.current = null;
+        if (token !== null) {
+          continuityPortRef.current?.restore(token);
+        }
+      },
+    },
+    config: inspectorConfig,
+    lifecycleKey: inspectorResetKey,
+    subject:
+      selectedAssessment === null
+        ? null
+        : {
+            recordId: selectedAssessment.record_id,
+            rowVersion: selectedAssessment.row_version,
+            viewSchemaId: assessmentsViewSchemaId,
+          },
+  });
+  const isInspectorOpen = inspector.snapshot.isOpen;
   const assessmentInspectorDisabledTokens = useMemo(() => {
     const tokens = new Set<InspectorDisabledToken>();
     if (selectedAssessment === null) {
@@ -199,7 +232,7 @@ export function AssessmentWorkbookSurface({
     "assessment.confidence_band",
     ["unset", "low", "medium", "high"],
   ).filter(isAssessmentConfidenceBand);
-  const anchorColumns = useMemo<readonly GridColumn<AssessmentApiRow>[]>(
+  const anchorColumns = useMemo<readonly GridColumn<WorkbookQueryRow>[]>(
     () =>
       applyWorkbookLayoutToColumns(
         assessmentsContract,
@@ -221,7 +254,7 @@ export function AssessmentWorkbookSurface({
       ),
     [layoutState],
   );
-  const gridRows = useMemo<readonly GridDataRow<AssessmentApiRow>[]>(
+  const gridRows = useMemo<readonly GridDataRow<WorkbookQueryRow>[]>(
     () =>
       workbookGridRows({
         getRecordId: (row) => row.record_id,
@@ -232,7 +265,7 @@ export function AssessmentWorkbookSurface({
     [assessmentRows],
   );
   const grouping =
-    useMemo<GridGroupingDescriptor<AssessmentApiRow> | null>(() => {
+    useMemo<GridGroupingDescriptor<WorkbookQueryRow> | null>(() => {
       const fieldKey = queryState.groupBy;
       if (fieldKey === null) {
         return null;
@@ -257,11 +290,13 @@ export function AssessmentWorkbookSurface({
       };
     }, [queryState.groupBy]);
   const gridHandleRef = useRef<GridHandle | null>(null);
-  const assessmentFocus = useWorkbookGridFocus({
+  const assessmentFocus = useWorkbookGridContinuity({
     columns: anchorColumns,
+    continuityResetKey,
     gridHandleRef,
-    surface: assessmentsViewSchemaId,
+    viewSchemaId: assessmentsViewSchemaId,
   });
+  continuityPortRef.current = assessmentFocus.port;
   const dataState = workbookGridDataState({
     emptyAction: canCreate
       ? {
@@ -277,16 +312,17 @@ export function AssessmentWorkbookSurface({
     rowCount: gridRows.length,
     surfaceLabel: assessmentsContract.title,
   });
-  const columns: readonly GridColumn<AssessmentApiRow>[] = anchorColumns.map(
+  const columns: readonly GridColumn<WorkbookQueryRow>[] = anchorColumns.map(
     (field) => ({
       ...field,
       getClipboardValue: (row) =>
         genericCellLabel(row.cells[field.fieldKey]?.value),
       renderCell: ({ row }) => (
-        <FocusableWorkbookCell
+        <WorkbookContinuityCell
+          continuity={assessmentFocus.port}
           fieldKey={field.fieldKey}
-          focus={assessmentFocus}
           recordId={row.record_id}
+          viewSchemaId={assessmentsViewSchemaId}
         >
           {genericCellLabel(row.cells[field.fieldKey]?.value)}
           <WorkbookCellPresenceMarker
@@ -298,7 +334,7 @@ export function AssessmentWorkbookSurface({
             )}
             recordId={row.record_id}
           />
-        </FocusableWorkbookCell>
+        </WorkbookContinuityCell>
       ),
     }),
   );
@@ -311,17 +347,18 @@ export function AssessmentWorkbookSurface({
   }
 
   function openStandaloneDraft() {
+    inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
     setDraft(standaloneAssessmentDraft());
     setDraftMode("standalone");
     setMessage(null);
-    setIsInspectorOpen(true);
+    inspector.commands.open();
   }
 
   function cancelAssessmentDraft() {
     setDraft(initialAssessmentDraft(assessmentsContract));
     setDraftMode("standalone");
     setMessage(null);
-    setIsInspectorOpen(false);
+    inspector.commands.close({ restoreFocus: true });
   }
 
   function selectAssessment(recordId: string) {
@@ -365,15 +402,11 @@ export function AssessmentWorkbookSurface({
     setDraft(followOnDraft);
     setDraftMode("follow_on");
     setMessage(null);
-    setIsInspectorOpen(true);
+    if (!inspector.snapshot.isOpen) {
+      inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
+    }
+    inspector.commands.open();
   }
-
-  useInspectorLifecycleReset(inspectorResetKey, () => {
-    setIsInspectorOpen(false);
-    setDraft(initialAssessmentDraft(assessmentsContract));
-    setDraftMode("standalone");
-    setMessage(null);
-  });
 
   useEffect(() => {
     if (draftMode === "follow_on") {
@@ -417,29 +450,12 @@ export function AssessmentWorkbookSurface({
   async function submitAssessment() {
     if (!canCreate) return;
     const submittedDraft = draft;
-    const payload = buildAssessmentCreatePayload(
-      submittedDraft,
-      clientTxnID("assessment"),
-    );
-    if (payload === null) {
-      setMessage("Subject, state, and rationale are required.");
-      return;
-    }
 
     setIsSubmitting(true);
     setMessage(null);
     const finishMutation = mutationRuntime.beginExplicitMutation();
     try {
-      const result = await fetchWorkbookJSON<ViewMutationEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${assessmentsViewSchemaId}/rows`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-        },
-      );
+      const result = await mutationCommands.create({ draft: submittedDraft });
       if (!result.ok) {
         setMessage(parseErrorMessage(result.payload));
         return;
@@ -459,7 +475,7 @@ export function AssessmentWorkbookSurface({
   }
 
   return (
-    <WorkbookSurfaceFrame
+    <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
         isInspectorOpen && showWorkflowPanel ? (
@@ -717,7 +733,15 @@ export function AssessmentWorkbookSurface({
               if (recordId !== null) {
                 selectAssessment(recordId);
               }
-              assessmentFocus.update(recordId, anchor?.fieldKey ?? "");
+              if (recordId === null || anchor === null) {
+                assessmentFocus.port.clear();
+              } else {
+                assessmentFocus.port.select({
+                  fieldKey: anchor.fieldKey,
+                  recordId,
+                  viewSchemaId: assessmentsViewSchemaId,
+                });
+              }
               collaborationProjection.publishPresence({
                 fieldKey: null,
                 mode: recordId === null ? "idle" : "viewing",
@@ -747,7 +771,7 @@ export function AssessmentWorkbookSurface({
           mutationError={mutation.secondaryMessage}
           mutationState={mutation.primaryLabel}
           showPresence={showStatusPresence}
-          workbookFocusAnchor={assessmentFocus.anchor}
+          workbookFocusAnchor={assessmentFocus.snapshot.anchor}
         />
       }
       viewBar={
@@ -759,7 +783,9 @@ export function AssessmentWorkbookSurface({
             openStandaloneDraft();
           }}
           onInspectorToggle={() => {
-            setIsInspectorOpen(true);
+            inspectorContinuityTokenRef.current =
+              assessmentFocus.port.capture();
+            inspector.commands.open();
           }}
           surface={assessmentsViewSchemaId}
         />

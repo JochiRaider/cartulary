@@ -4,6 +4,7 @@ import {
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import {
@@ -11,8 +12,7 @@ import {
   type RelationshipFieldKey,
   readCollectionItems,
 } from "./workbookMentionChips";
-
-export { decideWorkbookRecordFreshness } from "./timelineRowsModel";
+import type { WorkbookVersionedRecord } from "./workbookRecordFreshness";
 
 export type EditableField =
   | "timeline.date_entered_text"
@@ -57,23 +57,12 @@ export type TagCollectionItem = {
   rawText: string;
 };
 
-export type ViewApiRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, { value: unknown }>;
-  group_values?: Record<string, unknown>;
-};
-
-export type TimelineApiRow = ViewApiRow & {
+export type TimelineApiRow = WorkbookQueryRow & {
   view_schema_id: string;
 };
 
-export type EntityApiRow = ViewApiRow;
-
-export type WorkbookRow = {
+export type WorkbookRow = WorkbookVersionedRecord & {
   key: string;
-  recordId: string | null;
-  rowVersion: number | null;
   viewSchemaId: string | null;
   captureState: string;
   values: RowValues;
@@ -427,7 +416,7 @@ function normalizeValue(value: string): string {
 }
 
 function readTimelineStringCell(
-  row: TimelineApiRow | EntityApiRow,
+  row: TimelineApiRow | WorkbookQueryRow,
   fieldKey: string,
 ): string {
   const raw = row.cells[fieldKey]?.value;
@@ -435,7 +424,7 @@ function readTimelineStringCell(
 }
 
 export function readTimelineCellValue(
-  row: TimelineApiRow | EntityApiRow | null,
+  row: TimelineApiRow | WorkbookQueryRow | null,
   fieldKey: string,
 ): unknown {
   return row?.cells[fieldKey]?.value ?? null;

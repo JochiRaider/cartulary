@@ -76,6 +76,8 @@ import {
 } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import { fetchJSON } from "../services/browserApi";
 import { deferred } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
@@ -105,13 +107,28 @@ import {
 import {
   type WorkbookAccountApplicationMenuProps,
   type WorkbookIncidentControlsRendererProps,
-  WorkbookShell,
+  WorkbookShell as WorkbookShellImpl,
 } from "./WorkbookShell";
 
 vi.mock(
   "@cartulary/grid-adapter",
   async () => import("@cartulary/grid-adapter/test-support"),
 );
+
+const authorizationRecovery = createAppAuthorizationRecoveryPort({
+  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
+});
+
+function WorkbookShell(
+  props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
+) {
+  return (
+    <WorkbookShellImpl
+      {...props}
+      authorizationRecovery={authorizationRecovery}
+    />
+  );
+}
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 const savedViewCopyId = "33333333-3333-4333-8333-333333333333";

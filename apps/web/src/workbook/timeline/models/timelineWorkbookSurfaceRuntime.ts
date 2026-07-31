@@ -1,15 +1,14 @@
-import type { GridDensity, GridInteractionMode } from "@cartulary/grid-adapter";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { WorkbookResolvedLayoutState } from "../../models/workbookLayout";
+import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
+import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type {
   FilterDraft,
   WorkbookQueryState,
 } from "../../models/workbookQuery";
-import type { WorkbookChromeMode } from "../../models/workbookResponsiveLayout";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
-import type { WorkbookCollaborationProjection } from "../../runtime/WorkbookCollaborationProjection";
+import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
-import type { EntityApiRow } from "./workbookTimelineModel";
 
 export type TimelineWorkbookIncidentRole =
   | "viewer"
@@ -27,7 +26,7 @@ export type TimelineWorkbookEntityRow = {
   readonly state: string;
   readonly aliasTexts: string[];
   readonly linkedEventCount: number;
-  readonly rawRow: EntityApiRow;
+  readonly rawRow: WorkbookQueryRow;
   readonly identifiers: readonly {
     readonly key: string;
     readonly label: string;
@@ -37,11 +36,13 @@ export type TimelineWorkbookEntityRow = {
 
 export type TimelineWorkbookSurfaceRuntime = {
   readonly attachCollaborationSession: boolean;
-  readonly collaborationProjection: WorkbookCollaborationProjection;
+  readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly mutationCommands: TimelineMutationCommandPort;
   readonly incident: {
     readonly id: string;
     readonly apiBase: string | undefined;
+    readonly continuityResetKey: string;
     readonly currentUserId: string | null;
     readonly currentRole: TimelineWorkbookIncidentRole | null;
     readonly sheetRef: WorkbookSheetRef;
@@ -63,23 +64,6 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly index: Record<string, TimelineWorkbookEntityRow>;
     readonly refresh: (() => Promise<void> | void) | undefined;
   };
-  readonly layout: {
-    readonly density: GridDensity;
-    readonly chromeMode: WorkbookChromeMode;
-    readonly interactionMode: GridInteractionMode;
-    readonly state: WorkbookResolvedLayoutState;
-    readonly setColumnHidden: (fieldKey: string, hidden: boolean) => void;
-    readonly moveColumn: (
-      fieldKey: string,
-      direction: "earlier" | "later",
-    ) => void;
-    readonly reorderColumn: (
-      sourceFieldKey: string,
-      targetFieldKey: string,
-    ) => void;
-    readonly setColumnWidth: (fieldKey: string, width: number) => void;
-    readonly resetColumns: () => void;
-    readonly showStatusPresence: boolean;
-  };
+  readonly layout: WorkbookSurfaceLayoutOwner;
   readonly onIncidentAccessLost: (() => void) | undefined;
 };

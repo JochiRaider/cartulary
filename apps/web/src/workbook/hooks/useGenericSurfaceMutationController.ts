@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
+import { readEnvelope } from "../../services/workbookApi";
 import { parseMutationError } from "../models/genericWorkbookModel";
+import type { GenericMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
 
 export type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
 
@@ -12,14 +12,14 @@ export type GenericViewMutationEnvelope = {
   data: {
     view_schema_id: string;
     change_set_id: string;
-    row: EntityApiRow;
+    row: WorkbookQueryRow;
   };
 };
 
 export type GenericPatchMutationRequest = {
   readonly baseRowVersion: number;
   readonly changes: readonly Record<string, unknown>[];
-  readonly clientTxnId: string;
+  readonly purpose: string;
   readonly recordId: string;
   readonly viewSchemaId: string;
 };
@@ -42,13 +42,13 @@ export type GenericSurfaceMutationController = {
 };
 
 export function useGenericSurfaceMutationController({
-  apiBase,
+  mutationCommands,
   mutationRuntime,
   onRefresh,
   refreshReferenceOptions,
   surfaceLabel,
 }: {
-  readonly apiBase: string | undefined;
+  readonly mutationCommands: GenericMutationCommandPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly onRefresh: () => Promise<void> | void;
   readonly refreshReferenceOptions: () => Promise<void> | void;
@@ -120,23 +120,18 @@ export function useGenericSurfaceMutationController({
     async ({
       baseRowVersion,
       changes,
-      clientTxnId,
+      purpose,
       recordId,
       viewSchemaId,
     }: GenericPatchMutationRequest) => {
       beginMutation();
-      const result = await fetchWorkbookJSON<GenericViewMutationEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${recordId}`),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            view_schema_id: viewSchemaId,
-            base_row_version: baseRowVersion,
-            client_txn_id: clientTxnId,
-            changes,
-          }),
-        },
-      );
+      const result = await mutationCommands.patchRecord({
+        baseRowVersion,
+        changes,
+        purpose,
+        recordId,
+        viewSchemaId,
+      });
       if (!result.ok) {
         const conflict = parseSameFieldConflict(result.payload);
         if (conflict !== null) {
@@ -154,8 +149,8 @@ export function useGenericSurfaceMutationController({
       return result.payload;
     },
     [
-      apiBase,
       beginMutation,
+      mutationCommands,
       mutationRuntime,
       rejectMutationPayload,
       surfaceLabel,

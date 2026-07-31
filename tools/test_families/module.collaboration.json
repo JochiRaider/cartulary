@@ -423,7 +423,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/runtime/workbookCollaborationMessages.test.ts",
+        "file": "apps/web/src/workbook/collaboration/workbookCollaborationMessages.test.ts",
         "titles": [
           "builds default timeline presence payloads for WebSocket session establishment",
           "builds presence_update messages without changing event names",

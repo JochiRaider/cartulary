@@ -1,30 +1,14 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
-import { apiPath } from "../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
-import { workbookLayoutStateFromSavedViewLayoutJson } from "../models/workbookQuery";
-import { savedViewQueryStateForRuntime } from "../models/workbookSavedViewRuntime";
-import { normalizeSavedViewResource } from "../models/workbookSavedViews";
-import {
-  normalizeWorkbookStartupSelection,
-  workbookStartupQueryFromURLParams,
-} from "../models/workbookStartup";
-import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
-import {
-  knownWorkbookViewSchemaId,
-  timelineViewSchemaId,
-} from "../models/workbookSurfaceRegistry";
-import { useWorkbookLayoutController } from "./useWorkbookLayoutController";
+import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { useWorkbookStartupAdmission } from "../startup/useWorkbookStartupAdmission";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
 import { useWorkbookStartupController } from "./useWorkbookStartupController";
 
 type WorkbookShellMutableRef<T> = {
   current: T;
-};
-
-type WorkbookStartupEnvelope = {
-  data?: unknown;
 };
 
 export function useWorkbookShellRuntime({
@@ -85,7 +69,7 @@ export function useWorkbookShellRuntime({
     setIdentityQueryState,
     setTimelineQueryState,
   } = workbookQueries.commands;
-  const workbookLayouts = useWorkbookLayoutController({
+  const workbookLayouts = useWorkbookColumnLayoutController({
     activeContract,
     startupSheetRef,
   });
@@ -115,104 +99,31 @@ export function useWorkbookShellRuntime({
     upsertSavedView,
   } = savedViewController.commands;
 
-  useEffect(() => {
-    let cancelled = false;
-    const startupQuery = workbookStartupQueryFromURLParams(params);
-    const selectionVersionAtRequest = surfaceSelectionVersionRef.current;
-    const loadStartup = async () => {
-      const availabilityTag = extensionAvailability.reserve();
-      if (availabilityTag === null) {
-        selectWorkbookSurface(timelineViewSchemaId);
-        return;
-      }
-      const result = await fetchWorkbookJSON<WorkbookStartupEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/workbook-startup${startupQuery}`,
-        ),
-      );
-      if (cancelled || !result.ok) {
-        return;
-      }
-      const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
-      const startupRecord = envelope.data as Record<string, unknown>;
-      if (
-        !extensionAvailability.acceptWorkbookStartup(
-          availabilityTag,
-          startupRecord.extension_workspace_availability,
-        )
-      ) {
-        onExtensionAvailabilityChange();
-        selectWorkbookSurface(timelineViewSchemaId);
-        return;
-      }
-      onExtensionAvailabilityChange();
-      const startup = normalizeWorkbookStartupSelection(envelope.data);
-      if (!startup) {
-        return;
-      }
-      if (selectionVersionAtRequest !== surfaceSelectionVersionRef.current) {
-        return;
-      }
-      if (
-        startup.selectedSheetRef.kind === "extension_workspace" &&
-        !extensionAvailability.isRenderable({
-          extensionProfileId: startup.selectedSheetRef.extension_profile_id,
-          workspaceKey: startup.selectedSheetRef.workspace_key,
-        })
-      ) {
-        selectWorkbookSurface(timelineViewSchemaId);
-        return;
-      }
-      const nextSurface =
-        startup.selectedSheetRef.kind === "extension_workspace"
-          ? null
-          : knownWorkbookViewSchemaId(startup.selectedViewSchemaId ?? "");
-      const startupSavedView = normalizeSavedViewResource(
-        startup.selectedSavedView,
-      );
-      if (
-        startup.selectedSheetRef.kind === "saved_view" &&
-        startupSavedView !== null &&
-        nextSurface !== null &&
-        startupSavedView.saved_view_id === startup.selectedSheetRef.id
-      ) {
-        const contract = workbookContractForViewSchemaId(nextSurface ?? "");
-        upsertSavedView(startupSavedView);
-        applyQueryStateForSurface(
-          nextSurface,
-          savedViewQueryStateForRuntime(contract, startupSavedView),
-        );
-        applyLayoutStateForSurface(
-          nextSurface,
-          workbookLayoutStateFromSavedViewLayoutJson(
-            contract,
-            startupSavedView.layout_json,
-          ),
-        );
-      }
-      applyStartupIdentity({
-        sheetRef: startup.selectedSheetRef,
-        viewSchemaId: nextSurface,
-      });
-    };
-    void loadStartup();
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  const startupSelectionPort = useMemo(
+    () => ({
+      applyStartupIdentity,
+      readSelectionVersion: () => surfaceSelectionVersionRef.current,
+      selectTimeline: () => selectWorkbookSurface(timelineViewSchemaId),
+    }),
+    [applyStartupIdentity, selectWorkbookSurface, surfaceSelectionVersionRef],
+  );
+  const startupSavedViewStatePort = useMemo(
+    () => ({
+      applyLayoutStateForSurface,
+      applyQueryStateForSurface,
+      upsertSavedView,
+    }),
+    [applyLayoutStateForSurface, applyQueryStateForSurface, upsertSavedView],
+  );
+  useWorkbookStartupAdmission({
     apiBase,
-    applyQueryStateForSurface,
-    applyLayoutStateForSurface,
-    applyStartupIdentity,
-    extensionAvailability,
     incidentId,
-    params,
-    onExtensionAvailabilityChange,
-    selectWorkbookSurface,
-    surfaceSelectionVersionRef,
-    upsertSavedView,
-  ]);
+    urlParams: params,
+    availabilityPort: extensionAvailability,
+    selectionPort: startupSelectionPort,
+    savedViewStatePort: startupSavedViewStatePort,
+    onAvailabilityChange: onExtensionAvailabilityChange,
+  });
 
   return {
     commands: {

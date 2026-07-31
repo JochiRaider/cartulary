@@ -1,10 +1,12 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import { apiPath, clientTxnID } from "../../services/browserApi";
+import { apiPath } from "../../services/browserApi";
 import {
   fetchWorkbookJSON,
   parseErrorMessage,
   readEnvelope,
 } from "../../services/workbookApi";
+import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
+import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import {
   type PendingReplayScope,
   type PendingReplayUnitState,
@@ -97,6 +99,7 @@ type WorkbookSurfaceBlockedEditDiscard = (
  */
 export class WorkbookMutationRuntime {
   readonly scope: PendingReplayScope;
+  private readonly transactionIds: SecureTransactionIdPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime<unknown>;
   private readonly managedPatchByUnitId = new Map<
     string,
@@ -128,11 +131,16 @@ export class WorkbookMutationRuntime {
   private explicitInFlightCount = 0;
   private conflictPanelDismissed = false;
   private drainScheduled = false;
+  private disposed = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private snapshot: WorkbookMutationSnapshot;
 
-  constructor(scope: PendingReplayScope) {
+  constructor(
+    scope: PendingReplayScope,
+    transactionIds: SecureTransactionIdPort,
+  ) {
     this.scope = { ...scope };
+    this.transactionIds = transactionIds;
     this.pendingRuntime = createWorkbookPendingQueueRuntime(this.scope);
     this.snapshot = this.calculateSnapshot();
   }
@@ -302,7 +310,9 @@ export class WorkbookMutationRuntime {
     const enqueueOrder = Date.now();
     let transactionId: string;
     try {
-      transactionId = clientTxnID(`workbook-autosave-${request.viewSchemaId}`);
+      transactionId = this.transactionIds.create(
+        `workbook-autosave-${request.viewSchemaId}`,
+      );
     } catch {
       return {
         kind: "rejected_mutation",
@@ -469,7 +479,7 @@ export class WorkbookMutationRuntime {
     if (halted === null) return "There is no blocked edit to retry.";
     let transactionId: string;
     try {
-      transactionId = clientTxnID("workbook-recovery");
+      transactionId = this.transactionIds.create("workbook-recovery");
     } catch {
       return "A secure replacement transaction ID could not be created.";
     }
@@ -528,7 +538,9 @@ export class WorkbookMutationRuntime {
     if (entry === undefined) return "The conflict is no longer available.";
     let transactionId: string;
     try {
-      transactionId = clientTxnID("workbook-conflict-resolution");
+      transactionId = this.transactionIds.create(
+        "workbook-conflict-resolution",
+      );
     } catch {
       return "A secure transaction ID could not be created. No resolution was sent.";
     }
@@ -585,6 +597,7 @@ export class WorkbookMutationRuntime {
   }
 
   requestDrain(): void {
+    if (this.disposed) return;
     for (const drainer of this.drainers) drainer();
     if (this.drainScheduled) return;
     this.drainScheduled = true;
@@ -608,6 +621,27 @@ export class WorkbookMutationRuntime {
   pauseForTerminalLifecycle(): void {
     this.pendingRuntime.model.pauseForTerminalLifecycle();
     this.emit();
+  }
+
+  invalidate(reason: WorkbookMutationInvalidationReason): void {
+    if (reason.kind === "runtime_disposed") {
+      if (this.disposed) return;
+      this.disposed = true;
+      if (this.retryTimer !== null) clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+      this.pauseForTerminalLifecycle();
+      this.listeners.clear();
+      this.drainers.clear();
+      return;
+    }
+    if (
+      reason.kind === "incident_closed" ||
+      reason.kind === "incident_changed"
+    ) {
+      this.pauseForTerminalLifecycle();
+      return;
+    }
+    this.pauseForAuthRecovery();
   }
 
   resolveSocketClientTxn(clientTxnId: string | null | undefined): boolean {
@@ -664,7 +698,7 @@ export class WorkbookMutationRuntime {
   }
 
   private scheduleRetry(): void {
-    if (this.retryTimer !== null) return;
+    if (this.disposed || this.retryTimer !== null) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       this.requestDrain();

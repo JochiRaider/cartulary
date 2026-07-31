@@ -3,23 +3,15 @@ import type {
   ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
-import { apiPath, clientTxnID } from "../../../services/browserApi";
+import { parseErrorMessage, readEnvelope } from "../../../services/workbookApi";
 import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../../services/workbookApi";
-import {
-  buildGenericCreatePayload,
   genericCreateMinimumMessage,
   initialGenericCreateDraft,
 } from "../../models/genericWorkbookModel";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
-import {
-  buildAttachedEvidencePatchPayload,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+import type { WorkbookRow } from "../models/workbookTimelineModel";
 import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 
 export type TimelineCreateRelatedWorkflowState = {
@@ -88,26 +80,24 @@ function timelineCreateRelatedSeedValue(
 }
 
 export function useTimelineCreateRelatedWorkflow({
-  apiBase,
   applyRowMutation,
   currentUserId,
-  incidentId,
   loadRows,
+  mutationCommands,
   selectedRow,
   selectedRowWorkflowKey,
   setInspectorMessage,
   targetContracts,
 }: {
-  readonly apiBase?: string | undefined;
   readonly applyRowMutation: (
     rowKey: string,
     envelope: TimelineMutationEnvelope,
   ) => unknown;
   readonly currentUserId: string | null;
-  readonly incidentId: string;
   readonly loadRows: (options: {
     readonly showLoading: boolean;
   }) => Promise<void>;
+  readonly mutationCommands: TimelineMutationCommandPort;
   readonly selectedRow: WorkbookRow | null;
   readonly selectedRowWorkflowKey: string;
   readonly setInspectorMessage: (message: string | null) => void;
@@ -205,39 +195,26 @@ export function useTimelineCreateRelatedWorkflow({
     ) {
       return;
     }
-    const payload = buildGenericCreatePayload(
-      activeWorkflow.targetContract,
-      activeWorkflow.draft,
-      clientTxnID(
-        `timeline-create-related-${activeWorkflow.featureGroup.featureGroupKey}`,
-      ),
-    );
-    if (payload === null) {
-      setWorkflow({
-        ...activeWorkflow,
-        message: genericCreateMinimumMessage(
-          activeWorkflow.targetContract.viewSchemaId,
-        ),
-      });
-      return;
-    }
     setWorkflow({
       ...activeWorkflow,
       isSubmitting: true,
       message: null,
     });
-    const createResult = await fetchWorkbookJSON<TimelineMutationEnvelope>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${activeWorkflow.targetContract.viewSchemaId}/rows`,
-      ),
-      { method: "POST", body: JSON.stringify(payload) },
-    );
+    const createResult = await mutationCommands.createRelatedRecord({
+      contract: activeWorkflow.targetContract,
+      draft: activeWorkflow.draft,
+      featureGroupKey: activeWorkflow.featureGroup.featureGroupKey,
+    });
     if (!createResult.ok) {
       setWorkflow({
         ...activeWorkflow,
         isSubmitting: false,
-        message: parseErrorMessage(createResult.payload),
+        message:
+          createResult.status === 422
+            ? genericCreateMinimumMessage(
+                activeWorkflow.targetContract.viewSchemaId,
+              )
+            : parseErrorMessage(createResult.payload),
       });
       return;
     }
@@ -255,23 +232,10 @@ export function useTimelineCreateRelatedWorkflow({
     }
 
     if (activeWorkflow.targetContract.viewSchemaId === evidenceViewSchemaId) {
-      const patchPayload = buildAttachedEvidencePatchPayload(
+      const patchResult = await mutationCommands.linkCreatedEvidence({
         sourceRow,
         createdRecordId,
-        clientTxnID("timeline-link-created-evidence"),
-      );
-      if (patchPayload === null) {
-        setWorkflow({
-          ...activeWorkflow,
-          isSubmitting: false,
-          message: "Created evidence, but the selected row version is stale.",
-        });
-        return;
-      }
-      const patchResult = await fetchWorkbookJSON<TimelineMutationEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${sourceRow.recordId}`),
-        { method: "PATCH", body: JSON.stringify(patchPayload) },
-      );
+      });
       if (!patchResult.ok) {
         setWorkflow({
           ...activeWorkflow,
@@ -295,10 +259,9 @@ export function useTimelineCreateRelatedWorkflow({
       `Created related ${activeWorkflow.targetContract.viewSchemaId} row ${createdRecordId}.`,
     );
   }, [
-    apiBase,
     applyRowMutation,
-    incidentId,
     loadRows,
+    mutationCommands,
     selectedRow,
     setInspectorMessage,
     workflow,

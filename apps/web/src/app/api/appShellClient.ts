@@ -19,6 +19,7 @@ import {
   fetchHTTPOperation,
   fetchJSON,
 } from "../../services/browserApi";
+import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
 
 export type SessionMembership =
   GetCurrentSessionResponse["data"]["memberships"][number];
@@ -171,6 +172,40 @@ export function loadSession(apiBaseOrOptions?: string | ShellGetOptions) {
     init: requestInit,
     operationID: "getCurrentSession",
   });
+}
+
+export function createAppAuthorizationRecoveryPort(
+  options: {
+    readonly loadCurrentSession?:
+      | ((signal: AbortSignal) => Promise<APIResult<DataEnvelope<SessionData>>>)
+      | undefined;
+    readonly onSessionRecovered?: ((session: SessionData) => void) | undefined;
+  } = {},
+): AuthorizationRecoveryPort {
+  return {
+    async recover({ incidentId, signal }) {
+      try {
+        const result = await (
+          options.loadCurrentSession ??
+          ((nextSignal: AbortSignal) => loadSession({ signal: nextSignal }))
+        )(signal);
+        if (!result.ok) return { kind: "unavailable" };
+        const session = (result.payload as DataEnvelope<SessionData>).data;
+        const membership = session.memberships.find(
+          (entry) => entry.incident_id === incidentId,
+        );
+        if (membership === undefined) return { kind: "access_lost" };
+        options.onSessionRecovered?.(session);
+        return {
+          kind: "authorized",
+          role: membership.role,
+          userId: session.user_id,
+        };
+      } catch {
+        return { kind: "unavailable" };
+      }
+    },
+  };
 }
 
 export function loadCredentialState(

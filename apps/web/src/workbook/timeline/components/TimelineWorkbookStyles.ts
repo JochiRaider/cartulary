@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import {
   workbookSurfaceGridShellStyle,
   workbookSurfaceOverlayPanelStyle,
-} from "../../components/WorkbookSurfaceFrame";
+} from "../../layout/WorkbookSurfaceLayout";
 
 export const timelineRowGutterWidth = 58;
 

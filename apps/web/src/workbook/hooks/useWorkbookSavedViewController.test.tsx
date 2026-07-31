@@ -2,7 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonResponse } from "../../testing/fetchMockTestSupport";
-import { defaultWorkbookLayoutState } from "../models/workbookLayout";
+import { defaultWorkbookLayoutState } from "../layout/workbookColumnLayout";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
 

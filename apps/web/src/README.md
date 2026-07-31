@@ -17,21 +17,23 @@ manifests and must not be hand-edited.
 
 ## Coverage Scope
 
-This README is the exhaustive file-responsibility map for authored files under
-`apps/web/src`. Every source, support, and colocated test file in this tree
-should appear exactly once in one table below. Directory headings define the
-local implementation-ownership boundary; table rows define the file-level
-responsibility inside that boundary.
+This README is a narrative implementation-ownership guide for authored files
+under `apps/web/src`. Exact `.ts`/`.tsx` source accounting is owned by
+`tools/frontend_source_ownership.json` and enforced by the `web.architecture`
+policy tests. Executable checks must not read, stat, hash, or parse this
+Markdown file. Directory headings describe the local implementation-ownership
+boundary; representative table rows describe file-level responsibilities.
 
-When adding, removing, or moving a file, update the matching directory section
-in the same change. Test-file rows should name the behavior or contract they
-pin, not the mechanics of the test harness.
+When a structurally significant file is added, removed, or moved, reconcile the
+matching narrative section in the same change and update the machine ownership
+manifest. Test-file rows should name the behavior or contract they pin, not the
+mechanics of the test harness.
 
 ## Root Files
 
 | File | Responsibility |
 | --- | --- |
-| `README.md` | Local implementation-ownership map for `apps/web/src`. Update it when files are added, removed, or moved in this tree. |
+| `README.md` | Narrative implementation-ownership guide for `apps/web/src`; never an executable accounting input. |
 | `main.tsx` | Vite browser entry shim. Mounts the React application root and should stay thin. |
 
 ## `app/`
@@ -172,7 +174,9 @@ request/response handling already owned by specs and backend contracts.
 | `services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. |
 | `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
 | `services/importContractAdapter.ts` | Thin generated-protocol alias facade for Import and common-job operations and workflow resource types. |
+| `services/importTargetContractAdapter.ts` | Thin generated-protocol facade for Import target discovery and target-specific mapping contracts. |
 | `services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. |
+| `services/importTargetContractAdapter.test.ts` | Tests for strict Import target contract decoding and generated-protocol alignment. |
 | `services/networkFlowContractAdapter.test.ts` | Network Flow claimed-profile and compiled-contract-major admission tests. |
 | `services/workbookApi.ts` | Workbook HTTP helper utilities, envelope parsing, abort/query runtime helpers, and user-facing error extraction. |
 | `services/workbookEvidence.ts` | Evidence upload/attach client helpers and evidence public-error mapping. |
@@ -205,6 +209,7 @@ policy tests. Runtime application code must not import this directory.
 | `testing/extensionAvailabilityTestSupport.ts` | Deterministic ready extension-availability controller fixture for workbook and feature tests. |
 | `testing/fetchMockTestSupport.ts` | Fetch mock helpers for unit and integration-style frontend tests. |
 | `testing/selectorContractPolicy.test.ts` | Selector ownership policy test that guards raw `data-testid` literals and shared selector facade usage. |
+| `testing/sourceOwnershipPolicy.test.ts` | Exact non-Markdown frontend source-ownership parity and manifest-shape policy. |
 | `testing/transportBoundaryPolicy.test.ts` | Static same-origin transport policy; raw fetch is limited to the shared transport and server-issued Evidence upload target. |
 | `testing/testSetup.dom.ts` | DOM-specific Vitest setup. |
 | `testing/testSetup.ts` | Common Vitest setup for frontend tests. |
@@ -251,13 +256,13 @@ workflow logic.
 | File | Responsibility |
 | --- | --- |
 | `workbook/components/ActiveSurfaceSavedViewSelector.tsx` | Saved-view selector for the active workbook surface. |
-| `workbook/components/AssessmentWorkbookSurface.tsx` | Assessment owner facade for assessment rows, support selection, and assessment mutations. |
-| `workbook/components/EntityWorkbookSurface.tsx` | Entities owner facade for Hosts and Identities surfaces. |
+| `workbook/components/AssessmentWorkbookSurface.tsx` | Assessment presentation facade for rows, support selection, and semantic assessment commands. |
+| `workbook/components/EntityWorkbookSurface.tsx` | Hosts and Identities presentation facade over entity query, mutation, inspector, and continuity owners. |
 | `workbook/components/GenericMutationControl.tsx` | Generic row mutation controls for system-view surfaces. |
-| `workbook/components/GenericWorkbookSurface.tsx` | Common contract-backed grid/create/edit executor. Domain workflow behavior is injected through owner slots rather than branched here. |
+| `workbook/components/GenericWorkbookSurface.tsx` | Common contract-backed grid presentation. Domain mutation execution is injected through named owner command ports. |
 | `workbook/components/IncidentControlsDrawer.tsx` | Shell-level incident controls drawer presentation and focus boundary. |
+| `workbook/components/WorkbookRecordCandidatePicker.tsx` | Shared semantic record-candidate selection control for owner workflows. |
 | `workbook/components/SystemViewSwitcher.tsx` | System-view switcher UI and grouped surface navigation. |
-| `workbook/components/WorkbookActiveSurface.tsx` | Registration-driven renderer/facade dispatcher for the active `view_schema_id`. |
 | `workbook/components/WorkbookConflictResolver.tsx` | Common typed conflict resolver and recovery presentation for every writable Base renderer. |
 | `workbook/components/WorkbookGridEditorControl.tsx` | Contract-field grid editor adapter, mutation controls, commit/cancel behavior, and editor-kind selection. |
 | `workbook/components/WorkbookGridControls.tsx` | Reusable workbook grid filter/sort/grouping control shell. |
@@ -265,9 +270,27 @@ workflow logic.
 | `workbook/components/WorkbookPresenceMarkers.tsx` | Shared row-gutter and cell presence markers with design-owned capacity and overflow behavior. |
 | `workbook/components/WorkbookViewBar.tsx` | Shared saved-view, query, inspector, and create control composition. |
 | `workbook/components/WorkbookShellSlots.tsx` | Stable shell slot IDs, labels, and layout slot helpers. |
-| `workbook/components/WorkbookShellStyles.ts` | Workbook shell chrome and responsive layout style constants. |
 | `workbook/components/WorkbookStatusStrip.tsx` | Status strip presentation for save/load/selection state. |
-| `workbook/components/WorkbookSurfaceFrame.tsx` | Shared surface frame and style primitives for workbook grid/inspector layouts. |
+
+### `workbook/surfaces/`
+
+The surfaces composition facade selects a registered renderer by stable
+`view_schema_id`. Concrete surface imports remain private to this boundary;
+the shell supplies cohesive owner snapshots and command ports.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/surfaces/WorkbookSurfacesFacade.tsx` | Registration-driven active-surface selection and adaptation of view-state, query, mutation, collaboration, inspector, continuity, and layout owners into concrete renderer inputs. |
+
+### `workbook/evidence/`
+
+Workbook-owned Evidence presentation adapts transport outcomes and lifecycle
+view models for Workbook surfaces. It performs no transport.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/evidence/evidenceAccessPresentation.ts` | Evidence access message severity and live-region presentation mapping. |
+| `workbook/evidence/evidenceAccessPresentation.test.ts` | Tests for blocking and non-blocking Evidence live-region outcomes. |
 
 ### `workbook/hooks/`
 
@@ -277,19 +300,15 @@ specific surface.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/hooks/useAssessmentSupportRows.ts` | Loads and normalizes Timeline support rows needed by assessment workflows. |
+| `workbook/hooks/useAssessmentSupportCandidates.ts` | Loads and normalizes Timeline support candidates needed by assessment workflows. |
 | `workbook/hooks/useEntityTimelinePreview.ts` | Loads Timeline preview rows for entity-related workbook workflows. |
-| `workbook/hooks/useGenericSurfaceMutationController.ts` | Contract-surface mutation state and refresh coordination. |
+| `workbook/hooks/useGenericSurfaceMutationController.ts` | Contract-surface mutation state, conflict admission, and refresh coordination over the generic command port. |
 | `workbook/hooks/useIncidentControlsDrawer.ts` | Incident controls drawer state, selection, and focus restoration. |
-| `workbook/hooks/useInspectorLifecycleReset.test.tsx` | Tests for changed-key, disabled-key, latest-callback, and Strict Mode inspector reset behavior. |
-| `workbook/hooks/useInspectorLifecycleReset.ts` | Single-shot inspector reset hook for observable lifecycle-key transitions. |
 | `workbook/hooks/useOwnerReferenceOptions.ts` | Resolves only the active bounded-context policy's reference requirements through the generic broker. |
 | `workbook/hooks/useWorkbookIncidentIdentity.ts` | Resolves incident identity/loading state for the workbook shell. |
-| `workbook/hooks/useWorkbookLayoutController.ts` | Per-schema workbook layout state, active column controls, saved-layout application, and startup resets. |
 | `workbook/hooks/useWorkbookPendingGridFocus.ts` | Restores the requested first grid target after a surface transition. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.test.tsx` | Direct tests for initial and sheet-triggered projection refresh ownership. |
 | `workbook/hooks/useWorkbookProjectionRefreshController.ts` | Initial session/entity and sheet-triggered projection refresh coordinator. |
-| `workbook/hooks/useWorkbookResponsiveLayout.ts` | Coordinates shell responsive-layout state from viewport measurements. |
 | `workbook/hooks/useWorkbookQueryController.test.tsx` | Direct tests for exact-view-schema query-state isolation. |
 | `workbook/hooks/useWorkbookQueryController.ts` | Schema-keyed query/filter controller and active query-control adapter. |
 | `workbook/hooks/useWorkbookSavedViewController.test.tsx` | Direct tests for saved-view loading and selection precedence. |
@@ -297,7 +316,43 @@ specific surface.
 | `workbook/hooks/useWorkbookShellRuntime.ts` | Thin shell runtime facade composing startup, saved-view, and query controllers. |
 | `workbook/hooks/useWorkbookStartupController.test.tsx` | Direct tests for workbook selection, focus intent, versioning, and URL state. |
 | `workbook/hooks/useWorkbookStartupController.ts` | Startup/sheet identity, URL history, focus intent, and workbook-preference controller. |
-| `workbook/hooks/useWorkbookSurfaceLoaders.ts` | Surface query/loading controller for contract, entity, and assessment projections. |
+
+### `workbook/inspector/`
+
+| Path | Responsibility |
+| --- | --- |
+| `workbook/inspector/useWorkbookInspectorCoordinator.ts` | Schema-bound inspector lifecycle coordinator for explicit open/close, stable row subjects, ordered feature invalidation, action completion, and focus restoration ports. |
+| `workbook/inspector/useWorkbookInspectorCoordinator.test.tsx` | Direct tests for retargeting, lifecycle invalidation, action completion, idempotent close, and focus restoration. |
+
+### `workbook/lifecycle/`
+
+The lifecycle leaf owns typed invalidation reasons only. It contains no state,
+event bus, or generic clear-all operation.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/lifecycle/workbookInvalidation.ts` | Shared typed Workbook and extension invalidation reason unions for applicable lifecycle owners. |
+
+### `workbook/layout/`
+
+Workbook layout owns responsive classification, density, column geometry,
+shell/work-area sizing, inspector geometry, and shared style slots. Surface
+owners consume semantic snapshots and commands without deriving geometry from
+row counts or viewport subtraction.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/layout/WorkbookSurfaceLayout.tsx` | Shared work-area, independently scrolling grid/inspector slots, overlay geometry, resize behavior, and focus restoration. |
+| `workbook/layout/useWorkbookColumnLayoutController.ts` | Per-schema column state, active column commands, saved-layout application, and startup resets. |
+| `workbook/layout/useWorkbookLayoutFacade.ts` | Composition facade for effective density, responsive mode, interaction mode, column state, and surface layout commands. |
+| `workbook/layout/useWorkbookResponsiveLayout.ts` | Viewport subscription and semantic responsive-layout snapshot. |
+| `workbook/layout/workbookColumnLayout.ts` | Contract-normalized column ordering, visibility, width, movement, and materialization helpers. |
+| `workbook/layout/workbookDensity.ts` | Account density preference resolution. |
+| `workbook/layout/workbookResponsiveLayout.ts` | Responsive layout classification and surface-band helpers. |
+| `workbook/layout/workbookShellStyles.ts` | Shared shell chrome, work-area, viewport-overlay, and responsive style slots. |
+| `workbook/layout/workbookLayoutPolicy.test.ts` | Architecture checks prohibiting viewport-subtraction, row-count geometry, synthetic rows, and surface-private minimum-height workarounds. |
+| `workbook/layout/workbookDensity.test.ts` | Tests for effective Workbook density. |
+| `workbook/layout/workbookResponsiveLayout.test.ts` | Tests for responsive classification and query-control capacity. |
 
 ### `workbook/models/`
 
@@ -313,15 +368,11 @@ app.
 | `workbook/models/evidenceLifecycleViewModel.ts` | Evidence lifecycle display/count view-model helpers. |
 | `workbook/models/genericWorkbookModel.ts` | Generic system-view create/edit payload, enum, validation, and row-label helpers. |
 | `workbook/models/workbookContractRows.ts` | Contract-backed row normalization and grid-column materialization helpers for workbook surfaces. |
-| `workbook/models/workbookDensity.ts` | Account density preference resolution. |
 | `workbook/models/workbookGridState.ts` | Contract-grid load-state presentation and incident-role interaction-mode helpers. |
 | `workbook/models/workbookIncidentIdentity.ts` | Incident identity normalization and loading-state model. |
-| `workbook/models/workbookInspectorModel.ts` | Workbook inspector state, reducer, panel, and feature-group helpers. |
-| `workbook/models/workbookLayout.ts` | Contract-normalized column ordering, visibility, width, movement, and materialization helpers. |
-| `workbook/models/workbookMutations.ts` | Shared contract mutation request shapes and mutation-result helpers. |
+| `workbook/models/workbookInspectorModel.ts` | Pure inspector state machine for default-closed state, semantic subjects, active panels, no-row state, and invalidation generations. |
 | `workbook/models/workbookQuery.ts` | Workbook query, filter, sort, grouping, and request-building helpers. |
 | `workbook/models/workbookReferenceOptions.ts` | Reference option normalization and lookup helpers. |
-| `workbook/models/workbookResponsiveLayout.ts` | Responsive layout classification and surface-band helpers. |
 | `workbook/models/workbookSavedViewRuntime.ts` | Saved-view runtime selection, dirty-state, and command helpers. |
 | `workbook/models/workbookSavedViews.ts` | Saved-view resource normalization and payload helpers. |
 | `workbook/models/workbookStartup.ts` | Workbook startup candidate, selected sheet reference, and fallback resolution helpers. |
@@ -332,16 +383,28 @@ app.
 | `workbook/models/entityWorkbookModel.test.ts` | Tests for entity workbook model helpers. |
 | `workbook/models/evidenceLifecycleViewModel.test.ts` | Tests for evidence lifecycle view-model helpers. |
 | `workbook/models/genericWorkbookModel.test.ts` | Tests for generic workbook model helpers. |
-| `workbook/models/workbookDensity.test.ts` | Tests for workbook density resolution. |
 | `workbook/models/workbookInspectorModel.test.ts` | Tests for workbook inspector state/model helpers. |
 | `workbook/models/workbookQuery.test.ts` | Tests for workbook query helpers. |
 | `workbook/models/workbookReferenceOptions.test.ts` | Tests for reference-option helpers. |
-| `workbook/models/workbookResponsiveLayout.test.ts` | Tests for responsive layout model helpers. |
 | `workbook/models/workbookSavedViewRuntime.test.ts` | Tests for saved-view runtime helpers. |
 | `workbook/models/workbookSavedViews.test.ts` | Tests for saved-view normalization and payload helpers. |
 | `workbook/models/workbookStartup.test.ts` | Tests for workbook startup resolution. |
 | `workbook/models/workbookSurfaceRegistry.test.ts` | Tests for workbook surface registry invariants. |
 | `workbook/models/workbookSurfaceRegistration.test.ts` | Tests for policy registration completeness, uniqueness, and extension-workspace exclusion. |
+
+### `workbook/mutations/`
+
+Workbook mutation assembly owns secure logical-action identity and exact
+owner-specific request construction. Presentation receives named semantic
+command ports; it never receives the transaction-ID provider or a generic
+mutation transport.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/mutations/secureTransactionId.ts` | Private browser assembly adapter for secure transaction-ID creation. |
+| `workbook/mutations/workbookMutationCommandPorts.ts` | Named Timeline, generic, entity, assessment, Evidence, and coordination command-port contracts. |
+| `workbook/mutations/createWorkbookMutationCommandPorts.ts` | Incident-scoped command assembly and exact owner request construction over the private secure-ID port. |
+| `workbook/mutations/createWorkbookMutationCommandPorts.test.ts` | Exact owner payload, logical identity, and local secure-random failure tests. |
 
 ### `workbook/features/`
 
@@ -352,9 +415,10 @@ identity into the Base surface registry.
 | File | Responsibility |
 | --- | --- |
 | `workbook/features/ImportAssistantFeature.tsx` | Availability-gated workbook import assistant for discovery, ordinal mapping, approval, unit selection, apply/cancel, and result navigation. |
+| `workbook/features/ImportAssistantFeature.test.tsx` | Import assistant discovery, approval, cancellation, and returned-selection characterization. |
 | `workbook/features/NetworkFlowFeature.tsx` | Workbook/app-facing Network Flow facade for workspace rendering, debug-fixture composition, and stable extension identity. |
-| `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession UI/transport binding. |
-| `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and attachment binding for the contract surface. |
+| `workbook/features/coordination/CoordinationWorkflowBindings.tsx` | Coordination-owned task lifecycle and decision supersession presentation over semantic commands. |
+| `workbook/features/evidence/useEvidenceWorkbookBindings.tsx` | Evidence-owned access, preview, download, and semantic attachment binding for the contract surface. |
 
 ### `workbook/policies/`
 
@@ -381,8 +445,36 @@ choose domain references or authorize access.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/services/referenceQueryBroker.ts` | Deduplicates identical in-flight owner-declared reference queries inside one incident/authorization epoch and prevents obsolete consumers from applying results. |
-| `workbook/services/referenceQueryBroker.test.ts` | Tests in-flight-only deduplication, incident isolation, and obsolete-consumer cancellation. |
+| `workbook/services/referenceQueryBroker.ts` | Creates instance-scoped, incident/authorization-bound reference-query ports with shared-consumer deduplication, typed invalidation, abort ownership, and idempotent disposal. |
+| `workbook/services/referenceQueryBroker.test.ts` | Tests in-flight deduplication, shared-consumer cancellation, two-shell isolation, context binding, invalidation, teardown, and late-result rejection. |
+
+### `workbook/query/`
+
+Workbook query owners bind request admission, live reconciliation, protected
+state cleanup, and teardown to the Workbook instance that consumes them.
+Shared query rows are application contracts and do not belong to Timeline.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/query/WorkbookQueryRow.ts` | Shared schema-keyed view-query row shape below Timeline ownership. |
+| `workbook/query/workbookQueryRowPatch.ts` | Pure sparse-patch application for shared query rows. |
+| `workbook/query/useAssessmentSurfaceQuery.ts` | Assessment-owned query construction, admission, live reconciliation, refresh, access cleanup, and cancellation. |
+| `workbook/query/useAssessmentSurfaceQuery.test.tsx` | Direct rapid-filter, stale-error, live-patch, access-loss, inactive-surface, and teardown characterization. |
+| `workbook/query/useEntitySurfaceQuery.ts` | Instance-owned dual host/identity loading, indexing, live patching, refresh, cancellation, and protected-state cleanup. |
+| `workbook/query/useEntitySurfaceQuery.test.tsx` | Direct dual-load, stale-result, live-patch, access-loss, explicit cleanup, and teardown characterization. |
+| `workbook/query/useGenericSurfaceQuery.ts` | Schema-keyed generic query admission, schema matching, Notes normalization, live reconciliation, stale-row retention, access cleanup, and cancellation. |
+| `workbook/query/useGenericSurfaceQuery.test.tsx` | Direct Notes normalization, schema-switch, mismatched-envelope, stale-row, access-loss, inactive-surface, and teardown characterization. |
+
+### `workbook/startup/`
+
+Workbook startup admission owns transport ordering, availability reservation,
+saved-view hydration precedence, and stale-result rejection. Selection state
+and availability state remain behind injected ports.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/startup/useWorkbookStartupAdmission.ts` | Startup request and response admission boundary with selection-version, incident, ordinal, availability, and cancellation guards. |
+| `workbook/startup/useWorkbookStartupAdmission.test.tsx` | Startup admission characterization for precedence, overlap, extension availability, fallbacks, teardown, and late work. |
 
 ### `workbook/timeline/`
 
@@ -426,7 +518,7 @@ models, or services below.
 | `workbook/timeline/hooks/useTimelineGridInteractions.ts` | Coordinates Timeline grid refs, keyboard helpers, and grid interaction commands. |
 | `workbook/timeline/hooks/useTimelineHistoryActions.ts` | Coordinates Timeline history rollback, delete, restore, preview, and confirmation actions. |
 | `workbook/timeline/hooks/useTimelineHistoryState.ts` | Coordinates Timeline history panel and row-history state. |
-| `workbook/timeline/hooks/useTimelineInspectorSelection.ts` | Coordinates selected Timeline row and inspector selection state. |
+| `workbook/timeline/hooks/useTimelineInspectorSelection.ts` | Coordinates selected Timeline row, row-bound feature invalidation, deleted-row history, and focus-safe inspector interactions. |
 | `workbook/timeline/hooks/useTimelineMentionActions.ts` | Coordinates Timeline mention resolution, undo/review actions, and related inspector selection updates. |
 | `workbook/timeline/hooks/useTimelineMentions.ts` | Coordinates Timeline mention-resolution state and actions. |
 | `workbook/timeline/hooks/useTimelineMutationCommands.ts` | Coordinates Timeline scalar and relationship mutation commands, pending-save admission, and save lifecycle callbacks. |
@@ -449,11 +541,13 @@ models, or services below.
 | `workbook/timeline/models/timelineWorkbookSurfaceRuntime.ts` | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
 | `workbook/timeline/models/timelineViewportContinuityModel.ts` | Timeline viewport continuity and entity-refresh barrier helpers. |
 | `workbook/timeline/models/workbookMentionChips.ts` | Mention chip state, relationship-field keys, and mention display helpers. |
-| `workbook/timeline/models/workbookTimelineModel.ts` | Timeline row model, field bindings, payload builders, normalization, patch intents, freshness decisions, and display helpers. |
-| `workbook/timeline/models/timelineRowsModel.test.ts` | Tests for Timeline row model helpers. |
+| `workbook/timeline/models/workbookRecordFreshness.ts` | Pure durable-identity and row-version freshness comparison leaf. |
+| `workbook/timeline/models/workbookTimelineModel.ts` | Timeline row model, field bindings, payload builders, normalization, patch intents, and display helpers. |
+| `workbook/timeline/models/timelineRowsModel.test.ts` | Tests for Timeline grid-row materialization. |
 | `workbook/timeline/models/timelineWorkbookRuntime.test.ts` | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | `workbook/timeline/models/timelineViewportContinuityModel.test.ts` | Tests for viewport continuity and refresh barrier helpers. |
-| `workbook/timeline/models/workbookTimelineModel.test.ts` | Tests for Timeline row, payload, binding, normalization, and freshness helpers. |
+| `workbook/timeline/models/workbookRecordFreshness.test.ts` | Tests for comparable and non-comparable row-version freshness decisions. |
+| `workbook/timeline/models/workbookTimelineModel.test.ts` | Tests for Timeline row, payload, binding, normalization, and display helpers. |
 
 #### `workbook/timeline/services/`
 
@@ -465,27 +559,50 @@ owners.
 | --- | --- |
 | `workbook/timeline/services/timelineMutationRequests.ts` | Timeline pending-replay HTTP dispatch and timing event helper. |
 
-### `workbook/runtime/`
+### `workbook/collaboration/`
 
-Workbook runtime modules contain shell-lifetime mutation state and
-renderer-neutral conflict, collaboration, lifecycle, and active-surface
-contracts. Runtime modules MUST NOT import Timeline implementation.
+Workbook collaboration modules reconcile decoded session events into
+Workbook-owned state. Authorization recovery is injected from app
+composition; these modules do not import authorization transport.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/runtime/WorkbookCollaborationProjection.ts` | Sole shell-lifetime interpreter for incident collaboration events, exact sheet presence, authorization cleanup, and active-surface reconciliation. |
+| `workbook/collaboration/WorkbookCollaborationCoordinator.ts` | Sole shell-lifetime interpreter for incident collaboration events, exact sheet presence, ordered typed cleanup, injected authorization recovery, and active-surface reconciliation. |
+| `workbook/collaboration/workbookCollaborationMessages.ts` | Workbook presence, live-row message, self-origin filtering, and mention-action payload helpers. |
+| `workbook/collaboration/workbookSurfacePort.ts` | Active-surface identity and live-row reconciliation capabilities. |
+| `workbook/collaboration/useWorkbookCollaborationCoordinator.ts` | React external-store subscription, Strict Mode-safe lifetime lease, and collaboration-session adapter for the coordinator. |
+| `workbook/collaboration/WorkbookCollaborationCoordinator.test.ts` | Tests for presence, reset, cleanup ordering, authorization recovery, role downgrade, access loss, and late-work rejection. |
+| `workbook/collaboration/workbookCollaborationMessages.test.ts` | Tests for Base, saved-view, and extension-workspace presence message construction. |
+
+### `workbook/runtime/`
+
+Workbook runtime modules contain shell-lifetime mutation state and
+renderer-neutral conflict and lifecycle contracts. Runtime modules MUST NOT
+import Timeline implementation.
+
+| File | Responsibility |
+| --- | --- |
 | `workbook/runtime/WorkbookMutationRuntime.ts` | Owns the incident/client-scoped pending queue across Base surface mounts. |
 | `workbook/runtime/workbookPendingReplayRuntime.ts` | Pending-replay runtime state, admission contracts, and refresh barriers. |
 | `workbook/runtime/workbookConflictModel.ts` | Same-field conflict parsing and common envelope types. |
-| `workbook/runtime/workbookCollaborationMessages.ts` | Workbook presence, live-row message, self-origin filtering, and mention-action payload helpers. |
 | `workbook/runtime/workbookLifecycleModel.ts` | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |
-| `workbook/runtime/workbookSurfacePort.ts` | Active-surface identity and live-row reconciliation capabilities. |
-| `workbook/runtime/useWorkbookCollaborationProjection.ts` | React external-store subscription and collaboration-session lifecycle adapter for the workbook projection. |
 | `workbook/runtime/useWorkbookMutationRuntime.ts` | React external-store subscription hook for shell-owned workbook mutation state. |
-| `workbook/runtime/WorkbookCollaborationProjection.test.ts` | Tests for collaboration projection presence, invalidation, reset, access loss, and active-surface reconciliation. |
 | `workbook/runtime/WorkbookMutationRuntime.test.ts` | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
-| `workbook/runtime/workbookCollaborationMessages.test.ts` | Tests for Base, saved-view, and extension-workspace presence message construction. |
 | `workbook/runtime/workbookConflictModel.test.ts` | Tests for conflict parsing, queue entries, resolution payloads, and collection actions. |
+
+### `workbook/continuity/`
+
+Workbook continuity modules expose stable semantic focus and selection identities.
+DOM nodes, grid coordinates, viewport geometry, and restore snapshots remain private
+to the Workbook grid adapter.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/continuity/workbookContinuityPort.ts` | Semantic capture, focus, selection, clear, one-shot restore, and disposal contract over stable schema, record, and field identities. |
+| `workbook/continuity/useWorkbookGridContinuity.tsx` | Workbook-private translation between the semantic continuity port and grid-adapter focus, scrolling, clipboard, and viewport behavior. |
+| `workbook/continuity/gridViewportContinuity.ts` | Private viewport anchor capture, restoration, and rectangle visibility helpers used by Timeline continuity. |
+| `workbook/continuity/workbookContinuityPort.test.ts` | Tests for opaque capture tokens, stable semantic identities, one-shot restoration, and idempotent cleanup. |
+| `workbook/continuity/gridViewportContinuity.test.ts` | Tests for viewport capture, restoration, and visibility helpers. |
 
 ### `workbook/utils/`
 
@@ -495,8 +612,6 @@ under `timeline/` and not broad enough for `shared/`.
 | File | Responsibility |
 | --- | --- |
 | `workbook/utils/workbookClipboard.ts` | Clipboard grid-shape and paste helpers. |
-| `workbook/utils/workbookContinuity.ts` | Viewport anchor capture, restoration, and rectangle visibility helpers. |
-| `workbook/utils/workbookGridFocus.tsx` | Workbook grid focus helpers and focusable-cell wrapper. |
 | `workbook/utils/workbookKeyboard.ts` | Workbook keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.ts` | Pending-save queue capacity, save-state, replay, conflict, and public-error helpers. |
 | `workbook/utils/workbookPresence.ts` | Presence input/type helpers and presence matching helpers. |
@@ -505,8 +620,16 @@ under `timeline/` and not broad enough for `shared/`.
 | `workbook/utils/workbookValueFormat.ts` | Grid/workbook value formatting helpers. |
 | `workbook/utils/GridAdapter.anchor.test.ts` | Workbook interaction grid-adapter anchor behavior tests. |
 | `workbook/utils/workbookClipboard.test.ts` | Tests for clipboard helpers. |
-| `workbook/utils/workbookContinuity.test.ts` | Tests for continuity helpers. |
 | `workbook/utils/workbookKeyboard.test.ts` | Tests for keyboard command mapping. |
 | `workbook/utils/workbookPendingQueue.test.ts` | Tests for pending-queue helpers. |
 | `workbook/utils/workbookRowReconciliation.test.ts` | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
 | `workbook/utils/workbookValueFormat.test.ts` | Tests for value formatting helpers. |
+
+### `workbook/view-state/`
+
+Workbook view-state hooks own instance-scoped query and layout state. They
+contain no module-global mutable defaults or cross-shell store.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/view-state/useWorkbookQueryState.ts` | Instance-owned schema-keyed query defaults, reducer state, reset, and update operations. |

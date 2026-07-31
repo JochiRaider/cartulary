@@ -42,6 +42,7 @@ import {
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
+import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
 import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
 import { pendingReplayCapacity } from "./utils/workbookPendingQueue";
 
@@ -657,10 +658,13 @@ describe("workbook collaboration coverage", () => {
   });
 
   it("does not coalesce non-contiguous same-record pending patches", () => {
-    const runtime = new WorkbookMutationRuntime({
-      clientInstanceId: "client-non-contiguous",
-      incidentId: "incident-1",
-    });
+    const runtime = new WorkbookMutationRuntime(
+      {
+        clientInstanceId: "client-non-contiguous",
+        incidentId: "incident-1",
+      },
+      createBrowserSecureTransactionIdPort(),
+    );
     runtime.pauseForAuthRecovery();
     for (const [recordId, value, version] of [
       ["record-1", "A1 queued", 1],

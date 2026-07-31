@@ -6,14 +6,14 @@ import {
   rowCellTestId,
 } from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   captureViewportAnchor,
   computeRestoredViewportScroll,
   isRectFullyVisibleWithinContainer,
   type ScrollPosition,
   type ViewportSnapshot,
-} from "../../utils/workbookContinuity";
+} from "../../continuity/gridViewportContinuity";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import {
   advanceTimelineContinuityRender,
   beginTimelineContinuityLifecycle,

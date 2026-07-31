@@ -1,5 +1,5 @@
 import type { ViewFieldContract } from "@cartulary/view-contracts";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 
 export type EntityRow = {
@@ -12,7 +12,7 @@ export type EntityRow = {
   aliasTexts: string[];
   aliases: EntityAlias[];
   linkedEventCount: number;
-  rawRow: EntityApiRow;
+  rawRow: WorkbookQueryRow;
   identifiers: Array<{
     key: string;
     label: string;
@@ -122,17 +122,17 @@ export function entityContractColumnWidth(field: ViewFieldContract): number {
   }
 }
 
-function readEntityStringCell(row: EntityApiRow, fieldKey: string): string {
+function readEntityStringCell(row: WorkbookQueryRow, fieldKey: string): string {
   const raw = row.cells[fieldKey]?.value;
   return typeof raw === "string" ? raw : "";
 }
 
-function readNumberCell(row: EntityApiRow, fieldKey: string): number {
+function readNumberCell(row: WorkbookQueryRow, fieldKey: string): number {
   const raw = row.cells[fieldKey]?.value;
   return typeof raw === "number" ? raw : 0;
 }
 
-function readEntityCellValue(row: EntityApiRow | null, fieldKey: string) {
+function readEntityCellValue(row: WorkbookQueryRow | null, fieldKey: string) {
   return row?.cells[fieldKey]?.value ?? null;
 }
 
@@ -144,7 +144,7 @@ export function entityGroupLabel(row: EntityRow, fieldKey: string): string {
 }
 
 export function entityRowFromApi(
-  row: EntityApiRow,
+  row: WorkbookQueryRow,
   entityType: EntityRow["entityType"],
 ): EntityRow {
   const labelField =
@@ -250,7 +250,7 @@ function compareValue(value: string) {
 }
 
 function readReusableIdentifiers(
-  row: EntityApiRow,
+  row: WorkbookQueryRow,
   entityType: EntityRow["entityType"],
 ): ReusableIdentifier[] {
   const raw = row.cells[reusableIdentifierFields[entityType]]?.value;

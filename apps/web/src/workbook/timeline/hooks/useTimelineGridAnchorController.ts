@@ -7,8 +7,11 @@ import type {
   GridPasteTargetResolution,
 } from "@cartulary/grid-adapter";
 import { useCallback } from "react";
+import type {
+  WorkbookContinuityAnchor,
+  WorkbookContinuityPort,
+} from "../../continuity/workbookContinuityPort";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type { TimelinePasteTargetResolution } from "../models/timelineControllerPorts";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
@@ -65,12 +68,14 @@ function resolveDraftTimelinePasteTargets({
 }
 
 export function useTimelineGridAnchorController({
+  continuityPort,
   gridHandleRef,
   rowsRef,
   timelineAnchorColumnsRef,
   updateTimelineSurfaceFocusAnchor,
   updateWorkbookFocusAnchor,
 }: {
+  readonly continuityPort: WorkbookContinuityPort;
   readonly gridHandleRef: TimelineReadonlyRef<GridHandle | null>;
   readonly rowsRef: TimelineReadonlyRef<readonly WorkbookRow[]>;
   readonly timelineAnchorColumnsRef: TimelineReadonlyRef<
@@ -83,35 +88,26 @@ export function useTimelineGridAnchorController({
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
   const restoreTimelineFocusAnchor = useCallback(
-    (
-      anchor:
-        | GridCellAnchor
-        | Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
-    ) => {
-      const semanticAnchor: GridCellAnchor =
+    (anchor: GridCellAnchor | WorkbookContinuityAnchor) => {
+      const semanticAnchor: WorkbookContinuityAnchor | null =
         "rowIdentity" in anchor
-          ? anchor
-          : {
-              fieldKey: anchor.fieldKey,
-              rowIdentity: {
-                kind: "core_record",
-                recordId: anchor.recordId,
-              },
-              surface: {
-                kind: "view_schema",
-                viewSchemaId: anchor.viewSchemaId,
-              },
-            };
-      const restored =
-        gridHandleRef.current?.focusAnchor(semanticAnchor) ?? false;
-      if (!restored) {
-        window.setTimeout(() => {
-          gridHandleRef.current?.focusAnchor(semanticAnchor);
-        }, 0);
-      }
-      return restored;
+          ? anchor.rowIdentity.kind === "core_record"
+            ? {
+                fieldKey: anchor.fieldKey,
+                recordId: anchor.rowIdentity.recordId,
+                viewSchemaId:
+                  anchor.surface.kind === "view_schema"
+                    ? anchor.surface.viewSchemaId
+                    : timelineViewSchemaId,
+              }
+            : null
+          : anchor;
+      return semanticAnchor === null
+        ? (gridHandleRef.current?.focusAnchor(anchor as GridCellAnchor) ??
+            false)
+        : continuityPort.focus(semanticAnchor);
     },
-    [gridHandleRef],
+    [continuityPort, gridHandleRef],
   );
 
   const currentTimelineAnchorFor = useCallback(

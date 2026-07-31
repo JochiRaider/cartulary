@@ -19,7 +19,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { WorkbookChromeMode } from "../models/workbookResponsiveLayout";
+import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
   canMutateSavedView,
   type SavedViewResource,

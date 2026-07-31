@@ -24,7 +24,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { WorkbookGridControls } from "./components/WorkbookGridControls";
 import { workbookGridEditorKind } from "./components/WorkbookGridEditorControl";
-import { defaultWorkbookLayoutState } from "./models/workbookLayout";
+import { defaultWorkbookLayoutState } from "./layout/workbookColumnLayout";
 import {
   applyFilterDraft,
   buildQueryRequest,

@@ -1,8 +1,6 @@
 import { useCallback, useRef } from "react";
-import {
-  decideWorkbookRecordFreshness,
-  type WorkbookRow,
-} from "../models/workbookTimelineModel";
+import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
+import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 type TimelineActionResultRowVersion = {
   readonly capture_state: WorkbookRow["captureState"];

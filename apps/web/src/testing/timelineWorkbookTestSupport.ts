@@ -24,8 +24,8 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
+import type { RecordChangedPayload } from "../workbook/collaboration/workbookCollaborationMessages";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
-import type { RecordChangedPayload } from "../workbook/runtime/workbookCollaborationMessages";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
 
 type WebSocketLike = {

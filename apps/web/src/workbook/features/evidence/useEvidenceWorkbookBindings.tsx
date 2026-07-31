@@ -7,17 +7,14 @@ import {
   evidencePreviewPanelTestId,
 } from "@cartulary/ui-contracts";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
-import { clientTxnID } from "../../../services/browserApi";
-import {
-  createAndAttachEvidenceBlob,
-  evidenceAccessMessageLiveRegion,
-  issueEvidenceAccessHandle,
-} from "../../../services/workbookEvidence";
-import { workbookSurfaceOverlayPanelStyle } from "../../components/WorkbookSurfaceFrame";
+import { issueEvidenceAccessHandle } from "../../../services/workbookEvidence";
+import { evidenceAccessMessageLiveRegion } from "../../evidence/evidenceAccessPresentation";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
+import { workbookSurfaceOverlayPanelStyle } from "../../layout/WorkbookSurfaceLayout";
 import { buildEvidenceLifecycleViewModel } from "../../models/evidenceLifecycleViewModel";
+import type { EvidenceMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
-import type { EntityApiRow } from "../../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 
 type EvidencePreviewState = {
@@ -34,14 +31,14 @@ type MutationPorts = Pick<
 
 export function useEvidenceWorkbookBindings({
   apiBase,
-  incidentId,
+  mutationCommands,
   mutation,
   onRefresh,
   ownerBindings,
   resetKey,
 }: {
   readonly apiBase: string | undefined;
-  readonly incidentId: string;
+  readonly mutationCommands: EvidenceMutationCommandPort;
   readonly mutation: MutationPorts;
   readonly onRefresh: () => Promise<void> | void;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
@@ -72,7 +69,7 @@ export function useEvidenceWorkbookBindings({
   }, []);
 
   const issueHandle = useCallback(
-    async (row: EntityApiRow, kind: "preview" | "download") => {
+    async (row: WorkbookQueryRow, kind: "preview" | "download") => {
       setMessage(row.record_id, null);
       const handle = await issueEvidenceAccessHandle({
         apiBase,
@@ -108,7 +105,7 @@ export function useEvidenceWorkbookBindings({
   );
 
   const attachFile = useCallback(
-    async (row: EntityApiRow, file: File) => {
+    async (row: WorkbookQueryRow, file: File) => {
       if (file.size <= 0) {
         setMessage(row.record_id, "Evidence attach failed.");
         return;
@@ -116,14 +113,10 @@ export function useEvidenceWorkbookBindings({
       setMessage(row.record_id, "Uploading evidence.");
       mutation.beginMutation();
       try {
-        await createAndAttachEvidenceBlob({
-          apiBase,
-          attachClientTxnId: () => clientTxnID("evidence-attach"),
+        await mutationCommands.attach({
           baseRowVersion: row.row_version,
-          createClientTxnId: () => clientTxnID("evidence-blob"),
           evidenceRecordId: row.record_id,
           file,
-          incidentId,
         });
         setMessage(row.record_id, "Evidence attached.");
         mutation.markMutationSaved();
@@ -136,11 +129,11 @@ export function useEvidenceWorkbookBindings({
         mutation.markMutationConflict();
       }
     },
-    [apiBase, incidentId, mutation, onRefresh, setMessage],
+    [mutation, mutationCommands, onRefresh, setMessage],
   );
 
   const renderRecordActions = useCallback(
-    (row: EntityApiRow) => {
+    (row: WorkbookQueryRow) => {
       if (!active) {
         return null;
       }

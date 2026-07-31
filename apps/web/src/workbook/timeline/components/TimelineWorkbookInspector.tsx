@@ -9,13 +9,13 @@ import type {
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import {
   type InspectorDisabledToken,
   WorkbookInspectorPanelSection,
 } from "../../components/WorkbookInspectorFeatureGroups";
 import { inspectorNoRowState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { MentionResolutionAction } from "../../runtime/workbookCollaborationMessages";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 import {

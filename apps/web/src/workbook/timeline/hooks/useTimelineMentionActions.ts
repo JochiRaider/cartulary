@@ -6,13 +6,13 @@ import {
   readEnvelope,
 } from "../../../services/workbookApi";
 import {
+  buildMentionActionPayload,
+  type MentionResolutionAction,
+} from "../../collaboration/workbookCollaborationMessages";
+import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import {
-  buildMentionActionPayload,
-  type MentionResolutionAction,
-} from "../../runtime/workbookCollaborationMessages";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordRequirement,

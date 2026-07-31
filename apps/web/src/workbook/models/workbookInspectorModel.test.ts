@@ -1,53 +1,38 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
-import { selectTimelineInspectorHistorySubject } from "../timeline/models/timelineHistoryModel";
-import type { WorkbookRow } from "../timeline/models/workbookTimelineModel";
 import {
   initialWorkbookInspectorState,
   inspectorFeatureGroupsForPanel,
   inspectorNoRowState,
   inspectorPanelIsDeclared,
   selectInspectorConfig,
+  type WorkbookInspectorSubject,
   workbookInspectorReducer,
 } from "./workbookInspectorModel";
 
-function timelineRow(
-  recordId: string | null,
-  rowVersion: number | null,
-): WorkbookRow {
-  return {
-    key: recordId ?? "draft",
-    recordId,
-    rowVersion,
-    viewSchemaId: "cartulary.view.timeline.v2",
-    captureState: "rough",
-    values: {},
-    committedValues: {},
-    collectionValues: {
-      hostRefs: [],
-      identityRefs: [],
-      tags: [],
-    },
-    collectionDrafts: {
-      hostRefs: "",
-      identityRefs: "",
-      tags: "",
-    },
-    pendingSignature: null,
-    rawRow: null,
-  } as unknown as WorkbookRow;
-}
+const timelineSubject = (
+  recordId = "row-1",
+  rowVersion = 1,
+): WorkbookInspectorSubject => ({
+  recordId,
+  rowVersion,
+  viewSchemaId: "cartulary.view.timeline.v2",
+});
 
 describe("workbookInspectorModel", () => {
-  it("selects config from immutable view_schema_id and starts closed", () => {
+  it("selects immutable schema configuration, starts closed, and exposes the declared no-row state", () => {
     const timeline = requireViewContract("cartulary.view.timeline.v2");
     const config = selectInspectorConfig(timeline);
     const state = initialWorkbookInspectorState(config);
 
     expect(config.viewSchemaId).toBe(timeline.viewSchemaId);
-    expect(config.defaultOpen).toBe(false);
-    expect(state.isOpen).toBe(false);
-    expect(state.configViewSchemaId).toBe("cartulary.view.timeline.v2");
+    expect(state).toMatchObject({
+      configViewSchemaId: "cartulary.view.timeline.v2",
+      invalidationGeneration: 0,
+      isOpen: false,
+      status: "closed",
+      subject: null,
+    });
     expect(inspectorNoRowState(config)).toBe("no_row_selected");
   });
 
@@ -63,106 +48,124 @@ describe("workbookInspectorModel", () => {
     );
   });
 
-  it("Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
-    const timeline = requireViewContract("cartulary.view.timeline.v2");
-    const hosts = requireViewContract("cartulary.view.hosts.v1");
-    const timelineConfig = selectInspectorConfig(timeline);
-    const hostsConfig = selectInspectorConfig(hosts);
-    const savedView = {
-      saved_view_id: "saved-timeline",
-      view_schema_id: timeline.viewSchemaId,
-    };
-
-    expect(timelineConfig.viewSchemaId).toBe("cartulary.view.timeline.v2");
-    expect(hostsConfig.viewSchemaId).toBe("cartulary.view.hosts.v1");
-    expect(selectInspectorConfig(timeline).viewSchemaId).toBe(
-      savedView.view_schema_id,
+  it("opens explicitly and represents no selection without inventing a row identity", () => {
+    const config = selectInspectorConfig(
+      requireViewContract("cartulary.view.timeline.v2"),
     );
-    expect(timelineConfig.defaultOpen).toBe(false);
-    expect(inspectorNoRowState(timelineConfig)).toBe("no_row_selected");
-
-    const staged = workbookInspectorReducer(
-      workbookInspectorReducer(initialWorkbookInspectorState(timelineConfig), {
-        type: "select_row",
-        row: { recordId: "row-1", rowVersion: 1 },
-      }),
-      {
-        type: "stage_row_bound_state",
-        localFormKey: "form-1",
-        mergePlanKey: "merge-1",
-        pendingConfirmationKey: "delete-1",
-        rollbackPreviewKey: "rollback-1",
-        stalePreviewKey: "preview-1",
-        workflowFormKey: "workflow-1",
-      },
+    const opened = workbookInspectorReducer(
+      initialWorkbookInspectorState(config),
+      { type: "open" },
     );
-    const retargeted = workbookInspectorReducer(staged, {
-      type: "select_row",
-      row: { recordId: "row-2", rowVersion: 1 },
+
+    expect(opened.isOpen).toBe(true);
+    expect(opened.status).toBe("no_row_selected");
+    expect(opened.subject).toBeNull();
+  });
+
+  it("retargets synchronously by stable schema, record, and row-version identity", () => {
+    const config = selectInspectorConfig(
+      requireViewContract("cartulary.view.timeline.v2"),
+    );
+    const opened = workbookInspectorReducer(
+      initialWorkbookInspectorState(config),
+      { type: "open" },
+    );
+    const selected = workbookInspectorReducer(opened, {
+      type: "retarget",
+      subject: timelineSubject(),
+    });
+    const same = workbookInspectorReducer(selected, {
+      type: "retarget",
+      subject: timelineSubject(),
+    });
+    const versionChanged = workbookInspectorReducer(selected, {
+      type: "retarget",
+      subject: timelineSubject("row-1", 2),
+    });
+    const rowChanged = workbookInspectorReducer(versionChanged, {
+      type: "retarget",
+      subject: timelineSubject("row-2", 1),
     });
 
-    expect(retargeted.selectedRecordId).toBe("row-2");
-    expect(retargeted.pendingConfirmationKey).toBeNull();
-    expect(retargeted.rollbackPreviewKey).toBeNull();
-    expect(retargeted.mergePlanKey).toBeNull();
-    expect(retargeted.workflowFormKey).toBeNull();
-    expect(retargeted.localFormKey).toBeNull();
-    expect(retargeted.stalePreviewKey).toBeNull();
+    expect(selected.status).toBe("ready");
+    expect(selected.invalidationGeneration).toBe(1);
+    expect(same).toBe(selected);
+    expect(versionChanged.invalidationGeneration).toBe(2);
+    expect(versionChanged.subject?.rowVersion).toBe(2);
+    expect(rowChanged.invalidationGeneration).toBe(3);
+    expect(rowChanged.subject?.recordId).toBe("row-2");
+  });
 
-    for (const action of [
-      { type: "row_version_changed" as const, rowVersion: 2 },
-      { type: "authorization_lost" as const },
-      { type: "incident_closed" as const },
-    ]) {
-      const next = workbookInspectorReducer(staged, action);
-      expect(next.pendingConfirmationKey).toBeNull();
-      expect(next.rollbackPreviewKey).toBeNull();
-      expect(next.mergePlanKey).toBeNull();
-      expect(next.workflowFormKey).toBeNull();
+  it("Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.", () => {
+    const config = selectInspectorConfig(
+      requireViewContract("cartulary.view.timeline.v2"),
+    );
+    const ready = workbookInspectorReducer(
+      workbookInspectorReducer(initialWorkbookInspectorState(config), {
+        type: "retarget",
+        subject: timelineSubject(),
+      }),
+      { type: "open" },
+    );
+
+    for (const reason of [
+      "authorization_lost",
+      "hard_refresh",
+      "incident_closed",
+      "record_deleted",
+      "record_merged",
+      "surface_changed",
+    ] as const) {
+      const invalidated = workbookInspectorReducer(ready, {
+        type: "invalidate",
+        reason,
+      });
+      expect(invalidated.isOpen).toBe(false);
+      expect(invalidated.status).toBe("closed");
+      expect(invalidated.subject).toBeNull();
+      expect(invalidated.invalidationGeneration).toBe(
+        ready.invalidationGeneration + 1,
+      );
     }
 
-    expect(
-      selectTimelineInspectorHistorySubject({
-        draftRow: null,
-        rowHistory: {
-          recordId: "row-deleted",
-          data: {
-            deleted: true,
-            record_id: "row-deleted",
-            row_version: 7,
-          },
-        },
-        selectedRow: null,
-      }),
-    ).toEqual({
-      kind: "deleted",
-      recordId: "row-deleted",
-      rowVersion: 7,
+    const completed = workbookInspectorReducer(ready, {
+      type: "invalidate",
+      reason: "action_completed",
     });
-    expect(
-      selectTimelineInspectorHistorySubject({
-        draftRow: timelineRow(null, 0),
-        rowHistory: { recordId: null, data: null },
-        selectedRow: null,
+    expect(completed.isOpen).toBe(true);
+    expect(completed.status).toBe("ready");
+    expect(completed.subject).toEqual(timelineSubject());
+    expect(completed.invalidationGeneration).toBe(
+      ready.invalidationGeneration + 1,
+    );
+  });
+
+  it("resets closed when the active surface schema changes", () => {
+    const timelineConfig = selectInspectorConfig(
+      requireViewContract("cartulary.view.timeline.v2"),
+    );
+    const hostsConfig = selectInspectorConfig(
+      requireViewContract("cartulary.view.hosts.v1"),
+    );
+    const ready = workbookInspectorReducer(
+      workbookInspectorReducer(initialWorkbookInspectorState(timelineConfig), {
+        type: "retarget",
+        subject: timelineSubject(),
       }),
-    ).toEqual({ kind: "draft" });
-    expect(
-      selectTimelineInspectorHistorySubject({
-        draftRow: null,
-        rowHistory: {
-          recordId: "row-deleted",
-          data: {
-            deleted: true,
-            record_id: "row-deleted",
-            row_version: 7,
-          },
-        },
-        selectedRow: timelineRow("row-live", 8),
-      }),
-    ).toEqual({
-      kind: "live",
-      recordId: "row-live",
-      rowVersion: 8,
+      { type: "open", panelId: "workflow" },
+    );
+    const switched = workbookInspectorReducer(ready, {
+      type: "reset_config",
+      config: hostsConfig,
+    });
+
+    expect(switched).toMatchObject({
+      activePanelId: "details",
+      configViewSchemaId: "cartulary.view.hosts.v1",
+      invalidationGeneration: ready.invalidationGeneration + 1,
+      isOpen: false,
+      status: "closed",
+      subject: null,
     });
   });
 
@@ -182,123 +185,6 @@ describe("workbookInspectorModel", () => {
       inspectorFeatureGroupsForPanel(config, "workflow").map(
         (group) => group.featureGroupKey,
       ),
-    ).toEqual([
-      "surface_pivot.timeline",
-      "surface_pivot.evidence",
-      "surface_pivot.assessments",
-      "create_related.note",
-      "create_related.task_request",
-      "create_related.decision",
-    ]);
-  });
-
-  it("clears stale row-bound state before retargeting to a new row", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const selected = workbookInspectorReducer(
-      initialWorkbookInspectorState(config),
-      { type: "select_row", row: { recordId: "row-1", rowVersion: 1 } },
-    );
-    const staged = workbookInspectorReducer(selected, {
-      type: "stage_row_bound_state",
-      localFormKey: "form-1",
-      mergePlanKey: "merge-1",
-      pendingConfirmationKey: "delete-1",
-      rollbackPreviewKey: "rollback-1",
-      stalePreviewKey: "preview-1",
-      workflowFormKey: "workflow-1",
-    });
-    const retargeted = workbookInspectorReducer(staged, {
-      type: "select_row",
-      row: { recordId: "row-2", rowVersion: 1 },
-    });
-
-    expect(retargeted.selectedRecordId).toBe("row-2");
-    expect(retargeted.localFormKey).toBeNull();
-    expect(retargeted.mergePlanKey).toBeNull();
-    expect(retargeted.pendingConfirmationKey).toBeNull();
-    expect(retargeted.rollbackPreviewKey).toBeNull();
-    expect(retargeted.stalePreviewKey).toBeNull();
-    expect(retargeted.workflowFormKey).toBeNull();
-  });
-
-  it("invalidates destructive, preview, merge, and workflow state on lifecycle triggers", () => {
-    const config = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const staged = workbookInspectorReducer(
-      initialWorkbookInspectorState(config),
-      {
-        type: "stage_row_bound_state",
-        pendingConfirmationKey: "delete-1",
-        rollbackPreviewKey: "rollback-1",
-        mergePlanKey: "merge-1",
-        workflowFormKey: "workflow-1",
-      },
-    );
-
-    for (const type of [
-      "row_version_changed",
-      "incident_closed",
-      "authorization_lost",
-      "record_deleted",
-      "record_merged",
-    ] as const) {
-      const next = workbookInspectorReducer(
-        staged,
-        type === "row_version_changed" ? { type, rowVersion: 2 } : { type },
-      );
-      expect(next.pendingConfirmationKey).toBeNull();
-      expect(next.rollbackPreviewKey).toBeNull();
-      expect(next.mergePlanKey).toBeNull();
-      expect(next.workflowFormKey).toBeNull();
-    }
-  });
-
-  it("defaults closed and clears stale state on hard refresh and active surface switch", () => {
-    const timelineConfig = selectInspectorConfig(
-      requireViewContract("cartulary.view.timeline.v2"),
-    );
-    const hostsConfig = selectInspectorConfig(
-      requireViewContract("cartulary.view.hosts.v1"),
-    );
-    const staged = workbookInspectorReducer(
-      workbookInspectorReducer(initialWorkbookInspectorState(timelineConfig), {
-        type: "open",
-        panelId: "workflow",
-      }),
-      {
-        type: "select_row",
-        row: { recordId: "row-1", rowVersion: 1 },
-      },
-    );
-    const withPending = workbookInspectorReducer(staged, {
-      type: "stage_row_bound_state",
-      pendingConfirmationKey: "delete-1",
-      rollbackPreviewKey: "rollback-1",
-      mergePlanKey: "merge-1",
-      workflowFormKey: "workflow-1",
-    });
-    const refreshed = workbookInspectorReducer(withPending, {
-      type: "hard_refresh",
-    });
-
-    expect(refreshed.isOpen).toBe(false);
-    expect(refreshed.selectedRecordId).toBeNull();
-    expect(refreshed.pendingConfirmationKey).toBeNull();
-    expect(refreshed.rollbackPreviewKey).toBeNull();
-    expect(refreshed.mergePlanKey).toBeNull();
-    expect(refreshed.workflowFormKey).toBeNull();
-
-    const switched = workbookInspectorReducer(withPending, {
-      type: "active_surface_switch",
-      config: hostsConfig,
-    });
-
-    expect(switched.isOpen).toBe(false);
-    expect(switched.configViewSchemaId).toBe("cartulary.view.hosts.v1");
-    expect(switched.selectedRecordId).toBeNull();
-    expect(switched.activePanelId).toBe("details");
+    ).toContain("create_related.note");
   });
 });

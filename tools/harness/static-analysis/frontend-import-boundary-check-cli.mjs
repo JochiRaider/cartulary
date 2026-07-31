@@ -213,12 +213,31 @@ function normalizeConfig(raw) {
     scanExcludes: (raw.scan_excludes ?? []).map((entry, index) =>
       requireString(entry, `scan_excludes[${index + 1}]`),
     ),
+    acyclicImportGraphs: normalizeAcyclicImportGraphs(
+      raw.acyclic_import_graphs ?? [],
+    ),
     rules,
     singletonImports,
     rawDesignTokenLiteralChecks: normalizeRawDesignTokenLiteralChecks(
       raw.raw_design_token_literal_checks ?? [],
     ),
   };
+}
+
+function normalizeAcyclicImportGraphs(graphs) {
+  return requireArray(graphs, "acyclic_import_graphs").map((graph, index) => {
+    const label = `acyclic_import_graphs[${index + 1}]`;
+    const normalized = {
+      appliesTo: normalizeAppliesTo(graph?.applies_to, `${label}.applies_to`),
+      id: requireString(graph?.id, `${label}.id`),
+      level: requireString(graph?.level, `${label}.level`),
+      message: requireString(graph?.message, `${label}.message`),
+    };
+    if (!["error", "warning"].includes(normalized.level)) {
+      throw new Error(`${label}.level must be error or warning`);
+    }
+    return normalized;
+  });
 }
 
 function normalizeRawDesignTokenLiteralChecks(checks) {
@@ -344,9 +363,10 @@ function scriptKindFor(file) {
 
 function collectImports(sourceFile) {
   const imports = [];
-  const record = (specifier, node, kind) => {
+  const record = (specifier, node, kind, ambiguous = false) => {
     const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
     imports.push({
+      ambiguous,
       column: character + 1,
       kind,
       line: line + 1,
@@ -359,15 +379,30 @@ function collectImports(sourceFile) {
       node.moduleSpecifier &&
       ts.isStringLiteralLike(node.moduleSpecifier)
     ) {
-      record(node.moduleSpecifier.text, node.moduleSpecifier, ts.isImportDeclaration(node) ? "import" : "export");
+      const kind = ts.isImportDeclaration(node)
+        ? node.importClause?.isTypeOnly === true
+          ? "import type"
+          : "import"
+        : node.isTypeOnly === true
+          ? "export type"
+          : node.exportClause === undefined
+            ? "wildcard export"
+            : "export";
+      record(node.moduleSpecifier.text, node.moduleSpecifier, kind);
     }
     if (
       ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteralLike(node.arguments[0])
+      node.expression.kind === ts.SyntaxKind.ImportKeyword
     ) {
-      record(node.arguments[0].text, node.arguments[0], "dynamic import");
+      const argument = node.arguments[0] ?? node;
+      if (
+        node.arguments.length === 1 &&
+        ts.isStringLiteralLike(node.arguments[0])
+      ) {
+        record(node.arguments[0].text, node.arguments[0], "dynamic import");
+      } else {
+        record("<computed>", argument, "computed dynamic import", true);
+      }
     }
     if (
       ts.isCallExpression(node) &&
@@ -389,6 +424,139 @@ function collectImports(sourceFile) {
   };
   visit(sourceFile);
   return imports;
+}
+
+function resolveInternalSourceFile(importerFile, specifier, graphFiles) {
+  if (!specifier.startsWith(".") && !path.isAbsolute(specifier)) {
+    return null;
+  }
+  const unresolved = path.isAbsolute(specifier)
+    ? path.normalize(specifier)
+    : path.resolve(path.dirname(importerFile), specifier);
+  const candidates = [unresolved];
+  const extension = path.extname(unresolved);
+  if (extension === "") {
+    for (const sourceExtension of sourceExtensions) {
+      candidates.push(`${unresolved}${sourceExtension}`);
+      candidates.push(path.join(unresolved, `index${sourceExtension}`));
+    }
+  } else if ([".js", ".jsx", ".mjs", ".cjs"].includes(extension)) {
+    const withoutExtension = unresolved.slice(0, -extension.length);
+    for (const sourceExtension of sourceExtensions) {
+      candidates.push(`${withoutExtension}${sourceExtension}`);
+    }
+  }
+  return candidates.find((candidate) => graphFiles.has(candidate)) ?? null;
+}
+
+function stronglyConnectedComponents(adjacency) {
+  const components = [];
+  const indexByNode = new Map();
+  const lowLinkByNode = new Map();
+  const onStack = new Set();
+  const stack = [];
+  let nextIndex = 0;
+
+  const visit = (node) => {
+    indexByNode.set(node, nextIndex);
+    lowLinkByNode.set(node, nextIndex);
+    nextIndex += 1;
+    stack.push(node);
+    onStack.add(node);
+
+    for (const dependency of adjacency.get(node) ?? []) {
+      if (!indexByNode.has(dependency)) {
+        visit(dependency);
+        lowLinkByNode.set(
+          node,
+          Math.min(lowLinkByNode.get(node), lowLinkByNode.get(dependency)),
+        );
+      } else if (onStack.has(dependency)) {
+        lowLinkByNode.set(
+          node,
+          Math.min(lowLinkByNode.get(node), indexByNode.get(dependency)),
+        );
+      }
+    }
+
+    if (lowLinkByNode.get(node) !== indexByNode.get(node)) {
+      return;
+    }
+    const component = [];
+    while (stack.length > 0) {
+      const member = stack.pop();
+      onStack.delete(member);
+      component.push(member);
+      if (member === node) {
+        break;
+      }
+    }
+    components.push(component.sort());
+  };
+
+  for (const node of [...adjacency.keys()].sort()) {
+    if (!indexByNode.has(node)) {
+      visit(node);
+    }
+  }
+  return components;
+}
+
+function evaluateAcyclicImportGraphs(root, config, fileImportEntries) {
+  const diagnostics = [];
+  for (const graph of config.acyclicImportGraphs) {
+    const graphEntries = fileImportEntries.filter(({ file }) =>
+      isRuleApplicable(graph, repoRelative(root, file)),
+    );
+    const graphFiles = new Set(graphEntries.map(({ file }) => file));
+    const adjacency = new Map(
+      graphEntries.map(({ file }) => [file, new Set()]),
+    );
+
+    for (const { file, imports } of graphEntries) {
+      for (const imported of imports) {
+        if (imported.ambiguous) {
+          diagnostics.push({
+            column: imported.column,
+            file: repoRelative(root, file),
+            importKind: imported.kind,
+            level: graph.level,
+            line: imported.line,
+            message: `${graph.message} Production dynamic imports must use one static string literal.`,
+            ruleID: graph.id,
+            specifier: imported.specifier,
+          });
+          continue;
+        }
+        const dependency = resolveInternalSourceFile(
+          file,
+          imported.specifier,
+          graphFiles,
+        );
+        if (dependency !== null) {
+          adjacency.get(file).add(dependency);
+        }
+      }
+    }
+
+    for (const component of stronglyConnectedComponents(adjacency)) {
+      if (component.length < 2) {
+        continue;
+      }
+      const paths = component.map((file) => repoRelative(root, file));
+      diagnostics.push({
+        column: 1,
+        file: paths[0],
+        importKind: "production import graph",
+        level: graph.level,
+        line: 1,
+        message: `${graph.message} Strongly connected component: ${paths.join(" -> ")}.`,
+        ruleID: graph.id,
+        specifier: paths.join(","),
+      });
+    }
+  }
+  return diagnostics;
 }
 
 function isPackageRestricted(restriction, specifier) {
@@ -786,6 +954,7 @@ function main() {
       evaluateFile(root, config, file, imports),
     ),
     ...evaluateSingletonImports(root, config, fileImportEntries),
+    ...evaluateAcyclicImportGraphs(root, config, fileImportEntries),
     ...evaluateRawDesignTokenLiterals(root, config, files),
   ];
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;

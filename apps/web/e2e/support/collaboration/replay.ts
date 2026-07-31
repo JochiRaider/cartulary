@@ -157,6 +157,9 @@ export async function editTimelineSummary(
   page: Page,
   recordId: string,
   value: string,
+  options: {
+    readonly expectValueAfterCommit?: boolean;
+  } = {},
 ) {
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
@@ -178,6 +181,7 @@ export async function editTimelineSummary(
   await expect(input).toBeFocused();
   await input.fill(value);
   await input.press("Enter");
+  if (options.expectValueAfterCommit === false) return;
   const currentValue = input.or(display).first();
   await expect
     .poll(() =>

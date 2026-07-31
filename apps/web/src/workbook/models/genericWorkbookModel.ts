@@ -4,7 +4,7 @@ import {
   type ViewContract,
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../utils/workbookValueFormat";
 import {
   listWorkbookSurfaceRegistrations,
@@ -378,7 +378,7 @@ export function genericCreateMinimumMessage(viewSchemaId: string): string {
 
 export function genericReferenceOptionsFromRows(
   viewSchemaId: string,
-  rows: EntityApiRow[],
+  rows: WorkbookQueryRow[],
 ) {
   return rows.map((row) => ({
     recordId: row.record_id,
@@ -435,7 +435,7 @@ export function extractEmailFromPartyText(value: string): string | null {
 
 export function genericRowLabel(
   contract: ViewContract,
-  row: EntityApiRow,
+  row: WorkbookQueryRow,
 ): string {
   const preferredFieldKeys = [
     "timeline.activity_synopsis_text",
@@ -476,7 +476,7 @@ export function genericCollectionSupportsRemove(_fieldKey: string): boolean {
 }
 
 export function genericCollectionItems(
-  row: EntityApiRow,
+  row: WorkbookQueryRow,
   fieldKey: string,
 ): Array<{ itemRef: string; displayText: string }> {
   const value = row.cells[fieldKey]?.value;

@@ -1,17 +1,15 @@
 import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useEffect, useState } from "react";
-import { apiPath, clientTxnID } from "../../../services/browserApi";
-import { fetchWorkbookJSON } from "../../../services/workbookApi";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import {
   genericRowLabel,
   normalizeGenericTextValue,
 } from "../../models/genericWorkbookModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import { taskRequestsViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { CoordinationMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
-import type { EntityApiRow } from "../../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 
 type DecisionSupersedeEnvelope = {
   data: {
@@ -35,23 +33,23 @@ type MutationPorts = Pick<
 >;
 
 export function CoordinationWorkflowBindings({
-  apiBase,
   contract,
   disabled,
   mutation,
+  mutationCommands,
   ownerBindings,
   referenceOptions,
   resetKey,
   rows,
 }: {
-  readonly apiBase: string | undefined;
   readonly contract: ViewContract;
   readonly disabled: boolean;
   readonly mutation: MutationPorts;
+  readonly mutationCommands: CoordinationMutationCommandPort;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly referenceOptions: GenericReferenceOptions;
   readonly resetKey: string;
-  readonly rows: readonly EntityApiRow[];
+  readonly rows: readonly WorkbookQueryRow[];
 }) {
   const [lifecycleRecordId, setLifecycleRecordId] = useState("");
   const [lifecycleStatus, setLifecycleStatus] = useState("blocked");
@@ -77,30 +75,22 @@ export function CoordinationWorkflowBindings({
       mutation.setValidationError("Select a task row.");
       return;
     }
-    const changes: Array<Record<string, unknown>> = [
-      { field_key: "task.status", value: lifecycleStatus },
-    ];
+    let blockedReason: string | undefined;
     if (lifecycleStatus === "blocked") {
       const reason = normalizeGenericTextValue(lifecycleBlockedReason);
       if (reason === "") {
         mutation.setValidationError("Blocked tasks need a reason.");
         return;
       }
-      changes.push({ field_key: "task.blocked_reason", value: reason });
+      blockedReason = reason;
     }
     mutation.beginMutation();
-    const result = await fetchWorkbookJSON(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}`),
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          view_schema_id: taskRequestsViewSchemaId,
-          base_row_version: target.row_version,
-          client_txn_id: clientTxnID("task-lifecycle"),
-          changes,
-        }),
-      },
-    );
+    const result = await mutationCommands.updateTaskLifecycle({
+      baseRowVersion: target.row_version,
+      blockedReason,
+      recordId: target.record_id,
+      status: lifecycleStatus,
+    });
     if (!result.ok) {
       mutation.rejectMutationPayload(result.payload);
       return;
@@ -127,18 +117,12 @@ export function CoordinationWorkflowBindings({
       return;
     }
     mutation.beginMutation();
-    const result = await fetchWorkbookJSON<DecisionSupersedeEnvelope>(
-      apiPath(apiBase, `/api/v1/records/${target.record_id}/supersede`),
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_row_version: target.row_version,
-          client_txn_id: clientTxnID("decision-supersede"),
-          replacement_record_id: supersedeReplacementId,
-          reason,
-        }),
-      },
-    );
+    const result = await mutationCommands.supersedeDecision({
+      baseRowVersion: target.row_version,
+      reason,
+      replacementRecordId: supersedeReplacementId,
+      targetRecordId: target.record_id,
+    });
     if (!result.ok) {
       mutation.rejectMutationPayload(result.payload);
       return;

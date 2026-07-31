@@ -5,76 +5,133 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../../services/workbookApi";
+import type { WorkbookInvalidationReason } from "../lifecycle/workbookInvalidation";
 import {
   buildQueryRequest,
   emptyWorkbookQueryState,
 } from "../models/workbookQuery";
 import type { ReferenceRequirement } from "../models/workbookSurfaceRegistration";
-import type { EntityApiRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 
 type ViewQueryEnvelope = {
   data: {
     view_schema_id: string;
-    rows: EntityApiRow[];
+    rows: WorkbookQueryRow[];
   };
 };
 
-export type ReferenceQueryContext = {
+export type ReferenceQueryBrokerContext = {
   readonly apiBase?: string | undefined;
-  readonly authorizationEpoch: string;
+  readonly authorizationGeneration: string;
   readonly incidentId: string;
 };
 
-type ReferenceQueryResult = {
+export type ReferenceQueryResult = {
   readonly requirement: ReferenceRequirement;
-  readonly rows: readonly EntityApiRow[];
+  readonly rows: readonly WorkbookQueryRow[];
+};
+
+export type ReferenceQueryInvalidationReason = Extract<
+  WorkbookInvalidationReason,
+  {
+    readonly kind:
+      | "session_unavailable"
+      | "incident_access_lost"
+      | "incident_role_changed"
+      | "incident_closed"
+      | "incident_changed"
+      | "runtime_disposed";
+  }
+>;
+
+export interface ReferenceQueryBrokerPort {
+  execute(
+    requirements: readonly ReferenceRequirement[],
+    signal: AbortSignal,
+  ): Promise<readonly ReferenceQueryResult[]>;
+  invalidate(reason: ReferenceQueryInvalidationReason): void;
+  dispose(): void;
+}
+
+type InFlightReferenceQuery = {
+  readonly controller: AbortController;
+  consumerCount: number;
+  readonly promise: Promise<readonly WorkbookQueryRow[]>;
+  settled: boolean;
 };
 
 function abortFailure(): DOMException {
   return new DOMException("Reference query consumer is obsolete", "AbortError");
 }
 
-export class ReferenceQueryBroker {
-  readonly #inFlight = new Map<string, Promise<readonly EntityApiRow[]>>();
+class ReferenceQueryBroker implements ReferenceQueryBrokerPort {
+  readonly #context: ReferenceQueryBrokerContext;
+  #disposed = false;
+  readonly #inFlight = new Map<string, InFlightReferenceQuery>();
+
+  constructor(context: ReferenceQueryBrokerContext) {
+    this.#context = context;
+  }
 
   async execute(
     requirements: readonly ReferenceRequirement[],
-    context: ReferenceQueryContext,
     signal: AbortSignal,
   ): Promise<readonly ReferenceQueryResult[]> {
+    if (this.#disposed) {
+      throw abortFailure();
+    }
     const unique = [
       ...new Map(requirements.map((item) => [item.resourceId, item])).values(),
     ];
     return Promise.all(
       unique.map(async (requirement) => ({
         requirement,
-        rows: await this.#consume(this.#query(requirement, context), signal),
+        rows: await this.#consume(this.#query(requirement), signal),
       })),
     );
   }
 
-  #query(
-    requirement: ReferenceRequirement,
-    context: ReferenceQueryContext,
-  ): Promise<readonly EntityApiRow[]> {
-    const key = [
-      context.apiBase ?? "",
-      context.incidentId,
-      context.authorizationEpoch,
-      requirement.resourceId,
-    ].join("\u0000");
+  invalidate(_reason: ReferenceQueryInvalidationReason): void {
+    this.#disposeEntries();
+  }
+
+  dispose(): void {
+    this.#disposeEntries();
+  }
+
+  #disposeEntries(): void {
+    if (this.#disposed) {
+      return;
+    }
+    this.#disposed = true;
+    for (const entry of this.#inFlight.values()) {
+      entry.controller.abort();
+    }
+    this.#inFlight.clear();
+  }
+
+  #query(requirement: ReferenceRequirement): InFlightReferenceQuery {
+    const key = requirement.resourceId;
     const existing = this.#inFlight.get(key);
     if (existing) {
       return existing;
     }
+    const controller = new AbortController();
     const targetContract = requireViewContract(requirement.viewSchemaId);
+    const entry = {
+      controller,
+      consumerCount: 0,
+      promise: Promise.resolve([]),
+      settled: false,
+    } as InFlightReferenceQuery;
     const pending = fetchWorkbookJSON<ViewQueryEnvelope>(
       apiPath(
-        context.apiBase,
-        `/api/v1/incidents/${context.incidentId}/views/${requirement.viewSchemaId}/query`,
+        this.#context.apiBase,
+        `/api/v1/incidents/${this.#context.incidentId}/views/${requirement.viewSchemaId}/query`,
       ),
       {
         method: "POST",
+        signal: controller.signal,
         body: JSON.stringify(
           buildQueryRequest(targetContract, emptyWorkbookQueryState()),
         ),
@@ -84,29 +141,60 @@ export class ReferenceQueryBroker {
         if (!result.ok) {
           throw new Error(parseErrorMessage(result.payload));
         }
+        if (this.#disposed || controller.signal.aborted) {
+          throw abortFailure();
+        }
         return readEnvelope<ViewQueryEnvelope>(result.payload).data.rows;
       })
       .finally(() => {
-        this.#inFlight.delete(key);
+        entry.settled = true;
+        if (this.#inFlight.get(key) === entry) {
+          this.#inFlight.delete(key);
+        }
       });
-    this.#inFlight.set(key, pending);
-    return pending;
+    Object.assign(entry, { promise: pending });
+    this.#inFlight.set(key, entry);
+    return entry;
   }
 
-  async #consume<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
-    if (signal.aborted) {
+  async #consume(
+    entry: InFlightReferenceQuery,
+    signal: AbortSignal,
+  ): Promise<readonly WorkbookQueryRow[]> {
+    if (signal.aborted || this.#disposed) {
       throw abortFailure();
     }
-    return new Promise<T>((resolve, reject) => {
-      const onAbort = () => reject(abortFailure());
+    entry.consumerCount += 1;
+    return new Promise<readonly WorkbookQueryRow[]>((resolve, reject) => {
+      let released = false;
+      const release = () => {
+        if (released) {
+          return;
+        }
+        released = true;
+        entry.consumerCount -= 1;
+        if (entry.consumerCount === 0 && !entry.settled) {
+          entry.controller.abort();
+        }
+      };
+      const onAbort = () => {
+        release();
+        reject(abortFailure());
+      };
       signal.addEventListener("abort", onAbort, { once: true });
-      void pending.then(
+      void entry.promise.then(
         (value) => {
           signal.removeEventListener("abort", onAbort);
+          release();
+          if (this.#disposed || entry.controller.signal.aborted) {
+            reject(abortFailure());
+            return;
+          }
           resolve(value);
         },
         (error: unknown) => {
           signal.removeEventListener("abort", onAbort);
+          release();
           reject(error);
         },
       );
@@ -114,4 +202,8 @@ export class ReferenceQueryBroker {
   }
 }
 
-export const referenceQueryBroker = new ReferenceQueryBroker();
+export function createReferenceQueryBroker(
+  context: ReferenceQueryBrokerContext,
+): ReferenceQueryBrokerPort {
+  return new ReferenceQueryBroker(context);
+}

@@ -42,7 +42,7 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { decideWorkbookRecordFreshness } from "./timeline/models/workbookTimelineModel";
+import { decideWorkbookRecordFreshness } from "./timeline/models/workbookRecordFreshness";
 
 vi.mock(
   "@cartulary/grid-adapter",

@@ -13,6 +13,7 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { workbookViewportOverlayScrollableStyle } from "../../layout/workbookShellStyles";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
 
@@ -257,13 +258,12 @@ const actionButtonStyle = {
 };
 
 const actionPopoverStyle = {
+  ...workbookViewportOverlayScrollableStyle,
   position: "fixed" as const,
   zIndex: 30,
   display: "grid",
   gap: "0.35rem",
   inlineSize: `${contextMenuWidthPx}px`,
-  maxBlockSize: "calc(100vh - 1rem)",
-  overflowY: "auto" as const,
   padding: "0.45rem",
   borderRadius: "var(--ct-rounded-sm)",
   border: "var(--ct-border-hairline)",

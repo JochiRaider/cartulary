@@ -51,7 +51,6 @@ export type WorkbookPendingSavesRefs<TMeta> = {
   readonly pendingQueueRef: WorkbookMutableRef<
     WorkbookPendingQueueRuntime<TMeta>
   >;
-  readonly pendingReplayAuthRetryRef: WorkbookMutableRef<number | null>;
   readonly pendingReplayOrderRef: WorkbookMutableRef<number>;
   readonly pendingReplayTimerRef: WorkbookMutableRef<number | null>;
   readonly pendingSignaturesRef: WorkbookMutableRef<Map<string, string>>;

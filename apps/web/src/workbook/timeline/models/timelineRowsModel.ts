@@ -6,42 +6,19 @@ import {
 } from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookVersionedRecord } from "./workbookRecordFreshness";
 import type { WorkbookRow } from "./workbookTimelineModel";
-
-export type WorkbookVersionedRecord = {
-  readonly recordId: string | null;
-  readonly rowVersion: number | null;
-};
-
-export type WorkbookRecordFreshnessDecision = {
-  readonly comparable: boolean;
-  readonly stale: boolean;
-};
 
 export type TimelineGridRows = {
   readonly draftRow?: GridDraftRow<WorkbookRow> | undefined;
   readonly recordRows: readonly GridDataRow<WorkbookRow>[];
 };
 
-export function decideWorkbookRecordFreshness(
-  incoming: WorkbookVersionedRecord,
-  knownRowVersion: number | null | undefined,
-): WorkbookRecordFreshnessDecision {
-  if (
-    incoming.recordId === null ||
-    incoming.rowVersion === null ||
-    knownRowVersion === null ||
-    knownRowVersion === undefined
-  ) {
-    return {
-      comparable: false,
-      stale: false,
-    };
+function requireCommittedRowVersion(row: WorkbookVersionedRecord): number {
+  if (row.rowVersion === null) {
+    throw new Error("Committed Timeline grid row is missing row_version.");
   }
-  return {
-    comparable: true,
-    stale: incoming.rowVersion < knownRowVersion,
-  };
+  return row.rowVersion;
 }
 
 export function buildTimelineGridRows<TPresence>({
@@ -75,14 +52,12 @@ export function buildTimelineGridRows<TPresence>({
       };
       return;
     }
-    if (row.rowVersion === null) {
-      throw new Error("Committed Timeline grid row is missing row_version.");
-    }
+    const rowVersion = requireCommittedRowVersion(row);
     recordRows.push({
       kind: "data",
       mutationIdentity: {
         kind: "core_row_version",
-        baseRowVersion: row.rowVersion,
+        baseRowVersion: rowVersion,
       },
       rowIdentity: { kind: "core_record", recordId: row.recordId },
       data: row,

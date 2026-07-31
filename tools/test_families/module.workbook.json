@@ -1041,12 +1041,12 @@
         "file": "apps/web/src/workbook/models/workbookInspectorModel.test.ts",
         "titles": [
           "Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
-          "clears stale row-bound state before retargeting to a new row",
-          "defaults closed and clears stale state on hard refresh and active surface switch",
           "filters panels and feature groups by declared semantic config",
-          "invalidates destructive, preview, merge, and workflow state on lifecycle triggers",
           "keeps saved-view inheritance tied to the base view_schema_id",
-          "selects config from immutable view_schema_id and starts closed"
+          "opens explicitly and represents no selection without inventing a row identity",
+          "resets closed when the active surface schema changes",
+          "retargets synchronously by stable schema, record, and row-version identity",
+          "selects immutable schema configuration, starts closed, and exposes the declared no-row state"
         ]
       },
       "evidence_class": "unit",
@@ -1095,7 +1095,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookDensity.test.ts",
+        "file": "apps/web/src/workbook/layout/workbookDensity.test.ts",
         "titles": [
           "keeps Core null defaults while letting explicit account density override every workbook surface"
         ]

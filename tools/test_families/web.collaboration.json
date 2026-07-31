@@ -29,7 +29,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.collaboration.regression.workbookcollaborationprojection_suite_514be174a8",
+      "row_id": "web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8",
       "owner_id": "web.collaboration",
       "family_id": "web.collaboration.regression",
       "collaborator_ids": [
@@ -40,15 +40,18 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/runtime/WorkbookCollaborationProjection.test.ts",
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
-          "WorkbookCollaborationProjection clears protected rows and pauses replay on authorization loss and closure",
-          "WorkbookCollaborationProjection keeps base and saved-view presence exact, keyed, sorted, and self-free",
-          "WorkbookCollaborationProjection refreshes invalidations and resets before releasing replay",
-          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.assessments.v1 renderer port",
-          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.hosts.v1 renderer port",
-          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.notes.v1 renderer port",
-          "WorkbookCollaborationProjection routes record changes through the active cartulary.view.timeline.v2 renderer port"
+          "WorkbookCollaborationCoordinator clears protected owners again when recovery confirms incident access loss",
+          "WorkbookCollaborationCoordinator confirms access loss without replay and rejects late recovery after disposal",
+          "WorkbookCollaborationCoordinator keeps base and saved-view presence exact, keyed, sorted, and self-free",
+          "WorkbookCollaborationCoordinator recovers authorization through the injected port and keeps role downgrades read-only",
+          "WorkbookCollaborationCoordinator refreshes invalidations and resets before releasing replay",
+          "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.assessments.v1 renderer port",
+          "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.hosts.v1 renderer port",
+          "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.notes.v1 renderer port",
+          "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.timeline.v2 renderer port",
+          "WorkbookCollaborationCoordinator routes typed invalidation and pauses replay on authorization loss and closure"
         ]
       },
       "evidence_class": "unit",

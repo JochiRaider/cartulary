@@ -1,11 +1,7 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useRef } from "react";
-import { apiPath, clientTxnID } from "../../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../../services/workbookApi";
+import { parseErrorMessage, readEnvelope } from "../../../services/workbookApi";
+import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   refreshBlocksWorkbookPendingUnit,
@@ -31,16 +27,6 @@ import {
   type TimelineMutationEnvelope,
 } from "../services/timelineMutationRequests";
 
-type SessionEnvelope = {
-  data: {
-    user_id: string;
-    memberships: Array<{
-      incident_id: string;
-      role: string;
-    }>;
-  };
-};
-
 type TimelineMutableRef<T> = {
   current: T;
 };
@@ -59,7 +45,6 @@ function isCollectionDraftKey(
 }
 
 export function useTimelinePendingReplayController({
-  apiBase,
   applyRowMutation,
   clearSubmittedScalarEditorDraftValuesForRow,
   clearViewportContinuity,
@@ -67,6 +52,7 @@ export function useTimelinePendingReplayController({
   handleMutationConflict,
   latestCommittedTimelineRow,
   loadRowsRef,
+  mutationCommands,
   mutationRuntime,
   pendingSavesRefsRef,
   postMutationQueryRefreshRequired,
@@ -75,12 +61,11 @@ export function useTimelinePendingReplayController({
   recordWorkbookTiming,
   resolvePendingSocketTxn,
   rowsRef,
-  scheduleSocketReconnectAfterAuthRef,
+  requestAuthorizationRecovery,
   setRefreshError,
   setRows,
   trackPendingSocketTxn,
 }: {
-  readonly apiBase?: string | undefined;
   readonly applyRowMutation: (
     rowKey: string,
     envelope: TimelineMutationEnvelope,
@@ -108,6 +93,7 @@ export function useTimelinePendingReplayController({
   readonly loadRowsRef: TimelineMutableRef<
     (options: { readonly showLoading: boolean }) => Promise<void>
   >;
+  readonly mutationCommands: TimelineMutationCommandPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingSavesRefsRef: TimelineMutableRef<
     WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
@@ -124,9 +110,7 @@ export function useTimelinePendingReplayController({
   ) => void;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly scheduleSocketReconnectAfterAuthRef: TimelineMutableRef<
-    (() => void) | null
-  >;
+  readonly requestAuthorizationRecovery: () => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: (rows: WorkbookRow[]) => void;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
@@ -200,47 +184,6 @@ export function useTimelinePendingReplayController({
   const schedulePendingReplayRetry = useCallback(() => {
     schedulePendingReplayAfter(1000);
   }, [schedulePendingReplayAfter]);
-
-  const scheduleAuthRecoveryProbe = useCallback(() => {
-    if (
-      pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current !== null
-    ) {
-      return;
-    }
-    pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current =
-      window.setTimeout(async () => {
-        pendingSavesRefsRef.current.pendingReplayAuthRetryRef.current = null;
-        if (
-          !pendingSavesRefsRef.current.pendingQueueRef.current.model.snapshot()
-            .authPaused
-        ) {
-          return;
-        }
-        try {
-          const result = await fetchWorkbookJSON<SessionEnvelope>(
-            apiPath(apiBase, "/api/v1/auth/session"),
-          );
-          if (!result.ok) {
-            scheduleAuthRecoveryProbe();
-            return;
-          }
-          pendingSavesRefsRef.current.pendingQueueRef.current.model.resumeAfterAuthRecovery();
-          publishPendingQueueState();
-          schedulePendingReplay();
-          scheduleSocketReconnectAfterAuthRef.current?.();
-        } catch {
-          scheduleAuthRecoveryProbe();
-        }
-      }, 1000);
-  }, [
-    apiBase,
-    pendingSavesRefsRef,
-    publishPendingQueueState,
-    schedulePendingReplay,
-    scheduleSocketReconnectAfterAuthRef,
-  ]);
-  const scheduleAuthRecoveryProbeRef = useRef(scheduleAuthRecoveryProbe);
-  scheduleAuthRecoveryProbeRef.current = scheduleAuthRecoveryProbe;
 
   const requestPendingReplay = useCallback(
     (reason: string) => {
@@ -370,7 +313,7 @@ export function useTimelinePendingReplayController({
       const pending = pendingSavesRefsRef.current.pendingQueueRef.current;
       let replacementClientTxnId: string;
       try {
-        replacementClientTxnId = clientTxnID("timeline-client");
+        replacementClientTxnId = mutationCommands.createConflictRecoveryId();
       } catch (error) {
         setRefreshError(
           error instanceof Error
@@ -394,6 +337,7 @@ export function useTimelinePendingReplayController({
       return true;
     },
     [
+      mutationCommands,
       pendingSavesRefsRef,
       publishPendingQueueState,
       requestPendingReplay,
@@ -550,7 +494,7 @@ export function useTimelinePendingReplayController({
         );
         publishPendingQueueState();
         settleCompletionCallbacks(dispatchedUnit.id, { kind: "accepted" });
-        scheduleAuthRecoveryProbe();
+        requestAuthorizationRecovery();
         return;
       }
 
@@ -706,7 +650,6 @@ export function useTimelinePendingReplayController({
     discardBlockedEdit,
     enqueuePendingReplayUnit,
     retryBlockedEdit,
-    scheduleAuthRecoveryProbeRef,
     schedulePendingReplay,
   };
 }

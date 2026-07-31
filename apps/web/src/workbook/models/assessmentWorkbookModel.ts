@@ -1,4 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { enumValuesFor } from "./genericWorkbookModel";
 
 export type AssessmentSubjectType = "host" | "identity";
@@ -12,13 +13,6 @@ export type AssessmentCreateDraft = {
   subjectRecordId: string;
   subjectType: AssessmentSubjectType;
   supportRecordIds: string[];
-};
-
-export type AssessmentApiRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, { value: unknown }>;
-  group_values?: Record<string, unknown>;
 };
 
 export type AssessmentSupportCandidate = {
@@ -101,7 +95,7 @@ export function assessmentSupportCandidate(
 
 export function followOnAssessmentDraft(
   assessmentsContract: ViewContract,
-  selectedRow: AssessmentApiRow,
+  selectedRow: WorkbookQueryRow,
 ): AssessmentCreateDraft | null {
   const subjectRecordId = normalizedAssessmentValue(
     selectedRow.cells["assessment.subject_ref"]?.value,

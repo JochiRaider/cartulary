@@ -163,6 +163,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_source_ownership.v1",
+      "path": "tools/schemas/cartulary.frontend_source_ownership.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "web architecture owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_visual_fixture_registry.v5",
       "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json",
       "classification": "owner_input",

@@ -238,6 +238,31 @@
       "status": "active"
     },
     {
+      "row_id": "web.workbook.regression.evidence_access_presentation_maps_blocking_evide_4b2a60e66a",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
+        "titles": [
+          "evidenceAccessPresentation maps blocking evidence messages to assertive live regions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.workbook.regression.genericworkbookmodel_builds_generic_creates_with_07b632b33d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -433,7 +458,34 @@
       "selector": {
         "file": "apps/web/src/workbook/services/referenceQueryBroker.test.ts",
         "titles": [
-          "ReferenceQueryBroker deduplicates only in-flight incident/authorization queries and rejects obsolete consumers"
+          "ReferenceQueryBroker aborts and rejects late work after typed invalidation or disposal",
+          "ReferenceQueryBroker aborts underlying work after its final consumer is cancelled",
+          "ReferenceQueryBroker binds incident and authorization generation at construction",
+          "ReferenceQueryBroker deduplicates in-flight work while keeping shared-consumer cancellation local",
+          "ReferenceQueryBroker keeps identical queries isolated between Workbook broker instances"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_rows_model_builds_draft_and_committed_r_3a1e389d14",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
+        "titles": [
+          "timelineRowsModel builds draft and committed rows with stable semantic identities"
         ]
       },
       "evidence_class": "unit",
@@ -503,29 +555,6 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel rejects missing, malformed, and incomplete conflict envelopes"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.workbook.regression.timelinerowsmodel_classifies_stale_row_version_u_790e759153",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
-        "titles": [
-          "timelineRowsModel classifies stale row-version updates only when durable identity is comparable"
         ]
       },
       "evidence_class": "unit",
@@ -631,7 +660,95 @@
       "status": "active"
     },
     {
-      "row_id": "web.workbook.regression.useinspectorlifecyclereset_suite_13c01816cc",
+      "row_id": "web.workbook.regression.use_generic_surface_query_owner_fab9b06dde",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx",
+        "titles": [
+          "useGenericSurfaceQuery clears access-protected rows, stays idle while inactive, and aborts on teardown",
+          "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",
+          "useGenericSurfaceQuery rejects obsolete schema work and retains current rows after a mismatched envelope"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.use_workbook_query_controller_keeps_query_defaul_bfad01a7b4",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
+        "titles": [
+          "useWorkbookQueryController keeps query defaults and updates isolated between Workbook instances"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.use_workbook_startup_admission_suite_919ed32f45",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.extensions",
+        "module.savedviews"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/startup/useWorkbookStartupAdmission.test.tsx",
+        "titles": [
+          "useWorkbookStartupAdmission admits only the newest of two overlapping startup requests",
+          "useWorkbookStartupAdmission applies an ordinary base-surface startup identity",
+          "useWorkbookStartupAdmission applies no callback or response state after effect teardown",
+          "useWorkbookStartupAdmission applies no response state for a non-OK result",
+          "useWorkbookStartupAdmission applies no selection-owned state for a malformed result",
+          "useWorkbookStartupAdmission does not hydrate a late saved view after a later selection",
+          "useWorkbookStartupAdmission falls back exactly once when availability admission is stale",
+          "useWorkbookStartupAdmission falls back exactly once when the selected extension is not renderable",
+          "useWorkbookStartupAdmission hydrates a saved view in upsert-query-layout-identity order",
+          "useWorkbookStartupAdmission keeps a user selection made while startup is delayed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.useworkbookinspectorcoordinator_suite_13c01816cc",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
       "collaborator_ids": [],
@@ -640,12 +757,10 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/hooks/useInspectorLifecycleReset.test.tsx",
+        "file": "apps/web/src/workbook/inspector/useWorkbookInspectorCoordinator.test.tsx",
         "titles": [
-          "useInspectorLifecycleReset does not replay the initial lifecycle reset or reset on same-key rerenders",
-          "useInspectorLifecycleReset remains single-shot for a changed lifecycle under Strict Mode",
-          "useInspectorLifecycleReset treats empty and undefined reset keys as disabled lifecycles",
-          "useInspectorLifecycleReset uses the latest callback and resets once before a changed lifecycle is observable"
+          "useWorkbookInspectorCoordinator closes idempotently and restores focus only when requested",
+          "useWorkbookInspectorCoordinator coordinates explicit open, retarget, lifecycle invalidation, action completion, and focus restoration"
         ]
       },
       "evidence_class": "unit",
@@ -738,6 +853,29 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
         "titles": [
           "useWorkbookStartupController owns selection identity, focus intent, versioning, and URL history"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbook_record_freshness_classifies_stale_row_v_5d2333f3a1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/workbookRecordFreshness.test.ts",
+        "titles": [
+          "workbookRecordFreshness classifies stale row-version updates only when durable identity is comparable"
         ]
       },
       "evidence_class": "unit",
@@ -850,7 +988,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookContinuity.test.ts",
+        "file": "apps/web/src/workbook/continuity/gridViewportContinuity.test.ts",
         "titles": [
           "workbookContinuity adds the minimum extra scroll needed when anchor restoration would clip the row",
           "workbookContinuity adds the minimum horizontal and vertical deltas when anchor restoration would clip both axes",
@@ -858,6 +996,33 @@
           "workbookContinuity bases visibility repair on the actual clamped scroll after restoring the preserved scroll",
           "workbookContinuity captures and restores an unchanged anchor without moving the grid",
           "workbookContinuity preserves horizontal scroll until the focused element would be clipped"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookcontinuityport_suite_b9660fc217",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "package.grid_adapter"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/continuity/workbookContinuityPort.test.ts",
+        "titles": [
+          "WorkbookContinuityPort captures and restores semantic identity through an opaque one-shot token",
+          "WorkbookContinuityPort clears captures and selection and disposes idempotently",
+          "WorkbookContinuityPort focuses and selects only stable schema, record, and field identities"
         ]
       },
       "evidence_class": "unit",
@@ -953,7 +1118,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookResponsiveLayout.test.ts",
+        "file": "apps/web/src/workbook/layout/workbookResponsiveLayout.test.ts",
         "titles": [
           "workbook responsive layout model caps visible query chips in base mode at 8",
           "workbook responsive layout model caps visible query chips in below_supported_minimum mode at 0",
@@ -2433,6 +2598,59 @@
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
           "WorkbookMutationRuntime coalesces current-surface autosaves through one shell queue"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_semantic_command_ports_7b2f1d02a4",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",
+        "titles": [
+          "semantic mutation command ports keeps secure transaction identity failure local without transport",
+          "semantic mutation command ports own exact Timeline, generic, entity, assessment, and coordination request identities and payloads"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.workbook.regression.workbookz_mutation_runtime_semantic_secure_a6d23fa13e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
+        "titles": [
+          "WorkbookMutationRuntime keeps secure transaction identity failure local without queue admission"
         ]
       },
       "evidence_class": "unit",

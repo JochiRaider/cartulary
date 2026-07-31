@@ -30,9 +30,9 @@ import type {
 } from "../models/timelineViewportContinuityModel";
 import { timelineSourceRecordRequirementSatisfied } from "../models/timelineViewportContinuityModel";
 import type { DismissedMention } from "../models/workbookMentionChips";
+import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
 import {
   createDraftRow,
-  decideWorkbookRecordFreshness,
   inputFocusKey,
   normalizeTimelineFullRow,
   rowFromApi,

@@ -7,6 +7,8 @@ import {
   useCallback,
   useState,
 } from "react";
+import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import { WorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
 import { WorkbookConflictResolver } from "../workbook/components/WorkbookConflictResolver";
 import {
   defaultWorkbookLayoutState,
@@ -15,17 +17,18 @@ import {
   setWorkbookColumnHidden,
   setWorkbookColumnWidth,
   type WorkbookResolvedLayoutState,
-} from "../workbook/models/workbookLayout";
+} from "../workbook/layout/workbookColumnLayout";
+import type { WorkbookChromeMode } from "../workbook/layout/workbookResponsiveLayout";
 import {
   defaultFilterDraft,
   emptyWorkbookQueryState,
   type FilterDraft,
   type WorkbookQueryState,
 } from "../workbook/models/workbookQuery";
-import type { WorkbookChromeMode } from "../workbook/models/workbookResponsiveLayout";
 import type { WorkbookSheetRef } from "../workbook/models/workbookStartup";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
-import { WorkbookCollaborationProjection } from "../workbook/runtime/WorkbookCollaborationProjection";
+import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
+import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
 import { WorkbookMutationRuntime } from "../workbook/runtime/WorkbookMutationRuntime";
 import { TimelineWorkbook } from "../workbook/timeline/components/TimelineWorkbook";
 import type {
@@ -157,19 +160,38 @@ export function TimelineWorkbookRuntimeFixture({
   const resetColumns = useCallback(() => {
     setLayoutState(defaultWorkbookLayoutState(timelineContract));
   }, []);
-  const [mutationRuntime] = useState(
-    () =>
-      new WorkbookMutationRuntime({
-        clientInstanceId: "timeline-runtime-fixture",
+  const [runtimeAssembly] = useState(() => {
+    const transactionIds = createBrowserSecureTransactionIdPort();
+    return {
+      mutationRuntime: new WorkbookMutationRuntime(
+        {
+          clientInstanceId: "timeline-runtime-fixture",
+          incidentId,
+        },
+        transactionIds,
+      ),
+      mutationCommands: createWorkbookMutationCommandPorts({
+        apiBase,
         incidentId,
+        transactionIds,
       }),
-  );
+    };
+  });
+  const { mutationCommands, mutationRuntime } = runtimeAssembly;
   const [collaborationProjection] = useState(
     () =>
-      new WorkbookCollaborationProjection({
-        apiBase,
+      new WorkbookCollaborationCoordinator({
+        authorizationRecovery: createAppAuthorizationRecoveryPort(),
+        continuityInvalidation: () => undefined,
+        evidenceInvalidation: () => undefined,
+        extensionInvalidation: () => undefined,
+        incidentId,
         initialSheetRef: sheetRef,
+        inspectorInvalidation: () => undefined,
         mutationRuntime,
+        onAuthorizationRecovered: () => undefined,
+        onIncidentAccessLost,
+        queryInvalidation: () => undefined,
       }),
   );
 
@@ -180,9 +202,11 @@ export function TimelineWorkbookRuntimeFixture({
           attachCollaborationSession: true,
           collaborationProjection,
           mutationRuntime,
+          mutationCommands: mutationCommands.timeline,
           incident: {
             id: incidentId,
             apiBase,
+            continuityResetKey: inspectorResetKey,
             currentUserId,
             currentRole: currentIncidentRole,
             sheetRef,
@@ -205,16 +229,20 @@ export function TimelineWorkbookRuntimeFixture({
             refresh: onRefreshEntities,
           },
           layout: {
-            chromeMode,
-            density,
-            interactionMode,
-            state: providedLayoutState ?? layoutState,
-            setColumnHidden: onColumnHiddenChange ?? setColumnHidden,
-            moveColumn: onColumnMove ?? moveColumn,
-            reorderColumn: onColumnReorder ?? reorderColumn,
-            setColumnWidth: onColumnWidthChange ?? setColumnWidth,
-            resetColumns: onResetColumns ?? resetColumns,
-            showStatusPresence,
+            commands: {
+              onColumnHiddenChange: onColumnHiddenChange ?? setColumnHidden,
+              onColumnMove: onColumnMove ?? moveColumn,
+              onColumnReorder: onColumnReorder ?? reorderColumn,
+              onColumnWidthChange: onColumnWidthChange ?? setColumnWidth,
+              onResetColumns: onResetColumns ?? resetColumns,
+            },
+            snapshot: {
+              chromeMode,
+              density,
+              interactionMode,
+              showStatusPresence,
+              state: providedLayoutState ?? layoutState,
+            },
           },
           onIncidentAccessLost,
         }}

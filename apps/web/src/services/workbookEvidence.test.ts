@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildEvidenceLifecycleViewModel } from "../workbook/models/evidenceLifecycleViewModel";
 import { csrfHeaderName } from "./browserApi";
 import {
   createAndAttachEvidenceBlob,
   createEvidenceWithInitialBlob,
-  evidenceAccessMessageLiveRegion,
   evidenceAttachPublicErrorMessage,
   evidencePublicErrorMessage,
   resolvePublicEvidenceHandleHref,
@@ -70,20 +68,6 @@ describe("workbookEvidence", () => {
     expect(resolvePublicEvidenceHandleHref("/api/v1/object-blobs/blob-1")).toBe(
       null,
     );
-  });
-
-  it("maps blocking evidence messages to assertive live regions", () => {
-    const evidenceAccess = buildEvidenceLifecycleViewModel({
-      evidenceLifecycleState: "available",
-      objectBlobUploadState: "failed",
-    });
-
-    expect(
-      evidenceAccessMessageLiveRegion("Failed: object blob upload failed.", {
-        ...evidenceAccess,
-        messageTone: "danger",
-      }),
-    ).toEqual({ ariaLive: "assertive", role: "alert" });
   });
 
   it("creates an object blob, uploads it, and attaches it with row-version concurrency", async () => {

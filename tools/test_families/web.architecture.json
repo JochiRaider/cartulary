@@ -95,6 +95,31 @@
       "status": "active"
     },
     {
+      "row_id": "web.architecture.boundary_support.source_ownership_policy_suite_80cf87ef19",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/testing/sourceOwnershipPolicy.test.ts",
+        "titles": [
+          "frontend source ownership policy accounts for every live TypeScript path exactly once without Markdown input",
+          "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation",
+          "frontend source ownership policy keeps transaction identity and mutation wire intents behind Workbook command assembly"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
       "owner_id": "web.architecture",
       "family_id": "web.architecture.boundary_support",
@@ -154,6 +179,32 @@
         "titles": [
           "frontend transport boundary policy allows raw fetch only in the shared transport and presigned upload adapter",
           "frontend transport boundary policy keeps the raw upload call constrained to the server-issued target"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "web.architecture.boundary_support.workbook_layout_policy_suite_5f8fee9a2f",
+      "owner_id": "web.architecture",
+      "family_id": "web.architecture.boundary_support",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.architecture.verification.test_boundaries"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/layout/workbookLayoutPolicy.test.ts",
+        "titles": [
+          "workbook layout policy keeps surface geometry in the shared layout owner",
+          "workbook layout policy keeps viewport and row-count geometry behind semantic layout rules"
         ]
       },
       "evidence_class": "static",

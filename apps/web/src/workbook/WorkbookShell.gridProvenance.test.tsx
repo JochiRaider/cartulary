@@ -25,6 +25,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import { fetchJSON } from "../services/browserApi";
 import {
   fullWorkbookViewRow,
   successEnvelope,
@@ -39,12 +41,27 @@ import {
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
 import { readCollectionItems } from "./timeline/models/workbookMentionChips";
-import { WorkbookShell } from "./WorkbookShell";
+import { WorkbookShell as WorkbookShellImpl } from "./WorkbookShell";
 
 vi.mock(
   "@cartulary/grid-adapter",
   async () => import("@cartulary/grid-adapter/test-support"),
 );
+
+const authorizationRecovery = createAppAuthorizationRecoveryPort({
+  loadCurrentSession: (signal) => fetchJSON("/api/v1/auth/session", { signal }),
+});
+
+function WorkbookShell(
+  props: Omit<Parameters<typeof WorkbookShellImpl>[0], "authorizationRecovery">,
+) {
+  return (
+    <WorkbookShellImpl
+      {...props}
+      authorizationRecovery={authorizationRecovery}
+    />
+  );
+}
 
 const exactScenarioTitle =
   "Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh.";

@@ -8,7 +8,7 @@ import {
   timelineInspectorSectionTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties, ReactNode } from "react";
-import type { MentionResolutionAction } from "../../runtime/workbookCollaborationMessages";
+import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import type { InspectorMention } from "../models/workbookMentionChips";
 import { RelationshipChip, relationshipItemLabel } from "./TimelineCellEditors";
 

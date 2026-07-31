@@ -11,13 +11,15 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { useInspectorLifecycleReset } from "../../hooks/useInspectorLifecycleReset";
+import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollaborationMessages";
+import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
+import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { WorkbookPresenceDraft } from "../../runtime/workbookCollaborationMessages";
-import type { WorkbookFocusAnchor } from "../../utils/workbookGridFocus";
 import type {
   RecordHistoryState,
   RowHistoryPendingAction,
@@ -56,7 +58,6 @@ export function useTimelineInspectorSelection({
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
 }) {
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const selectedRow = useMemo(
     () =>
@@ -92,14 +93,12 @@ export function useTimelineInspectorSelection({
 
   return {
     commands: {
-      setIsInspectorOpen,
       setSelectedRowId,
     },
     snapshot: {
       canManageMentions,
       draftRow,
       dismissedForSelectedRow,
-      isInspectorOpen,
       inspectorMentions,
       selectedMention,
       selectedRow,
@@ -324,15 +323,15 @@ export function useTimelineInspectorLifecycle({
   cancelRowHistoryRequests,
   clearRowHistory,
   gridShellRef,
+  inspectorInvalidationCause,
   inspectorMentions,
-  inspectorResetKey,
+  inspectorInvalidationGeneration,
   restoreTimelineFocusAnchor,
   rowHistory,
   rows,
   selectedMentionRef,
   selectedRowId,
   setInspectorMessage,
-  setIsInspectorOpen,
   setRowHistory,
   setRowHistoryPendingAction,
   setSelectedMentionRef,
@@ -344,17 +343,17 @@ export function useTimelineInspectorLifecycle({
   readonly cancelRowHistoryRequests: () => void;
   readonly clearRowHistory: () => void;
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
+  readonly inspectorInvalidationCause: WorkbookInspectorState["invalidationCause"];
   readonly inspectorMentions: readonly { readonly itemRef: string }[];
-  readonly inspectorResetKey: string | undefined;
+  readonly inspectorInvalidationGeneration: number;
   readonly restoreTimelineFocusAnchor: (
-    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
+    anchor: WorkbookContinuityAnchor,
   ) => boolean;
   readonly rowHistory: RecordHistoryState;
   readonly rows: readonly WorkbookRow[];
   readonly selectedMentionRef: string | null;
   readonly selectedRowId: string | null;
   readonly setInspectorMessage: (message: string | null) => void;
-  readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
   readonly setRowHistory: Dispatch<SetStateAction<RecordHistoryState>>;
   readonly setRowHistoryPendingAction: Dispatch<
     SetStateAction<RowHistoryPendingAction | null>
@@ -362,7 +361,7 @@ export function useTimelineInspectorLifecycle({
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;
   readonly setSelectedResolveTargetId: Dispatch<SetStateAction<string>>;
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
-  readonly workbookFocusAnchorRef: MutableRefObject<WorkbookFocusAnchor | null>;
+  readonly workbookFocusAnchorRef: MutableRefObject<WorkbookContinuityAnchor | null>;
 }) {
   useEffect(() => {
     if (selectedRowId === null) {
@@ -404,7 +403,7 @@ export function useTimelineInspectorLifecycle({
       }
       window.setTimeout(() => {
         const fallbackFieldKey =
-          previousAnchor?.surface === timelineViewSchemaId
+          previousAnchor?.viewSchemaId === timelineViewSchemaId
             ? previousAnchor.fieldKey
             : "timeline.activity_synopsis_text";
         const fallbackRow = rows.find((row) => row.recordId !== null);
@@ -470,15 +469,35 @@ export function useTimelineInspectorLifecycle({
     setSelectedResolveTargetId,
   ]);
 
-  useInspectorLifecycleReset(inspectorResetKey, () => {
-    setIsInspectorOpen(false);
-    setSelectedRowId(null);
+  const previousInvalidationGenerationRef = useRef(
+    inspectorInvalidationGeneration,
+  );
+  useLayoutEffect(() => {
+    if (
+      previousInvalidationGenerationRef.current ===
+      inspectorInvalidationGeneration
+    ) {
+      return;
+    }
+    previousInvalidationGenerationRef.current = inspectorInvalidationGeneration;
     setSelectedMentionRef(null);
     setSelectedResolveTargetId("");
     setInspectorMessage(null);
     cancelCreateRelatedWorkflow();
-    clearRowHistory();
-  });
+    setRowHistoryPendingAction(null);
+    if (inspectorInvalidationCause !== "retarget") {
+      clearRowHistory();
+    }
+  }, [
+    cancelCreateRelatedWorkflow,
+    clearRowHistory,
+    inspectorInvalidationCause,
+    inspectorInvalidationGeneration,
+    setInspectorMessage,
+    setRowHistoryPendingAction,
+    setSelectedMentionRef,
+    setSelectedResolveTargetId,
+  ]);
 }
 
 export function useTimelineInspectorEscape({
@@ -496,13 +515,13 @@ export function useTimelineInspectorEscape({
   readonly clearRowHistory: () => void;
   readonly isInspectorOpen: boolean;
   readonly restoreTimelineFocusAnchor: (
-    anchor: Pick<WorkbookFocusAnchor, "fieldKey" | "recordId" | "viewSchemaId">,
+    anchor: WorkbookContinuityAnchor,
   ) => boolean;
   readonly setInspectorMessage: (message: string | null) => void;
   readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;
   readonly setSelectedRowId: Dispatch<SetStateAction<string | null>>;
-  readonly workbookFocusAnchorRef: MutableRefObject<WorkbookFocusAnchor | null>;
+  readonly workbookFocusAnchorRef: MutableRefObject<WorkbookContinuityAnchor | null>;
 }) {
   useEffect(() => {
     if (!isInspectorOpen) {
@@ -527,7 +546,7 @@ export function useTimelineInspectorEscape({
       setInspectorMessage(null);
       clearRowHistory();
       const anchor = workbookFocusAnchorRef.current;
-      if (anchor?.surface === timelineViewSchemaId) {
+      if (anchor?.viewSchemaId === timelineViewSchemaId) {
         restoreTimelineFocusAnchor(anchor);
       }
     };

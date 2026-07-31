@@ -24,7 +24,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WorkbookResolvedLayoutState } from "../models/workbookLayout";
+import type { WorkbookResolvedLayoutState } from "../layout/workbookColumnLayout";
+import {
+  type WorkbookChromeMode,
+  workbookQueryChipCapacity,
+} from "../layout/workbookResponsiveLayout";
 import {
   cycleWorkbookSortField,
   type FilterDraft,
@@ -32,10 +36,6 @@ import {
   filterInputMode,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
-import {
-  type WorkbookChromeMode,
-  workbookQueryChipCapacity,
-} from "../models/workbookResponsiveLayout";
 import { visuallyHiddenStyle } from "../utils/workbookStyles";
 
 type WorkbookGridControlsProps = {

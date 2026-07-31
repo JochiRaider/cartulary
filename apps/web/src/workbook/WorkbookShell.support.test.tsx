@@ -45,8 +45,8 @@ import {
   timelineRow,
   timelineRowsEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
+import { buildMentionActionPayload } from "./collaboration/workbookCollaborationMessages";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import { buildMentionActionPayload } from "./runtime/workbookCollaborationMessages";
 import {
   buildAutoResolutionNotices,
   buildInspectorMentions,

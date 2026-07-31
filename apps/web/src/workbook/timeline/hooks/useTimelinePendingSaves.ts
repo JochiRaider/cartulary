@@ -24,7 +24,6 @@ export function useTimelinePendingSaves<TMeta>({
   }
   const pendingReplayOrderRef = useRef(1);
   const pendingReplayTimerRef = useRef<number | null>(null);
-  const pendingReplayAuthRetryRef = useRef<number | null>(null);
   const schedulePendingReplayRef = useRef<() => void>(() => undefined);
   const [pendingQueueSnapshot, setPendingQueueSnapshot] =
     useState<WorkbookPendingQueueSnapshot>(() =>
@@ -42,7 +41,6 @@ export function useTimelinePendingSaves<TMeta>({
       collectionKeyboardCommitRef,
       pendingOpsRef,
       pendingQueueRef,
-      pendingReplayAuthRetryRef,
       pendingReplayOrderRef,
       pendingReplayTimerRef,
       pendingSignaturesRef,
