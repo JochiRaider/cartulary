@@ -34,6 +34,32 @@
       "status": "active"
     },
     {
+      "row_id": "module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/coordination/useCoordinationWorkflowController.test.tsx",
+        "titles": [
+          "makes late coordination outcomes inert after lifecycle invalidation",
+          "owns task lifecycle and decision supersede coordination with distinct semantic outcomes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.tasksdecisions.store.task_requests_and_decisions_persist_as_workbook_a08a0c4c47",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.store",

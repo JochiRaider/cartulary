@@ -56,8 +56,6 @@ function createUnit(options: {
     viewSchemaId,
     rowKey: options.rowKey,
     recordId: null,
-    method: "POST",
-    path: `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
     payloadIntent,
     clientTxnId: options.clientTxnId,
     coalesceKey: `draft:${options.rowKey}`,
@@ -103,8 +101,6 @@ function patchUnit(options: {
     viewSchemaId,
     rowKey: options.rowKey ?? `row-${options.recordId}`,
     recordId: options.recordId,
-    method: "PATCH",
-    path: `/api/v1/records/${options.recordId}`,
     payloadIntent: {
       view_schema_id: viewSchemaId,
       base_row_version: options.baseRowVersion ?? 1,
@@ -219,7 +215,7 @@ describe("pending queue unit model", () => {
     expect(foreignIncidentAdmission.preserveVisibleEditAsUnsaved).toBe(false);
   });
 
-  it("admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity", () => {
+  it("admits row-create, row-patch, and paste-derived replay units with semantic mutation identity", () => {
     const queue = createQueue();
 
     const createAdmission = expectAccepted(
@@ -279,19 +275,15 @@ describe("pending queue unit model", () => {
 
     expect(createAdmission.identity).toEqual({
       kind: "create",
-      method: "POST",
       route_scope: {
         incident_id: incidentId,
-        path: `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
         view_schema_id: viewSchemaId,
       },
       client_txn_id: "txn-create",
     });
     expect(patchAdmission.identity).toMatchObject({
       kind: "patch",
-      method: "PATCH",
       route_scope: {
-        path: "/api/v1/records/record-1",
         record_id: "record-1",
       },
       record_id: "record-1",
@@ -308,12 +300,18 @@ describe("pending queue unit model", () => {
     expect(pasteCreateAdmission.identity.kind).toBe("create");
     expect(pastePatchAdmission.source).toBe("paste");
     expect(pastePatchAdmission.identity.kind).toBe("patch");
-    expect(queue.snapshot().units.map((unit) => unit.clientTxnId)).toEqual([
+    const snapshot = queue.snapshot();
+    expect(snapshot.units.map((unit) => unit.clientTxnId)).toEqual([
       "txn-create",
       "txn-patch",
       "txn-paste-create",
       "txn-paste-patch",
     ]);
+    expect(JSON.stringify(snapshot.units)).not.toContain('"method"');
+    expect(JSON.stringify(snapshot.units)).not.toContain('"path"');
+    expect(createAdmission.payloadIntent).not.toHaveProperty("client_txn_id");
+    expect(patchAdmission.payloadIntent).not.toHaveProperty("client_txn_id");
+    expect(patchAdmission.payloadIntent).not.toHaveProperty("view_schema_id");
   });
 
   it("preserves FIFO replay order and refuses the 65th non-coalescible unit without eviction", () => {
@@ -486,7 +484,6 @@ describe("pending queue unit model", () => {
     expect(createSecond.status).toBe("coalesced");
     const coalescedCreate = createQueueModel.snapshot().units[0];
     expect(coalescedCreate?.payloadIntent).toEqual({
-      client_txn_id: "txn-create-1",
       "timeline.evidence": {
         kind: "collection_actions_v1",
         actions: [
@@ -1077,7 +1074,7 @@ describe("pending queue unit model", () => {
         mutationSignature: originalSignature,
         enqueueOrder: 1,
         payloadIntent: {
-          client_txn_id: "txn-client-rekeyed",
+          base_row_version: 1,
           changes: [
             {
               field_key: "timeline.activity_synopsis_text",
@@ -1438,9 +1435,7 @@ describe("save-state unit model", () => {
           client_txn_id: "txn-failure",
           route_scope: {
             kind: "patch",
-            method: "PATCH",
             route_scope: {
-              path: "/api/v1/records/record-failure",
               record_id: "record-failure",
             },
             record_id: "record-failure",

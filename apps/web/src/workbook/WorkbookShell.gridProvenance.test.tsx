@@ -75,6 +75,12 @@ function collectionValue(items: readonly Record<string, unknown>[] = []) {
   return workbookCollectionValue(false, items);
 }
 
+function strictMutationRow(row: WorkbookViewApiRow) {
+  const { view_schema_id: viewSchemaId, ...mutationRow } = row;
+  void viewSchemaId;
+  return mutationRow;
+}
+
 function headerFieldKeys(viewSchemaId: string): string[] {
   const grid = screen.getByTestId(gridShellTestId(viewSchemaId));
   return Array.from(
@@ -90,7 +96,6 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     body: Record<string, unknown>;
     viewSchemaId: string;
   }>;
-  let createdRecordCounts: Record<string, number>;
 
   function requireFirstViewRow(viewSchemaId: string): WorkbookViewApiRow {
     const row = rowsByView[viewSchemaId]?.[0];
@@ -104,152 +109,172 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     window.history.replaceState({}, "", "/");
     patchRequests = [];
     createRequests = [];
-    createdRecordCounts = {};
     rowsByView = {
       [hostsViewSchemaId]: [
-        fullWorkbookViewRow(hostsContract, "host-1", 3, {
-          "host.display_name": "Gateway Host",
-          "host.hostname": "gw-01",
-          "host.aliases": collectionValue([
-            {
-              item_ref: "entity_alias:00000000-0000-0000-0000-000000000101",
-              item_kind: "alias",
-              display_text: "VPN Gateway",
-              alias_text: "VPN Gateway",
-            },
-          ]),
-          "host.host_state": "canonical",
-          "host.linked_event_count": 1,
-          "host.evidence_count": 0,
-          "host.location": "Datacenter A",
-          "host.os_platform": "Linux",
-          "host.business_owner": "SOC",
-          "host.criticality": "high",
-          "host.containment_status": "monitoring",
-          "host.edited_at": "2026-04-24T15:00:00.000Z",
-        }),
+        fullWorkbookViewRow(
+          hostsContract,
+          "20000000-0000-4000-8000-000000000301",
+          3,
+          {
+            "host.display_name": "Gateway Host",
+            "host.hostname": "gw-01",
+            "host.aliases": collectionValue([
+              {
+                item_ref: "entity_alias:00000000-0000-0000-0000-000000000101",
+                item_kind: "alias",
+                display_text: "VPN Gateway",
+                alias_text: "VPN Gateway",
+              },
+            ]),
+            "host.host_state": "canonical",
+            "host.linked_event_count": 1,
+            "host.evidence_count": 0,
+            "host.location": "Datacenter A",
+            "host.os_platform": "Linux",
+            "host.business_owner": "SOC",
+            "host.criticality": "high",
+            "host.containment_status": "monitoring",
+            "host.edited_at": "2026-04-24T15:00:00.000Z",
+          },
+        ),
       ],
       [identitiesViewSchemaId]: [
-        fullWorkbookViewRow(identitiesContract, "identity-1", 4, {
-          "identity.display_name": "Alex Analyst",
-          "identity.upn": "alex.analyst@example.test",
-          "identity.email": "alex.analyst@example.test",
-          "identity.sam_account_name": "aalyst",
-          "identity.aliases": collectionValue([
-            {
-              item_ref: "entity_alias:00000000-0000-0000-0000-000000000102",
-              item_kind: "alias",
-              display_text: "Analyst Alex",
-              alias_text: "Analyst Alex",
-            },
-          ]),
-          "identity.identity_state": "canonical",
-          "identity.linked_event_count": 1,
-          "identity.evidence_count": 0,
-          "identity.privilege_level": "standard",
-          "identity.mfa_state": "enabled",
-          "identity.reset_status": "not_requested",
-          "identity.edited_at": "2026-04-24T15:00:00.000Z",
-        }),
+        fullWorkbookViewRow(
+          identitiesContract,
+          "20000000-0000-4000-8000-000000000303",
+          4,
+          {
+            "identity.display_name": "Alex Analyst",
+            "identity.upn": "alex.analyst@example.test",
+            "identity.email": "alex.analyst@example.test",
+            "identity.sam_account_name": "aalyst",
+            "identity.aliases": collectionValue([
+              {
+                item_ref: "entity_alias:00000000-0000-0000-0000-000000000102",
+                item_kind: "alias",
+                display_text: "Analyst Alex",
+                alias_text: "Analyst Alex",
+              },
+            ]),
+            "identity.identity_state": "canonical",
+            "identity.linked_event_count": 1,
+            "identity.evidence_count": 0,
+            "identity.privilege_level": "standard",
+            "identity.mfa_state": "enabled",
+            "identity.reset_status": "not_requested",
+            "identity.edited_at": "2026-04-24T15:00:00.000Z",
+          },
+        ),
       ],
       [notesViewSchemaId]: [
-        fullWorkbookViewRow(notesContract, "note-1", 5, {
-          "note.title": "Investigation note",
-          "note.body": "Initial note body",
-          "note.tags": collectionValue([
-            {
-              item_ref: "record_tag:note-1:tag-1",
-              item_kind: "tag",
-              display_text: "provenance",
-              tag_name: "provenance",
-            },
-          ]),
-          "note.linked_record_count": 1,
-          "note.updated_at": "2026-04-24T15:05:00.000Z",
-          "note.created_by_user_id": "user-1",
-        }),
+        fullWorkbookViewRow(
+          notesContract,
+          "20000000-0000-4000-8000-000000000305",
+          5,
+          {
+            "note.title": "Investigation note",
+            "note.body": "Initial note body",
+            "note.tags": collectionValue([
+              {
+                item_ref:
+                  "record_tag:20000000-0000-4000-8000-000000000305:tag-1",
+                item_kind: "tag",
+                display_text: "provenance",
+                tag_name: "provenance",
+              },
+            ]),
+            "note.linked_record_count": 1,
+            "note.updated_at": "2026-04-24T15:05:00.000Z",
+            "note.created_by_user_id": "40000000-0000-4000-8000-000000000301",
+          },
+        ),
       ],
       [timelineViewSchemaId]: [
-        fullWorkbookViewRow(timelineContract, "timeline-1", 6, {
-          "timeline.activity_utc_text": "2026-04-24T15:00:00.000Z",
-          "timeline.activity_synopsis_text": "Gateway login by analyst",
-          "timeline.raw_activity_text": "VPN Gateway login by Analyst Alex",
-          "timeline.host_refs": {
-            kind: "collection_value_v1",
-            ordered: true,
-            items: [
-              {
-                item_ref: "entity_mention:host-mention-1",
-                entity_type: "host",
-                item_kind: "resolved_ref",
-                display_text: "Gateway Host",
-                raw_text: " vpn   gateway ",
-                resolved_record_id: "host-1",
-                resolution_method: "auto_match",
-                auto_resolved: true,
-                provenance: "auto_match",
-                confidence: 100,
-                matched_alias_text: "VPN Gateway",
-              },
-              {
-                item_ref: "entity_mention:host-unresolved-1",
-                entity_type: "host",
-                item_kind: "unresolved_mention",
-                display_text: "Unmatched Host",
-                raw_text: "Unmatched Host",
-                resolved_record_id: null,
-                resolution_method: null,
-                auto_resolved: false,
-                provenance: null,
-                confidence: null,
-                matched_alias_text: null,
-              },
-            ],
+        fullWorkbookViewRow(
+          timelineContract,
+          "20000000-0000-4000-8000-000000000306",
+          6,
+          {
+            "timeline.activity_utc_text": "2026-04-24T15:00:00.000Z",
+            "timeline.activity_synopsis_text": "Gateway login by analyst",
+            "timeline.raw_activity_text": "VPN Gateway login by Analyst Alex",
+            "timeline.host_refs": {
+              kind: "collection_value_v1",
+              ordered: true,
+              items: [
+                {
+                  item_ref: "entity_mention:host-mention-1",
+                  entity_type: "host",
+                  item_kind: "resolved_ref",
+                  display_text: "Gateway Host",
+                  raw_text: " vpn   gateway ",
+                  resolved_record_id: "20000000-0000-4000-8000-000000000301",
+                  resolution_method: "auto_match",
+                  auto_resolved: true,
+                  provenance: "auto_match",
+                  confidence: 100,
+                  matched_alias_text: "VPN Gateway",
+                },
+                {
+                  item_ref: "entity_mention:host-unresolved-1",
+                  entity_type: "host",
+                  item_kind: "unresolved_mention",
+                  display_text: "Unmatched Host",
+                  raw_text: "Unmatched Host",
+                  resolved_record_id: null,
+                  resolution_method: null,
+                  auto_resolved: false,
+                  provenance: null,
+                  confidence: null,
+                  matched_alias_text: null,
+                },
+              ],
+            },
+            "timeline.identity_refs": {
+              kind: "collection_value_v1",
+              ordered: true,
+              items: [
+                {
+                  item_ref: "entity_mention:identity-mention-1",
+                  entity_type: "identity",
+                  item_kind: "resolved_ref",
+                  display_text: "Alex Analyst",
+                  raw_text: " Analyst Alex ",
+                  resolved_record_id: "20000000-0000-4000-8000-000000000303",
+                  resolution_method: "explicit_resolve_route",
+                  auto_resolved: false,
+                  provenance: "manual",
+                  confidence: 87,
+                  matched_alias_text: "Analyst Alex",
+                },
+                {
+                  item_ref: "entity_mention:identity-unresolved-1",
+                  entity_type: "identity",
+                  item_kind: "unresolved_mention",
+                  display_text: "Unmatched Identity",
+                  raw_text: "Unmatched Identity",
+                  resolved_record_id: null,
+                  resolution_method: null,
+                  auto_resolved: false,
+                  provenance: null,
+                  confidence: null,
+                  matched_alias_text: null,
+                },
+              ],
+            },
+            "timeline.evidence_count": 0,
+            "timeline.tags": collectionValue(),
+            "timeline.attached_evidence_ids": collectionValue(),
+            "timeline.edited_at": "2026-04-24T15:05:00.000Z",
+            "timeline.recorded_at": "2026-04-24T15:00:00.000Z",
+            "timeline.activity_sort_ts": "2026-04-24T15:00:00.000Z",
+            "timeline.capture_state": "rough",
+            "timeline.replacement_record_id": null,
+            "timeline.date_entered_sort_day": "2026-04-24",
+            "timeline.has_evidence": false,
+            "timeline.has_unresolved_mentions": false,
           },
-          "timeline.identity_refs": {
-            kind: "collection_value_v1",
-            ordered: true,
-            items: [
-              {
-                item_ref: "entity_mention:identity-mention-1",
-                entity_type: "identity",
-                item_kind: "resolved_ref",
-                display_text: "Alex Analyst",
-                raw_text: " Analyst Alex ",
-                resolved_record_id: "identity-1",
-                resolution_method: "explicit_resolve_route",
-                auto_resolved: false,
-                provenance: "manual",
-                confidence: 87,
-                matched_alias_text: "Analyst Alex",
-              },
-              {
-                item_ref: "entity_mention:identity-unresolved-1",
-                entity_type: "identity",
-                item_kind: "unresolved_mention",
-                display_text: "Unmatched Identity",
-                raw_text: "Unmatched Identity",
-                resolved_record_id: null,
-                resolution_method: null,
-                auto_resolved: false,
-                provenance: null,
-                confidence: null,
-                matched_alias_text: null,
-              },
-            ],
-          },
-          "timeline.evidence_count": 0,
-          "timeline.tags": collectionValue(),
-          "timeline.attached_evidence_ids": collectionValue(),
-          "timeline.edited_at": "2026-04-24T15:05:00.000Z",
-          "timeline.recorded_at": "2026-04-24T15:00:00.000Z",
-          "timeline.activity_sort_ts": "2026-04-24T15:00:00.000Z",
-          "timeline.capture_state": "rough",
-          "timeline.replacement_record_id": null,
-          "timeline.date_entered_sort_day": "2026-04-24",
-          "timeline.has_evidence": false,
-          "timeline.has_unresolved_mentions": false,
-        }),
+        ),
       ],
     };
 
@@ -258,33 +283,52 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          user_id: "40000000-0000-4000-8000-000000000301",
+          memberships: [
+            {
+              incident_id: "10000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/10000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           incident_version: 1,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({ memberships: [] });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-preferences/",
+        )
+      ) {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           extension_workspace_availability: {
             schema_id: "cartulary.extension_workspace_availability.v1",
-            incident_id: "incident-1",
+            incident_id: "10000000-0000-4000-8000-000000000001",
             workspaces: [],
           },
           selected_sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
@@ -298,12 +342,14 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       }
       if (
         method === "GET" &&
-        url.includes("/api/v1/incidents/incident-1/saved-views")
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/saved-views",
+        )
       ) {
         return successEnvelope({ saved_views: [] });
       }
       const queryMatch = url.match(
-        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/query(?:\?.*)?$/,
+        /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/views\/([^/]+)\/query(?:\?.*)?$/,
       );
       if (queryMatch) {
         return viewRowsEnvelopeForView(
@@ -312,7 +358,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         );
       }
       const createMatch = url.match(
-        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/rows$/,
+        /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/views\/([^/]+)\/rows$/,
       );
       if (method === "POST" && createMatch) {
         const viewSchemaId = decodeURIComponent(createMatch[1] ?? "");
@@ -328,11 +374,10 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
               ? identitiesContract
               : null;
         if (contract) {
-          createdRecordCounts[viewSchemaId] =
-            (createdRecordCounts[viewSchemaId] ?? 0) + 1;
-          const recordPrefix =
-            viewSchemaId === hostsViewSchemaId ? "host" : "identity";
-          const recordId = `${recordPrefix}-created-${createdRecordCounts[viewSchemaId]}`;
+          const isHost = viewSchemaId === hostsViewSchemaId;
+          const recordId = isHost
+            ? "20000000-0000-4000-8000-000000000302"
+            : "20000000-0000-4000-8000-000000000304";
           const valueOverrides = Object.fromEntries(
             Object.entries(body).filter(([key]) => key !== "client_txn_id"),
           );
@@ -345,8 +390,10 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
           rowsByView[viewSchemaId] = [...(rowsByView[viewSchemaId] ?? []), row];
           return successEnvelope({
             view_schema_id: viewSchemaId,
-            change_set_id: `change-${recordId}`,
-            row,
+            change_set_id: isHost
+              ? "30000000-0000-4000-8000-000000000302"
+              : "30000000-0000-4000-8000-000000000304",
+            row: strictMutationRow(row),
           });
         }
       }
@@ -366,8 +413,8 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
           row.cells[change.field_key] = { value: change.value };
           return successEnvelope({
             view_schema_id: body.view_schema_id,
-            change_set_id: "change-entity-edit",
-            row,
+            change_set_id: "30000000-0000-4000-8000-000000000305",
+            row: strictMutationRow(row),
           });
         }
       }
@@ -414,16 +461,23 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       ),
     ).toThrow(/technical cell row_version/iu);
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(screen.getByTestId(surfaceTabTestId(hostsViewSchemaId)));
-    await screen.findByTestId(rowCellTestId("host-1", "host.display_name"));
+    await screen.findByTestId(
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000301",
+        "host.display_name",
+      ),
+    );
     expect(headerFieldKeys(hostsViewSchemaId)).toEqual(
       hostsContract.defaultVisibleFields,
     );
     expect(headerFieldKeys(hostsViewSchemaId)).not.toContain("row_version");
     expect(
-      screen.getByTestId(rowCellTestId("host-1", "host.aliases")).textContent,
+      screen.getByTestId(
+        rowCellTestId("20000000-0000-4000-8000-000000000301", "host.aliases"),
+      ).textContent,
     ).toContain("VPN Gateway");
 
     fireEvent.click(
@@ -448,7 +502,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     expect(hostInspector.style.overflow).toBe("auto");
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(hostsViewSchemaId)),
-      { target: { value: "host-1" } },
+      { target: { value: "20000000-0000-4000-8000-000000000301" } },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(hostsViewSchemaId)),
@@ -463,12 +517,16 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(rowCellTestId("host-1", "host.display_name"))
-          .textContent,
+        screen.getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000301",
+            "host.display_name",
+          ),
+        ).textContent,
       ).toBe("Gateway Host Edited");
     });
     expect(patchRequests[0]).toMatchObject({
-      recordId: "host-1",
+      recordId: "20000000-0000-4000-8000-000000000301",
       body: {
         view_schema_id: hostsViewSchemaId,
         base_row_version: 3,
@@ -504,8 +562,12 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(rowCellTestId("host-created-1", "host.display_name"))
-          .textContent,
+        screen.getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000302",
+            "host.display_name",
+          ),
+        ).textContent,
       ).toBe("Created Host");
     });
     expect(createRequests[0]).toMatchObject({
@@ -528,8 +590,12 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
       "row_version",
     );
     expect(
-      screen.getByTestId(rowCellTestId("identity-1", "identity.aliases"))
-        .textContent,
+      screen.getByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000303",
+          "identity.aliases",
+        ),
+      ).textContent,
     ).toContain("Analyst Alex");
 
     fireEvent.click(
@@ -537,7 +603,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(identitiesViewSchemaId)),
-      { target: { value: "identity-1" } },
+      { target: { value: "20000000-0000-4000-8000-000000000303" } },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(identitiesViewSchemaId)),
@@ -552,12 +618,16 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(rowCellTestId("identity-1", "identity.display_name"))
-          .textContent,
+        screen.getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000303",
+            "identity.display_name",
+          ),
+        ).textContent,
       ).toBe("Alex Analyst Edited");
     });
     expect(patchRequests[1]).toMatchObject({
-      recordId: "identity-1",
+      recordId: "20000000-0000-4000-8000-000000000303",
       body: {
         view_schema_id: identitiesViewSchemaId,
         base_row_version: 4,
@@ -597,7 +667,10 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(
-          rowCellTestId("identity-created-1", "identity.display_name"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000304",
+            "identity.display_name",
+          ),
         ).textContent,
       ).toBe("Created Identity");
     });
@@ -612,13 +685,17 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     });
 
     fireEvent.click(screen.getByTestId(surfaceTabTestId(notesViewSchemaId)));
-    await screen.findByTestId(rowCellTestId("note-1", "note.title"));
+    await screen.findByTestId(
+      rowCellTestId("20000000-0000-4000-8000-000000000305", "note.title"),
+    );
     expect(headerFieldKeys(notesViewSchemaId)).toEqual(
       notesContract.defaultVisibleFields,
     );
     expect(headerFieldKeys(notesViewSchemaId)).not.toContain("row_version");
     expect(
-      screen.getByTestId(rowCellTestId("note-1", "note.tags")).textContent,
+      screen.getByTestId(
+        rowCellTestId("20000000-0000-4000-8000-000000000305", "note.tags"),
+      ).textContent,
     ).toContain("provenance");
 
     const timelineFixtureRow = requireFirstViewRow(timelineViewSchemaId);
@@ -653,7 +730,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     fireEvent.change(
       screen.getByTestId(genericEditRecordSelectTestId(notesViewSchemaId)),
-      { target: { value: "note-1" } },
+      { target: { value: "20000000-0000-4000-8000-000000000305" } },
     );
     fireEvent.change(
       screen.getByTestId(genericEditFieldSelectTestId(notesViewSchemaId)),
@@ -668,11 +745,13 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByTestId(rowCellTestId("note-1", "note.body")).textContent,
+        screen.getByTestId(
+          rowCellTestId("20000000-0000-4000-8000-000000000305", "note.body"),
+        ).textContent,
       ).toBe("Edited note body");
     });
     expect(patchRequests[2]).toMatchObject({
-      recordId: "note-1",
+      recordId: "20000000-0000-4000-8000-000000000305",
       body: {
         view_schema_id: notesViewSchemaId,
         base_row_version: 5,

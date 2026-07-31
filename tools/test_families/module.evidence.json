@@ -302,7 +302,34 @@
       "status": "active"
     },
     {
-      "row_id": "module.evidence.frontend_unit.atomic_initial_blob_create_reuses_row_transaction_4b2f89cd31",
+      "row_id": "module.evidence.frontend_unit.atomic_timeline_attachment_row_retry_79bdc83a10",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "module.timeline",
+        "module.workbook",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts",
+        "titles": [
+          "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.private_object_blob_upload_hides_target_4b2f89cd31",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.frontend_unit",
       "collaborator_ids": [
@@ -316,7 +343,32 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty"
+          "creates and uploads a private Evidence object blob without exposing its target"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.upload_retry_body_discard_697516c4d8",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/services/workbookEvidence.test.ts",
+        "titles": [
+          "bounds evidence upload retries by transport outcome without reading response bodies"
         ]
       },
       "evidence_class": "unit",

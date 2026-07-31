@@ -29,6 +29,33 @@
       "status": "active"
     },
     {
+      "row_id": "web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472",
+      "owner_id": "web.collaboration",
+      "family_id": "web.collaboration.regression",
+      "collaborator_ids": [
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "web.collaboration.verification.session_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/collaboration/useTimelineCollaborationBindings.test.tsx",
+        "titles": [
+          "useTimelineCollaborationBindings fails closed to refresh for malformed or target-inconsistent sparse patches",
+          "useTimelineCollaborationBindings owns Timeline live admission, gap refresh, access invalidation, surface switches, and teardown"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8",
       "owner_id": "web.collaboration",
       "family_id": "web.collaboration.regression",

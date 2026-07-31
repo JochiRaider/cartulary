@@ -2828,10 +2828,14 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
           status: 409,
           body: JSON.stringify({
             error: {
+              status: 409,
               code: "row_version_conflict",
-              message:
-                "Rollback target is stale for browser.inspector-history visual fixture.",
+              message: "row_version_conflict",
+              request_id: "visual-inspector-history-conflict",
               retryable: false,
+              details: {
+                reason_code: "stale_row_version",
+              },
             },
           }),
         }),

@@ -5,7 +5,6 @@ import {
 } from "@cartulary/view-contracts";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
-import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import {
   type CollectionItem,
@@ -731,22 +730,6 @@ export function buildAttachedEvidencePatchPayload(
         },
       },
     ],
-  };
-}
-
-export function materializePendingReplayPayload(
-  unit: PendingReplayUnitState,
-  currentRow: WorkbookRow | undefined,
-) {
-  if (unit.kind === "create") {
-    return unit.payloadIntent;
-  }
-  if (currentRow?.rowVersion === null || currentRow?.rowVersion === undefined) {
-    return null;
-  }
-  return {
-    ...unit.payloadIntent,
-    base_row_version: currentRow.rowVersion,
   };
 }
 

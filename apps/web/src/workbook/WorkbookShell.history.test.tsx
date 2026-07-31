@@ -45,8 +45,8 @@ import {
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
 import { buildRecordRollbackTargetFromHistoryAction } from "./timeline/hooks/useTimelineHistoryActions";
+import type { RecordHistoryItem } from "./timeline/models/timelineHistoryModel";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -82,13 +82,22 @@ function historyEnvelope(options: {
   recordId?: string;
   rowVersion?: number;
 }) {
-  return successEnvelope({
-    incident_id: "incident-1",
-    record_id: options.recordId ?? "record-1",
-    row_version: options.rowVersion ?? 4,
-    deleted: options.deleted ?? false,
-    items: options.items ?? [historyItem()],
-  });
+  return new Response(
+    JSON.stringify({
+      data: {
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        record_id: options.recordId ?? "20000000-0000-4000-8000-000000000001",
+        row_version: options.rowVersion ?? 4,
+        deleted: options.deleted ?? false,
+        items: options.items ?? [historyItem()],
+      },
+      meta: {
+        paging: { has_more: false, limit: 50, next_cursor: null },
+        request_id: "req-history",
+      },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
 }
 
 function historyItemTestId(item: RecordHistoryItem) {
@@ -152,11 +161,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "History base",
               captureState: "rough",
@@ -170,18 +179,22 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
 
     await screen.findByTestId(historyItemTestId(historyRecord));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v1/records/record-1/history",
+      "/api/v1/records/20000000-0000-4000-8000-000000000001/history",
       expect.objectContaining({ headers: expect.any(Object) }),
     );
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
@@ -230,13 +243,13 @@ describe("workbook history support coverage", () => {
 
   it("retargets open row history to the newly selected inspector row", async () => {
     const record1History = historyItem({
-      change_set_id: "change-set-record-1",
+      change_set_id: "30000000-0000-4000-8000-000000000001",
       history_entry_ref: "href_record_1",
       history_item_ref: "hitem_record_1",
       operation: "field_update_record_1",
     });
     const record2History = historyItem({
-      change_set_id: "change-set-record-2",
+      change_set_id: "30000000-0000-4000-8000-000000000001",
       history_entry_ref: "href_record_2",
       history_item_ref: "hitem_record_2",
       operation: "field_update_record_2",
@@ -245,17 +258,17 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "History row one",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 7,
               summary: "History row two",
               captureState: "rough",
@@ -266,33 +279,37 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         historyEnvelope({
           items: [record1History],
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 4,
         }),
       )
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     await screen.findByTestId(historyItemTestId(record1History));
 
     const record2Summary = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     );
     fireEvent.focus(record2Summary);
 
     await screen.findByTestId(rowHistoryLoadingTestId());
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
-      "Record record-2",
+      "Record 20000000-0000-4000-8000-000000000002",
     );
     expect(screen.queryByTestId(historyItemTestId(record1History))).toBeNull();
     expect(
@@ -302,7 +319,7 @@ describe("workbook history support coverage", () => {
     record2HistoryResponse.resolve(
       historyEnvelope({
         items: [record2History],
-        recordId: "record-2",
+        recordId: "20000000-0000-4000-8000-000000000002",
         rowVersion: 7,
       }),
     );
@@ -315,12 +332,12 @@ describe("workbook history support coverage", () => {
 
   it("clears stale rollback previews when open history retargets", async () => {
     const record1History = historyItem({
-      change_set_id: "change-set-record-1",
+      change_set_id: "30000000-0000-4000-8000-000000000001",
       history_entry_ref: "href_record_1",
       history_item_ref: "hitem_record_1",
     });
     const record2History = historyItem({
-      change_set_id: "change-set-record-2",
+      change_set_id: "30000000-0000-4000-8000-000000000001",
       history_entry_ref: "href_record_2",
       history_item_ref: "hitem_record_2",
     });
@@ -328,17 +345,17 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "Pending rollback row one",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 7,
               summary: "Pending rollback row two",
               captureState: "rough",
@@ -349,20 +366,24 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         historyEnvelope({
           items: [record1History],
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 4,
         }),
       )
       .mockImplementationOnce(() => record2HistoryResponse.promise);
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     await screen.findByTestId(
       historyActionTestId(record1History, "history_entry"),
     );
@@ -381,7 +402,7 @@ describe("workbook history support coverage", () => {
     const record2Summary = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     );
     fireEvent.focus(record2Summary);
@@ -399,7 +420,7 @@ describe("workbook history support coverage", () => {
     record2HistoryResponse.resolve(
       historyEnvelope({
         items: [record2History],
-        recordId: "record-2",
+        recordId: "20000000-0000-4000-8000-000000000002",
         rowVersion: 7,
       }),
     );
@@ -428,8 +449,8 @@ describe("workbook history support coverage", () => {
     [
       "duplicate history_item_ref",
       [
-        historyItem({ change_set_id: "change-set-a" }),
-        historyItem({ change_set_id: "change-set-b" }),
+        historyItem({ change_set_id: "30000000-0000-4000-8000-000000000001" }),
+        historyItem({ change_set_id: "30000000-0000-4000-8000-000000000001" }),
       ],
     ],
     [
@@ -464,11 +485,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "History base",
               captureState: "rough",
@@ -482,14 +503,18 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
 
     expect(
       (await screen.findByTestId(rowHistoryMessageTestId())).textContent,
@@ -525,11 +550,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "Rollback current",
               captureState: "rough",
@@ -540,26 +565,26 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(historyEnvelope({ rowVersion: 4 }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
-          record_id: "record-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          record_id: "20000000-0000-4000-8000-000000000001",
           row_version: 5,
           target: {
             kind: "history_entry",
             history_entry_ref: "href_server_selector",
           },
           target_change_set_id: changeSetId,
-          rollback_change_set_id: "33333333-3333-4333-8333-333333333333",
-          affected_record_ids: ["record-1"],
+          rollback_change_set_id: "30000000-0000-4000-8000-000000000001",
+          affected_record_ids: ["20000000-0000-4000-8000-000000000001"],
         }),
       )
       .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 5,
               summary: "Rollback previous",
               captureState: "rough",
@@ -568,15 +593,19 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     const rollbackItem = historyItem();
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     await screen.findByTestId(
       historyActionTestId(rollbackItem, "history_entry"),
     );
@@ -595,12 +624,16 @@ describe("workbook history support coverage", () => {
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some(([url]) =>
-          String(url).endsWith("/api/v1/records/record-1/rollback"),
+          String(url).endsWith(
+            "/api/v1/records/20000000-0000-4000-8000-000000000001/rollback",
+          ),
         ),
       ).toBe(true);
     });
     const rollbackCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
-      String(url).endsWith("/api/v1/records/record-1/rollback"),
+      String(url).endsWith(
+        "/api/v1/records/20000000-0000-4000-8000-000000000001/rollback",
+      ),
     );
     const body = extractTimelineJSONBody(fetchMock, rollbackCallIndex);
     expect(body).toMatchObject({
@@ -620,17 +653,17 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 5,
               summary: "Delete me",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 2,
               summary: "Keep me visible",
               captureState: "rough",
@@ -641,23 +674,23 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(historyEnvelope({ rowVersion: 5 }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
-          record_id: "record-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          record_id: "20000000-0000-4000-8000-000000000001",
           row_version: 6,
           deleted: true,
           deleted_at: "2026-05-11T12:05:00Z",
           deleted_by_user_id: actorUserId,
-          change_set_id: "44444444-4444-4444-8444-444444444444",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
         }),
       )
       .mockResolvedValueOnce(historyEnvelope({ deleted: true, rowVersion: 6 }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 2,
               summary: "Keep me visible",
               captureState: "rough",
@@ -667,29 +700,29 @@ describe("workbook history support coverage", () => {
       )
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
-          record_id: "record-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          record_id: "20000000-0000-4000-8000-000000000001",
           row_version: 7,
           deleted: false,
           deleted_at: null,
           deleted_by_user_id: null,
-          change_set_id: "55555555-5555-4555-8555-555555555555",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
         }),
       )
       .mockResolvedValueOnce(historyEnvelope({ deleted: false, rowVersion: 7 }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 7,
               summary: "Delete me",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 2,
               summary: "Keep me visible",
               captureState: "rough",
@@ -699,33 +732,38 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     await screen.findByTestId(rowHistoryDeleteButtonTestId());
     fireEvent.click(screen.getByTestId(rowHistoryDeleteButtonTestId()));
     fireEvent.click(await findHistoryDestructiveConfirmButton("delete"));
 
     await screen.findByTestId(rowHistoryRestoreButtonTestId());
     await waitFor(() => {
-      expect(visibleGridRowRecordIds(container)).toEqual(["record-2"]);
+      expect(visibleGridRowRecordIds(container)).toEqual([
+        "20000000-0000-4000-8000-000000000002",
+      ]);
     });
     expect(screen.getByTestId(rowHistoryPanelTestId()).textContent).toContain(
-      "Record record-1",
+      "Record 20000000-0000-4000-8000-000000000001",
     );
     expect(
       screen.getByTestId(rowHistoryPanelTestId()).textContent,
-    ).not.toContain("Record record-2");
+    ).not.toContain("Record 20000000-0000-4000-8000-000000000002");
     const deleteCallIndex = fetchMock.mock.calls.findIndex(
       ([url, init]) =>
-        String(url).endsWith("/api/v1/records/record-1") &&
-        init?.method === "DELETE",
+        String(url).endsWith(
+          "/api/v1/records/20000000-0000-4000-8000-000000000001",
+        ) && init?.method === "DELETE",
     );
     expect(extractTimelineJSONBody(fetchMock, deleteCallIndex)).toMatchObject({
       base_row_version: 5,
@@ -736,11 +774,13 @@ describe("workbook history support coverage", () => {
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     const restoreCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
-      String(url).endsWith("/api/v1/records/record-1/restore"),
+      String(url).endsWith(
+        "/api/v1/records/20000000-0000-4000-8000-000000000001/restore",
+      ),
     );
     expect(extractTimelineJSONBody(fetchMock, restoreCallIndex)).toMatchObject({
       base_row_version: 6,
@@ -752,11 +792,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 1,
               summary: "Socket row",
               captureState: "rough",
@@ -769,18 +809,18 @@ describe("workbook history support coverage", () => {
       )
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [],
         }),
       )
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 3,
               summary: "Socket row restored",
               captureState: "rough",
@@ -790,24 +830,26 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
-    await openTimelineHistoryFromContext("record-1");
+    await openTimelineHistoryFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     await screen.findByTestId(historyItemTestId(historyRecord));
 
     latestTimelineWebSocket()?.emit({
       type: "record_changed",
       stream_seq: 1,
       payload: {
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         row_version: 2,
-        change_set_id: "delete-change-set",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         client_txn_id: "remote-delete",
         actor_user_id: actorUserId,
         changed_field_keys: [],
@@ -827,9 +869,9 @@ describe("workbook history support coverage", () => {
       type: "record_changed",
       stream_seq: 2,
       payload: {
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         row_version: 3,
-        change_set_id: "restore-change-set",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         client_txn_id: "remote-restore",
         actor_user_id: actorUserId,
         changed_field_keys: [],
@@ -844,14 +886,14 @@ describe("workbook history support coverage", () => {
 
     await waitFor(() => {
       expect(visibleGridRowRecordIds(container, timelineViewSchemaId)).toEqual([
-        "record-1",
+        "20000000-0000-4000-8000-000000000001",
       ]);
     });
     expect(
       await findWorkbookCell(
         container,
         timelineViewSchemaId,
-        "record-1",
+        "20000000-0000-4000-8000-000000000001",
         "timeline.activity_synopsis_text",
       ),
     ).toBeTruthy();
@@ -861,17 +903,17 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 1,
               summary: "Record one base",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 1,
               summary: "Record two base",
               captureState: "rough",
@@ -882,7 +924,7 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-anchor-ui",
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000001",
           field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 1,
@@ -895,17 +937,17 @@ describe("workbook history support coverage", () => {
       )
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               rowVersion: 3,
               summary: "Record two moved first",
               captureState: "rough",
             }),
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 2,
               summary: "Record one refreshed",
               captureState: "rough",
@@ -915,13 +957,16 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+    ]);
     const input = (await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -931,7 +976,9 @@ describe("workbook history support coverage", () => {
     const resolver = await screen.findByTestId(
       workbookConflictResolverTestId(),
     );
-    expect(resolver.getAttribute("data-conflict-record-id")).toBe("record-1");
+    expect(resolver.getAttribute("data-conflict-record-id")).toBe(
+      "20000000-0000-4000-8000-000000000001",
+    );
     expect(resolver.getAttribute("data-conflict-field-key")).toBe(
       "timeline.activity_synopsis_text",
     );
@@ -945,9 +992,9 @@ describe("workbook history support coverage", () => {
       type: "record_changed",
       stream_seq: 1,
       payload: {
-        record_id: "record-2",
+        record_id: "20000000-0000-4000-8000-000000000002",
         row_version: 3,
-        change_set_id: "change-set-reorder",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         client_txn_id: "remote-reorder",
         actor_user_id: actorUserId,
         changed_field_keys: ["timeline.activity_synopsis_text"],
@@ -960,12 +1007,15 @@ describe("workbook history support coverage", () => {
       },
     });
 
-    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     expect(
       screen
         .getByTestId(workbookConflictResolverTestId())
         .getAttribute("data-conflict-record-id"),
-    ).toBe("record-1");
+    ).toBe("20000000-0000-4000-8000-000000000001");
     expect(
       screen
         .getByTestId(workbookConflictResolverTestId())
@@ -981,7 +1031,7 @@ describe("workbook history support coverage", () => {
         screen.getByTestId(
           timelineScalarEditorTestId({
             fieldKey: "timeline.activity_synopsis_text",
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             surface: "grid",
           }),
         ),
@@ -996,11 +1046,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 1,
               summary: "Keyboard conflict base",
               captureState: "rough",
@@ -1011,7 +1061,7 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-keyboard",
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000001",
           field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 1,
@@ -1024,13 +1074,15 @@ describe("workbook history support coverage", () => {
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     const input = (await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -1057,7 +1109,7 @@ describe("workbook history support coverage", () => {
         screen.getByTestId(
           timelineScalarEditorTestId({
             fieldKey: "timeline.activity_synopsis_text",
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             surface: "grid",
           }),
         ),
@@ -1073,11 +1125,11 @@ describe("workbook history support coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: "Stale token base",
               captureState: "rough",
@@ -1088,7 +1140,7 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-stale-original",
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000001",
           field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 4,
@@ -1102,7 +1154,7 @@ describe("workbook history support coverage", () => {
       .mockResolvedValueOnce(
         errorEnvelope("same_field_conflict", 409, {
           conflict_token: "conflict-token-stale-refresh",
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000001",
           field_key: "timeline.activity_synopsis_text",
           conflict_resolution_class: "text_compare_merge",
           base_row_version: 5,
@@ -1114,11 +1166,13 @@ describe("workbook history support coverage", () => {
         }),
       );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -1173,7 +1227,7 @@ describe("workbook history support coverage", () => {
         screen.getByTestId(
           timelineScalarEditorTestId({
             fieldKey: "timeline.activity_synopsis_text",
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             surface: "grid",
           }),
         ),

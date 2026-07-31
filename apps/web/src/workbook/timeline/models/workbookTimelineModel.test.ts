@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { PendingReplayUnitState } from "../../utils/workbookPendingQueue";
-import {
-  buildTimelineDeleteRestorePayload,
-  buildTimelineRecordActionPayload,
-  buildTimelineRollbackPayload,
-} from "../services/timelineMutationRequests";
 import {
   applyViewRowPatch,
   buildAttachedEvidenceCreatePayload,
@@ -13,10 +7,8 @@ import {
   buildCollectionPatchIntent,
   buildExpandedTimelineColumnWidths,
   buildScalarPatchIntent,
-  createDraftRow,
   createDraftRowForKey,
   inputFocusKey,
-  materializePendingReplayPayload,
   normalizeTimelineFullRow,
   normalizeTimelinePatchCells,
   readTimelineCellValue,
@@ -258,7 +250,7 @@ describe("workbookTimelineModel", () => {
     ).toThrow(/view_schema_id/u);
   });
 
-  it("builds scalar, collection, evidence, and replay payloads", () => {
+  it("builds scalar, collection, and evidence payloads", () => {
     const row = {
       ...rowFromApi(normalizeTimelineFullRow(timelineRow(), "payload row")),
       values: {
@@ -318,53 +310,6 @@ describe("workbookTimelineModel", () => {
       base_row_version: 4,
       client_txn_id: "txn-4",
     });
-    expect(
-      buildTimelineRecordActionPayload({
-        action: "supersede",
-        baseRowVersion: 4,
-        clientTxnId: "txn-action",
-        replacementRecordId: "record-new",
-      }),
-    ).toEqual({
-      base_row_version: 4,
-      client_txn_id: "txn-action",
-      reason: "Superseded from workbook",
-      replacement_record_id: "record-new",
-    });
-    expect(
-      buildTimelineDeleteRestorePayload({
-        baseRowVersion: 4,
-        clientTxnId: "txn-delete",
-        operation: "delete",
-      }),
-    ).toEqual({
-      base_row_version: 4,
-      client_txn_id: "txn-delete",
-      reason: "Deleted from workbook history",
-    });
-    expect(
-      buildTimelineRollbackPayload({
-        baseRowVersion: 4,
-        clientTxnId: "txn-rollback",
-        target: { kind: "change_set", change_set_id: "change-1" },
-      }),
-    ).toEqual({
-      base_row_version: 4,
-      client_txn_id: "txn-rollback",
-      reason: "Rollback from workbook history",
-      target: { kind: "change_set", change_set_id: "change-1" },
-    });
-    const patchUnit = {
-      kind: "patch",
-      payloadIntent: { changes: [] },
-    } as unknown as PendingReplayUnitState;
-    expect(materializePendingReplayPayload(patchUnit, row)).toEqual({
-      changes: [],
-      base_row_version: 4,
-    });
-    expect(
-      materializePendingReplayPayload(patchUnit, createDraftRow(1)),
-    ).toBeNull();
     expect(createDraftRowForKey("draft-22")).toMatchObject({ key: "draft-22" });
     expect(createDraftRowForKey("timeline-1")).toBeNull();
   });

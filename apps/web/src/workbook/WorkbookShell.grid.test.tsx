@@ -64,13 +64,22 @@ describe("Timeline workbook grid coverage", () => {
 
   it("classifies committed Timeline row freshness by record_id and row_version", () => {
     expect(
-      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 1 }, 2),
+      decideWorkbookRecordFreshness(
+        { recordId: "20000000-0000-4000-8000-000000000001", rowVersion: 1 },
+        2,
+      ),
     ).toEqual({ comparable: true, stale: true });
     expect(
-      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 2 }, 2),
+      decideWorkbookRecordFreshness(
+        { recordId: "20000000-0000-4000-8000-000000000001", rowVersion: 2 },
+        2,
+      ),
     ).toEqual({ comparable: true, stale: false });
     expect(
-      decideWorkbookRecordFreshness({ recordId: "record-1", rowVersion: 3 }, 2),
+      decideWorkbookRecordFreshness(
+        { recordId: "20000000-0000-4000-8000-000000000001", rowVersion: 3 },
+        2,
+      ),
     ).toEqual({ comparable: true, stale: false });
     expect(
       decideWorkbookRecordFreshness({ recordId: null, rowVersion: null }, 2),
@@ -80,11 +89,11 @@ describe("Timeline workbook grid coverage", () => {
   it("binds Timeline grid columns from the active view_schema and commits writable cells by field_key", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 4,
             summary: "Alpha",
             captureState: "rough",
@@ -96,9 +105,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-grid-1",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 5,
           summary: "Bound summary",
           captureState: "enriched",
@@ -108,7 +117,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -130,7 +139,7 @@ describe("Timeline workbook grid coverage", () => {
 
     const summaryInput = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Bound summary");
@@ -151,23 +160,23 @@ describe("Timeline workbook grid coverage", () => {
     });
     expect(
       requiredGridRow(container, 0).getAttribute("data-grid-record-id"),
-    ).toBe("record-1");
+    ).toBe("20000000-0000-4000-8000-000000000001");
   });
 
   it("binds saved rows by record_id and row_version instead of visible row index", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "reviewed",
@@ -178,9 +187,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-grid-2",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 8,
           summary: "Zulu rebound",
           captureState: "enriched",
@@ -189,7 +198,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -197,19 +206,21 @@ describe("Timeline workbook grid coverage", () => {
     const firstVisibleRow = requiredGridRow(container, 0);
     const secondVisibleRow = requiredGridRow(container, 1);
     expect(firstVisibleRow.getAttribute("data-grid-record-id")).toBe(
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
     );
     expect(secondVisibleRow.getAttribute("data-grid-record-id")).toBe(
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
     );
     expect(within(secondVisibleRow).getByText("Zulu")).toBeTruthy();
     expect(
-      screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+      screen.getByTestId(
+        timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+      ).textContent,
     ).toBe("7");
 
     const summaryInput = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Zulu rebound");
@@ -220,21 +231,21 @@ describe("Timeline workbook grid coverage", () => {
     });
     expect(
       String(requireFetchCall(fetchMock, 1, "timeline patch request #1")[0]),
-    ).toContain("/api/v1/records/record-1");
+    ).toContain("/api/v1/records/20000000-0000-4000-8000-000000000001");
     expect(extractTimelinePatchBody(fetchMock, 1).base_row_version).toBe(7);
   });
 
   it("preserves draft row edits across projection refresh before create commit", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
@@ -242,9 +253,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-draft-create",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-created",
+          recordId: "20000000-0000-4000-8000-000000000010",
           rowVersion: 1,
           summary: "First browser fact",
           captureState: "rough",
@@ -253,7 +264,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -296,7 +307,10 @@ describe("Timeline workbook grid coverage", () => {
     });
     expect(
       screen.getByTestId(
-        rowCellTestId("record-created", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000010",
+          "timeline.activity_synopsis_text",
+        ),
       ).textContent,
     ).toBe("First browser fact");
     expect(
@@ -312,7 +326,7 @@ describe("Timeline workbook grid coverage", () => {
     const pendingCreate = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
@@ -320,14 +334,14 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockReturnValueOnce(pendingCreate.promise);
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -370,9 +384,9 @@ describe("Timeline workbook grid coverage", () => {
     pendingCreate.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-pending-draft-create",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-pending-created",
+          recordId: "20000000-0000-4000-8000-000000000011",
           rowVersion: 1,
           summary: "Pending browser fact",
           captureState: "rough",
@@ -386,7 +400,7 @@ describe("Timeline workbook grid coverage", () => {
     expect(
       screen.getByTestId(
         rowCellTestId(
-          "record-pending-created",
+          "20000000-0000-4000-8000-000000000011",
           "timeline.activity_synopsis_text",
         ),
       ).textContent,
@@ -404,17 +418,17 @@ describe("Timeline workbook grid coverage", () => {
     const pendingSortedRows = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
@@ -425,7 +439,7 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockReturnValueOnce(pendingSortedRows.promise);
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -453,17 +467,17 @@ describe("Timeline workbook grid coverage", () => {
 
     pendingSortedRows.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
@@ -471,23 +485,26 @@ describe("Timeline workbook grid coverage", () => {
         ],
       }),
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
   });
 
   it("surfaces a sorted query refresh failure without unmounting Timeline controls", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
@@ -498,7 +515,7 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(errorEnvelope("projection_failed", 500));
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -531,11 +548,11 @@ describe("Timeline workbook grid coverage", () => {
     const staleInvalidationQuery = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha summary",
             captureState: "rough",
@@ -547,9 +564,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-fresh-patch",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Zulu anchored",
           captureState: "enriched",
@@ -558,11 +575,11 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 2,
             summary: "Zulu anchored",
             captureState: "enriched",
@@ -573,9 +590,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-stale-replay",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 1,
           summary: "Alpha summary",
           captureState: "rough",
@@ -584,7 +601,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
@@ -605,7 +622,7 @@ describe("Timeline workbook grid coverage", () => {
     const summaryInput = await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     await changeInputValue(summaryInput, "Zulu anchored");
@@ -615,22 +632,27 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Zulu anchored");
     });
 
     staleInvalidationQuery.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha summary",
             captureState: "rough",
@@ -643,11 +665,16 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Zulu anchored");
     });
@@ -655,7 +682,7 @@ describe("Timeline workbook grid coverage", () => {
     const replayInput = await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     await changeInputValue(replayInput, "Replay should not regress");
@@ -665,11 +692,16 @@ describe("Timeline workbook grid coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Zulu anchored");
     });
@@ -679,11 +711,11 @@ describe("Timeline workbook grid coverage", () => {
     const staleInvalidationQuery = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha summary",
             captureState: "rough",
@@ -695,9 +727,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-fresh-patch",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Zulu anchored",
           captureState: "enriched",
@@ -706,11 +738,11 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 2,
             summary: "Zulu anchored",
             captureState: "enriched",
@@ -720,7 +752,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
@@ -741,7 +773,7 @@ describe("Timeline workbook grid coverage", () => {
     const summaryInput = await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     await changeInputValue(summaryInput, "Zulu anchored");
@@ -759,11 +791,16 @@ describe("Timeline workbook grid coverage", () => {
         container.querySelector('[data-grid-data-state="stale_error"]'),
       ).toBeNull();
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Zulu anchored");
     });
@@ -772,11 +809,11 @@ describe("Timeline workbook grid coverage", () => {
   it("ignores stale sparse live row patches after a newer committed row is accepted", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 2,
             summary: "Zulu anchored",
             captureState: "enriched",
@@ -786,15 +823,15 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
     await waitForTimelineWorkbookReady(container, 1);
 
     emitRecordChanged(latestTimelineWebSocket(), {
-      record_id: "record-1",
+      record_id: "20000000-0000-4000-8000-000000000001",
       row_version: 1,
-      change_set_id: "change-set-stale-live",
+      change_set_id: "30000000-0000-4000-8000-000000000001",
       client_txn_id: "external-stale-live",
       actor_user_id: "user-2",
       changed_field_keys: ["timeline.activity_synopsis_text"],
@@ -803,7 +840,7 @@ describe("Timeline workbook grid coverage", () => {
           view_schema_id: timelineViewSchemaId,
           change_kind: "patch",
           patch_cells: {
-            record_id: "record-1",
+            record_id: "20000000-0000-4000-8000-000000000001",
             row_version: 1,
             cells: {
               "timeline.activity_synopsis_text": { value: "Alpha summary" },
@@ -816,11 +853,16 @@ describe("Timeline workbook grid coverage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Zulu anchored");
     });
@@ -829,18 +871,18 @@ describe("Timeline workbook grid coverage", () => {
   it("keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
             hasEvidence: false,
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
@@ -851,18 +893,18 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
             hasEvidence: false,
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
@@ -873,18 +915,18 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
             hasEvidence: false,
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
@@ -895,18 +937,18 @@ describe("Timeline workbook grid coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "rough",
             hasEvidence: false,
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 7,
             summary: "Zulu",
             captureState: "rough",
@@ -918,9 +960,9 @@ describe("Timeline workbook grid coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-grid-3",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 8,
           summary: "Filtered anchor",
           captureState: "enriched",
@@ -930,7 +972,7 @@ describe("Timeline workbook grid coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -952,7 +994,10 @@ describe("Timeline workbook grid coverage", () => {
         { direction: "asc", field_key: "timeline.activity_synopsis_text" },
       ],
     });
-    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
 
     fireEvent.change(
       screen.getByTestId(gridFilterFieldTestId(timelineViewSchemaId)),
@@ -985,7 +1030,10 @@ describe("Timeline workbook grid coverage", () => {
       ],
     });
 
-    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
 
     fireEvent.change(
       screen.getByTestId(gridGroupingSelectTestId(timelineViewSchemaId)),
@@ -1019,11 +1067,14 @@ describe("Timeline workbook grid coverage", () => {
         ),
       ),
     ).toBeTruthy();
-    await waitForVisibleGridRowRecordIds(container, ["record-2", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
 
     const summaryInput = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summaryInput, "Filtered anchor");
@@ -1035,7 +1086,7 @@ describe("Timeline workbook grid coverage", () => {
     });
     expect(
       String(requireFetchCall(fetchMock, 4, "timeline patch request #4")[0]),
-    ).toContain("/api/v1/records/record-1");
+    ).toContain("/api/v1/records/20000000-0000-4000-8000-000000000001");
     expect(extractTimelinePatchBody(fetchMock, 4)).toMatchObject({
       base_row_version: 7,
       changes: [

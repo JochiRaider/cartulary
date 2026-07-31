@@ -1,31 +1,32 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
 import { useCallback, useRef } from "react";
-import { parseErrorMessage, readEnvelope } from "../../../services/workbookApi";
-import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineMutationIdentityPort } from "../../mutations/workbookMutationCommandPorts";
+import type {
+  WorkbookOperationFailure,
+  WorkbookOperationOutcome,
+} from "../../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   refreshBlocksWorkbookPendingUnit,
   type WorkbookPendingReplayAdmissionRequest,
   type WorkbookPendingSavesRefs,
 } from "../../runtime/workbookPendingReplayRuntime";
-import {
-  type PendingReplayUnitInput,
-  type PendingReplayUnitState,
-  parsePendingReplayPublicError,
+import type {
+  PendingReplayPublicError,
+  PendingReplayUnitInput,
+  PendingReplayUnitState,
 } from "../../utils/workbookPendingQueue";
 import type { PendingReplayRuntimeMeta } from "../models/timelineControllerPorts";
-import {
-  type FocusFieldKey,
-  materializePendingReplayPayload,
-  normalizeTimelineFullRow,
-  type RowValues,
-  type TimelineScalarEditorSurface,
-  type WorkbookRow,
+import type {
+  FocusFieldKey,
+  RowValues,
+  TimelineScalarEditorSurface,
+  WorkbookRow,
 } from "../models/workbookTimelineModel";
-import {
-  dispatchTimelinePendingReplayMutation,
-  type TimelineMutationEnvelope,
-} from "../services/timelineMutationRequests";
+import type {
+  TimelinePendingMutationAccepted,
+  TimelinePendingMutationPort,
+} from "../ports/TimelinePendingMutationPort";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -33,6 +34,47 @@ type TimelineMutableRef<T> = {
 
 type TimelinePendingReplayControllerAdmission =
   WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>;
+
+function pendingReplayFailureResult(failure: WorkbookOperationFailure): {
+  readonly status: number;
+  readonly error: PendingReplayPublicError;
+} {
+  if (failure.kind === "same_field_conflict") {
+    return {
+      status: 409,
+      error: {
+        code: "same_field_conflict",
+        message: failure.message,
+        conflict: failure.conflict,
+      },
+    };
+  }
+  const status =
+    failure.kind === "authentication_required"
+      ? 401
+      : failure.kind === "authorization_lost"
+        ? 403
+        : failure.kind === "stale_target"
+          ? 404
+          : failure.kind === "client_txn_conflict"
+            ? 409
+            : failure.kind === "validation"
+              ? 400
+              : failure.kind === "retryable"
+                ? 503
+                : 422;
+  return {
+    status,
+    error: {
+      code: failure.kind,
+      message: failure.message,
+      ...(failure.kind === "retryable" ? { retryable: true } : {}),
+      ...(failure.kind === "validation" && failure.fields?.[0] !== undefined
+        ? { details: { field_key: failure.fields[0].field } }
+        : {}),
+    },
+  };
+}
 
 function isCollectionDraftKey(
   focusField: FocusFieldKey,
@@ -45,11 +87,11 @@ function isCollectionDraftKey(
 }
 
 export function useTimelinePendingReplayController({
-  applyRowMutation,
+  applyAcceptedRowMutation,
   clearSubmittedScalarEditorDraftValuesForRow,
   clearViewportContinuity,
   conflictQueueRef,
-  handleMutationConflict,
+  registerMutationConflict,
   latestCommittedTimelineRow,
   loadRowsRef,
   mutationCommands,
@@ -64,11 +106,12 @@ export function useTimelinePendingReplayController({
   requestAuthorizationRecovery,
   setRefreshError,
   setRows,
+  timelinePendingMutation,
   trackPendingSocketTxn,
 }: {
-  readonly applyRowMutation: (
+  readonly applyAcceptedRowMutation: (
     rowKey: string,
-    envelope: TimelineMutationEnvelope,
+    accepted: TimelinePendingMutationAccepted,
     options?: {
       clearActiveCollectionFocusKey?: string;
       continueOnFreshDraft?: boolean;
@@ -83,8 +126,11 @@ export function useTimelinePendingReplayController({
   ) => void;
   readonly clearViewportContinuity: (token: number) => void;
   readonly conflictQueueRef: TimelineMutableRef<Record<string, unknown>>;
-  readonly handleMutationConflict: (
-    payload: unknown,
+  readonly registerMutationConflict: (
+    conflict: Extract<
+      WorkbookOperationFailure,
+      { readonly kind: "same_field_conflict" }
+    >["conflict"],
     rowKey: string,
     focusField: FocusFieldKey,
     surface: TimelineScalarEditorSurface,
@@ -93,7 +139,7 @@ export function useTimelinePendingReplayController({
   readonly loadRowsRef: TimelineMutableRef<
     (options: { readonly showLoading: boolean }) => Promise<void>
   >;
-  readonly mutationCommands: TimelineMutationCommandPort;
+  readonly mutationCommands: TimelineMutationIdentityPort;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingSavesRefsRef: TimelineMutableRef<
     WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
@@ -113,6 +159,7 @@ export function useTimelinePendingReplayController({
   readonly requestAuthorizationRecovery: () => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: (rows: WorkbookRow[]) => void;
+  readonly timelinePendingMutation: TimelinePendingMutationPort;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
 }) {
   const completionCallbacksRef = useRef(
@@ -438,8 +485,10 @@ export function useTimelinePendingReplayController({
         ? rowsRef.current.find((row) => row.key === unit.rowKey)
         : (latestCommittedTimelineRow(unit.recordId) ??
           rowsRef.current.find((row) => row.recordId === unit.recordId));
-    const dispatchPayload = materializePendingReplayPayload(unit, currentRow);
-    if (dispatchPayload === null) {
+    if (
+      unit.kind === "patch" &&
+      (currentRow?.rowVersion === null || currentRow?.rowVersion === undefined)
+    ) {
       publishPendingQueueState();
       schedulePendingReplayRetry();
       return;
@@ -454,13 +503,15 @@ export function useTimelinePendingReplayController({
     publishPendingQueueState();
     trackPendingSocketTxn(dispatchedUnit.clientTxnId);
 
-    let result = null as Awaited<
-      ReturnType<typeof dispatchTimelinePendingReplayMutation>
-    > | null;
+    let result: WorkbookOperationOutcome<TimelinePendingMutationAccepted>;
     try {
-      result = await dispatchTimelinePendingReplayMutation({
-        payload: dispatchPayload,
-        recordTiming: recordWorkbookTiming,
+      recordWorkbookTiming("pending_fetch_start", {
+        clientTxnId: dispatchedUnit.clientTxnId,
+        kind: dispatchedUnit.kind,
+        rowKey: dispatchedUnit.rowKey,
+      });
+      result = await timelinePendingMutation.execute({
+        committedRowVersion: currentRow?.rowVersion ?? null,
         unit: dispatchedUnit,
       });
     } catch {
@@ -480,13 +531,13 @@ export function useTimelinePendingReplayController({
       return;
     }
 
-    if (!result.ok) {
+    if (result.kind === "rejected") {
       resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
-      const publicError = parsePendingReplayPublicError(result.payload);
+      const publicFailure = pendingReplayFailureResult(result.failure);
       const settlement = pending.model.settleDispatched({
         ok: false,
-        status: result.status,
-        error: publicError,
+        status: publicFailure.status,
+        error: publicFailure.error,
       });
       if (settlement.outcome === "auth_paused") {
         setRefreshError(
@@ -500,15 +551,15 @@ export function useTimelinePendingReplayController({
 
       if (settlement.outcome === "same_field_conflict") {
         clearViewportContinuity(meta.viewportContinuityToken);
-        const message =
-          publicError.message ?? parseErrorMessage(result.payload);
+        const message = result.failure.message;
         settleCompletionCallbacks(dispatchedUnit.id, {
           kind: "conflict",
           message,
         });
         if (
-          handleMutationConflict(
-            result.payload,
+          result.failure.kind === "same_field_conflict" &&
+          registerMutationConflict(
+            result.failure.conflict,
             settlement.unit.rowKey,
             meta.focusField,
             meta.surface,
@@ -519,15 +570,17 @@ export function useTimelinePendingReplayController({
           publishPendingQueueState();
           return;
         }
-        setRefreshError(
-          publicError.message ?? parseErrorMessage(result.payload),
-        );
+        setRefreshError(result.failure.message);
         publishPendingQueueState();
         return;
       }
 
       if (settlement.outcome === "retryable_failure") {
         publishPendingQueueState();
+        // Admission to the durable in-memory queue completes the editor
+        // commit. Keep replay ownership here without pinning the grid editor
+        // open while transport recovery is pending.
+        settleCompletionCallbacks(dispatchedUnit.id, { kind: "accepted" });
         schedulePendingReplayRetry();
         return;
       }
@@ -535,16 +588,17 @@ export function useTimelinePendingReplayController({
       if (settlement.outcome === "halted") {
         setRefreshError(settlement.halt.message);
       } else {
-        setRefreshError(parseErrorMessage(result.payload));
+        setRefreshError(result.failure.message);
       }
-      const message = publicError.message ?? parseErrorMessage(result.payload);
+      const message = result.failure.message;
       settleCompletionCallbacks(
         dispatchedUnit.id,
-        result.status === 400
+        result.failure.kind === "validation"
           ? { kind: "validation_error", message }
-          : result.status === 404
+          : result.failure.kind === "stale_target"
             ? { kind: "stale_target", message }
-            : result.status === 409
+            : result.failure.kind === "same_field_conflict" ||
+                result.failure.kind === "client_txn_conflict"
               ? { kind: "conflict", message }
               : { kind: "rejected_mutation", message },
       );
@@ -557,17 +611,11 @@ export function useTimelinePendingReplayController({
       kind: dispatchedUnit.kind,
       rowKey: dispatchedUnit.rowKey,
     });
-    let envelope: TimelineMutationEnvelope;
     let appliedRow: { record_id: string; row_version: number };
     try {
-      envelope = readEnvelope<TimelineMutationEnvelope>(result.payload);
-      const responseRow = normalizeTimelineFullRow(
-        envelope.data.row,
-        "pending mutation response row",
-      );
       appliedRow = {
-        record_id: responseRow.record_id,
-        row_version: responseRow.row_version,
+        record_id: result.value.row.record_id,
+        row_version: result.value.row.row_version,
       };
       clearSubmittedScalarEditorDraftValuesForRow(
         dispatchedUnit.rowKey,
@@ -577,7 +625,7 @@ export function useTimelinePendingReplayController({
         meta.surface === "grid" && isCollectionDraftKey(meta.focusField)
           ? meta.focusKey
           : undefined;
-      applyRowMutation(dispatchedUnit.rowKey, envelope, {
+      applyAcceptedRowMutation(dispatchedUnit.rowKey, result.value, {
         ...(clearActiveCollectionFocusKey === undefined
           ? {}
           : { clearActiveCollectionFocusKey }),
@@ -632,9 +680,7 @@ export function useTimelinePendingReplayController({
     const successResult = {
       ok: true,
       row: appliedRow,
-      ...(envelope.data.change_set_id === undefined
-        ? {}
-        : { change_set_id: envelope.data.change_set_id }),
+      change_set_id: result.value.changeSetId,
     } as const;
     const settlement = pending.model.settleDispatched(successResult);
     if (settlement.outcome === "success") {

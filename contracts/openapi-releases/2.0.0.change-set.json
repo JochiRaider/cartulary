@@ -82,10 +82,10 @@
       "rationale": "Keep the complete ordinary view-mutation response closed after shared-field evaluation."
     },
     {
-      "fingerprint": "7f09e6b018e2046b3331f70ac6971481efa89400db15bbd2aec570e9baed03bd",
+      "fingerprint": "c89e36434203798bf44befb10f8680335aaf6950c6bb140821a230e9fc6d125f",
       "classification": "additive",
       "owner_id": "module.workbook",
-      "rationale": "Introduce one reusable field definition for strict view-mutation response families."
+      "rationale": "Introduce one reusable strict view-mutation field definition covering the required and standardized optional Workbook surfaces."
     },
     {
       "fingerprint": "5da6d865aad51954a7a1996c947ea21dc50162da18bc6d2e558cdd53f1441cb5",

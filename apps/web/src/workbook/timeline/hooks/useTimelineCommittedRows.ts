@@ -1,12 +1,28 @@
 import { useCallback, useRef } from "react";
 import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness";
-import type { WorkbookRow } from "../models/workbookTimelineModel";
+import type { RowValues, WorkbookRow } from "../models/workbookTimelineModel";
+import type { TimelineRecordActionAccepted } from "../ports/TimelineRecordActionPort";
 
-type TimelineActionResultRowVersion = {
-  readonly capture_state: WorkbookRow["captureState"];
-  readonly record_id: string;
-  readonly row_version: number;
-};
+function committedProjection<Row extends WorkbookRow>(row: Row): Row {
+  const scalarValuesAreCommitted = Object.entries(row.values).every(
+    ([field, value]) => row.committedValues[field as keyof RowValues] === value,
+  );
+  if (
+    row.pendingSignature === null &&
+    scalarValuesAreCommitted &&
+    row.collectionDrafts.hostRefs === "" &&
+    row.collectionDrafts.identityRefs === "" &&
+    row.collectionDrafts.tags === ""
+  ) {
+    return row;
+  }
+  return {
+    ...row,
+    collectionDrafts: { hostRefs: "", identityRefs: "", tags: "" },
+    pendingSignature: null,
+    values: { ...row.committedValues },
+  } as Row;
+}
 
 export function useTimelineCommittedRows({
   rowsRef,
@@ -25,13 +41,15 @@ export function useTimelineCommittedRows({
   );
 
   const currentCommittedTimelineRow = useCallback(
-    (recordId: string) =>
-      committedTimelineRowsRef.current.get(recordId) ??
-      rowsRef.current.find(
+    (recordId: string) => {
+      const cached = committedTimelineRowsRef.current.get(recordId);
+      if (cached !== undefined) return cached;
+      const visible = rowsRef.current.find(
         (candidate) =>
           candidate.recordId === recordId && candidate.rowVersion !== null,
-      ) ??
-      null,
+      );
+      return visible === undefined ? null : committedProjection(visible);
+    },
     [rowsRef],
   );
 
@@ -42,20 +60,23 @@ export function useTimelineCommittedRows({
       if (row.recordId === null || row.rowVersion === null) {
         return { row, accepted: false, stale: false };
       }
-      const currentVersion = knownTimelineRowVersion(row.recordId);
-      if (decideWorkbookRecordFreshness(row, currentVersion).stale) {
+      const recordId = row.recordId;
+      const rowVersion = row.rowVersion;
+      const committed = committedProjection(row);
+      const currentVersion = knownTimelineRowVersion(recordId);
+      if (decideWorkbookRecordFreshness(committed, currentVersion).stale) {
         return {
-          row: currentCommittedTimelineRow(row.recordId) ?? row,
+          row: currentCommittedTimelineRow(recordId) ?? committed,
           accepted: false,
           stale: true,
         };
       }
-      if (currentVersion !== row.rowVersion) {
+      if (currentVersion !== rowVersion) {
         committedTimelineRowsEpochRef.current += 1;
       }
-      committedTimelineRowVersionsRef.current.set(row.recordId, row.rowVersion);
-      committedTimelineRowsRef.current.set(row.recordId, row);
-      return { row, accepted: true, stale: false };
+      committedTimelineRowVersionsRef.current.set(recordId, rowVersion);
+      committedTimelineRowsRef.current.set(recordId, committed);
+      return { row: committed, accepted: true, stale: false };
     },
     [currentCommittedTimelineRow, knownTimelineRowVersion],
   );
@@ -114,29 +135,29 @@ export function useTimelineCommittedRows({
   );
 
   const acceptTimelineActionResult = useCallback(
-    (result: TimelineActionResultRowVersion) => {
+    (result: TimelineRecordActionAccepted) => {
       const existing =
-        committedTimelineRowsRef.current.get(result.record_id) ??
-        rowsRef.current.find((row) => row.recordId === result.record_id) ??
+        committedTimelineRowsRef.current.get(result.recordId) ??
+        rowsRef.current.find((row) => row.recordId === result.recordId) ??
         null;
       if (existing === null) {
-        acceptTimelineRecordVersion(result.record_id, result.row_version);
+        acceptTimelineRecordVersion(result.recordId, result.rowVersion);
         return;
       }
       acceptCommittedTimelineRow({
         ...existing,
-        rowVersion: result.row_version,
-        captureState: result.capture_state,
+        rowVersion: result.rowVersion,
+        captureState: result.captureState,
         rawRow:
           existing.rawRow === null
             ? null
             : {
                 ...existing.rawRow,
-                row_version: result.row_version,
+                row_version: result.rowVersion,
                 cells: {
                   ...existing.rawRow.cells,
                   "timeline.capture_state": {
-                    value: result.capture_state,
+                    value: result.captureState,
                   },
                 },
               },
@@ -156,8 +177,7 @@ export function useTimelineCommittedRows({
         visibleRow.rowVersion !== null &&
         (knownVersion === undefined || visibleRow.rowVersion >= knownVersion)
       ) {
-        acceptCommittedTimelineRow(visibleRow);
-        return visibleRow;
+        return acceptCommittedTimelineRow(visibleRow).row;
       }
 
       const committedRow = committedTimelineRowsRef.current.get(recordId);

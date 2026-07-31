@@ -23,6 +23,8 @@ vi.mock(
 );
 
 describe("workbook evidence coverage", () => {
+  const incidentId = "10000000-0000-4000-8000-000000000001";
+  const recordId = "20000000-0000-4000-8000-000000000001";
   let fetchMock: ReturnType<typeof vi.fn>;
   let webSocketInstance: {
     onmessage: ((event: MessageEvent) => void) | null;
@@ -56,11 +58,11 @@ describe("workbook evidence coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: incidentId,
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "timeline-1",
+              recordId,
               rowVersion: 5,
               summary: "Endpoint screenshot",
               captureState: "rough",
@@ -72,11 +74,11 @@ describe("workbook evidence coverage", () => {
       )
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: incidentId,
           view_schema_id: timelineViewSchemaId,
           rows: [
             timelineRow({
-              recordId: "timeline-1",
+              recordId,
               rowVersion: 5,
               summary: "Endpoint screenshot",
               captureState: "rough",
@@ -89,7 +91,7 @@ describe("workbook evidence coverage", () => {
 
     const { container } = render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId={incidentId}
         currentIncidentRole="admin"
       />,
     );
@@ -104,7 +106,7 @@ describe("workbook evidence coverage", () => {
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
-        recordId: "timeline-1",
+        recordId,
         rowVersion: 5,
         clientTxnId: "txn-evidence-attach",
         changedFieldKeys: ["timeline.evidence_count", "timeline.has_evidence"],
@@ -125,7 +127,7 @@ describe("workbook evidence coverage", () => {
     );
     await waitFor(() => {
       const committedRow = visibleGridRows(container).find(
-        (row) => row.getAttribute("data-grid-record-id") === "timeline-1",
+        (row) => row.getAttribute("data-grid-record-id") === recordId,
       );
       expect(committedRow).toBeTruthy();
       expect(
@@ -133,12 +135,12 @@ describe("workbook evidence coverage", () => {
       ).toBeTruthy();
       expect(
         within(committedRow as HTMLElement).queryByTestId(
-          rowCellTestId("timeline-1", "timeline.evidence_count"),
+          rowCellTestId(recordId, "timeline.evidence_count"),
         ),
       ).toBeNull();
       expect(
         within(committedRow as HTMLElement).queryByTestId(
-          rowCellTestId("timeline-1", "timeline.has_evidence"),
+          rowCellTestId(recordId, "timeline.has_evidence"),
         ),
       ).toBeNull();
     });

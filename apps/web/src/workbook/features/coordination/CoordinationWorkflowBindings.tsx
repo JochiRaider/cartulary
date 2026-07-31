@@ -1,36 +1,14 @@
 import { coordinationWorkflowTestId } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useEffect, useState } from "react";
-import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
-import {
-  genericRowLabel,
-  normalizeGenericTextValue,
-} from "../../models/genericWorkbookModel";
+import { genericRowLabel } from "../../models/genericWorkbookModel";
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { CoordinationMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
-
-type DecisionSupersedeEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    target_record_id: string;
-    superseding_record_id: string;
-    target_row_version: number;
-    superseding_row_version: number;
-    target_status: string;
-    reason: string;
-  };
-};
-
-type MutationPorts = Pick<
-  GenericSurfaceMutationController,
-  | "beginMutation"
-  | "completeGenericMutation"
-  | "rejectMutationPayload"
-  | "setValidationError"
->;
+import {
+  type CoordinationWorkflowMutationPorts,
+  useCoordinationWorkflowController,
+} from "./useCoordinationWorkflowController";
 
 export function CoordinationWorkflowBindings({
   contract,
@@ -44,94 +22,19 @@ export function CoordinationWorkflowBindings({
 }: {
   readonly contract: ViewContract;
   readonly disabled: boolean;
-  readonly mutation: MutationPorts;
+  readonly mutation: CoordinationWorkflowMutationPorts;
   readonly mutationCommands: CoordinationMutationCommandPort;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
   readonly referenceOptions: GenericReferenceOptions;
   readonly resetKey: string;
   readonly rows: readonly WorkbookQueryRow[];
 }) {
-  const [lifecycleRecordId, setLifecycleRecordId] = useState("");
-  const [lifecycleStatus, setLifecycleStatus] = useState("blocked");
-  const [lifecycleBlockedReason, setLifecycleBlockedReason] = useState("");
-  const [supersedeTargetId, setSupersedeTargetId] = useState("");
-  const [supersedeReplacementId, setSupersedeReplacementId] = useState("");
-  const [supersedeReason, setSupersedeReason] = useState("");
-
-  useEffect(() => {
-    if (resetKey === "") {
-      return;
-    }
-    setLifecycleRecordId("");
-    setLifecycleBlockedReason("");
-    setSupersedeTargetId("");
-    setSupersedeReplacementId("");
-    setSupersedeReason("");
-  }, [resetKey]);
-
-  const submitLifecyclePatch = async () => {
-    const target = rows.find((row) => row.record_id === lifecycleRecordId);
-    if (!target) {
-      mutation.setValidationError("Select a task row.");
-      return;
-    }
-    let blockedReason: string | undefined;
-    if (lifecycleStatus === "blocked") {
-      const reason = normalizeGenericTextValue(lifecycleBlockedReason);
-      if (reason === "") {
-        mutation.setValidationError("Blocked tasks need a reason.");
-        return;
-      }
-      blockedReason = reason;
-    }
-    mutation.beginMutation();
-    const result = await mutationCommands.updateTaskLifecycle({
-      baseRowVersion: target.row_version,
-      blockedReason,
-      recordId: target.record_id,
-      status: lifecycleStatus,
-    });
-    if (!result.ok) {
-      mutation.rejectMutationPayload(result.payload);
-      return;
-    }
-    if (lifecycleStatus !== "blocked") {
-      setLifecycleBlockedReason("");
-    }
-    await mutation.completeGenericMutation(result.payload);
-  };
-
-  const submitSupersede = async () => {
-    const target = rows.find((row) => row.record_id === supersedeTargetId);
-    if (!target || supersedeReplacementId === "") {
-      mutation.setValidationError("Select target and superseding decisions.");
-      return;
-    }
-    if (target.record_id === supersedeReplacementId) {
-      mutation.setValidationError("Select a different superseding decision.");
-      return;
-    }
-    const reason = normalizeGenericTextValue(supersedeReason);
-    if (reason === "") {
-      mutation.setValidationError("Reason is required.");
-      return;
-    }
-    mutation.beginMutation();
-    const result = await mutationCommands.supersedeDecision({
-      baseRowVersion: target.row_version,
-      reason,
-      replacementRecordId: supersedeReplacementId,
-      targetRecordId: target.record_id,
-    });
-    if (!result.ok) {
-      mutation.rejectMutationPayload(result.payload);
-      return;
-    }
-    setSupersedeReason("");
-    await mutation.completeGenericMutation<DecisionSupersedeEnvelope>(
-      result.payload,
-    );
-  };
+  const workflow = useCoordinationWorkflowController({
+    mutation,
+    mutationCommands,
+    resetKey,
+    rows,
+  });
 
   if (ownerBindings.includes("task_lifecycle") && rows.length > 0) {
     return (
@@ -140,8 +43,10 @@ export function CoordinationWorkflowBindings({
           aria-label="Task lifecycle row"
           data-testid={coordinationWorkflowTestId("task-target")}
           style={selectStyle}
-          value={lifecycleRecordId}
-          onChange={(event) => setLifecycleRecordId(event.target.value)}
+          value={workflow.lifecycle.recordId}
+          onChange={(event) =>
+            workflow.lifecycle.setRecordId(event.target.value)
+          }
         >
           <option value="">Task</option>
           {rows.map((row) => (
@@ -154,8 +59,12 @@ export function CoordinationWorkflowBindings({
           aria-label="Task lifecycle status"
           data-testid={coordinationWorkflowTestId("task-status")}
           style={selectStyle}
-          value={lifecycleStatus}
-          onChange={(event) => setLifecycleStatus(event.target.value)}
+          value={workflow.lifecycle.status}
+          onChange={(event) =>
+            workflow.lifecycle.setStatus(
+              event.target.value as typeof workflow.lifecycle.status,
+            )
+          }
         >
           <option value="open">open</option>
           <option value="in_progress">in_progress</option>
@@ -166,18 +75,20 @@ export function CoordinationWorkflowBindings({
         <input
           aria-label="Blocked reason"
           data-testid={coordinationWorkflowTestId("task-blocked-reason")}
-          disabled={lifecycleStatus !== "blocked"}
+          disabled={workflow.lifecycle.status !== "blocked"}
           style={inputStyle}
           type="text"
-          value={lifecycleBlockedReason}
-          onChange={(event) => setLifecycleBlockedReason(event.target.value)}
+          value={workflow.lifecycle.blockedReason}
+          onChange={(event) =>
+            workflow.lifecycle.setBlockedReason(event.target.value)
+          }
         />
         <button
           data-testid={coordinationWorkflowTestId("task-submit")}
           disabled={disabled}
           style={actionButtonStyle}
           type="button"
-          onClick={() => void submitLifecyclePatch()}
+          onClick={() => void workflow.lifecycle.submit()}
         >
           Apply task status
         </button>
@@ -192,8 +103,10 @@ export function CoordinationWorkflowBindings({
           aria-label="Superseded decision"
           data-testid={coordinationWorkflowTestId("decision-target")}
           style={selectStyle}
-          value={supersedeTargetId}
-          onChange={(event) => setSupersedeTargetId(event.target.value)}
+          value={workflow.supersede.targetId}
+          onChange={(event) =>
+            workflow.supersede.setTargetId(event.target.value)
+          }
         >
           <option value="">Target</option>
           {rows.map((row) => (
@@ -206,8 +119,10 @@ export function CoordinationWorkflowBindings({
           aria-label="Superseding decision"
           data-testid={coordinationWorkflowTestId("decision-replacement")}
           style={selectStyle}
-          value={supersedeReplacementId}
-          onChange={(event) => setSupersedeReplacementId(event.target.value)}
+          value={workflow.supersede.replacementId}
+          onChange={(event) =>
+            workflow.supersede.setReplacementId(event.target.value)
+          }
         >
           <option value="">Superseding</option>
           {referenceOptions.decisions.map((option) => (
@@ -221,15 +136,15 @@ export function CoordinationWorkflowBindings({
           data-testid={coordinationWorkflowTestId("decision-reason")}
           style={inputStyle}
           type="text"
-          value={supersedeReason}
-          onChange={(event) => setSupersedeReason(event.target.value)}
+          value={workflow.supersede.reason}
+          onChange={(event) => workflow.supersede.setReason(event.target.value)}
         />
         <button
           data-testid={coordinationWorkflowTestId("decision-submit")}
           disabled={disabled}
           style={actionButtonStyle}
           type="button"
-          onClick={() => void submitSupersede()}
+          onClick={() => void workflow.supersede.submit()}
         >
           Supersede decision
         </button>

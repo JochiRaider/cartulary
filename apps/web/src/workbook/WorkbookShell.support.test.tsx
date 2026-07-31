@@ -82,7 +82,7 @@ describe("support workbook helpers", () => {
                   item_kind: "resolved_ref",
                   display_text: "VPN Gateway",
                   raw_text: " vpn   gateway ",
-                  resolved_record_id: "host-1",
+                  resolved_record_id: "20000000-0000-4000-8000-000000000602",
                   mention_row_version: 11,
                   resolution_method: "auto_match",
                   auto_resolved: true,
@@ -96,7 +96,7 @@ describe("support workbook helpers", () => {
                   item_kind: "resolved_ref",
                   display_text: "WS-023",
                   raw_text: "WS-023",
-                  resolved_record_id: "host-2",
+                  resolved_record_id: "20000000-0000-4000-8000-000000000603",
                   mention_row_version: 12,
                   resolution_method: "explicit_resolve_route",
                   auto_resolved: false,
@@ -118,7 +118,7 @@ describe("support workbook helpers", () => {
         itemKind: "resolved_ref",
         displayText: "VPN Gateway",
         rawText: " vpn   gateway ",
-        resolvedRecordId: "host-1",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000602",
         mentionRowVersion: 11,
         resolutionMethod: "auto_match",
         autoResolved: true,
@@ -132,7 +132,7 @@ describe("support workbook helpers", () => {
         itemKind: "resolved_ref",
         displayText: "WS-023",
         rawText: "WS-023",
-        resolvedRecordId: "host-2",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000603",
         mentionRowVersion: 12,
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
@@ -149,13 +149,13 @@ describe("support workbook helpers", () => {
         { mentionRowVersion: 13 },
         "resolve_item",
         "timeline-client-8",
-        "host-1",
+        "20000000-0000-4000-8000-000000000602",
       ),
     ).toEqual({
       base_mention_row_version: 13,
       client_txn_id: "timeline-client-8",
       action: "resolve_item",
-      resolved_record_id: "host-1",
+      resolved_record_id: "20000000-0000-4000-8000-000000000602",
     });
     expect(
       buildMentionActionPayload(
@@ -190,7 +190,7 @@ describe("support workbook helpers", () => {
 
   it("builds inspector mentions and auto-resolution notices from row deltas", () => {
     const beforeRow = {
-      recordId: "record-1",
+      recordId: "20000000-0000-4000-8000-000000000601",
       collectionValues: {
         hostRefs: [],
         identityRefs: [
@@ -200,7 +200,7 @@ describe("support workbook helpers", () => {
             itemKind: "resolved_ref",
             displayText: "Alex Analyst",
             rawText: "alex.analyst@example.test",
-            resolvedRecordId: "identity-1",
+            resolvedRecordId: "20000000-0000-4000-8000-000000000604",
             mentionRowVersion: 21,
             resolutionMethod: "explicit_resolve_route",
             autoResolved: false,
@@ -212,7 +212,7 @@ describe("support workbook helpers", () => {
       },
     };
     const afterRow = {
-      recordId: "record-1",
+      recordId: "20000000-0000-4000-8000-000000000601",
       collectionValues: {
         hostRefs: [
           {
@@ -221,7 +221,7 @@ describe("support workbook helpers", () => {
             itemKind: "resolved_ref",
             displayText: "VPN Gateway",
             rawText: " vpn   gateway ",
-            resolvedRecordId: "host-1",
+            resolvedRecordId: "20000000-0000-4000-8000-000000000602",
             mentionRowVersion: 22,
             resolutionMethod: "auto_match",
             autoResolved: true,
@@ -237,11 +237,11 @@ describe("support workbook helpers", () => {
     expect(buildAutoResolutionNotices(beforeRow, afterRow)).toEqual([
       {
         itemRef: "mention-host-auto",
-        rowRecordId: "record-1",
+        rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",
         rawText: " vpn   gateway ",
-        resolvedRecordId: "host-1",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000602",
         matchedAliasText: "VPN Gateway",
       },
     ]);
@@ -249,12 +249,12 @@ describe("support workbook helpers", () => {
     expect(
       buildInspectorMentions(afterRow, [
         {
-          rowRecordId: "record-1",
+          rowRecordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.host_refs",
           entityType: "host",
           itemRef: "mention-host-dismissed",
           rawText: "WS-023",
-          resolvedRecordId: "host-2",
+          resolvedRecordId: "20000000-0000-4000-8000-000000000603",
           mentionRowVersion: 23,
           resolutionMethod: "explicit_resolve_route",
           autoResolved: false,
@@ -262,23 +262,23 @@ describe("support workbook helpers", () => {
       ]),
     ).toEqual([
       {
-        rowRecordId: "record-1",
+        rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",
         itemRef: "mention-host-auto",
         rawText: " vpn   gateway ",
-        resolvedRecordId: "host-1",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000602",
         mentionRowVersion: 22,
         resolutionMethod: "auto_match",
         autoResolved: true,
         status: "resolved",
         chipState: "auto_resolved",
         anchor: {
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.host_refs",
           itemRef: "mention-host-auto",
           entityMentionId: null,
-          targetEntityRecordId: "host-1",
+          targetEntityRecordId: "20000000-0000-4000-8000-000000000602",
         },
         sourceKind: "entity_mention",
         isActiveRelationshipValue: true,
@@ -289,23 +289,23 @@ describe("support workbook helpers", () => {
         matchedAliasText: "VPN Gateway",
       },
       {
-        rowRecordId: "record-1",
+        rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.identity_refs",
         entityType: "identity",
         itemRef: "mention-identity-manual",
         rawText: "alex.analyst@example.test",
-        resolvedRecordId: "identity-1",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000604",
         mentionRowVersion: 21,
         resolutionMethod: "explicit_resolve_route",
         autoResolved: false,
         status: "resolved",
         chipState: "resolved",
         anchor: {
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.identity_refs",
           itemRef: "mention-identity-manual",
           entityMentionId: null,
-          targetEntityRecordId: "identity-1",
+          targetEntityRecordId: "20000000-0000-4000-8000-000000000604",
         },
         sourceKind: "entity_mention",
         isActiveRelationshipValue: true,
@@ -316,7 +316,7 @@ describe("support workbook helpers", () => {
         matchedAliasText: null,
       },
       {
-        rowRecordId: "record-1",
+        rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",
         itemRef: "mention-host-dismissed",
@@ -328,7 +328,7 @@ describe("support workbook helpers", () => {
         status: "dismissed",
         chipState: "dismissed",
         anchor: {
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.host_refs",
           itemRef: "mention-host-dismissed",
           entityMentionId: null,
@@ -336,7 +336,7 @@ describe("support workbook helpers", () => {
         },
         sourceKind: "entity_mention",
         isActiveRelationshipValue: false,
-        priorTargetEntityRecordId: "host-2",
+        priorTargetEntityRecordId: "20000000-0000-4000-8000-000000000603",
         displayText: "WS-023",
         provenance: null,
         confidence: null,
@@ -384,11 +384,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("opens Timeline row actions from the committed row context menu", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "rough",
@@ -399,13 +399,16 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
     const summaryCell = await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.activity_synopsis_text",
+      ),
     );
     expect(
       screen.queryByTestId(gridActionsHeaderTestId(timelineViewSchemaId)),
@@ -413,18 +416,28 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     const contextMenu = await screen.findByTestId(
-      workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+      workbookRowContextMenuTestId(
+        timelineViewSchemaId,
+        "20000000-0000-4000-8000-000000000601",
+      ),
     );
     expect(contextMenu.getAttribute("role")).toBe("dialog");
-    expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
+    expect(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
+      ),
+    ).toBeTruthy();
     const replacementInput = screen.getByTestId(
-      timelineRowReplacementInputTestId("record-1"),
+      timelineRowReplacementInputTestId("20000000-0000-4000-8000-000000000601"),
     );
     replacementInput.focus();
     fireEvent.scroll(window);
     expect(
       screen.getByTestId(
-        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+        workbookRowContextMenuTestId(
+          timelineViewSchemaId,
+          "20000000-0000-4000-8000-000000000601",
+        ),
       ),
     ).toBeTruthy();
 
@@ -433,21 +446,30 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(
         screen.queryByTestId(
-          workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+          workbookRowContextMenuTestId(
+            timelineViewSchemaId,
+            "20000000-0000-4000-8000-000000000601",
+          ),
         ),
       ).toBeNull();
     });
 
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     const reopenedContextMenu = await screen.findByTestId(
-      workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+      workbookRowContextMenuTestId(
+        timelineViewSchemaId,
+        "20000000-0000-4000-8000-000000000601",
+      ),
     );
 
     fireEvent.keyDown(reopenedContextMenu, { key: "Escape" });
     await waitFor(() => {
       expect(
         screen.queryByTestId(
-          workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+          workbookRowContextMenuTestId(
+            timelineViewSchemaId,
+            "20000000-0000-4000-8000-000000000601",
+          ),
         ),
       ).toBeNull();
     });
@@ -456,11 +478,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("opens Timeline row actions from the keyboard and ignores draft rows", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "rough",
@@ -471,7 +493,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
@@ -482,18 +504,27 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fireEvent.contextMenu(draftRow, { clientX: 12, clientY: 24 });
     expect(
       screen.queryByTestId(
-        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+        workbookRowContextMenuTestId(
+          timelineViewSchemaId,
+          "20000000-0000-4000-8000-000000000601",
+        ),
       ),
     ).toBeNull();
 
     const summaryCell = await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.activity_synopsis_text",
+      ),
     );
     summaryCell.focus();
     fireEvent.keyDown(summaryCell, { key: "F10", shiftKey: true });
     expect(
       await screen.findByTestId(
-        workbookRowContextMenuTestId(timelineViewSchemaId, "record-1"),
+        workbookRowContextMenuTestId(
+          timelineViewSchemaId,
+          "20000000-0000-4000-8000-000000000601",
+        ),
       ),
     ).toBeTruthy();
   });
@@ -501,11 +532,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("renders auto-resolved chips distinctly from manual resolved chips", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "reviewed",
@@ -515,7 +546,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
                 entityType: "host",
                 rawText: " vpn   gateway ",
                 displayText: "VPN Gateway",
-                resolvedRecordId: "host-1",
+                resolvedRecordId: "20000000-0000-4000-8000-000000000602",
                 resolutionMethod: "auto_match",
                 autoResolved: true,
                 provenance: "auto_match",
@@ -529,7 +560,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
                 entityType: "identity",
                 rawText: "alex.analyst@example.test",
                 displayText: "Alex Analyst",
-                resolvedRecordId: "identity-1",
+                resolvedRecordId: "20000000-0000-4000-8000-000000000604",
                 resolutionMethod: "explicit_resolve_route",
                 autoResolved: false,
                 provenance: "manual",
@@ -543,12 +574,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const autoChips = await screen.findAllByTestId(
       relationshipChipTestId("mention-host-auto"),
     );
@@ -568,7 +601,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("preserves continuity when resolving a mention to an existing entity", async () => {
     const existingHost = buildEntityRow({
       entityType: "host",
-      recordId: "host-1",
+      recordId: "20000000-0000-4000-8000-000000000602",
       rowVersion: 1,
       label: "WS-023",
       secondaryText: "ws-023.corp.example.test",
@@ -584,11 +617,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -605,32 +638,32 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         entity_mention: {
           entity_mention_id: "11111111-1111-4111-8111-000000000401",
-          source_record_id: "record-1",
+          source_record_id: "20000000-0000-4000-8000-000000000601",
           source_field_key: "timeline.host_refs",
           entity_type: "host",
           raw_text: "WS-023?",
           resolution_status: "resolved",
-          resolved_record_id: "host-1",
+          resolved_record_id: "20000000-0000-4000-8000-000000000602",
           row_version: 2,
           resolution_method: "explicit_resolve_route",
         },
         source_record: {
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000601",
           row_version: 2,
         },
-        change_set_id: "change-set-resolve",
+        change_set_id: "30000000-0000-4000-8000-000000000601",
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "reviewed",
@@ -640,7 +673,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
                 entityType: "host",
                 rawText: "WS-023?",
                 displayText: "WS-023",
-                resolvedRecordId: "host-1",
+                resolvedRecordId: "20000000-0000-4000-8000-000000000602",
                 resolutionMethod: "explicit_resolve_route",
                 autoResolved: false,
                 provenance: "manual",
@@ -655,14 +688,16 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
         hostEntities={[existingHost]}
         entityIndex={buildEntityIndex(existingHost)}
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     fireEvent.click(
       screen.getByTestId(
         mentionItemTestId(
@@ -672,27 +707,33 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     const preservedScroll = setTimelineGridScroll(240, 140);
     fireEvent.change(screen.getByTestId(mentionResolveTargetSelectTestId()), {
-      target: { value: "host-1" },
+      target: { value: "20000000-0000-4000-8000-000000000602" },
     });
     fireEvent.click(screen.getByTestId(mentionResolveExistingButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
-    await expectTimelineFocusAndScroll("record-1", preservedScroll);
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+    );
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "/api/v1/entity-mentions/11111111-1111-4111-8111-000000000401/resolve",
     );
     expect(extractTimelineJSONBody(fetchMock, 1)).toMatchObject({
       base_mention_row_version: 1,
       action: "resolve_item",
-      resolved_record_id: "host-1",
+      resolved_record_id: "20000000-0000-4000-8000-000000000602",
     });
     await waitFor(() => {
       expect(
         screen
           .getByTestId(
-            relationshipItemsTestId("record-1", "timeline.host_refs"),
+            relationshipItemsTestId(
+              "20000000-0000-4000-8000-000000000601",
+              "timeline.host_refs",
+            ),
           )
           .querySelector('[aria-label^="Resolved WS-023"]'),
       ).toBeTruthy();
@@ -704,7 +745,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     let maxScrollTop = 400;
     const createdIdentity = buildEntityRow({
       entityType: "identity",
-      recordId: "identity-1",
+      recordId: "20000000-0000-4000-8000-000000000604",
       rowVersion: 1,
       label: "VPN User",
       secondaryText: "vpn.user@example.test",
@@ -720,17 +761,17 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
             identityRefs: [
               unresolvedItem({
-                itemRef: "entity_mention:identity-create",
+                itemRef: "entity_mention:11111111-1111-4111-8111-000000000405",
                 entityType: "identity",
                 rawText: "vpn.user@example.test",
               }),
@@ -742,9 +783,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: "cartulary.view.identities.v1",
-        change_set_id: "change-set-identity-create",
+        change_set_id: "30000000-0000-4000-8000-000000000602",
         row: {
-          record_id: "identity-1",
+          record_id: "20000000-0000-4000-8000-000000000604",
           row_version: 1,
           cells: {},
         },
@@ -754,9 +795,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       mentionActionEnvelope({
         actionStatus: "resolved",
         entityType: "identity",
-        mentionId: "identity-create",
+        mentionId: "11111111-1111-4111-8111-000000000405",
         rawText: "vpn.user@example.test",
-        resolvedRecordId: "identity-1",
+        resolvedRecordId: "20000000-0000-4000-8000-000000000604",
         sourceFieldKey: "timeline.identity_refs",
         sourceRowVersion: 2,
         mentionRowVersion: 2,
@@ -766,17 +807,17 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
           identityRefs: [
             resolvedItem({
-              itemRef: "entity_mention:identity-create",
+              itemRef: "entity_mention:11111111-1111-4111-8111-000000000405",
               entityType: "identity",
               rawText: "vpn.user@example.test",
               displayText: "vpn.user@example.test",
-              resolvedRecordId: "identity-1",
+              resolvedRecordId: "20000000-0000-4000-8000-000000000604",
               resolutionMethod: "explicit_resolve_route",
               autoResolved: false,
               provenance: "manual",
@@ -795,7 +836,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       const renderRefreshedWorkbook = (identity: EntityRowFixture) => {
         rerenderTimelineWorkbookRuntimeFixture?.(
           <TimelineWorkbookRuntimeFixture
-            incidentId="incident-1"
+            incidentId="10000000-0000-4000-8000-000000000001"
             currentIncidentRole="admin"
             identityEntities={[identity]}
             entityIndex={buildEntityIndex(identity)}
@@ -817,7 +858,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     const renderResult = render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
         onRefreshEntities={onRefreshEntities}
       />,
@@ -825,10 +866,13 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     rerenderTimelineWorkbookRuntimeFixture = renderResult.rerender;
 
     await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.activity_synopsis_text",
+      ),
     );
     installTimelineGridScrollClamp(() => maxScrollTop);
-    installTimelineInspectGeometry("record-1", {
+    installTimelineInspectGeometry("20000000-0000-4000-8000-000000000601", {
       containerHeight: 300,
       containerLeft: 40,
       containerTop: 100,
@@ -839,12 +883,22 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       targetWidth: 80,
     });
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     fireEvent.click(
-      screen.getByTestId(mentionItemTestId("entity_mention:identity-create")),
+      screen.getByTestId(
+        mentionItemTestId(
+          "entity_mention:11111111-1111-4111-8111-000000000405",
+        ),
+      ),
     );
     const preservedScroll = setTimelineGridScroll(400, 175);
-    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(true);
+    expect(
+      isTimelineFocusTargetFullyVisibleWithinGrid(
+        "20000000-0000-4000-8000-000000000601",
+      ),
+    ).toBe(true);
     fireEvent.click(
       screen.getByTestId(mentionCreateEntityButtonTestId("identity")),
     );
@@ -855,9 +909,13 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(onRefreshEntities).toHaveBeenCalledTimes(1);
     });
-    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
-      requireVisibleWithinGrid: true,
-    });
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+      {
+        requireVisibleWithinGrid: true,
+      },
+    );
     refreshGate.resolve();
     await waitFor(() => {
       expect(
@@ -865,20 +923,24 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       ).toContain("VPN User");
     });
     await waitForPostRenderFrame();
-    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
-      expectedTop: null,
-      requireVisibleWithinGrid: true,
-    });
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+      {
+        expectedTop: null,
+        requireVisibleWithinGrid: true,
+      },
+    );
   });
 
   it("reveals a clipped inspect action after an auto-resolution collection patch", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -889,9 +951,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-auto-resolve",
+        change_set_id: "30000000-0000-4000-8000-000000000603",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
@@ -901,7 +963,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               entityType: "host",
               rawText: " vpn   gateway ",
               displayText: "Gateway node",
-              resolvedRecordId: "host-1",
+              resolvedRecordId: "20000000-0000-4000-8000-000000000602",
               resolutionMethod: "auto_match",
               autoResolved: true,
               provenance: "auto_match",
@@ -915,16 +977,21 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
-    installTimelineInspectGeometry("record-1", {
+    installTimelineInspectGeometry("20000000-0000-4000-8000-000000000601", {
       containerHeight: 300,
       containerLeft: 40,
       containerTop: 100,
@@ -937,7 +1004,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     const preservedScroll = setTimelineGridScroll(240, 18);
 
-    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(
+      isTimelineFocusTargetFullyVisibleWithinGrid(
+        "20000000-0000-4000-8000-000000000601",
+      ),
+    ).toBe(false);
 
     fireEvent.change(relationshipInput, {
       target: { value: " vpn   gateway " },
@@ -947,10 +1018,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
-    await expectTimelineFocusAndScroll("record-1", preservedScroll, {
-      expectedLeft: 48,
-      requireVisibleWithinGrid: true,
-    });
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+      {
+        expectedLeft: 48,
+        requireVisibleWithinGrid: true,
+      },
+    );
     expect(
       await screen.findByTestId(
         autoResolutionNoticeTestId("mention-host-auto"),
@@ -963,11 +1038,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       "entity_mention:11111111-1111-4111-8111-000000000404";
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -978,9 +1053,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-auto-resolve",
+        change_set_id: "30000000-0000-4000-8000-000000000603",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
@@ -990,7 +1065,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               entityType: "host",
               rawText: " vpn   gateway ",
               displayText: "Gateway node",
-              resolvedRecordId: "host-1",
+              resolvedRecordId: "20000000-0000-4000-8000-000000000602",
               resolutionMethod: "auto_match",
               autoResolved: true,
               provenance: "auto_match",
@@ -1002,10 +1077,10 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         entity_mention: {
           entity_mention_id: "11111111-1111-4111-8111-000000000404",
-          source_record_id: "record-1",
+          source_record_id: "20000000-0000-4000-8000-000000000601",
           source_field_key: "timeline.host_refs",
           entity_type: "host",
           raw_text: " vpn   gateway ",
@@ -1015,19 +1090,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
           resolution_method: null,
         },
         source_record: {
-          record_id: "record-1",
+          record_id: "20000000-0000-4000-8000-000000000601",
           row_version: 3,
         },
-        change_set_id: "change-set-auto-undo",
+        change_set_id: "30000000-0000-4000-8000-000000000604",
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1037,7 +1112,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
                 entityType: "host",
                 rawText: " vpn   gateway ",
                 displayText: "Gateway node",
-                resolvedRecordId: "host-1",
+                resolvedRecordId: "20000000-0000-4000-8000-000000000602",
                 resolutionMethod: "auto_match",
                 autoResolved: true,
                 provenance: "auto_match",
@@ -1050,11 +1125,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1073,14 +1148,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, {
       target: { value: " vpn   gateway " },
@@ -1101,7 +1181,10 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(5);
     });
-    await expectTimelineFocusAndScroll("record-1", preservedScroll);
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      preservedScroll,
+    );
     expect(
       screen.queryByTestId(autoResolutionNoticeTestId(mentionItemRef)),
     ).toBeNull();
@@ -1117,11 +1200,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("keeps the workbook mounted after committing a relationship-cell edit", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1132,9 +1215,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-relationship-commit",
+        change_set_id: "30000000-0000-4000-8000-000000000605",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
@@ -1151,14 +1234,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -1175,31 +1263,44 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     ).toBeTruthy();
     expect(
       screen.getByTestId(
-        timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+        timelineCollectionInputTestId(
+          "20000000-0000-4000-8000-000000000601",
+          "timeline.host_refs",
+        ),
       ),
     ).toBeTruthy();
     expect(
       screen.getByTestId(
-        relationshipItemsTestId("record-1", "timeline.host_refs"),
+        relationshipItemsTestId(
+          "20000000-0000-4000-8000-000000000601",
+          "timeline.host_refs",
+        ),
       ).textContent,
     ).toContain("WS-023");
     fireEvent.contextMenu(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000601",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       { clientX: 32, clientY: 48 },
     );
-    expect(screen.getByTestId(rowInspectButtonTestId("record-1"))).toBeTruthy();
+    expect(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000601"),
+      ),
+    ).toBeTruthy();
   });
 
   it("commits sequential hostRefs edits with the latest returned row versions", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1210,15 +1311,15 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-host-1",
+        change_set_id: "30000000-0000-4000-8000-000000000606",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-1",
+              itemRef: "mention-20000000-0000-4000-8000-000000000602",
               entityType: "host",
               rawText: "WS-023",
             }),
@@ -1229,20 +1330,20 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-host-2",
+        change_set_id: "30000000-0000-4000-8000-000000000607",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 3,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-1",
+              itemRef: "mention-20000000-0000-4000-8000-000000000602",
               entityType: "host",
               rawText: "WS-023",
             }),
             unresolvedItem({
-              itemRef: "mention-host-2",
+              itemRef: "mention-20000000-0000-4000-8000-000000000603",
               entityType: "host",
               rawText: "WS-024",
             }),
@@ -1253,26 +1354,36 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const firstInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(firstInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(firstInput, { key: "Enter" });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000601"),
+        ).textContent,
       ).toBe("2");
     });
 
     const secondInput = screen.getByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     ) as HTMLInputElement;
     fireEvent.change(secondInput, { target: { value: "WS-024" } });
     fireEvent.keyDown(secondInput, { key: "Enter" });
@@ -1281,7 +1392,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000601"),
+        ).textContent,
       ).toBe("3");
     });
 
@@ -1289,12 +1402,18 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     expectHostRefAddRequest(fetchMock, 2, 2, "WS-024");
     expect(
       screen.getByTestId(
-        relationshipItemsTestId("record-1", "timeline.host_refs"),
+        relationshipItemsTestId(
+          "20000000-0000-4000-8000-000000000601",
+          "timeline.host_refs",
+        ),
       ).textContent,
     ).toContain("WS-023");
     expect(
       screen.getByTestId(
-        relationshipItemsTestId("record-1", "timeline.host_refs"),
+        relationshipItemsTestId(
+          "20000000-0000-4000-8000-000000000601",
+          "timeline.host_refs",
+        ),
       ).textContent,
     ).toContain("WS-024");
     expect(
@@ -1305,11 +1424,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("treats Enter followed by blur as one hostRefs collection commit", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1320,15 +1439,15 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-host-1",
+        change_set_id: "30000000-0000-4000-8000-000000000606",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-1",
+              itemRef: "mention-20000000-0000-4000-8000-000000000602",
               entityType: "host",
               rawText: "WS-023",
             }),
@@ -1339,14 +1458,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -1367,11 +1491,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     const secondPatch = deferred<Response>();
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1384,14 +1508,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.keyDown(relationshipInput, { key: "Enter" });
@@ -1408,15 +1537,15 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     firstPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-host-1",
+        change_set_id: "30000000-0000-4000-8000-000000000606",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-1",
+              itemRef: "mention-20000000-0000-4000-8000-000000000602",
               entityType: "host",
               rawText: "WS-023",
             }),
@@ -1435,20 +1564,20 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     secondPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-host-2",
+        change_set_id: "30000000-0000-4000-8000-000000000607",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 3,
           summary: "Alpha",
           captureState: "reviewed",
           hostRefs: [
             unresolvedItem({
-              itemRef: "mention-host-1",
+              itemRef: "mention-20000000-0000-4000-8000-000000000602",
               entityType: "host",
               rawText: "WS-023",
             }),
             unresolvedItem({
-              itemRef: "mention-host-2",
+              itemRef: "mention-20000000-0000-4000-8000-000000000603",
               entityType: "host",
               rawText: "WS-024",
             }),
@@ -1461,7 +1590,10 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
         screen.getByTestId(
-          relationshipItemsTestId("record-1", "timeline.host_refs"),
+          relationshipItemsTestId(
+            "20000000-0000-4000-8000-000000000601",
+            "timeline.host_refs",
+          ),
         ).textContent,
       ).toContain("WS-024");
     });
@@ -1470,22 +1602,22 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("opens the Relationships inspector from compact relationship overflow", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
             hostRefs: [
               unresolvedItem({
-                itemRef: "mention-host-1",
+                itemRef: "mention-20000000-0000-4000-8000-000000000602",
                 entityType: "host",
                 rawText: "WS-023",
               }),
               unresolvedItem({
-                itemRef: "mention-host-2",
+                itemRef: "mention-20000000-0000-4000-8000-000000000603",
                 entityType: "host",
                 rawText: "WS-024",
               }),
@@ -1497,14 +1629,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const overflowButton = await screen.findByTestId(
-      relationshipOverflowButtonTestId("record-1", "timeline.host_refs"),
+      relationshipOverflowButtonTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     );
     expect(overflowButton.textContent).toBe("+1");
 
@@ -1519,7 +1656,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     });
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        screen.getByTestId(mentionItemTestId("mention-host-2")),
+        screen.getByTestId(
+          mentionItemTestId("mention-20000000-0000-4000-8000-000000000603"),
+        ),
       );
     });
   });
@@ -1534,12 +1673,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     await screen.findByTestId(mentionDismissButtonTestId());
     const dismissScroll = setTimelineGridScroll(320, 180);
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
@@ -1547,7 +1688,10 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
-    await expectTimelineFocusAndScroll("record-1", dismissScroll);
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      dismissScroll,
+    );
     expect(
       screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeTruthy();
@@ -1559,12 +1703,18 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(5);
     });
-    await expectTimelineFocusAndScroll("record-1", restoreScroll);
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      restoreScroll,
+    );
     await waitFor(() => {
       expect(
         screen
           .getByTestId(
-            relationshipItemsTestId("record-1", "timeline.host_refs"),
+            relationshipItemsTestId(
+              "20000000-0000-4000-8000-000000000601",
+              "timeline.host_refs",
+            ),
           )
           .querySelector('[aria-label="Unresolved WS-023"]'),
       ).toBeTruthy();
@@ -1576,7 +1726,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     const mentionItemRef = `entity_mention:${mentionId}`;
     const mutationQuery = deferred<Response>();
     const dismissedRow = timelineRow({
-      recordId: "record-1",
+      recordId: "20000000-0000-4000-8000-000000000601",
       rowVersion: 2,
       summary: "Alpha",
       captureState: "reviewed",
@@ -1585,7 +1735,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 1,
           summary: "Alpha",
           captureState: "reviewed",
@@ -1595,7 +1745,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
               entityType: "host",
               rawText: "WS-023",
               displayText: "WS-023",
-              resolvedRecordId: "host-1",
+              resolvedRecordId: "20000000-0000-4000-8000-000000000602",
               resolutionMethod: "explicit_resolve_route",
               autoResolved: false,
               provenance: "manual",
@@ -1621,12 +1771,14 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -1635,7 +1787,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 2,
         clientTxnId: "parallel-collaborator",
       }),
@@ -1663,15 +1815,18 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
     await screen.findByTestId(
-      rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.activity_synopsis_text",
+      ),
     );
-    installTimelineInspectGeometry("record-1", {
+    installTimelineInspectGeometry("20000000-0000-4000-8000-000000000601", {
       containerHeight: 300,
       containerLeft: 40,
       containerTop: 100,
@@ -1682,40 +1837,61 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
       targetWidth: 80,
     });
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     await screen.findByTestId(mentionDismissButtonTestId());
 
     const dismissScroll = setTimelineGridScroll(320, 18);
-    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(
+      isTimelineFocusTargetFullyVisibleWithinGrid(
+        "20000000-0000-4000-8000-000000000601",
+      ),
+    ).toBe(false);
     fireEvent.click(screen.getByTestId(mentionDismissButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
-    await expectTimelineFocusAndScroll("record-1", dismissScroll, {
-      expectedTop: 350,
-      requireVisibleWithinGrid: true,
-    });
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      dismissScroll,
+      {
+        expectedTop: 350,
+        requireVisibleWithinGrid: true,
+      },
+    );
     expect(
       screen.getByTestId(mentionRestoreUnresolvedButtonTestId()),
     ).toBeTruthy();
 
     const restoreScroll = setTimelineGridScroll(340, 18);
-    expect(isTimelineFocusTargetFullyVisibleWithinGrid("record-1")).toBe(false);
+    expect(
+      isTimelineFocusTargetFullyVisibleWithinGrid(
+        "20000000-0000-4000-8000-000000000601",
+      ),
+    ).toBe(false);
     fireEvent.click(screen.getByTestId(mentionRestoreUnresolvedButtonTestId()));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(5);
     });
-    await expectTimelineFocusAndScroll("record-1", restoreScroll, {
-      expectedTop: 350,
-      requireVisibleWithinGrid: true,
-    });
+    await expectTimelineFocusAndScroll(
+      "20000000-0000-4000-8000-000000000601",
+      restoreScroll,
+      {
+        expectedTop: 350,
+        requireVisibleWithinGrid: true,
+      },
+    );
     await waitFor(() => {
       expect(
         screen
           .getByTestId(
-            relationshipItemsTestId("record-1", "timeline.host_refs"),
+            relationshipItemsTestId(
+              "20000000-0000-4000-8000-000000000601",
+              "timeline.host_refs",
+            ),
           )
           .querySelector('[aria-label="Unresolved WS-023"]'),
       ).toBeTruthy();
@@ -1725,11 +1901,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
   it("suppresses self-originated websocket invalidations and reloads for external ones", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1740,9 +1916,9 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-patch",
+        change_set_id: "30000000-0000-4000-8000-000000000608",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000601",
           rowVersion: 2,
           summary: "Alpha",
           captureState: "reviewed",
@@ -1758,11 +1934,11 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000601",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "reviewed",
@@ -1780,14 +1956,19 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="admin"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000601",
+    );
     const relationshipInput = (await screen.findByTestId(
-      timelineCollectionInputTestId("record-1", "timeline.host_refs"),
+      timelineCollectionInputTestId(
+        "20000000-0000-4000-8000-000000000601",
+        "timeline.host_refs",
+      ),
     )) as HTMLInputElement;
     fireEvent.change(relationshipInput, { target: { value: "WS-023" } });
     fireEvent.blur(relationshipInput);
@@ -1802,7 +1983,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 2,
         clientTxnId: submittedClientTxnId,
       }),
@@ -1818,7 +1999,7 @@ describe("support TimelineWorkbookRuntimeFixture", () => {
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 3,
         clientTxnId: "someone-else",
       }),
@@ -1893,10 +2074,10 @@ function mentionActionEnvelope({
   resolutionMethod: string | null;
 }) {
   return successEnvelope({
-    incident_id: "incident-1",
+    incident_id: "10000000-0000-4000-8000-000000000001",
     entity_mention: {
       entity_mention_id: mentionId,
-      source_record_id: "record-1",
+      source_record_id: "20000000-0000-4000-8000-000000000601",
       source_field_key: sourceFieldKey,
       entity_type: entityType,
       raw_text: rawText,
@@ -1906,10 +2087,15 @@ function mentionActionEnvelope({
       resolution_method: resolutionMethod,
     },
     source_record: {
-      record_id: "record-1",
+      record_id: "20000000-0000-4000-8000-000000000601",
       row_version: sourceRowVersion,
     },
-    change_set_id: `change-set-${actionStatus}`,
+    change_set_id:
+      actionStatus === "dismissed"
+        ? "30000000-0000-4000-8000-000000000609"
+        : actionStatus === "resolved"
+          ? "30000000-0000-4000-8000-000000000610"
+          : "30000000-0000-4000-8000-000000000611",
   });
 }
 
@@ -1923,7 +2109,7 @@ function mockDismissRestoreMentionResponses(
   fetchMock.mockResolvedValueOnce(
     timelineRowsEnvelope([
       timelineRow({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 1,
         summary: "Alpha",
         captureState: "reviewed",
@@ -1933,7 +2119,7 @@ function mockDismissRestoreMentionResponses(
             entityType: "host",
             rawText: "WS-023",
             displayText: "WS-023",
-            resolvedRecordId: "host-1",
+            resolvedRecordId: "20000000-0000-4000-8000-000000000602",
             resolutionMethod: "explicit_resolve_route",
             autoResolved: false,
             provenance: "manual",
@@ -1957,7 +2143,7 @@ function mockDismissRestoreMentionResponses(
   fetchMock.mockResolvedValueOnce(
     timelineRowsEnvelope([
       timelineRow({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 2,
         summary: "Alpha",
         captureState: "reviewed",
@@ -1979,7 +2165,7 @@ function mockDismissRestoreMentionResponses(
   fetchMock.mockResolvedValueOnce(
     timelineRowsEnvelope([
       timelineRow({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000601",
         rowVersion: 3,
         summary: "Alpha",
         captureState: "reviewed",

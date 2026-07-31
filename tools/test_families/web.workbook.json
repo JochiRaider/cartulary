@@ -2291,6 +2291,7 @@
           "WorkbookShell surface selection passes invalid explicit base surfaces to backend startup fallback",
           "WorkbookShell surface selection rejects generic query envelopes from a different view_schema_id",
           "WorkbookShell surface selection renders saved views only in the active surface selector and preserves selected saved-view identity",
+          "WorkbookShell surface selection retains a created party for explicit link retry after partial completion",
           "WorkbookShell surface selection retains accepted generic rows and marks them stale when refresh fails",
           "WorkbookShell surface selection selects required built-in and system view surfaces by view_schema_id",
           "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",
@@ -2344,7 +2345,7 @@
       "selector": {
         "file": "apps/web/src/workbook/timeline/models/workbookTimelineModel.test.ts",
         "titles": [
-          "workbookTimelineModel builds scalar, collection, evidence, and replay payloads"
+          "workbookTimelineModel builds scalar, collection, and evidence payloads"
         ]
       },
       "evidence_class": "unit",
@@ -2517,6 +2518,32 @@
       "status": "active"
     },
     {
+      "row_id": "web.workbook.regression.workbookz_assessment_creation_controller_2f0f2487ec",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/assessments/useAssessmentCreationController.test.tsx",
+        "titles": [
+          "useAssessmentCreationController rejects invalid drafts locally and ignores late accepted lifecycle completions",
+          "useAssessmentCreationController retains the append-only draft and support selection after rejection"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.workbook.regression.workbookz_conflict_saved_merge_start_8bb0ee5972",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2586,6 +2613,32 @@
       "status": "active"
     },
     {
+      "row_id": "web.workbook.regression.workbookz_entity_merge_controller_lifecycle_7ad8b846c1",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.entities"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/entities/useEntityMergeController.test.tsx",
+        "titles": [
+          "useEntityMergeController owns accepted merge cleanup, refresh, preview, and survivor continuity",
+          "useEntityMergeController rejects a late merge completion after lifecycle authorization changes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.workbook.regression.workbookz_mutation_runtime_common_coalescing_ba2a71e53d",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -2627,7 +2680,11 @@
         "file": "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",
         "titles": [
           "semantic mutation command ports keeps secure transaction identity failure local without transport",
-          "semantic mutation command ports own exact Timeline, generic, entity, assessment, and coordination request identities and payloads"
+          "semantic mutation command ports normalizes entity create, patch, and paste results and rejects malformed success contracts",
+          "semantic mutation command ports normalizes generic same-field conflicts before they reach controllers",
+          "semantic mutation command ports normalizes task lifecycle and decision supersede into owner-specific outcomes",
+          "semantic mutation command ports own exact Timeline, generic, entity, assessment, and coordination request identities and payloads",
+          "semantic mutation command ports validates generated Workbook operation responses and contains public failures"
         ]
       },
       "evidence_class": "unit",

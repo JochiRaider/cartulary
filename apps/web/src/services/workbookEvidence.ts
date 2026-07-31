@@ -1,12 +1,7 @@
 import type {
   ErrorEnvelope,
-  EvidenceAttachBlobEnvelope,
-  EvidenceAttachBlobRequest,
-  EvidenceHandleEnvelope,
-  EvidenceHandleIssueRequest,
   ObjectBlobCreateEnvelope,
   ObjectBlobCreateRequest,
-  ObjectBlobUploadTarget,
 } from "@cartulary/protocol-ts";
 import {
   buildHTTPOperationPath,
@@ -16,30 +11,33 @@ import { publicErrorStatusText } from "../shared/publicError";
 import { apiPath } from "./browserApi";
 import { fetchWorkbookJSON, readEnvelope } from "./workbookApi";
 
-export type EvidenceHandleKind = "preview" | "download";
-
-export type IssuedEvidenceHandle =
+export type EvidenceUploadOutcome =
+  | { readonly kind: "accepted" }
   | {
-      readonly ok: true;
-      readonly filename: string;
-      readonly href: string;
-      readonly previewKind: string | null;
-    }
-  | {
-      readonly ok: false;
+      readonly kind: "rejected";
+      readonly retryable: boolean;
       readonly message: string;
     };
 
-async function uploadObjectBlobTarget(
+export type EvidenceObjectUploadTarget = {
+  readonly headers?: Readonly<Record<string, unknown>> | undefined;
+  readonly href: string;
+  readonly method?: string | undefined;
+};
+
+export async function uploadEvidenceObjectBlobTarget(
   apiBase: string | undefined,
-  uploadTarget: ObjectBlobUploadTarget,
+  uploadTarget: EvidenceObjectUploadTarget,
   file: File,
-): Promise<void> {
+): Promise<EvidenceUploadOutcome> {
   const uploadHref =
     uploadTarget.href.startsWith("/") && apiBase
       ? apiPath(apiBase, uploadTarget.href)
       : uploadTarget.href;
-  const headers = new Headers(uploadTarget.headers ?? undefined);
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(uploadTarget.headers ?? {})) {
+    if (typeof value === "string") headers.set(key, value);
+  }
   let hasContentType = false;
   headers.forEach((_value, key) => {
     if (key.toLowerCase() === "content-type") {
@@ -49,34 +47,48 @@ async function uploadObjectBlobTarget(
   if (!hasContentType) {
     headers.set("Content-Type", file.type || "application/octet-stream");
   }
-  let lastStatus = 0;
-  let lastDetail = "";
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const upload = await fetch(uploadHref, {
-      method: uploadTarget.method ?? "PUT",
-      credentials: "omit",
-      headers,
-      body: file,
-    });
-    if (upload.ok) {
-      return;
+    let upload: Response;
+    try {
+      upload = await fetch(uploadHref, {
+        method: uploadTarget.method ?? "PUT",
+        credentials: "omit",
+        headers,
+        body: file,
+      });
+    } catch {
+      if (attempt < 2) {
+        await sleep(200 * (attempt + 1));
+        continue;
+      }
+      return {
+        kind: "rejected",
+        retryable: true,
+        message: "upload_failed_network",
+      };
     }
-    lastStatus = upload.status;
-    lastDetail = await readUploadFailureDetail(upload);
-    if (attempt < 2 && isRetryableUploadFailure(upload.status, lastDetail)) {
+    if (upload.ok) {
+      return { kind: "accepted" };
+    }
+    const retryable = upload.status === 503 || upload.status === 504;
+    if (attempt < 2 && retryable) {
       await sleep(200 * (attempt + 1));
       continue;
     }
-    break;
+    return {
+      kind: "rejected",
+      retryable,
+      message: `upload_failed_${upload.status}`,
+    };
   }
-  throw new Error(
-    lastDetail === ""
-      ? `upload_failed_${lastStatus}`
-      : `upload_failed_${lastStatus}: ${lastDetail}`,
-  );
+  return {
+    kind: "rejected",
+    retryable: true,
+    message: "upload_failed_network",
+  };
 }
 
-async function createAndUploadEvidenceBlob({
+export async function createUploadedEvidenceObjectBlob({
   apiBase,
   createClientTxnId,
   file,
@@ -113,146 +125,15 @@ async function createAndUploadEvidenceBlob({
   const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
     createBlob.payload,
   );
-  await uploadObjectBlobTarget(apiBase, blobEnvelope.data.upload_target, file);
+  const upload = await uploadEvidenceObjectBlobTarget(
+    apiBase,
+    blobEnvelope.data.upload_target,
+    file,
+  );
+  if (upload.kind === "rejected") {
+    throw new Error(upload.message);
+  }
   return blobEnvelope.data.object_blob_id;
-}
-
-export async function createAndAttachEvidenceBlob({
-  apiBase,
-  attachClientTxnId,
-  baseRowVersion,
-  createClientTxnId,
-  evidenceRecordId,
-  file,
-  incidentId,
-}: {
-  readonly apiBase: string | undefined;
-  readonly attachClientTxnId: () => string;
-  readonly baseRowVersion: number;
-  readonly createClientTxnId: () => string;
-  readonly evidenceRecordId: string;
-  readonly file: File;
-  readonly incidentId: string;
-}): Promise<void> {
-  const objectBlobId = await createAndUploadEvidenceBlob({
-    apiBase,
-    createClientTxnId,
-    file,
-    incidentId,
-  });
-
-  const attachRequest = {
-    object_blob_id: objectBlobId,
-    base_row_version: baseRowVersion,
-    client_txn_id: attachClientTxnId(),
-  } satisfies EvidenceAttachBlobRequest;
-  const attach = await fetchWorkbookJSON<EvidenceAttachBlobEnvelope>(
-    apiPath(
-      apiBase,
-      buildHTTPOperationPath("attachBlobToEvidenceRecord", {
-        record_id: evidenceRecordId,
-      }),
-    ),
-    {
-      method: "POST",
-      body: JSON.stringify(attachRequest),
-    },
-  );
-  if (!attach.ok) {
-    throw new Error(evidencePublicErrorMessage(attach.payload));
-  }
-  if (
-    !validateHTTPOperationResponse("attachBlobToEvidenceRecord", attach.payload)
-      .ok
-  ) {
-    throw new Error("invalid_public_contract_response");
-  }
-}
-
-type EvidenceRowCreateEnvelope = {
-  readonly data: {
-    readonly view_schema_id: string;
-    readonly change_set_id: string;
-    readonly row: {
-      readonly record_id: string;
-      readonly row_version: number;
-      readonly cells: Readonly<Record<string, unknown>>;
-    };
-  };
-};
-
-export async function createEvidenceWithInitialBlob({
-  apiBase,
-  createBlobClientTxnId,
-  createRowClientTxnId,
-  file,
-  incidentId,
-  values,
-  viewSchemaId,
-}: {
-  readonly apiBase: string | undefined;
-  readonly createBlobClientTxnId: () => string;
-  readonly createRowClientTxnId: () => string;
-  readonly file: File;
-  readonly incidentId: string;
-  readonly values: Readonly<Record<string, unknown>>;
-  readonly viewSchemaId: string;
-}): Promise<{ readonly recordId: string; readonly rowVersion: number }> {
-  const objectBlobId = await createAndUploadEvidenceBlob({
-    apiBase,
-    createClientTxnId: createBlobClientTxnId,
-    file,
-    incidentId,
-  });
-  const clientTxnId = createRowClientTxnId();
-  const request = {
-    client_txn_id: clientTxnId,
-    ...values,
-    "evidence.initial_object_blob_id": objectBlobId,
-  };
-  const path = apiPath(
-    apiBase,
-    `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/rows`,
-  );
-  let result:
-    | Awaited<ReturnType<typeof fetchWorkbookJSON<EvidenceRowCreateEnvelope>>>
-    | undefined;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      result = await fetchWorkbookJSON<EvidenceRowCreateEnvelope>(path, {
-        method: "POST",
-        body: JSON.stringify(request),
-      });
-      break;
-    } catch (error) {
-      if (attempt === 1) {
-        throw error;
-      }
-    }
-  }
-  if (result === undefined || !result.ok) {
-    throw new Error(evidencePublicErrorMessage(result?.payload));
-  }
-  const envelope = readEnvelope<EvidenceRowCreateEnvelope>(result.payload);
-  return {
-    recordId: envelope.data.row.record_id,
-    rowVersion: envelope.data.row.row_version,
-  };
-}
-
-async function readUploadFailureDetail(response: Response): Promise<string> {
-  try {
-    return (await response.text()).replace(/\s+/g, " ").slice(0, 300);
-  } catch {
-    return "";
-  }
-}
-
-function isRetryableUploadFailure(status: number, detail: string): boolean {
-  if (status !== 503 && status !== 504) {
-    return false;
-  }
-  return detail === "" || detail.includes('"retryable":true');
 }
 
 function sleep(milliseconds: number): Promise<void> {
@@ -350,60 +231,6 @@ export function evidenceAttachPublicErrorMessage(
     return safeEvidencePublicText(error.message) ?? fallback;
   }
   return safeEvidencePublicText(error) ?? fallback;
-}
-
-export async function issueEvidenceAccessHandle({
-  apiBase,
-  evidenceRecordId,
-  kind,
-}: {
-  readonly apiBase: string | undefined;
-  readonly evidenceRecordId: string;
-  readonly kind: EvidenceHandleKind;
-}): Promise<IssuedEvidenceHandle> {
-  const handleRequest = {} satisfies EvidenceHandleIssueRequest;
-  const operationID =
-    kind === "preview"
-      ? "issueEvidencePreviewHandle"
-      : "issueEvidenceDownloadHandle";
-  const result = await fetchWorkbookJSON<EvidenceHandleEnvelope>(
-    apiPath(
-      apiBase,
-      buildHTTPOperationPath(operationID, {
-        record_id: evidenceRecordId,
-      }),
-    ),
-    { method: "POST", body: JSON.stringify(handleRequest) },
-  );
-  if (!result.ok) {
-    return {
-      ok: false,
-      message: evidencePublicErrorMessage(
-        result.payload,
-        "Evidence access failed.",
-      ),
-    };
-  }
-  if (!validateHTTPOperationResponse(operationID, result.payload).ok) {
-    return {
-      ok: false,
-      message: "Evidence access returned an invalid response.",
-    };
-  }
-  const envelope = readEnvelope<EvidenceHandleEnvelope>(result.payload);
-  const href = resolvePublicEvidenceHandleHref(envelope.data.href);
-  if (href === null) {
-    return {
-      ok: false,
-      message: "Evidence handle is unavailable.",
-    };
-  }
-  return {
-    ok: true,
-    filename: envelope.data.filename,
-    href,
-    previewKind: envelope.data.preview_kind ?? null,
-  };
 }
 
 export function resolvePublicEvidenceHandleHref(href: string): string | null {

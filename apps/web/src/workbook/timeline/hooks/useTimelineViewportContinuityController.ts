@@ -14,6 +14,7 @@ import {
   type ViewportSnapshot,
 } from "../../continuity/gridViewportContinuity";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import {
   advanceTimelineContinuityRender,
   beginTimelineContinuityLifecycle,
@@ -44,18 +45,14 @@ export type TimelineViewportContinuityRequest = {
 export function useTimelineViewportContinuityController({
   gridHandleRef,
   gridShellRef,
-  rowInputRefs,
-  rowInputTestIdsRef,
+  editorDraftRegistry,
   setViewportContinuityRequest,
   viewportContinuityRequest,
   viewportContinuityTokenRef,
 }: {
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
-  readonly rowInputRefs: TimelineMutableRef<
-    Map<string, HTMLInputElement | HTMLTextAreaElement>
-  >;
-  readonly rowInputTestIdsRef: TimelineMutableRef<Map<string, string>>;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly setViewportContinuityRequest: (
     value:
       | TimelineViewportContinuityRequest
@@ -101,7 +98,8 @@ export function useTimelineViewportContinuityController({
 
   const resolveInputElement = useCallback(
     (focusKey: string) => {
-      const selectorTestId = rowInputTestIdsRef.current.get(focusKey) ?? null;
+      const selectorTestId =
+        editorDraftRegistry.inputTestIdForFocusKey(focusKey);
       const selector =
         selectorTestId === null
           ? null
@@ -130,9 +128,9 @@ export function useTimelineViewportContinuityController({
           return fallback;
         }
       }
-      return rowInputRefs.current.get(focusKey) ?? null;
+      return editorDraftRegistry.inputElementForFocusKey(focusKey);
     },
-    [rowInputRefs, rowInputTestIdsRef],
+    [editorDraftRegistry],
   );
 
   const resolveViewportContinuityElement = useCallback(

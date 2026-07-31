@@ -297,10 +297,19 @@ export function latestTimelineWebSocket(): TimelineWebSocketMock | null {
 }
 
 export function successEnvelope(data: unknown, status = 200) {
+  const isWorkbookQuery =
+    data !== null &&
+    typeof data === "object" &&
+    "incident_id" in data &&
+    "view_schema_id" in data &&
+    "rows" in data;
   return new Response(
     JSON.stringify({
       data,
-      meta: { request_id: `req-${status}` },
+      meta: {
+        request_id: `req-${status}`,
+        ...(isWorkbookQuery ? { query: { filters: [], sort: [] } } : {}),
+      },
     }),
     {
       status,
@@ -394,7 +403,7 @@ export function viewRowsEnvelopeForView(
 
 export function timelineRowsEnvelope(
   rows: readonly ReturnType<typeof timelineRow>[],
-  incidentId = "incident-1",
+  incidentId = "10000000-0000-4000-8000-000000000001",
 ) {
   return successEnvelope({
     incident_id: incidentId,

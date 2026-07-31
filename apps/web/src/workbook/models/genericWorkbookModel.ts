@@ -12,6 +12,9 @@ import {
 } from "./workbookSurfaceRegistration";
 
 export type GenericCollectionMode = "add" | "remove";
+export type GenericCreatePayload = Record<string, unknown> & {
+  readonly client_txn_id: string;
+};
 
 const invalidGenericPayloadValue = Symbol("invalid generic payload value");
 
@@ -57,11 +60,11 @@ export function buildGenericCreatePayload(
   contract: ViewContract,
   draft: Record<string, string>,
   clientTxnId: string,
-): Record<string, unknown> | null {
+): GenericCreatePayload | null {
   if (!workbookCreateMinimumSatisfied(contract, draft)) {
     return null;
   }
-  const payload: Record<string, unknown> = { client_txn_id: clientTxnId };
+  const payload: GenericCreatePayload = { client_txn_id: clientTxnId };
   const fields = contract.fields.filter(
     (field) => field.writeKind !== "read_only",
   );

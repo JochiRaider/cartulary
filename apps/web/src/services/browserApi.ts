@@ -30,6 +30,14 @@ export type APIResult<T> = {
   payload: T | { error?: APIError };
 };
 
+export type HTTPOperationResult<T> =
+  | { readonly ok: true; readonly status: number; readonly payload: T }
+  | {
+      readonly ok: false;
+      readonly status: number;
+      readonly payload: { readonly error?: APIError };
+    };
+
 export { csrfCookieName, csrfHeaderName, publicErrorView, readCookie };
 
 export function apiPath(base: string | undefined, path: string): string {
@@ -53,17 +61,29 @@ export async function fetchJSON<T>(
 export async function fetchHTTPOperation<T>(options: {
   apiBase?: string | undefined;
   init?: RequestInit | undefined;
+  onJSONParsed?: (() => void) | undefined;
+  onResponse?: ((response: Response) => void) | undefined;
   operationID: HTTPOperationID;
   pathParameters?: Readonly<Record<string, string | number>> | undefined;
   query?: Readonly<Record<string, HTTPQueryValue>> | undefined;
-}): Promise<APIResult<T>> {
+}): Promise<HTTPOperationResult<T>> {
   const path =
     buildHTTPOperationPath(options.operationID, options.pathParameters) +
     encodeHTTPOperationQuery(options.operationID, options.query);
-  const result = await fetchJSON<T>(
+  const result = (await requestJSON<T>(
     apiPath(options.apiBase, path),
     options.init,
-  );
+    {
+      contentType: "mutations",
+      responseParsing: "content-aware",
+      ...(options.onJSONParsed === undefined
+        ? {}
+        : { onJSONParsed: options.onJSONParsed }),
+      ...(options.onResponse === undefined
+        ? {}
+        : { onResponse: options.onResponse }),
+    },
+  )) as APIResult<T>;
   return validateHTTPOperationResult(options.operationID, result);
 }
 
@@ -74,7 +94,7 @@ export async function fetchMultipartHTTPOperation<T>(options: {
   operationID: HTTPOperationID;
   pathParameters?: Readonly<Record<string, string | number>> | undefined;
   query?: Readonly<Record<string, HTTPQueryValue>> | undefined;
-}): Promise<APIResult<T>> {
+}): Promise<HTTPOperationResult<T>> {
   const path =
     buildHTTPOperationPath(options.operationID, options.pathParameters) +
     encodeHTTPOperationQuery(options.operationID, options.query);
@@ -89,13 +109,21 @@ export async function fetchMultipartHTTPOperation<T>(options: {
 function validateHTTPOperationResult<T>(
   operationID: HTTPOperationID,
   result: APIResult<T>,
-): APIResult<T> {
+): HTTPOperationResult<T> {
   if (!result.ok) {
-    return result;
+    return {
+      ok: false,
+      status: result.status,
+      payload: result.payload as { error?: APIError },
+    };
   }
   const validation = validateHTTPOperationResponse(operationID, result.payload);
   if (validation.ok) {
-    return result;
+    return {
+      ok: true,
+      status: result.status,
+      payload: result.payload as T,
+    };
   }
   return {
     ok: false,

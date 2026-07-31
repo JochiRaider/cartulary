@@ -72,7 +72,7 @@ describe("Timeline workbook payload coverage", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
@@ -112,9 +112,9 @@ describe("Timeline workbook payload coverage", () => {
         successEnvelope(
           {
             view_schema_id: timelineViewSchemaId,
-            change_set_id: "change-set-zero-field",
+            change_set_id: "30000000-0000-4000-8000-000000000001",
             row: timelineRow({
-              recordId: "record-zero",
+              recordId: "20000000-0000-4000-8000-000000000010",
               rowVersion: 1,
               captureState: "rough",
             }),
@@ -129,15 +129,24 @@ describe("Timeline workbook payload coverage", () => {
     });
 
     const committedSummary = await screen.findByTestId(
-      rowCellTestId("record-zero", "timeline.activity_synopsis_text"),
+      rowCellTestId(
+        "20000000-0000-4000-8000-000000000010",
+        "timeline.activity_synopsis_text",
+      ),
     );
     expect(committedSummary.textContent).toBe("—");
     expect(
-      screen.getByTestId(rowCellTestId("record-zero", "timeline.capture_state"))
-        .textContent,
+      screen.getByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000010",
+          "timeline.capture_state",
+        ),
+      ).textContent,
     ).toBe("rough");
     expect(
-      screen.getByTestId(timelineRowVersionTestId("record-zero")).textContent,
+      screen.getByTestId(
+        timelineRowVersionTestId("20000000-0000-4000-8000-000000000010"),
+      ).textContent,
     ).toBe("1");
     expect(
       screen.getByTestId(draftCellTestId("timeline.activity_synopsis_text")),

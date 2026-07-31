@@ -1,5 +1,57 @@
 import type { WorkbookRow } from "./workbookTimelineModel";
 
+export type RecordHistoryRollbackAction =
+  | "change_set"
+  | "history_entry"
+  | "row_restore";
+
+export type RecordHistoryItem = {
+  actor_user_id: string;
+  committed_at: string;
+  history_item_ref: string;
+  operation: string;
+  diff_summary: {
+    summary: string;
+    units: Array<Record<string, unknown>>;
+  };
+  change_set_id: string;
+  reversible: boolean;
+  available_rollback_actions: RecordHistoryRollbackAction[];
+  history_entry_ref?: string;
+  revision_no?: number;
+};
+
+export type RecordHistoryData = {
+  incident_id: string;
+  record_id: string;
+  row_version: number;
+  deleted: boolean;
+  items: RecordHistoryItem[];
+};
+
+export type RecordHistoryState = {
+  recordId: string | null;
+  status: "idle" | "loading" | "ready" | "error";
+  data: RecordHistoryData | null;
+  message: string | null;
+};
+
+export type RowHistoryPendingAction =
+  | {
+      kind: "rollback";
+      action: RecordHistoryRollbackAction;
+      historyItemRef: string;
+      recordId: string;
+      rowVersion: number | null;
+      target: Record<string, unknown>;
+    }
+  | {
+      kind: "destructive";
+      operation: "delete" | "restore";
+      recordId: string;
+      rowVersion: number | null;
+    };
+
 export type TimelineInspectorHistorySubject =
   | {
       readonly kind: "live";

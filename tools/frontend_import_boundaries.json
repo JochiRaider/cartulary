@@ -141,7 +141,10 @@
       "allowed_importers": [
         "apps/web/src/app/api/**",
         "apps/web/src/collaboration/**",
-        "apps/web/src/services/**"
+        "apps/web/src/services/**",
+        "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.ts",
+        "apps/web/src/workbook/mutations/workbookOperationExecutor.ts",
+        "apps/web/src/workbook/timeline/adapters/**"
       ],
       "restricted_imports": [
         {
@@ -509,6 +512,94 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/timeline/hooks"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-workflow-transport-boundary",
+      "level": "error",
+      "message": "Timeline presentation and workflow owners must consume semantic ports instead of browser services or protocol envelopes.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/timeline/bulk/**",
+          "apps/web/src/workbook/timeline/collaboration/**",
+          "apps/web/src/workbook/timeline/components/**",
+          "apps/web/src/workbook/timeline/editing/**",
+          "apps/web/src/workbook/timeline/hooks/**",
+          "apps/web/src/workbook/timeline/mutations/**"
+        ],
+        "exclude": [
+          "apps/web/src/**/*.test.ts",
+          "apps/web/src/**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@cartulary/protocol-ts",
+          "include_subpaths": true
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/services"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-lower-layers-no-components",
+      "level": "error",
+      "message": "Timeline adapters, workflows, models, mutations, and ports must not depend back on Timeline presentation components.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/timeline/adapters/**",
+          "apps/web/src/workbook/timeline/bulk/**",
+          "apps/web/src/workbook/timeline/collaboration/**",
+          "apps/web/src/workbook/timeline/editing/**",
+          "apps/web/src/workbook/timeline/hooks/**",
+          "apps/web/src/workbook/timeline/models/**",
+          "apps/web/src/workbook/timeline/mutations/**",
+          "apps/web/src/workbook/timeline/ports/**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/components"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-adapter-no-workflow-back-edge",
+      "level": "error",
+      "message": "Timeline protocol adapters may depend on semantic models and ports but must not import workflow state or presentation owners.",
+      "applies_to": {
+        "include": ["apps/web/src/workbook/timeline/adapters/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/bulk"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/collaboration"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/editing"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/hooks"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/timeline/mutations"
         }
       ]
     },

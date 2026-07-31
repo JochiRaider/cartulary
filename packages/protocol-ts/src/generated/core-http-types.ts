@@ -7,6 +7,30 @@
 export type DensityMode = "compact" | "default" | "comfortable";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CreateViewRowRequestBody".
+ */
+export type CreateViewRowRequestBody =
+  | TimelineCreateRequest
+  | HostCreateRequest
+  | IdentityCreateRequest
+  | IndicatorCreateRequest
+  | AssessmentCreateRequest
+  | EvidenceCreateRequest
+  | NoteCreateRequest
+  | TaskRequestCreateRequest
+  | DecisionCreateRequest
+  | PartyCreateRequest
+  | CommLogCreateRequest
+  | HandoffCreateRequest
+  | StatusReviewCreateRequest
+  | LessonCreateRequest;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SheetRef".
+ */
+export type SheetRef = ViewSchemaSheetRef | SavedViewSheetRef | ExtensionWorkspaceSheetRef;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EvidenceAttachBlobData".
  */
 export type EvidenceAttachBlobData = ViewMutationDataFields & {
@@ -58,6 +82,65 @@ export type JobScope = {
   incident_id?: string;
   kind: "deployment" | "incident";
 };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordPatchChange".
+ */
+export type RecordPatchChange = {
+  action_payload?: CollectionActionsV1;
+  field_key: string;
+  value?: unknown;
+} & RecordPatchChange1;
+export type RecordPatchChange1 = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackTarget".
+ */
+export type RecordRollbackTarget =
+  RecordRollbackHistoryEntryTarget | RecordRollbackChangeSetTarget | RecordRollbackRowRestoreTarget;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ResolveRecordSameFieldConflictResponseBody".
+ */
+export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | RecordConflictClearEnvelope;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewMutationData".
+ */
+export type ViewMutationData = ViewMutationDataFields;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SupersedeRecordResponseBody".
+ */
+export type SupersedeRecordResponseBody = TimelineActionEnvelope | DecisionSupersedeEnvelope;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookClipboardPasteTarget".
+ */
+export type WorkbookClipboardPasteTarget =
+  | {
+      kind: "create";
+    }
+  | {
+      base_row_version: number;
+      kind: "record";
+      /**
+       * Active record in the path incident for the addressed workbook view. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation.
+       */
+      record_id: string;
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewScope".
+ */
+export type SavedViewScope = "private" | "shared" | "system";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookStartupSource".
+ */
+export type WorkbookStartupSource = "explicit" | "home" | "default" | "timeline";
 
 export interface HttpsContractsCartularyLocalGeneratedCoreHttpV1 {
   [k: string]: unknown;
@@ -181,6 +264,432 @@ export interface AdministrativeAuditChange {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineCreateRequest".
+ */
+export interface TimelineCreateRequest {
+  client_txn_id: string;
+  "timeline.activity_local_text"?: string | null;
+  "timeline.activity_synopsis_text"?: string | null;
+  "timeline.activity_utc_text"?: string | null;
+  "timeline.analyst_text"?: string | null;
+  "timeline.attached_evidence_ids"?: CollectionActionsV1;
+  "timeline.data_source_text"?: string | null;
+  "timeline.date_entered_text"?: string | null;
+  "timeline.device_object_text"?: string | null;
+  "timeline.host_refs"?: CollectionActionsV1;
+  "timeline.identity_refs"?: CollectionActionsV1;
+  "timeline.ip_address_text"?: string | null;
+  "timeline.mitre_stage_text"?: string | null;
+  "timeline.raw_activity_text"?: string | null;
+  "timeline.tags"?: CollectionActionsV1;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionActionsV1".
+ */
+export interface CollectionActionsV1 {
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  actions: [
+    (
+      | CollectionAddTokenAction
+      | CollectionAddAliasAction
+      | CollectionRemoveAliasAction
+      | CollectionAddTagAction
+      | CollectionRemoveTagAction
+      | CollectionAddRecordRefAction
+      | CollectionRemoveRecordRefAction
+      | CollectionAddPartyRefAction
+      | CollectionRemovePartyRefAction
+      | CollectionAddRiskRefAction
+      | CollectionRemoveRiskRefAction
+    ),
+    ...(
+      | CollectionAddTokenAction
+      | CollectionAddAliasAction
+      | CollectionRemoveAliasAction
+      | CollectionAddTagAction
+      | CollectionRemoveTagAction
+      | CollectionAddRecordRefAction
+      | CollectionRemoveRecordRefAction
+      | CollectionAddPartyRefAction
+      | CollectionRemovePartyRefAction
+      | CollectionAddRiskRefAction
+      | CollectionRemoveRiskRefAction
+    )[]
+  ];
+  kind: "collection_actions_v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddTokenAction".
+ */
+export interface CollectionAddTokenAction {
+  op: "add_token";
+  raw_text: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddAliasAction".
+ */
+export interface CollectionAddAliasAction {
+  alias_text: string;
+  op: "add_alias";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRemoveAliasAction".
+ */
+export interface CollectionRemoveAliasAction {
+  item_ref: string;
+  op: "remove_alias";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddTagAction".
+ */
+export interface CollectionAddTagAction {
+  op: "add_tag";
+  tag_name: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRemoveTagAction".
+ */
+export interface CollectionRemoveTagAction {
+  item_ref: string;
+  op: "remove_tag";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddRecordRefAction".
+ */
+export interface CollectionAddRecordRefAction {
+  linked_record_id: string;
+  op: "add_record_ref";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRemoveRecordRefAction".
+ */
+export interface CollectionRemoveRecordRefAction {
+  item_ref: string;
+  op: "remove_record_ref";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddPartyRefAction".
+ */
+export interface CollectionAddPartyRefAction {
+  op: "add_party_ref";
+  party_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRemovePartyRefAction".
+ */
+export interface CollectionRemovePartyRefAction {
+  item_ref: string;
+  op: "remove_party_ref";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddRiskRefAction".
+ */
+export interface CollectionAddRiskRefAction {
+  op: "add_risk_ref";
+  risk_ref_text: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRemoveRiskRefAction".
+ */
+export interface CollectionRemoveRiskRefAction {
+  item_ref: string;
+  op: "remove_risk_ref";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "HostCreateRequest".
+ */
+export interface HostCreateRequest {
+  client_txn_id: string;
+  "host.aad_device_id"?: string;
+  "host.aliases"?: CollectionActionsV1;
+  "host.business_owner"?: string;
+  "host.containment_status"?: string;
+  "host.criticality"?: string;
+  "host.display_name"?: string;
+  "host.fqdn"?: string;
+  "host.host_state"?: string;
+  "host.hostname"?: string;
+  "host.location"?: string;
+  "host.os_platform"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IdentityCreateRequest".
+ */
+export interface IdentityCreateRequest {
+  client_txn_id: string;
+  "identity.aad_object_id"?: string;
+  "identity.aliases"?: CollectionActionsV1;
+  "identity.display_name"?: string;
+  "identity.email"?: string;
+  "identity.identity_state"?: string;
+  "identity.mfa_state"?: string;
+  "identity.privilege_level"?: string;
+  "identity.reset_status"?: string;
+  "identity.sam_account_name"?: string;
+  "identity.sid"?: string;
+  "identity.upn"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorCreateRequest".
+ */
+export interface IndicatorCreateRequest {
+  client_txn_id: string;
+  "indicator.defanged_value"?: string;
+  "indicator.display_value"?: string;
+  "indicator.hash_algorithm"?: string;
+  "indicator.hash_value"?: string;
+  "indicator.indicator_type"?: string;
+  "indicator.normalized_value"?: string;
+  "indicator.stix_pattern"?: string;
+  "indicator.value_kind"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AssessmentCreateRequest".
+ */
+export interface AssessmentCreateRequest {
+  "assessment.assessed_at"?: string;
+  "assessment.assessment_state": "unknown" | "suspected" | "confirmed" | "disproven" | "cleared";
+  "assessment.assessor"?: string;
+  "assessment.confidence_score"?: number | null;
+  "assessment.rationale": string;
+  "assessment.subject_ref": string;
+  "assessment.subject_type": "host" | "identity";
+  "assessment.support_refs"?: AssessmentSupportRefCreateActionsV1;
+  client_txn_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AssessmentSupportRefCreateActionsV1".
+ */
+export interface AssessmentSupportRefCreateActionsV1 {
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  actions: [AssessmentSupportRefAddAction, ...AssessmentSupportRefAddAction[]];
+  kind: "collection_actions_v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "AssessmentSupportRefAddAction".
+ */
+export interface AssessmentSupportRefAddAction {
+  linked_record_id: string;
+  op: "add_record_ref";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceCreateRequest".
+ */
+export interface EvidenceCreateRequest {
+  client_txn_id: string;
+  "evidence.collector_party_id"?: string | null;
+  "evidence.collector_party_text"?: string;
+  "evidence.initial_object_blob_id"?: string;
+  "evidence.lifecycle_state"?: "requested" | "pending_receipt" | "received" | "available" | "quarantined" | "released";
+  "evidence.received_at"?: string | null;
+  "evidence.requested_at"?: string | null;
+  "evidence.source_party_id"?: string | null;
+  "evidence.source_party_text"?: string;
+  "evidence.storage_ref"?: string;
+  "evidence.title"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "NoteCreateRequest".
+ */
+export interface NoteCreateRequest {
+  client_txn_id: string;
+  "note.body"?: string;
+  "note.tags"?: CollectionActionsV1;
+  "note.title"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TaskRequestCreateRequest".
+ */
+export interface TaskRequestCreateRequest {
+  client_txn_id: string;
+  "task.blocked_reason"?: string;
+  "task.closure_summary"?: string;
+  "task.completed_at"?: string;
+  "task.decision_record_id"?: string;
+  "task.due_at"?: string;
+  "task.external_ticket_ref"?: string;
+  "task.linked_record_ids"?: CollectionActionsV1;
+  "task.owner_user_id"?: string;
+  "task.priority"?: string;
+  "task.requester_party_id"?: string;
+  "task.requester_party_text"?: string;
+  "task.status"?: string;
+  "task.task_kind"?: string;
+  "task.title"?: string;
+  "task.workstream"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DecisionCreateRequest".
+ */
+export interface DecisionCreateRequest {
+  client_txn_id: string;
+  "decision.affected_record_ids"?: CollectionActionsV1;
+  "decision.decided_at"?: string;
+  "decision.decision_type"?: string;
+  "decision.owner_user_id"?: string;
+  "decision.rationale"?: string;
+  "decision.status"?: string;
+  "decision.summary"?: string;
+  "decision.support_refs"?: CollectionActionsV1;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "PartyCreateRequest".
+ */
+export interface PartyCreateRequest {
+  client_txn_id: string;
+  "party.display_name"?: string;
+  "party.external_ref"?: string;
+  "party.notes"?: string;
+  "party.organization_name"?: string;
+  "party.party_kind"?: "person" | "team" | "organization" | "distribution_list" | "other";
+  "party.primary_email"?: string;
+  "party.role_title"?: string;
+  "party.timezone_name"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CommLogCreateRequest".
+ */
+export interface CommLogCreateRequest {
+  client_txn_id: string;
+  "comm_log.action_task_ids"?: CollectionActionsV1;
+  "comm_log.attendee_party_ids"?: CollectionActionsV1;
+  "comm_log.audience"?: string;
+  "comm_log.audience_party_ids"?: CollectionActionsV1;
+  "comm_log.channel_or_meeting"?: string;
+  "comm_log.comm_type"?: "meeting" | "notification" | "approval" | "briefing" | "handoff";
+  "comm_log.decision_ids"?: CollectionActionsV1;
+  "comm_log.next_report_at"?: string | null;
+  "comm_log.privilege_tag"?: string;
+  "comm_log.summary"?: string;
+  "comm_log.timestamp_utc"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "HandoffCreateRequest".
+ */
+export interface HandoffCreateRequest {
+  client_txn_id: string;
+  "handoff.acknowledged_at"?: string | null;
+  "handoff.current_state_summary"?: string;
+  "handoff.incoming_owner_user_id"?: string;
+  "handoff.next_checks"?: string;
+  "handoff.open_decision_ids"?: CollectionActionsV1;
+  "handoff.open_risk_refs"?: CollectionActionsV1;
+  "handoff.open_task_ids"?: CollectionActionsV1;
+  "handoff.outgoing_owner_user_id"?: string;
+  "handoff.timestamp_utc"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "StatusReviewCreateRequest".
+ */
+export interface StatusReviewCreateRequest {
+  client_txn_id: string;
+  "status_review.active_risks_summary"?: string;
+  "status_review.blocked_task_ids"?: CollectionActionsV1;
+  "status_review.current_state_summary"?: string;
+  "status_review.next_report_at"?: string | null;
+  "status_review.open_decision_ids"?: CollectionActionsV1;
+  "status_review.pending_evidence_ids"?: CollectionActionsV1;
+  "status_review.review_owner_user_id"?: string;
+  "status_review.timestamp_utc"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LessonCreateRequest".
+ */
+export interface LessonCreateRequest {
+  client_txn_id: string;
+  "lesson.closure_state"?: "open" | "closed";
+  "lesson.evidence_refs"?: CollectionActionsV1;
+  "lesson.follow_up_task_ids"?: CollectionActionsV1;
+  "lesson.owner_user_id"?: string;
+  "lesson.summary"?: string;
+  "lesson.timestamp_utc"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DefaultWorkbookPreferencesEnvelope".
+ */
+export interface DefaultWorkbookPreferencesEnvelope {
+  data: DefaultWorkbookPreferencesResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DefaultWorkbookPreferencesResource".
+ */
+export interface DefaultWorkbookPreferencesResource {
+  created_at: string;
+  default_sheet_ref: SheetRef | null;
+  incident_id: string;
+  updated_at: string;
+  updated_by_user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewSchemaSheetRef".
+ */
+export interface ViewSchemaSheetRef {
+  id: string;
+  kind: "view_schema";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewSheetRef".
+ */
+export interface SavedViewSheetRef {
+  id: string;
+  kind: "saved_view";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionWorkspaceSheetRef".
+ */
+export interface ExtensionWorkspaceSheetRef {
+  extension_profile_id: string;
+  kind: "extension_workspace";
+  workspace_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DefaultWorkbookPreferencesPutRequest".
+ */
+export interface DefaultWorkbookPreferencesPutRequest {
+  default_sheet_ref: SheetRef | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "DeploymentUserCreateRequest".
  */
 export interface DeploymentUserCreateRequest {
@@ -284,7 +793,10 @@ export interface ViewMutationDataFields {
     | "cartulary.view.comm_log.v1"
     | "cartulary.view.handoff.v1"
     | "cartulary.view.status_review.v1"
-    | "cartulary.view.lesson.v1";
+    | "cartulary.view.lesson.v1"
+    | "cartulary.view.findings.v1"
+    | "cartulary.view.investigative_queries.v1"
+    | "cartulary.view.forensic_keywords.v1";
   [k: string]: unknown;
 }
 /**
@@ -747,6 +1259,68 @@ export interface JobResourceRef {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LinkedNoteCreateRequest".
+ */
+export interface LinkedNoteCreateRequest {
+  client_txn_id: string;
+  "note.body"?: string;
+  "note.tags"?: CollectionActionsV1;
+  "note.title"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "MentionActionEnvelope".
+ */
+export interface MentionActionEnvelope {
+  data: MentionActionData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "MentionActionData".
+ */
+export interface MentionActionData {
+  active_link?: {
+    [k: string]: unknown;
+  } | null;
+  change_set_id: string;
+  entity_mention: EntityMentionResource;
+  incident_id: string;
+  source_record: MentionSourceRecordResource;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EntityMentionResource".
+ */
+export interface EntityMentionResource {
+  entity_mention_id: string;
+  resolution_status: string;
+  resolved_record_id: string | null;
+  row_version: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "MentionSourceRecordResource".
+ */
+export interface MentionSourceRecordResource {
+  record_id: string;
+  row_version: number;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "MentionActionRequest".
+ */
+export interface MentionActionRequest {
+  action: "resolve_item" | "dismiss_item" | "revert_to_unresolved";
+  base_mention_row_version: number;
+  client_txn_id: string;
+  reason?: string | null;
+  resolved_record_id?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ObjectBlobCreateEnvelope".
  */
 export interface ObjectBlobCreateEnvelope {
@@ -803,6 +1377,255 @@ export interface ObjectBlobCreateRequest {
   filename_hint?: string | null;
   incident_id: string;
   sha256_hex?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordConflictResolveRequest".
+ */
+export interface RecordConflictResolveRequest {
+  client_txn_id: string;
+  conflict_token: string;
+  resolution_kind: "keep_saved" | "use_unsaved" | "merged_value";
+  resolved_value?: (string | null) | CollectionActionsV1;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordDeleteRestoreEnvelope".
+ */
+export interface RecordDeleteRestoreEnvelope {
+  data: RecordDeleteRestoreData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordDeleteRestoreData".
+ */
+export interface RecordDeleteRestoreData {
+  change_set_id: string;
+  deleted: boolean;
+  deleted_at: string | null;
+  deleted_by_user_id: string | null;
+  incident_id: string;
+  record_id: string;
+  row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordDeleteRestoreRequest".
+ */
+export interface RecordDeleteRestoreRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryEnvelope".
+ */
+export interface RecordHistoryEnvelope {
+  data: RecordHistoryData;
+  meta: RecordHistoryEnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryData".
+ */
+export interface RecordHistoryData {
+  deleted: boolean;
+  incident_id: string;
+  items: RecordHistoryItem[];
+  record_id: string;
+  row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryItem".
+ */
+export interface RecordHistoryItem {
+  actor_user_id: string;
+  available_rollback_actions: ("history_entry" | "change_set" | "row_restore")[];
+  change_set_id: string;
+  committed_at: string;
+  diff_summary: RecordHistoryDiffSummary;
+  history_entry_ref?: string;
+  history_item_ref: string;
+  operation: string;
+  reversible: boolean;
+  revision_no?: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryDiffSummary".
+ */
+export interface RecordHistoryDiffSummary {
+  summary: string;
+  units: {
+    [k: string]: unknown;
+  }[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordHistoryEnvelopeMeta".
+ */
+export interface RecordHistoryEnvelopeMeta {
+  paging: PagingMeta;
+  request_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordMergeEnvelope".
+ */
+export interface RecordMergeEnvelope {
+  data: RecordMergeData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordMergeData".
+ */
+export interface RecordMergeData {
+  change_set_id: string;
+  incident_id: string;
+  loser_record_id: string;
+  loser_row_version: number;
+  merge_summary: RecordMergeSummary;
+  merged_into_record_id: string;
+  record_type: "host" | "identity";
+  survivor_record_id: string;
+  survivor_row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordMergeSummary".
+ */
+export interface RecordMergeSummary {
+  deduped_link_count: number;
+  deduped_tag_count: number;
+  exact_match_classes: RecordMergeExactMatchClassSummary[];
+  provenance_only_retained_count: number;
+  record_type: string;
+  repointed_assessment_count: number;
+  repointed_link_count: number;
+  repointed_mention_resolution_count: number;
+  repointed_tag_count: number;
+  suggestion_alias_duplicate_noop_count: number;
+  suggestion_aliases_copied_count: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordMergeExactMatchClassSummary".
+ */
+export interface RecordMergeExactMatchClassSummary {
+  blocked_conflict_count: number;
+  carried_count: number;
+  duplicate_noop_count: number;
+  identifier_class: string;
+  promoted_count: number;
+  provenance_only_count: number;
+  suggestion_only_count: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordMergeRequest".
+ */
+export interface RecordMergeRequest {
+  client_txn_id: string;
+  loser_base_row_version: number;
+  loser_record_id: string;
+  reason?: string | null;
+  survivor_base_row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordPatchRequest".
+ */
+export interface RecordPatchRequest {
+  base_row_version: number;
+  /**
+   * @minItems 1
+   */
+  changes: [RecordPatchChange, ...RecordPatchChange[]];
+  client_txn_id: string;
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackEnvelope".
+ */
+export interface RecordRollbackEnvelope {
+  data: RecordRollbackData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackData".
+ */
+export interface RecordRollbackData {
+  affected_record_ids: string[];
+  incident_id: string;
+  record_id: string;
+  rollback_change_set_id: string;
+  row_version: number;
+  target: RecordRollbackTarget;
+  target_change_set_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackHistoryEntryTarget".
+ */
+export interface RecordRollbackHistoryEntryTarget {
+  history_entry_ref: string;
+  kind: "history_entry";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackChangeSetTarget".
+ */
+export interface RecordRollbackChangeSetTarget {
+  change_set_id: string;
+  kind: "change_set";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackRowRestoreTarget".
+ */
+export interface RecordRollbackRowRestoreTarget {
+  kind: "row_restore";
+  restore_to_revision_no: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordRollbackRequest".
+ */
+export interface RecordRollbackRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  reason?: string | null;
+  target: RecordRollbackTarget;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewMutationEnvelope".
+ */
+export interface ViewMutationEnvelope {
+  data: ViewMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordConflictClearEnvelope".
+ */
+export interface RecordConflictClearEnvelope {
+  data: RecordConflictClearData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "RecordConflictClearData".
+ */
+export interface RecordConflictClearData {
+  row: ViewRow;
+  view_schema_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -915,6 +1738,125 @@ export interface SessionRevocationResource {
   revoked_at: string;
   sessions_revoked: true;
   user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineActionEnvelope".
+ */
+export interface TimelineActionEnvelope {
+  data: TimelineActionData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineActionData".
+ */
+export interface TimelineActionData {
+  capture_state: string;
+  change_set_id: string;
+  incident_id: string;
+  reason: string | null;
+  record_id: string;
+  replacement_record_id: string | null;
+  row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DecisionSupersedeEnvelope".
+ */
+export interface DecisionSupersedeEnvelope {
+  data: DecisionSupersedeData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "DecisionSupersedeData".
+ */
+export interface DecisionSupersedeData {
+  change_set_id: string;
+  reason: string;
+  superseding_record_id: string;
+  superseding_row_version: number;
+  target_record_id: string;
+  target_row_version: number;
+  target_status: string;
+  view_schema_id: "cartulary.view.decisions.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineActionRequest".
+ */
+export interface TimelineActionRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineSupersedeRequest".
+ */
+export interface TimelineSupersedeRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  reason: string;
+  replacement_record_id?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineTimeConversionProfileEnvelope".
+ */
+export interface TimelineTimeConversionProfileEnvelope {
+  data: TimelineTimeConversionProfile;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineTimeConversionProfile".
+ */
+export interface TimelineTimeConversionProfile {
+  enabled: boolean;
+  incident_id: string;
+  local_label: string | null;
+  local_offset_minutes: number | null;
+  profile_version: number;
+  updated_at: string;
+  updated_by_user_id: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "TimelineTimeConversionProfilePutRequest".
+ */
+export interface TimelineTimeConversionProfilePutRequest {
+  base_profile_version: number;
+  enabled: boolean;
+  local_label: string | null;
+  local_offset_minutes: number | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "UserWorkbookPreferencesEnvelope".
+ */
+export interface UserWorkbookPreferencesEnvelope {
+  data: UserWorkbookPreferencesResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "UserWorkbookPreferencesResource".
+ */
+export interface UserWorkbookPreferencesResource {
+  created_at: string;
+  home_sheet_ref: SheetRef | null;
+  incident_id: string;
+  updated_at: string;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "UserWorkbookPreferencesPutRequest".
+ */
+export interface UserWorkbookPreferencesPutRequest {
+  home_sheet_ref: SheetRef | null;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -3220,4 +4162,229 @@ export interface ViewSchemaListEnvelope {
  */
 export interface ViewSchemaListData {
   view_schemas: ViewSchemaResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookBatchMutationEnvelope".
+ */
+export interface WorkbookBatchMutationEnvelope {
+  data: WorkbookBatchMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookBatchMutationData".
+ */
+export interface WorkbookBatchMutationData {
+  change_set_id?: string;
+  conflicts?: {
+    [k: string]: unknown;
+  }[];
+  rows: ViewRow[];
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookBulkMutationRequest".
+ */
+export interface WorkbookBulkMutationRequest {
+  client_txn_id: string;
+  field_key?: string;
+  kind: "fill_down_v1" | "multi_row_tag_assignment_v1";
+  tag_name?: string;
+  /**
+   * @minItems 1
+   * @maxItems 500
+   */
+  targets: [WorkbookBulkMutationTarget, ...WorkbookBulkMutationTarget[]];
+  value?: string;
+  view_schema_id: "cartulary.view.timeline.v2";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookBulkMutationTarget".
+ */
+export interface WorkbookBulkMutationTarget {
+  base_row_version: number;
+  /**
+   * Active Timeline record in the path incident. Foreign-incident, deleted, wrong-view, or wrong-type records fail before row-version evaluation.
+   */
+  record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookClipboardPasteRequest".
+ */
+export interface WorkbookClipboardPasteRequest {
+  client_txn_id: string;
+  clipboard_text: string;
+  /**
+   * @minItems 1
+   * @maxItems 64
+   */
+  columns: [string, ...string[]];
+  format?: "auto" | "tsv" | "csv";
+  start_field_key: string;
+  /**
+   * @minItems 1
+   * @maxItems 500
+   */
+  targets: [WorkbookClipboardPasteTarget, ...WorkbookClipboardPasteTarget[]];
+  view_schema_id: "cartulary.view.timeline.v2" | "cartulary.view.hosts.v1" | "cartulary.view.identities.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryEnvelope".
+ */
+export interface WorkbookQueryEnvelope {
+  data: WorkbookQueryData;
+  meta: WorkbookQueryMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryData".
+ */
+export interface WorkbookQueryData {
+  incident_id: string;
+  rows: ViewRow[];
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryMeta".
+ */
+export interface WorkbookQueryMeta {
+  paging?: PagingMeta;
+  query: WorkbookQueryMetaQuery;
+  request_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryMetaQuery".
+ */
+export interface WorkbookQueryMetaQuery {
+  filters: ViewQueryFilter[];
+  group_by?: string;
+  sort: SortEntry[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewQueryFilter".
+ */
+export interface ViewQueryFilter {
+  arg: {
+    [k: string]: unknown;
+  };
+  field_key: string;
+  op: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookQueryRequest".
+ */
+export interface WorkbookQueryRequest {
+  cursor_token?: string;
+  filters?: ViewQueryFilter[];
+  group_by?: string;
+  limit?: number;
+  sort?: SortEntry[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookStartupEnvelope".
+ */
+export interface WorkbookStartupEnvelope {
+  data: WorkbookStartupResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookStartupResource".
+ */
+export interface WorkbookStartupResource {
+  cleared_pointers: WorkbookStartupClearedPointer[];
+  default_sheet_ref: SheetRef | null;
+  extension_workspace_availability: ExtensionWorkspaceAvailability;
+  home_sheet_ref: SheetRef | null;
+  incident_id: string;
+  selected_saved_view: SavedViewResource | null;
+  selected_sheet_ref: SheetRef;
+  selected_view_schema_id: string | null;
+  source: WorkbookStartupSource;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "WorkbookStartupClearedPointer".
+ */
+export interface WorkbookStartupClearedPointer {
+  /**
+   * Current-profile emitted values are drawn from the workbook-startup cleared-pointer registry: invalid_sheet_ref, unsupported_sheet_ref_kind, unknown_view_schema, invalid_saved_view_id, saved_view_not_found, saved_view_not_visible, required_reference_pack_unavailable, invalid_extension_profile_id, invalid_extension_workspace_key, extension_profile_not_claimed, extension_workspace_unavailable, extension_workspace_not_visible.
+   */
+  reason_code: string;
+  sheet_ref: SheetRef;
+  source: "home" | "default";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionWorkspaceAvailability".
+ */
+export interface ExtensionWorkspaceAvailability {
+  incident_id: string;
+  schema_id: "cartulary.extension_workspace_availability.v1";
+  /**
+   * @maxItems 64
+   */
+  workspaces: ExtensionWorkspaceAvailabilityRow[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ExtensionWorkspaceAvailabilityRow".
+ */
+export interface ExtensionWorkspaceAvailabilityRow {
+  extension_profile_id: string;
+  workspace_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewResource".
+ */
+export interface SavedViewResource {
+  created_at: string;
+  display_name: string;
+  incident_id: string;
+  layout_json: SavedViewLayoutJSON;
+  owner_user_id: string | null;
+  query_json: SavedViewQueryJSON;
+  saved_view_id: string;
+  saved_view_version: number;
+  scope: SavedViewScope;
+  updated_at: string;
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewLayoutJSON".
+ */
+export interface SavedViewLayoutJSON {
+  column_order: string[];
+  column_widths: SavedViewColumnWidth[];
+  hidden_field_keys: string[];
+  layout_schema_id: "cartulary.layout.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewColumnWidth".
+ */
+export interface SavedViewColumnWidth {
+  field_key: string;
+  width_px: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewQueryJSON".
+ */
+export interface SavedViewQueryJSON {
+  filters: ViewQueryFilter[];
+  group_by?: string;
+  sort: SortEntry[];
 }

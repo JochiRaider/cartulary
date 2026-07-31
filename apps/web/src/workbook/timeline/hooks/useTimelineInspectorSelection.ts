@@ -23,7 +23,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
   RecordHistoryState,
   RowHistoryPendingAction,
-} from "../components/TimelineHistoryPanel";
+} from "../models/timelineHistoryModel";
 import {
   buildInspectorMentions,
   type DismissedMention,

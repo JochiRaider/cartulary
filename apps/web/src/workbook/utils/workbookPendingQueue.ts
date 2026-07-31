@@ -7,7 +7,6 @@ import { parseSameFieldConflictFields } from "../runtime/workbookConflictModel";
 export const pendingReplayCapacity = 64;
 
 export type PendingReplayKind = "create" | "patch";
-export type PendingReplayMethod = "POST" | "PATCH";
 export type PendingReplaySource = "autosave" | "paste";
 export type PendingReplayStatus = "queued" | "in_flight";
 export type PendingReplayPayloadIntent = Record<string, unknown>;
@@ -53,8 +52,6 @@ export type PendingReplayUnitBase = {
   viewSchemaId: string;
   rowKey: string;
   recordId: string | null;
-  method: PendingReplayMethod;
-  path: string;
   payloadIntent: PendingReplayPayloadIntent;
   clientTxnId: string;
   coalesceKey: string;
@@ -75,10 +72,8 @@ export type PendingReplayCanonicalChange = Record<string, unknown> & {
 
 export type PendingReplayCreateIdentity = {
   kind: "create";
-  method: "POST";
   route_scope: {
     incident_id: string;
-    path: string;
     view_schema_id: string;
   };
   client_txn_id: string;
@@ -86,9 +81,7 @@ export type PendingReplayCreateIdentity = {
 
 export type PendingReplayPatchIdentity = {
   kind: "patch";
-  method: "PATCH";
   route_scope: {
-    path: string;
     record_id: string;
   };
   record_id: string;
@@ -603,8 +596,6 @@ function buildPendingReplayMutationIdentity(
     | "clientTxnId"
     | "incidentId"
     | "kind"
-    | "method"
-    | "path"
     | "payloadIntent"
     | "recordId"
     | "viewSchemaId"
@@ -613,10 +604,8 @@ function buildPendingReplayMutationIdentity(
   if (unit.kind === "create") {
     return {
       kind: "create",
-      method: "POST",
       route_scope: {
         incident_id: unit.incidentId,
-        path: unit.path,
         view_schema_id: unit.viewSchemaId,
       },
       client_txn_id: unit.clientTxnId,
@@ -626,9 +615,7 @@ function buildPendingReplayMutationIdentity(
   const baseRowVersion = unit.payloadIntent.base_row_version;
   return {
     kind: "patch",
-    method: "PATCH",
     route_scope: {
-      path: unit.path,
       record_id: unit.recordId ?? "",
     },
     record_id: unit.recordId ?? "",
@@ -646,14 +633,12 @@ function cloneIdentity(
   if (identity.kind === "create") {
     return {
       kind: "create",
-      method: "POST",
       route_scope: { ...identity.route_scope },
       client_txn_id: identity.client_txn_id,
     };
   }
   return {
     kind: "patch",
-    method: "PATCH",
     route_scope: { ...identity.route_scope },
     record_id: identity.record_id,
     client_txn_id: identity.client_txn_id,
@@ -676,8 +661,6 @@ function cloneUnit(unit: PendingReplayUnitState): PendingReplayUnitState {
     viewSchemaId: unit.viewSchemaId,
     rowKey: unit.rowKey,
     recordId: unit.recordId,
-    method: unit.method,
-    path: unit.path,
     payloadIntent: cloneJSONRecord(unit.payloadIntent),
     clientTxnId: unit.clientTxnId,
     mutationSignature: unit.mutationSignature,
@@ -703,9 +686,20 @@ function normalizeUnit(input: PendingReplayUnitInput): PendingReplayUnitState {
     viewSchemaId: input.viewSchemaId,
     rowKey: input.rowKey,
     recordId: input.recordId,
-    method: input.method,
-    path: input.path,
-    payloadIntent: cloneJSONRecord(input.payloadIntent),
+    payloadIntent:
+      input.kind === "create"
+        ? Object.fromEntries(
+            Object.entries(input.payloadIntent).filter(
+              ([key]) => key !== "client_txn_id",
+            ),
+          )
+        : {
+            base_row_version:
+              typeof input.payloadIntent.base_row_version === "number"
+                ? input.payloadIntent.base_row_version
+                : null,
+            changes: canonicalizePendingReplayChanges(input.payloadIntent),
+          },
     clientTxnId: input.clientTxnId,
     mutationSignature:
       input.mutationSignature ??
@@ -716,10 +710,8 @@ function normalizeUnit(input: PendingReplayUnitInput): PendingReplayUnitState {
     status: input.status ?? "queued",
     identity: {
       kind: "create",
-      method: "POST",
       route_scope: {
         incident_id: input.incidentId,
-        path: input.path,
         view_schema_id: input.viewSchemaId,
       },
       client_txn_id: input.clientTxnId,
@@ -1392,10 +1384,6 @@ export class WorkbookPendingQueueModel {
     }
 
     unit.clientTxnId = replacement;
-    unit.payloadIntent = {
-      ...unit.payloadIntent,
-      client_txn_id: replacement,
-    };
     unit.identity = buildPendingReplayMutationIdentity(unit);
     this.halted = null;
     return {

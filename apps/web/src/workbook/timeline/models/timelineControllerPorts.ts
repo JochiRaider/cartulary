@@ -24,6 +24,23 @@ export type TimelineScalarSaveOptions = {
   readonly surface: TimelineScalarEditorSurface;
 };
 
+export type TimelineRowMutationEditorPort = {
+  readonly activateEdit: (input: {
+    readonly fieldKey: string;
+    readonly recordId: string;
+    readonly value: unknown;
+  }) => void;
+  readonly cancelEdit: (input: {
+    readonly fieldKey: string;
+    readonly recordId: string;
+  }) => void;
+  readonly focus: (input: {
+    readonly fieldKey: string;
+    readonly recordId: string;
+  }) => void;
+  readonly focusInput: (focusKey: string) => void;
+};
+
 export type PendingReplayRuntimeMeta = {
   focusField: FocusFieldKey;
   focusKey: string;

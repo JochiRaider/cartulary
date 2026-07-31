@@ -2919,9 +2919,14 @@ test.describe("browser.inspector-history accessibility readiness", () => {
         status: 409,
         body: JSON.stringify({
           error: {
+            status: 409,
             code: "row_version_conflict",
-            message: "Rollback target is stale for a11y.inspector-history.",
+            message: "row_version_conflict",
+            request_id: "a11y-inspector-history-conflict",
             retryable: false,
+            details: {
+              reason_code: "stale_row_version",
+            },
           },
         }),
       }),

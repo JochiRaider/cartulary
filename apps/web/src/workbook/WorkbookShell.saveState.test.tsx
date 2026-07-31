@@ -39,11 +39,11 @@ describe("WorkbookShell save-state status strip", () => {
   it("renders derived secondary save-state detail inside the workbook status strip", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-auth",
+            recordId: "20000000-0000-4000-8000-000000000501",
             rowVersion: 1,
             summary: "Auth base",
             captureState: "rough",
@@ -58,7 +58,7 @@ describe("WorkbookShell save-state status strip", () => {
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-auth",
+      "20000000-0000-4000-8000-000000000501",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     const workbookShell = screen.getByTestId(
@@ -124,7 +124,7 @@ describe("WorkbookShell save-state status strip", () => {
             user_id: "other-user",
             display_name: "Other Analyst",
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
-            record_id: "record-auth",
+            record_id: "20000000-0000-4000-8000-000000000501",
             mode: "viewing",
             field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-06-02T12:00:00Z",
@@ -185,9 +185,9 @@ describe("WorkbookShell save-state status strip", () => {
     pendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-auth",
+        change_set_id: "30000000-0000-4000-8000-000000000501",
         row: timelineRow({
-          recordId: "record-auth",
+          recordId: "20000000-0000-4000-8000-000000000501",
           rowVersion: 2,
           summary: "Auth queued",
           captureState: "rough",

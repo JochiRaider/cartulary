@@ -47,11 +47,11 @@ describe("Timeline workbook autosave coverage", () => {
   function mockInitialTimelineRow(summary = "Alpha") {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary,
             captureState: "rough",
@@ -65,9 +65,9 @@ describe("Timeline workbook autosave coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: `change-set-${rowVersion}`,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion,
           summary,
           captureState: "enriched",
@@ -80,9 +80,9 @@ describe("Timeline workbook autosave coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: `change-set-${rowVersion}`,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion,
           summary: "Alpha",
           sourceText,
@@ -101,7 +101,7 @@ describe("Timeline workbook autosave coverage", () => {
     return (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
   }
@@ -123,7 +123,9 @@ describe("Timeline workbook autosave coverage", () => {
   async function expectSavedRowVersion(rowVersion: number) {
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe(String(rowVersion));
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
@@ -154,8 +156,8 @@ describe("Timeline workbook autosave coverage", () => {
       [
         {
           ...createDraftRow(99),
-          key: "record-1",
-          recordId: "record-1",
+          key: "20000000-0000-4000-8000-000000000001",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 1,
           captureState: "rough",
           values: {
@@ -258,9 +260,9 @@ describe("Timeline workbook autosave coverage", () => {
     pendingBlurPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-4",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Updated via blur",
           captureState: "enriched",
@@ -274,7 +276,9 @@ describe("Timeline workbook autosave coverage", () => {
     mockInitialTimelineRow();
     mockSourceTextPatchResponse("Pasted transcript");
     await renderSingleTimelineRow();
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000001",
+    );
     const sourceText = (await screen.findByLabelText(
       "RAW Activity",
     )) as HTMLTextAreaElement;
@@ -295,11 +299,11 @@ describe("Timeline workbook autosave coverage", () => {
   it("reports Conflict after autosave failure and preserves local editor value", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -323,7 +327,7 @@ describe("Timeline workbook autosave coverage", () => {
     const conflictInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(conflictInput);
@@ -345,11 +349,11 @@ describe("Timeline workbook autosave coverage", () => {
   ] as const)("commits %s from the current editor value when row state is stale", async (key) => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -360,9 +364,9 @@ describe("Timeline workbook autosave coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: `change-set-stale-${key.toLowerCase()}`,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: `Stale-proof ${key}`,
           captureState: "enriched",
@@ -376,7 +380,7 @@ describe("Timeline workbook autosave coverage", () => {
     const summaryInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
@@ -387,7 +391,7 @@ describe("Timeline workbook autosave coverage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/api/v1/records/record-1",
+      "/api/v1/records/20000000-0000-4000-8000-000000000001",
     );
     expect(extractTimelinePatchBody(fetchMock, 1)).toMatchObject({
       base_row_version: 1,
@@ -403,11 +407,11 @@ describe("Timeline workbook autosave coverage", () => {
   it("commits paste completion from the current editor value when row state is stale", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -418,9 +422,9 @@ describe("Timeline workbook autosave coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-stale-paste",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Pasted stale-proof summary",
           captureState: "enriched",
@@ -434,7 +438,7 @@ describe("Timeline workbook autosave coverage", () => {
     const summaryInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
 
@@ -460,11 +464,11 @@ describe("Timeline workbook autosave coverage", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -481,7 +485,7 @@ describe("Timeline workbook autosave coverage", () => {
     const summaryInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "Pending deduplicated summary");
@@ -507,9 +511,9 @@ describe("Timeline workbook autosave coverage", () => {
     pendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-dedup-1",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Pending deduplicated summary",
           captureState: "enriched",
@@ -519,7 +523,9 @@ describe("Timeline workbook autosave coverage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
@@ -532,11 +538,11 @@ describe("Timeline workbook autosave coverage", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -548,9 +554,9 @@ describe("Timeline workbook autosave coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-dedup-2",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 3,
           summary: "Second pending summary",
           captureState: "enriched",
@@ -565,7 +571,7 @@ describe("Timeline workbook autosave coverage", () => {
     const summaryInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(summaryInput, "First pending summary");
@@ -592,9 +598,9 @@ describe("Timeline workbook autosave coverage", () => {
     firstPendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-dedup-1",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "First pending summary",
           captureState: "enriched",
@@ -615,7 +621,9 @@ describe("Timeline workbook autosave coverage", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("3");
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });

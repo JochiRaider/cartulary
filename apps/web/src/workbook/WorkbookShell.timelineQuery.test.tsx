@@ -80,7 +80,7 @@ describe("Timeline query row identity integration", () => {
 
   it(exactScenarioTitle, async () => {
     const alpha = timelineRow({
-      recordId: "record-alpha",
+      recordId: "20000000-0000-4000-8000-000000000701",
       rowVersion: 1,
       occurredAt: "2026-04-10T10:00:00.000Z",
       summary: "Alpha timeline row",
@@ -89,7 +89,7 @@ describe("Timeline query row identity integration", () => {
       captureState: "rough",
     });
     const beta = timelineRow({
-      recordId: "record-beta",
+      recordId: "20000000-0000-4000-8000-000000000702",
       rowVersion: 1,
       occurredAt: "2026-04-10T10:05:00.000Z",
       summary: "Beta timeline row",
@@ -118,7 +118,7 @@ describe("Timeline query row identity integration", () => {
       betaWithAdditiveMembers,
       "unit timeline query row",
     );
-    expect(interpreted.recordId).toBe("record-beta");
+    expect(interpreted.recordId).toBe("20000000-0000-4000-8000-000000000702");
     expect(interpreted.rowVersion).toBe(1);
     expect(interpreted.viewSchemaId).toBe(timelineViewSchemaId);
     expect(Object.keys(interpreted.cells).sort()).toEqual(
@@ -152,7 +152,7 @@ describe("Timeline query row identity integration", () => {
           ...beta,
           cells: {
             ...beta.cells,
-            record_id: { value: "record-beta" },
+            record_id: { value: "20000000-0000-4000-8000-000000000702" },
           },
         },
         "technical cell timeline row",
@@ -174,7 +174,7 @@ describe("Timeline query row identity integration", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [alpha, beta],
       }),
@@ -182,17 +182,17 @@ describe("Timeline query row identity integration", () => {
 
     const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={0}
       />,
     );
     await waitForVisibleGridRowRecordIds(container, [
-      "record-alpha",
-      "record-beta",
+      "20000000-0000-4000-8000-000000000701",
+      "20000000-0000-4000-8000-000000000702",
     ]);
 
     const betaPatch = timelineRow({
-      recordId: "record-beta",
+      recordId: "20000000-0000-4000-8000-000000000702",
       rowVersion: 2,
       occurredAt: "2026-04-10T10:05:00.000Z",
       summary: "Beta patched by record id",
@@ -203,14 +203,14 @@ describe("Timeline query row identity integration", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-beta-patch",
+        change_set_id: "30000000-0000-4000-8000-000000000701",
         row: betaPatch,
       }),
     );
     const betaSummary = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-beta",
+      "20000000-0000-4000-8000-000000000702",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await changeInputValue(betaSummary, "Beta patched by record id");
@@ -229,35 +229,40 @@ describe("Timeline query row identity integration", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-beta")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000702"),
+        ).textContent,
       ).toBe("2");
     });
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [betaPatch, alpha],
       }),
     );
     rerender(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={1}
       />,
     );
     await waitForVisibleGridRowRecordIds(container, [
-      "record-beta",
-      "record-alpha",
+      "20000000-0000-4000-8000-000000000702",
+      "20000000-0000-4000-8000-000000000701",
     ]);
     expect(
       screen.getByTestId(
-        rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000702",
+          "timeline.activity_synopsis_text",
+        ),
       ).textContent,
     ).toBe("Beta patched by record id");
 
     const created = timelineRow({
-      recordId: "record-created",
+      recordId: "20000000-0000-4000-8000-000000000703",
       rowVersion: 1,
       occurredAt: "2026-04-10T10:15:00.000Z",
       summary: "Created through draft row",
@@ -268,7 +273,7 @@ describe("Timeline query row identity integration", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-created",
+        change_set_id: "30000000-0000-4000-8000-000000000702",
         row: created,
       }),
     );
@@ -286,37 +291,46 @@ describe("Timeline query row identity integration", () => {
     await waitFor(() => {
       expect(
         screen.getByTestId(
-          rowCellTestId("record-created", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000703",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Created through draft row");
     });
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [created, alpha, betaPatch],
       }),
     );
     rerender(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={2}
       />,
     );
     await waitForVisibleGridRowRecordIds(container, [
-      "record-created",
-      "record-alpha",
-      "record-beta",
+      "20000000-0000-4000-8000-000000000703",
+      "20000000-0000-4000-8000-000000000701",
+      "20000000-0000-4000-8000-000000000702",
     ]);
     expect(
       screen.getByTestId(
-        rowCellTestId("record-beta", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000702",
+          "timeline.activity_synopsis_text",
+        ),
       ).textContent,
     ).toBe("Beta patched by record id");
     expect(
       screen.getByTestId(
-        rowCellTestId("record-alpha", "timeline.activity_utc_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000701",
+          "timeline.activity_utc_text",
+        ),
       ).textContent,
     ).toBe("2026-04-10T10:00:00.000Z");
     expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");

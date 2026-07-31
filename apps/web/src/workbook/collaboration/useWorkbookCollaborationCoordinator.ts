@@ -3,8 +3,13 @@ import type { IncidentCollaborationSessionValue } from "../../collaboration/Inci
 import type { WorkbookSheetRef } from "../../shared/workbookSheetRef";
 import type { WorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
 
+export type WorkbookCollaborationStore = Pick<
+  WorkbookCollaborationCoordinator,
+  "getSnapshot" | "subscribe"
+>;
+
 export function useWorkbookCollaborationCoordinator(
-  projection: WorkbookCollaborationCoordinator,
+  projection: WorkbookCollaborationStore,
 ) {
   return useSyncExternalStore(
     projection.subscribe,

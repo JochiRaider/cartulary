@@ -233,7 +233,7 @@ describe("Assessment workbook surface", () => {
         return successEnvelope(
           {
             view_schema_id: assessmentsViewSchemaId,
-            change_set_id: "change-set-1",
+            change_set_id: "00000000-0000-4000-8000-000000008400",
             row: createdRow,
           },
           201,
@@ -349,7 +349,7 @@ describe("Assessment workbook surface", () => {
       state: "cleared",
     });
     const created = assessmentRow({
-      recordId: "assessment-follow-on",
+      recordId: "00000000-0000-4000-8000-000000008401",
       state: "suspected",
     });
     const assessmentRows = [original, filtered];
@@ -441,7 +441,7 @@ describe("Assessment workbook surface", () => {
         return successEnvelope(
           {
             view_schema_id: assessmentsViewSchemaId,
-            change_set_id: "change-set-follow-on",
+            change_set_id: "00000000-0000-4000-8000-000000008402",
             row: created,
           },
           201,
@@ -593,7 +593,10 @@ describe("Assessment workbook surface", () => {
     );
     await screen.findByText("Assessment created.");
     await screen.findByTestId(
-      rowCellTestId("assessment-follow-on", "assessment.assessment_state"),
+      rowCellTestId(
+        "00000000-0000-4000-8000-000000008401",
+        "assessment.assessment_state",
+      ),
     );
     expect(
       restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
@@ -953,7 +956,7 @@ function assessmentRow(
     supportRecordIds?: string[];
   } = {},
 ) {
-  const recordId = options.recordId ?? "assessment-1";
+  const recordId = options.recordId ?? "00000000-0000-4000-8000-000000008403";
   const state = options.state ?? "confirmed";
   const supportRecordIds = options.supportRecordIds ?? [];
   return {

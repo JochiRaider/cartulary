@@ -20,8 +20,14 @@ import {
   resolveHeaderSortFieldKey,
 } from "@cartulary/view-contracts";
 import { X } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { parseErrorMessage } from "../../services/workbookApi";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
@@ -33,6 +39,7 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { useAssessmentCreationController } from "../features/assessments/useAssessmentCreationController";
 import { useAssessmentSupportCandidates } from "../hooks/useAssessmentSupportCandidates";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
@@ -43,10 +50,7 @@ import {
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
-  type AssessmentCreateDraft,
   assessmentColumnWidth,
-  followOnAssessmentDraft,
-  initialAssessmentDraft,
   isAssessmentConfidenceBand,
 } from "../models/assessmentWorkbookModel";
 import type { EntityRow } from "../models/entityWorkbookModel";
@@ -146,12 +150,6 @@ export function AssessmentWorkbookSurface({
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );
-  const [draft, setDraft] = useState<AssessmentCreateDraft>(() =>
-    initialAssessmentDraft(assessmentsContract),
-  );
-  const [draftMode, setDraftMode] = useState<"follow_on" | "standalone">(
-    "standalone",
-  );
   const inspectorConfig = selectInspectorConfig(assessmentsContract);
   const showWorkflowPanel = inspectorPanelIsDeclared(
     inspectorConfig,
@@ -161,9 +159,6 @@ export function AssessmentWorkbookSurface({
     apiBase,
     incidentId,
   });
-  const [message, setMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const roleCanCreate =
     currentIncidentRole === "editor" ||
     currentIncidentRole === "reviewer" ||
@@ -176,12 +171,31 @@ export function AssessmentWorkbookSurface({
     (selectedAssessmentSnapshot?.record_id === selectedAssessmentRecordId
       ? selectedAssessmentSnapshot
       : null);
+  const beginAssessmentMutation = useCallback(
+    () => mutationRuntime.beginExplicitMutation(),
+    [mutationRuntime],
+  );
+  const subjectRecordIds = useMemo(
+    () => ({
+      host: hostRows.map((row) => row.recordId),
+      identity: identityRows.map((row) => row.recordId),
+    }),
+    [hostRows, identityRows],
+  );
+  const assessmentCreation = useAssessmentCreationController({
+    beginMutation: beginAssessmentMutation,
+    lifecycleResetKey: inspectorResetKey,
+    mutationCommands,
+    onRefreshAssessmentRows,
+    subjectRecordIds,
+  });
+  const { draft, draftMode, isSubmitting, message } =
+    assessmentCreation.snapshot;
+  const subjectRows = draft.subjectType === "host" ? hostRows : identityRows;
   const inspector = useWorkbookInspectorCoordinator({
     actionPorts: {
       clearLocalForm: () => {
-        setDraft(initialAssessmentDraft(assessmentsContract));
-        setDraftMode("standalone");
-        setMessage(null);
+        assessmentCreation.commands.reset();
       },
       clearLifecycleState: () => {
         continuityPortRef.current?.clear();
@@ -339,25 +353,14 @@ export function AssessmentWorkbookSurface({
     }),
   );
 
-  function standaloneAssessmentDraft(): AssessmentCreateDraft {
-    return initialAssessmentDraft(assessmentsContract, {
-      subjectRecordId: hostRows[0]?.recordId ?? "",
-      subjectType: "host",
-    });
-  }
-
   function openStandaloneDraft() {
     inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
-    setDraft(standaloneAssessmentDraft());
-    setDraftMode("standalone");
-    setMessage(null);
+    assessmentCreation.commands.openStandalone(hostRows[0]?.recordId ?? "");
     inspector.commands.open();
   }
 
   function cancelAssessmentDraft() {
-    setDraft(initialAssessmentDraft(assessmentsContract));
-    setDraftMode("standalone");
-    setMessage(null);
+    assessmentCreation.commands.cancel();
     inspector.commands.close({ restoreFocus: true });
   }
 
@@ -380,51 +383,23 @@ export function AssessmentWorkbookSurface({
       featureGroup.routeBinding.owner !== "view_row_create_route" ||
       featureGroup.routeBinding.targetViewSchemaId !== assessmentsViewSchemaId
     ) {
-      setMessage("Assessment follow-on creation is unavailable.");
+      assessmentCreation.commands.rejectStart(
+        "Assessment follow-on creation is unavailable.",
+      );
       return;
     }
     if (!canCreate) {
-      setMessage("Assessment creation requires an active editor role.");
+      assessmentCreation.commands.rejectStart(
+        "Assessment creation requires an active editor role.",
+      );
       return;
     }
-    if (selectedAssessment === null) {
-      setMessage("Select an assessment before creating a follow-on.");
-      return;
-    }
-    const followOnDraft = followOnAssessmentDraft(
-      assessmentsContract,
-      selectedAssessment,
-    );
-    if (followOnDraft === null) {
-      setMessage("The selected assessment has no valid subject.");
-      return;
-    }
-    setDraft(followOnDraft);
-    setDraftMode("follow_on");
-    setMessage(null);
+    if (!assessmentCreation.commands.openFollowOn(selectedAssessment)) return;
     if (!inspector.snapshot.isOpen) {
       inspectorContinuityTokenRef.current = assessmentFocus.port.capture();
     }
     inspector.commands.open();
   }
-
-  useEffect(() => {
-    if (draftMode === "follow_on") {
-      return;
-    }
-    setDraft((current) => {
-      if (
-        current.subjectRecordId !== "" &&
-        subjectRows.some((row) => row.recordId === current.subjectRecordId)
-      ) {
-        return current;
-      }
-      return {
-        ...current,
-        subjectRecordId: subjectRows[0]?.recordId ?? "",
-      };
-    });
-  }, [draftMode, subjectRows]);
 
   useEffect(() => {
     if (selectedAssessmentRecordId === null) {
@@ -446,33 +421,6 @@ export function AssessmentWorkbookSurface({
       ),
     [mutationRuntime, onRefreshAssessmentRows],
   );
-
-  async function submitAssessment() {
-    if (!canCreate) return;
-    const submittedDraft = draft;
-
-    setIsSubmitting(true);
-    setMessage(null);
-    const finishMutation = mutationRuntime.beginExplicitMutation();
-    try {
-      const result = await mutationCommands.create({ draft: submittedDraft });
-      if (!result.ok) {
-        setMessage(parseErrorMessage(result.payload));
-        return;
-      }
-      await onRefreshAssessmentRows();
-      setDraft(
-        initialAssessmentDraft(assessmentsContract, {
-          subjectType: submittedDraft.subjectType,
-          subjectRecordId: submittedDraft.subjectRecordId,
-        }),
-      );
-      setMessage("Assessment created.");
-    } finally {
-      finishMutation();
-      setIsSubmitting(false);
-    }
-  }
 
   return (
     <WorkbookSurfaceLayout
@@ -539,7 +487,7 @@ export function AssessmentWorkbookSurface({
                       event.target.value === "identity" ? "identity" : "host";
                     const nextRows =
                       subjectType === "host" ? hostRows : identityRows;
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       subjectType,
                       subjectRecordId: nextRows[0]?.recordId ?? "",
@@ -566,7 +514,7 @@ export function AssessmentWorkbookSurface({
                   style={selectStyle}
                   value={draft.subjectRecordId}
                   onChange={(event) => {
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       subjectRecordId: event.target.value,
                     }));
@@ -589,7 +537,7 @@ export function AssessmentWorkbookSurface({
                   style={selectStyle}
                   value={draft.assessmentState}
                   onChange={(event) => {
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       assessmentState: event.target.value,
                     }));
@@ -616,7 +564,7 @@ export function AssessmentWorkbookSurface({
                     )
                       ? event.target.value
                       : "unset";
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       confidenceBand,
                     }));
@@ -639,7 +587,7 @@ export function AssessmentWorkbookSurface({
                   style={textareaStyle}
                   value={draft.rationale}
                   onChange={(event) => {
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       rationale: event.target.value,
                     }));
@@ -657,7 +605,7 @@ export function AssessmentWorkbookSurface({
                   type="text"
                   value={draft.assessedAt}
                   onChange={(event) => {
-                    setDraft((current) => ({
+                    assessmentCreation.commands.updateDraft((current) => ({
                       ...current,
                       assessedAt: event.target.value,
                     }));
@@ -672,7 +620,7 @@ export function AssessmentWorkbookSurface({
                 selectedRecordIds={draft.supportRecordIds}
                 testId={assessmentCreateControlTestId("support-refs")}
                 onSelectedRecordIdsChange={(supportRecordIds) => {
-                  setDraft((current) => ({
+                  assessmentCreation.commands.updateDraft((current) => ({
                     ...current,
                     supportRecordIds,
                   }));
@@ -685,7 +633,7 @@ export function AssessmentWorkbookSurface({
                 style={secondaryActionButtonStyle}
                 type="button"
                 onClick={() => {
-                  void submitAssessment();
+                  void assessmentCreation.commands.submit(canCreate);
                 }}
               >
                 Create assessment

@@ -2,7 +2,7 @@
 
 package openapioperations
 
-const CanonicalSHA256 = "a8e705c89f3eee9f1ed7ed903a20c8527cdaa49a15a292ab3c747194be556d78"
+const CanonicalSHA256 = "e5355e9e9b2152f5502f83e4d8c9cf46807f86afb506fb896bdb3d09d2f37d42"
 const DocumentVersion = "2.0.0"
 
 type Operation struct {

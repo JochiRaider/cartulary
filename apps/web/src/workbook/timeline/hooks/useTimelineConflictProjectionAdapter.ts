@@ -9,6 +9,7 @@ import {
   parseSameFieldConflict,
   workbookConflictQueueKey,
 } from "../../runtime/workbookConflictModel";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { TimelineMutableRef } from "../models/timelineControllerPorts";
 import {
   type FocusFieldKey,
@@ -29,20 +30,26 @@ import {
  * has been resolved.
  */
 export function useTimelineConflictProjectionAdapter({
+  acceptCommittedRow,
   activeConflictKey,
   conflictQueue,
+  editorDraftRegistry,
   mutationRuntime,
   rowsRef,
-  scalarDraftValuesRef,
   setActiveConflictKey,
   setConflictQueueState,
   setRows,
 }: {
+  readonly acceptCommittedRow: (row: WorkbookRow) => {
+    readonly accepted: boolean;
+    readonly row: WorkbookRow;
+    readonly stale: boolean;
+  };
   readonly activeConflictKey: string | null;
   readonly conflictQueue: Record<string, LocalConflictState>;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly scalarDraftValuesRef: TimelineMutableRef<Map<string, string>>;
   readonly setActiveConflictKey: Dispatch<SetStateAction<string | null>>;
   readonly setConflictQueueState: (
     updater: (
@@ -67,8 +74,8 @@ export function useTimelineConflictProjectionAdapter({
         viewSchemaId: "cartulary.view.timeline.v2",
       });
       if (binding !== null && typeof conflict.client_value === "string") {
-        scalarDraftValuesRef.current.set(
-          inputFocusKey(conflict.record_id, binding.key, surface),
+        editorDraftRegistry.setDraft(
+          { field: binding.key, rowKey: conflict.record_id, surface },
           conflict.client_value,
         );
       }
@@ -80,7 +87,7 @@ export function useTimelineConflictProjectionAdapter({
               typeof conflict.server_value === "string"
                 ? conflict.server_value
                 : "";
-            return {
+            return acceptCommittedRow({
               ...row,
               rowVersion: conflict.current_row_version,
               values: { ...row.values, [binding.key]: serverText },
@@ -89,7 +96,7 @@ export function useTimelineConflictProjectionAdapter({
                 [binding.key]: serverText,
               },
               pendingSignature: null,
-            };
+            }).row;
           });
           rowsRef.current = nextRows;
           return nextRows;
@@ -117,9 +124,10 @@ export function useTimelineConflictProjectionAdapter({
       setActiveConflictKey(queueKey);
     },
     [
+      acceptCommittedRow,
+      editorDraftRegistry,
       mutationRuntime,
       rowsRef,
-      scalarDraftValuesRef,
       setActiveConflictKey,
       setConflictQueueState,
       setRows,

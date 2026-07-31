@@ -24,7 +24,6 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  type RefObject,
   type SetStateAction,
   useCallback,
   useMemo,
@@ -35,6 +34,7 @@ import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { PresenceRecord } from "../../utils/workbookPresence";
 import { visuallyHiddenStyle } from "../../utils/workbookStyles";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type { CollectionItem } from "../models/workbookMentionChips";
 import {
   buildExpandedTimelineColumnWidths,
@@ -62,13 +62,6 @@ import {
 type EntityIndex = Record<string, { label: string }>;
 
 type ScalarBlurCommit = (
-  rowKey: string,
-  field: keyof RowValues,
-  surface: TimelineScalarEditorSurface,
-  value: string,
-) => void;
-
-type ScalarDraftChange = (
   rowKey: string,
   field: keyof RowValues,
   surface: TimelineScalarEditorSurface,
@@ -147,6 +140,7 @@ export function useTimelineWorkbookRenderers({
   activeCollectionInputKey,
   conflictQueue,
   commitScalarGridEdit,
+  editorDraftRegistry,
   editingPresenceForCell,
   entityIndex,
   gridShellWidth,
@@ -160,11 +154,8 @@ export function useTimelineWorkbookRenderers({
   handleSelectRow,
   openInspectorForRow,
   queueCollectionSave,
-  registerInput,
   readOnly,
   rowGutterWidth,
-  scalarDraftValuesRef,
-  setScalarEditorDraftValue,
   setActiveCollectionInputKey,
   setActiveConflictKey,
   timelineContract,
@@ -173,6 +164,7 @@ export function useTimelineWorkbookRenderers({
   readonly activeCollectionInputKey: string | null;
   readonly conflictQueue: Record<string, { readonly key: string }>;
   readonly commitScalarGridEdit: ScalarGridCommit;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly editingPresenceForCell: (
     recordId: string | null,
     fieldKey: string,
@@ -196,11 +188,8 @@ export function useTimelineWorkbookRenderers({
   readonly handleSelectRow: (recordId: string) => void;
   readonly openInspectorForRow: (recordId: string) => void;
   readonly queueCollectionSave: CollectionSave;
-  readonly registerInput: RegisterTimelineInput;
   readonly readOnly: boolean;
   readonly rowGutterWidth: number;
-  readonly scalarDraftValuesRef: RefObject<Map<string, string>>;
-  readonly setScalarEditorDraftValue: ScalarDraftChange;
   readonly setActiveCollectionInputKey: Dispatch<SetStateAction<string | null>>;
   readonly setActiveConflictKey: Dispatch<SetStateAction<string | null>>;
   readonly timelineContract: ViewContract;
@@ -209,6 +198,27 @@ export function useTimelineWorkbookRenderers({
     fieldKey: string,
   ) => void;
 }): TimelineWorkbookRenderers {
+  const registerInput = useCallback<RegisterTimelineInput>(
+    (rowKey, field, surface, dataTestId, element) => {
+      editorDraftRegistry.registerInput(
+        { field, rowKey, surface },
+        dataTestId,
+        element,
+      );
+    },
+    [editorDraftRegistry],
+  );
+  const setScalarEditorDraftValue = useCallback(
+    (
+      rowKey: string,
+      field: keyof RowValues,
+      surface: TimelineScalarEditorSurface,
+      value: string,
+    ) => {
+      editorDraftRegistry.setDraft({ field, rowKey, surface }, value);
+    },
+    [editorDraftRegistry],
+  );
   const timelineBindingLabel = useCallback(
     (fieldKey: string) =>
       timelineContract.fieldMap[fieldKey]?.label ?? fieldKey,
@@ -268,9 +278,11 @@ export function useTimelineWorkbookRenderers({
             dataTestId={dataTestId}
             draftValue={
               controlledDraftValue ??
-              scalarDraftValuesRef.current?.get(
-                inputFocusKey(row.key, binding.key, surface),
-              )
+              editorDraftRegistry.draftValue({
+                field: binding.key,
+                rowKey: row.key,
+                surface,
+              })
             }
             field={binding.key}
             focusTargetRef={focusTargetRef}
@@ -311,6 +323,7 @@ export function useTimelineWorkbookRenderers({
     },
     [
       conflictQueue,
+      editorDraftRegistry,
       handleBlur,
       handleEditModePresence,
       handleKeyDown,
@@ -318,7 +331,6 @@ export function useTimelineWorkbookRenderers({
       handleSelectRow,
       registerInput,
       readOnly,
-      scalarDraftValuesRef,
       setScalarEditorDraftValue,
       setActiveConflictKey,
       timelineBindingLabel,
@@ -781,9 +793,11 @@ export function useTimelineWorkbookRenderers({
                       String(intent.draftValue ?? ""),
                     ),
                   initialDraftValue: (row) =>
-                    scalarDraftValuesRef.current?.get(
-                      inputFocusKey(row.key, binding.key, "grid"),
-                    ) ?? readTimelineCellValue(row.rawRow, binding.fieldKey),
+                    editorDraftRegistry.draftValue({
+                      field: binding.key,
+                      rowKey: row.key,
+                      surface: "grid",
+                    }) ?? readTimelineCellValue(row.rawRow, binding.fieldKey),
                   renderEditor: (context) =>
                     renderTimelineGridEditor(
                       context.row,
@@ -809,7 +823,7 @@ export function useTimelineWorkbookRenderers({
       renderTimelineGridEditor,
       renderTimelineScalarCell,
       commitScalarGridEdit,
-      scalarDraftValuesRef,
+      editorDraftRegistry,
       timelineBindingLabel,
       timelineColumnWidths,
       timelineContract,

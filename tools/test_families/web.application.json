@@ -1285,29 +1285,6 @@
       "status": "active"
     },
     {
-      "row_id": "web.application.regression.workbookevidence_creates_an_object_blob_uploads_d64df134bd",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/services/workbookEvidence.test.ts",
-        "titles": [
-          "workbookEvidence creates an object blob, uploads it, and attaches it with row-version concurrency"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "web.application.regression.workbookevidence_keeps_raw_storage_details_out_o_68c8061c4e",
       "owner_id": "web.application",
       "family_id": "web.application.regression",

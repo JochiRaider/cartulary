@@ -300,6 +300,10 @@ function validatorSource(entries) {
     strictRequired: false,
   });
   ajv.addKeyword("x_schema_id");
+  // OpenAPI discriminators are routing metadata. The projected schemas retain
+  // their oneOf branches and branch-local const requirements as the executable
+  // validation contract, so AJV must accept but need not interpret this keyword.
+  ajv.addKeyword("discriminator");
   ajv.addFormat(
     "uuid",
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
@@ -546,7 +550,9 @@ function httpOperationBindingSource(operations) {
     "export function validateHTTPOperationResponse(operationID: HTTPOperationID, value: unknown): HTTPResponseValidation {",
     "  const validator = httpResponseValidators[operationID];",
     "  const schemaId = httpOperationBindings[operationID].response_schema_id;",
-    "  if (!validator || !schemaId || validator(value)) return { ok: true };",
+    "  if (!schemaId) return { ok: true };",
+    "  if (!validator) return { ok: false, schemaId, instancePath: \"\" };",
+    "  if (validator(value)) return { ok: true };",
     "  return { ok: false, schemaId, instancePath: validator.errors?.[0]?.instancePath ?? \"\" };",
     "}",
     "",
@@ -558,6 +564,28 @@ function httpOperationBindingSource(operations) {
       `export type ${name}Response = ${operation.responseType ?? "unknown"};`,
     );
   }
+  lines.push("", "export type HTTPOperationRequestMap = {");
+  for (const operation of operations) {
+    lines.push(
+      `  readonly ${JSON.stringify(operation.operationID)}: ${
+        operation.requestType ?? "undefined"
+      };`,
+    );
+  }
+  lines.push("};", "", "export type HTTPOperationResponseMap = {");
+  for (const operation of operations) {
+    lines.push(
+      `  readonly ${JSON.stringify(operation.operationID)}: ${
+        operation.responseType ?? "unknown"
+      };`,
+    );
+  }
+  lines.push(
+    "};",
+    "",
+    "export type HTTPOperationRequest<OperationID extends HTTPOperationID> = HTTPOperationRequestMap[OperationID];",
+    "export type HTTPOperationResponse<OperationID extends HTTPOperationID> = HTTPOperationResponseMap[OperationID];",
+  );
   return `${lines.join("\n")}\n`;
 }
 

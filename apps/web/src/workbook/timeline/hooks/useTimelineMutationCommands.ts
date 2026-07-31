@@ -4,9 +4,8 @@ import {
   type SetStateAction,
   startTransition,
   useCallback,
+  useState,
 } from "react";
-import { apiPath } from "../../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type {
   WorkbookPendingReplayAdmissionRequest,
@@ -16,6 +15,7 @@ import {
   buildStableMutationSignature,
   type PendingReplayUnitInput,
 } from "../../utils/workbookPendingQueue";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
@@ -36,19 +36,10 @@ import {
   timelineScalarBindings,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
-import { buildTimelineRecordActionPayload } from "../services/timelineMutationRequests";
-
-type TimelineActionEnvelope = {
-  data: {
-    record_id: string;
-    incident_id: string;
-    row_version: number;
-    capture_state: string;
-    change_set_id: string;
-    reason: string | null;
-    replacement_record_id: string | null;
-  };
-};
+import type {
+  TimelineRecordActionAccepted,
+  TimelineRecordActionPort,
+} from "../ports/TimelineRecordActionPort";
 
 type ViewportContinuityRequest =
   | { readonly kind: "input"; readonly focusKey: string }
@@ -73,12 +64,13 @@ function isCollectionDraftKey(
 
 export function useTimelineMutationCommands({
   acceptTimelineActionResult,
-  apiBase,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   clientInstanceId,
   conflictQueueRef,
+  editorDraftRegistry,
+  enqueueSaveWork,
   enqueuePendingReplayUnit,
   finishSave,
   incidentId,
@@ -86,19 +78,16 @@ export function useTimelineMutationCommands({
   loadRowsRef,
   nextClientTxnId,
   pendingSavesRefsRef,
-  replacementDrafts,
+  recordActionPort,
   resolvePendingSocketTxn,
-  rowWithScalarEditorDrafts,
   rowsRef,
-  scalarDraftValuesRef,
   setRows,
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
   readonly acceptTimelineActionResult: (
-    data: TimelineActionEnvelope["data"],
+    data: TimelineRecordActionAccepted,
   ) => void;
-  readonly apiBase?: string | undefined;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     request: ViewportContinuityRequest,
@@ -108,6 +97,8 @@ export function useTimelineMutationCommands({
   readonly conflictQueueRef: TimelineMutableRef<
     Record<string, LocalConflictState>
   >;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
+  readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly enqueuePendingReplayUnit: (
     unit: WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>,
     onSettled?: ((outcome: GridEditCommitOutcome) => void) | undefined,
@@ -120,23 +111,25 @@ export function useTimelineMutationCommands({
   readonly pendingSavesRefsRef: TimelineMutableRef<
     WorkbookPendingSavesRefs<PendingReplayRuntimeMeta>
   >;
-  readonly replacementDrafts: Record<string, string>;
+  readonly recordActionPort: TimelineRecordActionPort;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
-  readonly rowWithScalarEditorDrafts: (
-    row: WorkbookRow,
-    preferred?: {
-      readonly field: keyof RowValues;
-      readonly value: string | undefined;
-    },
-  ) => WorkbookRow;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly scalarDraftValuesRef: TimelineMutableRef<Map<string, string>>;
   readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
   ) => Promise<CommittedRecordIdle | null>;
 }) {
+  const [replacementDrafts, setReplacementDrafts] = useState<
+    Record<string, string>
+  >({});
+  const changeReplacementDraft = useCallback(
+    (rowKey: string, value: string) => {
+      setReplacementDrafts((current) => ({ ...current, [rowKey]: value }));
+    },
+    [],
+  );
+
   const enqueueAutosaveReplayForPendingMutation = useCallback(
     ({
       clientTxnId,
@@ -209,13 +202,6 @@ export function useTimelineMutationCommands({
         });
       });
 
-      const targetPath =
-        rowSnapshot.recordId === null
-          ? apiPath(
-              apiBase,
-              `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
-            )
-          : apiPath(apiBase, `/api/v1/records/${rowSnapshot.recordId}`);
       enqueuePendingReplayUnit(
         {
           id: `pending-${clientTxnId}`,
@@ -229,8 +215,6 @@ export function useTimelineMutationCommands({
           focusField,
           focusKey,
           surface,
-          method: rowSnapshot.recordId === null ? "POST" : "PATCH",
-          path: targetPath,
           payloadIntent,
           clientTxnId,
           mutationSignature,
@@ -254,7 +238,6 @@ export function useTimelineMutationCommands({
       pendingSavesRefsRef.current.pendingReplayOrderRef.current += 1;
     },
     [
-      apiBase,
       clientInstanceId,
       enqueuePendingReplayUnit,
       incidentId,
@@ -286,9 +269,11 @@ export function useTimelineMutationCommands({
       const snapshot =
         rowSnapshot === undefined
           ? undefined
-          : rowWithScalarEditorDrafts(rowSnapshot, {
+          : editorDraftRegistry.materializeRow(rowSnapshot, {
               field: focusField,
-              value: scalarDraftValuesRef.current.get(focusKey) ?? currentValue,
+              value:
+                editorDraftRegistry.draftValueForFocusKey(focusKey) ??
+                currentValue,
             });
       if (!snapshot) {
         onSettled?.({
@@ -320,7 +305,7 @@ export function useTimelineMutationCommands({
             })
           : buildScalarPatchIntent(snapshot, clientTxnId);
       if (payload === null) {
-        scalarDraftValuesRef.current.delete(focusKey);
+        editorDraftRegistry.deleteDraftForFocusKey(focusKey);
         onSettled?.({ kind: "accepted" });
         return;
       }
@@ -376,12 +361,11 @@ export function useTimelineMutationCommands({
     [
       beginViewportContinuity,
       conflictQueueRef,
+      editorDraftRegistry,
       enqueueAutosaveReplayForPendingMutation,
       nextClientTxnId,
       pendingSavesRefsRef,
-      rowWithScalarEditorDrafts,
       rowsRef,
-      scalarDraftValuesRef,
     ],
   );
 
@@ -455,7 +439,8 @@ export function useTimelineMutationCommands({
                 [focusField]: draftValue,
               },
             };
-      const effectiveSnapshot = rowWithScalarEditorDrafts(collectionSnapshot);
+      const effectiveSnapshot =
+        editorDraftRegistry.materializeRow(collectionSnapshot);
       const clientTxnId = nextClientTxnId();
       const payload =
         snapshot.recordId === null
@@ -504,11 +489,11 @@ export function useTimelineMutationCommands({
     },
     [
       beginViewportContinuity,
+      editorDraftRegistry,
       enqueueAutosaveReplayForPendingMutation,
       latestCommittedTimelineRow,
       nextClientTxnId,
       pendingSavesRefsRef,
-      rowWithScalarEditorDrafts,
       rowsRef,
     ],
   );
@@ -538,58 +523,46 @@ export function useTimelineMutationCommands({
         recordId,
       });
       beginSave();
-      pendingSavesRefsRef.current.saveQueueRef.current =
-        pendingSavesRefsRef.current.saveQueueRef.current
-          .catch(() => undefined)
-          .then(async () => {
-            const idleRecord = await waitForCommittedRecordIdle(recordId);
-            if (idleRecord === null) {
-              clearViewportContinuity(viewportContinuityToken);
-              finishSave("Conflict");
-              return;
-            }
-            const body = buildTimelineRecordActionPayload({
-              action,
-              baseRowVersion: idleRecord.rowVersion,
-              clientTxnId,
-              replacementRecordId,
-            });
-            trackPendingSocketTxn(clientTxnId);
-            const result = await fetchWorkbookJSON<TimelineActionEnvelope>(
-              apiPath(apiBase, `/api/v1/records/${recordId}/${action}`),
-              {
-                method: "POST",
-                body: JSON.stringify(body),
-              },
-            );
-            if (!result.ok) {
-              resolvePendingSocketTxn(clientTxnId);
-              clearViewportContinuity(viewportContinuityToken);
-              finishSave("Conflict");
-              return;
-            }
+      enqueueSaveWork(async () => {
+        const idleRecord = await waitForCommittedRecordIdle(recordId);
+        if (idleRecord === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          finishSave("Conflict");
+          return;
+        }
+        trackPendingSocketTxn(clientTxnId);
+        const result = await recordActionPort.execute({
+          action,
+          baseRowVersion: idleRecord.rowVersion,
+          clientTxnId,
+          recordId,
+          replacementRecordId,
+        });
+        if (result.kind === "rejected") {
+          resolvePendingSocketTxn(clientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
+          finishSave("Conflict");
+          return;
+        }
 
-            const envelope = readEnvelope<TimelineActionEnvelope>(
-              result.payload,
-            );
-            acceptTimelineActionResult(envelope.data);
-            await loadRowsRef.current({
-              showLoading: false,
-              viewportContinuityToken,
-            });
-            finishSave("Saved");
-          });
+        acceptTimelineActionResult(result.value);
+        await loadRowsRef.current({
+          showLoading: false,
+          viewportContinuityToken,
+        });
+        finishSave("Saved");
+      });
     },
     [
       acceptTimelineActionResult,
-      apiBase,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
+      enqueueSaveWork,
       finishSave,
       loadRowsRef,
       nextClientTxnId,
-      pendingSavesRefsRef,
+      recordActionPort,
       replacementDrafts,
       resolvePendingSocketTxn,
       rowsRef,
@@ -599,9 +572,13 @@ export function useTimelineMutationCommands({
   );
 
   return {
-    commitScalarGridEdit,
-    queueAction,
-    queueCollectionSave,
-    queueScalarSave,
+    commands: {
+      changeReplacementDraft,
+      commitScalarGridEdit,
+      queueAction,
+      queueCollectionSave,
+      queueScalarSave,
+    },
+    snapshot: { replacementDrafts },
   };
 }

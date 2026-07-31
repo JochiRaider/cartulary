@@ -13,10 +13,6 @@ type TimelineMutableRef<T> = {
 export type TimelineGridInteractionRefs = {
   readonly gridHandleRef: TimelineMutableRef<GridHandle | null>;
   readonly gridShellRef: TimelineMutableRef<HTMLDivElement | null>;
-  readonly rowInputRefs: TimelineMutableRef<
-    Map<string, HTMLInputElement | HTMLTextAreaElement>
-  >;
-  readonly rowInputTestIdsRef: TimelineMutableRef<Map<string, string>>;
   readonly timelineAnchorColumnsRef: TimelineMutableRef<
     readonly GridColumn<WorkbookRow>[]
   >;
@@ -34,8 +30,6 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
   const {
     gridShellRef,
     gridHandleRef,
-    rowInputRefs,
-    rowInputTestIdsRef,
     timelineAnchorColumnsRef,
     viewportContinuityTokenRef,
     workbookFocusAnchorRef,
@@ -91,8 +85,6 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
     refs: {
       gridShellRef,
       gridHandleRef,
-      rowInputRefs,
-      rowInputTestIdsRef,
       timelineAnchorColumnsRef,
       viewportContinuityTokenRef,
       workbookFocusAnchorRef,

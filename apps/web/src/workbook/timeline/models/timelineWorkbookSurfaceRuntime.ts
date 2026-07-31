@@ -6,7 +6,7 @@ import type {
   WorkbookQueryState,
 } from "../../models/workbookQuery";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
-import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 
@@ -38,7 +38,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly attachCollaborationSession: boolean;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly mutationRuntime: WorkbookMutationRuntime;
-  readonly mutationCommands: TimelineMutationCommandPort;
+  readonly mutationCommands: TimelineMutationCommandPorts;
   readonly incident: {
     readonly id: string;
     readonly apiBase: string | undefined;

@@ -1,25 +1,14 @@
-import type { ViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
-import { apiPath } from "../../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-  workbookLoadFailureIsAccessLoss,
-} from "../../../services/workbookApi";
-import {
-  buildQueryRequest,
-  type WorkbookQueryState,
-} from "../../models/workbookQuery";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookQueryState } from "../../models/workbookQuery";
 import type {
   WorkbookPendingQueueRuntime,
   WorkbookPendingRefreshBlockScope,
   WorkbookPendingSavesRefs,
 } from "../../runtime/workbookPendingReplayRuntime";
 import { reconcileWorkbookRecordRows } from "../../utils/workbookRowReconciliation";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
@@ -34,13 +23,9 @@ import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness
 import {
   createDraftRow,
   inputFocusKey,
-  normalizeTimelineFullRow,
-  rowFromApi,
-  timelineScalarBindings,
-  timelineScalarEditorSurfaces,
-  validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
+import type { TimelineViewQueryPort } from "../ports/TimelineViewQueryPort";
 
 export type LoadRowsOptions = {
   afterProjectionCommit?: () => void;
@@ -50,20 +35,11 @@ export type LoadRowsOptions = {
   viewportContinuityToken?: number;
 };
 
-type WorkbookQueryEnvelope = {
-  data: {
-    incident_id: string;
-    view_schema_id: string;
-    rows: unknown[];
-  };
-};
-
 const maxTimelineFreshnessRetryDepth = 2;
 
 export function useTimelineRowsLoader({
   acceptCommittedTimelineRows,
   advanceViewportContinuity,
-  apiBase,
   beginRefreshInFlight,
   beginTimelineRowsLoad,
   committedRowsChangedSince,
@@ -71,7 +47,6 @@ export function useTimelineRowsLoader({
   finishRefreshInFlight,
   failViewportContinuity,
   hasLoadedRows,
-  incidentId,
   isCurrentLoadSequence,
   knownTimelineRowVersion,
   loadRowsRef,
@@ -84,21 +59,21 @@ export function useTimelineRowsLoader({
   publishSaveStatePresentation,
   queryState,
   rowsRef,
-  scalarDraftValuesRef,
+  editorDraftRegistry,
   setDismissedMentionsByRow,
   setIsInitialLoading,
   setIsRefreshing,
+  setLoadAccessLost,
   setLoadError,
   setRefreshError,
   setRows,
-  timelineContract,
+  timelineViewQuery,
 }: {
   readonly acceptCommittedTimelineRows: (rows: readonly WorkbookRow[]) => void;
   readonly advanceViewportContinuity: (
     token?: number,
     options?: { sourceRecord?: TimelineSourceRecordEvidence },
   ) => void;
-  readonly apiBase?: string | undefined;
   readonly beginRefreshInFlight: (
     scope: WorkbookPendingRefreshBlockScope,
   ) => void;
@@ -115,7 +90,6 @@ export function useTimelineRowsLoader({
   ) => void;
   readonly failViewportContinuity: (token: number) => void;
   readonly hasLoadedRows: () => boolean;
-  readonly incidentId: string;
   readonly isCurrentLoadSequence: (requestSequence: number) => boolean;
   readonly knownTimelineRowVersion: (
     recordId: string,
@@ -141,28 +115,26 @@ export function useTimelineRowsLoader({
   ) => void;
   readonly queryState: WorkbookQueryState;
   readonly rowsRef: TimelineMutableRef<WorkbookRow[]>;
-  readonly scalarDraftValuesRef: TimelineMutableRef<Map<string, string>>;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly setDismissedMentionsByRow: Dispatch<
     SetStateAction<Record<string, DismissedMention[]>>
   >;
   readonly setIsInitialLoading: (loading: boolean) => void;
   readonly setIsRefreshing: (refreshing: boolean) => void;
+  readonly setLoadAccessLost: (lost: boolean) => void;
   readonly setLoadError: (message: string | null) => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
-  readonly timelineContract: ViewContract;
+  readonly timelineViewQuery: TimelineViewQueryPort;
 }) {
-  const queryPath = useMemo(
-    () =>
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-      ),
-    [apiBase, incidentId],
-  );
-  const queryBody = useMemo(
-    () => JSON.stringify(buildQueryRequest(timelineContract, queryState)),
-    [queryState, timelineContract],
+  const activeQueryRef = useRef<AbortController | null>(null);
+
+  useEffect(
+    () => () => {
+      activeQueryRef.current?.abort();
+      activeQueryRef.current = null;
+    },
+    [],
   );
 
   const refreshTimelineRowsAfterStaleResult = useCallback(
@@ -301,13 +273,20 @@ export function useTimelineRowsLoader({
         setIsRefreshing(true);
         setRefreshError(null);
       } else {
+        setLoadAccessLost(false);
         setLoadError(null);
       }
 
-      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(queryPath, {
-        method: "POST",
-        body: queryBody,
+      activeQueryRef.current?.abort();
+      const queryAbort = new AbortController();
+      activeQueryRef.current = queryAbort;
+      const result = await timelineViewQuery.query({
+        queryState,
+        signal: queryAbort.signal,
       });
+      if (activeQueryRef.current === queryAbort) {
+        activeQueryRef.current = null;
+      }
 
       if (!isCurrentLoadSequence(requestSequence)) {
         if (settleProjectionObligationsFromCurrentRows(options)) {
@@ -331,15 +310,25 @@ export function useTimelineRowsLoader({
         return;
       }
 
-      if (!result.ok) {
+      if (result.kind === "aborted") {
+        return;
+      }
+
+      if (result.kind === "rejected") {
         setIsRefreshing(false);
         if (options.viewportContinuityToken !== undefined) {
           failViewportContinuity(options.viewportContinuityToken);
         }
-        const message = parseErrorMessage(result.payload);
-        if (workbookLoadFailureIsAccessLoss(message)) {
+        const message = result.failure.message;
+        if (
+          result.failure.kind === "authentication_required" ||
+          result.failure.kind === "authorization_lost" ||
+          result.failure.kind === "stale_target"
+        ) {
+          editorDraftRegistry.clearAll();
           rowsRef.current = [];
           setRows([]);
+          setLoadAccessLost(true);
           setLoadError(message);
           setIsInitialLoading(false);
           onIncidentAccessLost?.();
@@ -348,38 +337,15 @@ export function useTimelineRowsLoader({
         if (hasLoadedRows()) {
           setRefreshError(message);
         } else {
+          setLoadAccessLost(false);
           setLoadError(message);
           setIsInitialLoading(false);
         }
         return;
       }
 
-      let incomingRows: WorkbookRow[];
-      try {
-        const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-        validateTimelineViewSchemaId(
-          envelope.data.view_schema_id,
-          "query response",
-        );
-        incomingRows = envelope.data.rows.map((row, index) =>
-          rowFromApi(
-            normalizeTimelineFullRow(row, `query response rows[${index}]`),
-          ),
-        );
-      } catch {
-        setIsRefreshing(false);
-        if (options.viewportContinuityToken !== undefined) {
-          failViewportContinuity(options.viewportContinuityToken);
-        }
-        const message = "Timeline projection load failed.";
-        if (hasLoadedRows()) {
-          setRefreshError(message);
-        } else {
-          setLoadError(message);
-          setIsInitialLoading(false);
-        }
-        return;
-      }
+      const incomingRows = [...result.value.rows];
+      setLoadAccessLost(false);
       const incomingFreshness = freshTimelineRowsForQueryResult(
         incomingRows,
         options.sourceRecordRequirement,
@@ -401,11 +367,13 @@ export function useTimelineRowsLoader({
         reconcileCommittedRowsWithLocalDrafts({
           currentRows: rowsRef.current,
           incomingRows: incomingFreshness.rows,
-          draftValueForFocusKey: (focusKey) =>
-            scalarDraftValuesRef.current.get(focusKey),
+          materializeRow: editorDraftRegistry.materializeRow,
           nextDraftIndex,
         });
       acceptCommittedTimelineRows(committedRows);
+      editorDraftRegistry.retainRows(
+        new Set(hydratedRows.map((row) => row.key)),
+      );
       rowsRef.current = hydratedRows;
       const commitProjectionAndFollowUps = () => {
         setRows(hydratedRows);
@@ -477,18 +445,19 @@ export function useTimelineRowsLoader({
       pruneAutoResolutionNoticesForRows,
       pruneDismissedMentionsForRow,
       publishSaveStatePresentation,
-      queryBody,
-      queryPath,
+      queryState,
       refreshTimelineRowsAfterStaleResult,
       rowsRef,
-      scalarDraftValuesRef,
+      editorDraftRegistry,
       settleProjectionObligationsFromCurrentRows,
       setDismissedMentionsByRow,
       setIsInitialLoading,
       setIsRefreshing,
+      setLoadAccessLost,
       setLoadError,
       setRefreshError,
       setRows,
+      timelineViewQuery,
     ],
   );
 
@@ -500,12 +469,12 @@ export function useTimelineRowsLoader({
 function reconcileCommittedRowsWithLocalDrafts({
   currentRows,
   incomingRows,
-  draftValueForFocusKey,
+  materializeRow,
   nextDraftIndex,
 }: {
   readonly currentRows: WorkbookRow[];
   readonly incomingRows: WorkbookRow[];
-  readonly draftValueForFocusKey: (focusKey: string) => string | undefined;
+  readonly materializeRow: (row: WorkbookRow) => WorkbookRow;
   readonly nextDraftIndex: () => number;
 }): {
   readonly committedRows: WorkbookRow[];
@@ -542,14 +511,11 @@ function reconcileCommittedRowsWithLocalDrafts({
         };
       }
     }
-    return rowWithMaterializedScalarDrafts(
-      rowWithLocalState,
-      draftValueForFocusKey,
-    );
+    return materializeRow(rowWithLocalState);
   });
   const localDraftRows = currentRows
     .filter((row) => row.recordId === null)
-    .map((row) => rowWithMaterializedScalarDrafts(row, draftValueForFocusKey));
+    .map(materializeRow);
 
   return {
     committedRows,
@@ -582,28 +548,4 @@ function ensureDraftRowWithFreshIndex(
       "activitySynopsisText",
     ),
   };
-}
-
-function rowWithMaterializedScalarDrafts(
-  row: WorkbookRow,
-  draftValueForFocusKey: (focusKey: string) => string | undefined,
-): WorkbookRow {
-  let nextValues: WorkbookRow["values"] | null = null;
-  for (const binding of timelineScalarBindings) {
-    let draftValue: string | undefined;
-    for (const surface of timelineScalarEditorSurfaces) {
-      draftValue = draftValueForFocusKey(
-        inputFocusKey(row.key, binding.key, surface),
-      );
-      if (draftValue !== undefined) {
-        break;
-      }
-    }
-    if (draftValue === undefined || draftValue === row.values[binding.key]) {
-      continue;
-    }
-    nextValues ??= { ...row.values };
-    nextValues[binding.key] = draftValue;
-  }
-  return nextValues === null ? row : { ...row, values: nextValues };
 }

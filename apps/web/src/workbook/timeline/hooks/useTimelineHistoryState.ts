@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type {
   RecordHistoryState,
   RowHistoryPendingAction,
-} from "../components/TimelineHistoryPanel";
+} from "../models/timelineHistoryModel";
 import {
   selectTimelineInspectorHistorySubject,
   type TimelineInspectorHistorySubject,

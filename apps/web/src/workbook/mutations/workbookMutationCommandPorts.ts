@@ -1,23 +1,131 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import type { AssessmentCreateDraft } from "../models/assessmentWorkbookModel";
-import type { WorkbookRow } from "../timeline/models/workbookTimelineModel";
+import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type {
+  TimelineApiRow,
+  WorkbookRow,
+} from "../timeline/models/workbookTimelineModel";
+import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
-export type WorkbookMutationCommandResult<T = unknown> = {
-  readonly ok: boolean;
-  readonly status: number;
-  readonly payload: T | { readonly error?: { readonly message?: string } };
+export type GenericViewMutationAccepted = {
+  readonly changeSetId: string;
+  readonly row: WorkbookQueryRow;
+  readonly viewSchemaId: string;
 };
 
-export interface TimelineMutationCommandPort {
+export type GenericMutationOutcome =
+  WorkbookOperationOutcome<GenericViewMutationAccepted>;
+
+export type EntityCreateAccepted = {
+  readonly changeSetId: string;
+  readonly row: WorkbookQueryRow;
+  readonly viewSchemaId: string;
+};
+
+export type EntityPatchAccepted = {
+  readonly changeSetId: string;
+  readonly row: WorkbookQueryRow;
+  readonly viewSchemaId: string;
+};
+
+export type EntityPasteAccepted = {
+  readonly changeSetId: string | null;
+  readonly rows: readonly WorkbookQueryRow[];
+  readonly viewSchemaId: string;
+};
+
+export type EntityCreateOutcome =
+  WorkbookOperationOutcome<EntityCreateAccepted>;
+export type EntityPatchOutcome = WorkbookOperationOutcome<EntityPatchAccepted>;
+export type EntityPasteOutcome = WorkbookOperationOutcome<EntityPasteAccepted>;
+
+export type EntityMergeAccepted = {
+  readonly changeSetId: string;
+  readonly loserRecordId: string;
+  readonly loserRowVersion: number;
+  readonly mergedIntoRecordId: string;
+  readonly recordType: "host" | "identity";
+  readonly survivorRecordId: string;
+  readonly survivorRowVersion: number;
+};
+
+export type EntityMergeOutcome = WorkbookOperationOutcome<EntityMergeAccepted>;
+
+export type AssessmentCreateAccepted = {
+  readonly changeSetId: string;
+  readonly row: WorkbookQueryRow;
+  readonly viewSchemaId: string;
+};
+
+export type AssessmentCreateOutcome =
+  WorkbookOperationOutcome<AssessmentCreateAccepted>;
+
+export type EvidenceAttachAccepted = {
+  readonly evidenceRecordId: string;
+};
+
+export type EvidenceHandleAccepted = {
+  readonly filename: string;
+  readonly href: string;
+  readonly previewKind: string | null;
+};
+
+export type EvidenceAttachOutcome =
+  WorkbookOperationOutcome<EvidenceAttachAccepted>;
+export type EvidenceHandleOutcome =
+  WorkbookOperationOutcome<EvidenceHandleAccepted>;
+
+export type TaskLifecycleStatus =
+  | "open"
+  | "in_progress"
+  | "blocked"
+  | "done"
+  | "canceled";
+
+export type TaskLifecycleAccepted = {
+  readonly changeSetId: string;
+  readonly row: WorkbookQueryRow;
+  readonly status: TaskLifecycleStatus;
+  readonly viewSchemaId: string;
+};
+
+export type DecisionSupersedeAccepted = {
+  readonly changeSetId: string;
+  readonly replacementRecordId: string;
+  readonly replacementRowVersion: number;
+  readonly targetRecordId: string;
+  readonly targetRowVersion: number;
+  readonly targetStatus: string;
+  readonly viewSchemaId: string;
+};
+
+export type TaskLifecycleOutcome =
+  WorkbookOperationOutcome<TaskLifecycleAccepted>;
+export type DecisionSupersedeOutcome =
+  WorkbookOperationOutcome<DecisionSupersedeAccepted>;
+
+export interface TimelineMutationIdentityPort {
   createLogicalActionId(): string;
   createConflictRecoveryId(): string;
+}
+
+export type TimelineBulkMutationAccepted = {
+  readonly affectedRowCount: number;
+  readonly changeSetId: string | null;
+  readonly conflictCount: number;
+};
+
+export type TimelineBulkMutationOutcome =
+  WorkbookOperationOutcome<TimelineBulkMutationAccepted>;
+
+export interface TimelineBulkMutationPort {
   assignTag(input: {
     readonly tagName: string;
     readonly targets: readonly {
       readonly recordId: string;
       readonly baseRowVersion: number;
     }[];
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<TimelineBulkMutationOutcome>;
   fillDown(input: {
     readonly fieldKey: string;
     readonly onClientTxnId: (clientTxnId: string) => void;
@@ -26,19 +134,41 @@ export interface TimelineMutationCommandPort {
       readonly recordId: string;
       readonly baseRowVersion: number;
     }[];
-  }): Promise<
-    WorkbookMutationCommandResult & { readonly clientTxnId: string | null }
-  >;
+  }): Promise<{
+    readonly clientTxnId: string | null;
+    readonly outcome: TimelineBulkMutationOutcome;
+  }>;
+}
+
+export type TimelineRelatedRecordCreated = {
+  readonly changeSetId: string;
+  readonly recordId: string;
+  readonly viewSchemaId: string;
+};
+
+export type TimelineRelatedEvidenceLinked = {
+  readonly changeSetId: string;
+  readonly row: TimelineApiRow;
+  readonly viewSchemaId: string;
+};
+
+export interface TimelineRelatedRecordPort {
   createRelatedRecord(input: {
     readonly contract: ViewContract;
     readonly draft: Readonly<Record<string, string>>;
     readonly featureGroupKey: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<WorkbookOperationOutcome<TimelineRelatedRecordCreated>>;
   linkCreatedEvidence(input: {
     readonly sourceRow: WorkbookRow;
     readonly createdRecordId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<WorkbookOperationOutcome<TimelineRelatedEvidenceLinked>>;
 }
+
+export type TimelineMutationCommandPorts = {
+  readonly bulk: TimelineBulkMutationPort;
+  readonly identity: TimelineMutationIdentityPort;
+  readonly related: TimelineRelatedRecordPort;
+};
 
 export interface GenericMutationCommandPort {
   canCreateRecord(input: {
@@ -49,18 +179,18 @@ export interface GenericMutationCommandPort {
     readonly contract: ViewContract;
     readonly draft: Readonly<Record<string, string>>;
     readonly linkedNoteSourceRecordId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<GenericMutationOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
     readonly changes: readonly Record<string, unknown>[];
     readonly purpose: string;
     readonly recordId: string;
     readonly viewSchemaId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<GenericMutationOutcome>;
   createPartyFromText(input: {
     readonly originViewSchemaId: string;
     readonly rawText: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<GenericMutationOutcome>;
 }
 
 export interface EntityMutationCommandPort {
@@ -71,14 +201,14 @@ export interface EntityMutationCommandPort {
   createRecord(input: {
     readonly contract: ViewContract;
     readonly draft: Readonly<Record<string, string>>;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<EntityCreateOutcome>;
   patchRecord(input: {
     readonly baseRowVersion: number;
     readonly changes: readonly Record<string, unknown>[];
     readonly purpose: string;
     readonly recordId: string;
     readonly viewSchemaId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<EntityPatchOutcome>;
   pasteCreate(input: {
     readonly clipboardText: string;
     readonly columns: readonly string[];
@@ -86,28 +216,33 @@ export interface EntityMutationCommandPort {
     readonly startFieldKey: string;
     readonly targetCount: number;
     readonly viewSchemaId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<EntityPasteOutcome>;
   merge(input: {
     readonly loserBaseRowVersion: number;
     readonly loserRecordId: string;
     readonly reason: string;
     readonly survivorBaseRowVersion: number;
     readonly survivorRecordId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<EntityMergeOutcome>;
 }
 
 export interface AssessmentMutationCommandPort {
+  canCreate(input: { readonly draft: AssessmentCreateDraft }): boolean;
   create(input: {
     readonly draft: AssessmentCreateDraft;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<AssessmentCreateOutcome>;
 }
 
-export interface EvidenceMutationCommandPort {
+export interface EvidenceCapabilityPort {
   attach(input: {
     readonly baseRowVersion: number;
     readonly evidenceRecordId: string;
     readonly file: File;
-  }): Promise<void>;
+  }): Promise<EvidenceAttachOutcome>;
+  issueHandle(input: {
+    readonly evidenceRecordId: string;
+    readonly kind: "download" | "preview";
+  }): Promise<EvidenceHandleOutcome>;
 }
 
 export interface CoordinationMutationCommandPort {
@@ -115,21 +250,21 @@ export interface CoordinationMutationCommandPort {
     readonly baseRowVersion: number;
     readonly blockedReason?: string | undefined;
     readonly recordId: string;
-    readonly status: string;
-  }): Promise<WorkbookMutationCommandResult>;
+    readonly status: TaskLifecycleStatus;
+  }): Promise<TaskLifecycleOutcome>;
   supersedeDecision(input: {
     readonly baseRowVersion: number;
     readonly reason: string;
     readonly replacementRecordId: string;
     readonly targetRecordId: string;
-  }): Promise<WorkbookMutationCommandResult>;
+  }): Promise<DecisionSupersedeOutcome>;
 }
 
 export type WorkbookMutationCommandPorts = {
-  readonly timeline: TimelineMutationCommandPort;
+  readonly timeline: TimelineMutationCommandPorts;
   readonly generic: GenericMutationCommandPort;
   readonly entity: EntityMutationCommandPort;
   readonly assessment: AssessmentMutationCommandPort;
-  readonly evidence: EvidenceMutationCommandPort;
+  readonly evidence: EvidenceCapabilityPort;
   readonly coordination: CoordinationMutationCommandPort;
 };

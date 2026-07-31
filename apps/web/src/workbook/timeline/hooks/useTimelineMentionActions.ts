@@ -1,18 +1,5 @@
 import { type Dispatch, type SetStateAction, useCallback } from "react";
-import { apiPath } from "../../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../../services/workbookApi";
-import {
-  buildMentionActionPayload,
-  type MentionResolutionAction,
-} from "../../collaboration/workbookCollaborationMessages";
-import {
-  hostsViewSchemaId,
-  identitiesViewSchemaId,
-} from "../../models/workbookSurfaceRegistry";
+import type { MentionResolutionAction } from "../../collaboration/workbookCollaborationMessages";
 import type {
   TimelineContinuityRequirementName,
   TimelineSourceRecordRequirement,
@@ -22,36 +9,7 @@ import type {
   InspectorMention,
 } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-
-type MentionActionEnvelope = {
-  data: {
-    incident_id: string;
-    entity_mention: {
-      entity_mention_id: string;
-      source_record_id: string;
-      source_field_key: string;
-      entity_type: "host" | "identity" | string;
-      raw_text: string;
-      resolution_status: "unresolved" | "resolved" | "dismissed" | string;
-      resolved_record_id: string | null;
-      row_version: number;
-      resolution_method: string | null;
-    };
-    source_record: {
-      record_id: string;
-      row_version: number;
-    };
-    change_set_id: string;
-  };
-};
-
-type EntityCreateEnvelope = {
-  data: {
-    row: {
-      record_id: string;
-    };
-  };
-};
+import type { TimelineMentionPort } from "../ports/TimelineMentionPort";
 
 type TimelineMentionViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
@@ -67,14 +25,13 @@ type TimelineMentionLoadRowsOptions = {
 };
 
 export function useTimelineMentionActions({
-  apiBase,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   enqueueSaveWork,
   finishSave,
-  incidentId,
   loadRows,
+  mentionPort,
   nextClientTxnId,
   onRefreshEntities,
   requireViewportContinuitySourceRecord,
@@ -86,7 +43,6 @@ export function useTimelineMentionActions({
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
-  readonly apiBase?: string | undefined;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     target: TimelineMentionViewportContinuityTarget,
@@ -97,8 +53,8 @@ export function useTimelineMentionActions({
   readonly clearViewportContinuity: (token: number) => void;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
-  readonly incidentId: string;
   readonly loadRows: (options: TimelineMentionLoadRowsOptions) => Promise<void>;
+  readonly mentionPort: TimelineMentionPort;
   readonly nextClientTxnId: () => string;
   readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
   readonly requireViewportContinuitySourceRecord: (
@@ -152,37 +108,18 @@ export function useTimelineMentionActions({
           return;
         }
         const currentRow = idleRecord.row;
-        const createIntent = buildMentionEntityCreateIntent(
-          mention,
-          createClientTxnId,
-        );
-        if (createIntent === null) {
+        const createResult = await mentionPort.createEntity({
+          clientTxnId: createClientTxnId,
+          entityType: mention.entityType,
+          rawText: mention.rawText,
+        });
+        if (createResult.kind === "rejected") {
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Cannot create an entity from this mention.");
+          setInspectorMessage(createResult.failure.message);
           finishSave("Conflict");
           return;
         }
-
-        const createResult = await fetchWorkbookJSON<EntityCreateEnvelope>(
-          apiPath(
-            apiBase,
-            `/api/v1/incidents/${incidentId}/views/${createIntent.viewSchemaId}/rows`,
-          ),
-          {
-            method: "POST",
-            body: JSON.stringify(createIntent.payload),
-          },
-        );
-        if (!createResult.ok) {
-          clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(parseErrorMessage(createResult.payload));
-          finishSave("Conflict");
-          return;
-        }
-        const createEnvelope = readEnvelope<EntityCreateEnvelope>(
-          createResult.payload,
-        );
-        const createdRecordId = createEnvelope.data.row.record_id;
+        const createdRecordId = createResult.value.recordId;
         const currentMention = currentMentionFromRow(currentRow, mention);
         const mentionID = entityMentionID(currentMention);
         if (mentionID === null) {
@@ -191,13 +128,7 @@ export function useTimelineMentionActions({
           finishSave("Conflict");
           return;
         }
-        const payload = buildMentionActionPayload(
-          currentMention,
-          "resolve_item",
-          resolveClientTxnId,
-          createdRecordId,
-        );
-        if (payload === null) {
+        if (currentMention.mentionRowVersion === null) {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage("Missing mention row version.");
           finishSave("Conflict");
@@ -205,35 +136,26 @@ export function useTimelineMentionActions({
         }
 
         trackPendingSocketTxn(resolveClientTxnId);
-        const result = await fetchWorkbookJSON<MentionActionEnvelope>(
-          apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
-          {
-            method: "POST",
-            body: JSON.stringify(payload),
-          },
-        );
-        if (!result.ok) {
+        const result = await mentionPort.resolve({
+          action: "resolve_item",
+          baseMentionRowVersion: currentMention.mentionRowVersion,
+          clientTxnId: resolveClientTxnId,
+          expectedSourceRecordId: recordId,
+          mentionId: mentionID,
+          resolvedRecordId: createdRecordId,
+        });
+        if (result.kind === "rejected") {
           resolvePendingSocketTxn(resolveClientTxnId);
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(parseErrorMessage(result.payload));
+          setInspectorMessage(result.failure.message);
           finishSave("Conflict");
           return;
         }
 
-        let sourceRecordRequirement: TimelineSourceRecordRequirement;
-        try {
-          const envelope = readEnvelope<MentionActionEnvelope>(result.payload);
-          sourceRecordRequirement = requireMentionActionSourceRecord(
-            envelope,
-            recordId,
-          );
-        } catch {
-          resolvePendingSocketTxn(resolveClientTxnId);
-          clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Mention action source record was invalid.");
-          finishSave("Conflict");
-          return;
-        }
+        const sourceRecordRequirement: TimelineSourceRecordRequirement = {
+          recordId: result.value.sourceRecord.recordId,
+          minimumRowVersion: result.value.sourceRecord.rowVersion,
+        };
         requireViewportContinuitySourceRecord(
           viewportContinuityToken,
           sourceRecordRequirement,
@@ -272,14 +194,13 @@ export function useTimelineMentionActions({
       });
     },
     [
-      apiBase,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork,
       finishSave,
-      incidentId,
       loadRows,
+      mentionPort,
       nextClientTxnId,
       onRefreshEntities,
       requireViewportContinuitySourceRecord,
@@ -333,54 +254,38 @@ export function useTimelineMentionActions({
           finishSave("Conflict");
           return;
         }
-        const payload = buildMentionActionPayload(
-          currentMention,
-          action,
-          clientTxnId,
-          resolvedRecordId,
-        );
-        if (payload === null) {
+        if (currentMention.mentionRowVersion === null) {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage("Missing mention row version.");
           finishSave("Conflict");
           return;
         }
         trackPendingSocketTxn(clientTxnId);
-        const result = await fetchWorkbookJSON<MentionActionEnvelope>(
-          apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
-          {
-            method: "POST",
-            body: JSON.stringify(payload),
-          },
-        );
-        if (!result.ok) {
+        const result = await mentionPort.resolve({
+          action,
+          baseMentionRowVersion: currentMention.mentionRowVersion,
+          clientTxnId,
+          expectedSourceRecordId: recordId,
+          mentionId: mentionID,
+          ...(resolvedRecordId === undefined ? {} : { resolvedRecordId }),
+        });
+        if (result.kind === "rejected") {
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage(parseErrorMessage(result.payload));
+          setInspectorMessage(result.failure.message);
           finishSave("Conflict");
           return;
         }
 
-        let envelope: MentionActionEnvelope;
-        let sourceRecordRequirement: TimelineSourceRecordRequirement;
-        try {
-          envelope = readEnvelope<MentionActionEnvelope>(result.payload);
-          sourceRecordRequirement = requireMentionActionSourceRecord(
-            envelope,
-            recordId,
-          );
-        } catch {
-          resolvePendingSocketTxn(clientTxnId);
-          clearViewportContinuity(viewportContinuityToken);
-          setInspectorMessage("Mention action source record was invalid.");
-          finishSave("Conflict");
-          return;
-        }
+        const sourceRecordRequirement: TimelineSourceRecordRequirement = {
+          recordId: result.value.sourceRecord.recordId,
+          minimumRowVersion: result.value.sourceRecord.rowVersion,
+        };
         requireViewportContinuitySourceRecord(
           viewportContinuityToken,
           sourceRecordRequirement,
         );
-        const entityMention = envelope.data.entity_mention;
+        const entityMention = result.value.entityMention;
         const applyMentionFollowUp =
           action === "dismiss_item"
             ? () => {
@@ -395,21 +300,21 @@ export function useTimelineMentionActions({
                       {
                         rowRecordId: recordId,
                         fieldKey:
-                          entityMention.source_field_key ===
+                          entityMention.sourceFieldKey ===
                           "timeline.identity_refs"
                             ? "timeline.identity_refs"
                             : currentMention.fieldKey,
                         entityType:
-                          entityMention.entity_type === "identity"
+                          entityMention.entityType === "identity"
                             ? "identity"
                             : currentMention.entityType,
                         itemRef: currentMention.itemRef,
                         rawText:
-                          entityMention.raw_text || currentMention.rawText,
+                          entityMention.rawText ?? currentMention.rawText,
                         resolvedRecordId: currentMention.resolvedRecordId,
-                        mentionRowVersion: entityMention.row_version,
+                        mentionRowVersion: entityMention.rowVersion,
                         resolutionMethod:
-                          entityMention.resolution_method ??
+                          entityMention.resolutionMethod ??
                           currentMention.resolutionMethod,
                         autoResolved: currentMention.autoResolved,
                         displayText: currentMention.displayText,
@@ -461,13 +366,13 @@ export function useTimelineMentionActions({
       });
     },
     [
-      apiBase,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork,
       finishSave,
       loadRows,
+      mentionPort,
       nextClientTxnId,
       requireViewportContinuitySourceRecord,
       resolvePendingSocketTxn,
@@ -480,26 +385,6 @@ export function useTimelineMentionActions({
   );
 
   return { createEntityFromMention, submitMentionAction };
-}
-
-function requireMentionActionSourceRecord(
-  envelope: MentionActionEnvelope,
-  expectedRecordId: string,
-): TimelineSourceRecordRequirement {
-  const sourceRecord = envelope.data.source_record;
-  if (
-    sourceRecord.record_id !== expectedRecordId ||
-    !Number.isSafeInteger(sourceRecord.row_version) ||
-    sourceRecord.row_version < 1
-  ) {
-    throw new Error(
-      `Mention action source record ${sourceRecord.record_id}@${sourceRecord.row_version} does not match ${expectedRecordId}.`,
-    );
-  }
-  return {
-    recordId: sourceRecord.record_id,
-    minimumRowVersion: sourceRecord.row_version,
-  };
 }
 
 function currentMentionFromRow(
@@ -539,43 +424,4 @@ function entityMentionID(mention: InspectorMention): string | null {
       ? mention.itemRef.slice("entity_mention:".length) || null
       : null)
   );
-}
-
-function buildMentionEntityCreateIntent(
-  mention: InspectorMention,
-  clientTxnId: string,
-): {
-  readonly payload: Record<string, unknown>;
-  readonly viewSchemaId: string;
-} | null {
-  const rawText = mention.rawText.trim();
-  if (rawText === "") {
-    return null;
-  }
-  if (mention.entityType === "host") {
-    const payload: Record<string, unknown> = {
-      client_txn_id: clientTxnId,
-      "host.display_name": rawText,
-    };
-    if (rawText.includes(".")) {
-      payload["host.fqdn"] = rawText;
-    } else {
-      payload["host.hostname"] = rawText;
-    }
-    return { payload, viewSchemaId: hostsViewSchemaId };
-  }
-  if (mention.entityType === "identity") {
-    const payload: Record<string, unknown> = {
-      client_txn_id: clientTxnId,
-      "identity.display_name": rawText,
-    };
-    if (rawText.includes("@")) {
-      payload["identity.upn"] = rawText;
-      payload["identity.email"] = rawText;
-    } else {
-      payload["identity.sam_account_name"] = rawText;
-    }
-    return { payload, viewSchemaId: identitiesViewSchemaId };
-  }
-  return null;
 }

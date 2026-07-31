@@ -9,6 +9,11 @@ import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecyc
 import type { GenericReferenceOptions } from "../../models/workbookReferenceOptions";
 import type { TimelineCreateRelatedWorkflowState } from "../hooks/useTimelineCreateRelatedWorkflow";
 import type { TimelineInspectorHistorySubject } from "../hooks/useTimelineHistoryState";
+import type {
+  RecordHistoryItem,
+  RecordHistoryState,
+  RowHistoryPendingAction,
+} from "../models/timelineHistoryModel";
 import {
   readTimelineCellValue,
   type TimelineCollectionBinding,
@@ -18,12 +23,7 @@ import {
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
-import {
-  type RecordHistoryItem,
-  type RecordHistoryState,
-  type RowHistoryPendingAction,
-  TimelineHistoryPanel,
-} from "./TimelineHistoryPanel";
+import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
 import {
   actionButtonStyle,
   bodyStyle,

@@ -3,16 +3,17 @@ import type {
   ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useState } from "react";
-import { parseErrorMessage, readEnvelope } from "../../../services/workbookApi";
 import {
   genericCreateMinimumMessage,
   initialGenericCreateDraft,
 } from "../../models/genericWorkbookModel";
 import { evidenceViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import type { TimelineMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type {
+  TimelineRelatedEvidenceLinked,
+  TimelineRelatedRecordPort,
+} from "../../mutations/workbookMutationCommandPorts";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 
 export type TimelineCreateRelatedWorkflowState = {
   readonly featureGroup: InspectorFeatureGroup;
@@ -22,19 +23,6 @@ export type TimelineCreateRelatedWorkflowState = {
   readonly isSubmitting: boolean;
   readonly message: string | null;
 };
-
-function recordIdFromMutationEnvelope(
-  envelope: TimelineMutationEnvelope,
-): string | null {
-  const row = envelope.data.row;
-  if (row && typeof row === "object" && "record_id" in row) {
-    const recordId = (row as { record_id?: unknown }).record_id;
-    return typeof recordId === "string" && recordId.trim() !== ""
-      ? recordId
-      : null;
-  }
-  return null;
-}
 
 function applyTimelineCreateRelatedSeedBindings(
   draft: Record<string, string>,
@@ -80,7 +68,7 @@ function timelineCreateRelatedSeedValue(
 }
 
 export function useTimelineCreateRelatedWorkflow({
-  applyRowMutation,
+  applyAcceptedRowMutation,
   currentUserId,
   loadRows,
   mutationCommands,
@@ -89,15 +77,15 @@ export function useTimelineCreateRelatedWorkflow({
   setInspectorMessage,
   targetContracts,
 }: {
-  readonly applyRowMutation: (
+  readonly applyAcceptedRowMutation: (
     rowKey: string,
-    envelope: TimelineMutationEnvelope,
+    accepted: Pick<TimelineRelatedEvidenceLinked, "row" | "viewSchemaId">,
   ) => unknown;
   readonly currentUserId: string | null;
   readonly loadRows: (options: {
     readonly showLoading: boolean;
   }) => Promise<void>;
-  readonly mutationCommands: TimelineMutationCommandPort;
+  readonly mutationCommands: TimelineRelatedRecordPort;
   readonly selectedRow: WorkbookRow | null;
   readonly selectedRowWorkflowKey: string;
   readonly setInspectorMessage: (message: string | null) => void;
@@ -205,49 +193,35 @@ export function useTimelineCreateRelatedWorkflow({
       draft: activeWorkflow.draft,
       featureGroupKey: activeWorkflow.featureGroup.featureGroupKey,
     });
-    if (!createResult.ok) {
+    if (createResult.kind === "rejected") {
       setWorkflow({
         ...activeWorkflow,
         isSubmitting: false,
         message:
-          createResult.status === 422
+          createResult.failure.kind === "validation"
             ? genericCreateMinimumMessage(
                 activeWorkflow.targetContract.viewSchemaId,
               )
-            : parseErrorMessage(createResult.payload),
+            : createResult.failure.message,
       });
       return;
     }
-    const createEnvelope = readEnvelope<TimelineMutationEnvelope>(
-      createResult.payload,
-    );
-    const createdRecordId = recordIdFromMutationEnvelope(createEnvelope);
-    if (createdRecordId === null) {
-      setWorkflow({
-        ...activeWorkflow,
-        isSubmitting: false,
-        message: "Created row response did not include a record id.",
-      });
-      return;
-    }
+    const createdRecordId = createResult.value.recordId;
 
     if (activeWorkflow.targetContract.viewSchemaId === evidenceViewSchemaId) {
       const patchResult = await mutationCommands.linkCreatedEvidence({
         sourceRow,
         createdRecordId,
       });
-      if (!patchResult.ok) {
+      if (patchResult.kind === "rejected") {
         setWorkflow({
           ...activeWorkflow,
           isSubmitting: false,
-          message: `Created evidence, but Timeline link failed: ${parseErrorMessage(patchResult.payload)}`,
+          message: `Created evidence, but Timeline link failed: ${patchResult.failure.message}`,
         });
         return;
       }
-      const patchEnvelope = readEnvelope<TimelineMutationEnvelope>(
-        patchResult.payload,
-      );
-      applyRowMutation(sourceRow.key, patchEnvelope);
+      applyAcceptedRowMutation(sourceRow.key, patchResult.value);
       await loadRows({ showLoading: false });
       setWorkflow(null);
       setInspectorMessage(`Created and linked evidence ${createdRecordId}.`);
@@ -259,7 +233,7 @@ export function useTimelineCreateRelatedWorkflow({
       `Created related ${activeWorkflow.targetContract.viewSchemaId} row ${createdRecordId}.`,
     );
   }, [
-    applyRowMutation,
+    applyAcceptedRowMutation,
     loadRows,
     mutationCommands,
     selectedRow,

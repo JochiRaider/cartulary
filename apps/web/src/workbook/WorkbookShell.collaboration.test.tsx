@@ -84,11 +84,11 @@ describe("workbook collaboration coverage", () => {
   it("presence indicators render from keyed socket state without changing save-state", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Presence base",
             captureState: "rough",
@@ -97,11 +97,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const activatedEditor = await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     fireEvent.keyDown(activatedEditor, { key: "Escape" });
@@ -132,7 +134,7 @@ describe("workbook collaboration coverage", () => {
             user_id: "self-user",
             display_name: "Self Analyst",
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
-            record_id: "record-1",
+            record_id: "20000000-0000-4000-8000-000000000001",
             mode: "editing",
             field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
@@ -143,7 +145,7 @@ describe("workbook collaboration coverage", () => {
             user_id: "other-user",
             display_name: "Other Analyst",
             sheet_ref: { kind: "view_schema", id: timelineViewSchemaId },
-            record_id: "record-1",
+            record_id: "20000000-0000-4000-8000-000000000001",
             mode: "editing",
             field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
@@ -154,7 +156,7 @@ describe("workbook collaboration coverage", () => {
             user_id: "saved-view-user",
             display_name: "Saved View Analyst",
             sheet_ref: { kind: "saved_view", id: timelineViewSchemaId },
-            record_id: "record-1",
+            record_id: "20000000-0000-4000-8000-000000000001",
             mode: "editing",
             field_key: "timeline.activity_synopsis_text",
             observed_at: "2026-05-05T12:00:00Z",
@@ -176,7 +178,7 @@ describe("workbook collaboration coverage", () => {
       expect(
         screen.getByTestId(
           cellPresenceMarkerTestId(
-            "record-1",
+            "20000000-0000-4000-8000-000000000001",
             "timeline.activity_synopsis_text",
           ),
         ).textContent,
@@ -201,11 +203,11 @@ describe("workbook collaboration coverage", () => {
   it("applies sparse live patches by record_id without moving an active cell draft", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Local base",
             details: "Old details",
@@ -215,11 +217,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     input.focus();
@@ -228,7 +232,7 @@ describe("workbook collaboration coverage", () => {
       type: "record_changed",
       stream_seq: 1,
       payload: buildRecordChangedPayload({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000001",
         rowVersion: 2,
         clientTxnId: "remote-patch",
         changedFieldKeys: ["timeline.raw_activity_text"],
@@ -237,7 +241,7 @@ describe("workbook collaboration coverage", () => {
             view_schema_id: timelineViewSchemaId,
             change_kind: "patch",
             patch_cells: {
-              record_id: "record-1",
+              record_id: "20000000-0000-4000-8000-000000000001",
               row_version: 2,
               cells: {
                 "timeline.raw_activity_text": { value: "Remote details" },
@@ -250,7 +254,9 @@ describe("workbook collaboration coverage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
     });
     expect(input.value).toBe("Unsaved local");
@@ -261,11 +267,11 @@ describe("workbook collaboration coverage", () => {
   it("keeps the grid visible, conflict unresolved, and focus bound to the same cell", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Saved base",
             captureState: "rough",
@@ -276,7 +282,7 @@ describe("workbook collaboration coverage", () => {
     fetchMock.mockResolvedValueOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-1",
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
@@ -289,12 +295,14 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
 
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -340,11 +348,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Base",
             captureState: "rough",
@@ -355,7 +363,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-keep",
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
@@ -370,8 +378,9 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Server",
           captureState: "rough",
@@ -379,12 +388,14 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
 
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -400,7 +411,9 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
@@ -414,11 +427,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 3,
             summary: "Base again",
             captureState: "rough",
@@ -429,7 +442,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-use",
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 3,
@@ -443,9 +456,9 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-resolve",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 5,
           summary: "Use local",
           captureState: "enriched",
@@ -453,11 +466,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -473,7 +488,9 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("5");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
@@ -488,11 +505,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 6,
             summary: "Merge base",
             captureState: "rough",
@@ -503,7 +520,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-merged",
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 6,
@@ -517,9 +534,9 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockConflictResolutionOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-merged",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 8,
           summary: "Merge final",
           captureState: "enriched",
@@ -527,11 +544,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.focus(input);
@@ -556,7 +575,9 @@ describe("workbook collaboration coverage", () => {
       expect(screen.queryByTestId(workbookConflictResolverTestId())).toBeNull();
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("8");
     });
     expect(extractTimelineConflictResolutionBody(fetchMock, 0)).toEqual({
@@ -573,17 +594,17 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "One",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Two",
             captureState: "rough",
@@ -594,12 +615,14 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
     routedFetch.mockRecordPatchOnce(secondPendingPatch.promise);
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
 
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.keyDown(
@@ -621,9 +644,9 @@ describe("workbook collaboration coverage", () => {
     firstPendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-2",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "One in flight",
           captureState: "rough",
@@ -642,9 +665,9 @@ describe("workbook collaboration coverage", () => {
     secondPendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-3",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 3,
           summary: "One queued final",
           captureState: "rough",
@@ -661,15 +684,15 @@ describe("workbook collaboration coverage", () => {
     const runtime = new WorkbookMutationRuntime(
       {
         clientInstanceId: "client-non-contiguous",
-        incidentId: "incident-1",
+        incidentId: "10000000-0000-4000-8000-000000000001",
       },
       createBrowserSecureTransactionIdPort(),
     );
     runtime.pauseForAuthRecovery();
     for (const [recordId, value, version] of [
-      ["record-1", "A1 queued", 1],
-      ["record-2", "B1 queued", 1],
-      ["record-1", "A2 queued", 2],
+      ["20000000-0000-4000-8000-000000000001", "A1 queued", 1],
+      ["20000000-0000-4000-8000-000000000002", "B1 queued", 1],
+      ["20000000-0000-4000-8000-000000000001", "A2 queued", 2],
     ] as const) {
       expect(
         runtime.enqueuePatch({
@@ -694,7 +717,11 @@ describe("workbook collaboration coverage", () => {
         .pending()
         .model.snapshot()
         .units.map((unit) => unit.recordId),
-    ).toEqual(["record-1", "record-2", "record-1"]);
+    ).toEqual([
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
   });
 
   it("exposes the browser-runtime pending queue capacity as exactly 64 replay units", () => {
@@ -705,11 +732,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Auth base",
             captureState: "rough",
@@ -717,11 +744,13 @@ describe("workbook collaboration coverage", () => {
         ],
       }),
     );
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     await waitFor(() => {
@@ -740,7 +769,7 @@ describe("workbook collaboration coverage", () => {
       screen.queryByTestId(
         timelineScalarEditorTestId({
           fieldKey: "timeline.activity_synopsis_text",
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           surface: "grid",
         }),
       ),
@@ -752,17 +781,17 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "One",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Two",
             captureState: "rough",
@@ -772,11 +801,13 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(firstPendingPatch.promise);
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(firstInput, "Conflict local"));
@@ -785,7 +816,7 @@ describe("workbook collaboration coverage", () => {
     firstPendingPatch.resolve(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-queued",
-        record_id: "record-1",
+        record_id: "20000000-0000-4000-8000-000000000001",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 1,
@@ -810,17 +841,17 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Queue 1",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Queue 2",
             captureState: "rough",
@@ -830,11 +861,13 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(errorEnvelope("session_required", 401));
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const firstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(firstInput, "Queue 1 local"));
@@ -850,20 +883,21 @@ describe("workbook collaboration coverage", () => {
   });
 
   it("drives WorkbookShell retry and success settlement from the shared pending queue model", async () => {
+    const retrySuccess = deferred<Response>();
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Retry one",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Retry two",
             captureState: "rough",
@@ -874,24 +908,13 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       retryableErrorEnvelope("future_retryable_public_error", 409),
     );
+    routedFetch.mockRecordPatchOnce(retrySuccess.promise);
     routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-retry-1",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
-          rowVersion: 2,
-          summary: "Retry head",
-          captureState: "rough",
-        }),
-      }),
-    );
-    routedFetch.mockRecordPatchOnce(
-      successEnvelope({
-        view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-retry-2",
-        row: timelineRow({
-          recordId: "record-2",
+          recordId: "20000000-0000-4000-8000-000000000002",
           rowVersion: 2,
           summary: "Retry behind",
           captureState: "rough",
@@ -899,32 +922,61 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const retryFirstInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(retryFirstInput, "Retry head"));
     await waitForTimelineRecordPatchCalls(fetchMock, 2);
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          timelineScalarEditorTestId({
+            fieldKey: "timeline.activity_synopsis_text",
+            recordId: "20000000-0000-4000-8000-000000000001",
+            surface: "grid",
+          }),
+        ),
+      ).toBeNull();
+    });
     const retrySecondInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(
       await changeQueuedCellValue(retrySecondInput, "Retry behind"),
+    );
+    await waitForPendingQueueState({
+      expectedPendingUnits: 2,
+      expectedSaveState: "Syncing",
+    });
+    retrySuccess.resolve(
+      successEnvelope({
+        view_schema_id: timelineViewSchemaId,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
+        row: timelineRow({
+          recordId: "20000000-0000-4000-8000-000000000001",
+          rowVersion: 2,
+          summary: "Retry head",
+          captureState: "rough",
+        }),
+      }),
     );
     await waitForTimelineRecordPatchCalls(fetchMock, 3);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
-      "/api/v1/records/record-1",
-      "/api/v1/records/record-1",
-      "/api/v1/records/record-2",
+      "/api/v1/records/20000000-0000-4000-8000-000000000001",
+      "/api/v1/records/20000000-0000-4000-8000-000000000001",
+      "/api/v1/records/20000000-0000-4000-8000-000000000002",
     ]);
   });
 
@@ -932,11 +984,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-halt",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Halt base",
             captureState: "rough",
@@ -947,11 +999,13 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("future_terminal_public_error", 409),
     );
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const haltInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-halt",
+      "20000000-0000-4000-8000-000000000102",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(haltInput, "Halt local"));
@@ -972,11 +1026,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-retry-conflict",
+            recordId: "20000000-0000-4000-8000-000000000103",
             rowVersion: 1,
             summary: "Retry base",
             captureState: "rough",
@@ -988,9 +1042,9 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-retry-conflict",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-retry-conflict",
+          recordId: "20000000-0000-4000-8000-000000000103",
           rowVersion: 2,
           summary: "Retry local",
           captureState: "rough",
@@ -998,11 +1052,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-retry-conflict",
+      "20000000-0000-4000-8000-000000000103",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Retry local"));
@@ -1048,11 +1104,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-retry-same-field",
+            recordId: "20000000-0000-4000-8000-000000000104",
             rowVersion: 3,
             summary: "Resolver base",
             captureState: "rough",
@@ -1064,7 +1120,7 @@ describe("workbook collaboration coverage", () => {
     routedFetch.mockRecordPatchOnce(
       errorEnvelope("same_field_conflict", 409, {
         conflict_token: "conflict-token-retry",
-        record_id: "record-retry-same-field",
+        record_id: "20000000-0000-4000-8000-000000000104",
         field_key: "timeline.activity_synopsis_text",
         conflict_resolution_class: "text_compare_merge",
         base_row_version: 3,
@@ -1075,11 +1131,13 @@ describe("workbook collaboration coverage", () => {
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-retry-same-field",
+      "20000000-0000-4000-8000-000000000104",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Resolver local"));
@@ -1111,11 +1169,11 @@ describe("workbook collaboration coverage", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-discard-conflict",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 1,
             summary: "Discard base",
             captureState: "rough",
@@ -1125,11 +1183,13 @@ describe("workbook collaboration coverage", () => {
     );
     routedFetch.mockRecordPatchOnce(errorEnvelope("client_txn_conflict", 409));
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     const input = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-discard-conflict",
+      "20000000-0000-4000-8000-000000000101",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     fireEvent.blur(await changeQueuedCellValue(input, "Discard local"));
@@ -1141,12 +1201,12 @@ describe("workbook collaboration coverage", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect(timelineRecordPatchCallURLs(fetchMock)).toEqual([
-      "/api/v1/records/record-discard-conflict",
+      "/api/v1/records/20000000-0000-4000-8000-000000000101",
     ]);
     const restored = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-discard-conflict",
+      "20000000-0000-4000-8000-000000000101",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     expect(restored.value).toBe("Discard base");

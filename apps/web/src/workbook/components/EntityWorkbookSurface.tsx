@@ -44,7 +44,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { parseErrorMessage, readEnvelope } from "../../services/workbookApi";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
@@ -56,6 +55,7 @@ import type {
   WorkbookContinuityPort,
   WorkbookContinuityToken,
 } from "../continuity/workbookContinuityPort";
+import { useEntityMergeController } from "../features/entities/useEntityMergeController";
 import { useEntityTimelinePreview } from "../hooks/useEntityTimelinePreview";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
@@ -66,7 +66,6 @@ import {
 } from "../layout/WorkbookSurfaceLayout";
 import { applyWorkbookLayoutToColumns } from "../layout/workbookColumnLayout";
 import {
-  buildMergePlan,
   type EntityRow,
   entityContractColumnWidth,
   entityGroupLabel,
@@ -78,7 +77,6 @@ import {
   genericCreateMinimumMessage,
   genericRowLabel,
   initialGenericCreateDraft,
-  parseMutationError,
   selectWorkbookEditTarget,
 } from "../models/genericWorkbookModel";
 import {
@@ -104,7 +102,6 @@ import type { EntityMutationCommandPort } from "../mutations/workbookMutationCom
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
 import { workbookClipboardPasteContract } from "../utils/workbookClipboard";
 import { GenericMutationControl } from "./GenericMutationControl";
@@ -121,61 +118,6 @@ const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
 type WorkbookMutationSaveState = "Syncing" | "Saved" | "Conflict";
-
-type ViewMutationEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    row: WorkbookQueryRow;
-  };
-};
-
-type EntityClipboardPasteEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    rows: WorkbookQueryRow[];
-  };
-};
-
-type MergeEnvelope = {
-  data: {
-    incident_id: string;
-    record_type: "host" | "identity";
-    survivor_record_id: string;
-    loser_record_id: string;
-    survivor_row_version: number;
-    loser_row_version: number;
-    change_set_id: string;
-    merged_into_record_id: string;
-    merge_summary: {
-      record_type: string;
-      repointed_mention_resolution_count: number;
-      repointed_link_count: number;
-      deduped_link_count: number;
-      repointed_tag_count: number;
-      deduped_tag_count: number;
-      repointed_assessment_count: number;
-      suggestion_aliases_copied_count: number;
-      suggestion_alias_duplicate_noop_count: number;
-      provenance_only_retained_count: number;
-      exact_match_classes: Array<{
-        identifier_class: string;
-        promoted_count: number;
-        carried_count: number;
-        duplicate_noop_count: number;
-        blocked_conflict_count: number;
-        provenance_only_count: number;
-        suggestion_only_count: number;
-      }>;
-    };
-  };
-};
-
-type MergePreconditionDetailLine = {
-  label: string;
-  value: string;
-};
 
 export type EntityWorkbookSurfaceProps = {
   incidentId: string;
@@ -198,48 +140,6 @@ export type EntityWorkbookSurfaceProps = {
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
 };
-
-function mergePreconditionDetailLines(
-  payload: unknown,
-): MergePreconditionDetailLine[] {
-  if (!payload || typeof payload !== "object" || !("error" in payload)) {
-    return [];
-  }
-  const error = payload.error;
-  if (
-    !error ||
-    typeof error !== "object" ||
-    !("details" in error) ||
-    !error.details ||
-    typeof error.details !== "object" ||
-    Array.isArray(error.details)
-  ) {
-    return [];
-  }
-  const details = error.details as Record<string, unknown>;
-  const fields: Array<readonly [string, string]> = [
-    ["reason_code", "Reason"],
-    ["record_type", "Record type"],
-    ["identifier_class", "Identifier class"],
-    ["normalized_value", "Normalized value"],
-    ["blocking_record_id", "Blocking record"],
-    ["survivor_record_id", "Survivor record"],
-    ["loser_record_id", "Loser record"],
-    ["survivor_base_row_version", "Survivor supplied version"],
-    ["loser_base_row_version", "Loser supplied version"],
-    ["survivor_current_row_version", "Survivor current version"],
-    ["loser_current_row_version", "Loser current version"],
-  ];
-  return fields.flatMap(([key, label]) => {
-    const value = details[key];
-    if (typeof value === "number") {
-      return [{ label, value: String(value) }];
-    }
-    return typeof value === "string" && value.trim() !== ""
-      ? [{ label, value }]
-      : [];
-  });
-}
 
 function entityCellContent(
   entityType: EntityRow["entityType"],
@@ -317,12 +217,7 @@ export function EntityWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const [mergeCandidateId, setMergeCandidateId] = useState<string>("");
-  const [mergeReason, setMergeReason] = useState("Merge duplicate entity");
-  const [mergeMessage, setMergeMessage] = useState<string | null>(null);
-  const [mergePreconditionDetails, setMergePreconditionDetails] = useState<
-    MergePreconditionDetailLine[]
-  >([]);
+  const mergeResetRef = useRef<() => void>(() => undefined);
   const [editRecordId, setEditRecordId] = useState("");
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
@@ -335,6 +230,9 @@ export function EntityWorkbookSurface({
     ),
   );
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [entityActionMessage, setEntityActionMessage] = useState<string | null>(
+    null,
+  );
   const [mutationState, setMutationState] =
     useState<WorkbookMutationSaveState>("Saved");
   const sharedMutation = useWorkbookMutationRuntime(mutationRuntime);
@@ -375,11 +273,10 @@ export function EntityWorkbookSurface({
       },
       clearLifecycleState: () => {
         continuityPortRef.current?.clear();
-        setMergeMessage(null);
+        setEntityActionMessage(null);
       },
       clearMergePlan: () => {
-        setMergeCandidateId("");
-        setMergePreconditionDetails([]);
+        mergeResetRef.current();
       },
       clearPreview: clearTimelinePreview,
       clearSelection: () => {
@@ -424,12 +321,33 @@ export function EntityWorkbookSurface({
     () => emptyGenericReferenceOptions(),
     [],
   );
-  const loserEntity =
-    rows.find((row) => row.recordId === mergeCandidateId) ?? null;
-  const mergePlan =
-    selectedEntity && loserEntity
-      ? buildMergePlan(selectedEntity, loserEntity)
-      : null;
+  const clearEntityMergeDrafts = useCallback(() => {
+    setEditRecordId("");
+    setEditFieldKey("");
+    setEditValue("");
+    setAliasDraft("");
+  }, []);
+  const merge = useEntityMergeController({
+    canMerge,
+    clearDrafts: clearEntityMergeDrafts,
+    lifecycleResetKey: inspectorResetKey,
+    loadSurvivorPreview: loadTimelinePreview,
+    mutationCommands,
+    onRefreshEntities,
+    retargetSurvivor: setSelectedRecordId,
+    rows,
+    selectedEntity,
+  });
+  mergeResetRef.current = merge.commands.clearPlan;
+  const {
+    candidateId: mergeCandidateId,
+    loser: loserEntity,
+    message: mergeMessage,
+    plan: mergePlan,
+    preconditionDetails: mergePreconditionDetails,
+    reason: mergeReason,
+  } = merge.snapshot;
+  const presentedEntityActionMessage = mergeMessage ?? entityActionMessage;
   const selectedEntityRecordKey = selectedEntity?.recordId ?? "";
   const selectedEntityPlanInvalidationKey =
     selectedEntity === null
@@ -683,8 +601,7 @@ export function EntityWorkbookSurface({
         );
         return;
       }
-      setMergeMessage(null);
-      setMergePreconditionDetails([]);
+      setEntityActionMessage(null);
       const result = await mutationCommands.pasteCreate({
         clipboardText,
         columns: targetResolution.columns,
@@ -693,18 +610,15 @@ export function EntityWorkbookSurface({
         targetCount: targetResolution.rowTargets.length,
         viewSchemaId: contract.viewSchemaId,
       });
-      if (!result.ok) {
-        setMergeMessage(parseErrorMessage(result.payload));
+      if (result.kind === "rejected") {
+        setEntityActionMessage(result.failure.message);
         return;
       }
-      const envelope = readEnvelope<EntityClipboardPasteEnvelope>(
-        result.payload,
-      );
-      const firstRow = envelope.data.rows[0];
+      const firstRow = result.value.rows[0];
       await onRefreshEntities();
       if (firstRow) setSelectedRecordId(firstRow.record_id);
-      setMergeMessage(
-        `Paste applied to ${envelope.data.rows.length} ${entityType === "host" ? "host" : "identity"} row${envelope.data.rows.length === 1 ? "" : "s"}.`,
+      setEntityActionMessage(
+        `Paste applied to ${result.value.rows.length} ${entityType === "host" ? "host" : "identity"} row${result.value.rows.length === 1 ? "" : "s"}.`,
       );
     },
     [
@@ -845,8 +759,8 @@ export function EntityWorkbookSurface({
           type="button"
           onClick={() => {
             setSelectedRecordId(row.recordId);
-            setMergeMessage(null);
-            setMergePreconditionDetails([]);
+            setEntityActionMessage(null);
+            merge.commands.reset();
             inspectorContinuityTokenRef.current = entityFocus.port.capture({
               fieldKey:
                 entityFocus.snapshot.anchor?.fieldKey ??
@@ -873,19 +787,9 @@ export function EntityWorkbookSurface({
     });
 
   useEffect(() => {
-    if (selectedEntityPlanInvalidationKey === "") {
-      return;
-    }
-    setMergeCandidateId("");
-  }, [selectedEntityPlanInvalidationKey]);
-
-  useEffect(() => {
     if (selectedEntityRecordKey === "") {
       clearTimelinePreview();
-      return;
     }
-    setMergeMessage(null);
-    setMergePreconditionDetails([]);
   }, [clearTimelinePreview, selectedEntityRecordKey]);
 
   useEffect(() => {
@@ -946,21 +850,18 @@ export function EntityWorkbookSurface({
         recordId: selectedEditRow.recordId,
         viewSchemaId: contract.viewSchemaId,
       });
-      if (!result.ok) {
-        if (result.status === 409) {
-          const conflict = parseSameFieldConflict(result.payload);
-          if (conflict !== null) {
-            mutationRuntime.registerConflict({
-              conflict,
-              focusKey: `${selectedEditRow.recordId}:${selectedEditField.fieldKey}`,
-              rowLabel: selectedEditRow.label,
-              surfaceLabel: contract.title,
-              viewSchemaId: contract.viewSchemaId,
-            });
-          }
+      if (result.kind === "rejected") {
+        if (result.failure.kind === "same_field_conflict") {
+          mutationRuntime.registerConflict({
+            conflict: result.failure.conflict,
+            focusKey: `${selectedEditRow.recordId}:${selectedEditField.fieldKey}`,
+            rowLabel: selectedEditRow.label,
+            surfaceLabel: contract.title,
+            viewSchemaId: contract.viewSchemaId,
+          });
         }
         setMutationState("Conflict");
-        setMutationError(parseMutationError(result.payload));
+        setMutationError(result.failure.message);
         return;
       }
       await onRefreshEntities();
@@ -999,21 +900,18 @@ export function EntityWorkbookSurface({
         recordId: selectedEntity.recordId,
         viewSchemaId: contract.viewSchemaId,
       });
-      if (!result.ok) {
-        if (result.status === 409) {
-          const conflict = parseSameFieldConflict(result.payload);
-          if (conflict !== null) {
-            mutationRuntime.registerConflict({
-              conflict,
-              focusKey: `${selectedEntity.recordId}:${aliasFieldKey}`,
-              rowLabel: selectedEntity.label,
-              surfaceLabel: contract.title,
-              viewSchemaId: contract.viewSchemaId,
-            });
-          }
+      if (result.kind === "rejected") {
+        if (result.failure.kind === "same_field_conflict") {
+          mutationRuntime.registerConflict({
+            conflict: result.failure.conflict,
+            focusKey: `${selectedEntity.recordId}:${aliasFieldKey}`,
+            rowLabel: selectedEntity.label,
+            surfaceLabel: contract.title,
+            viewSchemaId: contract.viewSchemaId,
+          });
         }
         setMutationState("Conflict");
-        setMutationError(parseMutationError(result.payload));
+        setMutationError(result.failure.message);
         return;
       }
       setAliasDraft("");
@@ -1040,49 +938,18 @@ export function EntityWorkbookSurface({
         contract,
         draft: createDraft,
       });
-      if (!result.ok) {
+      if (result.kind === "rejected") {
         setMutationState("Conflict");
-        setMutationError(parseMutationError(result.payload));
+        setMutationError(result.failure.message);
         return;
       }
-      const envelope = readEnvelope<ViewMutationEnvelope>(result.payload);
       setCreateDraft(initialGenericCreateDraft(contract, null));
       await onRefreshEntities();
-      setSelectedRecordId(envelope.data.row.record_id);
+      setSelectedRecordId(result.value.row.record_id);
       setMutationState("Saved");
     } finally {
       finishMutation();
     }
-  }
-
-  async function confirmMerge() {
-    if (!selectedEntity || !loserEntity) {
-      return;
-    }
-    setMergeMessage(null);
-    setMergePreconditionDetails([]);
-    const result = await mutationCommands.merge({
-      loserBaseRowVersion: loserEntity.rowVersion,
-      loserRecordId: loserEntity.recordId,
-      reason: mergeReason,
-      survivorBaseRowVersion: selectedEntity.rowVersion,
-      survivorRecordId: selectedEntity.recordId,
-    });
-    if (!result.ok) {
-      setMergeMessage(parseErrorMessage(result.payload));
-      setMergePreconditionDetails(mergePreconditionDetailLines(result.payload));
-      return;
-    }
-
-    const envelope = readEnvelope<MergeEnvelope>(result.payload);
-    setMergePreconditionDetails([]);
-    setMergeMessage(
-      `Merged ${loserEntity.label} into ${selectedEntity.label} (${envelope.data.record_type}).`,
-    );
-    await onRefreshEntities();
-    await loadTimelinePreview(selectedEntity.recordId);
-    setSelectedRecordId(selectedEntity.recordId);
-    setMergeCandidateId("");
   }
 
   return (
@@ -1318,9 +1185,8 @@ export function EntityWorkbookSurface({
                         style={selectStyle}
                         value={mergeCandidateId}
                         onChange={(event) => {
-                          setMergeCandidateId(event.target.value);
-                          setMergeMessage(null);
-                          setMergePreconditionDetails([]);
+                          setEntityActionMessage(null);
+                          merge.commands.selectCandidate(event.target.value);
                         }}
                       >
                         <option value="">Select duplicate</option>
@@ -1343,7 +1209,7 @@ export function EntityWorkbookSurface({
                         type="text"
                         value={mergeReason}
                         onChange={(event) => {
-                          setMergeReason(event.target.value);
+                          merge.commands.setReason(event.target.value);
                         }}
                       />
                     </label>
@@ -1390,7 +1256,8 @@ export function EntityWorkbookSurface({
                           style={secondaryActionButtonStyle}
                           type="button"
                           onClick={() => {
-                            void confirmMerge();
+                            setEntityActionMessage(null);
+                            void merge.commands.confirm();
                           }}
                         >
                           Confirm merge
@@ -1402,9 +1269,8 @@ export function EntityWorkbookSurface({
                         style={secondaryActionButtonStyle}
                         type="button"
                         onClick={() => {
-                          setMergeMessage(
-                            "Select a loser to review the merge plan.",
-                          );
+                          setEntityActionMessage(null);
+                          merge.commands.start();
                         }}
                       >
                         Start merge
@@ -1456,13 +1322,13 @@ export function EntityWorkbookSurface({
                   </section>
                 ) : null}
 
-                {mergeMessage ? (
+                {presentedEntityActionMessage ? (
                   <div style={mergeMessageBlockStyle}>
                     <p
                       data-testid={entityMergeControlTestId("message")}
                       style={bodyStyle}
                     >
-                      {mergeMessage}
+                      {presentedEntityActionMessage}
                     </p>
                     {mergePreconditionDetails.length > 0 ? (
                       <ul
@@ -1473,7 +1339,7 @@ export function EntityWorkbookSurface({
                         style={flatListStyle}
                       >
                         {mergePreconditionDetails.map((line) => (
-                          <li key={line.label}>
+                          <li key={line.key}>
                             {line.label}: {line.value}
                           </li>
                         ))}

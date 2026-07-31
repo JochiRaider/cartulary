@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { csrfHeaderName } from "./browserApi";
 import {
-  createAndAttachEvidenceBlob,
-  createEvidenceWithInitialBlob,
+  createUploadedEvidenceObjectBlob,
   evidenceAttachPublicErrorMessage,
   evidencePublicErrorMessage,
   resolvePublicEvidenceHandleHref,
+  uploadEvidenceObjectBlobTarget,
 } from "./workbookEvidence";
 
 describe("workbookEvidence", () => {
@@ -70,110 +69,57 @@ describe("workbookEvidence", () => {
     );
   });
 
-  it("creates an object blob, uploads it, and attaches it with row-version concurrency", async () => {
-    vi.spyOn(document, "cookie", "get").mockReturnValue(
-      "cartulary_csrf=test-csrf",
-    );
-    fetchMock.mockImplementation((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === "/base/api/v1/object-blobs") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incident_id: "00000000-0000-4000-8000-000000001001",
-              object_blob_id: "00000000-0000-4000-8000-000000003001",
-              upload_state: "pending",
-              target_expires_at: "2026-07-26T12:05:00Z",
-              pending_expires_at: "2026-07-26T12:10:00Z",
-              upload_target: {
-                href: "/api/v1/object-uploads/upload-token",
-                method: "PUT",
-                expires_at: "2026-07-26T12:05:00Z",
-                headers: { "X-Upload": "yes" },
-              },
-              accepted_contract: {
-                incident_id: "00000000-0000-4000-8000-000000001001",
-                byte_size: 3,
-                filename_hint: "evidence.txt",
-                content_type_hint: "text/plain",
-                sha256_hex: null,
-              },
-            },
-            meta: { request_id: "request-create" },
-          }),
-        );
-      }
-      if (url === "/base/api/v1/object-uploads/upload-token") {
-        return Promise.resolve(new Response("", { status: 200 }));
-      }
-      if (
-        url ===
-        "/base/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob"
-      ) {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              view_schema_id: "cartulary.view.evidence.v1",
-              change_set_id: "00000000-0000-4000-8000-000000005001",
-              row: {
-                record_id: "00000000-0000-4000-8000-000000004001",
-                row_version: 10,
-                cells: {},
-              },
-              object_blob_id: "00000000-0000-4000-8000-000000003001",
-            },
-            meta: { request_id: "request-attach" },
-          }),
-        );
-      }
-      return Promise.resolve(
-        jsonResponse({ error: { code: "unexpected" } }, 500),
+  it("bounds evidence upload retries by transport outcome without reading response bodies", async () => {
+    vi.useFakeTimers();
+    const responseText = vi.spyOn(Response.prototype, "text");
+    try {
+      fetchMock.mockResolvedValue(
+        new Response("s3://private-bucket/private-object", { status: 503 }),
       );
-    });
+      const statusRetry = uploadEvidenceObjectBlobTarget(
+        "/base",
+        {
+          href: "/api/v1/object-uploads/upload-token",
+          method: "PUT",
+          headers: {},
+        },
+        new File(["abc"], "evidence.txt", { type: "text/plain" }),
+      );
 
-    await createAndAttachEvidenceBlob({
-      apiBase: "/base",
-      attachClientTxnId: () => "attach-txn-1",
-      baseRowVersion: 9,
-      createClientTxnId: () => "blob-txn-1",
-      evidenceRecordId: "00000000-0000-4000-8000-000000004001",
-      file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
-      incidentId: "00000000-0000-4000-8000-000000001001",
-    });
+      await vi.runAllTimersAsync();
+      await expect(statusRetry).resolves.toEqual({
+        kind: "rejected",
+        message: "upload_failed_503",
+        retryable: true,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(responseText).not.toHaveBeenCalled();
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const createInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(new Headers(createInit.headers).get(csrfHeaderName)).toBe(
-      "test-csrf",
-    );
-    expect(JSON.parse(String(createInit.body))).toMatchObject({
-      incident_id: "00000000-0000-4000-8000-000000001001",
-      client_txn_id: "blob-txn-1",
-      filename_hint: "evidence.txt",
-      content_type_hint: "text/plain",
-      byte_size: 3,
-    });
+      fetchMock.mockReset();
+      fetchMock
+        .mockRejectedValueOnce(new TypeError("connection unavailable"))
+        .mockRejectedValueOnce(new TypeError("connection unavailable"))
+        .mockResolvedValueOnce(new Response("", { status: 200 }));
+      const networkRetry = uploadEvidenceObjectBlobTarget(
+        "/base",
+        {
+          href: "/api/v1/object-uploads/upload-token",
+          method: "PUT",
+          headers: {},
+        },
+        new File(["abc"], "evidence.txt", { type: "text/plain" }),
+      );
 
-    const uploadInit = fetchMock.mock.calls[1]?.[1] as RequestInit;
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "/base/api/v1/object-uploads/upload-token",
-    );
-    expect(uploadInit.credentials).toBe("omit");
-    expect(new Headers(uploadInit.headers).get("Content-Type")).toBe(
-      "text/plain",
-    );
-    expect(new Headers(uploadInit.headers).get("X-Upload")).toBe("yes");
-
-    const attachInit = fetchMock.mock.calls[2]?.[1] as RequestInit;
-    expect(JSON.parse(String(attachInit.body))).toEqual({
-      object_blob_id: "00000000-0000-4000-8000-000000003001",
-      base_row_version: 9,
-      client_txn_id: "attach-txn-1",
-    });
+      await vi.runAllTimersAsync();
+      await expect(networkRetry).resolves.toEqual({ kind: "accepted" });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(responseText).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {
-    let rowAttempts = 0;
+  it("creates and uploads a private Evidence object blob without exposing its target", async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/base/api/v1/object-blobs") {
@@ -206,66 +152,20 @@ describe("workbookEvidence", () => {
       if (url === "/base/api/v1/object-uploads/upload-token") {
         return Promise.resolve(new Response("", { status: 200 }));
       }
-      if (
-        url ===
-        "/base/api/v1/incidents/00000000-0000-4000-8000-000000001001/views/cartulary.view.evidence.v1/rows"
-      ) {
-        rowAttempts += 1;
-        if (rowAttempts === 1) {
-          return Promise.reject(new TypeError("response lost"));
-        }
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              view_schema_id: "cartulary.view.evidence.v1",
-              change_set_id: "00000000-0000-4000-8000-000000005001",
-              row: {
-                record_id: "00000000-0000-4000-8000-000000004001",
-                row_version: 1,
-                cells: {},
-              },
-            },
-            meta: { request_id: "request-row" },
-          }),
-        );
-      }
       return Promise.resolve(
         jsonResponse({ error: { code: "unexpected" } }, 500),
       );
     });
-    const rowTxn = vi.fn(() => "row-txn-1");
 
-    const created = await createEvidenceWithInitialBlob({
+    const objectBlobId = await createUploadedEvidenceObjectBlob({
       apiBase: "/base",
-      createBlobClientTxnId: () => "blob-txn-1",
-      createRowClientTxnId: rowTxn,
+      createClientTxnId: () => "blob-txn-1",
       file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
       incidentId: "00000000-0000-4000-8000-000000001001",
-      values: {
-        "evidence.title": "evidence.txt",
-        "evidence.collector_party_text": "Workbook upload",
-      },
-      viewSchemaId: "cartulary.view.evidence.v1",
     });
 
-    expect(created).toEqual({
-      recordId: "00000000-0000-4000-8000-000000004001",
-      rowVersion: 1,
-    });
-    expect(rowTxn).toHaveBeenCalledTimes(1);
-    const firstRowBody = String(
-      (fetchMock.mock.calls[2]?.[1] as RequestInit).body,
-    );
-    const replayRowBody = String(
-      (fetchMock.mock.calls[3]?.[1] as RequestInit).body,
-    );
-    expect(replayRowBody).toBe(firstRowBody);
-    expect(JSON.parse(firstRowBody)).toEqual({
-      client_txn_id: "row-txn-1",
-      "evidence.collector_party_text": "Workbook upload",
-      "evidence.initial_object_blob_id": "00000000-0000-4000-8000-000000003001",
-      "evidence.title": "evidence.txt",
-    });
+    expect(objectBlobId).toBe("00000000-0000-4000-8000-000000003001");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

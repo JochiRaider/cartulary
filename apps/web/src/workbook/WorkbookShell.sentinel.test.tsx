@@ -226,17 +226,17 @@ describe("keyboard and grid anchor coverage", () => {
   it("grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Beta",
             captureState: "rough",
@@ -246,7 +246,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -254,29 +254,37 @@ describe("keyboard and grid anchor coverage", () => {
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
     });
 
     fireEvent.keyDown(summary, { key: "Escape" });
     const firstSummaryCell = screen
-      .getByTestId(rowCellTestId("record-1", "timeline.activity_synopsis_text"))
+      .getByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
+      )
       .closest('[role="gridcell"]');
     fireEvent.keyDown(firstSummaryCell as HTMLElement, { key: "ArrowDown" });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
         screen
           .getByTestId(
-            rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+            rowCellTestId(
+              "20000000-0000-4000-8000-000000000002",
+              "timeline.activity_synopsis_text",
+            ),
           )
           .closest('[role="gridcell"]'),
       );
@@ -285,7 +293,10 @@ describe("keyboard and grid anchor coverage", () => {
     fireEvent.keyDown(
       screen
         .getByTestId(
-          rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000002",
+            "timeline.activity_synopsis_text",
+          ),
         )
         .closest('[role="gridcell"]') as HTMLElement,
       {
@@ -294,18 +305,28 @@ describe("keyboard and grid anchor coverage", () => {
     );
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.data_source_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.data_source_text`,
       );
       expect(document.activeElement).toBe(
         screen
-          .getByTestId(rowCellTestId("record-2", "timeline.data_source_text"))
+          .getByTestId(
+            rowCellTestId(
+              "20000000-0000-4000-8000-000000000002",
+              "timeline.data_source_text",
+            ),
+          )
           .closest('[role="gridcell"]'),
       );
     });
 
     fireEvent.keyDown(
       screen
-        .getByTestId(rowCellTestId("record-2", "timeline.data_source_text"))
+        .getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000002",
+            "timeline.data_source_text",
+          ),
+        )
         .closest('[role="gridcell"]') as HTMLElement,
       {
         key: "ArrowLeft",
@@ -313,7 +334,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
       );
     });
   });
@@ -321,17 +342,17 @@ describe("keyboard and grid anchor coverage", () => {
   it("grid anchor shell support retains edge anchors and preserves drafts across valid focus movement", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Beta",
             captureState: "rough",
@@ -342,9 +363,9 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-workbook_interaction-anchor",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Draft before movement",
           captureState: "enriched",
@@ -353,7 +374,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -361,7 +382,7 @@ describe("keyboard and grid anchor coverage", () => {
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summary, "Draft before movement");
@@ -376,23 +397,31 @@ describe("keyboard and grid anchor coverage", () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
       );
       expect(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ).textContent,
       ).toBe("Draft before movement");
     });
 
     const firstCell = screen
-      .getByTestId(rowCellTestId("record-1", "timeline.activity_synopsis_text"))
+      .getByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
+      )
       .closest('[role="gridcell"]') as HTMLElement;
     fireEvent.mouseDown(firstCell);
     fireEvent.keyDown(firstCell, { key: "ArrowUp" });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
     });
   });
@@ -400,17 +429,17 @@ describe("keyboard and grid anchor coverage", () => {
   it("grid anchor shell support updates Cartulary anchors for Enter and Shift+Enter while Tab exits", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Beta",
             captureState: "rough",
@@ -420,7 +449,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -428,25 +457,28 @@ describe("keyboard and grid anchor coverage", () => {
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     summary.focus();
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
     });
 
     fireEvent.keyDown(summary, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
         screen
           .getByTestId(
-            rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+            rowCellTestId(
+              "20000000-0000-4000-8000-000000000002",
+              "timeline.activity_synopsis_text",
+            ),
           )
           .closest('[role="gridcell"]'),
       );
@@ -454,18 +486,21 @@ describe("keyboard and grid anchor coverage", () => {
 
     const record2Editor = gridScalarInput(
       container,
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     );
     fireEvent.keyDown(record2Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
       expect(document.activeElement).toBe(
         screen
           .getByTestId(
-            rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+            rowCellTestId(
+              "20000000-0000-4000-8000-000000000001",
+              "timeline.activity_synopsis_text",
+            ),
           )
           .closest('[role="gridcell"]'),
       );
@@ -473,7 +508,10 @@ describe("keyboard and grid anchor coverage", () => {
 
     fireEvent.keyDown(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       {
         key: "Tab",
@@ -481,7 +519,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
       expect(
         container
@@ -494,17 +532,17 @@ describe("keyboard and grid anchor coverage", () => {
   it("grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Beta",
             captureState: "rough",
@@ -515,9 +553,9 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-workbook_interaction-enter-anchor",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Enter draft before movement",
           captureState: "enriched",
@@ -526,7 +564,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -534,7 +572,7 @@ describe("keyboard and grid anchor coverage", () => {
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     await changeInputValue(summary, "Enter draft before movement");
@@ -549,19 +587,19 @@ describe("keyboard and grid anchor coverage", () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-2:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000002:timeline.activity_synopsis_text`,
       );
     });
 
     const record1Editor = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     );
     fireEvent.keyDown(record1Editor, { key: "Enter", shiftKey: true });
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
     });
   });
@@ -569,11 +607,11 @@ describe("keyboard and grid anchor coverage", () => {
   it("grid anchor shell support fails closed for unavailable shortcuts without row mutation", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -583,7 +621,7 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
 
     await screen.findByTestId(saveStateTestId());
@@ -591,7 +629,7 @@ describe("keyboard and grid anchor coverage", () => {
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     summary.focus();
@@ -603,7 +641,7 @@ describe("keyboard and grid anchor coverage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -611,21 +649,24 @@ describe("keyboard and grid anchor coverage", () => {
 
   it("targets sorted paste rows by stable visible record identities", () => {
     const handle = renderPastePlanner([
-      pasteGridRow("record-3", "closed"),
-      pasteGridRow("record-1", "open"),
-      pasteGridRow("record-2", "reviewed"),
+      pasteGridRow("20000000-0000-4000-8000-000000000003", "closed"),
+      pasteGridRow("20000000-0000-4000-8000-000000000001", "open"),
+      pasteGridRow("20000000-0000-4000-8000-000000000002", "reviewed"),
     ]);
 
     expect(
-      handle.planPasteTargets(pasteAnchor("record-1", "summary"), {
-        columnCount: 2,
-        rowCount: 2,
-      }),
+      handle.planPasteTargets(
+        pasteAnchor("20000000-0000-4000-8000-000000000001", "summary"),
+        {
+          columnCount: 2,
+          rowCount: 2,
+        },
+      ),
     ).toEqual({
       columns: ["summary", "state"],
       rowTargets: [
-        pasteRecordTarget("record-1"),
-        pasteRecordTarget("record-2"),
+        pasteRecordTarget("20000000-0000-4000-8000-000000000001"),
+        pasteRecordTarget("20000000-0000-4000-8000-000000000002"),
       ],
     });
   });
@@ -640,7 +681,7 @@ describe("keyboard and grid anchor coverage", () => {
     const existingRows = Array.from({ length: 9 }, (_, index) => {
       const rowNumber = index + 1;
       return timelineRow({
-        recordId: `record-${rowNumber}`,
+        recordId: `20000000-0000-4000-8000-${String(rowNumber).padStart(12, "0")}`,
         rowVersion: 1,
         occurredAt: `2026-06-${String(rowNumber).padStart(2, "0")}`,
         summary: `Existing row ${rowNumber}`,
@@ -649,14 +690,14 @@ describe("keyboard and grid anchor coverage", () => {
     });
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: existingRows,
       }),
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(
@@ -681,14 +722,14 @@ describe("keyboard and grid anchor coverage", () => {
   it("dispatches multi-row CSV pasted into the draft Time cell as create-row targets", async () => {
     const createdRows = [
       timelineRow({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000001",
         rowVersion: 1,
         occurredAt: "2026-06-14",
         summary: "test1",
         captureState: "rough",
       }),
       timelineRow({
-        recordId: "record-2",
+        recordId: "20000000-0000-4000-8000-000000000002",
         rowVersion: 1,
         occurredAt: "2026-06-15",
         summary: "test2",
@@ -697,7 +738,7 @@ describe("keyboard and grid anchor coverage", () => {
     ];
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [],
       }),
@@ -705,20 +746,22 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-draft-csv-paste-multi-row",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         rows: createdRows,
         conflicts: [],
       }),
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: createdRows,
       }),
     );
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await screen.findByTestId(saveStateTestId());
 
     const clipboardText = "2026-06-14,test1,host1\n2026-06-15,test2,host2";
@@ -754,23 +797,23 @@ describe("keyboard and grid anchor coverage", () => {
   it("rendered paste dispatch uses stable anchors and quote-aware dimensions", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 4,
             summary: "Closed visual first",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 2,
             summary: "Open visual anchor",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 7,
             summary: "Reviewed visual next",
             captureState: "rough",
@@ -781,24 +824,24 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-workbook_interaction-rendered-paste",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 3,
             summary: "Alpha, one",
             captureState: "enriched",
             hostRefs: [{ item_ref: "entity_mention:host-1" }],
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 8,
             summary: "Beta",
             captureState: "enriched",
             hostRefs: [{ item_ref: "entity_mention:host-2" }],
           }),
           timelineRow({
-            recordId: "record-4",
+            recordId: "20000000-0000-4000-8000-000000000004",
             rowVersion: 1,
             summary: "Gamma",
             captureState: "rough",
@@ -810,29 +853,29 @@ describe("keyboard and grid anchor coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 4,
             summary: "Closed visual first",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 3,
             summary: "Alpha, one",
             captureState: "enriched",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 8,
             summary: "Beta",
             captureState: "enriched",
           }),
           timelineRow({
-            recordId: "record-4",
+            recordId: "20000000-0000-4000-8000-000000000004",
             rowVersion: 1,
             summary: "Gamma",
             captureState: "rough",
@@ -842,18 +885,18 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
     await waitForVisibleGridRowRecordIds(container, [
-      "record-3",
-      "record-1",
-      "record-2",
+      "20000000-0000-4000-8000-000000000003",
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
     ]);
 
     const summary = gridScalarInput(
       container,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     ) as HTMLInputElement;
     summary.focus();
@@ -881,30 +924,38 @@ describe("keyboard and grid anchor coverage", () => {
       start_field_key: "timeline.activity_synopsis_text",
       columns: ["timeline.activity_synopsis_text", "timeline.data_source_text"],
       targets: [
-        { kind: "record", record_id: "record-1", base_row_version: 2 },
-        { kind: "record", record_id: "record-2", base_row_version: 7 },
+        {
+          kind: "record",
+          record_id: "20000000-0000-4000-8000-000000000001",
+          base_row_version: 2,
+        },
+        {
+          kind: "record",
+          record_id: "20000000-0000-4000-8000-000000000002",
+          base_row_version: 7,
+        },
         { kind: "create" },
       ],
     });
     expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-      `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+      `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
     );
   });
 
   it("registers grouped paste conflicts without losing selection continuity", async () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Stale first",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 1,
             summary: "Stale second",
             captureState: "rough",
@@ -915,11 +966,10 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id:
-          "change-set-workbook_interaction-rendered-paste-conflicts",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         rows: [
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 1,
             summary: "Created after conflicts",
             captureState: "rough",
@@ -928,7 +978,7 @@ describe("keyboard and grid anchor coverage", () => {
         conflicts: [
           {
             conflict_token: "conflict-token-first",
-            record_id: "record-1",
+            record_id: "20000000-0000-4000-8000-000000000001",
             field_key: "timeline.activity_synopsis_text",
             conflict_resolution_class: "text_compare_merge",
             base_row_version: 1,
@@ -941,7 +991,7 @@ describe("keyboard and grid anchor coverage", () => {
           },
           {
             conflict_token: "conflict-token-second",
-            record_id: "record-2",
+            record_id: "20000000-0000-4000-8000-000000000002",
             field_key: "timeline.activity_synopsis_text",
             conflict_resolution_class: "text_compare_merge",
             base_row_version: 1,
@@ -957,23 +1007,23 @@ describe("keyboard and grid anchor coverage", () => {
     );
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 2,
             summary: "Server first",
             captureState: "enriched",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 2,
             summary: "Server second",
             captureState: "enriched",
           }),
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 1,
             summary: "Created after conflicts",
             captureState: "rough",
@@ -983,15 +1033,18 @@ describe("keyboard and grid anchor coverage", () => {
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await screen.findByTestId(saveStateTestId());
-    await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+    ]);
 
     const summary = (await focusReadyGridScalarInput({
       container,
       fieldKey: "timeline.activity_synopsis_text",
-      recordId: "record-1",
+      recordId: "20000000-0000-4000-8000-000000000001",
     })) as HTMLInputElement;
     fireEvent.paste(summary, {
       clipboardData: {
@@ -1005,7 +1058,7 @@ describe("keyboard and grid anchor coverage", () => {
       (call) =>
         fetchCallMethod(call) === "POST" &&
         fetchCallURL(call).includes(
-          `/api/v1/incidents/incident-1/views/${timelineViewSchemaId}/clipboard-paste`,
+          `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${timelineViewSchemaId}/clipboard-paste`,
         ),
     );
     expect(extractTimelineJSONBody(fetchMock, pasteCallIndex)).toMatchObject({
@@ -1014,15 +1067,23 @@ describe("keyboard and grid anchor coverage", () => {
       start_field_key: "timeline.activity_synopsis_text",
       columns: ["timeline.activity_synopsis_text"],
       targets: [
-        { kind: "record", record_id: "record-1", base_row_version: 1 },
-        { kind: "record", record_id: "record-2", base_row_version: 1 },
+        {
+          kind: "record",
+          record_id: "20000000-0000-4000-8000-000000000001",
+          base_row_version: 1,
+        },
+        {
+          kind: "record",
+          record_id: "20000000-0000-4000-8000-000000000002",
+          base_row_version: 1,
+        },
         { kind: "create" },
       ],
     });
     await waitForVisibleGridRowRecordIds(container, [
-      "record-1",
-      "record-2",
-      "record-3",
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000003",
     ]);
     await waitFor(() => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe(
@@ -1032,11 +1093,14 @@ describe("keyboard and grid anchor coverage", () => {
         screen.getByTestId(gridShellTestId(timelineViewSchemaId)),
       ).toBeTruthy();
       expect(screen.getByTestId(workbookFocusAnchorTestId()).textContent).toBe(
-        `${timelineViewSchemaId}:record-1:timeline.activity_synopsis_text`,
+        `${timelineViewSchemaId}:20000000-0000-4000-8000-000000000001:timeline.activity_synopsis_text`,
       );
       expect(
         screen.getByTestId(
-          conflictMarkerTestId("record-2", "timeline.activity_synopsis_text"),
+          conflictMarkerTestId(
+            "20000000-0000-4000-8000-000000000002",
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toBeTruthy();
       expect(
@@ -1072,26 +1136,35 @@ describe("keyboard and grid anchor coverage", () => {
       );
       expect(
         screen.getByTestId(
-          conflictMarkerTestId("record-2", "timeline.activity_synopsis_text"),
+          conflictMarkerTestId(
+            "20000000-0000-4000-8000-000000000002",
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toBeTruthy();
     }, pasteConflictWait);
   });
 
   it("maps filtered overflow to explicit create-row targets", () => {
-    const handle = renderPastePlanner([pasteGridRow("record-2", "reviewed")], {
-      allowCreateRows: true,
-    });
+    const handle = renderPastePlanner(
+      [pasteGridRow("20000000-0000-4000-8000-000000000002", "reviewed")],
+      {
+        allowCreateRows: true,
+      },
+    );
 
     expect(
-      handle.planPasteTargets(pasteAnchor("record-2", "state"), {
-        columnCount: 1,
-        rowCount: 3,
-      }),
+      handle.planPasteTargets(
+        pasteAnchor("20000000-0000-4000-8000-000000000002", "state"),
+        {
+          columnCount: 1,
+          rowCount: 3,
+        },
+      ),
     ).toEqual({
       columns: ["state"],
       rowTargets: [
-        pasteRecordTarget("record-2"),
+        pasteRecordTarget("20000000-0000-4000-8000-000000000002"),
         { createIndex: 0, kind: "create", surface: pasteSurface },
         { createIndex: 1, kind: "create", surface: pasteSurface },
       ],
@@ -1100,7 +1173,10 @@ describe("keyboard and grid anchor coverage", () => {
 
   it("rejects invalid anchors and create-disabled grouped overflow", () => {
     const handle = renderPastePlanner(
-      [pasteGridRow("record-1", "open"), pasteGridRow("record-2", "reviewed")],
+      [
+        pasteGridRow("20000000-0000-4000-8000-000000000001", "open"),
+        pasteGridRow("20000000-0000-4000-8000-000000000002", "reviewed"),
+      ],
       { grouped: true },
     );
 
@@ -1111,10 +1187,13 @@ describe("keyboard and grid anchor coverage", () => {
       }),
     ).toBeNull();
     expect(
-      handle.planPasteTargets(pasteAnchor("record-2", "summary"), {
-        columnCount: 1,
-        rowCount: 2,
-      }),
+      handle.planPasteTargets(
+        pasteAnchor("20000000-0000-4000-8000-000000000002", "summary"),
+        {
+          columnCount: 1,
+          rowCount: 2,
+        },
+      ),
     ).toBeNull();
   });
 
@@ -1136,15 +1215,22 @@ describe("keyboard and grid anchor coverage", () => {
     fetchMock
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: selectedRows,
         }),
       )
-      .mockResolvedValueOnce(successEnvelope({ change_set_id: "change-1" }))
       .mockResolvedValueOnce(
         successEnvelope({
-          incident_id: "incident-1",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
+          conflicts: [],
+          rows: selectedRows,
+          view_schema_id: timelineViewSchemaId,
+        }),
+      )
+      .mockResolvedValueOnce(
+        successEnvelope({
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: selectedRows,
         }),
@@ -1153,7 +1239,7 @@ describe("keyboard and grid anchor coverage", () => {
     const { container } = render(
       <TimelineWorkbookRuntimeFixture
         currentIncidentRole="editor"
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
       />,
     );
     await waitForTimelineWorkbookReady(container, 2);
@@ -1205,8 +1291,8 @@ describe("keyboard and grid anchor coverage", () => {
 
   it("requires a valid semantic anchor for paste planning", () => {
     const handle = renderPastePlanner([
-      pasteGridRow("record-1", "open"),
-      pasteGridRow("record-2", "closed"),
+      pasteGridRow("20000000-0000-4000-8000-000000000001", "open"),
+      pasteGridRow("20000000-0000-4000-8000-000000000002", "closed"),
     ]);
     const vendorSelection = { fieldKey: "state", rowIndex: 1 };
 

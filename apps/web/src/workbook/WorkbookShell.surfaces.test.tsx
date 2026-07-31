@@ -67,10 +67,12 @@ import {
   type ViewFieldContract,
 } from "@cartulary/view-contracts";
 import {
+  act,
   cleanup,
   createEvent,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
 } from "@testing-library/react";
@@ -86,6 +88,7 @@ import {
   waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
+import { useGenericPartyLinkWorkflow } from "./features/parties/useGenericPartyLinkWorkflow";
 import {
   buildGenericCreatePayload,
   buildGenericPatchChange,
@@ -104,6 +107,7 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "./models/workbookSurfaceRegistry";
+import type { GenericMutationCommandPort } from "./mutations/workbookMutationCommandPorts";
 import {
   type WorkbookAccountApplicationMenuProps,
   type WorkbookIncidentControlsRendererProps,
@@ -494,12 +498,19 @@ describe("WorkbookShell surface selection", () => {
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          memberships: [
+            {
+              incident_id: "10000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/10000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -511,11 +522,15 @@ describe("WorkbookShell surface selection", () => {
           status: currentScenario.incidentStatus,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({
           memberships: [
             {
-              incident_id: "incident-1",
+              incident_id: "10000000-0000-4000-8000-000000000001",
               user_id: "user-1",
               display_name: "Admin User",
               role: "admin",
@@ -526,7 +541,7 @@ describe("WorkbookShell surface selection", () => {
       }
       if (
         url.endsWith(
-          "/api/v1/incidents/incident-1/workbook-preferences/default",
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-preferences/default",
         )
       ) {
         return successEnvelope({
@@ -534,23 +549,29 @@ describe("WorkbookShell surface selection", () => {
         });
       }
       if (
-        url.endsWith("/api/v1/incidents/incident-1/workbook-preferences/me")
+        url.endsWith(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-preferences/me",
+        )
       ) {
         return successEnvelope({
           home_sheet_ref: currentScenario.workbookHomeSheetRef,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         const override = await currentScenario.startupResponseOverride?.();
         if (override) {
           return override;
         }
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           ...currentScenario.startupSelection,
           extension_workspace_availability: {
             schema_id: "cartulary.extension_workspace_availability.v1",
-            incident_id: "incident-1",
+            incident_id: "10000000-0000-4000-8000-000000000001",
             workspaces: [],
           },
           cleared_pointers: [],
@@ -560,7 +581,9 @@ describe("WorkbookShell surface selection", () => {
       }
       if (
         method === "POST" &&
-        url.includes("/api/v1/incidents/incident-1/saved-views")
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/saved-views",
+        )
       ) {
         const body = JSON.parse(String(init?.body ?? "{}")) as Record<
           string,
@@ -588,7 +611,7 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope(created, 201);
       }
       const savedViewMutationMatch = url.match(
-        /\/api\/v1\/incidents\/incident-1\/saved-views\/([^/?]+)$/,
+        /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/saved-views\/([^/?]+)$/,
       );
       if (savedViewMutationMatch && method === "PATCH") {
         const savedViewID = decodeURIComponent(savedViewMutationMatch[1] ?? "");
@@ -625,7 +648,9 @@ describe("WorkbookShell surface selection", () => {
       }
       if (
         method === "GET" &&
-        url.includes("/api/v1/incidents/incident-1/saved-views")
+        url.includes(
+          "/api/v1/incidents/10000000-0000-4000-8000-000000000001/saved-views",
+        )
       ) {
         return successEnvelope({
           saved_views: currentScenario.savedViews,
@@ -646,7 +671,7 @@ describe("WorkbookShell surface selection", () => {
           `/api/v1/evidence-handles/${kind}-token`;
         return successEnvelope({
           incident_id: "00000000-0000-4000-8000-000000001001",
-          record_id: "00000000-0000-4000-8000-000000004002",
+          record_id: recordId,
           object_blob_id: "00000000-0000-4000-8000-000000003001",
           handle_kind: kind,
           href,
@@ -667,13 +692,13 @@ describe("WorkbookShell surface selection", () => {
       if (
         method === "POST" &&
         url.endsWith(
-          `/api/v1/incidents/incident-1/views/${evidenceViewSchemaId}/rows`,
+          `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${evidenceViewSchemaId}/rows`,
         )
       ) {
         return successEnvelope(
           {
             view_schema_id: evidenceViewSchemaId,
-            change_set_id: "00000000-0000-4000-8000-000000005001",
+            change_set_id: "30000000-0000-4000-8000-000000000001",
             row: evidenceRow(
               "00000000-0000-4000-8000-000000004001",
               1,
@@ -726,7 +751,7 @@ describe("WorkbookShell surface selection", () => {
       ) {
         return successEnvelope({
           view_schema_id: evidenceViewSchemaId,
-          change_set_id: "00000000-0000-4000-8000-000000005002",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           row: evidenceRow(
             "00000000-0000-4000-8000-000000004001",
             2,
@@ -756,7 +781,7 @@ describe("WorkbookShell surface selection", () => {
         ];
         return successEnvelope({
           view_schema_id: evidenceViewSchemaId,
-          change_set_id: "00000000-0000-4000-8000-000000005003",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           row,
           object_blob_id: "00000000-0000-4000-8000-000000003001",
         });
@@ -776,7 +801,7 @@ describe("WorkbookShell surface selection", () => {
         }
       }
       const entityPasteMatch = url.match(
-        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/clipboard-paste$/,
+        /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/views\/([^/]+)\/clipboard-paste$/,
       );
       if (method === "POST" && entityPasteMatch) {
         const viewSchemaId = decodeURIComponent(entityPasteMatch[1] ?? "");
@@ -795,7 +820,7 @@ describe("WorkbookShell surface selection", () => {
           currentScenario.genericRowsByView[viewSchemaId] = nextRows.allRows;
           return successEnvelope({
             view_schema_id: viewSchemaId,
-            change_set_id: "change-entity-paste",
+            change_set_id: "30000000-0000-4000-8000-000000000001",
             rows: nextRows.changedRows,
             conflicts: [],
           });
@@ -832,13 +857,13 @@ describe("WorkbookShell surface selection", () => {
               : row,
           );
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           record_type: viewSchemaId === hostsViewSchemaId ? "host" : "identity",
           survivor_record_id: survivorRecordId,
           loser_record_id: loserRecordId,
           survivor_row_version: (survivor?.row_version ?? 1) + 1,
           loser_row_version: 2,
-          change_set_id: "change-entity-merge",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           merged_into_record_id: survivorRecordId,
           merge_summary: {
             record_type:
@@ -856,17 +881,25 @@ describe("WorkbookShell surface selection", () => {
           },
         });
       }
-      if (method === "PATCH" && url.endsWith("/api/v1/records/timeline-1")) {
-        const row = timelineRow("timeline-1", 2, "Selected row", 1);
+      if (
+        method === "PATCH" &&
+        url.endsWith("/api/v1/records/21000000-0000-4000-8000-000000000001")
+      ) {
+        const row = timelineRow(
+          "21000000-0000-4000-8000-000000000001",
+          2,
+          "Selected row",
+          1,
+        );
         currentScenario.timelineRows = [row];
         return successEnvelope({
           view_schema_id: timelineViewSchemaId,
-          change_set_id: "change-timeline",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           row,
         });
       }
       const viewQueryMatch = url.match(
-        /\/api\/v1\/incidents\/incident-1\/views\/([^/]+)\/query(?:\?.*)?$/,
+        /\/api\/v1\/incidents\/10000000-0000-4000-8000-000000000001\/views\/([^/]+)\/query(?:\?.*)?$/,
       );
       if (viewQueryMatch) {
         const viewSchemaId = decodeURIComponent(viewQueryMatch[1] ?? "");
@@ -880,7 +913,7 @@ describe("WorkbookShell surface selection", () => {
           const response =
             override ??
             successEnvelope({
-              incident_id: "incident-1",
+              incident_id: "10000000-0000-4000-8000-000000000001",
               view_schema_id: viewSchemaId,
               rows:
                 viewSchemaId === evidenceViewSchemaId
@@ -946,7 +979,9 @@ describe("WorkbookShell surface selection", () => {
       }),
     ];
     const lateRequest = Promise.resolve().then(() =>
-      fetch(`/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/query`),
+      fetch(
+        `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${hostsViewSchemaId}/query`,
+      ),
     );
     const replacementScenario = createSurfaceTestScenario();
     replacementScenario.genericRowsByView[hostsViewSchemaId] = [
@@ -980,7 +1015,7 @@ describe("WorkbookShell surface selection", () => {
   it("keeps closed incidents readable while disabling grid mutation entry points", async () => {
     scenario.incidentStatus = "closed";
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     expect(await screen.findByText("Closed, read-only")).toBeTruthy();
     const addRow = await screen.findByTestId(
@@ -1009,7 +1044,7 @@ describe("WorkbookShell surface selection", () => {
         accountApplicationMenu={(props) => (
           <TestAccountApplicationMenu {...props} />
         )}
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         renderIncidentControls={(props) => <TestIncidentControls {...props} />}
       />,
     );
@@ -1133,7 +1168,7 @@ describe("WorkbookShell surface selection", () => {
             capabilities: [],
           },
         ]}
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         renderIncidentControls={(props) => <TestIncidentControls {...props} />}
       />,
     );
@@ -1155,7 +1190,7 @@ describe("WorkbookShell surface selection", () => {
       indicatorRow("indicator-1", 1, "ipv4_addr", "203.0.113.42"),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     const workbookShell = screen.getByTestId(workbookShellReadyTestId());
     expect(workbookShell.style.display).toBe("grid");
@@ -1447,7 +1482,7 @@ describe("WorkbookShell surface selection", () => {
       source: "default",
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1468,7 +1503,7 @@ describe("WorkbookShell surface selection", () => {
     const delayedStartup = deferred<Response>();
     scenario.startupResponseOverride = () => delayedStartup.promise;
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1492,10 +1527,10 @@ describe("WorkbookShell surface selection", () => {
 
     delayedStartup.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         extension_workspace_availability: {
           schema_id: "cartulary.extension_workspace_availability.v1",
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           workspaces: [],
         },
         selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
@@ -1541,7 +1576,7 @@ describe("WorkbookShell surface selection", () => {
       ),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1573,7 +1608,7 @@ describe("WorkbookShell surface selection", () => {
         return null;
       }
       return successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: evidenceViewSchemaId,
         rows: [
           statusReviewRow(
@@ -1585,7 +1620,7 @@ describe("WorkbookShell surface selection", () => {
       });
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     expect(
       await screen.findByText(
@@ -1610,7 +1645,7 @@ describe("WorkbookShell surface selection", () => {
       source: "home",
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1638,7 +1673,7 @@ describe("WorkbookShell surface selection", () => {
       }),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     const timelineSelector = await screen.findByTestId(
       savedViewSelectorTestId(timelineViewSchemaId),
@@ -1712,7 +1747,9 @@ describe("WorkbookShell surface selection", () => {
 
   it("Verify saved-view create/update/select/default UI uses active surface scope and public saved-view/workbook-preference contracts.", async () => {
     const systemSavedViewId = "22222222-2222-4222-8222-222222222222";
-    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.timelineRows = [
+      timelineRow("21000000-0000-4000-8000-000000000001", 1, "Selected row", 0),
+    ];
     scenario.savedViews = [
       testSavedViewResource({
         saved_view_id: savedViewId,
@@ -1761,7 +1798,7 @@ describe("WorkbookShell surface selection", () => {
       }),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     const selector = await screen.findByTestId(
       savedViewSelectorTestId(timelineViewSchemaId),
@@ -1777,7 +1814,7 @@ describe("WorkbookShell surface selection", () => {
         .filter(
           ([input, init]) =>
             String(input).includes(
-              "/api/v1/incidents/incident-1/saved-views",
+              "/api/v1/incidents/10000000-0000-4000-8000-000000000001/saved-views",
             ) &&
             (
               (init as RequestInit | undefined)?.method ?? "GET"
@@ -1970,7 +2007,10 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(
       screen.getByTestId(
-        rowCellTestId("timeline-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "21000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
     ).not.toBeNull();
 
@@ -2005,7 +2045,7 @@ describe("WorkbookShell surface selection", () => {
       source: "timeline",
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -2037,7 +2077,7 @@ describe("WorkbookShell surface selection", () => {
       }
       if (value === "newer") {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: evidenceViewSchemaId,
           rows: [evidenceRow("evidence-newer", 1, "newer")],
         });
@@ -2045,7 +2085,7 @@ describe("WorkbookShell surface selection", () => {
       return null;
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
@@ -2061,7 +2101,7 @@ describe("WorkbookShell surface selection", () => {
 
     staleEvidenceQuery.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: evidenceViewSchemaId,
         rows: [evidenceRow("evidence-older", 1, "older")],
       }),
@@ -2080,7 +2120,7 @@ describe("WorkbookShell surface selection", () => {
         : null;
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
     );
@@ -2115,7 +2155,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(
       <WorkbookShell
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -2145,7 +2185,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(
       <WorkbookShell
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -2171,7 +2211,7 @@ describe("WorkbookShell surface selection", () => {
 
     render(
       <WorkbookShell
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         onIncidentAccessLost={onIncidentAccessLost}
       />,
     );
@@ -2183,6 +2223,8 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("dispatches entity-origin paste through create targets while preserving exact-match reuse results", async () => {
+    const existingRecordId = "00000000-0000-4000-8000-000000006100";
+    const createdRecordId = "00000000-0000-4000-8000-000000006101";
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
@@ -2193,15 +2235,15 @@ describe("WorkbookShell surface selection", () => {
       hostRow({
         displayName: "Reusable host",
         hostname: "reuse.example.test",
-        recordId: "host-existing",
+        recordId: existingRecordId,
         rowVersion: 4,
       }),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     const displayNameCell = await screen.findByTestId(
-      rowCellTestId("host-existing", "host.display_name"),
+      rowCellTestId(existingRecordId, "host.display_name"),
     );
     const displayNameGridCell = displayNameCell.closest('[role="gridcell"]');
     expect(displayNameGridCell).toBeTruthy();
@@ -2223,7 +2265,7 @@ describe("WorkbookShell surface selection", () => {
         fetchMock.mock.calls.some(
           ([input, init]) =>
             String(input).endsWith(
-              `/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/clipboard-paste`,
+              `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${hostsViewSchemaId}/clipboard-paste`,
             ) &&
             ((init as RequestInit | undefined)?.method ?? "GET") === "POST",
         ),
@@ -2231,7 +2273,7 @@ describe("WorkbookShell surface selection", () => {
     });
     const pasteCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith(
-        `/api/v1/incidents/incident-1/views/${hostsViewSchemaId}/clipboard-paste`,
+        `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${hostsViewSchemaId}/clipboard-paste`,
       ),
     );
     expect(pasteCall).toBeDefined();
@@ -2249,20 +2291,23 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(window.location.href).not.toContain("/imports");
     await expectRecordIds(hostsViewSchemaId, [
-      "host-existing",
-      "host-pasted-1",
+      existingRecordId,
+      createdRecordId,
     ]);
     expect(
-      screen.getByTestId(rowCellTestId("host-existing", "host.display_name"))
+      screen.getByTestId(rowCellTestId(existingRecordId, "host.display_name"))
         .textContent,
     ).toContain("Pasted host reuse");
     expect(
-      screen.getByTestId(rowCellTestId("host-pasted-1", "host.display_name"))
+      screen.getByTestId(rowCellTestId(createdRecordId, "host.display_name"))
         .textContent,
     ).toContain("Pasted host create");
   });
 
   it("keeps entity merge review, confirmation, and dependent Timeline preview bound to stable record ids", async () => {
+    const survivorId = "00000000-0000-4000-8000-000000006300";
+    const loserId = "00000000-0000-4000-8000-000000006301";
+    const unrelatedId = "00000000-0000-4000-8000-000000006302";
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
@@ -2276,7 +2321,7 @@ describe("WorkbookShell surface selection", () => {
         fqdn: "survivor.example.test",
         hostname: "SURVIVOR.example.test",
         linkedEventCount: 2,
-        recordId: "host-survivor",
+        recordId: survivorId,
         reusableIdentifiers: [
           {
             identifierClass: "fqdn",
@@ -2292,7 +2337,7 @@ describe("WorkbookShell surface selection", () => {
         fqdn: "loser.example.test",
         hostname: "survivor.example.test",
         linkedEventCount: 1,
-        recordId: "host-loser",
+        recordId: loserId,
         reusableIdentifiers: [
           {
             identifierClass: "hostname",
@@ -2305,36 +2350,40 @@ describe("WorkbookShell surface selection", () => {
       hostRow({
         displayName: "Unrelated host",
         hostname: "unrelated.example.test",
-        recordId: "host-unrelated",
+        recordId: unrelatedId,
         rowVersion: 1,
       }),
     ];
     scenario.timelineRows = [
-      timelineRow("timeline-dependent", 5, "Dependent row", 0, {
-        hostRefs: [
-          timelineEntityRef("host-survivor", "Survivor host", "host-ref-1"),
-        ],
-      }),
+      timelineRow(
+        "21000000-0000-4000-8000-000000000002",
+        5,
+        "Dependent row",
+        0,
+        {
+          hostRefs: [
+            timelineEntityRef(survivorId, "Survivor host", "host-ref-1"),
+          ],
+        },
+      ),
     ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
-      await screen.findByTestId(
-        entityInspectButtonTestId("host", "host-survivor"),
-      ),
+      await screen.findByTestId(entityInspectButtonTestId("host", survivorId)),
     );
     await screen.findByTestId(entityInspectorTestId("host"));
     expect(
       screen.getByTestId(
-        entityReusableIdentifiersSectionTestId("host", "host-survivor"),
+        entityReusableIdentifiersSectionTestId("host", survivorId),
       ).textContent,
     ).toContain("Reusable identifiers");
     expect(
       screen.getByTestId(
         entityReusableIdentifierItemTestId(
           "host",
-          "host-survivor",
+          survivorId,
           "entity_preserved_identifier:survivor-legacy-fqdn",
         ),
       ).textContent,
@@ -2342,7 +2391,7 @@ describe("WorkbookShell surface selection", () => {
     expect(
       (
         await screen.findByTestId(
-          timelinePreviewRowTestId("timeline-dependent"),
+          timelinePreviewRowTestId("21000000-0000-4000-8000-000000000002"),
         )
       ).textContent,
     ).toContain("Dependent row");
@@ -2350,7 +2399,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.change(
       screen.getByTestId(entityMergeControlTestId("loser-record")),
       {
-        target: { value: "host-loser" },
+        target: { value: loserId },
       },
     );
     const mergePlan = await screen.findByTestId(
@@ -2383,17 +2432,17 @@ describe("WorkbookShell surface selection", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/records/host-survivor/merge"),
+        expect.stringContaining(`/api/v1/records/${survivorId}/merge`),
         expect.objectContaining({ method: "POST" }),
       );
     });
     const mergeCall = fetchMock.mock.calls.find(([input]) =>
-      String(input).endsWith("/api/v1/records/host-survivor/merge"),
+      String(input).endsWith(`/api/v1/records/${survivorId}/merge`),
     );
     expect(
       JSON.parse(String((mergeCall?.[1] as RequestInit | undefined)?.body)),
     ).toMatchObject({
-      loser_record_id: "host-loser",
+      loser_record_id: loserId,
       survivor_base_row_version: 7,
       loser_base_row_version: 3,
       reason: "Merge duplicate entity",
@@ -2403,20 +2452,19 @@ describe("WorkbookShell surface selection", () => {
         screen.getByTestId(entityMergeControlTestId("message")).textContent,
       ).toContain("Merged Loser host into Survivor host (host).");
     });
-    await expectRecordIds(hostsViewSchemaId, [
-      "host-survivor",
-      "host-unrelated",
-    ]);
+    await expectRecordIds(hostsViewSchemaId, [survivorId, unrelatedId]);
     expect(
-      screen.queryByTestId(rowCellTestId("host-loser", "host.display_name")),
+      screen.queryByTestId(rowCellTestId(loserId, "host.display_name")),
     ).toBeNull();
 
     fireEvent.click(
-      screen.getByTestId(entityInspectButtonTestId("host", "host-unrelated")),
+      screen.getByTestId(entityInspectButtonTestId("host", unrelatedId)),
     );
     await waitFor(() => {
       expect(
-        screen.queryByTestId(timelinePreviewRowTestId("timeline-dependent")),
+        screen.queryByTestId(
+          timelinePreviewRowTestId("21000000-0000-4000-8000-000000000002"),
+        ),
       ).toBeNull();
     });
   });
@@ -2436,14 +2484,16 @@ describe("WorkbookShell surface selection", () => {
     });
     scenario.genericRowsByView[hostsViewSchemaId] = [host];
     const deferredHostQuery = scenario.deferQuery(hostsViewSchemaId);
-    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+    const { container } = render(
+      <WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
 
     await waitFor(() => {
       expect(scenario.queryTrace).toContain(`requested:${hostsViewSchemaId}`);
     });
     deferredHostQuery.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: hostsViewSchemaId,
         rows: [host],
       }),
@@ -2478,6 +2528,7 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("submits physical alias add/remove actions and restores inspector focus after authoritative refresh", async () => {
+    const recordId = "00000000-0000-4000-8000-000000006200";
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
       selected_view_schema_id: hostsViewSchemaId,
@@ -2489,13 +2540,13 @@ describe("WorkbookShell surface selection", () => {
         aliases: ["Existing alias"],
         displayName: "Alias host",
         hostname: "alias-host",
-        recordId: "host-alias",
+        recordId,
         rowVersion: 1,
       }),
     ];
     const submittedActions: Array<Record<string, unknown>> = [];
-    scenario.recordPatchResponseOverride = (recordId, init) => {
-      if (recordId !== "host-alias") {
+    scenario.recordPatchResponseOverride = (patchedRecordId, init) => {
+      if (patchedRecordId !== recordId) {
         return null;
       }
       const body = JSON.parse(String(init?.body ?? "{}")) as {
@@ -2513,29 +2564,31 @@ describe("WorkbookShell surface selection", () => {
         aliases,
         displayName: "Alias host",
         hostname: "alias-host",
-        recordId: "host-alias",
+        recordId: patchedRecordId,
         rowVersion: submittedActions.length + 1,
       });
       scenario.genericRowsByView[hostsViewSchemaId] = [row];
       return successEnvelope({
         view_schema_id: hostsViewSchemaId,
-        change_set_id: `change-alias-${submittedActions.length}`,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row,
       });
     };
 
-    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+    const { container } = render(
+      <WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await waitForWorkbookRows({
       container,
-      expectedRecordIds: ["host-alias"],
+      expectedRecordIds: [recordId],
       surface: hostsViewSchemaId,
     });
     fireEvent.click(
-      screen.getByTestId(entityInspectButtonTestId("host", "host-alias")),
+      screen.getByTestId(entityInspectButtonTestId("host", recordId)),
     );
     await waitForEntityInspectorReady(container, {
       entityType: "host",
-      recordId: "host-alias",
+      recordId,
       rowVersion: 1,
       viewSchemaId: hostsViewSchemaId,
     });
@@ -2558,7 +2611,7 @@ describe("WorkbookShell surface selection", () => {
     });
     await waitForEntityInspectorReady(container, {
       entityType: "host",
-      recordId: "host-alias",
+      recordId,
       rowVersion: 2,
       viewSchemaId: hostsViewSchemaId,
     });
@@ -2581,7 +2634,7 @@ describe("WorkbookShell surface selection", () => {
     });
     await waitForEntityInspectorReady(container, {
       entityType: "host",
-      recordId: "host-alias",
+      recordId,
       rowVersion: 3,
       viewSchemaId: hostsViewSchemaId,
     });
@@ -2639,7 +2692,9 @@ describe("WorkbookShell surface selection", () => {
       );
     };
 
-    const { container } = render(<WorkbookShell incidentId="incident-1" />);
+    const { container } = render(
+      <WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
     await waitForWorkbookRows({
       container,
       expectedRecordIds: ["identity-survivor", "identity-loser"],
@@ -2750,7 +2805,7 @@ describe("WorkbookShell surface selection", () => {
       return null;
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
     fireEvent.click(
@@ -2784,8 +2839,11 @@ describe("WorkbookShell surface selection", () => {
     patchResponse.resolve(
       successEnvelope({
         view_schema_id: taskRequestsViewSchemaId,
-        change_set_id: "change-task-clear-link",
-        row: clearedTask,
+        change_set_id: "30000000-0000-4000-8000-000000000001",
+        row: {
+          ...clearedTask,
+          record_id: "00000000-0000-4000-8000-000000004101",
+        },
       }),
     );
     await waitFor(() => {
@@ -2796,7 +2854,7 @@ describe("WorkbookShell surface selection", () => {
 
     refreshResponse.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: taskRequestsViewSchemaId,
         rows: [clearedTask],
       }),
@@ -2837,7 +2895,7 @@ describe("WorkbookShell surface selection", () => {
       return errorEnvelope("row_version_conflict", 409);
     };
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
     fireEvent.click(
@@ -2867,6 +2925,87 @@ describe("WorkbookShell surface selection", () => {
     });
   });
 
+  it("retains a created party for explicit link retry after partial completion", async () => {
+    const createdPartyId = "00000000-0000-4000-8000-000000004201";
+    const createPartyFromText = vi.fn(async () => ({
+      kind: "accepted" as const,
+      value: {
+        changeSetId: "00000000-0000-4000-8000-000000005201",
+        row: partyRow(createdPartyId, "Created Party"),
+        viewSchemaId: partiesViewSchemaId,
+      },
+    }));
+    const mutationCommands: GenericMutationCommandPort = {
+      canCreateRecord: () => true,
+      createRecord: async () => ({
+        kind: "rejected",
+        failure: { kind: "terminal", message: "not used" },
+      }),
+      createPartyFromText,
+      patchRecord: async () => ({
+        kind: "rejected",
+        failure: { kind: "terminal", message: "not used" },
+      }),
+    };
+    const submitLinkPatch = vi
+      .fn<() => Promise<boolean>>()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const rejectMutationFailure = vi.fn();
+    const setValidationError = vi.fn();
+    const { result } = renderHook(() =>
+      useGenericPartyLinkWorkflow({
+        mutation: {
+          beginMutation: vi.fn(),
+          rejectMutationFailure,
+          setValidationError,
+        },
+        mutationCommands,
+        originViewSchemaId: taskRequestsViewSchemaId,
+        partyLinkPairs: [
+          {
+            key: "requester",
+            label: "Requester",
+            refFieldKey: "task.requester_party_id",
+            textFieldKey: "task.requester_party_text",
+          },
+        ],
+        resetKey: "reset-1",
+        selectedRow: taskRequestRow(
+          "task-1",
+          4,
+          "Task requester link",
+          "Created Party",
+          null,
+        ),
+        submitLinkPatch,
+      }),
+    );
+
+    await act(async () => result.current.createPartyFromText());
+    expect(createPartyFromText).toHaveBeenCalledTimes(1);
+    expect(submitLinkPatch).toHaveBeenNthCalledWith(
+      1,
+      [
+        {
+          field_key: "task.requester_party_id",
+          value: createdPartyId,
+        },
+      ],
+      "party-link-created",
+    );
+    expect(result.current.partialCompletionMessage).toContain(
+      "party was created",
+    );
+
+    await act(async () => result.current.retryCreatedPartyLink());
+    expect(createPartyFromText).toHaveBeenCalledTimes(1);
+    expect(submitLinkPatch).toHaveBeenCalledTimes(2);
+    expect(result.current.partialCompletionMessage).toBeNull();
+    expect(rejectMutationFailure).not.toHaveBeenCalled();
+    expect(setValidationError).not.toHaveBeenCalled();
+  });
+
   it("issues opaque evidence preview and download handles from the evidence surface", async () => {
     scenario.evidenceRows = [
       {
@@ -2891,7 +3030,7 @@ describe("WorkbookShell surface selection", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
@@ -3001,7 +3140,7 @@ describe("WorkbookShell surface selection", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
@@ -3097,7 +3236,7 @@ describe("WorkbookShell surface selection", () => {
     expect(
       JSON.parse(String((createBlobCall?.[1] as RequestInit).body)),
     ).toEqual({
-      incident_id: "incident-1",
+      incident_id: "10000000-0000-4000-8000-000000000001",
       client_txn_id: expect.stringMatching(/^evidence-blob-/u),
       byte_size: 18,
       filename_hint: "safe-evidence.txt",
@@ -3191,16 +3330,20 @@ describe("WorkbookShell surface selection", () => {
   });
 
   it("orchestrates selected Timeline evidence attachment inline", async () => {
-    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.timelineRows = [
+      timelineRow("21000000-0000-4000-8000-000000000001", 1, "Selected row", 0),
+    ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
     );
-    await openTimelineInspectorFromContext("timeline-1");
+    await openTimelineInspectorFromContext(
+      "21000000-0000-4000-8000-000000000001",
+    );
     const input = await screen.findByTestId(
-      timelineEvidenceFileInputTestId("timeline-1"),
+      timelineEvidenceFileInputTestId("21000000-0000-4000-8000-000000000001"),
     );
     fireEvent.change(input, {
       target: {
@@ -3226,7 +3369,9 @@ describe("WorkbookShell surface selection", () => {
         expect.objectContaining({ method: "PUT" }),
       );
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/records/timeline-1"),
+        expect.stringContaining(
+          "/api/v1/records/21000000-0000-4000-8000-000000000001",
+        ),
         expect.objectContaining({ method: "PATCH" }),
       );
     });
@@ -3263,16 +3408,22 @@ describe("WorkbookShell surface selection", () => {
 
   it("surfaces upload failures inline without issuing Timeline patches", async () => {
     scenario.uploadShouldFail = true;
-    scenario.timelineRows = [timelineRow("timeline-1", 1, "Selected row", 0)];
+    scenario.timelineRows = [
+      timelineRow("21000000-0000-4000-8000-000000000001", 1, "Selected row", 0),
+    ];
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(timelineViewSchemaId)),
     );
-    await openTimelineInspectorFromContext("timeline-1");
+    await openTimelineInspectorFromContext(
+      "21000000-0000-4000-8000-000000000001",
+    );
     fireEvent.change(
-      await screen.findByTestId(timelineEvidenceFileInputTestId("timeline-1")),
+      await screen.findByTestId(
+        timelineEvidenceFileInputTestId("21000000-0000-4000-8000-000000000001"),
+      ),
       {
         target: {
           files: [
@@ -3292,8 +3443,9 @@ describe("WorkbookShell surface selection", () => {
     expect(
       fetchMock.mock.calls.some(([input, init]) => {
         return (
-          String(input).endsWith("/api/v1/records/timeline-1") &&
-          ((init as RequestInit | undefined)?.method ?? "GET") === "PATCH"
+          String(input).endsWith(
+            "/api/v1/records/21000000-0000-4000-8000-000000000001",
+          ) && ((init as RequestInit | undefined)?.method ?? "GET") === "PATCH"
         );
       }),
     ).toBe(false);
@@ -3843,12 +3995,12 @@ function applyEntityClipboardPaste(
         ? hostRow({
             displayName,
             hostname: primaryValue,
-            recordId: `host-pasted-${index}`,
+            recordId: `00000000-0000-4000-8000-00000000610${index}`,
             rowVersion: 1,
           })
         : identityRow({
             displayName,
-            recordId: `identity-pasted-${index}`,
+            recordId: `00000000-0000-4000-8000-00000000620${index}`,
             rowVersion: 1,
             upn: primaryValue,
           });
@@ -3947,13 +4099,18 @@ describe("generic workbook mutation payloads", () => {
     expect(
       buildGenericPatchChange(
         requireField(decisions, "decision.support_refs"),
-        "record-1",
+        "20000000-0000-4000-8000-000000000001",
       ),
     ).toEqual({
       field_key: "decision.support_refs",
       action_payload: {
         kind: "collection_actions_v1",
-        actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
+        actions: [
+          {
+            op: "add_record_ref",
+            linked_record_id: "20000000-0000-4000-8000-000000000001",
+          },
+        ],
       },
     });
     expect(

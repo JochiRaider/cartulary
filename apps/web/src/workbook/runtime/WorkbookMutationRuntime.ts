@@ -8,6 +8,10 @@ import {
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import {
+  executeWorkbookConflictResolution,
+  type WorkbookResolvedMutation,
+} from "../mutations/workbookConflictResolutionAdapter";
+import {
   type PendingReplayScope,
   type PendingReplayUnitState,
   parsePendingReplayPublicError,
@@ -79,7 +83,7 @@ export type WorkbookSurfaceSaveStateProjection = {
 type WorkbookMutationListener = () => void;
 type WorkbookSurfaceRefresh = () => Promise<void> | void;
 type WorkbookSurfaceResolvedMutationApply = (
-  payload: unknown,
+  mutation: WorkbookResolvedMutation,
   conflict: WorkbookConflictEntry,
 ) => Promise<void> | void;
 type WorkbookSurfaceConflictFocusRestore = (
@@ -331,8 +335,6 @@ export class WorkbookMutationRuntime {
       viewSchemaId: request.viewSchemaId,
       rowKey: request.recordId,
       recordId: request.recordId,
-      method: "PATCH",
-      path: `/api/v1/records/${request.recordId}`,
       payloadIntent: {
         view_schema_id: request.viewSchemaId,
         base_row_version: request.baseRowVersion,
@@ -554,18 +556,16 @@ export class WorkbookMutationRuntime {
     }
     const finishMutation = this.beginExplicitMutation();
     try {
-      const result = await fetchWorkbookJSON<GenericMutationEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/records/${entry.conflict.record_id}/conflicts/${entry.conflict.conflict_token}/resolve`,
-        ),
-        { method: "POST", body: JSON.stringify(body) },
-      );
-      if (!result.ok) {
-        const refreshed = parseSameFieldConflict(result.payload);
-        if (refreshed !== null) {
+      const outcome = await executeWorkbookConflictResolution({
+        apiBase,
+        conflictToken: entry.conflict.conflict_token,
+        recordId: entry.conflict.record_id,
+        request: body,
+      });
+      if (outcome.kind === "rejected") {
+        if (outcome.failure.kind === "same_field_conflict") {
           const refreshedEntry = workbookConflictEntry({
-            conflict: refreshed,
+            conflict: outcome.failure.conflict,
             focusKey: entry.focusKey,
             rowLabel: entry.origin.rowLabel,
             surfaceLabel: entry.origin.surfaceLabel,
@@ -578,9 +578,8 @@ export class WorkbookMutationRuntime {
           this.emit();
           return "The saved value changed again. Review the refreshed conflict.";
         }
-        return parseErrorMessage(result.payload);
+        return outcome.failure.message;
       }
-      readEnvelope<GenericMutationEnvelope>(result.payload);
       this.clearConflict(key);
       const applyResolvedMutation = this.resolvedApplyBySurface.get(
         entry.origin.viewSchemaId,
@@ -588,7 +587,7 @@ export class WorkbookMutationRuntime {
       if (applyResolvedMutation === undefined) {
         await this.refreshSurface(entry.origin.viewSchemaId);
       } else {
-        await applyResolvedMutation(result.payload, entry);
+        await applyResolvedMutation(outcome.value, entry);
       }
       return null;
     } finally {
@@ -733,10 +732,18 @@ export class WorkbookMutationRuntime {
     let result: Awaited<ReturnType<typeof fetchWorkbookJSON>>;
     try {
       result = await fetchWorkbookJSON(
-        apiPath(meta.apiBase, dispatch.unit.path),
+        apiPath(meta.apiBase, `/api/v1/records/${dispatch.unit.recordId}`),
         {
-          method: dispatch.unit.method,
-          body: JSON.stringify(dispatch.payloadIntent),
+          method: "PATCH",
+          body: JSON.stringify({
+            view_schema_id: dispatch.unit.viewSchemaId,
+            base_row_version:
+              dispatch.identity.kind === "patch"
+                ? dispatch.identity.base_row_version
+                : null,
+            client_txn_id: dispatch.unit.clientTxnId,
+            changes: dispatch.payloadIntent.changes,
+          }),
         },
       );
     } catch {

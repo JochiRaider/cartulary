@@ -130,7 +130,7 @@ export function confidenceScoreFromBand(
 export function buildAssessmentCreatePayload(
   draft: AssessmentCreateDraft,
   clientTxnId: string,
-): Record<string, unknown> | null {
+): (Record<string, unknown> & { readonly client_txn_id: string }) | null {
   const subjectRecordId = normalizedAssessmentValue(draft.subjectRecordId);
   const assessmentState = normalizedAssessmentValue(draft.assessmentState);
   const rationale = normalizedAssessmentValue(draft.rationale);
@@ -138,16 +138,17 @@ export function buildAssessmentCreatePayload(
     return null;
   }
 
-  const payload: Record<string, unknown> = {
-    client_txn_id: clientTxnId,
-    "assessment.subject_ref": subjectRecordId,
-    "assessment.subject_type": draft.subjectType,
-    "assessment.assessment_state": assessmentState,
-    "assessment.confidence_score": confidenceScoreFromBand(
-      draft.confidenceBand,
-    ),
-    "assessment.rationale": rationale,
-  };
+  const payload: Record<string, unknown> & { readonly client_txn_id: string } =
+    {
+      client_txn_id: clientTxnId,
+      "assessment.subject_ref": subjectRecordId,
+      "assessment.subject_type": draft.subjectType,
+      "assessment.assessment_state": assessmentState,
+      "assessment.confidence_score": confidenceScoreFromBand(
+        draft.confidenceBand,
+      ),
+      "assessment.rationale": rationale,
+    };
 
   const assessedAt = normalizedAssessmentValue(draft.assessedAt);
   if (assessedAt !== "") {

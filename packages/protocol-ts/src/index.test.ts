@@ -27,6 +27,8 @@ import {
   getReasonCodeRegistry,
   getViewSchemaRegistryContract,
   getViewSchemaRegistryEntry,
+  type HTTPOperationRequest,
+  type HTTPOperationResponse,
   type ListImportUnitsResponse,
   listContractArtifactFamilies,
   listExtensionProfiles,
@@ -37,6 +39,8 @@ import {
   type ObjectBlobCreateRequest,
   type ObjectBlobUploadTarget,
   parseContractArtifact,
+  type QueryWorkbookViewRequest,
+  type QueryWorkbookViewResponse,
   requireContractArtifact,
   requireExtensionProfile,
   requireReasonCodeRegistry,
@@ -144,6 +148,17 @@ describe("@cartulary/protocol-ts facade", () => {
         limit: 50,
       }),
     ).toBe("?cursor_token=opaque%20%2F%2B%20cursor&limit=50");
+    expect(
+      buildHTTPOperationPath("queryWorkbookView", {
+        incident_id: "incident/id",
+        view_schema_id: "cartulary.view.timeline.v2",
+      }),
+    ).toBe(
+      "/api/v1/incidents/incident%2Fid/views/cartulary.view.timeline.v2/query",
+    );
+    expect(
+      buildHTTPOperationPath("patchRecord", { record_id: "record/id" }),
+    ).toBe("/api/v1/records/record%2Fid");
 
     const applyRequest: ApplyImportSessionRequest = {
       client_txn_id: "txn-apply",
@@ -166,6 +181,80 @@ describe("@cartulary/protocol-ts facade", () => {
       };
       meta: { request_id: string };
     }>();
+    expectTypeOf<
+      HTTPOperationRequest<"queryWorkbookView">
+    >().toEqualTypeOf<QueryWorkbookViewRequest>();
+    expectTypeOf<
+      HTTPOperationResponse<"queryWorkbookView">
+    >().toEqualTypeOf<QueryWorkbookViewResponse>();
+
+    const strictWorkbookOperations = [
+      "applyWorkbookBulkMutation",
+      "createRecordLinkedNote",
+      "createViewRow",
+      "deleteRecord",
+      "getCurrentUserWorkbookPreferences",
+      "getIncidentDefaultWorkbookPreferences",
+      "getIncidentWorkbookStartup",
+      "getRecordHistory",
+      "getTimelineTimeConversionProfile",
+      "markTimelineRecordReviewed",
+      "mergeEntityRecord",
+      "pasteWorkbookClipboard",
+      "patchRecord",
+      "putCurrentUserWorkbookPreferences",
+      "putIncidentDefaultWorkbookPreferences",
+      "putTimelineTimeConversionProfile",
+      "queryWorkbookView",
+      "resolveEntityMention",
+      "resolveRecordSameFieldConflict",
+      "restoreRecord",
+      "rollbackRecord",
+      "supersedeRecord",
+    ] as const;
+    for (const operationID of strictWorkbookOperations) {
+      expect(validateHTTPOperationResponse(operationID, {})).toEqual(
+        expect.objectContaining({ ok: false }),
+      );
+    }
+
+    for (const viewSchemaId of [
+      "cartulary.view.findings.v1",
+      "cartulary.view.investigative_queries.v1",
+      "cartulary.view.forensic_keywords.v1",
+    ]) {
+      expect(
+        validateHTTPOperationResponse("patchRecord", {
+          data: {
+            change_set_id: "00000000-0000-4000-8000-000000000002",
+            row: {
+              cells: {
+                "extension.value": { value: "strict optional surface" },
+              },
+              group_values: { "extension.group": "strict" },
+              record_id: "00000000-0000-4000-8000-000000000001",
+              row_version: 2,
+            },
+            view_schema_id: viewSchemaId,
+          },
+          meta: { request_id: "request-optional-surface" },
+        }),
+      ).toEqual(expect.objectContaining({ ok: true }));
+    }
+    expect(
+      validateHTTPOperationResponse("patchRecord", {
+        data: {
+          change_set_id: "00000000-0000-4000-8000-000000000002",
+          row: {
+            cells: {},
+            record_id: "00000000-0000-4000-8000-000000000001",
+            row_version: 2,
+          },
+          view_schema_id: "cartulary.view.unsupported.v1",
+        },
+        meta: { request_id: "request-unsupported-surface" },
+      }),
+    ).toEqual(expect.objectContaining({ ok: false }));
 
     const malformedImportUnits = validateHTTPOperationResponse(
       "listImportUnits",

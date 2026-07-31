@@ -343,6 +343,173 @@
       "status": "active"
     },
     {
+      "row_id": "module.timeline.frontend.timeline_action_ports_73c9f1a40e",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "module.evidence",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/createTimelineActionAdapters.test.ts",
+        "titles": [
+          "derives history routes and rejects target-inconsistent history responses",
+          "normalizes Timeline review outcomes and fails closed on supersede replacement drift",
+          "owns entity mention creation and resolution transport behind semantic outcomes",
+          "validates Timeline clipboard rows and sanitized same-field conflicts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_bulk_tag_controller_8a15df23b4",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/bulk/useTimelineBulkTagController.test.tsx",
+        "titles": [
+          "useTimelineBulkTagController keeps selection record-keyed, page-scoped, and pruned by accepted rows",
+          "useTimelineBulkTagController rejects stale selection and ignores late completion after authorization loss",
+          "useTimelineBulkTagController retains recoverable state for rejection and reports only bounded conflict counts",
+          "useTimelineBulkTagController submits one versioned command, refreshes, and retains valid selection and draft"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "package.grid_adapter",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/editing/useTimelineEditorDraftRegistry.test.tsx",
+        "titles": [
+          "Timeline editor draft registry invalidates drafts when the schema identity changes",
+          "Timeline editor draft registry keeps grid and inspector drafts distinct and clears only submitted values",
+          "Timeline editor draft registry materializes invalid scalar text across authoritative row replacement",
+          "Timeline editor draft registry owns semantic editor registration, unregistration, and row removal"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_pending_mutation_port_0f28ab91e4",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/createTimelinePendingMutationAdapter.test.ts",
+        "titles": [
+          "fails closed for malformed or target-inconsistent replay success",
+          "materializes Timeline patches with the dispatch-time committed row version",
+          "materializes fresh and replayed Timeline creates through the generated binding"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_query_port_validation_6d44f87e20",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/adapters/createTimelineViewQueryAdapter.test.ts",
+        "titles": [
+          "derives and validates Timeline query transport behind the semantic query port",
+          "fails closed on malformed Timeline query success and contains aborts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.timeline.frontend.timeline_row_mutation_coordinator_1a7e2c9b44",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "web.collaboration",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/mutations/useTimelineRowMutationCoordinator.test.tsx",
+        "titles": [
+          "useTimelineRowMutationCoordinator admits conflict server state without collapsing its local draft",
+          "useTimelineRowMutationCoordinator invalidates an in-flight query generation when an action advances the row",
+          "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.integration",

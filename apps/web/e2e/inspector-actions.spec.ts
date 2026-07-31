@@ -491,7 +491,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     expect(deniedBody.error.code).toBe("authorization_denied");
     await expect(
       memberPage.getByTestId(rowHistoryMessageTestId()),
-    ).toContainText("authorization_denied");
+    ).toContainText("authorization denied");
   } finally {
     await memberContext.close();
   }

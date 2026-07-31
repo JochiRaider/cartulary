@@ -16503,7 +16503,10 @@
               "cartulary.view.comm_log.v1",
               "cartulary.view.handoff.v1",
               "cartulary.view.status_review.v1",
-              "cartulary.view.lesson.v1"
+              "cartulary.view.lesson.v1",
+              "cartulary.view.findings.v1",
+              "cartulary.view.investigative_queries.v1",
+              "cartulary.view.forensic_keywords.v1"
             ],
             "type": "string"
           }

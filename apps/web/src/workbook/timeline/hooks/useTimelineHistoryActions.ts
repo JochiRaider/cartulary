@@ -4,51 +4,18 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import { apiPath } from "../../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../../services/workbookApi";
+import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type {
   RecordHistoryData,
   RecordHistoryItem,
   RecordHistoryRollbackAction,
   RecordHistoryState,
   RowHistoryPendingAction,
-} from "../components/TimelineHistoryPanel";
-import {
-  buildTimelineDeleteRestorePayload,
-  buildTimelineRollbackPayload,
-} from "../services/timelineMutationRequests";
-
-type RecordHistoryEnvelope = {
-  data: RecordHistoryData;
-};
-
-type RecordDeleteRestoreEnvelope = {
-  data: {
-    record_id: string;
-    incident_id: string;
-    row_version: number;
-    deleted: boolean;
-    deleted_at: string | null;
-    deleted_by_user_id: string | null;
-    change_set_id: string;
-  };
-};
-
-type RecordRollbackEnvelope = {
-  data: {
-    incident_id: string;
-    record_id: string;
-    row_version: number;
-    target: Record<string, unknown>;
-    target_change_set_id: string;
-    rollback_change_set_id: string;
-    affected_record_ids: string[];
-  };
-};
+} from "../models/timelineHistoryModel";
+import type {
+  TimelineHistoryMutationAccepted,
+  TimelineHistoryPort,
+} from "../ports/TimelineHistoryPort";
 
 type TimelineHistoryViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
@@ -65,12 +32,6 @@ type TimelineCommittedRecordIdleResult = {
   row: unknown;
   rowVersion: number;
 };
-
-const rowHistoryRollbackActionOrder = [
-  "history_entry",
-  "change_set",
-  "row_restore",
-] as const satisfies readonly RecordHistoryRollbackAction[];
 
 export function buildRecordRollbackTargetFromHistoryAction(
   item: RecordHistoryItem,
@@ -96,75 +57,6 @@ export function buildRecordRollbackTargetFromHistoryAction(
     : null;
 }
 
-function normalizeRecordHistoryData(
-  data: RecordHistoryData,
-): RecordHistoryData {
-  if (!Array.isArray(data.items)) {
-    throw new Error("row history items must be an array");
-  }
-  const seenItemRefs = new Set<string>();
-  for (const item of data.items) {
-    if (!isNonEmptyString(item.history_item_ref)) {
-      throw new Error("row history item is missing history_item_ref");
-    }
-    if (seenItemRefs.has(item.history_item_ref)) {
-      throw new Error("row history item has duplicate history_item_ref");
-    }
-    seenItemRefs.add(item.history_item_ref);
-    if (!isNonEmptyString(item.change_set_id)) {
-      throw new Error("row history item is missing change_set_id");
-    }
-    if (
-      item.history_entry_ref !== undefined &&
-      !isNonEmptyString(item.history_entry_ref)
-    ) {
-      throw new Error("row history item has invalid history_entry_ref");
-    }
-    if (
-      item.revision_no !== undefined &&
-      !isPositiveInteger(item.revision_no)
-    ) {
-      throw new Error("row history item has invalid revision_no");
-    }
-    validateRowHistoryActions(item);
-  }
-  return data;
-}
-
-function validateRowHistoryActions(item: RecordHistoryItem) {
-  if (!Array.isArray(item.available_rollback_actions)) {
-    throw new Error("row history actions must be an array");
-  }
-  let previousIndex = -1;
-  for (const action of item.available_rollback_actions as unknown[]) {
-    if (!isRowHistoryRollbackAction(action)) {
-      throw new Error("row history action token is invalid");
-    }
-    const actionIndex = rowHistoryRollbackActionOrder.indexOf(action);
-    if (actionIndex <= previousIndex) {
-      throw new Error("row history actions are not canonical");
-    }
-    previousIndex = actionIndex;
-    if (buildRecordRollbackTargetFromHistoryAction(item, action) === null) {
-      throw new Error("row history action is missing its selector");
-    }
-  }
-}
-
-function isRowHistoryRollbackAction(
-  value: unknown,
-): value is RecordHistoryRollbackAction {
-  return (
-    value === "history_entry" ||
-    value === "change_set" ||
-    value === "row_restore"
-  );
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim() !== "";
-}
-
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
@@ -172,7 +64,6 @@ function isPositiveInteger(value: unknown): value is number {
 export function useTimelineHistoryActions({
   acceptTimelineRecordVersion,
   activeHistoryLiveRecordId,
-  apiBase,
   beginRowHistoryRequest,
   beginSave,
   beginViewportContinuity,
@@ -182,6 +73,7 @@ export function useTimelineHistoryActions({
   currentHistoryRowVersion,
   enqueueSaveWork,
   finishSave,
+  historyPort,
   loadRows,
   nextClientTxnId,
   resolvePendingSocketTxn,
@@ -201,7 +93,6 @@ export function useTimelineHistoryActions({
     rowVersion: number,
   ) => void;
   readonly activeHistoryLiveRecordId: string | null;
-  readonly apiBase?: string | undefined;
   readonly beginRowHistoryRequest: () => number;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
@@ -213,6 +104,7 @@ export function useTimelineHistoryActions({
   readonly currentHistoryRowVersion: number | null;
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
+  readonly historyPort: TimelineHistoryPort;
   readonly loadRows: (options: TimelineHistoryLoadRowsOptions) => Promise<void>;
   readonly nextClientTxnId: () => string;
   readonly resolvePendingSocketTxn: (clientTxnId: string) => void;
@@ -256,42 +148,21 @@ export function useTimelineHistoryActions({
           message: null,
         });
       }
-      const result = await fetchWorkbookJSON<RecordHistoryEnvelope>(
-        apiPath(apiBase, `/api/v1/records/${recordId}/history`),
-      );
+      const result = await historyPort.load({ recordId });
       if (!rowHistoryRequestIsCurrent(requestSeq)) {
         return null;
       }
-      if (!result.ok) {
+      if (result.kind === "rejected") {
         setRowHistoryPendingAction(null);
         setRowHistory({
           recordId,
           status: "error",
           data: null,
-          message: parseErrorMessage(result.payload),
+          message: result.failure.message,
         });
         return null;
       }
-      let historyData: RecordHistoryData;
-      try {
-        const envelope = readEnvelope<RecordHistoryEnvelope>(result.payload);
-        historyData = normalizeRecordHistoryData(envelope.data);
-        if (historyData.record_id !== recordId) {
-          throw new Error("row history response record mismatch");
-        }
-      } catch {
-        if (!rowHistoryRequestIsCurrent(requestSeq)) {
-          return null;
-        }
-        setRowHistoryPendingAction(null);
-        setRowHistory({
-          recordId,
-          status: "error",
-          data: null,
-          message: "Invalid row history response.",
-        });
-        return null;
-      }
+      const historyData = result.value;
       if (!rowHistoryRequestIsCurrent(requestSeq)) {
         return null;
       }
@@ -307,8 +178,8 @@ export function useTimelineHistoryActions({
     },
     [
       acceptTimelineRecordVersion,
-      apiBase,
       beginRowHistoryRequest,
+      historyPort,
       rowHistoryRequestIsCurrent,
       setRowHistory,
       setRowHistoryPendingAction,
@@ -371,14 +242,14 @@ export function useTimelineHistoryActions({
       };
       missingVersionMessage: string;
       onSuccess: (
-        payload: unknown,
+        accepted: TimelineHistoryMutationAccepted,
         viewportContinuityToken: number,
       ) => Promise<void>;
       recordId: string;
       request: (
         baseRowVersion: number,
         clientTxnId: string,
-      ) => Promise<{ ok: boolean; payload: unknown }>;
+      ) => Promise<WorkbookOperationOutcome<TimelineHistoryMutationAccepted>>;
       viewportContinuityTarget: TimelineHistoryViewportContinuityTarget;
     }) => {
       const clientTxnId = nextClientTxnId();
@@ -410,21 +281,21 @@ export function useTimelineHistoryActions({
         }
         trackPendingSocketTxn(clientTxnId);
         const result = await request(idleRecord.rowVersion, clientTxnId);
-        if (!result.ok) {
+        if (result.kind === "rejected") {
           resolvePendingSocketTxn(clientTxnId);
           clearViewportContinuity(viewportContinuityToken);
           setRowHistory((current) =>
             current.recordId === recordId
               ? {
                   ...current,
-                  message: parseErrorMessage(result.payload),
+                  message: result.failure.message,
                 }
               : current,
           );
           finishSave("Conflict");
           return;
         }
-        await onSuccess(result.payload, viewportContinuityToken);
+        await onSuccess(result.value, viewportContinuityToken);
         finishSave("Saved");
       });
     },
@@ -461,28 +332,15 @@ export function useTimelineHistoryActions({
         missingVersionMessage: "Missing row version for destructive action.",
         recordId,
         viewportContinuityTarget,
-        request: (baseRowVersion, clientTxnId) => {
-          const path =
-            operation === "delete"
-              ? `/api/v1/records/${recordId}`
-              : `/api/v1/records/${recordId}/restore`;
-          return fetchWorkbookJSON<RecordDeleteRestoreEnvelope>(
-            apiPath(apiBase, path),
-            {
-              method: operation === "delete" ? "DELETE" : "POST",
-              body: JSON.stringify(
-                buildTimelineDeleteRestorePayload({
-                  baseRowVersion,
-                  clientTxnId,
-                  operation,
-                }),
-              ),
-            },
-          );
-        },
-        onSuccess: async (payload, viewportContinuityToken) => {
-          const envelope = readEnvelope<RecordDeleteRestoreEnvelope>(payload);
-          acceptTimelineRecordVersion(recordId, envelope.data.row_version);
+        request: (baseRowVersion, clientTxnId) =>
+          historyPort.deleteOrRestore({
+            baseRowVersion,
+            clientTxnId,
+            operation,
+            recordId,
+          }),
+        onSuccess: async (accepted, viewportContinuityToken) => {
+          acceptTimelineRecordVersion(recordId, accepted.rowVersion);
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId);
           }
@@ -497,12 +355,12 @@ export function useTimelineHistoryActions({
       });
     },
     [
-      apiBase,
       acceptTimelineRecordVersion,
       currentHistoryRecordId,
       currentHistoryRecordIdMatches,
       currentHistoryRowVersion,
       fetchRecordHistory,
+      historyPort,
       loadRows,
       selectedRowRecordId,
       setSelectedRowId,
@@ -533,22 +391,14 @@ export function useTimelineHistoryActions({
         recordId,
         viewportContinuityTarget,
         request: (baseRowVersion, clientTxnId) =>
-          fetchWorkbookJSON<RecordRollbackEnvelope>(
-            apiPath(apiBase, `/api/v1/records/${recordId}/rollback`),
-            {
-              method: "POST",
-              body: JSON.stringify(
-                buildTimelineRollbackPayload({
-                  baseRowVersion,
-                  clientTxnId,
-                  target,
-                }),
-              ),
-            },
-          ),
-        onSuccess: async (payload, viewportContinuityToken) => {
-          const envelope = readEnvelope<RecordRollbackEnvelope>(payload);
-          acceptTimelineRecordVersion(recordId, envelope.data.row_version);
+          historyPort.rollback({
+            baseRowVersion,
+            clientTxnId,
+            recordId,
+            target,
+          }),
+        onSuccess: async (accepted, viewportContinuityToken) => {
+          acceptTimelineRecordVersion(recordId, accepted.rowVersion);
           if (currentHistoryRecordIdMatches(recordId)) {
             await fetchRecordHistory(recordId);
           }
@@ -560,12 +410,12 @@ export function useTimelineHistoryActions({
       });
     },
     [
-      apiBase,
       acceptTimelineRecordVersion,
       currentHistoryRecordId,
       currentHistoryRecordIdMatches,
       currentHistoryRowVersion,
       fetchRecordHistory,
+      historyPort,
       loadRows,
       selectedRowRecordId,
       submitRowHistoryMutation,

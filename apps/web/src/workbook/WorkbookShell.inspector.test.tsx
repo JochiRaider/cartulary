@@ -50,7 +50,7 @@ import {
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
-import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
+import type { RecordHistoryItem } from "./timeline/models/timelineHistoryModel";
 
 vi.mock(
   "@cartulary/grid-adapter",
@@ -58,7 +58,7 @@ vi.mock(
 );
 
 const historyItem: RecordHistoryItem = {
-  actor_user_id: "user-history",
+  actor_user_id: "40000000-0000-4000-8000-000000000401",
   committed_at: "2026-05-11T12:00:00Z",
   history_item_ref: "hitem_workbook_interaction_stable",
   operation: "field_update",
@@ -66,7 +66,7 @@ const historyItem: RecordHistoryItem = {
     summary: "field_update timeline_record",
     units: [{ history_unit_kind: "mutation" }],
   },
-  change_set_id: "22222222-2222-4222-8222-222222222222",
+  change_set_id: "30000000-0000-4000-8000-000000000001",
   reversible: true,
   available_rollback_actions: ["history_entry"],
   history_entry_ref: "href_workbook_interaction_stable",
@@ -77,13 +77,22 @@ function historyEnvelope(options: {
   rowVersion?: number;
   items?: RecordHistoryItem[];
 }) {
-  return successEnvelope({
-    incident_id: "incident-1",
-    record_id: options.recordId ?? "record-1",
-    row_version: options.rowVersion ?? 4,
-    deleted: false,
-    items: options.items ?? [historyItem],
-  });
+  return new Response(
+    JSON.stringify({
+      data: {
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        record_id: options.recordId ?? "20000000-0000-4000-8000-000000000001",
+        row_version: options.rowVersion ?? 4,
+        deleted: false,
+        items: options.items ?? [historyItem],
+      },
+      meta: {
+        paging: { has_more: false, limit: 50, next_cursor: null },
+        request_id: "req-inspector-history",
+      },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
 }
 
 describe("browser.inspector-history inspector and row-local action coverage", () => {
@@ -102,7 +111,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 1,
           summary: "Grid-first default",
           captureState: "rough",
@@ -112,9 +121,11 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     );
 
     const { container, rerender } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
 
     expect(screen.queryByTestId(timelineInspectorTestId())).toBeNull();
     const primaryGridSlot = screen.getByTestId(
@@ -154,11 +165,19 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect((scrollport as HTMLElement).style.width).toBe("100%");
     expect(["0", "0px"]).toContain((scrollport as HTMLElement).style.minWidth);
     expect(
-      screen.queryByTestId(rowCellTestId("record-1", "timeline.edited_at")),
+      screen.queryByTestId(
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.edited_at",
+        ),
+      ),
     ).toBeNull();
     expect(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_utc_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_utc_text",
+        ),
       ),
     ).toBeTruthy();
 
@@ -192,7 +211,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     rerender(
       <TimelineWorkbookRuntimeFixture
         chromeMode="narrow_desktop"
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
       />,
     );
     expect(inspectorSlot.style.position).toBe("absolute");
@@ -209,7 +228,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     rerender(
       <TimelineWorkbookRuntimeFixture
         chromeMode="compact_desktop"
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
       />,
     );
     expect(inspectorSlot.style.inlineSize).toBe("100%");
@@ -243,7 +262,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 1,
           summary: "Reset inspector",
           captureState: "rough",
@@ -253,11 +272,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         inspectorResetKey="cartulary.view.timeline.v2:base"
       />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     fireEvent.click(
       screen.getByTestId(workbookInspectorToggleTestId(timelineViewSchemaId)),
     );
@@ -265,7 +286,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     rerender(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         inspectorResetKey="cartulary.view.timeline.v2:saved-view"
       />,
     );
@@ -275,7 +296,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     });
     expect(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
     ).toBeTruthy();
   });
@@ -284,7 +308,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     fetchMock.mockResolvedValueOnce(timelineRowsEnvelope([]));
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
     await waitForVisibleGridRowRecordIds(container, []);
     fireEvent.click(
@@ -301,7 +325,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       screen.queryByTestId(
         timelineScalarEditorTestId({
           fieldKey: "timeline.raw_activity_text",
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           surface: "inspector",
         }),
       ),
@@ -320,7 +344,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     fetchMock.mockResolvedValueOnce(
       timelineRowsEnvelope([
         timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 1,
           summary: "Compact collections",
           captureState: "rough",
@@ -355,19 +379,31 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     fireEvent.contextMenu(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       { clientX: 32, clientY: 48 },
     );
-    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
+    fireEvent.click(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000001"),
+      ),
+    );
 
     const hostItems = screen.getByTestId(
-      relationshipItemsTestId("record-1", "timeline.host_refs"),
+      relationshipItemsTestId(
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.host_refs",
+      ),
     );
     expect(hostItems.textContent).toContain("wide-host-token-1");
     expect(hostItems.textContent).toContain("+1");
@@ -375,12 +411,18 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     expect(hostItems.style.overflow).toBe("hidden");
 
     const identityItems = screen.getByTestId(
-      relationshipItemsTestId("record-1", "timeline.identity_refs"),
+      relationshipItemsTestId(
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.identity_refs",
+      ),
     );
     expect(identityItems.textContent).toContain("wide-identity-token");
 
     const tagItems = screen.getByTestId(
-      relationshipItemsTestId("record-1", "timeline.tags"),
+      relationshipItemsTestId(
+        "20000000-0000-4000-8000-000000000001",
+        "timeline.tags",
+      ),
     );
     expect(tagItems.textContent).toContain("tag-one");
     expect(tagItems.textContent).toContain("+2");
@@ -392,7 +434,12 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     ] as const) {
       expect(
         screen
-          .getByTestId(timelineCollectionInputTestId("record-1", fieldKey))
+          .getByTestId(
+            timelineCollectionInputTestId(
+              "20000000-0000-4000-8000-000000000001",
+              fieldKey,
+            ),
+          )
           .getAttribute("placeholder"),
       ).toBeNull();
     }
@@ -403,7 +450,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ["timeline.tags", "Add tags token"],
     ] as const) {
       const input = screen.getByTestId(
-        timelineCollectionInputTestId("record-1", fieldKey),
+        timelineCollectionInputTestId(
+          "20000000-0000-4000-8000-000000000001",
+          fieldKey,
+        ),
       ) as HTMLInputElement;
       fireEvent.click(input.parentElement as HTMLElement);
       await waitFor(() => {
@@ -428,13 +478,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 3,
             summary: "Workbook inspector selected row",
             details: "Selected row details",
@@ -448,13 +498,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 1,
             summary: "Inserted before selected row",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             rowVersion: 4,
             summary: "Workbook inspector selected row refreshed",
             details: "Selected row details refreshed",
@@ -464,7 +514,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
             hostRefs: [renamedRelationship],
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -474,13 +524,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-3",
+            recordId: "20000000-0000-4000-8000-000000000003",
             rowVersion: 1,
             summary: "Inserted before selected row",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -490,18 +540,28 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     const { container, rerender } = render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={0}
       />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1", "record-2"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+      "20000000-0000-4000-8000-000000000002",
+    ]);
     fireEvent.contextMenu(
       screen.getByTestId(
-        rowCellTestId("record-2", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000002",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       { clientX: 32, clientY: 48 },
     );
-    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-2")));
+    fireEvent.click(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000002"),
+      ),
+    );
 
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Workbook inspector selected row",
@@ -511,7 +571,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         screen.getByTestId(
           timelineScalarEditorTestId({
             fieldKey: "timeline.raw_activity_text",
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000002",
             surface: "inspector",
           }),
         ) as HTMLTextAreaElement
@@ -552,7 +612,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     ).toBe("record_mark_reviewed_route");
     expect(
       screen.getByTestId(
-        relationshipItemsTestId("record-2", "timeline.host_refs"),
+        relationshipItemsTestId(
+          "20000000-0000-4000-8000-000000000002",
+          "timeline.host_refs",
+        ),
       ),
     ).toBeTruthy();
     expect(
@@ -563,14 +626,14 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
 
     rerender(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={1}
       />,
     );
     await waitForVisibleGridRowRecordIds(container, [
-      "record-3",
-      "record-2",
-      "record-1",
+      "20000000-0000-4000-8000-000000000003",
+      "20000000-0000-4000-8000-000000000002",
+      "20000000-0000-4000-8000-000000000001",
     ]);
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
       "Workbook inspector selected row",
@@ -581,7 +644,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           screen.getByTestId(
             timelineScalarEditorTestId({
               fieldKey: "timeline.raw_activity_text",
-              recordId: "record-2",
+              recordId: "20000000-0000-4000-8000-000000000002",
               surface: "inspector",
             }),
           ) as HTMLTextAreaElement
@@ -597,24 +660,30 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     const selectedCell = await findWorkbookCell(
       container,
       timelineViewSchemaId,
-      "record-2",
+      "20000000-0000-4000-8000-000000000002",
       "timeline.activity_synopsis_text",
     );
     selectedCell.focus();
     rerender(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         reloadToken={2}
       />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-3", "record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000003",
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     await waitFor(() => {
       expect(
         screen.getByTestId(timelineInspectorTestId()).textContent,
       ).not.toContain("Workbook inspector selected row");
       expect(
         screen.getByTestId(
-          rowCellTestId("record-3", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000003",
+            "timeline.activity_synopsis_text",
+          ),
         ),
       ).toBeTruthy();
     });
@@ -626,7 +695,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 5,
             summary: "Create task source",
             captureState: "rough",
@@ -638,7 +707,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           memberships: [
             {
               display_name: "Admin User",
-              incident_id: "incident-1",
+              incident_id: "10000000-0000-4000-8000-000000000001",
               membership_version: 1,
               role: "admin",
               user_id: "user-1",
@@ -649,9 +718,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         successEnvelope({
           view_schema_id: taskRequestsViewSchemaId,
-          change_set_id: "task-change-set",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           row: {
-            record_id: "task-1",
+            record_id: "20000000-0000-4000-8000-000000000401",
             row_version: 1,
             cells: {},
           },
@@ -659,16 +728,25 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     fireEvent.contextMenu(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       { clientX: 32, clientY: 48 },
     );
-    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
+    fireEvent.click(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000001"),
+      ),
+    );
     fireEvent.click(
       screen.getByTestId(
         workbookInspectorFeatureActionTestId(
@@ -698,14 +776,14 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       expect(
         fetchMock.mock.calls.some(([url]) =>
           String(url).endsWith(
-            `/api/v1/incidents/incident-1/views/${taskRequestsViewSchemaId}/rows`,
+            `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${taskRequestsViewSchemaId}/rows`,
           ),
         ),
       ).toBe(true);
     });
     const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith(
-        `/api/v1/incidents/incident-1/views/${taskRequestsViewSchemaId}/rows`,
+        `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${taskRequestsViewSchemaId}/rows`,
       ),
     );
     expect(extractTimelineJSONBody(fetchMock, createCallIndex)).toMatchObject({
@@ -713,11 +791,16 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       "task.task_kind": "follow_up",
       "task.linked_record_ids": {
         kind: "collection_actions_v1",
-        actions: [{ op: "add_record_ref", linked_record_id: "record-1" }],
+        actions: [
+          {
+            op: "add_record_ref",
+            linked_record_id: "20000000-0000-4000-8000-000000000001",
+          },
+        ],
       },
     });
     expect(screen.getByTestId(timelineInspectorTestId()).textContent).toContain(
-      "Created related cartulary.view.task_requests.v1 row task-1.",
+      "Created related cartulary.view.task_requests.v1 row 20000000-0000-4000-8000-000000000401.",
     );
   });
 
@@ -727,7 +810,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 5,
             summary: "Create evidence source",
             captureState: "rough",
@@ -737,9 +820,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         successEnvelope({
           view_schema_id: evidenceViewSchemaId,
-          change_set_id: "evidence-change-set",
+          change_set_id: "30000000-0000-4000-8000-000000000001",
           row: {
-            record_id: "evidence-1",
+            record_id: "20000000-0000-4000-8000-000000000402",
             row_version: 1,
             cells: {},
           },
@@ -748,20 +831,20 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       .mockResolvedValueOnce(
         timelineMutationEnvelope(
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 6,
             summary: "Create evidence source",
             captureState: "rough",
             evidenceCount: 1,
             hasEvidence: true,
           }),
-          "timeline-link-change-set",
+          "30000000-0000-4000-8000-000000000402",
         ),
       )
       .mockResolvedValueOnce(
         timelineRowsEnvelope([
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 6,
             summary: "Create evidence source",
             captureState: "rough",
@@ -772,16 +855,25 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       );
 
     const { container } = render(
-      <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
     );
-    await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+    await waitForVisibleGridRowRecordIds(container, [
+      "20000000-0000-4000-8000-000000000001",
+    ]);
     fireEvent.contextMenu(
       screen.getByTestId(
-        rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+        rowCellTestId(
+          "20000000-0000-4000-8000-000000000001",
+          "timeline.activity_synopsis_text",
+        ),
       ),
       { clientX: 32, clientY: 48 },
     );
-    fireEvent.click(screen.getByTestId(rowInspectButtonTestId("record-1")));
+    fireEvent.click(
+      screen.getByTestId(
+        rowInspectButtonTestId("20000000-0000-4000-8000-000000000001"),
+      ),
+    );
     fireEvent.click(
       screen.getByTestId(
         workbookInspectorFeatureActionTestId(
@@ -803,11 +895,13 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     await waitFor(() => {
       expect(
         screen.getByTestId(timelineInspectorTestId()).textContent,
-      ).toContain("Created and linked evidence evidence-1.");
+      ).toContain(
+        "Created and linked evidence 20000000-0000-4000-8000-000000000402.",
+      );
     });
     const createCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
       String(url).endsWith(
-        `/api/v1/incidents/incident-1/views/${evidenceViewSchemaId}/rows`,
+        `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${evidenceViewSchemaId}/rows`,
       ),
     );
     expect(extractTimelineJSONBody(fetchMock, createCallIndex)).toMatchObject({
@@ -815,8 +909,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
     });
     const patchCallIndex = fetchMock.mock.calls.findIndex(
       ([url, init]) =>
-        String(url).endsWith("/api/v1/records/record-1") &&
-        init?.method === "PATCH",
+        String(url).endsWith(
+          "/api/v1/records/20000000-0000-4000-8000-000000000001",
+        ) && init?.method === "PATCH",
     );
     expect(extractTimelineJSONBody(fetchMock, patchCallIndex)).toMatchObject({
       view_schema_id: timelineViewSchemaId,
@@ -826,7 +921,12 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           field_key: "timeline.attached_evidence_ids",
           action_payload: {
             kind: "collection_actions_v1",
-            actions: [{ op: "add_record_ref", linked_record_id: "evidence-1" }],
+            actions: [
+              {
+                op: "add_record_ref",
+                linked_record_id: "20000000-0000-4000-8000-000000000402",
+              },
+            ],
           },
         },
       ],
@@ -849,7 +949,7 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         .mockResolvedValueOnce(
           timelineRowsEnvelope([
             timelineRow({
-              recordId: "record-1",
+              recordId: "20000000-0000-4000-8000-000000000001",
               rowVersion: 4,
               summary: `Workbook inspector rollback ${errorCode}`,
               captureState: "rough",
@@ -863,17 +963,24 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         );
 
       const { container } = render(
-        <TimelineWorkbookRuntimeFixture incidentId="incident-1" />,
+        <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
       );
-      await waitForVisibleGridRowRecordIds(container, ["record-1"]);
+      await waitForVisibleGridRowRecordIds(container, [
+        "20000000-0000-4000-8000-000000000001",
+      ]);
       fireEvent.contextMenu(
         screen.getByTestId(
-          rowCellTestId("record-1", "timeline.activity_synopsis_text"),
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000001",
+            "timeline.activity_synopsis_text",
+          ),
         ),
         { clientX: 32, clientY: 48 },
       );
       fireEvent.click(
-        screen.getByTestId(rowHistoryOpenButtonTestId("record-1")),
+        screen.getByTestId(
+          rowHistoryOpenButtonTestId("20000000-0000-4000-8000-000000000001"),
+        ),
       );
 
       if (errorCode === "history_missing") {
@@ -888,7 +995,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         historyItemRef: historyItem.history_item_ref,
       };
       await screen.findByTestId(rowHistoryPanelTestId());
-      fireEvent.click(screen.getByTestId(rowHistoryActionTestId(actionAnchor)));
+      fireEvent.click(
+        await screen.findByTestId(rowHistoryActionTestId(actionAnchor)),
+      );
       expect(
         screen.getByTestId(rowHistoryRollbackPreviewTestId(actionAnchor))
           .textContent,
@@ -911,7 +1020,9 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ).toContain(errorCode);
       });
       const rollbackCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
-        String(url).endsWith("/api/v1/records/record-1/rollback"),
+        String(url).endsWith(
+          "/api/v1/records/20000000-0000-4000-8000-000000000001/rollback",
+        ),
       );
       expect(rollbackCallIndex).toBeGreaterThanOrEqual(0);
       const body = extractTimelineJSONBody(fetchMock, rollbackCallIndex);

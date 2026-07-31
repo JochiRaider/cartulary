@@ -4,12 +4,10 @@ import type {
   GridClipboardInput,
 } from "@cartulary/grid-adapter";
 import { type ClipboardEvent as ReactClipboardEvent, useCallback } from "react";
-import { apiPath } from "../../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../../services/workbookApi";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookPendingSavesRefs } from "../../runtime/workbookPendingReplayRuntime";
 import { decodeWorkbookClipboardInput } from "../../utils/workbookClipboard";
 import { sameFieldConflictQueueKey } from "../../utils/workbookPendingQueue";
+import type { TimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
 import type {
   PendingReplayRuntimeMeta,
   TimelineMutableRef,
@@ -20,18 +18,15 @@ import {
   inputFocusKey,
   type RowValues,
   type SameFieldConflictPayload,
+  type TimelineApiRow,
   type TimelineScalarEditorSurface,
   timelineScalarBindingForField,
   timelineScalarBindings,
 } from "../models/workbookTimelineModel";
-
-type TimelineClipboardPasteEnvelope = {
-  data: {
-    view_schema_id: string;
-    rows: unknown[];
-    conflicts?: SameFieldConflictPayload[];
-  };
-};
+import type {
+  TimelineClipboardPastePort,
+  TimelineClipboardPasteTarget,
+} from "../ports/TimelineClipboardPastePort";
 
 type TimelineLoadRowsForPaste = (options: {
   readonly showLoading: boolean;
@@ -50,13 +45,12 @@ type TimelineCommittedRecordIdle = {
 };
 
 export function useTimelineClipboardPasteController({
-  apiBase,
   applyResponseRows,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
+  editorDraftRegistry,
   finishSave,
-  incidentId,
   loadRowsRef,
   nextClientTxnId,
   pendingSavesRefsRef,
@@ -65,15 +59,13 @@ export function useTimelineClipboardPasteController({
   resolvePendingSocketTxn,
   resolveTimelinePasteTargetResolution,
   restoreTimelineFocusAnchor,
-  rowInputRefs,
   setActiveConflictKey,
   setPasteConflictGroup,
-  setScalarEditorDraftValue,
+  timelineClipboardPaste,
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
-  readonly apiBase?: string | undefined;
-  readonly applyResponseRows: (rows: readonly unknown[]) => void;
+  readonly applyResponseRows: (rows: readonly TimelineApiRow[]) => void;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     target:
@@ -82,8 +74,8 @@ export function useTimelineClipboardPasteController({
       | { readonly kind: "scroll-only" },
   ) => number;
   readonly clearViewportContinuity: (token: number) => void;
+  readonly editorDraftRegistry: TimelineEditorDraftRegistry;
   readonly finishSave: (nextState: "Conflict" | "Saved" | "Syncing") => void;
-  readonly incidentId: string;
   readonly loadRowsRef: TimelineMutableRef<TimelineLoadRowsForPaste>;
   readonly nextClientTxnId: () => string;
   readonly pendingSavesRefsRef: TimelineMutableRef<
@@ -104,17 +96,9 @@ export function useTimelineClipboardPasteController({
     input: GridClipboardInput,
   ) => TimelinePasteTargetResolution | null;
   readonly restoreTimelineFocusAnchor: (anchor: GridCellAnchor) => boolean;
-  readonly rowInputRefs: TimelineMutableRef<
-    Map<string, HTMLInputElement | HTMLTextAreaElement>
-  >;
   readonly setActiveConflictKey: (key: string | null) => void;
   readonly setPasteConflictGroup: (group: { keys: string[] } | null) => void;
-  readonly setScalarEditorDraftValue: (
-    rowKey: string,
-    field: keyof RowValues,
-    surface: TimelineScalarEditorSurface,
-    value: string,
-  ) => void;
+  readonly timelineClipboardPaste: TimelineClipboardPastePort;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
   readonly waitForCommittedRecordIdle: (
     recordId: string,
@@ -167,14 +151,7 @@ export function useTimelineClipboardPasteController({
             pendingSavesRefsRef.current.saveQueueRef.current
               .catch(() => undefined)
               .then(async () => {
-                const rowTargetPayload: Array<
-                  | { readonly kind: "create" }
-                  | {
-                      readonly base_row_version: number;
-                      readonly kind: "record";
-                      readonly record_id: string;
-                    }
-                > = [];
+                const rowTargetPayload: TimelineClipboardPasteTarget[] = [];
                 for (const target of targetResolution.rowTargets) {
                   if (target.kind === "create") {
                     rowTargetPayload.push({ kind: "create" });
@@ -190,44 +167,30 @@ export function useTimelineClipboardPasteController({
                   }
                   rowTargetPayload.push({
                     kind: "record",
-                    record_id: target.rowIdentity.recordId,
-                    base_row_version: idleRecord.rowVersion,
+                    recordId: target.rowIdentity.recordId,
+                    baseRowVersion: idleRecord.rowVersion,
                   });
                 }
                 trackPendingSocketTxn(clientTxnId);
-                const result =
-                  await fetchWorkbookJSON<TimelineClipboardPasteEnvelope>(
-                    apiPath(
-                      apiBase,
-                      `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
-                    ),
-                    {
-                      method: "POST",
-                      body: JSON.stringify({
-                        view_schema_id: timelineViewSchemaId,
-                        client_txn_id: clientTxnId,
-                        clipboard_text: clipboardText,
-                        format:
-                          clipboardInput.kind === "table"
-                            ? clipboardInput.format
-                            : "csv",
-                        start_field_key: fieldKey,
-                        columns: targetResolution.columns,
-                        targets: rowTargetPayload,
-                      }),
-                    },
-                  );
+                const result = await timelineClipboardPaste.paste({
+                  clientTxnId,
+                  clipboardText,
+                  format:
+                    clipboardInput.kind === "table"
+                      ? clipboardInput.format
+                      : "csv",
+                  startFieldKey: fieldKey,
+                  columns: targetResolution.columns,
+                  targets: rowTargetPayload,
+                });
                 resolvePendingSocketTxn(clientTxnId);
-                if (!result.ok) {
+                if (result.kind === "rejected") {
                   clearViewportContinuity(viewportContinuityToken);
                   finishSave("Conflict");
                   return;
                 }
-                const envelope = readEnvelope<TimelineClipboardPasteEnvelope>(
-                  result.payload,
-                );
                 const pasteConflictKeys: string[] = [];
-                for (const conflict of envelope.data.conflicts ?? []) {
+                for (const conflict of result.value.conflicts) {
                   const conflictBinding = timelineScalarBindingForField(
                     conflict.field_key,
                   );
@@ -249,7 +212,7 @@ export function useTimelineClipboardPasteController({
                 } else if (pasteConflictKeys.length === 0) {
                   setPasteConflictGroup(null);
                 }
-                applyResponseRows(envelope.data.rows);
+                applyResponseRows(result.value.rows);
                 await loadRowsRef.current({
                   showLoading: false,
                   viewportContinuityToken,
@@ -258,20 +221,21 @@ export function useTimelineClipboardPasteController({
                   restoreTimelineFocusAnchor(anchor);
                 }
                 finishSave(
-                  envelope.data.conflicts && envelope.data.conflicts.length > 0
-                    ? "Conflict"
-                    : "Saved",
+                  result.value.conflicts.length > 0 ? "Conflict" : "Saved",
                 );
               });
           return;
         }
       }
       window.setTimeout(() => {
-        const editor = rowInputRefs.current.get(
+        const editor = editorDraftRegistry.inputElementForFocusKey(
           inputFocusKey(rowKey, focusField, surface),
         );
         if (editor) {
-          setScalarEditorDraftValue(rowKey, focusField, surface, editor.value);
+          editorDraftRegistry.setDraft(
+            { field: focusField, rowKey, surface },
+            editor.value,
+          );
         }
         queueScalarSave(
           rowKey,
@@ -286,13 +250,12 @@ export function useTimelineClipboardPasteController({
       }, 0);
     },
     [
-      apiBase,
       applyResponseRows,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
+      editorDraftRegistry,
       finishSave,
-      incidentId,
       loadRowsRef,
       nextClientTxnId,
       pendingSavesRefsRef,
@@ -301,10 +264,9 @@ export function useTimelineClipboardPasteController({
       resolvePendingSocketTxn,
       resolveTimelinePasteTargetResolution,
       restoreTimelineFocusAnchor,
-      rowInputRefs,
       setActiveConflictKey,
       setPasteConflictGroup,
-      setScalarEditorDraftValue,
+      timelineClipboardPaste,
       trackPendingSocketTxn,
       waitForCommittedRecordIdle,
     ],

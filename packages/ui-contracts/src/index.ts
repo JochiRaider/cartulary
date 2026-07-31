@@ -69,6 +69,8 @@ export type CoordinationWorkflowSelector =
   | "party-existing"
   | "party-link-existing"
   | "party-pair"
+  | "party-partial-completion"
+  | "party-retry-created-link"
   | "task-blocked-reason"
   | "task-status"
   | "task-submit"
@@ -676,6 +678,8 @@ const coordinationWorkflowTestIds = Object.freeze({
   "party-existing": "party-link-existing-party",
   "party-link-existing": "party-link-link-existing",
   "party-pair": "party-link-pair",
+  "party-partial-completion": "party-link-partial-completion",
+  "party-retry-created-link": "party-link-retry-created",
   "task-blocked-reason": "task-lifecycle-blocked-reason",
   "task-status": "task-lifecycle-status",
   "task-submit": "task-lifecycle-submit",

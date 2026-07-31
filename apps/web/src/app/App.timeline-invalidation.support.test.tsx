@@ -56,11 +56,11 @@ describe("Timeline workbook", () => {
 
     fetchMock.mockResolvedValueOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000001",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
@@ -70,12 +70,14 @@ describe("Timeline workbook", () => {
     );
     fetchMock.mockReturnValueOnce(pendingPatch.promise);
 
-    render(<TimelineWorkbookRuntimeFixture incidentId="incident-1" />);
+    render(
+      <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+    );
 
     const summaryInput = (await findWorkbookCell(
       document.body,
       timelineViewSchemaId,
-      "record-1",
+      "20000000-0000-4000-8000-000000000001",
       "timeline.activity_synopsis_text",
     )) as HTMLInputElement;
     summaryInput.focus();
@@ -92,7 +94,7 @@ describe("Timeline workbook", () => {
     emitRecordChanged(
       webSocketInstance,
       buildRecordChangedPayload({
-        recordId: "record-1",
+        recordId: "20000000-0000-4000-8000-000000000001",
         rowVersion: 2,
         clientTxnId: submittedClientTxnId,
         changeSetId: "change-set-socket",
@@ -103,9 +105,9 @@ describe("Timeline workbook", () => {
     pendingPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-2",
+        change_set_id: "30000000-0000-4000-8000-000000000001",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000001",
           rowVersion: 2,
           summary: "Alpha enter",
           captureState: "enriched",
@@ -115,7 +117,9 @@ describe("Timeline workbook", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000001"),
+        ).textContent,
       ).toBe("2");
     });
     await new Promise((resolve) => window.setTimeout(resolve, 0));

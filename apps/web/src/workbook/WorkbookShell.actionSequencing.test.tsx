@@ -3,6 +3,9 @@ import {
   rowInspectButtonTestId,
   rowInspectorFieldTestId,
   saveStateTestId,
+  timelineRowMarkReviewedButtonTestId,
+  timelineRowReplacementInputTestId,
+  timelineRowSupersedeButtonTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -67,18 +70,18 @@ describe("Timeline workbook action sequencing", () => {
     const routedFetch = routeTimelineWorkbookFetchMock(fetchMock);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: options.recordOneRowVersion,
             summary: "Alpha",
             details: options.recordOneDetails ?? "",
             captureState: options.recordOneCaptureState,
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -97,29 +100,29 @@ describe("Timeline workbook action sequencing", () => {
     });
     routedFetch.mockRecordActionOnce(
       successEnvelope({
-        record_id: "record-1",
-        incident_id: "incident-1",
+        record_id: "20000000-0000-4000-8000-000000000101",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         row_version: 2,
         capture_state: "reviewed",
-        change_set_id: "change-set-review",
+        change_set_id: "30000000-0000-4000-8000-000000000101",
         reason: "Reviewed from workbook",
         replacement_record_id: null,
       }),
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 2,
             summary: "Alpha",
             details: "Original details",
             captureState: "reviewed",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -130,9 +133,9 @@ describe("Timeline workbook action sequencing", () => {
     routedFetch.mockRecordPatchOnce(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-details",
+        change_set_id: "30000000-0000-4000-8000-000000000102",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000101",
           rowVersion: 3,
           summary: "Alpha",
           details: "Material edit after review",
@@ -142,29 +145,29 @@ describe("Timeline workbook action sequencing", () => {
     );
     routedFetch.mockRecordActionOnce(
       successEnvelope({
-        record_id: "record-1",
-        incident_id: "incident-1",
+        record_id: "20000000-0000-4000-8000-000000000101",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         row_version: 4,
         capture_state: "superseded",
-        change_set_id: "change-set-supersede",
+        change_set_id: "30000000-0000-4000-8000-000000000103",
         reason: "Superseded from workbook",
-        replacement_record_id: "record-2",
+        replacement_record_id: "20000000-0000-4000-8000-000000000102",
       }),
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 4,
             summary: "Alpha",
             details: "Material edit after review",
             captureState: "superseded",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -175,14 +178,20 @@ describe("Timeline workbook action sequencing", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="reviewer"
       />,
     );
 
     await screen.findByTestId(saveStateTestId());
-    await openTimelineRowContextMenu("record-1");
-    fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
+    await openTimelineRowContextMenu("20000000-0000-4000-8000-000000000101");
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineRowMarkReviewedButtonTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+    );
 
     await waitForTimelineRecordActionCalls(fetchMock, "mark-reviewed", 1);
     expect(
@@ -194,13 +203,20 @@ describe("Timeline workbook action sequencing", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000101"),
+        ).textContent,
       ).toBe("2");
     });
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000101",
+    );
     const detailsInput = (await screen.findByTestId(
-      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
+      rowInspectorFieldTestId(
+        "20000000-0000-4000-8000-000000000101",
+        "timeline.raw_activity_text",
+      ),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -218,15 +234,30 @@ describe("Timeline workbook action sequencing", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000101"),
+        ).textContent,
       ).toBe("3");
     });
 
-    await openTimelineRowContextMenu("record-1");
-    fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
-      target: { value: "record-2" },
-    });
-    fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
+    await openTimelineRowContextMenu("20000000-0000-4000-8000-000000000101");
+    fireEvent.change(
+      await screen.findByTestId(
+        timelineRowReplacementInputTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+      {
+        target: { value: "20000000-0000-4000-8000-000000000102" },
+      },
+    );
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineRowSupersedeButtonTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+    );
 
     await waitForTimelineRecordActionCalls(fetchMock, "supersede", 1);
     expect(
@@ -234,7 +265,7 @@ describe("Timeline workbook action sequencing", () => {
     ).toMatchObject({
       base_row_version: 3,
       reason: "Superseded from workbook",
-      replacement_record_id: "record-2",
+      replacement_record_id: "20000000-0000-4000-8000-000000000102",
     });
   });
 
@@ -248,18 +279,18 @@ describe("Timeline workbook action sequencing", () => {
     routedFetch.mockRecordPatchOnce(pendingDetailsPatch.promise);
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 2,
             summary: "Alpha",
             details: "Original details",
             captureState: "reviewed",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -269,29 +300,29 @@ describe("Timeline workbook action sequencing", () => {
     );
     routedFetch.mockRecordActionOnce(
       successEnvelope({
-        record_id: "record-1",
-        incident_id: "incident-1",
+        record_id: "20000000-0000-4000-8000-000000000101",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         row_version: 4,
         capture_state: "superseded",
-        change_set_id: "change-set-supersede",
+        change_set_id: "30000000-0000-4000-8000-000000000103",
         reason: "Superseded from workbook",
-        replacement_record_id: "record-2",
+        replacement_record_id: "20000000-0000-4000-8000-000000000102",
       }),
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 4,
             summary: "Alpha",
             details: "Material edit after review",
             captureState: "superseded",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -302,14 +333,19 @@ describe("Timeline workbook action sequencing", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="reviewer"
       />,
     );
 
-    await openTimelineInspectorFromContext("record-1");
+    await openTimelineInspectorFromContext(
+      "20000000-0000-4000-8000-000000000101",
+    );
     const detailsInput = (await screen.findByTestId(
-      rowInspectorFieldTestId("record-1", "timeline.raw_activity_text"),
+      rowInspectorFieldTestId(
+        "20000000-0000-4000-8000-000000000101",
+        "timeline.raw_activity_text",
+      ),
     )) as HTMLTextAreaElement;
     await changeInputValue(detailsInput, "Material edit after review");
     fireEvent.blur(detailsInput);
@@ -326,24 +362,37 @@ describe("Timeline workbook action sequencing", () => {
     });
 
     await fetch(
-      `/api/v1/incidents/incident-1/views/${timelineViewSchemaId}/query`,
+      `/api/v1/incidents/10000000-0000-4000-8000-000000000001/views/${timelineViewSchemaId}/query`,
       { method: "POST", body: JSON.stringify({}) },
     );
 
-    await openTimelineRowContextMenu("record-1");
-    fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
-      target: { value: "record-2" },
-    });
-    fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
+    await openTimelineRowContextMenu("20000000-0000-4000-8000-000000000101");
+    fireEvent.change(
+      await screen.findByTestId(
+        timelineRowReplacementInputTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+      {
+        target: { value: "20000000-0000-4000-8000-000000000102" },
+      },
+    );
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineRowSupersedeButtonTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+    );
     await flushWorkbookAsync();
     expect(timelineRecordActionCalls(fetchMock, "supersede")).toHaveLength(0);
 
     pendingDetailsPatch.resolve(
       successEnvelope({
         view_schema_id: timelineViewSchemaId,
-        change_set_id: "change-set-details",
+        change_set_id: "30000000-0000-4000-8000-000000000102",
         row: timelineRow({
-          recordId: "record-1",
+          recordId: "20000000-0000-4000-8000-000000000101",
           rowVersion: 3,
           summary: "Alpha",
           details: "Material edit after review",
@@ -358,15 +407,21 @@ describe("Timeline workbook action sequencing", () => {
     ).toMatchObject({
       base_row_version: 3,
       reason: "Superseded from workbook",
-      replacement_record_id: "record-2",
+      replacement_record_id: "20000000-0000-4000-8000-000000000102",
     });
     await waitFor(() => {
       expect(
-        screen.getByTestId(rowCellTestId("record-1", "timeline.capture_state"))
-          .textContent,
+        screen.getByTestId(
+          rowCellTestId(
+            "20000000-0000-4000-8000-000000000101",
+            "timeline.capture_state",
+          ),
+        ).textContent,
       ).toBe("superseded");
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000101"),
+        ).textContent,
       ).toBe("4");
     });
   });
@@ -378,28 +433,28 @@ describe("Timeline workbook action sequencing", () => {
     });
     routedFetch.mockRecordActionOnce(
       successEnvelope({
-        record_id: "record-1",
-        incident_id: "incident-1",
+        record_id: "20000000-0000-4000-8000-000000000101",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         row_version: 2,
         capture_state: "reviewed",
-        change_set_id: "change-set-review",
+        change_set_id: "30000000-0000-4000-8000-000000000101",
         reason: "Reviewed from workbook",
         replacement_record_id: null,
       }),
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 1,
             summary: "Alpha",
             captureState: "rough",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -409,17 +464,17 @@ describe("Timeline workbook action sequencing", () => {
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 2,
             summary: "Alpha",
             captureState: "reviewed",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -429,28 +484,28 @@ describe("Timeline workbook action sequencing", () => {
     );
     routedFetch.mockRecordActionOnce(
       successEnvelope({
-        record_id: "record-1",
-        incident_id: "incident-1",
+        record_id: "20000000-0000-4000-8000-000000000101",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         row_version: 3,
         capture_state: "superseded",
-        change_set_id: "change-set-supersede",
+        change_set_id: "30000000-0000-4000-8000-000000000103",
         reason: "Superseded from workbook",
-        replacement_record_id: "record-2",
+        replacement_record_id: "20000000-0000-4000-8000-000000000102",
       }),
     );
     routedFetch.mockRowQueryOnce(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: timelineViewSchemaId,
         rows: [
           timelineRow({
-            recordId: "record-1",
+            recordId: "20000000-0000-4000-8000-000000000101",
             rowVersion: 3,
             summary: "Alpha",
             captureState: "superseded",
           }),
           timelineRow({
-            recordId: "record-2",
+            recordId: "20000000-0000-4000-8000-000000000102",
             rowVersion: 1,
             summary: "Replacement",
             captureState: "rough",
@@ -461,13 +516,19 @@ describe("Timeline workbook action sequencing", () => {
 
     render(
       <TimelineWorkbookRuntimeFixture
-        incidentId="incident-1"
+        incidentId="10000000-0000-4000-8000-000000000001"
         currentIncidentRole="reviewer"
       />,
     );
 
-    await openTimelineRowContextMenu("record-1");
-    fireEvent.click(await screen.findByTestId("row-record-1-mark-reviewed"));
+    await openTimelineRowContextMenu("20000000-0000-4000-8000-000000000101");
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineRowMarkReviewedButtonTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+    );
 
     await waitForTimelineRecordActionCalls(fetchMock, "mark-reviewed", 1);
     expect(
@@ -478,22 +539,37 @@ describe("Timeline workbook action sequencing", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByTestId(timelineRowVersionTestId("record-1")).textContent,
+        screen.getByTestId(
+          timelineRowVersionTestId("20000000-0000-4000-8000-000000000101"),
+        ).textContent,
       ).toBe("2");
     });
 
-    await openTimelineRowContextMenu("record-1");
-    fireEvent.change(await screen.findByTestId("row-record-1-replacement-id"), {
-      target: { value: "record-2" },
-    });
-    fireEvent.click(await screen.findByTestId("row-record-1-supersede"));
+    await openTimelineRowContextMenu("20000000-0000-4000-8000-000000000101");
+    fireEvent.change(
+      await screen.findByTestId(
+        timelineRowReplacementInputTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+      {
+        target: { value: "20000000-0000-4000-8000-000000000102" },
+      },
+    );
+    fireEvent.click(
+      await screen.findByTestId(
+        timelineRowSupersedeButtonTestId(
+          "20000000-0000-4000-8000-000000000101",
+        ),
+      ),
+    );
 
     await waitForTimelineRecordActionCalls(fetchMock, "supersede", 1);
     expect(
       extractTimelineRecordActionBody(fetchMock, "supersede"),
     ).toMatchObject({
       base_row_version: 2,
-      replacement_record_id: "record-2",
+      replacement_record_id: "20000000-0000-4000-8000-000000000102",
     });
   });
 });

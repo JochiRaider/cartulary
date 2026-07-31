@@ -39,7 +39,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { readEnvelope } from "../../services/workbookApi";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import {
@@ -52,10 +51,8 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
 import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
-import {
-  useGenericSurfaceMutationController,
-  type GenericViewMutationEnvelope as ViewMutationEnvelope,
-} from "../hooks/useGenericSurfaceMutationController";
+import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
+import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
 import { useWorkbookInspectorCoordinator } from "../inspector/useWorkbookInspectorCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
@@ -75,7 +72,6 @@ import {
   genericCreateMinimumMessage,
   genericRowLabel,
   initialGenericCreateDraft,
-  normalizeGenericTextValue,
   partyLinkPairsForContract,
   selectWorkbookEditTarget,
 } from "../models/genericWorkbookModel";
@@ -198,8 +194,6 @@ export function ContractWorkbookSurface({
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
-  const [partyLinkPairKey, setPartyLinkPairKey] = useState("");
-  const [partyLinkExistingPartyId, setPartyLinkExistingPartyId] = useState("");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
     useOwnerReferenceOptions({
       apiBase,
@@ -215,7 +209,7 @@ export function ContractWorkbookSurface({
     markMutationSaved,
     mutationError,
     mutationState,
-    rejectMutationPayload,
+    rejectMutationFailure,
     setValidationError,
     submitPatchMutation,
   } = useGenericSurfaceMutationController({
@@ -282,17 +276,7 @@ export function ContractWorkbookSurface({
     });
   }, [contract, currentUserId]);
 
-  useEffect(() => {
-    setPartyLinkPairKey((current) => {
-      if (partyLinkPairs.some((pair) => pair.key === current)) {
-        return current;
-      }
-      return partyLinkPairs[0]?.key ?? "";
-    });
-  }, [partyLinkPairs]);
-
   const ownerRecordActions = useEvidenceWorkbookBindings({
-    apiBase,
     mutationCommands: mutationCommands.evidence,
     mutation: { beginMutation, markMutationConflict, markMutationSaved },
     onRefresh,
@@ -320,13 +304,13 @@ export function ContractWorkbookSurface({
           ? linkedNoteSourceRecordId
           : "",
     });
-    if (!result.ok) {
-      rejectMutationPayload(result.payload);
+    if (result.kind === "rejected") {
+      rejectMutationFailure(result.failure);
       return;
     }
     setCreateDraft(initialGenericCreateDraft(contract, currentUserId));
     setLinkedNoteSourceRecordId("");
-    await completeGenericMutation<ViewMutationEnvelope>(result.payload);
+    await completeGenericMutation();
   }, [
     beginMutation,
     completeGenericMutation,
@@ -337,7 +321,7 @@ export function ContractWorkbookSurface({
     interactionMode.kind,
     linkedNoteSourceRecordId,
     mutationCommands,
-    rejectMutationPayload,
+    rejectMutationFailure,
     setValidationError,
   ]);
 
@@ -709,10 +693,6 @@ export function ContractWorkbookSurface({
       recordId: editRecordId,
       rows,
     });
-  const selectedPartyLinkPair =
-    partyLinkPairs.find((pair) => pair.key === partyLinkPairKey) ??
-    partyLinkPairs[0] ??
-    null;
   const selectedEditCollectionItems =
     selectedEditRow !== null && selectedEditField !== null
       ? genericCollectionItems(selectedEditRow, selectedEditField.fieldKey)
@@ -777,7 +757,7 @@ export function ContractWorkbookSurface({
       return;
     }
     setEditValue("");
-    await completeGenericMutation<ViewMutationEnvelope>(payload);
+    await completeGenericMutation();
   };
 
   const submitPartyLinkPatch = async (
@@ -798,92 +778,30 @@ export function ContractWorkbookSurface({
     if (payload === null) {
       return false;
     }
-    await completeGenericMutation<ViewMutationEnvelope>(payload);
+    await completeGenericMutation();
     return true;
   };
-
-  const createPartyFromText = async () => {
-    if (selectedEditRow === null || selectedPartyLinkPair === null) {
-      setValidationError("Select a row and party field first.");
-      return;
-    }
-    const rawText = normalizeGenericTextValue(
-      String(
-        selectedEditRow.cells[selectedPartyLinkPair.textFieldKey]?.value ?? "",
-      ),
-    );
-    if (rawText === "") {
-      setValidationError("Party text is empty.");
-      return;
-    }
-    beginMutation();
-    const createResult = await mutationCommands.generic.createPartyFromText({
-      originViewSchemaId: contract.viewSchemaId,
-      rawText,
-    });
-    if (!createResult.ok) {
-      rejectMutationPayload(createResult.payload);
-      return;
-    }
-    const partyID = readEnvelope<ViewMutationEnvelope>(createResult.payload)
-      .data.row.record_id;
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.refFieldKey, value: partyID }],
-      "party-link-created",
-    );
-  };
-
-  const linkExistingParty = async () => {
-    if (selectedPartyLinkPair === null || partyLinkExistingPartyId === "") {
-      setValidationError("Select an existing party.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [
-        {
-          field_key: selectedPartyLinkPair.refFieldKey,
-          value: partyLinkExistingPartyId,
-        },
-      ],
-      "party-link-existing",
-    );
-  };
-
-  const clearPartyLink = async () => {
-    if (selectedPartyLinkPair === null) {
-      setValidationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.refFieldKey, value: null }],
-      "party-clear-link",
-    );
-  };
-
-  const clearPartyText = async () => {
-    if (selectedPartyLinkPair === null) {
-      setValidationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [{ field_key: selectedPartyLinkPair.textFieldKey, value: null }],
-      "party-clear-text",
-    );
-  };
-
-  const clearPartyBoth = async () => {
-    if (selectedPartyLinkPair === null) {
-      setValidationError("Select a party field first.");
-      return;
-    }
-    await submitPartyLinkPatch(
-      [
-        { field_key: selectedPartyLinkPair.textFieldKey, value: null },
-        { field_key: selectedPartyLinkPair.refFieldKey, value: null },
-      ],
-      "party-clear-both",
-    );
-  };
+  const {
+    clearPartyBoth,
+    clearPartyLink,
+    clearPartyText,
+    createPartyFromText,
+    linkExistingParty,
+    partialCompletionMessage,
+    partyLinkExistingPartyId,
+    retryCreatedPartyLink,
+    selectedPartyLinkPair,
+    setPartyLinkExistingPartyId,
+    setPartyLinkPairKey,
+  } = useGenericPartyLinkWorkflow({
+    mutation: { beginMutation, rejectMutationFailure, setValidationError },
+    mutationCommands: mutationCommands.generic,
+    originViewSchemaId: contract.viewSchemaId,
+    partyLinkPairs,
+    resetKey: inspectorInvalidationKey,
+    selectedRow: selectedEditRow,
+    submitLinkPatch: submitPartyLinkPatch,
+  });
 
   const focusDraftRow = useCallback(() => {
     const firstWritableField = writableFields[0];
@@ -1190,6 +1108,31 @@ export function ContractWorkbookSurface({
                 >
                   Clear both
                 </button>
+                {partialCompletionMessage === null ? null : (
+                  <div>
+                    <p
+                      data-testid={coordinationWorkflowTestId(
+                        "party-partial-completion",
+                      )}
+                      role="status"
+                    >
+                      {partialCompletionMessage}
+                    </p>
+                    <button
+                      data-testid={coordinationWorkflowTestId(
+                        "party-retry-created-link",
+                      )}
+                      disabled={mutationState === "Syncing"}
+                      style={secondaryActionButtonStyle}
+                      type="button"
+                      onClick={() => {
+                        void retryCreatedPartyLink();
+                      }}
+                    >
+                      Retry link to created party
+                    </button>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -1200,7 +1143,7 @@ export function ContractWorkbookSurface({
                 mutation={{
                   beginMutation,
                   completeGenericMutation,
-                  rejectMutationPayload,
+                  rejectMutationFailure,
                   setValidationError,
                 }}
                 mutationCommands={mutationCommands.coordination}

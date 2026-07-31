@@ -6,13 +6,18 @@ import {
   evidencePreviewFrameTestId,
   evidencePreviewPanelTestId,
 } from "@cartulary/ui-contracts";
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
-import { issueEvidenceAccessHandle } from "../../../services/workbookEvidence";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { evidenceAccessMessageLiveRegion } from "../../evidence/evidenceAccessPresentation";
 import type { GenericSurfaceMutationController } from "../../hooks/useGenericSurfaceMutationController";
 import { workbookSurfaceOverlayPanelStyle } from "../../layout/WorkbookSurfaceLayout";
 import { buildEvidenceLifecycleViewModel } from "../../models/evidenceLifecycleViewModel";
-import type { EvidenceMutationCommandPort } from "../../mutations/workbookMutationCommandPorts";
+import type { EvidenceCapabilityPort } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookOwnerBinding } from "../../policies/workbookSurfacePolicy";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
 import { stringifyGridValue } from "../../utils/workbookValueFormat";
@@ -30,15 +35,13 @@ type MutationPorts = Pick<
 >;
 
 export function useEvidenceWorkbookBindings({
-  apiBase,
   mutationCommands,
   mutation,
   onRefresh,
   ownerBindings,
   resetKey,
 }: {
-  readonly apiBase: string | undefined;
-  readonly mutationCommands: EvidenceMutationCommandPort;
+  readonly mutationCommands: EvidenceCapabilityPort;
   readonly mutation: MutationPorts;
   readonly onRefresh: () => Promise<void> | void;
   readonly ownerBindings: readonly WorkbookOwnerBinding[];
@@ -49,12 +52,21 @@ export function useEvidenceWorkbookBindings({
     Record<string, string>
   >({});
   const [preview, setPreview] = useState<EvidencePreviewState | null>(null);
+  const generationRef = useRef(0);
 
   useEffect(() => {
-    if (resetKey !== "") {
-      setPreview(null);
-    }
+    void resetKey;
+    generationRef.current += 1;
+    setMessageByRecordId({});
+    setPreview(null);
   }, [resetKey]);
+
+  useEffect(
+    () => () => {
+      generationRef.current += 1;
+    },
+    [],
+  );
 
   const setMessage = useCallback((recordId: string, message: string | null) => {
     setMessageByRecordId((current) => {
@@ -70,64 +82,64 @@ export function useEvidenceWorkbookBindings({
 
   const issueHandle = useCallback(
     async (row: WorkbookQueryRow, kind: "preview" | "download") => {
+      const generation = generationRef.current;
       setMessage(row.record_id, null);
-      const handle = await issueEvidenceAccessHandle({
-        apiBase,
+      const handle = await mutationCommands.issueHandle({
         evidenceRecordId: row.record_id,
         kind,
       });
-      if (!handle.ok) {
-        setMessage(row.record_id, handle.message);
+      if (generationRef.current !== generation) return;
+      if (handle.kind === "rejected") {
+        setMessage(row.record_id, handle.failure.message);
         return;
       }
       if (kind === "preview") {
         setPreview({
-          href: handle.href,
+          href: handle.value.href,
           recordId: row.record_id,
           title:
             stringifyGridValue(row.cells["evidence.title"]?.value).trim() ||
             row.record_id,
-          previewKind: handle.previewKind,
+          previewKind: handle.value.previewKind,
         });
         setMessage(row.record_id, "Preview loaded inline.");
         return;
       }
       const anchor = document.createElement("a");
-      anchor.href = handle.href;
-      anchor.download = handle.filename || "evidence";
+      anchor.href = handle.value.href;
+      anchor.download = handle.value.filename || "evidence";
       anchor.rel = "noopener";
       document.body.append(anchor);
       anchor.click();
       anchor.remove();
       setMessage(row.record_id, "Download handle issued.");
     },
-    [apiBase, setMessage],
+    [mutationCommands, setMessage],
   );
 
   const attachFile = useCallback(
     async (row: WorkbookQueryRow, file: File) => {
+      const generation = generationRef.current;
       if (file.size <= 0) {
         setMessage(row.record_id, "Evidence attach failed.");
         return;
       }
       setMessage(row.record_id, "Uploading evidence.");
       mutation.beginMutation();
-      try {
-        await mutationCommands.attach({
-          baseRowVersion: row.row_version,
-          evidenceRecordId: row.record_id,
-          file,
-        });
-        setMessage(row.record_id, "Evidence attached.");
-        mutation.markMutationSaved();
-        await onRefresh();
-      } catch (error) {
-        setMessage(
-          row.record_id,
-          error instanceof Error ? error.message : "Evidence attach failed.",
-        );
+      const outcome = await mutationCommands.attach({
+        baseRowVersion: row.row_version,
+        evidenceRecordId: row.record_id,
+        file,
+      });
+      if (generationRef.current !== generation) return;
+      if (outcome.kind === "rejected") {
+        setMessage(row.record_id, outcome.failure.message);
         mutation.markMutationConflict();
+        return;
       }
+      setMessage(row.record_id, "Evidence attached.");
+      mutation.markMutationSaved();
+      await onRefresh();
     },
     [mutation, mutationCommands, onRefresh, setMessage],
   );

@@ -1,20 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { readEnvelope } from "../../services/workbookApi";
-import { parseMutationError } from "../models/genericWorkbookModel";
-import type { GenericMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
-import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type {
+  GenericMutationCommandPort,
+  GenericViewMutationAccepted,
+} from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
-import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 
 export type GenericMutationSaveState = "Syncing" | "Saved" | "Conflict";
-
-export type GenericViewMutationEnvelope = {
-  data: {
-    view_schema_id: string;
-    change_set_id: string;
-    row: WorkbookQueryRow;
-  };
-};
 
 export type GenericPatchMutationRequest = {
   readonly baseRowVersion: number;
@@ -27,18 +19,16 @@ export type GenericPatchMutationRequest = {
 export type GenericSurfaceMutationController = {
   readonly beginMutation: () => void;
   readonly clearMutationError: () => void;
-  readonly completeGenericMutation: <TEnvelope>(
-    payload: unknown,
-  ) => Promise<TEnvelope>;
+  readonly completeGenericMutation: () => Promise<void>;
   readonly markMutationConflict: () => void;
   readonly markMutationSaved: () => void;
   readonly mutationError: string | null;
   readonly mutationState: GenericMutationSaveState;
-  readonly rejectMutationPayload: (payload: unknown) => void;
+  readonly rejectMutationFailure: (failure: WorkbookOperationFailure) => void;
   readonly setValidationError: (message: string) => void;
   readonly submitPatchMutation: (
     request: GenericPatchMutationRequest,
-  ) => Promise<unknown | null>;
+  ) => Promise<GenericViewMutationAccepted | null>;
 };
 
 export function useGenericSurfaceMutationController({
@@ -82,39 +72,37 @@ export function useGenericSurfaceMutationController({
     setMutationState("Conflict");
   }, []);
 
-  const rejectMutationPayload = useCallback((payload: unknown) => {
-    finishExplicitMutationRef.current?.();
-    finishExplicitMutationRef.current = null;
-    setMutationState("Conflict");
-    setMutationError(parseMutationError(payload));
-  }, []);
+  const rejectMutationFailure = useCallback(
+    (failure: WorkbookOperationFailure) => {
+      finishExplicitMutationRef.current?.();
+      finishExplicitMutationRef.current = null;
+      setMutationState("Conflict");
+      setMutationError(failure.message);
+    },
+    [],
+  );
 
   const setValidationError = useCallback((message: string) => {
     setMutationError(message);
   }, []);
 
-  const completeGenericMutation = useCallback(
-    async <TEnvelope>(payload: unknown) => {
-      const envelope = readEnvelope<TEnvelope>(payload);
-      try {
-        await onRefresh();
-        await refreshReferenceOptions();
-      } catch (error) {
-        finishExplicitMutationRef.current?.();
-        finishExplicitMutationRef.current = null;
-        setMutationState("Conflict");
-        setMutationError(
-          error instanceof Error ? error.message : "Workbook refresh failed.",
-        );
-        return envelope;
-      }
+  const completeGenericMutation = useCallback(async () => {
+    try {
+      await onRefresh();
+      await refreshReferenceOptions();
+    } catch (error) {
       finishExplicitMutationRef.current?.();
       finishExplicitMutationRef.current = null;
-      setMutationState("Saved");
-      return envelope;
-    },
-    [onRefresh, refreshReferenceOptions],
-  );
+      setMutationState("Conflict");
+      setMutationError(
+        error instanceof Error ? error.message : "Workbook refresh failed.",
+      );
+      return;
+    }
+    finishExplicitMutationRef.current?.();
+    finishExplicitMutationRef.current = null;
+    setMutationState("Saved");
+  }, [onRefresh, refreshReferenceOptions]);
 
   const submitPatchMutation = useCallback(
     async ({
@@ -132,27 +120,26 @@ export function useGenericSurfaceMutationController({
         recordId,
         viewSchemaId,
       });
-      if (!result.ok) {
-        const conflict = parseSameFieldConflict(result.payload);
-        if (conflict !== null) {
+      if (result.kind === "rejected") {
+        if (result.failure.kind === "same_field_conflict") {
           mutationRuntime.registerConflict({
-            conflict,
-            focusKey: `${recordId}:${conflict.field_key}`,
+            conflict: result.failure.conflict,
+            focusKey: `${recordId}:${result.failure.conflict.field_key}`,
             rowLabel: recordId,
             surfaceLabel,
             viewSchemaId,
           });
         }
-        rejectMutationPayload(result.payload);
+        rejectMutationFailure(result.failure);
         return null;
       }
-      return result.payload;
+      return result.value;
     },
     [
       beginMutation,
       mutationCommands,
       mutationRuntime,
-      rejectMutationPayload,
+      rejectMutationFailure,
       surfaceLabel,
     ],
   );
@@ -165,7 +152,7 @@ export function useGenericSurfaceMutationController({
     markMutationSaved,
     mutationError,
     mutationState,
-    rejectMutationPayload,
+    rejectMutationFailure,
     setValidationError,
     submitPatchMutation,
   };

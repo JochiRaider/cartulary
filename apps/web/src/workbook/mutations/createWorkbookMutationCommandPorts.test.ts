@@ -1,11 +1,28 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "./createWorkbookMutationCommandPorts";
+import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 function successResponse(): Response {
-  return new Response(JSON.stringify({ data: {} }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({
+      data: {
+        change_set_id: "change-set-1",
+        row: {
+          cells: {},
+          record_id: "00000000-0000-4000-8000-000000000010",
+          row_version: 1,
+        },
+        view_schema_id: "cartulary.view.timeline.v2",
+      },
+      meta: { request_id: "request-success" },
+    }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 function requestBodies(fetchMock: ReturnType<typeof vi.fn>) {
@@ -21,6 +38,123 @@ afterEach(() => {
 });
 
 describe("semantic mutation command ports", () => {
+  it("validates generated Workbook operation responses and contains public failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              rows: [],
+              view_schema_id: "cartulary.view.timeline.v2",
+            },
+            meta: {
+              query: { filters: [], sort: [] },
+              request_id: "request-query",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rows: [] } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "authorization_denied",
+              conflict: undefined,
+              details: { reason_code: "incident_access_lost" },
+              message: "Access denied.",
+              request_id: "request-denied",
+              retryable: false,
+              status: 403,
+            },
+          }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: "raw detail" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "evidence_access_unavailable",
+              details: { reason_code: "unsupported_preview" },
+              message: "object://must-not-cross-the-adapter",
+              request_id: "request-evidence-denied",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const operations = createWorkbookOperationExecutor({ apiBase: undefined });
+    const queryInput = {
+      operationID: "queryWorkbookView" as const,
+      pathParameters: {
+        incident_id: "00000000-0000-4000-8000-000000000001",
+        view_schema_id: "cartulary.view.timeline.v2",
+      },
+      request: { limit: 50 },
+    };
+
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "accepted",
+      value: { data: { rows: [] } },
+    });
+    await expect(operations.execute(queryInput)).resolves.toEqual({
+      kind: "rejected",
+      failure: {
+        kind: "invalid_contract",
+        message: "The server returned an invalid public contract response.",
+      },
+    });
+    await expect(operations.execute(queryInput)).resolves.toEqual({
+      kind: "rejected",
+      failure: { kind: "authorization_lost", message: "Access denied." },
+    });
+    await expect(operations.execute(queryInput)).resolves.toEqual({
+      kind: "rejected",
+      failure: {
+        kind: "invalid_contract",
+        message: "The server returned an invalid public error response.",
+      },
+    });
+    await expect(
+      operations.execute({
+        operationID: "issueEvidencePreviewHandle",
+        pathParameters: {
+          record_id: "00000000-0000-4000-8000-000000000010",
+        },
+        request: {},
+      }),
+    ).resolves.toEqual({
+      kind: "rejected",
+      failure: {
+        kind: "terminal",
+        message: "evidence_access_unavailable: unsupported_preview",
+      },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/incidents/00000000-0000-4000-8000-000000000001/views/cartulary.view.timeline.v2/query",
+      expect.objectContaining({ method: "POST", body: '{"limit":50}' }),
+    );
+  });
+
   it("own exact Timeline, generic, entity, assessment, and coordination request identities and payloads", async () => {
     const fetchMock = vi.fn(async () => successResponse());
     vi.stubGlobal("fetch", fetchMock);
@@ -32,7 +166,7 @@ describe("semantic mutation command ports", () => {
       },
     });
 
-    await commands.timeline.assignTag({
+    await commands.timeline.bulk.assignTag({
       tagName: "triaged",
       targets: [{ recordId: "timeline-1", baseRowVersion: 3 }],
     });
@@ -117,6 +251,118 @@ describe("semantic mutation command ports", () => {
     ]);
   });
 
+  it("normalizes task lifecycle and decision supersede into owner-specific outcomes", async () => {
+    const taskRecordId = "00000000-0000-4000-8000-000000000410";
+    const decisionTargetId = "00000000-0000-4000-8000-000000000420";
+    const decisionReplacementId = "00000000-0000-4000-8000-000000000421";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              change_set_id: "00000000-0000-4000-8000-000000000510",
+              row: {
+                cells: {},
+                record_id: taskRecordId,
+                row_version: 8,
+              },
+              view_schema_id: "cartulary.view.task_requests.v1",
+            },
+            meta: { request_id: "request-task" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              change_set_id: "00000000-0000-4000-8000-000000000511",
+              reason: "Replaced after review",
+              superseding_record_id: decisionReplacementId,
+              superseding_row_version: 7,
+              target_record_id: decisionTargetId,
+              target_row_version: 5,
+              target_status: "superseded",
+              view_schema_id: "cartulary.view.decisions.v1",
+            },
+            meta: { request_id: "request-decision" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              capture_state: "superseded",
+              change_set_id: "00000000-0000-4000-8000-000000000512",
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              reason: "Wrong owner response",
+              record_id: decisionTargetId,
+              replacement_record_id: decisionReplacementId,
+              row_version: 6,
+            },
+            meta: { request_id: "request-wrong-owner" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      apiBase: undefined,
+      incidentId: "00000000-0000-4000-8000-000000000001",
+      transactionIds: { create: (prefix) => `${prefix}-id` },
+    });
+
+    await expect(
+      commands.coordination.updateTaskLifecycle({
+        baseRowVersion: 7,
+        recordId: taskRecordId,
+        status: "done",
+      }),
+    ).resolves.toEqual({
+      kind: "accepted",
+      value: {
+        changeSetId: "00000000-0000-4000-8000-000000000510",
+        row: { cells: {}, record_id: taskRecordId, row_version: 8 },
+        status: "done",
+        viewSchemaId: "cartulary.view.task_requests.v1",
+      },
+    });
+    await expect(
+      commands.coordination.supersedeDecision({
+        baseRowVersion: 4,
+        reason: "Replaced after review",
+        replacementRecordId: decisionReplacementId,
+        targetRecordId: decisionTargetId,
+      }),
+    ).resolves.toEqual({
+      kind: "accepted",
+      value: {
+        changeSetId: "00000000-0000-4000-8000-000000000511",
+        replacementRecordId: decisionReplacementId,
+        replacementRowVersion: 7,
+        targetRecordId: decisionTargetId,
+        targetRowVersion: 5,
+        targetStatus: "superseded",
+        viewSchemaId: "cartulary.view.decisions.v1",
+      },
+    });
+    await expect(
+      commands.coordination.supersedeDecision({
+        baseRowVersion: 5,
+        reason: "Reject wrong response branch",
+        replacementRecordId: decisionReplacementId,
+        targetRecordId: decisionTargetId,
+      }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: { kind: "invalid_contract" },
+    });
+  });
+
   it("keeps secure transaction identity failure local without transport", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -139,12 +385,167 @@ describe("semantic mutation command ports", () => {
         viewSchemaId: "cartulary.view.tasks.v1",
       }),
     ).resolves.toMatchObject({
-      ok: false,
-      status: 0,
-      payload: {
-        error: { message: "A secure transaction ID could not be created." },
+      kind: "rejected",
+      failure: {
+        kind: "terminal",
+        message: "A secure transaction ID could not be created.",
       },
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("normalizes generic same-field conflicts before they reach controllers", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "same_field_conflict",
+              conflict: {
+                base_row_version: 3,
+                base_value: "before",
+                client_value: "local",
+                conflict_resolution_class: "text_compare_merge",
+                conflict_token: "conflict-1",
+                current_row_version: 4,
+                field_key: "task.title",
+                record_id: "task-1",
+                server_value: "server",
+              },
+              details: {},
+              message: "Conflict.",
+              request_id: "request-conflict",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      apiBase: undefined,
+      incidentId: "incident-1",
+      transactionIds: { create: (prefix) => `${prefix}-id` },
+    });
+
+    await expect(
+      commands.generic.patchRecord({
+        baseRowVersion: 3,
+        changes: [{ field_key: "task.title", value: "local" }],
+        purpose: "generic-patch",
+        recordId: "task-1",
+        viewSchemaId: "cartulary.view.task_requests.v1",
+      }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "same_field_conflict",
+        conflict: {
+          conflict_token: "conflict-1",
+          field_key: "task.title",
+          record_id: "task-1",
+        },
+      },
+    });
+  });
+
+  it("normalizes entity create, patch, and paste results and rejects malformed success contracts", async () => {
+    const recordId = "00000000-0000-4000-8000-000000000210";
+    const viewMutation = {
+      data: {
+        change_set_id: "00000000-0000-4000-8000-000000000310",
+        row: { cells: {}, record_id: recordId, row_version: 2 },
+        view_schema_id: hostsViewSchemaId,
+      },
+      meta: { request_id: "request-entity" },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(viewMutation), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(viewMutation), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              change_set_id: "00000000-0000-4000-8000-000000000311",
+              conflicts: [],
+              rows: [viewMutation.data.row],
+              view_schema_id: hostsViewSchemaId,
+            },
+            meta: { request_id: "request-paste" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rows: [] } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      apiBase: undefined,
+      incidentId: "00000000-0000-4000-8000-000000000001",
+      transactionIds: { create: (prefix) => `${prefix}-id` },
+    });
+    const contract = requireViewContract(hostsViewSchemaId);
+
+    await expect(
+      commands.entity.createRecord({
+        contract,
+        draft: { "host.hostname": "edge-01.example.test" },
+      }),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      value: { row: { record_id: recordId }, viewSchemaId: hostsViewSchemaId },
+    });
+    await expect(
+      commands.entity.patchRecord({
+        baseRowVersion: 1,
+        changes: [{ field_key: "host.display_name", value: "Edge 01" }],
+        purpose: "entity-patch",
+        recordId,
+        viewSchemaId: hostsViewSchemaId,
+      }),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      value: { row: { record_id: recordId }, viewSchemaId: hostsViewSchemaId },
+    });
+    const pasteInput = {
+      clipboardText: "Pasted host",
+      columns: ["host.display_name"],
+      format: "tsv",
+      startFieldKey: "host.display_name",
+      targetCount: 1,
+      viewSchemaId: hostsViewSchemaId,
+    } as const;
+    await expect(
+      commands.entity.pasteCreate(pasteInput),
+    ).resolves.toMatchObject({
+      kind: "accepted",
+      value: {
+        rows: [{ record_id: recordId }],
+        viewSchemaId: hostsViewSchemaId,
+      },
+    });
+    await expect(commands.entity.pasteCreate(pasteInput)).resolves.toEqual({
+      kind: "rejected",
+      failure: {
+        kind: "invalid_contract",
+        message: "The server returned an invalid public contract response.",
+      },
+    });
   });
 });

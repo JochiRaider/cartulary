@@ -49,8 +49,7 @@ describe("frontend transport boundary policy", () => {
     expect(source).toContain("uploadTarget.href");
     expect(source).toContain('method: uploadTarget.method ?? "PUT"');
     expect(source).toContain('credentials: "omit"');
-    expect(source).toContain(
-      "const headers = new Headers(uploadTarget.headers",
-    );
+    expect(source).toContain("Object.entries(uploadTarget.headers ?? {})");
+    expect(source).toContain("headers.set(key, value);");
   });
 });

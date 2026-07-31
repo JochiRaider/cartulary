@@ -1391,7 +1391,7 @@
       "selector": {
         "file": "apps/web/src/workbook/utils/workbookPendingQueue.test.ts",
         "titles": [
-          "admits row-create, row-patch, and paste-derived replay units with route-scoped mutation identity",
+          "admits row-create, row-patch, and paste-derived replay units with semantic mutation identity",
           "applies successful replay without retargeting by visible row order or labels",
           "coalesces only same-draft creates and contiguous same-record patches",
           "discards exactly the halted blocker and resumes later FIFO work",
