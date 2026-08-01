@@ -493,7 +493,7 @@ func NewPartyCreateProvider(owner *parties.WorkbookFacade) CreateProvider {
 func NewTaskDecisionCreateProvider(viewSchemaID string, owner *tasksdecisions.WorkbookFacade) CreateProvider {
 	return newGenericCreateProvider(viewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
 		result, err := owner.Create(ctx, tasksdecisions.WorkbookCreateCommand{
-			Actor:       command.Actor,
+			ActorUserID: command.Actor.ID,
 			IncidentID:  command.IncidentID,
 			Request:     taskDecisionCreateRequestFromWorkbook(request),
 			RequestHash: requestHash(command.RequestHash, CreateRequestHash(request)),
@@ -647,7 +647,7 @@ func NewPartyPatchProvider(owner *parties.WorkbookFacade) PatchProvider {
 func NewTaskDecisionPatchProvider(recordType string, viewSchemaID string, owner *tasksdecisions.WorkbookFacade) PatchProvider {
 	return newGenericPatchProvider(recordType, []string{viewSchemaID}, func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
 		result, err := owner.Patch(ctx, tasksdecisions.WorkbookPatchCommand{
-			Actor:            command.Actor,
+			ActorUserID:      command.Actor.ID,
 			RecordID:         command.RecordID,
 			Request:          taskDecisionPatchRequestFromWorkbook(request),
 			RequestHash:      requestHash(command.RequestHash, PatchRequestHash(request)),

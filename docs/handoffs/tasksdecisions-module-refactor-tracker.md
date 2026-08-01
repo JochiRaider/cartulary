@@ -7,11 +7,11 @@
 | Target path | `internal/modules/tasksdecisions` |
 | Target label | `tasksdecisions`, derived from the target path and already valid lowercase kebab case |
 | Output path | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` |
-| Status | Planning and documentation only |
-| Allowed change in this session | This tracker file only |
-| Non-goals | No production refactor; no test, contract, generated-artifact, package, migration, SQL, or harness edit; no public behavior change |
-| Later authority | Any implementation, characterization-test addition, contract correction, generated refresh, or harness-accounting change requires a later authorized task |
-| Decision closure | RB-001 through RB-004 are decided planning matters with implementation or mechanical proof pending; RB-005 is the only unresolved authorization gate |
+| Status | Complete: CG-01 passed; SL-00 through SL-07 are done; TD-012 and the overall handoff are closed |
+| Allowed change in this session | SL-00, SL-04, SL-05, SL-06, CG-01, SL-01, SL-02, SL-03, and SL-07 in that order, including their named owner, implementation, test, harness, generated, boundary, validation, and tracker surfaces |
+| Non-goals | No unrelated behavior change; no route, OpenAPI, view-schema identity, database-schema, frontend, selector, or valid portability-format change; no hand-edited generated artifact or lockfile |
+| Current authority | The 2026-08-01 10:14 EDT user work order explicitly authorizes both the conformance-correction and structural-refactor work orders through final validation and handoff |
+| Decision closure | RB-001 through RB-004 remain decided implementation matters; RB-005 is resolved by the complete authorized work order |
 
 The planning framework is doctrine and a tracker template, not evidence of the
 current repository. Live source, contracts, tests, and harness projections were
@@ -24,7 +24,7 @@ Source hierarchy used for this tracker:
 1. Adopted subsystem NLSpecs within their named scopes.
 2. Core 00 through Core 04 for implementation-conformance behavior.
 3. Core 05 only if timed or fixture-sensitive claim publication becomes
-   applicable; it is not applicable to this planning-only tracker.
+   applicable; it is not applicable to this implementation work order.
 4. Domain vocabulary and implementation-support guidance.
 5. Current repository code and tests as implementation-state evidence.
 6. This framework and prior handoffs as evidence only.
@@ -106,7 +106,7 @@ Core 01 clarification before its implementation can claim conformance. Closing a
 planning decision does not claim that its code, tests, owner text, or evidence
 projection already exists.
 
-## 2. Current-State Repository Inventory
+## 2. Pre-remediation Current-State Repository Inventory
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -131,8 +131,21 @@ projection already exists.
 | `internal/modules/tasksdecisions/workbook_conflict.go` | Source-owner same-field conflict resolution and current-window revalidation | `WorkbookConflictCommand`; exported `WorkbookFacade.ResolveConflict` | Workbook conflict provider adapter | Revisions conflict-resolution mechanics plus the workbook facade | Workbook conflict-route and source-owner contribution tests | Public conflict route and view-field conflict classes | Source revalidation: `tasksdecisions`; generic mechanics: `revisions`/`workbook` | high | `keep_saved` correctly uses generic mechanics; mutating choices return through ordinary owner patch semantics. |
 | `internal/modules/tasksdecisions/workbook_facade.go` | Task/decision create and patch transaction coordinator, replay, membership and reference checks, source and link mutation, row-version conflict detection, projections, revisions, and transport-oriented result shaping | View IDs; `WorkbookFacade`; request, change, command, result, and error types; constructor; create/patch methods; collection policy helpers | App workbook assembly and workbook mutation contribution adapters | Platform `authn` and Postgres, incidents, records, links, projections, revisions and conflict packages | Target store tests; workbook route/conflict/row-wire tests; browser tests | Workbook OpenAPI operations, view schemas, generated protocol/view contracts | Mixed: `tasksdecisions` source facade plus generic `workbook`/`revisions` coordination | high | Largest mixed-responsibility file; contains HTTP status values and constructs concrete cross-owner stores. |
 
-All files under `internal/modules/tasksdecisions` are accounted for. No file was
-marked out of scope.
+The 20 files present before implementation are accounted for above. No initial
+file was marked out of scope. Implementation added the following nine files;
+they are part of the completed target boundary and handoff:
+
+| Added path | Final responsibility | Root or evidence posture |
+| --- | --- | --- |
+| `internal/modules/tasksdecisions/incident_bundle_contribution.go` | Aggregates source-port and subtype-presence behavior | `NewIncidentBundleContribution` is the only application entry point. |
+| `internal/modules/tasksdecisions/incident_bundle_source_port_test.go` | Eight exact portability and atomicity tests | Truthfully routed to `module.tasksdecisions`. |
+| `internal/modules/tasksdecisions/internal/policy/policy.go` | Closed enums, defaults, lifecycle, decision-machine, reference, and portability policy | Go-private and boundary-enforced. |
+| `internal/modules/tasksdecisions/internal/source/direct_updates.go` | Fixed per-field source updates and PostgreSQL error classification | Go-private and boundary-enforced. |
+| `internal/modules/tasksdecisions/internal/source/facts.go` | Transaction-bound lifecycle, machine, envelope, and portability fact loads | Go-private with exact source-table access. |
+| `internal/modules/tasksdecisions/internal/source/references.go` | Transaction-bound member and record-reference validation | Go-private with exact Records access. |
+| `internal/modules/tasksdecisions/mutation_capabilities.go` | Seven consumer-owned capability groups and transport-neutral facts | Root facade contract used by application composition. |
+| `internal/modules/tasksdecisions/projection_contribution.go` | Task/decision projection source plus query contracts | `NewProjectionContribution` hides the projection leaf. |
+| `internal/modules/tasksdecisions/reporting_contribution.go` | Task/decision Reporting fact provider | `NewReportingContribution` hides the reporting leaf. |
 
 ## 3. Module Boundary Diagnosis
 
@@ -188,8 +201,8 @@ authorize or claim implementation.
 | TD-DEC-001 | Tasks/Decisions portability rule attribution MUST be exclusive and failure selection MUST follow the four declared invariant IDs in descriptor order. | Core 01 REQ-01-640 and REQ-01-642; exact attribution requires the planned Core clarification | SL-05 | Eight exact portability tests, including coordinator no-partial-state and safe-diagnostics proof | Owner service-backed slice; harness and drift gates |
 | TD-DEC-002 | Imported task and decision owner references MUST obey `incident_member_user_ref_v1` inside the unit transaction. | Core 01 REQ-01-628 and REQ-01-619; Core 04 AC-465 through AC-467A | SL-04 | Input/default/race/replay matrix in Section 4 | Owner service-backed slice |
 | TD-DEC-003 | Portability and rollback evidence MUST use truthful, exact, non-overlapping owner rows. | Adopted Testing Harness NLSpec and authored verification/test-family inputs | SL-06 | Owner explanation selects each exact test once and store evidence no longer claims portability | Harness contract, generation, and drift gates |
-| TD-DEC-004 | The permanent Go boundary MUST use one root facade, private policy/source packages, and source-owned leaf providers with no prohibited reverse edge. | This tracker under the modular-refactor framework; product behavior remains Core-owned | SL-01 through SL-03 | Compilation, caller migration, and boundary-manifest proof | Backend boundary check and owner slices |
-| TD-DEC-005 | Conformance correction MUST reach a green evidence baseline before structural movement begins, and the two work orders require separate authorization. | Refactor doctrine and RB-005 authorization boundary | SL-00, SL-04 through SL-06, then SL-01 through SL-03 | Both work-order gates in Section 7 are binary and independently reviewable | Per-gate validation ladders |
+| TD-DEC-004 | The permanent Go boundary MUST use one root facade, private policy/source packages, seven narrow injected capabilities, and source-owned leaf providers with no prohibited reverse edge. | This tracker under the modular-refactor framework; product behavior remains Core-owned | SL-01 through SL-03 | Compilation, caller migration, and boundary-manifest proof | Backend boundary check and owner slices |
+| TD-DEC-005 | Conformance correction MUST reach a green evidence baseline before structural movement begins. The complete authorized work order retains separate conformance and structural gates. | Refactor doctrine and the resolved RB-005 authorization boundary | SL-00, SL-04 through SL-06, then SL-01 through SL-03 | Both work-order gates in Section 7 are binary and independently reviewable | Per-gate validation ladders |
 
 ### Adopted target package topology
 
@@ -233,25 +246,28 @@ Every reverse edge is forbidden. In particular:
   React Data Grid, Handsontable, or grid-vendor DTOs.
 
 Existing imports of `tasksdecisions/projectionprovider` from Projection assembly,
-the Projections coordinator, and Projections tests are migration targets under
+the Projections coordinator, and Projections tests and the import of
+`tasksdecisions/reportingprovider` from Reporting are migration targets under
 SL-03. Existing imports of `deleterestore` and `rollbackprovider` from the target
 root are already in the permitted direction.
 
 ### Root facade and injected capability contract
 
 The root facade MUST expose contribution constructors equivalent in behavior to
-`NewWorkbookFacade`, `NewImportCreateFacade`, `NewSupersedeFacade`,
-`IncidentBundleSourceContribution`, `ProjectionProviderContribution`,
-`RevisionProviderContribution`, `ReportingProviderContribution`, and
-`RecoveryStateContribution`. Names MAY follow existing repository conventions;
+`NewWorkbookContribution`, `NewImportContribution`, `NewSupersedeFacade`,
+`NewIncidentBundleContribution`, `NewProjectionContribution`,
+`NewRevisionContribution`, `NewReportingContribution`, and
+`NewRecoveryContribution`. Names MAY follow existing repository conventions;
 each constructor MUST return the generic interface owned by its coordinator and
 MUST hide the leaf implementation from the caller.
 
 Interfaces MUST be declared by the consuming `tasksdecisions` package and remain
-operation-specific:
+operation-specific. The incident-state capability omitted by the planning-only
+revision is included explicitly below, bringing the permanent total to seven:
 
 | Capability | Required input | Required output | Failure/default behavior | Explicit exclusion |
 | --- | --- | --- | --- | --- |
+| Incident state | Existing transaction and exact `incident_id` | Success or typed closed-incident/not-found failure | Revalidate the authoritative lifecycle in the mutation transaction; no cached or route-only fallback | Membership authorization and source mutation |
 | Member reference | Existing transaction, target `incident_id`, exact `user_id`, and stable field key | Success or typed owner-validation failure | No trimming, label/email resolution, fuzzy match, auto-create, or distinction among missing/inactive/nonmember identities beyond the safe owner schema | Actor authorization and membership administration |
 | Idempotency | Existing transaction, operation scope, key, normalized request identity, and typed committed-result codec | Exact committed replay, changed-content conflict, or newly stored successful result | No implicit retry or scope fallback; rejection and replay MUST create no owner effects | Source mutation and response-shape invention |
 | Record envelope | Existing transaction plus exact incident, record type, actor, and expected/current version inputs | Inserted or locked envelope identity and authoritative row version | Affected-row mismatch and stale version are typed failures; no silent create-or-update fallback | Revision append and projection refresh |
@@ -391,6 +407,7 @@ MUST be used unchanged.
 | Retain store row, narrow claims | `module.tasksdecisions.store`; existing row `module.tasksdecisions.store.task_requests_and_decisions_persist_as_workbook_a08a0c4c47` | Preserve its five current exact test symbols | Retain behavior contract only; remove incident-portability verification; integration, `default`, `go_transaction_heavy`, `postgres_transaction` |
 | Add portability row | Family `module.tasksdecisions.incident_portability`; row `module.tasksdecisions.incident_portability.source_port_invariants_and_atomicity` | Package `./internal/modules/tasksdecisions`; the exact ASCII-sorted selector below | Incident-portability verification only; collaborator `module.incidentbundles`; integration, `default`, `go_transaction_heavy`, `postgres_transaction` |
 | Add rollback row | Family `module.tasksdecisions.rollback_provider`; row `module.tasksdecisions.rollback_provider.source_policy_null_and_owner_validation` | Package `./internal/modules/tasksdecisions/rollbackprovider`; `TestProvidersRejectInvalidOwnerValues`, `TestTaskSourcePreservesNullAndExcludesCollections` | Behavior contract only; unit, `none`, `none`, `none` |
+| Add import row | Family `module.tasksdecisions.import_create`; row `module.tasksdecisions.import_create.owner_reference_contract_and_atomicity` | Package `./internal/app/importassembly`; `TestTasksDecisionsImportMembershipAndAuthorizationRaces`, `TestTasksDecisionsImportOwnerReferenceMatrix`, `TestTasksDecisionsImportReplayAndAtomicity` | Behavior contract only; collaborator `module.imports`; integration, `default`, `go_transaction_heavy`, `postgres_transaction` |
 | Preserve frontend and browser rows | Existing `module.tasksdecisions.frontend_unit` and `module.tasksdecisions.browser` rows | Existing exact selectors | Unchanged unless their selected behavior changes |
 
 The portability selector MUST contain exactly these symbols in this ASCII order:
@@ -450,11 +467,11 @@ MUST be produced through Make and MUST NOT be hand-edited.
 
 ## 7. Proposed Refactor Slice Plan
 
-No slice below is authorized by this tracker. Conformance corrections and
-structural movement are separate work orders. The mandatory order is:
+The 2026-08-01 10:14 EDT work order authorizes every slice below while retaining
+separate conformance and structural gates. The mandatory order is:
 
 ```text
-SL-00 -> {SL-04, SL-05} -> SL-06 -> CG-01
+SL-00 -> SL-04 -> SL-05 -> SL-06 -> CG-01
 CG-01 -> SL-01 -> SL-02 -> SL-03 -> SL-07
 ```
 
@@ -467,7 +484,7 @@ preserve the corrected behavior established at CG-01.
 | SL-04 | SL-00 and conformance-correction authorization | **Behavior correction:** revalidate imported task/decision owner values through `incident_member_user_ref_v1` immediately before mutation | Target import facade and target-specific import tests | Accepted input narrows; error redaction, defaults, replay, and unit atomicity can drift | Entire imported-owner matrix in Section 4 | `make test`; after SL-06, `make service-backed-test-slice OWNER=module.tasksdecisions` | Revert this isolated correction if owner review rejects it; retain the characterization evidence | Interactive and imported owner references have identical exact active same-incident membership semantics at commit. |
 | SL-05 | SL-00 and conformance-correction authorization | **Owner clarification and behavior correction:** adopt the exclusive Core 01 attribution table, then validate all four invariant groups deterministically | Core 01 owner text; target source port, portability policy/helpers, and tests; Appendix F only if navigation changes | Invalid-input attribution changes; wrong precedence or unsafe details violate a versioned portability contract | Eight exact portability tests in Section 4 | `make test`; after SL-06, focused service-backed owner row | Revert owner clarification and implementation together before adoption; after adoption, repair forward under owner authority | Core text is adopted, all descriptor invariants are reachable, multiple defects select deterministically, and no invalid candidate publishes state. |
 | SL-06 | SL-04 and SL-05 | Repair authored verification/test-family ownership and regenerate all downstream harness projections through Make | Exact authored files in Section 4; generated schedules only through Make | Evidence can be duplicated, omitted, or assigned to unrelated behavior | Preserve five store tests and frontend/browser rows; select eight portability and two rollback tests exactly once | `make explain-test-owner OWNER=module.tasksdecisions`; owner slices; `make harness-contract`; generation/drift gates | Revert authored inputs and generated projections as one slice; never hand-edit generated files | Owner explanation matches the Section 4 harness mapping and all selected obligations have one compatible terminal result. |
-| SL-01 | CG-01, WF-05, and structural-refactor authorization | Introduce the six narrow injected capabilities while retaining compatible constructors and behavior | Target workbook/supersede/import facades and application composition | Transaction ownership, failure precedence, replay identity, and event counts | Preserve the complete corrected owner baseline | Owner unit/service-backed slices; `make backend-module-boundary-check` | Keep compatibility adapters until all new seams pass; revert the seam slice as one unit | Root facades no longer construct concrete cross-owner stores and every capability satisfies Section 3. |
+| SL-01 | CG-01, WF-05, and structural-refactor authorization | Introduce the seven narrow injected capabilities while retaining compatible constructors and behavior | Target workbook/supersede/import facades and application composition | Transaction ownership, failure precedence, replay identity, and event counts | Preserve the complete corrected owner baseline | Owner unit/service-backed slices; `make backend-module-boundary-check` | Keep compatibility adapters until all new seams pass; revert the seam slice as one unit | Root facades no longer construct concrete cross-owner stores and every capability satisfies Section 3. |
 | SL-02 | SL-01 | Move shared task/decision policy and fixed source persistence into the adopted private packages | Validation, mutation, import, rollback, portability, and source SQL paths | Lifecycle/default/reference behavior or SQL atomicity can drift | Cross-entry parity for interactive, import, rollback, and portability; preserve all corrected tests | Owner slices and backend boundary check | Keep old wrappers until all target-local callers use the private packages; revert without schema change | One private policy implementation owns each rule, fixed SQL resides in private source, and no forbidden dependency exists. |
 | SL-03 | SL-02 | Migrate every external caller to the root facade/contribution constructors, thin the root surface, and encode boundary rules | Target root/leaves, workbook and projection callers, app assemblies, backend boundary manifest | Package cycles, public error translation, nulls, collections, query descriptors, and provider registration | Workbook route/conflict/row-wire, projection query/rebuild, frontend unit, and browser rows | Owner slices; both import-boundary targets; broader browser target | Migrate behind compatibility wrappers, remove them only after the final caller moves, and revert caller groups independently | No external leaf import remains, root exports only the adopted surface, compilation is acyclic, and boundary checks pass. |
 | SL-07 | SL-03 | Run final narrow-to-broad verification and produce the implementation handoff without new design changes | All authorized changes and retained result metadata | A broad failure can expose cross-owner drift missed by focused rows | Preserve every focused, integration, browser, generated, and boundary result | `make agent-finalize`, then `make check`; retain only successful qualifying `RESULTS_DIR` evidence | Revert only the causal slice and retain/classify failure evidence | Every required target passes or the handoff records target, run root, relatedness, and rollback state. |
@@ -487,9 +504,9 @@ clean. Structural work MUST NOT begin while any CG-01 condition is false.
 | Conformance correction | SL-00, SL-04, SL-05, and SL-06; narrow Core 01 attribution clarification; Appendix F navigation only if needed; target tests and implementation; authored tasksdecisions verification/test-family inputs; generated outputs through Make; tracker evidence | Unrelated package moves; route/OpenAPI/view-schema identity changes; migrations/DDL; frontend/grid changes; hand-edited generated files; generalized workflow/callback infrastructure | CG-01 passes in full. |
 | Structural refactor | After CG-01, SL-01 through SL-03 and SL-07; private policy/source packages; typed capability adapters; root contribution wrappers; caller migration; temporary compatibility wrappers; boundary-manifest edits | Behavior, route/status/envelope, lifecycle, import default/provenance, valid portability output, transaction, revision/intent/replay count, frontend, selector, grid, or schema changes | Corrected baseline and all focused/broad gates pass; temporary wrappers are removed only after caller migration. |
 
-Authorization of one work order MUST NOT be inferred as authorization of the
-other. RB-005 remains closed only by an explicit user instruction naming the
-selected work order and permitted write scope.
+Authorization of one work order MUST NOT ordinarily be inferred as authorization
+of the other. RB-005 is closed for this effort by the explicit instruction to
+implement the complete ordered plan and its stated write scope.
 
 ## 8. Validation Plan
 
@@ -537,14 +554,14 @@ was run during either documentation-only tracker session.
 | TD-004 | Diagnose legitimate and misplaced responsibilities | WF-04 | DONE | TD-002 | Sections 3 and 5 | Findings use only the allowed classifications and name proposed owners. |
 | TD-005 | Define characterization additions | WF-03 | DONE | TD-003 | Section 4 required-test column; SL-00 | Missing coverage is behavior-specific and owner-routable. |
 | TD-006 | Adopt an acyclic facade/subpackage redesign | WF-05 | DONE | TD-004 | TD-DEC-004 and Section 3 | Root/private/leaf topology, capability boundaries, and forbidden edges are decision-complete. |
-| TD-007 | Add missing characterization tests | WF-03 | BLOCKED | TD-005, RB-005 authorization | SL-00 and Section 4 matrices | Conformance work order adds exact semantic tests without package movement. |
-| TD-008 | Introduce dependency seams and thin the root facade | WF-05, WF-06 | BLOCKED | CG-01, structural authorization | SL-01 through SL-03 | Corrected behavior remains stable and the adopted root-only graph is mechanically proven. |
-| TD-009 | Correct import incident-member validation | WF-06 | BLOCKED | TD-007, conformance authorization | TD-DEC-002; SL-04 | Every imported-owner case has the exact transactional result in Section 4. |
-| TD-010 | Complete incident-bundle invariant validation | WF-06 | BLOCKED | TD-007, adopted Core clarification, conformance authorization | TD-DEC-001; SL-05 | All four invariant IDs have exclusive deterministic validation and safe atomic failures. |
-| TD-011 | Repair verification and harness accounting | WF-07 | BLOCKED | TD-009, TD-010, conformance authorization | TD-DEC-003; SL-06 | Store, portability, rollback, frontend, and browser evidence select exactly once. |
-| TD-012 | Run implementation verification and final handoff | WF-08 | TODO | CG-01, TD-008 through TD-011 | Section 8 and later retained results | Both work-order ladders pass or every failure is fully classified. |
+| TD-007 | Add missing characterization tests | WF-03 | DONE | TD-005, resolved RB-005 authorization | `internal/modules/tasksdecisions/incident_bundle_source_port_test.go`; `internal/app/importassembly/tasksdecisions_integration_test.go`; strengthened supersession evidence in `task_decisions_store_test.go` | Exact portability/import symbols, scalar/null/collection behavior, and exact supersession durable-effect counts are characterized without package movement. |
+| TD-008 | Introduce dependency seams and thin the root facade | WF-05, WF-06 | DONE | CG-01, structural authorization | SL-01 through SL-03 | Corrected behavior remains stable and the adopted root-only graph is mechanically proven. |
+| TD-009 | Correct import incident-member validation | WF-06 | DONE | TD-007, conformance authorization | `internal/modules/tasksdecisions/import_create.go`; TD-DEC-002; SL-04 | Present owner UUIDs and actor-default owners use the same active same-incident member validation immediately before mutation; explicit null fails closed. |
+| TD-010 | Complete incident-bundle invariant validation | WF-06 | DONE | TD-007, adopted Core clarification, conformance authorization | Core 01 Tasks/Decisions attribution table; typed prepared source port and fixed inserts; SL-05 | Exact shape/canonical admission, deterministic four-group validation, fixed apply SQL, and closed safe failures are implemented. |
+| TD-011 | Repair verification and harness accounting | WF-07 | DONE | TD-009, TD-010, conformance authorization | `tools/test_families/module.tasksdecisions.json`; generated topology; measured duration baselines; SL-06 | Store, portability, rollback, frontend, browser, and application import evidence select exactly once. |
+| TD-012 | Run implementation verification and final handoff | WF-08 | DONE | CG-01, TD-008 through TD-011 | SL-07 evidence rooted at `.cartulary/test-results/20260801T163132Z-p502410`; non-qualifying retention attempt `.cartulary/test-results/20260801T163441Z-p622068` | Both work-order ladders pass and the timing-only retention rejection is fully classified. |
 | TD-013 | Preserve frontend, saved-view, WebSocket, and grid contracts without moving their implementation into the target | WF-02, WF-04 | DONE | TD-003 | Sections 3 through 5 | These surfaces are frozen as downstream risks and retain their existing owners. |
-| TD-014 | Close RB-001 through RB-004 as technical planning decisions | WF-02 through WF-06 | DONE | TD-003 through TD-006 | TD-DEC-001 through TD-DEC-005 | No technical design choice remains for the later implementer; RB-005 alone controls authorization. |
+| TD-014 | Close RB-001 through RB-004 as technical planning decisions | WF-02 through WF-06 | DONE | TD-003 through TD-006 | TD-DEC-001 through TD-DEC-005 | No technical design choice remains; execution is authorized and remains gated by CG-01. |
 
 ## 10. Session Handoff Log
 
@@ -554,6 +571,14 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Authority and write scope fixed; tracker did not previously exist | Inspected framework, domain, Core 00-04, Reporting and Testing Harness NLSpecs; touched only this tracker | `sed`, `rg`, `find`, `git status --short` | All 20 target files exist; pre-edit tracked worktree was clean | Implementation is outside this task | Run Markdown lint and hand off the tracker. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Prior scope retained; analysis recommendations converted into tracker-owned decisions without changing product authority | Inspected NLSpec writing doctrine, analysis notes, tracker, framework, and exact owner clauses; touched only this tracker | `sed`, `rg`, `git status --short`, `sha256sum` | RB-001 through RB-004 are decision-complete; RB-005 remains the sole authorization gate | No implementation work order is authorized | Use the exact work-order text in Section 7 when implementation is requested. |
+| 2026-08-01 10:14 EDT | Codex complete remediation work order | Full conformance and structural execution authorized; SL-00 started | Baseline revision `6fc76a1731fbd50d9aaac4245448f4ab51323e3f`; tracker activation only | `git status --short`; `git rev-parse HEAD`; `make lint-markdown` | Clean tracked worktree; baseline Markdown lint passed at `.cartulary/test-results/20260801T141439Z-p3426800` | CG-01 blocks structural edits until SL-00, SL-04, SL-05, and SL-06 are green | Add characterization evidence only, then close SL-00 in the tracker before SL-04. |
+| 2026-08-01 10:37 EDT | Codex SL-00 | Characterization complete; SL-04 started | Added eight exact portability tests, three application-composed import tests, and supersession revision/intent/change-set assertions; production behavior unchanged | `make format`; `make test`; `make explain-run RESULTS_DIR=.cartulary/test-results/20260801T142614Z-p3436990`; `make test` | First run exposed test-only import cycles and was related to SL-00; external-package correction followed. Final `make test` passed 1,002 tests at `.cartulary/test-results/20260801T143302Z-p3540240`. Exact new symbols remain intentionally outside active owner selection until SL-06; source inspection confines their expected assertions to SL-04 and SL-05. | SL-04 and SL-05 semantic corrections remain; CG-01 remains closed | Enforce the incident-member owner-reference contract in SL-04 only. |
+| 2026-08-01 10:46 EDT | Codex SL-04 | Imported-owner conformance correction complete; SL-05 started | Changed only `internal/modules/tasksdecisions/import_create.go` plus tracker evidence | `make format`; `make test` | Active suite passed 1,002 tests at `.cartulary/test-results/20260801T144040Z-p3635879`; exact import selectors remain compilation-checked but inactive until SL-06 makes their ownership truthful | SL-05 portability remains; CG-01 remains closed | Adopt the Core 01 attribution clarification before changing the source port. |
+| 2026-08-01 11:06 EDT | Codex SL-05 | Portability conformance correction complete; SL-06 started | Adopted the Core 01 exclusive attribution table; added typed strict preparation, prepared-value apply, fixed SQL, affected-row checks, and deterministic envelope/lifecycle/dependent/reference validation; corrected stale portability fixture tokens | `make format`; focused `make service-backed-test-slice OWNER=module.incidentbundles ROWS=...`; `make test`; `make lint-markdown` | Two affected Incident Bundle integration rows passed at `.cartulary/test-results/20260801T145714Z-p3827192`. First full rerun had no product-test failure but ended on unrelated harness resource conflict at `.cartulary/test-results/20260801T145753Z-p3829063`; unchanged rerun passed 1,002 tests at `.cartulary/test-results/20260801T150207Z-p3917652`; Markdown lint passed at `.cartulary/test-results/20260801T150633Z-p4006082`. | Exact new target symbols still await SL-06 owner routing; CG-01 remains closed | Add authored store/import/portability/rollback rows and generate projections through Make. |
+| 2026-08-01 11:29 EDT | Codex SL-06 and CG-01 | Harness ownership repair complete; conformance gate passed; SL-01 started | Narrowed the store claim; added exact import, portability, and rollback rows; regenerated `tools/scheduler_manifest.json` and `tools/execution_topology_render_index.json` through Make; updated measured Go duration baselines and harness cardinalities | Prescribed eight-command SL-06 ladder; corrective `make test-service-backed`; `make go-test-duration-baselines RESULTS_DIR=... PRUNE_OBSERVED_PACKAGES=1` | Final ladder passed: owner unit `.cartulary/test-results/20260801T152636Z-p108794`, service-backed `.cartulary/test-results/20260801T152716Z-p127526`, harness `.cartulary/test-results/20260801T152753Z-p146099`, generation `.cartulary/test-results/20260801T152824Z-p147401`, drift `.cartulary/test-results/20260801T152836Z-p149645`, artifact policy `.cartulary/test-results/20260801T152850Z-p153600`, and JSON shape `.cartulary/test-results/20260801T152901Z-p153998`. A first full service run hit an unrelated Collaboration revocation-order race; a pre-generation retry exposed the related stale-topology selector mismatch. After Make generation, full service-backed evidence passed at `.cartulary/test-results/20260801T152230Z-p24759` and supplied measured baselines. | None for conformance; rollback remains the whole authored harness slice plus generated projections, with no runtime rollback required | Begin only SL-01 dependency seams; preserve the green CG-01 behavior baseline. |
+| 2026-08-01 11:40 EDT | Codex SL-01 | Seven-capability injection complete; SL-02 started | Added consumer-owned incident-state, member-reference, idempotency, record-envelope, link, projection, and revision contracts; application composition now constructs every peer/platform adapter; Workbook and supersede commands carry actor UUIDs; owner results carry rows and supersession facts while Workbook rebuilds the unchanged status/envelope | `make format`; owner unit and service-backed slices; `make backend-module-boundary-check` | Unit slice passed at `.cartulary/test-results/20260801T153843Z-p163569`; service-backed slice passed at `.cartulary/test-results/20260801T153924Z-p183595`; final boundary check passed at `.cartulary/test-results/20260801T154039Z-p203221`. Its first run at `.cartulary/test-results/20260801T154002Z-p202630` exposed three related static-policy omissions for the already-adopted source-port imports and `record_links` fact read; the exact owner edges were added without widening runtime access. Existing application-composed tests retain failure precedence, replay identity, one transaction, and revision/intent counts. | Temporary internal constructors and direct cross-owner types remain until SL-02/SL-03; this slice rolls back as capability contracts, app adapters, facade signatures, Workbook translation, and the three exact boundary entries | Consolidate policy and transaction-bound source persistence in SL-02 only. |
+| 2026-08-01 11:57 EDT | Codex SL-02 | Private policy/source consolidation complete; SL-03 started | Added `internal/policy` as the only closed vocabulary, defaults, create/patch, lifecycle, decision-machine, reference registry, and portability-invariant kernel; added `internal/source` for fixed field updates, member/record reference checks, lifecycle/machine and portability fact loads, and PostgreSQL classification; migrated interactive mutation, import validation, rollback, supersession, and portability; admitted valid canceled/done tasks with null owners during portability | `make format`; owner unit and service-backed slices; `make backend-module-boundary-check`; static searches for interpolated source SQL and `authn.IsUniqueViolation` | Final unit slice passed at `.cartulary/test-results/20260801T155540Z-p275267`; final service-backed slice, including the extended null-owner round trip, passed at `.cartulary/test-results/20260801T155621Z-p294280`; boundary check passed at `.cartulary/test-results/20260801T155658Z-p313092`. The first unit attempt at `.cartulary/test-results/20260801T154741Z-p211420` failed on a related missing `strings` import; the first boundary attempt at `.cartulary/test-results/20260801T155500Z-p271485` truthfully identified the new private source files until their exact Records/Links read edges were recorded. No dynamic source-column SQL or target dependency on `authn.IsUniqueViolation` remains. | No DDL or data rollback exists; revert policy/source, root forwarding aliases, migrated entry paths, exact boundary entries, and parity assertions as one internal slice | Expose root contribution constructors, migrate every external leaf caller, and encode the permanent graph in SL-03 only. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Final validation complete; TD-012 and the handoff closed | Validation and tracker only after SL-03; no new design or product change | Tasks/Decisions owner unit/service-backed slices; backend/frontend boundaries; focused owner and broader webserver-backed browser checks; harness, generation, drift, artifact-policy, and JSON checks; `make agent-finalize`; `make check`; conditional retained-run `make agent-finalize RESULTS_DIR=...`; `git diff --check` | Owner unit `.cartulary/test-results/20260801T162238Z-p418562` and service-backed/focused browser `.cartulary/test-results/20260801T162315Z-p437292`; boundaries `.cartulary/test-results/20260801T162356Z-p456380` and `.cartulary/test-results/20260801T162403Z-p456757`; broader browser `.cartulary/test-results/20260801T162416Z-p457349`; harness `.cartulary/test-results/20260801T162910Z-p487094`; generate `.cartulary/test-results/20260801T163015Z-p488620`; drift `.cartulary/test-results/20260801T163028Z-p490855`; artifact policy `.cartulary/test-results/20260801T163043Z-p494798`; JSON shape `.cartulary/test-results/20260801T163054Z-p495190`; no-retained-run finalizer `.cartulary/test-results/20260801T163105Z-p495783`; full `make check` passed 192/192 work units and 866 tests at `.cartulary/test-results/20260801T163132Z-p502410`. The conditional retention attempt failed at `.cartulary/test-results/20260801T163441Z-p622068`: the successful check root was not qualifying because warm build readiness, the service-backed warm budget, and one Workbook peer-timing ratio exceeded harness thresholds. This is timing-only, unrelated to every remediation slice, caused no repository mutation, and is not reported as retained evidence. | No rollback is indicated by product, contract, boundary, browser, generation, or full-check evidence. If timing retention is desired later, rerun a fresh warm `make check`; do not alter product code or thresholds for this handoff. | None; implementation and handoff are complete. |
 
 ### Backend module boundary
 
@@ -561,6 +586,7 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Legitimate source owner diagnosed as a mixed-responsibility facade/provider package | Inspected all target Go files and app/workbook/projection/revision/import/portability/reporting/recovery callers; touched only this tracker | `rg` import/symbol searches; `sed` exact-source reads; `jq` boundary projections | Source semantics stay in `tasksdecisions`; generic coordination should move behind injected ports | Exact acyclic package topology is deferred to WF-05 | Characterize, then design seams before moving code. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Root-only facade, private policy/source, and source-owned leaf-provider topology adopted | Reinspected target leaf imports, Projection assembly/coordinator callers, and backend boundary manifest; touched only this tracker | `rg`, `sed`, `jq` | Six capability contracts and every permitted/prohibited edge are fixed by TD-DEC-004 | Mechanical proof and caller migration await structural authorization | After CG-01, implement SL-01 through SL-03 without reopening topology design. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Permanent topology is implemented and mechanically enforced | Root contributions, private policy/source, provider leaves, application callers, Projections/Reporting consumers, and `tools/backend_module_boundaries.json` | Static import search; owner slices; `make backend-module-boundary-check`; `make check` | No external leaf import or reverse leaf-to-root edge remains; exact coordinator-contract and source-table paths pass | None | Maintain new callers through a root contribution and update the boundary manifest in the same change. |
 
 ### Frontend module boundary
 
@@ -568,6 +594,7 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Frontend remains a generic workbook coordination surface; no target-local frontend or vendor code exists | Inspected coordination controller/command ports/tests, browser scenarios, view-contract constants, UI selector helpers; touched only this tracker | `rg` and `sed` | Task lifecycle and decision supersede use stable view IDs, public operations, row versions, save-state hooks, and semantic selectors | Cross-layer tests must remain stable during backend seams | Preserve controller outcomes, selectors, focus/save state, and grid-adapter isolation. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Frontend exclusion converted into an explicit forbidden-edge and compatibility requirement | Reused inspected frontend/controller/selector evidence; touched only this tracker | Tracker reconciliation only | Structural work MUST preserve routes, selectors, focus, save state, and grid isolation and MUST add no frontend-to-target internals | Browser verification awaits later structural authorization | Run the existing frontend and browser owner rows after caller migration. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Frontend remained unchanged and isolated from target internals | Frontend boundary projection and existing task/decision browser scenario | `make frontend-import-boundary-check`; focused owner service-backed slice; `make browser-e2e-webserver-backed`; `make check` | Boundary, focused workflow, and broader browser evidence pass; selectors and behavior are unchanged | None | No frontend migration or compatibility action is required. |
 
 ### Contract and codegen
 
@@ -575,6 +602,7 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Public routes, view schemas, imports, projections, portability, reporting, recovery, and generated surfaces mapped | Inspected authored contracts and searched declared generated roots; touched only this tracker | `jq`, `rg`, `sed` | No generated file is an edit source; no owner contradiction found | Portability and import implementations differ from adopted owners | Correct owners in isolated authorized slices, then regenerate only through Make. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Exact portability attribution, operation contracts, safe failure shape, and stable identity freeze are specified | Reinspected Core 01 REQ-01-628, REQ-01-619, REQ-01-639 through REQ-01-643 and target port code; touched only this tracker | `rg`, `sed` | TD-DEC-001 requires a narrow Core clarification before implementation; no Core or generated file changed | Core adoption and SL-05 await conformance authorization | Apply owner text first, then implementation, authored projections, and Make generation. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Owner clarification, projection-provider manifest, harness inputs, and generated projections are synchronized | Core 01, `contracts/projection-providers/index.json`, authored test-family/boundary inputs, and Make-owned generated outputs | `make harness-contract`; `make generate`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make check` | All contract, generation, drift, artifact, and shape gates pass | None | Regenerate through Make after future authored owner or topology changes. |
 
 ### Tests and harness
 
@@ -583,6 +611,8 @@ was run during either documentation-only tracker session.
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Three owner rows discovered: one frontend unit, one Postgres-backed store row, one browser row | Inspected verification contract, test-family manifest, target/provider/workbook/revision/browser tests; touched only this tracker | `make help`; `make task-guide ROLE=module-author OWNER=module.tasksdecisions`; `make explain-test-owner OWNER=module.tasksdecisions`; relevant `make help-all` and `make explain-target` queries | Discovery succeeded; no validation suite was run | Portability verification points to tests that do not exercise portability; rollback-provider tests are not owner-mapped | Add characterization and repair authored accounting in WF-07. |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | One investigation invocation was invalid | Touched only this tracker | `make target-plan-json OWNER=module.tasksdecisions` | Failed with usage error because `target-plan-json` does not declare `OWNER`; this is not a product failure | None beyond using the correct command shape | Do not repeat with `OWNER`; use task-guide/explain-test-owner for owner routing. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Exact future store, portability, rollback, frontend, and browser row dispositions are specified | Reinspected tasksdecisions verification/test-family JSON and exact rollback test symbols; touched only this tracker | `jq`, `rg`, `sed` | Store loses the false portability claim; eight portability and two rollback symbols receive exact non-overlapping rows | Authored harness inputs were not authorized or changed | Implement SL-06 only after SL-04 and SL-05; verify with owner explanation and harness/drift gates. |
+| 2026-08-01 10:37 EDT | Codex SL-00 | Exact test symbols now exist; harness ownership remains deliberately unchanged until SL-06 | Added external-boundary portability and application-composed import fixtures plus supersession durable-effect checks | `make format`; `make test` | Full active harness passed at `.cartulary/test-results/20260801T143302Z-p3540240`; the current selector catalog does not yet execute the new symbols, which is the already-scoped SL-06 routing gap | SL-04/SL-05 must correct semantics before SL-06 activates these rows | Apply only the imported-owner correction, then rerun broad active evidence. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Exact owner accounting and full repository evidence are green | Six active owner rows, generated schedules, browser evidence, and full check run | Owner slices; browser target; harness/generation ladder; no-retained and conditional-retained finalizers; `make check` | All product/evidence gates pass. The full check root is successful but not retained because the conditional finalizer rejected timing health at `.cartulary/test-results/20260801T163441Z-p622068`; no test failed and no mutation occurred. | No product blocker; retained-run metadata is intentionally absent | A later maintenance run may produce qualifying warm evidence; this handoff must continue to cite the successful non-retained check root. |
 
 ### Security and authorization
 
@@ -590,6 +620,9 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Route-time incident authorization is outside the source module, while source reference validity is partly checked inside it | Inspected Core 04, workbook route guards, facade membership/reference queries, public-route tests; touched only this tracker | `rg`, `sed` | Interactive owner refs require active membership; import refs currently require only an active account | RB-002 blocks a conformance claim for import owner refs | Add nonmember characterization before the authorized correction. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Import operation authorization and owner-reference validity are separate ordered transaction checks | Reinspected Core 01 direct-reference/import clauses and `validateImportActiveUserTx`; touched only this tracker | `rg`, `sed` | Exact, null, omission, race, replay, error-redaction, and no-partial-effect behavior is fixed by TD-DEC-002 | SL-04 remains unimplemented pending conformance authorization | Add the full matrix before enforcing membership at unit commit. |
+| 2026-08-01 10:37 EDT | Codex SL-00 | Imported-owner security boundary characterized through the application-composed owner registry | Added current-member, nonmember, foreign-only, inactive, explicit-null, omission/default, membership-removal, actor-authorization-loss, replay/atomicity, and no-durable-effect cases for both views | `make test` | Active baseline remained green; exact new selectors are ready for truthful SL-06 ownership after conformance correction | Current active-user-only implementation still admits nonmembers and treats explicit null as omission | Implement exact same-incident membership immediately before source mutation in SL-04. |
+| 2026-08-01 10:46 EDT | Codex SL-04 | Import source now enforces the shared owner-reference contract at the unit transaction boundary | Effective owner is the exact supplied UUID or actor default; active same-incident membership is checked immediately before any record insert; present null/non-UUID owner values fail as `invalid_value`; direct errors contain no supplied identifier | `make format`; `make test` | Active broad evidence passed at `.cartulary/test-results/20260801T144040Z-p3635879`; no DDL or historical rewrite | Exact selector execution awaits the already-sequenced SL-06 routing slice | Add no compatibility mode; proceed to portability integrity. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Imported-owner authorization/reference separation remains closed and fail-safe | Application-composed import tests and shared member-reference capability | Owner service-backed slice; `make check` | Member/nonmember/inactive/foreign/null/omitted/race/replay/atomicity matrix passes without diagnostic leakage or partial state | None | Preserve the shared member-reference policy for any future ingest path. |
 
 ### Open risks and next session
 
@@ -597,20 +630,20 @@ was run during either documentation-only tracker session.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-01 08:46 EDT | Codex planning-only tracker session | Tracker content is complete; no production refactor was performed | Touched only `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown` | Passed; structural plan, slices, validation ladder, and blockers are recorded | RB-001 through RB-005 | Begin only with a later authorized characterization task; do not start package movement first. |
 | 2026-08-01 09:50 EDT | Codex NLSpec-style tracker revision | Decision-complete revision finished; no owner, production, test, contract, generated, migration, frontend, or harness edit performed | Touched only `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown` | Passed; prior history preserved and normative decisions, mappings, work orders, and completion gates added | RB-005 only | Obtain explicit authorization for one Section 7 work order; do not infer authorization for the other. |
+| 2026-08-01 12:35 EDT | Codex SL-07 | Remediation and handoff are complete | Entire authorized change set and validation artifacts | Full Section 8 ladder; final tracker lint | Product, boundary, browser, contract, generation, and full-check evidence pass; retained evidence was not published because the successful check root failed timing qualification | No open implementation blocker. Timing qualification is maintenance-only and unrelated to the change. | Use this tracker and the successful check root for handoff; rerun a warm check only if retained timing evidence is later required. |
 
 ## 11. Open Questions and Blockers
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Four portability invariants require exclusive runtime validation and deterministic attribution. | Without the Section 4 partition, invalid state may pass or receive implementation-defined attribution. | Adopt the narrow Core 01 clarification, implement SL-05, and retain exact semantic/no-partial-state evidence. | DECIDED: Core clarification and authorized SL-05 implementation pending |
-| RB-002 | Imported owner references require current same-incident membership at unit commit. | Current import validation is weaker than `incident_member_user_ref_v1` and interactive mutation. | Implement SL-04 against the complete input/race/replay matrix. | DECIDED: authorized SL-04 behavior correction pending |
-| RB-003 | Portability and rollback verification require exact truthful owner rows. | Current accounting overstates portability coverage and omits rollback policy evidence. | Implement the Section 4 mapping through authored inputs, Make generation, and SL-06 validation. | DECIDED: SL-06 authored harness repair pending |
-| RB-004 | The permanent root/private/leaf package graph requires mechanical enforcement. | The current direct external leaf imports violate the adopted root-only posture and can create cycles during migration. | Implement SL-01 through SL-03, update the backend boundary manifest, compile, and pass boundary checks. | DECIDED: package graph fixed; boundary proof pending |
-| RB-005 | No implementation work order is authorized. | Every remaining action changes owner text, code, tests, contracts, generated outputs, harness inputs, or boundaries outside this tracker-only task. | Explicit user authorization of either the conformance-correction or structural-refactor work order in Section 7. | BLOCKED: explicit implementation work-order authorization required |
+| RB-001 | Four portability invariants require exclusive runtime validation and deterministic attribution. | Without the Section 4 partition, invalid state may pass or receive implementation-defined attribution. | Adopt the narrow Core 01 clarification, implement SL-05, and retain exact semantic/no-partial-state evidence. | RESOLVED: owner clarification, typed source port, and eight-test evidence pass |
+| RB-002 | Imported owner references require current same-incident membership at unit commit. | Current import validation is weaker than `incident_member_user_ref_v1` and interactive mutation. | Implement SL-04 against the complete input/race/replay matrix. | RESOLVED: shared member-reference validation and three application-composed tests pass |
+| RB-003 | Portability and rollback verification require exact truthful owner rows. | Current accounting overstates portability coverage and omits rollback policy evidence. | Implement the Section 4 mapping through authored inputs, Make generation, and SL-06 validation. | RESOLVED: six exact owner rows, generated topology, and harness contract pass |
+| RB-004 | The permanent root/private/leaf package graph requires mechanical enforcement. | Direct external leaf imports violate the adopted root-only posture and can create cycles during movement. | Implement SL-01 through SL-03, update the backend boundary manifest, compile, and pass boundary checks. | RESOLVED: all external callers use the root; leaf/private/root direction, exact provider edges, and source-table access are enforced and green |
+| RB-005 | Complete implementation authority was required. | Every action changed owner text, code, tests, contracts, generated outputs, harness inputs, or boundaries outside the prior tracker-only task. | The 2026-08-01 10:14 EDT user instruction explicitly authorized the complete ordered conformance and structural effort. | RESOLVED: full work order authorized and completed; CG-01 was observed before structural work |
 
-There is no remaining technical planning question. RB-001 through RB-004 retain
-stable IDs so implementation evidence can close them without rediscovery; their
-`DECIDED` state is not an implementation-success claim.
+There is no remaining technical planning question or unresolved blocker.
+RB-001 through RB-005 retain stable IDs for later audit and are all resolved.
 
 There is no `BLOCKED: owner contradiction` entry because no conflict between
 applicable owner documents was found.
@@ -628,8 +661,8 @@ applicable owner documents was found.
   failure, atomicity, and work-order mappings are explicit.
 - [x] Slice dependencies place conformance correction and CG-01 before
   structural movement.
-- [x] RB-001 through RB-004 are decision-complete and RB-005 is the sole
-  authorization blocker.
+- [x] RB-001 through RB-004 are decision-complete and RB-005 is resolved by the
+  complete authorized work order.
 - [x] No owner contradiction is present and no supporting source is promoted
   above its authority.
 - [x] Prior handoff history is preserved and a `2026-08-01` revision session is
@@ -640,45 +673,47 @@ applicable owner documents was found.
 
 ### Conformance-correction definition of done
 
-- [ ] Core 01 contains the adopted exclusive Tasks/Decisions invariant mapping
+- [x] Core 01 contains the adopted exclusive Tasks/Decisions invariant mapping
   and deterministic failure precedence.
-- [ ] Each invariant has a valid, database-convertible target-specific semantic
+- [x] Each invariant has a valid, database-convertible target-specific semantic
   fixture, and multiple-defect input proves order-independent selection.
-- [ ] Every invalid portability candidate returns only the exact safe family and
+- [x] Every invalid portability candidate returns only the exact safe family and
   invariant identity and leaves no visible or partial authoritative state.
-- [ ] Imported Task and Decision owners require exact active same-incident
+- [x] Imported Task and Decision owners require exact active same-incident
   membership at commit; explicit `null` fails and omission retains the actor
   default.
-- [ ] Membership-removal, authorization-loss, replay, and changed-content races
+- [x] Membership-removal, authorization-loss, replay, and changed-content races
   satisfy the Section 4 outcomes without partial effects.
-- [ ] The store row no longer claims portability; eight portability tests and
-  two rollback tests select exactly once through `module.tasksdecisions`.
-- [ ] Owner unit and service-backed slices, harness contract, generation, drift,
+- [x] The store row no longer claims portability; eight portability tests, two
+  rollback tests, and three application import tests select exactly once through
+  `module.tasksdecisions`.
+- [x] Owner unit and service-backed slices, harness contract, generation, drift,
   artifact-policy, and JSON-shape checks pass.
-- [ ] CG-01 passes and the handoff records retained evidence or exact failure
+- [x] CG-01 passes and the handoff records retained evidence or exact failure
   classifications.
 
 ### Structural-refactor definition of done
 
-- [ ] CG-01 passed before the first structural edit.
-- [ ] All six injected capabilities satisfy their input, output, failure,
+- [x] CG-01 passed before the first structural edit.
+- [x] All seven injected capabilities satisfy their input, output, failure,
   transaction, and exclusion contracts.
-- [ ] Private policy and source packages contain their adopted responsibilities
+- [x] Private policy and source packages contain their adopted responsibilities
   without a prohibited import.
-- [ ] Every external caller imports only the root facade; application composition
+- [x] Every external caller imports only the root facade; application composition
   obtains leaf behavior through root contribution constructors.
-- [ ] No leaf imports the root, no external package imports target internals or
+- [x] No leaf imports the root, no external package imports target internals or
   leaves, compilation is acyclic, and the backend manifest enforces the graph.
-- [ ] Routes, envelopes, errors, view schemas, valid bundle output, defaults,
+- [x] Routes, envelopes, errors, view schemas, valid bundle output, defaults,
   transactions, revisions, events, replay, frontend behavior, and database
   schema match the corrected CG-01 baseline.
-- [ ] Owner slices, backend/frontend boundaries, focused and broader browser
+- [x] Owner slices, backend/frontend boundaries, focused and broader browser
   checks, generated drift, `make agent-finalize`, and `make check` pass.
-- [ ] Temporary compatibility wrappers are removed only after every caller moves,
+- [x] Temporary compatibility wrappers are removed only after every caller moves,
   and the final handoff records commands, run roots, relatedness, and rollback
   state.
 
-Tracker verdict: complete; the final Markdown validation passed. Conformance
-correction verdict: not implemented and blocked by RB-005. Structural-refactor
-verdict: not implemented, depends on CG-01, and blocked by RB-005. No public API
-or runtime interface changed in either documentation-only session.
+Tracker planning verdict: complete and executed.
+Conformance-correction verdict: SL-00, SL-04, SL-05, and SL-06 done; CG-01
+passed. Structural-refactor verdict: SL-01 through SL-03 and SL-07 done; the
+overall handoff is closed. No public API, schema, or valid persisted-behavior
+compatibility surface changed.

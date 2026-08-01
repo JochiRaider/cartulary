@@ -56,7 +56,11 @@ func NewContributionCatalog(
 	}
 	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
 	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
-	taskDecisionOwner := tasksdecisions.NewWorkbookFacade(pool, conflictTokens, appender)
+	taskDecisionOwner := tasksdecisions.NewWorkbookContribution(
+		pool,
+		conflictTokens,
+		newTaskDecisionMutationCapabilities(pool, appender),
+	)
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(

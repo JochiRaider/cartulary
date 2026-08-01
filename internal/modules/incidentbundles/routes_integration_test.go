@@ -1477,7 +1477,7 @@ INSERT INTO task_requests (
 )
 VALUES (
     $1, $2, 'Portable task request', 'open', $3, 'high',
-    'investigation', 'portable', $4
+    'request', 'portable', $4
 )
 `, taskRequestID, incidentUUID, actorUUID, partyRecordID); err != nil {
 		t.Fatalf("seed task-request row: %v", err)
@@ -1495,7 +1495,7 @@ INSERT INTO decisions (
     decision_type, decided_at, rationale
 )
 VALUES (
-    $1, $2, 'Portable decision', 'accepted', $3,
+    $1, $2, 'Portable decision', 'approved', $3,
     'containment', '2026-05-25T17:02:00Z', 'Portable rationale'
 )
 `, decisionID, incidentUUID, actorUUID); err != nil {

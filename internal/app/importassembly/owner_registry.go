@@ -139,7 +139,7 @@ func newOwnerCreateFacade(
 			dependencies.RevisionAppender,
 		)
 	case "module.tasksdecisions@1":
-		return tasksdecisions.NewImportCreateFacade(
+		return tasksdecisions.NewImportContribution(
 			targetViewSchemaID,
 			facadeID,
 			dependencies.RevisionAppender,

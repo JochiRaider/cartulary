@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
 
 func TestTaskSourcePreservesNullAndExcludesCollections(t *testing.T) {
@@ -27,6 +28,25 @@ func TestTaskSourcePreservesNullAndExcludesCollections(t *testing.T) {
 
 func TestProvidersRejectInvalidOwnerValues(t *testing.T) {
 	t.Parallel()
+	if policy.DefaultTaskStatus != "open" || policy.DefaultTaskPriority != "normal" || policy.DefaultDecisionStatus != "proposed" {
+		t.Fatal("shared source defaults changed")
+	}
+	for _, status := range []string{"open", "in_progress", "blocked", "done", "canceled"} {
+		if !policy.ValidTaskStatus(status) {
+			t.Fatalf("policy rejected task status %q", status)
+		}
+		if err := (TaskRequestProvider{}).ValidateRollbackValue(map[string]any{"source": map[string]any{"status": status}}); err != nil {
+			t.Fatalf("rollback rejected policy task status %q: %v", status, err)
+		}
+	}
+	for _, status := range []string{"proposed", "approved", "rejected", "superseded", "executed"} {
+		if !policy.ValidDecisionStatus(status) {
+			t.Fatalf("policy rejected decision status %q", status)
+		}
+		if err := (DecisionProvider{}).ValidateRollbackValue(map[string]any{"source": map[string]any{"status": status}}); err != nil {
+			t.Fatalf("rollback rejected policy decision status %q: %v", status, err)
+		}
+	}
 	if err := (TaskRequestProvider{}).ValidateRollbackValue(map[string]any{"source": map[string]any{"status": "invalid"}}); !errors.Is(err, rollbackcontract.ErrTargetNotReversible) {
 		t.Fatalf("task error = %v", err)
 	}

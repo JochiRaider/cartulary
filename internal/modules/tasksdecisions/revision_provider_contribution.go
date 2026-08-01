@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/rollbackprovider"
 )
 
-func RevisionProviderContribution() revisions.ProviderContribution {
+func NewRevisionContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerTasksDecisions,
 		Records: []revisions.RecordProviderContribution{

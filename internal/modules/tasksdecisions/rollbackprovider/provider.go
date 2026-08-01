@@ -2,6 +2,7 @@ package rollbackprovider
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 )
 
 type TaskRequestProvider struct{}
@@ -228,13 +230,13 @@ func validTaskSource(source map[string]any) bool {
 	if raw, present := source["title"]; present && !nonEmptyText(raw) {
 		return false
 	}
-	if raw, present := source["status"]; present && !oneOfText(raw, "open", "in_progress", "blocked", "done", "canceled") {
+	if raw, present := source["status"]; present && !policyText(raw, policy.ValidTaskStatus) {
 		return false
 	}
-	if raw, present := source["priority"]; present && raw != nil && !oneOfText(raw, "low", "normal", "high", "urgent") {
+	if raw, present := source["priority"]; present && raw != nil && !policyText(raw, policy.ValidTaskPriority) {
 		return false
 	}
-	if raw, present := source["task_kind"]; present && !oneOfText(raw, "question", "request", "collection", "containment", "follow_up") {
+	if raw, present := source["task_kind"]; present && !policyText(raw, policy.ValidTaskKind) {
 		return false
 	}
 	return validTypedFields(source, []fieldSpec{{"owner_user_id", fieldUUID}, {"due_at", fieldTime}, {"requester_party_id", fieldUUID}, {"completed_at", fieldTime}, {"decision_record_id", fieldUUID}})
@@ -244,45 +246,58 @@ func validDecisionSource(source map[string]any) bool {
 	if raw, present := source["summary"]; present && !nonEmptyText(raw) {
 		return false
 	}
-	if raw, present := source["status"]; present && !oneOfText(raw, "proposed", "approved", "rejected", "superseded", "executed") {
+	if raw, present := source["status"]; present && !policyText(raw, policy.ValidDecisionStatus) {
 		return false
 	}
-	if raw, present := source["decision_type"]; present && !oneOfText(raw, "scope", "containment", "communication", "evidence", "reporting") {
+	if raw, present := source["decision_type"]; present && !policyText(raw, policy.ValidDecisionType) {
 		return false
 	}
 	return validTypedFields(source, []fieldSpec{{"owner_user_id", fieldUUID}, {"decided_at", fieldTime}})
 }
 
 func validTaskLifecycle(state taskLifecycle) bool {
-	if !oneOfText(state.status, "open", "in_progress", "blocked", "done", "canceled") {
+	if !policy.ValidTaskStatus(state.status) {
 		return false
 	}
-	if (state.status == "blocked") != (state.blockedReason != nil) {
-		return false
-	}
-	if (state.status == "done") != (state.completedAt != nil) {
-		return false
-	}
-	if state.completedAt != nil && state.completedAt.Before(state.createdAt) {
-		return false
-	}
-	return !oneOfText(state.status, "open", "in_progress", "blocked") || state.ownerUserID != nil
+	return policy.ValidateTaskState(policy.TaskLifecycleState{
+		Status: state.status, BlockedReason: nullableSQLString(state.blockedReason),
+		CompletedAt: nullableSQLTime(state.completedAt), OwnerUserID: nullableSQLUUID(state.ownerUserID),
+		CreatedAt: state.createdAt,
+	}) == nil
 }
 
 func validDecisionMachine(state decisionMachine) bool {
-	if !oneOfText(state.status, "proposed", "approved", "rejected", "superseded", "executed") || state.ownerUserID == nil || state.decidedAt == nil {
-		return false
+	return policy.ValidateDecisionMachineState(policy.DecisionMachineState{
+		Status: state.status, OwnerUserID: nullableSQLUUID(state.ownerUserID),
+		DecidedAt: nullableSQLTime(state.decidedAt), IncomingSupersedes: state.incomingSupersedes,
+		OutgoingSupersedes: state.outgoingSupersedes,
+	}) == nil
+}
+
+func policyText(value any, valid func(string) bool) bool {
+	text, ok := value.(string)
+	return ok && valid(text)
+}
+
+func nullableSQLString(value *string) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
 	}
-	if state.incomingSupersedes > 1 || state.outgoingSupersedes > 1 {
-		return false
+	return sql.NullString{String: *value, Valid: true}
+}
+
+func nullableSQLTime(value *time.Time) sql.NullTime {
+	if value == nil {
+		return sql.NullTime{}
 	}
-	if state.status == "superseded" && state.incomingSupersedes != 1 {
-		return false
+	return sql.NullTime{Time: value.UTC(), Valid: true}
+}
+
+func nullableSQLUUID(value *uuid.UUID) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
 	}
-	if state.incomingSupersedes == 1 && state.status != "superseded" && state.status != "executed" {
-		return false
-	}
-	return state.outgoingSupersedes == 0 || state.status == "approved" || state.status == "executed"
+	return sql.NullString{String: value.String(), Valid: true}
 }
 
 func validateTaskReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, source map[string]any) error {
@@ -419,17 +434,4 @@ func objectMap(value map[string]any, key string) (map[string]any, bool) {
 func nonEmptyText(value any) bool {
 	text, ok := value.(string)
 	return ok && strings.TrimSpace(text) != ""
-}
-
-func oneOfText(value any, allowed ...string) bool {
-	text, ok := value.(string)
-	if !ok {
-		return false
-	}
-	for _, candidate := range allowed {
-		if text == candidate {
-			return true
-		}
-	}
-	return false
 }

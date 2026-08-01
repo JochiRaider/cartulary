@@ -2,13 +2,17 @@ package tasksdecisions
 
 import (
 	"context"
+	"sort"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
+func newIncidentBundleSourcePort() sourceport.Port {
 	descriptor := sourceport.Descriptor{
 		FamilyID: "tasks_decisions", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.tasksdecisions", OwnerRelationIDs: []string{"tasks-and-decisions"},
@@ -17,38 +21,166 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 			{LogicalPath: "data/task_requests.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
 			{LogicalPath: "data/decisions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
 		},
-		InvariantIDs: []string{
-			"tasks_decisions.envelope_type_scope", "tasks_decisions.lifecycle_legal",
-			"tasks_decisions.dependent_fields_legal", "tasks_decisions.references_same_incident",
-		},
+		InvariantIDs: policy.PortabilityInvariantIDs(),
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+			return prepareTasksDecisionsImport(bundle, importContext)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
+			prepared, ok := value.(preparedTasksDecisionsImport)
+			if !ok {
+				return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+			}
+			return applyPreparedTasksDecisionsImportTx(ctx, tx, prepared, importContext.ActorUserID, importContext.Attributions)
 		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
-			var invalid bool
-			if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1 FROM (
-        SELECT task.record_id, task.incident_id, 'task_request'::text AS required_type FROM task_requests task
-        UNION ALL
-        SELECT decision.record_id, decision.incident_id, 'decision'::text FROM decisions decision
-    ) item
-    LEFT JOIN records record ON record.record_id = item.record_id
-    WHERE item.incident_id = $1
-      AND (record.record_id IS NULL OR record.incident_id <> $1 OR record.record_type <> item.required_type)
-)`, importContext.IncidentID).Scan(&invalid); err != nil {
-				return err
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			prepared, ok := value.(preparedTasksDecisionsImport)
+			if !ok {
+				return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
 			}
-			if invalid {
-				return &sourceport.Failure{FamilyID: "tasks_decisions", InvariantID: "tasks_decisions.envelope_type_scope"}
-			}
-			return nil
+			return validatePreparedTasksDecisionsImportTx(ctx, tx, prepared, importContext)
 		},
 	})
+}
+
+type portableSourceIdentity struct {
+	recordID   uuid.UUID
+	recordType string
+}
+
+func validatePreparedTasksDecisionsImportTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	prepared preparedTasksDecisionsImport,
+	importContext sourceport.ImportContext,
+) error {
+	identities := make([]portableSourceIdentity, 0, len(prepared.tasks)+len(prepared.decisions))
+	for _, row := range prepared.tasks {
+		identities = append(identities, portableSourceIdentity{recordID: row.RecordID, recordType: "task_request"})
+	}
+	for _, row := range prepared.decisions {
+		identities = append(identities, portableSourceIdentity{recordID: row.RecordID, recordType: "decision"})
+	}
+	sort.Slice(identities, func(left, right int) bool {
+		return identities[left].recordID.String() < identities[right].recordID.String()
+	})
+	for _, identity := range identities {
+		valid, err := tasksource.EnvelopeValidTx(ctx, tx, identity.recordID, importContext.IncidentID, identity.recordType)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return tasksDecisionsInvariantFailure("tasks_decisions.envelope_type_scope")
+		}
+	}
+
+	store := NewStore(nil)
+	decisionIDs := sortedPortableDecisionIDs(prepared.decisions)
+	for _, recordID := range decisionIDs {
+		state, err := store.LoadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
+		if err != nil {
+			return err
+		}
+		if err := policy.ValidateDecisionMachineState(state); err != nil {
+			return tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
+		}
+		valid, err := tasksource.SupersessionRelationsValidTx(ctx, tx, recordID, importContext.IncidentID)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
+		}
+	}
+
+	taskIDs := sortedPortableTaskIDs(prepared.tasks)
+	for _, recordID := range taskIDs {
+		state, err := store.LoadTaskLifecycleStateTx(ctx, tx, recordID)
+		if err != nil {
+			return err
+		}
+		if !policy.ValidTaskStatus(state.Status) {
+			return tasksDecisionsInvariantFailure("tasks_decisions.lifecycle_legal")
+		}
+		if err := policy.ValidateTaskState(state); err != nil {
+			return tasksDecisionsInvariantFailure("tasks_decisions.dependent_fields_legal")
+		}
+	}
+
+	for _, row := range sortedPortableTasks(prepared.tasks) {
+		valid, err := portableTaskReferencesValidTx(ctx, tx, row, importContext.IncidentID)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return tasksDecisionsInvariantFailure("tasks_decisions.references_same_incident")
+		}
+	}
+	for _, row := range sortedPortableDecisions(prepared.decisions) {
+		valid, err := tasksource.OwnedLinksValidTx(ctx, tx, row.RecordID, importContext.IncidentID, "decision")
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return tasksDecisionsInvariantFailure("tasks_decisions.references_same_incident")
+		}
+	}
+	return nil
+}
+
+func portableTaskReferencesValidTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	row portableTaskRequest,
+	incidentID uuid.UUID,
+) (bool, error) {
+	if row.RequesterPartyID != nil {
+		valid, err := tasksource.TargetValidTx(ctx, tx, *row.RequesterPartyID, incidentID, "party")
+		if err != nil || !valid {
+			return valid, err
+		}
+	}
+	if row.DecisionRecordID != nil {
+		valid, err := tasksource.TargetValidTx(ctx, tx, *row.DecisionRecordID, incidentID, "decision")
+		if err != nil || !valid {
+			return valid, err
+		}
+		valid, err = tasksource.TaskDecisionFieldLinkValidTx(ctx, tx, row.RecordID, *row.DecisionRecordID, incidentID)
+		if err != nil || !valid {
+			return valid, err
+		}
+	}
+	return tasksource.OwnedLinksValidTx(ctx, tx, row.RecordID, incidentID, "task_request")
+}
+
+func sortedPortableTaskIDs(rows []portableTaskRequest) []uuid.UUID {
+	result := make([]uuid.UUID, len(rows))
+	for index, row := range rows {
+		result[index] = row.RecordID
+	}
+	sort.Slice(result, func(left, right int) bool { return result[left].String() < result[right].String() })
+	return result
+}
+
+func sortedPortableDecisionIDs(rows []portableDecision) []uuid.UUID {
+	result := make([]uuid.UUID, len(rows))
+	for index, row := range rows {
+		result[index] = row.RecordID
+	}
+	sort.Slice(result, func(left, right int) bool { return result[left].String() < result[right].String() })
+	return result
+}
+
+func sortedPortableTasks(rows []portableTaskRequest) []portableTaskRequest {
+	result := append([]portableTaskRequest(nil), rows...)
+	sort.Slice(result, func(left, right int) bool { return result[left].RecordID.String() < result[right].RecordID.String() })
+	return result
+}
+
+func sortedPortableDecisions(rows []portableDecision) []portableDecision {
+	result := append([]portableDecision(nil), rows...)
+	sort.Slice(result, func(left, right int) bool { return result[left].RecordID.String() < result[right].RecordID.String() })
+	return result
 }

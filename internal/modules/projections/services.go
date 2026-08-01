@@ -250,19 +250,28 @@ func (r *PartyRows) LoadTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (
 
 type TaskDecisionRows struct {
 	store    *Store
+	source   TaskDecisionSource
 	surfaces map[string]genericSurface
 }
 
-func NewTaskDecisionRows(pool postgres.DB, querySurfaces ...providercontract.QuerySurface) *TaskDecisionRows {
-	return &TaskDecisionRows{store: NewStore(pool, nil), surfaces: rowQuerySurfaces(querySurfaces)}
+func NewTaskDecisionRows(
+	pool postgres.DB,
+	source TaskDecisionSource,
+	querySurfaces ...providercontract.QuerySurface,
+) *TaskDecisionRows {
+	return &TaskDecisionRows{
+		store:    NewStore(pool, nil),
+		source:   source,
+		surfaces: rowQuerySurfaces(querySurfaces),
+	}
 }
 
 func (r *TaskDecisionRows) RefreshTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return r.store.refreshTaskRequestTxCore(ctx, tx, recordID)
+	return r.store.refreshTaskRequestTxCore(ctx, tx, recordID, r.source)
 }
 
 func (r *TaskDecisionRows) RefreshDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return r.store.refreshDecisionTxCore(ctx, tx, recordID)
+	return r.store.refreshDecisionTxCore(ctx, tx, recordID, r.source)
 }
 
 func (r *TaskDecisionRows) LoadTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {

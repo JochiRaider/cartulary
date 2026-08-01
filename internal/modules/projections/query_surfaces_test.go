@@ -7,7 +7,6 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
 
@@ -19,8 +18,6 @@ func contractQuerySurfacesForTest() map[string]genericSurface {
 	contracts = append(contracts, evidenceprojection.QuerySurfaces()...)
 	contracts = append(contracts, indicatorprojection.QuerySurfaces()...)
 	contracts = append(contracts, partyprojection.QuerySurfaces()...)
-	contracts = append(contracts, taskdecisionprojection.TaskRequestQuerySurfaces()...)
-	contracts = append(contracts, taskdecisionprojection.DecisionQuerySurfaces()...)
 	surfaces := make(map[string]genericSurface, len(contracts))
 	for _, contract := range contracts {
 		surface, err := genericSurfaceFromContract(contract)

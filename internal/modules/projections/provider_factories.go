@@ -55,12 +55,28 @@ func NewPartyProvider(descriptor ProviderDescriptor) Provider {
 	return providerWithHandlers(descriptor, (*Store).refreshPartyTxCore, (*Store).rebuildIncidentPartiesTxCore)
 }
 
-func NewTaskRequestProvider(descriptor ProviderDescriptor) Provider {
-	return providerWithHandlers(descriptor, (*Store).refreshTaskRequestTxCore, (*Store).rebuildIncidentTaskRequestsTxCore)
+func NewTaskRequestProvider(descriptor ProviderDescriptor, source TaskDecisionSource) Provider {
+	return Provider{
+		descriptor: descriptor,
+		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+			return store.refreshTaskRequestTxCore(ctx, tx, recordID, source)
+		},
+		rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
+			return store.rebuildIncidentTaskRequestsTxCore(ctx, tx, incidentID, source)
+		},
+	}
 }
 
-func NewDecisionProvider(descriptor ProviderDescriptor) Provider {
-	return providerWithHandlers(descriptor, (*Store).refreshDecisionTxCore, (*Store).rebuildIncidentDecisionsTxCore)
+func NewDecisionProvider(descriptor ProviderDescriptor, source TaskDecisionSource) Provider {
+	return Provider{
+		descriptor: descriptor,
+		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+			return store.refreshDecisionTxCore(ctx, tx, recordID, source)
+		},
+		rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
+			return store.rebuildIncidentDecisionsTxCore(ctx, tx, incidentID, source)
+		},
+	}
 }
 
 func providerWithHandlers(

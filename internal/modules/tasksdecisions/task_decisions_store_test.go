@@ -418,6 +418,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if len(result.AdditionalRecordChanges) != 2 {
 		t.Fatalf("expected two changed decision rows, got %d", len(result.AdditionalRecordChanges))
 	}
+	requireDecisionSupersessionChangeSetEffects(t, harness.DB, result.ChangeSetID)
 	if got := countSupersedesLinks(t, harness.DB, source, target); got != 1 {
 		t.Fatalf("decision supersedes link count: got %d want 1", got)
 	}
@@ -441,6 +442,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	if len(sourceRows) != 1 || sourceRows[0]["record_id"] != source.String() {
 		t.Fatalf("superseding decision missing from projection rows: %#v", sourceRows)
 	}
+	afterSupersessionEffects := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID)
 	replay, err := store.SupersedeDecision(ctx, actor, target, request, timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-replay", Time(2*time.Hour))
 	if err != nil {
 		t.Fatalf("replay decision supersede: %v", err)
@@ -450,6 +452,17 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	}
 	if got := countSupersedesLinks(t, harness.DB, source, target); got != 1 {
 		t.Fatalf("decision supersedes link count after replay: got %d want 1", got)
+	}
+	if got := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID); got != afterSupersessionEffects {
+		t.Fatalf("decision supersede replay changed durable effects: before=%+v after=%+v", afterSupersessionEffects, got)
+	}
+	rejectedRequest := request
+	rejectedRequest.BaseRowVersion = result.RowVersion
+	rejectedRequest.ClientTxnID = "txn-workbook_interaction-task-decision-decision-supersede-rejected"
+	_, err = store.SupersedeDecision(ctx, actor, target, rejectedRequest, timelineadmission.ActionRequestHash(rejectedRequest.BaseRowVersion, rejectedRequest.ClientTxnID, &rejectedRequest.Reason, rejectedRequest.ReplacementRecordID), "req-workbook_interaction-task-decision-decision-supersede-rejected", Time(2*time.Hour))
+	requireLifecycle(t, err)
+	if got := decisionSupersessionIncidentEffects(t, harness.DB, incident.ID); got != afterSupersessionEffects {
+		t.Fatalf("rejected decision supersede changed durable effects: before=%+v after=%+v", afterSupersessionEffects, got)
 	}
 
 	executedTarget := mustCreateDecision(t, store, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-executed-target", "executed", "Executed target")
@@ -507,6 +520,48 @@ INSERT INTO record_links (
 	if got := RecordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision affected patch changed row version: got %d want %d", got, beforeInconsistentVersion)
 	}
+}
+
+type decisionSupersessionEffects struct {
+	changeSets int
+	revisions  int
+	intents    int
+}
+
+func requireDecisionSupersessionChangeSetEffects(t testing.TB, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, changeSetID uuid.UUID) {
+	t.Helper()
+	var effects decisionSupersessionEffects
+	if err := db.QueryRow(context.Background(), `
+SELECT
+    (SELECT count(*) FROM change_sets WHERE change_set_id = $1),
+    (SELECT count(*) FROM record_revisions WHERE change_set_id = $1),
+    (SELECT count(*) FROM collaboration_event_intents WHERE source_change_set_id = $1)
+`, changeSetID).Scan(&effects.changeSets, &effects.revisions, &effects.intents); err != nil {
+		t.Fatalf("query decision supersession change-set effects: %v", err)
+	}
+	if effects != (decisionSupersessionEffects{changeSets: 1, revisions: 2, intents: 2}) {
+		t.Fatalf("decision supersession change-set effects = %+v; want one change set, two revisions, and two intents", effects)
+	}
+}
+
+func decisionSupersessionIncidentEffects(t testing.TB, db interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, incidentID uuid.UUID) decisionSupersessionEffects {
+	t.Helper()
+	var effects decisionSupersessionEffects
+	if err := db.QueryRow(context.Background(), `
+SELECT
+    (SELECT count(*) FROM change_sets WHERE incident_id = $1),
+    (SELECT count(*) FROM record_revisions revision
+       JOIN records record USING (record_id)
+      WHERE record.incident_id = $1),
+    (SELECT count(*) FROM collaboration_event_intents WHERE incident_id = $1)
+`, incidentID).Scan(&effects.changeSets, &effects.revisions, &effects.intents); err != nil {
+		t.Fatalf("query decision supersession incident effects: %v", err)
+	}
+	return effects
 }
 
 func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {

@@ -19,13 +19,14 @@ import (
 )
 
 func NewCatalog() (*sourceport.Catalog, error) {
+	taskDecisionContribution := tasksdecisions.NewIncidentBundleContribution()
 	recordSubtypeCatalog, err := subtypepresence.NewCatalog([]subtypepresence.Contribution{
 		timeline.IncidentBundleSubtypeContribution(),
 		entities.IncidentBundleSubtypeContribution(),
 		parties.IncidentBundleSubtypeContribution(),
 		indicators.IncidentBundleSubtypeContribution(),
 		artifacts.IncidentBundleSubtypeContribution(),
-		tasksdecisions.IncidentBundleSubtypeContribution(),
+		taskDecisionContribution.SubtypePresence,
 		evidence.IncidentBundleSubtypeContribution(),
 		assessments.IncidentBundleSubtypeContribution(),
 	})
@@ -64,7 +65,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			entities.NewIncidentBundleSourcePort(),
 			indicators.NewIncidentBundleSourcePort(),
 			artifacts.NewIncidentBundleSourcePort(),
-			tasksdecisions.NewIncidentBundleSourcePort(),
+			taskDecisionContribution.SourcePort,
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),
 			links.NewIncidentBundleSourcePort(),

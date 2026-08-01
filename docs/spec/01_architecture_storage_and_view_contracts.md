@@ -7185,6 +7185,22 @@ The corresponding source-owner invariant meanings are exactly:
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
+Tasks and Decisions assigns every admitted semantic condition to exactly one
+invariant in this precedence order:
+
+| Precedence | Invariant ID | Exclusive acceptance rule |
+| --- | --- | --- |
+| 1 | `tasks_decisions.envelope_type_scope` | Every task source row binds exactly one imported-incident envelope of type `task_request`, and every decision source row binds exactly one imported-incident envelope of type `decision`. Missing, different-incident, wrong-type, or multiply bound envelopes violate this invariant. |
+| 2 | `tasks_decisions.lifecycle_legal` | Task and decision lifecycle tokens belong to their closed Core 02 vocabularies. Persisted Decision status plus the active Decision-to-Decision `supersedes` relation resolves to exactly one legal machine condition. Direct/source `superseded` state without its required relation, an illegal superseder or target state, wrong relation direction, or target state inconsistent with the relation violates this invariant. Scalar tuple guards assigned below are excluded. |
+| 3 | `tasks_decisions.dependent_fields_legal` | Task `status`, `owner_user_id`, `blocked_reason`, `completed_at`, and `created_at` form a legal Core 02 tuple. A Task convenience Decision reference agrees with its authoritative relation when both are materialized. Required Decision source members retain admitted presence and nullability, and projection-only `supersedes_record_id` never becomes authoritative source state. |
+| 4 | `tasks_decisions.references_same_incident` | Task requester-party, linked-record, and Decision references plus Decision support and affected-record references resolve to the required type, lifecycle, and incident. This owner-field invariant is primary for Task/Decision-derived links; `links_tags.endpoints_same_incident` remains the fallback for generic links without an owner-field contract. |
+
+One condition MUST map to one invariant. When a candidate has multiple defects,
+the source owner MUST select the lowest precedence number above and MAY use
+stable owner-row identity only as a private tie-break. Selection MUST NOT depend
+on archive order, NDJSON row order, filesystem order, map iteration, or unsorted
+SQL output.
+
 The required special inputs and their closed family identifiers and dispositions
 are:
 

@@ -23,7 +23,7 @@ func (f *WorkbookFacade) ResolveConflict(
 ) (WorkbookMutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
 		return f.Patch(ctx, WorkbookPatchCommand{
-			Actor:            command.Mechanics.Actor,
+			ActorUserID:      command.Mechanics.Actor.ID,
 			RecordID:         command.Mechanics.RecordID,
 			Request:          *command.Patch,
 			RequestHash:      command.Mechanics.RequestHash,
@@ -36,7 +36,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	result, err := conflictresolution.KeepSaved(
 		ctx,
 		f.pool,
-		f.authStore,
+		f.conflictStore,
 		command.Mechanics,
 		f.loadConflictTarget,
 	)
@@ -44,8 +44,7 @@ func (f *WorkbookFacade) ResolveConflict(
 		return WorkbookMutationResult{}, err
 	}
 	return WorkbookMutationResult{
-		Payload:      result.Payload,
-		StatusCode:   result.StatusCode,
+		Row:          conflictResultRow(result.Payload),
 		Replayed:     result.Replayed,
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,
@@ -60,7 +59,7 @@ func (f *WorkbookFacade) loadConflictTarget(
 	tx pgx.Tx,
 	command conflictresolution.Command,
 ) (conflictresolution.Target, error) {
-	meta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, command.RecordID)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}
@@ -89,4 +88,9 @@ func (f *WorkbookFacade) loadConflictTarget(
 		RowVersion: meta.RowVersion,
 		Row:        row,
 	}, nil
+}
+
+func conflictResultRow(payload map[string]any) map[string]any {
+	row, _ := payload["row"].(map[string]any)
+	return row
 }

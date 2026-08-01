@@ -53,6 +53,14 @@ type ProviderOutput struct {
 	DisclosurePartitionFacts []DisclosurePartitionFact `json:"disclosure_partition_facts"`
 }
 
+// FieldProvider is the source-owner reporting boundary. Implementations load
+// authoritative facts with the caller's transaction and never coordinate or
+// commit that transaction.
+type FieldProvider interface {
+	ProviderKey() string
+	CollectFactsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) (ProviderOutput, error)
+}
+
 type FieldFact struct {
 	SchemaID                string `json:"schema_id"`
 	Path                    string

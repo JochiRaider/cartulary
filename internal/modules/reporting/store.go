@@ -77,8 +77,9 @@ func (e *UnsupportedSnapshotDerivationError) Error() string {
 }
 
 type Store struct {
-	pool            *pgxpool.Pool
-	jobTransactions *jobs.TransactionService
+	pool               *pgxpool.Pool
+	jobTransactions    *jobs.TransactionService
+	exportMaterializer reportingExportMaterializer
 }
 
 type SnapshotRecord struct {
@@ -261,8 +262,16 @@ type ReleaseActionResult struct {
 	Replayed   bool
 }
 
-func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
-	return &Store{pool: pool, jobTransactions: jobTransactions}
+func newStore(
+	pool *pgxpool.Pool,
+	jobTransactions *jobs.TransactionService,
+	exportMaterializer reportingExportMaterializer,
+) *Store {
+	return &Store{
+		pool:               pool,
+		jobTransactions:    jobTransactions,
+		exportMaterializer: exportMaterializer,
+	}
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (CreateSnapshotResult, error) {
@@ -321,7 +330,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	}
 	sum := sha256.Sum256(normalized)
 	requestHash := sum[:]
-	workbookFields, err := collectReportingExportFieldsTx(ctx, tx, params.Request.IncidentID)
+	workbookFields, err := s.exportMaterializer.CollectFieldsTx(ctx, tx, params.Request.IncidentID)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}

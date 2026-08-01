@@ -35,10 +35,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -939,6 +941,9 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	reportingRoutes := reporting.RegisterRoutes(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(runtime.ExtensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
+		ExportFieldProviders: []exportprovider.FieldProvider{
+			tasksdecisions.NewReportingContribution(),
+		},
 	})
 	var compositionPreviewJobs reportcomposition.PreviewJobPort
 	if snapshotReportingRoutesAdmitted {

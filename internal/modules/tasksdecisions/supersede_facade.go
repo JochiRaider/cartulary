@@ -3,11 +3,9 @@ package tasksdecisions
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"slices"
 	"time"
@@ -15,11 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	recordsmodule "github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -27,10 +24,10 @@ const DecisionsViewSchemaID = "cartulary.view.decisions.v1"
 
 type SupersedeFacade struct {
 	pool           postgres.DB
-	authStore      *authn.Store
-	incidentAccess incidents.Access
-	projectionRows *projections.TaskDecisionRows
-	recordStore    *records.Store
+	idempotency    IdempotencyCapability
+	incidentAccess IncidentStateCapability
+	projectionRows ProjectionCapability
+	recordStore    RecordEnvelopeCapability
 	revisionStore  revisionAppendPort
 	taskStore      *Store
 }
@@ -43,7 +40,7 @@ type SupersedeRequest struct {
 }
 
 type SupersedeCommand struct {
-	Actor          authn.UserRecord
+	ActorUserID    uuid.UUID
 	TargetRecordID uuid.UUID
 	Request        SupersedeRequest
 	RequestHash    []byte
@@ -53,8 +50,7 @@ type SupersedeCommand struct {
 }
 
 type SupersedeMutationResult struct {
-	Payload                 map[string]any
-	StatusCode              int
+	Row                     map[string]any
 	Replayed                bool
 	IncidentID              uuid.UUID
 	RecordID                uuid.UUID
@@ -64,6 +60,16 @@ type SupersedeMutationResult struct {
 	ViewSchemaID            string
 	ChangedFieldKeys        []string
 	AdditionalRecordChanges []SupersedeMutationResult
+	Facts                   SupersedeFacts
+}
+
+type SupersedeFacts struct {
+	TargetRecordID        uuid.UUID
+	SupersedingRecordID   uuid.UUID
+	TargetRowVersion      int64
+	SupersedingRowVersion int64
+	TargetStatus          string
+	Reason                string
 }
 
 type SupersedeRowVersionConflictError struct {
@@ -76,15 +82,16 @@ func (e *SupersedeRowVersionConflictError) Error() string {
 	return "tasksdecisions: row version conflict"
 }
 
-func NewSupersedeFacade(pool postgres.DB, appender *revisions.Appender) *SupersedeFacade {
+func NewSupersedeFacade(pool postgres.DB, capabilities MutationCapabilities) *SupersedeFacade {
+	capabilities.validate()
 	return &SupersedeFacade{
 		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		incidentAccess: incidents.NewAccess(pool),
-		projectionRows: newTaskDecisionProjectionRows(pool),
-		recordStore:    records.NewStore(),
-		revisionStore:  newRevisionAppendAdapter(appender),
-		taskStore:      NewStore(appender),
+		idempotency:    capabilities.Idempotency,
+		incidentAccess: capabilities.IncidentState,
+		projectionRows: capabilities.Projections,
+		recordStore:    capabilities.RecordEnvelopes,
+		revisionStore:  capabilities.Revisions,
+		taskStore:      newStoreWithLinks(capabilities.Links, nil),
 	}
 }
 
@@ -93,22 +100,30 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if request.ReplacementRecordID == nil {
 		return SupersedeMutationResult{}, &ValidationError{Field: "replacement_record_id", ReasonCode: "missing_required_field"}
 	}
-	idempotencyKey := authn.RouteIdempotencyKey{
+	idempotencyKey := IdempotencyKey{
 		RouteKey:    command.RouteKey,
-		ActorUserID: command.Actor.ID,
+		ActorUserID: command.ActorUserID,
 		ScopeKey:    command.TargetRecordID.String(),
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := f.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+	if existing, err := f.idempotency.Get(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
-			return SupersedeMutationResult{}, authn.ErrClientTxnConflict
+			return SupersedeMutationResult{}, ErrClientTxnConflict
 		}
 		payload, err := decodeSupersedeStoredResponse(existing.ResponseJSON)
 		if err != nil {
 			return SupersedeMutationResult{}, fmt.Errorf("decode replayed decision supersede payload: %w", err)
 		}
-		return SupersedeMutationResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: command.TargetRecordID, ViewSchemaID: DecisionsViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
+		facts, err := supersedeFactsFromPayload(payload)
+		if err != nil {
+			return SupersedeMutationResult{}, err
+		}
+		changeSetID, err := extractPayloadUUID(payload, "change_set_id")
+		if err != nil {
+			return SupersedeMutationResult{}, err
+		}
+		return SupersedeMutationResult{Replayed: true, RecordID: command.TargetRecordID, ChangeSetID: changeSetID, ViewSchemaID: DecisionsViewSchemaID, ClientTxnID: request.ClientTxnID, RowVersion: facts.TargetRowVersion, Facts: facts}, nil
+	} else if !errors.Is(err, ErrIdempotencyNotFound) {
 		return SupersedeMutationResult{}, fmt.Errorf("query decision supersede idempotency: %w", err)
 	}
 
@@ -118,7 +133,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	targetMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, command.TargetRecordID)
+	targetMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -136,7 +151,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if sourceRecordID == command.TargetRecordID {
 		return SupersedeMutationResult{}, DecisionSupersedeValidationError("superseding_decision_must_be_different")
 	}
-	sourceMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, sourceRecordID)
+	sourceMeta, err := loadSupersedeRecordMetaForUpdateTx(ctx, tx, f.recordStore, sourceRecordID)
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
 		return SupersedeMutationResult{}, DecisionSupersedeValidationError("superseding_decision_must_be_active_same_incident_decision")
 	}
@@ -155,10 +170,10 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := ValidateDecisionMachineState(targetState); err != nil {
+	if err := policy.ValidateDecisionMachineState(targetState); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := ValidateDecisionMachineState(sourceState); err != nil {
+	if err := policy.ValidateDecisionMachineState(sourceState); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	if sourceState.Status != "approved" && sourceState.Status != "executed" {
@@ -187,19 +202,19 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 
 	now := command.Now.UTC()
-	linkID, err := f.taskStore.InsertDecisionSupersedesLinkTx(ctx, tx, targetMeta.IncidentID, sourceRecordID, command.TargetRecordID, command.Actor.ID, now)
+	linkID, err := f.taskStore.InsertDecisionSupersedesLinkTx(ctx, tx, targetMeta.IncidentID, sourceRecordID, command.TargetRecordID, command.ActorUserID, now)
 	if err != nil {
-		if authn.IsUniqueViolation(err) {
+		if tasksource.IsUniqueViolation(err) {
 			return SupersedeMutationResult{}, DecisionSupersedeValidationError("target_must_not_have_active_replacement")
 		}
 		return SupersedeMutationResult{}, err
 	}
 
-	sourceVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, sourceRecordID, command.Actor.ID, now)
+	sourceVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, sourceRecordID, command.ActorUserID, now)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	targetVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.TargetRecordID, command.Actor.ID, now)
+	targetVersion, err := f.recordStore.AdvanceVersionTx(ctx, tx, command.TargetRecordID, command.ActorUserID, now)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -225,7 +240,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 	changeSetID, err := f.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  targetMeta.IncidentID,
-		ActorUserID: command.Actor.ID,
+		ActorUserID: command.ActorUserID,
 		Source:      command.RouteKey,
 		Reason:      &request.Reason,
 		ClientTxnID: &request.ClientTxnID,
@@ -311,10 +326,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		"target_status":           targetStatus,
 		"reason":                  request.Reason,
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, command.RequestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return SupersedeMutationResult{}, authn.ErrClientTxnConflict
-		}
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, IdempotencyOutcomeUpdated, payload); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -322,8 +334,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 
 	targetChange := SupersedeMutationResult{
-		Payload:          map[string]any{"row": afterTargetRow},
-		StatusCode:       http.StatusOK,
+		Row:              afterTargetRow,
 		IncidentID:       targetMeta.IncidentID,
 		RecordID:         command.TargetRecordID,
 		ChangeSetID:      changeSetID,
@@ -333,8 +344,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ChangedFieldKeys: changedFieldKeys(beforeTargetRow, afterTargetRow),
 	}
 	sourceChange := SupersedeMutationResult{
-		Payload:          map[string]any{"row": afterSourceRow},
-		StatusCode:       http.StatusOK,
+		Row:              afterSourceRow,
 		IncidentID:       targetMeta.IncidentID,
 		RecordID:         sourceRecordID,
 		ChangeSetID:      changeSetID,
@@ -344,8 +354,6 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ChangedFieldKeys: changedFieldKeys(beforeSourceRow, afterSourceRow),
 	}
 	return SupersedeMutationResult{
-		Payload:                 payload,
-		StatusCode:              http.StatusOK,
 		IncidentID:              targetMeta.IncidentID,
 		RecordID:                command.TargetRecordID,
 		ChangeSetID:             changeSetID,
@@ -354,6 +362,11 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		ViewSchemaID:            DecisionsViewSchemaID,
 		ChangedFieldKeys:        targetChange.ChangedFieldKeys,
 		AdditionalRecordChanges: []SupersedeMutationResult{targetChange, sourceChange},
+		Facts: SupersedeFacts{
+			TargetRecordID: command.TargetRecordID, SupersedingRecordID: sourceRecordID,
+			TargetRowVersion: targetVersion, SupersedingRowVersion: sourceVersion,
+			TargetStatus: targetStatus, Reason: request.Reason,
+		},
 	}, nil
 }
 
@@ -363,22 +376,27 @@ type supersedeRecordMeta struct {
 	RowVersion int64
 }
 
-func loadSupersedeRecordMetaForUpdateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (supersedeRecordMeta, error) {
-	var meta supersedeRecordMeta
-	var deletedAt sql.NullTime
-	err := tx.QueryRow(ctx, `
-SELECT incident_id, record_type, row_version, deleted_at
-  FROM records
- WHERE record_id = $1
- FOR UPDATE
-`, recordID).Scan(&meta.IncidentID, &meta.RecordType, &meta.RowVersion, &deletedAt)
+func loadSupersedeRecordMetaForUpdateTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	envelopes RecordEnvelopeCapability,
+	recordID uuid.UUID,
+) (supersedeRecordMeta, error) {
+	envelope, err := envelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
+	if errors.Is(err, recordsmodule.ErrEnvelopeNotFound) {
+		return supersedeRecordMeta{}, pgx.ErrNoRows
+	}
 	if err != nil {
 		return supersedeRecordMeta{}, err
 	}
-	if deletedAt.Valid {
+	if envelope.DeletedAt != nil {
 		return supersedeRecordMeta{}, revisions.ErrRecordDeletedUseRestore
 	}
-	return meta, nil
+	return supersedeRecordMeta{
+		IncidentID: envelope.IncidentID,
+		RecordType: envelope.RecordType,
+		RowVersion: envelope.RowVersion,
+	}, nil
 }
 
 func changedFieldKeys(before map[string]any, after map[string]any) []string {
@@ -414,4 +432,46 @@ func decodeSupersedeStoredResponse(data []byte) (map[string]any, error) {
 		return nil, err
 	}
 	return payload, nil
+}
+
+func supersedeFactsFromPayload(payload map[string]any) (SupersedeFacts, error) {
+	targetID, err := extractPayloadUUID(payload, "target_record_id")
+	if err != nil {
+		return SupersedeFacts{}, err
+	}
+	supersedingID, err := extractPayloadUUID(payload, "superseding_record_id")
+	if err != nil {
+		return SupersedeFacts{}, err
+	}
+	targetVersion, err := payloadInt64(payload, "target_row_version")
+	if err != nil {
+		return SupersedeFacts{}, err
+	}
+	supersedingVersion, err := payloadInt64(payload, "superseding_row_version")
+	if err != nil {
+		return SupersedeFacts{}, err
+	}
+	targetStatus, statusOK := payload["target_status"].(string)
+	reason, reasonOK := payload["reason"].(string)
+	if !statusOK || !reasonOK {
+		return SupersedeFacts{}, fmt.Errorf("decode replayed decision supersede facts")
+	}
+	return SupersedeFacts{
+		TargetRecordID: targetID, SupersedingRecordID: supersedingID,
+		TargetRowVersion: targetVersion, SupersedingRowVersion: supersedingVersion,
+		TargetStatus: targetStatus, Reason: reason,
+	}, nil
+}
+
+func payloadInt64(payload map[string]any, key string) (int64, error) {
+	switch value := payload[key].(type) {
+	case float64:
+		return int64(value), nil
+	case int64:
+		return value, nil
+	case int:
+		return int64(value), nil
+	default:
+		return 0, fmt.Errorf("decode replayed decision supersede %s", key)
+	}
 }

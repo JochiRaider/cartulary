@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -40,7 +39,8 @@ type Bundle struct {
 
 func NewBundle(pool postgres.DB, timelineSource projections.TimelineSource) (*Bundle, error) {
 	assessmentSource := newAssessmentProjectionSource()
-	catalog, err := newCatalog(timelineSource, assessmentSource)
+	taskDecisionContribution := tasksdecisions.NewProjectionContribution()
+	catalog, err := newCatalog(timelineSource, assessmentSource, taskDecisionContribution)
 	if err != nil {
 		return nil, err
 	}
@@ -57,25 +57,29 @@ func NewBundle(pool postgres.DB, timelineSource projections.TimelineSource) (*Bu
 			assessmentSource,
 			assessmentprojection.QuerySurfaces()...,
 		),
-		Artifacts:     projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
-		Evidence:      projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
-		Parties:       projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
-		TaskDecisions: projections.NewTaskDecisionRows(pool, taskDecisionQuerySurfaces()...),
+		Artifacts: projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
+		Evidence:  projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
+		Parties:   projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
+		TaskDecisions: projections.NewTaskDecisionRows(
+			pool,
+			taskDecisionContribution.Source(),
+			taskDecisionContribution.QuerySurfaces()...,
+		),
 	}, nil
 }
 
-func taskDecisionQuerySurfaces() []providercontract.QuerySurface {
-	surfaces := taskdecisionprojection.TaskRequestQuerySurfaces()
-	return append(surfaces, taskdecisionprojection.DecisionQuerySurfaces()...)
-}
-
 func NewCatalog(timelineSource projections.TimelineSource) (*projections.Catalog, error) {
-	return newCatalog(timelineSource, newAssessmentProjectionSource())
+	return newCatalog(
+		timelineSource,
+		newAssessmentProjectionSource(),
+		tasksdecisions.NewProjectionContribution(),
+	)
 }
 
 func newCatalog(
 	timelineSource projections.TimelineSource,
 	assessmentSource projections.AssessmentSource,
+	taskDecisionContribution tasksdecisions.ProjectionContribution,
 ) (*projections.Catalog, error) {
 	providers := []projections.Provider{
 		projections.NewTimelineProvider(descriptor(
@@ -199,11 +203,11 @@ func newCatalog(
 			[]string{"links", "records", "tasksdecisions"},
 			[]string{"task_request_grid_projection"},
 			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			taskdecisionprojection.TaskRequestQuerySurfaces(),
+			taskDecisionContribution.TaskRequestQuerySurfaces(),
 			[]string{"party"},
 			[]string{"internal/modules/tasksdecisions"},
 			[]string{"internal/modules/tasksdecisions/task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
-		)),
+		), taskDecisionContribution.Source()),
 		projections.NewDecisionProvider(descriptor(
 			"decision",
 			"tasksdecisions",
@@ -212,11 +216,11 @@ func newCatalog(
 			[]string{"links", "records", "tasksdecisions"},
 			[]string{"decision_grid_projection"},
 			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			taskdecisionprojection.DecisionQuerySurfaces(),
+			taskDecisionContribution.DecisionQuerySurfaces(),
 			[]string{"task_request"},
 			[]string{"internal/modules/tasksdecisions"},
 			[]string{"internal/modules/tasksdecisions/task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
-		)),
+		), taskDecisionContribution.Source()),
 	}
 	catalog, err := projections.NewCatalog(providers)
 	if err != nil {

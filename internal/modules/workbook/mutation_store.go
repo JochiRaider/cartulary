@@ -523,9 +523,20 @@ func taskDecisionCollectionPayloadFromWorkbook(payload CollectionActionPayload) 
 }
 
 func mutationResultFromTaskDecisionWorkbook(result tasksdecisions.WorkbookMutationResult) MutationResult {
+	payload := map[string]any{
+		"view_schema_id": result.ViewSchemaID,
+		"row":            result.Row,
+	}
+	if result.ChangeSetID != uuid.Nil {
+		payload["change_set_id"] = result.ChangeSetID.String()
+	}
+	statusCode := http.StatusOK
+	if result.Created && !result.Replayed {
+		statusCode = http.StatusCreated
+	}
 	return MutationResult{
-		Payload:          result.Payload,
-		StatusCode:       result.StatusCode,
+		Payload:          payload,
+		StatusCode:       statusCode,
 		Replayed:         result.Replayed,
 		IncidentID:       result.IncidentID,
 		RecordID:         result.RecordID,
@@ -540,6 +551,9 @@ func mutationResultFromTaskDecisionWorkbook(result tasksdecisions.WorkbookMutati
 func adaptTaskDecisionWorkbookOwnerError(err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, tasksdecisions.ErrClientTxnConflict) {
+		return authn.ErrClientTxnConflict
 	}
 	var validation *tasksdecisions.ValidationError
 	if errors.As(err, &validation) {
@@ -680,7 +694,7 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 
 func (s *Store) SupersedeDecision(ctx context.Context, actor authn.UserRecord, targetRecordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	result, err := s.supersedeStore.SupersedeDecision(ctx, tasksdecisions.SupersedeCommand{
-		Actor:          actor,
+		ActorUserID:    actor.ID,
 		TargetRecordID: targetRecordID,
 		Request: tasksdecisions.SupersedeRequest{
 			BaseRowVersion:      request.BaseRowVersion,
@@ -704,9 +718,22 @@ func mutationResultFromDecisionSupersede(result tasksdecisions.SupersedeMutation
 	for _, change := range result.AdditionalRecordChanges {
 		additional = append(additional, mutationResultFromDecisionSupersede(change))
 	}
+	payload := map[string]any{"row": result.Row}
+	if result.Row == nil {
+		payload = map[string]any{
+			"view_schema_id":          tasksdecisions.DecisionsViewSchemaID,
+			"change_set_id":           result.ChangeSetID.String(),
+			"target_record_id":        result.Facts.TargetRecordID.String(),
+			"superseding_record_id":   result.Facts.SupersedingRecordID.String(),
+			"target_row_version":      result.Facts.TargetRowVersion,
+			"superseding_row_version": result.Facts.SupersedingRowVersion,
+			"target_status":           result.Facts.TargetStatus,
+			"reason":                  result.Facts.Reason,
+		}
+	}
 	return MutationResult{
-		Payload:                 result.Payload,
-		StatusCode:              result.StatusCode,
+		Payload:                 payload,
+		StatusCode:              http.StatusOK,
 		Replayed:                result.Replayed,
 		IncidentID:              result.IncidentID,
 		RecordID:                result.RecordID,
@@ -730,6 +757,9 @@ func adaptDecisionSupersedeOwnerError(err error) error {
 			BaseRowVersion:    rowConflict.BaseRowVersion,
 			CurrentRowVersion: rowConflict.CurrentRowVersion,
 		}
+	}
+	if errors.Is(err, tasksdecisions.ErrClientTxnConflict) {
+		return authn.ErrClientTxnConflict
 	}
 	return adaptOwnerMutationError(err)
 }

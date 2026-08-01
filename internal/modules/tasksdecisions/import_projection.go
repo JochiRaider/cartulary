@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -32,7 +31,6 @@ func (s *Store) RefreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID 
 }
 
 func newTaskDecisionProjectionRows(pool postgres.DB) *projections.TaskDecisionRows {
-	surfaces := taskdecisionprojection.TaskRequestQuerySurfaces()
-	surfaces = append(surfaces, taskdecisionprojection.DecisionQuerySurfaces()...)
-	return projections.NewTaskDecisionRows(pool, surfaces...)
+	contribution := NewProjectionContribution()
+	return projections.NewTaskDecisionRows(pool, contribution.Source(), contribution.QuerySurfaces()...)
 }

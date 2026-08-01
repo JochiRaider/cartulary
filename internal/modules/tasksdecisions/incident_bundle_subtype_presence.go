@@ -11,7 +11,7 @@ import (
 
 type incidentBundleSubtypeSource struct{}
 
-func IncidentBundleSubtypeContribution() subtypepresence.Contribution {
+func incidentBundleSubtypeContribution() subtypepresence.Contribution {
 	return subtypepresence.Contribution{
 		FamilyID: "tasks_decisions",
 		Source:   incidentBundleSubtypeSource{},

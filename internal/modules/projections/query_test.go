@@ -38,7 +38,6 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 	expected := map[string]bool{
 		assessmentsViewSchemaID:          true,
 		commLogViewSchemaID:              true,
-		decisionsViewSchemaID:            true,
 		evidenceViewSchemaID:             true,
 		findingsViewSchemaID:             true,
 		forensicKeywordsViewSchemaID:     true,
@@ -49,7 +48,6 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 		notesViewSchemaID:                true,
 		partiesViewSchemaID:              true,
 		statusReviewViewSchemaID:         true,
-		taskRequestsViewSchemaID:         true,
 		timelineViewSchemaID:             true,
 	}
 	surfaces := querySurfacesForTest()

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -23,8 +24,9 @@ type Service struct {
 }
 
 type RouteOptions struct {
-	JobSuccessFinalizer JobSuccessFinalizer
-	RenderExportInvoker RenderExportInvoker
+	JobSuccessFinalizer  JobSuccessFinalizer
+	RenderExportInvoker  RenderExportInvoker
+	ExportFieldProviders []exportprovider.FieldProvider
 }
 
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
@@ -57,7 +59,11 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if deps.Jobs != nil && deps.JobTransactions == nil {
 		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
 	}
-	store := NewStore(deps.Postgres, deps.JobTransactions)
+	exportMaterializer, err := newReportingExportMaterializer(options.ExportFieldProviders...)
+	if err != nil {
+		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
+	}
+	store := newStore(deps.Postgres, deps.JobTransactions, exportMaterializer)
 	app, err := NewApplicationService(
 		store,
 		incidents.NewAccess(deps.PostgresHandle()),

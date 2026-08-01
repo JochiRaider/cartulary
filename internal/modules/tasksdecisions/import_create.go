@@ -16,7 +16,12 @@ import (
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
-func NewImportCreateFacade(
+const (
+	taskOwnerUserFieldKey     = "task.owner_user_id"
+	decisionOwnerUserFieldKey = "decision.owner_user_id"
+)
+
+func NewImportContribution(
 	targetViewSchemaID string,
 	facadeID string,
 	appender *revisions.Appender,
@@ -37,6 +42,9 @@ func NewImportCreateFacade(
 
 func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
+	if err := validateImportedOwnerShape(request); err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
 	values := taskDecisionValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
 	now := command.Now.UTC()
 	switch request.TargetViewSchemaID {
@@ -45,7 +53,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err := ValidateTaskCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -80,7 +88,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err := ValidateDecisionCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, values); err != nil {
+		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -102,6 +110,22 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	default:
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("tasks/decisions import surface %q not mapped", request.TargetViewSchemaID)
 	}
+}
+
+func validateImportedOwnerShape(request ownerfacade.ImportOwnerCreateRequest) error {
+	ownerField := taskOwnerUserFieldKey
+	if request.TargetViewSchemaID == DecisionsViewSchemaID {
+		ownerField = decisionOwnerUserFieldKey
+	}
+	for _, field := range request.FieldValues {
+		if field.FieldKey != ownerField {
+			continue
+		}
+		if field.NormalizedValue.Kind != "uuid" || field.NormalizedValue.UUID == nil {
+			return &ValidationError{Field: ownerField, ReasonCode: "invalid_value"}
+		}
+	}
+	return nil
 }
 
 func (s *Store) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID) (ownerfacade.ImportOwnerCreateResponse, error) {
@@ -139,16 +163,23 @@ func validateImportCreateReferencesTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	ownerField string,
 	values map[string]FieldValue,
 ) error {
+	ownerUserID := actorUserID
+	if value, ok := values[ownerField]; ok && value.UUID != nil {
+		ownerUserID = *value.UUID
+	}
+	if err := validateIncidentMemberUserTx(ctx, tx, incidentID, ownerUserID, ownerField); err != nil {
+		return err
+	}
 	for fieldKey, value := range values {
 		if value.UUID == nil {
 			continue
 		}
 		if strings.HasSuffix(fieldKey, "_user_id") {
-			if err := validateImportActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
-				return err
-			}
+			continue
 		}
 		if err := validateDirectReferenceTx(
 			ctx,
@@ -159,26 +190,6 @@ func validateImportCreateReferencesTx(
 		); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func validateImportActiveUserTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	userID uuid.UUID,
-	field string,
-) error {
-	var exists bool
-	if err := tx.QueryRow(
-		ctx,
-		`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active = true)`,
-		userID,
-	).Scan(&exists); err != nil {
-		return fmt.Errorf("validate task or decision import user: %w", err)
-	}
-	if !exists {
-		return &ValidationError{Field: field, ReasonCode: "invalid_value"}
 	}
 	return nil
 }

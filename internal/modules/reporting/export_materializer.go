@@ -18,7 +18,6 @@ import (
 	partyreporting "github.com/JochiRaider/cartulary/internal/modules/parties/reportingprovider"
 	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
-	taskdecisionreporting "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/reportingprovider"
 	timelinereporting "github.com/JochiRaider/cartulary/internal/modules/timeline/reportingprovider"
 )
 
@@ -31,15 +30,10 @@ type reportingSupportRefProvider interface {
 	CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
 }
 
-type reportingExportFieldProvider interface {
-	ProviderKey() string
-	CollectFactsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) (exportprovider.ProviderOutput, error)
-}
-
 type reportingExportMaterializer struct {
 	incidentProvider   reportingIncidentProvider
 	supportRefProvider reportingSupportRefProvider
-	fieldProviders     []reportingExportFieldProvider
+	fieldProviders     []exportprovider.FieldProvider
 }
 
 type reportingIncidentProviderFunc struct{}
@@ -73,28 +67,48 @@ func (p reportingExportFieldProviderFunc) CollectFactsTx(ctx context.Context, tx
 	return p.collect(ctx, tx, incidentID, supportRefs)
 }
 
-func defaultReportingExportMaterializer() reportingExportMaterializer {
+func newReportingExportMaterializer(
+	contributions ...exportprovider.FieldProvider,
+) (reportingExportMaterializer, error) {
+	fieldProviders := []exportprovider.FieldProvider{
+		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFactsTx},
+		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
+	}
+	fieldProviders = append(fieldProviders, contributions...)
+	seen := make(map[string]struct{}, len(fieldProviders))
+	for _, provider := range fieldProviders {
+		if provider == nil {
+			return reportingExportMaterializer{}, errors.New("reporting export field provider is required")
+		}
+		key := provider.ProviderKey()
+		if key == "" {
+			return reportingExportMaterializer{}, errors.New("reporting export field provider key is required")
+		}
+		if _, exists := seen[key]; exists {
+			return reportingExportMaterializer{}, fmt.Errorf("duplicate reporting export field provider %q", key)
+		}
+		seen[key] = struct{}{}
+	}
+	sort.Slice(fieldProviders, func(i, j int) bool {
+		return fieldProviders[i].ProviderKey() < fieldProviders[j].ProviderKey()
+	})
 	return reportingExportMaterializer{
 		incidentProvider: reportingIncidentProviderFunc{},
 		supportRefProvider: reportingSupportRefProviderFunc{
 			collect: linkreporting.CollectSupportRefsTx,
 		},
-		fieldProviders: []reportingExportFieldProvider{
-			reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "tasksdecisions", collect: taskdecisionreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFactsTx},
-			reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
-		},
-	}
+		fieldProviders: fieldProviders,
+	}, nil
 }
 
 func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (IncidentMetadataSnapshot, error) {
-	record, err := defaultReportingExportMaterializer().incidentProvider.GetIncidentSnapshotTx(ctx, tx, incidentID)
+	record, err := (reportingIncidentProviderFunc{}).GetIncidentSnapshotTx(ctx, tx, incidentID)
 	if err != nil {
 		if errors.Is(err, exportprovider.ErrNotFound) {
 			return IncidentMetadataSnapshot{}, ErrNotFound
@@ -106,7 +120,7 @@ func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (Incide
 
 func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident IncidentMetadataSnapshot) (ResolvedSourceBoundary, error) {
 	providerIncident := incidentMetadataToProvider(incident)
-	state, err := defaultReportingExportMaterializer().incidentProvider.ResolveSourceBoundaryStateTx(ctx, tx, providerIncident)
+	state, err := (reportingIncidentProviderFunc{}).ResolveSourceBoundaryStateTx(ctx, tx, providerIncident)
 	if err != nil {
 		return ResolvedSourceBoundary{}, err
 	}
@@ -129,10 +143,6 @@ func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident IncidentMe
 			LatestChangeSetCreatedAt: state.LatestChangeSetCreatedAt,
 		},
 	}, nil
-}
-
-func collectReportingExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
-	return defaultReportingExportMaterializer().CollectFieldsTx(ctx, tx, incidentID)
 }
 
 func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {

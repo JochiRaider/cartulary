@@ -61,7 +61,7 @@ func CurrentRecoveryStateContributions() []recoverystate.Contribution {
 		reporting.RecoveryStateContribution(),
 		revisions.RecoveryStateContribution(),
 		savedviews.RecoveryStateContribution(),
-		tasksdecisions.RecoveryStateContribution(),
+		tasksdecisions.NewRecoveryContribution(),
 		timeline.RecoveryStateContribution(),
 	}
 }

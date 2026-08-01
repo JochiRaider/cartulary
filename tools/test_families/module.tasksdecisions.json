@@ -60,13 +60,95 @@
       "status": "active"
     },
     {
+      "row_id": "module.tasksdecisions.import_create.owner_reference_contract_and_atomicity",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.import_create",
+      "collaborator_ids": [
+        "module.imports"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/importassembly",
+        "tests": [
+          "TestTasksDecisionsImportMembershipAndAuthorizationRaces",
+          "TestTasksDecisionsImportOwnerReferenceMatrix",
+          "TestTasksDecisionsImportReplayAndAtomicity"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.tasksdecisions.incident_portability.source_port_invariants_and_atomicity",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.incident_portability",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestIncidentBundleTasksDecisionsCoordinatorRejectsWithoutPartialPublication",
+          "TestIncidentBundleTasksDecisionsDiagnosticsAreSafe",
+          "TestIncidentBundleTasksDecisionsFailureSelectionIsOrderIndependent",
+          "TestIncidentBundleTasksDecisionsRejectsDependentFieldsIllegal",
+          "TestIncidentBundleTasksDecisionsRejectsEnvelopeTypeScope",
+          "TestIncidentBundleTasksDecisionsRejectsLifecycleIllegal",
+          "TestIncidentBundleTasksDecisionsRejectsReferencesOutsideIncident",
+          "TestIncidentBundleTasksDecisionsRoundTrip"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.tasksdecisions.rollback_provider.source_policy_null_and_owner_validation",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.rollback_provider",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions/rollbackprovider",
+        "tests": [
+          "TestProvidersRejectInvalidOwnerValues",
+          "TestTaskSourcePreservesNullAndExcludesCollections"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.tasksdecisions.store.task_requests_and_decisions_persist_as_workbook_a08a0c4c47",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.store",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.tasksdecisions.verification.behavior_contract",
-        "module.tasksdecisions.verification.incident_portability"
+        "module.tasksdecisions.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {

@@ -20,7 +20,10 @@ func NewMutationStore(
 	return workbook.NewStore(workbook.StoreDependencies{
 		RecordTargets:       records.NewRouteTargetResolver(pool),
 		ContextualNoteOwner: artifacts.NewContextualNoteFacade(pool, appender),
-		SupersedeOwner:      tasksdecisions.NewSupersedeFacade(pool, appender),
+		SupersedeOwner: tasksdecisions.NewSupersedeFacade(
+			pool,
+			newTaskDecisionMutationCapabilities(pool, appender),
+		),
 		ContributionCatalog: contributionCatalog,
 	})
 }
