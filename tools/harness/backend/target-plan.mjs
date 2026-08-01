@@ -15,16 +15,14 @@ const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const executionTargetsCache = new Map();
 const targetPlanRowsCache = new Map();
-const fixturePolicyByProfile = Object.freeze({
-  none: "",
-  object_store_isolated: "",
-  postgres_group_clone: "group_clone",
-  postgres_migration_scratch: "migration_scratch",
-  postgres_package_reset: "package_reset",
-  postgres_template_clone: "template_clone",
-  postgres_transaction: "transaction",
-  service_stack: "",
-});
+const postgresFixturePolicies = new Set([
+  "none",
+  "transaction",
+  "package_reset",
+  "group_clone",
+  "template_clone",
+  "migration_scratch",
+]);
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -82,6 +80,57 @@ function profileByID(catalog, kind, profileID) {
   return profile;
 }
 
+function postgresFixturePolicyForProfile(profile) {
+  const policy = profile?.postgres_policy;
+  if (!postgresFixturePolicies.has(policy)) {
+    throw new Error(`fixture profile ${profile?.id ?? "<unknown>"} has unsupported postgres_policy`);
+  }
+  return policy === "none" ? "" : policy;
+}
+
+export function goFixtureEnvironmentForCatalogRows(root, rows) {
+  const catalog = loadTestCatalog(root);
+  const normalizedRows = rows.map((row) => {
+    const fixtureProfile = profileByID(
+      catalog,
+      "fixture_profiles",
+      row.fixture_profile_id,
+    );
+    return {
+      coverage: "authoritative",
+      symbols: [...(row.selector?.tests ?? [])],
+      fixture_policy: {
+        postgres: postgresFixturePolicyForProfile(fixtureProfile),
+      },
+      fixture_budget: {
+        postgres:
+          fixtureProfile.fixture_kind === "postgres"
+            ? { ...fixtureProfile.budget }
+            : {},
+      },
+    };
+  });
+  return {
+    CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS: fixturePolicyAssignments(
+      normalizedRows,
+      "tests",
+    ).join(","),
+    CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES: fixturePolicyAssignments(
+      normalizedRows,
+      "packages",
+    ).join(","),
+    CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT: "",
+    CARTULARY_POSTGRES_RESET_TABLES_TESTS: resetTableAssignments(
+      normalizedRows,
+      "tests",
+    ).join(","),
+    CARTULARY_POSTGRES_RESET_TABLES_PACKAGES: resetTableAssignments(
+      normalizedRows,
+      "packages",
+    ).join(","),
+  };
+}
+
 function catalogRow(config, catalog, row) {
   const target = targetForCatalogRow(row);
   const descriptor = config.byName.get(target);
@@ -97,10 +146,7 @@ function catalogRow(config, catalog, row) {
   const fixtureProfile = profileByID(catalog, "fixture_profiles", row.fixture_profile_id);
   const resourceProfile = profileByID(catalog, "resource_profiles", row.resource_profile_id);
   const supportOnly = target === "backend-integration-support";
-  const fixturePolicy = fixturePolicyByProfile[row.fixture_profile_id];
-  if (fixturePolicy === undefined) {
-    throw new Error(`catalog Go row ${row.row_id} has unsupported fixture profile ${row.fixture_profile_id}`);
-  }
+  const fixturePolicy = postgresFixturePolicyForProfile(fixtureProfile);
   return {
     ...rowBase(descriptor),
     id: row.row_id,

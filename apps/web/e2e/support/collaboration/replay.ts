@@ -3,6 +3,7 @@ import {
   cellPresenceMarkerTestId,
   conflictMarkerTestId,
   currentIncidentRoleTestId,
+  gridRowTestId,
   gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
@@ -182,17 +183,53 @@ export async function editTimelineSummary(
   await input.fill(value);
   await input.press("Enter");
   if (options.expectValueAfterCommit === false) return;
-  const currentValue = input.or(display).first();
-  await expect
-    .poll(() =>
-      currentValue.evaluate((element) =>
-        element instanceof HTMLInputElement ||
-        element instanceof HTMLTextAreaElement
-          ? element.value
-          : element.textContent?.trim(),
+  await expect.poll(() => currentTimelineSummary(page, recordId)).toBe(value);
+}
+
+async function mountedTimelineRecordIDs(page: Page) {
+  return page
+    .getByTestId(gridShellTestId(timelineViewSchemaId))
+    .locator('[role="row"][data-grid-record-id]')
+    .evaluateAll((rows) =>
+      rows.map(
+        (candidate) => candidate.getAttribute("data-grid-record-id") ?? "",
       ),
-    )
-    .toBe(value);
+    );
+}
+
+export async function currentTimelineSummary(page: Page, recordId: string) {
+  const row = page.getByTestId(gridRowTestId(timelineViewSchemaId, recordId));
+  if ((await row.count()) !== 1 || !(await row.isVisible())) {
+    const mountedRecordIDs = await mountedTimelineRecordIDs(page);
+    throw new Error(
+      `timeline row ${recordId} is not uniquely visible; mounted record IDs: ${mountedRecordIDs.join(",")}`,
+    );
+  }
+  const editor = row.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+      surface: "grid",
+    }),
+  );
+  if ((await editor.count()) === 1 && (await editor.isVisible())) {
+    return editor.evaluate((element) =>
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement
+        ? element.value
+        : element.textContent?.trim(),
+    );
+  }
+  const display = row.getByTestId(
+    rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+  );
+  if ((await display.count()) !== 1 || !(await display.isVisible())) {
+    const mountedRecordIDs = await mountedTimelineRecordIDs(page);
+    throw new Error(
+      `timeline row ${recordId} has no visible summary editor or display; mounted record IDs: ${mountedRecordIDs.join(",")}`,
+    );
+  }
+  return display.evaluate((element) => element.textContent?.trim());
 }
 
 async function queueTimelineSummary(
@@ -222,17 +259,7 @@ async function queueTimelineSummary(
   await input.evaluate((element) => {
     if (element instanceof HTMLElement) element.blur();
   });
-  const currentValue = input.or(display).first();
-  await expect
-    .poll(() =>
-      currentValue.evaluate((element) =>
-        element instanceof HTMLInputElement ||
-        element instanceof HTMLTextAreaElement
-          ? element.value
-          : element.textContent?.trim(),
-      ),
-    )
-    .toBe(value);
+  await expect.poll(() => currentTimelineSummary(page, recordId)).toBe(value);
 }
 
 export async function patchTimelineField(

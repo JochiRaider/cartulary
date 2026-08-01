@@ -221,6 +221,12 @@ specification-trace, or specification-status field. Specification completeness
 is assessed against the adopted owner by human review, not inferred from
 routing counts.
 
+Catalog owner, family, row, selector, and runner totals are derived diagnostics.
+They MUST reconcile with the active registries and row partitions, but an exact
+repository-wide total MUST NOT be separately authored as an acceptance value.
+Catalog closure is established by resolved references, unique identities and
+selectors, owner and runner partition reconciliation, and semantic digests.
+
 An active test owner registry row MUST contain `owner_id`, `manifest_path`, and
 `status="active"`; it MAY contain display metadata. A verification registry
 owner row contains only `owner_id` and `contract_path`. Each path MUST be a
@@ -281,7 +287,13 @@ The current runtime profiles are:
 | `default` | yes | Ordinary unclaimed isolated test-service/browser configuration. |
 | `network_flow_claimed` | yes | Network Flow claimed startup configuration with its separately owned key-ring and secret-handling rules. |
 
-The current resource profiles are `none`, `go_balanced`, `go_cpu_heavy`, `go_io_heavy`, `go_transaction_heavy`, `go_reset_heavy`, `go_clone_heavy`, and `browser_exclusive`. The current fixture profiles are `none`, `postgres_transaction`, `postgres_package_reset`, `postgres_group_clone`, `postgres_template_clone`, `postgres_migration_scratch`, `object_store_isolated`, and `service_stack`. Each profile's exact claims, budgets, and compatibility keys MUST be present in the authored topology; omission has no implicit fallback except the explicit `none` profile.
+The current resource profiles are `none`, `go_balanced`, `go_cpu_heavy`, `go_io_heavy`, `go_transaction_heavy`, `go_reset_heavy`, `go_clone_heavy`, and `browser_exclusive`. The current fixture profiles are `none`, `postgres_transaction`, `postgres_package_reset`, `postgres_group_clone`, `postgres_template_clone`, `postgres_migration_scratch`, `object_store_isolated`, and `service_stack`. Each profile's exact claims, budgets, compatibility keys, and `postgres_policy` MUST be present in the authored topology; omission has no implicit fallback. `postgres_policy` is one of `none`, `transaction`, `package_reset`, `group_clone`, `template_clone`, or `migration_scratch`; non-Postgres profiles use explicit `none`.
+
+Direct target execution, exact-row owner slices, service-backed owner slices,
+and broad scheduler execution MUST derive the same exact-test and package
+Postgres fixture-policy environment from those profiles. A focused execution
+path MUST NOT omit, infer, weaken, or replace the selected row's fixture policy.
+Manifest/call-site mismatch remains a fail-closed harness error.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-065
 
 ### 3.5 Browser runtime profiles
@@ -573,6 +585,16 @@ Verified by: TH-HARNESS-AC-039
 Harness implementation code MUST import declared owner facades rather than arbitrary private backend or frontend helper paths once the facade for that behavior exists. The harness import-boundary check MUST reject new non-owner imports from private implementation helpers and private catch-all imports where an owner facade is declared.
 
 Tests MAY import private implementation fixtures only from declared test-support paths. Generated files MAY mirror declared owner paths but MUST NOT independently widen import allowances. Non-owner harness code MUST NOT import private browser implementation helpers directly once a browser owner facade exists; scheduler code MUST use the scheduler browser adapter instead of direct browser helper imports. Import-boundary failures are harness failures, not product failures.
+
+`tools/backend_module_boundaries.json` MUST validate as
+`cartulary.backend_module_boundaries.v2`. Every forbidden-import rule MUST
+declare `match_kind` as exactly `exact` or `subtree`. `exact` matches only the
+named import path. `subtree` matches the named import path and paths below it
+on a package-segment boundary. The checker MUST NOT infer prefix semantics
+from the spelling of a path. Diagnostics MUST identify the rule, match kind,
+importer, and candidate import. Non-current boundary schemas and rules without
+`match_kind` are unsupported. Source-table access policy remains file-exact;
+directory expansion is not an accepted migration.
 
 Verified by: TH-HARNESS-AC-038, TH-HARNESS-AC-039
 
@@ -1034,6 +1056,14 @@ Verified by: TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-665**
 Browser E2E helpers that perform a mutating UI action and then drive another action that depends on the committed result MUST wait for the server success response and for the rendered workbook projection to converge on the response's stable source-record identity before continuing. When the response supplies `source_record.row_version`, convergence MUST require the rendered source row to reach at least that version; a concurrent accepted version above the response version satisfies the floor, while a stale lower version does not. When the dependent action relies on optimistic concurrency, convergence MUST include the returned `row_version` rendered under the stable row identifier. A visible global save-state label such as `Saved` MAY be asserted after convergence, but it MUST NOT be the only completion predicate for a dependent mutation sequence.
+
+A post-mutation value assertion in a refreshable or virtualized grid MUST root
+each polling attempt at exactly one visible row selected by stable `record_id`,
+then locate the editor or display field within that row. It MUST reacquire the
+row and descendant after render-sensitive refreshes and MUST NOT choose an
+editor by active-element state, DOM order, or a cross-row locator union.
+Diagnostics MUST identify the expected and mounted record IDs without including
+record payload values.
 
 A helper that validates post-mutation focus or viewport continuity MUST be observation-only after the mutating action: it MUST NOT focus, scroll, click, press a key, or dispatch an input event to manufacture the postcondition it is measuring. Setup-time navigation and scrolling before the action remain allowed. A later passing invocation is distinct evidence and MUST NOT retry, replace, or reclassify an earlier product assertion failure.
 
@@ -1970,6 +2000,22 @@ Nested scheduler targets MUST expose their scheduler artifacts under their own t
 
 In the current profile, `pressure-summary.json` is a required retained diagnostic artifact with schema-owned field closure. It MUST be a JSON object that validates against `cartulary.scheduler_pressure_summary.v4` before scheduler target success. Older pressure-summary schema IDs are unsupported; diagnostics MAY report their paths as `unsupported_schema` but MUST NOT interpret them as current evidence. Current-profile scheduler work reuse is not adopted: `reused_accounting_counts.reused` MUST be `0`, and the scheduler MUST emit truthful nonnegative `executed` and `skipped` counts where those values are derivable from scheduler records. `readiness_attribution_counts`, `readiness_attribution_duration_ms`, and `readiness_attribution_units` MUST be derived only from scheduler-readable `work_units[].readiness_attribution` metadata. Empty readiness attribution means the selected schedule contains no readiness source metadata to attribute, not that readiness was free. The schema validates harness diagnostics only; the artifact MUST NOT be cited as product-conformance or Core 05 claim-publication evidence.
 
+Readiness policy for generated Make-target work MUST be authored on the
+matching scheduler target in `tools/execution_topology_manifest.json` as
+`timing_role`, `readiness_class`, `warm_threshold_ms`, and a nonempty reason.
+The generator MUST carry those fields unchanged into scheduler work-unit
+metadata and pressure summaries. Scheduler generation, reporters, and timing
+diagnostics MUST NOT maintain target-name attribution maps or infer readiness
+from event names. Timing-drift diagnostics require a present, schema-valid
+`cartulary.scheduler_pressure_summary.v4`; a missing, malformed, or obsolete
+summary is an artifact failure and has no event-name fallback.
+
+The generated service-backed schedule-source projection is
+`cartulary.service_backed_schedule_sources.v2`. It carries the same authored
+readiness attribution for direct Make targets and runtime-binary producer
+targets so service-backed and check expansion remain self-contained. The v1
+projection and readers that infer readiness by target name are unsupported.
+
 | Field | Required type | Meaning | Omission/null rule |
 | --- | --- | --- | --- |
 | `schema_id` | string | Schema-owned producer marker; value is `cartulary.scheduler_pressure_summary.v4`. | MUST be present and non-null. |
@@ -2064,12 +2110,12 @@ Verified by: TH-HARNESS-AC-019
 
 | Action ID | Requires `RESULTS_DIR` | Mutating | Cache eligible | Input profile ID | Action contract version | Required behavior | Allowed output |
 | --- | ---: | ---: | ---: | --- | --- | --- | --- |
-| `scheduler_drift_validation` | yes | no | yes | `agent_finalize.scheduler_drift_validation.v1` | `v1` | Validate scheduler event ordering and warm-check timing health against the retained run before retained-run mutations are allowed. | Finalizer summary and child summaries. |
-| `generated_structure_refresh` | no | yes | yes | `agent_finalize.generated_structure_refresh.v2` | `v2` | Refresh catalog-derived topology and schedules, then verify no unsupported drift remains. | Finalizer summary, child summaries, updated-file list. |
-| `schema_shape_validation` | no | no | yes | `agent_finalize.schema_shape_validation.v1` | `v1` | Validate harness-owned JSON shape and schema attachments needed by the finalizer path. | Finalizer summary and child summaries. |
-| `duration_baseline_refresh` | yes | yes | yes | `agent_finalize.duration_baseline_refresh.v3` | `v3` | Refresh only advisory harness duration-baseline artifacts from a successful, uncontaminated retained run. | Finalizer summary, child summaries, updated-file list. |
-| `duration_baseline_coverage` | no | no | yes | `agent_finalize.duration_baseline_coverage.v1` | `v1` | Verify that required advisory duration-baseline entries exist or are explicitly defaulted. | Finalizer summary and child summaries. |
-| `duration_baseline_drift_validation` | yes | no | yes | `agent_finalize.duration_baseline_drift_validation.v2` | `v2` | Validate advisory duration-baseline freshness against the retained run without promoting the baselines to benchmark claims or product performance conformance evidence. | Finalizer summary and child summaries. |
+| `scheduler_drift_validation` | yes | no | yes | `agent_finalize.scheduler_drift_validation.v2` | `v2` | Validate scheduler event ordering and warm-check timing health against the retained run before retained-run mutations are allowed. | Finalizer summary and child summaries. |
+| `generated_structure_refresh` | no | yes | yes | `agent_finalize.generated_structure_refresh.v3` | `v3` | Refresh catalog-derived topology and schedules, then verify no unsupported drift remains. | Finalizer summary, child summaries, updated-file list. |
+| `schema_shape_validation` | no | no | yes | `agent_finalize.schema_shape_validation.v2` | `v2` | Validate harness-owned JSON shape, schema attachments, and catalog closure needed by the finalizer path. | Finalizer summary and child summaries. |
+| `duration_baseline_refresh` | yes | yes | yes | `agent_finalize.duration_baseline_refresh.v4` | `v4` | Refresh only advisory harness duration-baseline artifacts from a successful, uncontaminated retained run. | Finalizer summary, child summaries, updated-file list. |
+| `duration_baseline_coverage` | no | no | yes | `agent_finalize.duration_baseline_coverage.v2` | `v2` | Verify that required advisory duration-baseline entries exist or are explicitly defaulted. | Finalizer summary and child summaries. |
+| `duration_baseline_drift_validation` | yes | no | yes | `agent_finalize.duration_baseline_drift_validation.v3` | `v3` | Validate advisory duration-baseline freshness and exact retained-run closure without promoting the baselines to benchmark claims or product performance conformance evidence. | Finalizer summary and child summaries. |
 
 The implementation MAY realize an action by invoking one or more Make targets or scripts. Child target names are not part of the `agent-finalize` public contract unless this NLSpec explicitly promotes them.
 Verified by: TH-HARNESS-AC-019, TH-HARNESS-AC-020
@@ -2088,7 +2134,20 @@ After retained-run preflight succeeds, the finalizer MUST freeze the accepted pr
 
 When `agent-finalize/finalize-summary.json` records a normalized child failure, the enclosing shell step and public target summaries MUST promote that failure class, reason, headline, and child target. The generic nonzero shell wrapper failure MUST NOT outrank or duplicate the normalized finalizer failure as `unknown_failure`; raw wrapper stdout and stderr remain retained log artifacts.
 
-For retained finalization, `duration_baseline_refresh` MUST complete before `generated_structure_refresh`. The baseline action MUST own only the four advisory baseline writers; it MUST NOT invoke generation or generated drift or claim generated topology/schedule outputs in its action-cache boundary. `generated_structure_refresh` MUST then invoke `generate` and `generate-drift` exactly once against the stabilized baseline bytes. A retained finalizer MUST NOT invoke the same public child target twice in one prepared run identity across an intentional tracked-source mutation.
+Without `RESULTS_DIR`, finalization MUST execute `schema_shape_validation`,
+`duration_baseline_coverage`, and `generated_structure_refresh` in that order;
+retained-only actions remain present and explicitly not selected. For retained
+finalization, scheduler/preflight validation MUST run first, followed by
+`schema_shape_validation`, pre-refresh `duration_baseline_coverage`,
+`duration_baseline_refresh`, `generated_structure_refresh`, and
+`duration_baseline_drift_validation`. The baseline action MUST own only the four
+advisory baseline writers; it MUST NOT invoke generation or generated drift or
+claim generated topology/schedule outputs in its action-cache boundary.
+`generated_structure_refresh` MUST invoke `generate` and `generate-drift`
+exactly once against stabilized baseline bytes. The final drift action MUST
+reject any subject selected by the retained run that remains defaulted. A
+retained finalizer MUST NOT invoke the same public child target twice in one
+prepared run identity across an intentional tracked-source mutation.
 Verified by: TH-HARNESS-AC-019
 
 Duration-baseline refreshes remain advisory harness planning data and MUST NOT become benchmark claims or product performance conformance evidence. Browser entry baselines MUST use semantic catalog row IDs, and scheduler work-unit baselines MUST use current generated work-unit IDs. Phase-keyed, `E-*`, and `FE-*` duration identities are unsupported. A baseline refresh MUST consume only compatible successful owner and scheduler evidence; obsolete entries MUST be removed or ignored rather than carried forward by compatibility translation.
@@ -2388,7 +2447,7 @@ whose selected closure remains attributable to that row.
 | `work_units[].make_prerequisite_policy` | enum `run` or `skip` | required for `make_target` | none | Controls whether scheduler-owned `make_target` execution runs or suppresses the target's recursive Make prerequisites; omitted policy is invalid. |
 | `work_units[].resource_claims`     | object               |      yes | `{}`                         | Logical claims only.                                        |
 | `work_units[].env`                 | object               |       no | `{}`                         | Scheduler-owned child environment values; MUST NOT override scheduler-owned harness identity variables. |
-| `work_units[].readiness_attribution` | object             |       no | none                         | Scheduler-readable readiness/provisioning attribution metadata. When present it MUST declare `timing_role`, `readiness_class`, `warm_threshold_ms`, and `reason`; producers MUST NOT infer readiness attribution from work-unit names. |
+| `work_units[].readiness_attribution` | object             |       no | none                         | Scheduler-readable readiness/provisioning attribution metadata projected from the authored execution-topology target. When present it MUST declare `timing_role`, `readiness_class`, `warm_threshold_ms`, and `reason`; generators and consumers MUST NOT infer readiness attribution from work-unit names. |
 | `work_units[].browser_session_group` | string             |       no | stage target                  | Browser stack/session identity shared by compatible browser work units. |
 | `work_units[].browser_session_isolation_reason` | string |       no | none                          | Required explanation when authored browser topology deliberately separates otherwise compatible work. |
 | `work_units[].browser_session_finalizer` | boolean        |       no | `true`                        | Whether a browser stage completion unit stops its session. Shared projection sessions MUST use a separate `browser_session_finalizer` work unit instead of coupling one target's summary to all groups. |
@@ -3310,7 +3369,16 @@ Startup retry windows and readiness deadlines are separate. If a Postgres or obj
 
 Duration baselines are advisory scheduler planning data only. They MUST NOT become benchmark claims, product performance conformance, timeout policy, or evidence that product behavior is fast enough.
 
-Baseline values MUST be positive integer `weight_ms` values derived only from successful, uncontaminated retained runs. Missing entries MUST use explicit default weights and MUST be reported as defaulted, not silently ignored.
+Subject-specific baseline values MUST be positive integer `weight_ms` values
+derived only from successful, uncontaminated retained runs. The current Go
+baseline schema is `cartulary.go_test_duration_baselines.v5` and declares the
+conservative defaults `default_item_weight_ms=10000`,
+`default_package_overhead_ms=100`, and
+`default_command_overhead_ms=70000`. Missing test, package-overhead, or
+command-overhead entries MUST use the matching explicit default and MUST be
+reported as `defaulted`, not silently ignored or rejected by ordinary local
+correctness gates. Raw package aggregates have no inferred fallback and remain
+required by raw-package coverage.
 
 Baseline refresh MUST reject contaminated evidence, including failed scheduler runs, service startup retries, service failures, reset taint, missing timing events, or interrupted runs.
 
@@ -3320,7 +3388,7 @@ Mutating `browser-e2e-duration-baselines` refresh MUST require an explicit, exis
 
 Raw Go duration baselines for package-level harness suites MUST be stored and checked by raw package baseline key. Current shard planning, coverage, and drift validation MUST NOT use an aggregate raw-suite duration as a fallback for missing package baselines, and current shard plans MUST NOT emit legacy aggregate baseline keys.
 
-`agent-finalize RESULTS_DIR=<dir>` MUST perform retained-run validation before any duration-baseline refresh action mutates committed baseline artifacts. That validation MUST reject failed, incomplete, contaminated, or non-warm retained evidence before the first mutating refresh substep starts.
+`agent-finalize RESULTS_DIR=<dir>` MUST perform retained-run validation before any duration-baseline refresh action mutates committed baseline artifacts. That validation MUST reject failed, incomplete, contaminated, or non-warm retained evidence before the first mutating refresh substep starts. Refresh MUST replace every defaulted test, package-overhead, and command-overhead subject selected by the retained run with exact measured evidence, and final retained drift/closure MUST fail if any such selected subject remains defaulted.
 
 Duration-baseline drift checks MAY fail only for severe stale planning. Compact drift diagnostics MUST include `subject`, `planned_ms`, `actual_ms`, `ratio`, and `kind`.
 
@@ -3957,6 +4025,25 @@ Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 **TH-HARNESS-REQ-603**
 Retained run roots and target artifact directories MUST be created with owner-only permissions on POSIX conformance hosts unless the caller explicitly supplied a custom result root whose permissions cannot be narrowed without changing ownership. Required summary artifacts and retained logs MUST be written with owner-read/write permissions. A custom result root that is world-writable without the sticky bit, or that cannot protect newly created files from other users on the host, MUST fail preflight with `configuration_error`.
+
+Ephemeral browser state that contains credentials or authentication secrets
+MUST be published through one private-state primitive. The producer MUST
+serialize the complete value before opening a unique sibling temporary file,
+create that file exclusively with owner-read/write permissions, write and
+flush the complete bytes, close it, and atomically rename it over the
+destination. Publication failure MUST remove the temporary file and preserve
+the previously published value. Readers therefore observe a complete old or
+complete new value, never a truncated intermediate value.
+
+The worker-admin manifest schema is
+`cartulary.playwright_worker_admin_manifest.v1`. It is a closed object with
+exact fields `schema_id` and `worker_admins`; every entry is a closed object
+with a nonnegative integer `parallel_index` and nonempty string `user_id`,
+`email`, and `password`. Parallel indexes, user IDs, and emails MUST each be
+unique. A present invalid, malformed, or unsupported manifest fails closed.
+Diagnostics MUST NOT include passwords, shared TOTP values, or other secret
+contents. The worker-admin manifest and shared TOTP state are ephemeral and
+have no legacy reader or persistent migration.
 Verified by: TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015
 
 Screenshots, videos, traces, visual geometry diagnostics, and Playwright HTML reports are diagnostic secret-bearing artifacts. They MUST NOT be described as safe to upload or publish without separate review. Browser visual targets MAY retain compact geometry diagnostics for workbook screenshot failures, including scroll metrics, visible field keys, required element rectangles, active element identity, and inspector state. Those diagnostics are harness mechanics only; they MUST NOT define product UI behavior or supplement the bounded visual-snapshot refresh authority in TH-HARNESS-REQ-255.

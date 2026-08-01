@@ -13,6 +13,7 @@ import {
 } from "../../generated-artifacts/contracts/index.mjs";
 import { normalizeRuntimeBinaryEntries } from "../../runtime-binary-registry.mjs";
 import { requireSchedulerCapacityProfileForFamily } from "../../scheduler/scheduler-family-contract.mjs";
+import { normalizeReadinessAttribution } from "../../scheduler/scheduler-manifest.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const serviceScheduleKeys = new Set(["schema_id", "generated", "schedules"]);
@@ -37,6 +38,8 @@ const serviceSourceKeys = new Set([
   "default_check_required",
   "runtime_binary_records",
   "runtime_binaries",
+  "runtime_readiness_attribution",
+  "readiness_attribution",
   "browser_stage",
   "browser_session_group",
   "browser_session_isolation_reason",
@@ -183,6 +186,27 @@ export function validateServiceBackedScheduleManifestShape(
             requireStringArray(source.runtime_binaries, `${sourceLabel}.runtime_binaries`, {
               nonEmpty: true,
             });
+          }
+          if (source.readiness_attribution !== undefined) {
+            normalizeReadinessAttribution(
+              source.readiness_attribution,
+              `${sourceLabel}.readiness_attribution`,
+            );
+          }
+          if (source.runtime_readiness_attribution !== undefined) {
+            const byTarget = requireObject(
+              source.runtime_readiness_attribution,
+              `${sourceLabel}.runtime_readiness_attribution`,
+            );
+            for (const [target, attribution] of Object.entries(byTarget)) {
+              requireString(target, `${sourceLabel}.runtime_readiness_attribution key`, {
+                pattern: makeTargetPattern,
+              });
+              normalizeReadinessAttribution(
+                attribution,
+                `${sourceLabel}.runtime_readiness_attribution.${target}`,
+              );
+            }
           }
           if (source.type === "browser_stage") {
             if (source.browser_session_group !== undefined) {

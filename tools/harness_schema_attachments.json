@@ -23,6 +23,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.backend_module_boundaries.v2",
+      "path": "tools/schemas/cartulary.backend_module_boundaries.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "backend module boundary owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.browser_group_result.v1",
       "path": "tools/schemas/cartulary.browser_group_result.v1.schema.json",
       "classification": "public_contract",
@@ -174,6 +181,13 @@
       "path": "tools/schemas/cartulary.frontend_visual_fixture_registry.v5.schema.json",
       "classification": "owner_input",
       "producer": "visual fixture owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.go_test_duration_baselines.v5",
+      "path": "tools/schemas/cartulary.go_test_duration_baselines.v5.schema.json",
+      "classification": "owner_input",
+      "producer": "backend duration accounting",
       "validation": "json-shape-check"
     },
     {

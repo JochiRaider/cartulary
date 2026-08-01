@@ -29,6 +29,31 @@
       "status": "active"
     },
     {
+      "row_id": "harness.browser.boundary_support.atomic_private_harness_state_publication_and_val_6e8cd66ca6",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/runtime/privateState.test.ts",
+        "titles": [
+          "atomic private harness state preserves the prior value and removes temporary files after publication failure",
+          "atomic private harness state publishes complete old-or-new contents with owner-only permissions",
+          "atomic private harness state validates worker manifests without exposing secret values"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "harness.browser.boundary_support.cleanup_suite_9036a615b1",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -256,6 +281,31 @@
           "public JSON transport binds relative paths to an explicitly approved request origin",
           "public JSON transport preserves body omission and rejects absolute or protocol-relative paths",
           "public JSON transport preserves non-2xx JSON envelopes, status, and headers"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.record_stable_collaboration_summary_polling_604f761c28",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/collaboration/replay.test.ts",
+        "titles": [
+          "record-stable collaboration summary polling follows the requested row from editor to display and reports mounted identities",
+          "record-stable collaboration summary polling reacquires the requested row after reorder and replacement",
+          "record-stable collaboration summary polling selects the requested editor when neighboring rows also have editors"
         ]
       },
       "evidence_class": "static",

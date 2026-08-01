@@ -78,7 +78,7 @@ write_valid_execution_topology() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.execution_topology.v4",
+  "schema_id": "cartulary.execution_topology.v5",
   "execution_dependencies": [
     {
       "id": "backend_unit",

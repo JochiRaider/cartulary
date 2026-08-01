@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.backend_module_boundaries.v1",
+  "schema_id": "cartulary.backend_module_boundaries.v2",
   "scan_roots": [
     "cmd",
     "db/queries",
@@ -242,6 +242,7 @@
   "forbidden_go_imports": [
     {
       "id": "evidence-no-timeline-implementation",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/timeline"
       ],
@@ -253,6 +254,7 @@
     },
     {
       "id": "evidence-source-kernel-no-consumer-orchestration",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/imports",
@@ -273,6 +275,7 @@
     },
     {
       "id": "evidence-mutation-coordinator-no-consumer-implementation",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/imports",
         "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
@@ -290,6 +293,7 @@
     },
     {
       "id": "evidence-route-no-private-persistence-or-consumer-orchestration",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/imports",
@@ -313,6 +317,7 @@
     },
     {
       "id": "artifact-source-kernel-no-consumer-orchestration",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/imports",
@@ -331,6 +336,7 @@
     },
     {
       "id": "records-no-peer-orchestration",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/auth",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
@@ -345,6 +351,7 @@
     },
     {
       "id": "assessments-no-peer-owner-implementation-imports",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/gen/sql",
         "github.com/JochiRaider/cartulary/internal/modules/auth",
@@ -364,6 +371,7 @@
     },
     {
       "id": "jobs-and-network-flow-use-consumer-owned-collaboration-ports",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/collaboration"
       ],
@@ -376,6 +384,7 @@
     },
     {
       "id": "platform-adapter-construction-no-deployment-config",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/config"
       ],
@@ -391,6 +400,7 @@
     },
     {
       "id": "production-modules-and-http-no-deployment-config",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/config",
         "github.com/JochiRaider/cartulary/internal/platform/rootedfs",
@@ -405,6 +415,7 @@
     },
     {
       "id": "extensions-no-transport-auth-or-platform-storage",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/gen/sql",
         "github.com/JochiRaider/cartulary/internal/platform/authn",
@@ -420,6 +431,7 @@
     },
     {
       "id": "generic-platform-no-extension-profile-implementations",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/auth",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
@@ -437,6 +449,7 @@
     },
     {
       "id": "collaboration-semantics-no-platform-ws-or-third-party-transport",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/ws",
         "github.com/coder/websocket"
@@ -449,6 +462,7 @@
     },
     {
       "id": "extensions-owner-no-concrete-profile-implementations",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/auth",
         "github.com/JochiRaider/cartulary/internal/modules/imports",
@@ -464,6 +478,7 @@
     },
     {
       "id": "shared-extension-protocols-no-profile-owner-imports",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/networkflow"
       ],
@@ -478,6 +493,7 @@
     },
     {
       "id": "extension-semantic-ports-no-platform-storage",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/gen/sql",
         "github.com/JochiRaider/cartulary/internal/platform/extensionstore",
@@ -493,6 +509,7 @@
     },
     {
       "id": "workbook-no-storage-construction",
+      "match_kind": "subtree",
       "imports": [
         "database/sql",
         "github.com/JochiRaider/cartulary/internal/gen/sql",
@@ -505,6 +522,7 @@
     },
     {
       "id": "incidents-no-workbook-startup-or-platform-ws",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/modules/workbook/startup",
         "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -515,6 +533,7 @@
     },
     {
       "id": "timeline-no-tabular-parser-implementations",
+      "match_kind": "subtree",
       "imports": [
         "archive/zip",
         "encoding/xml",
@@ -527,6 +546,7 @@
     },
     {
       "id": "production-server-no-harness-contributors",
+      "match_kind": "subtree",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/platform/harnessruntime",
         "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"

@@ -3,23 +3,12 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { collectGoShardPlan } from "../backend/backend-shard-plan.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
 import { validateSchedulerSummaryTiming } from "../scheduler/scheduler/summary-timing-drift.mjs";
 
 const warmBalanceMaterialSkewMs = 5000;
 const warmPackageResetCountBudget = 30;
 const warmPackageResetDurationBudgetMs = 60000;
-const warmReadinessThresholds = new Map([
-  ["codegen-toolchain", 10000],
-  ["go-lint-toolchain", 10000],
-  ["govulncheck-toolchain", 10000],
-  ["gosec-toolchain", 10000],
-  ["shell-lint-toolchain", 10000],
-  ["check-frontend-install", 30000],
-  ["build-server", 15000],
-  ["build-migrate", 15000],
-  ["testservices-build", 15000],
-  ["test-service-images", 15000],
-]);
 
 function usage() {
   process.stderr.write(
@@ -167,31 +156,22 @@ function cacheOutcome(record) {
   return extension?.cache_outcome ?? "";
 }
 
-function validateWarmReadinessDurations(eventsFile, events, errors) {
-  for (const event of events) {
-    if (event.event !== "finish" || typeof event.work_unit_id !== "string") {
-      continue;
-    }
-    const thresholdMs = warmReadinessThresholds.get(event.work_unit_id);
-    if (!thresholdMs) {
-      continue;
-    }
-    const durationMs = nonNegativeInteger(event.duration_ms);
-    if (durationMs === null) {
-      errors.push(`${eventsFile}: warm readiness unit ${event.work_unit_id} is missing duration_ms`);
-      continue;
-    }
-    if (durationMs > thresholdMs) {
-      errors.push(
-        `${eventsFile}: warm readiness unit ${event.work_unit_id} duration ${durationMs}ms exceeds warm threshold ${thresholdMs}ms`,
-      );
-    }
+function validateReadinessAttribution(pressureSummaryFile, pressureSummary, errors) {
+  if (pressureSummary === null) {
+    errors.push(`${pressureSummaryFile}: missing required scheduler pressure summary`);
+    return;
   }
-}
-
-function validateWarmReadinessAttribution(pressureSummaryFile, pressureSummary, errors) {
-  if (pressureSummary?.schema_id !== "cartulary.scheduler_pressure_summary.v4") {
-    return false;
+  if (pressureSummary.schema_id !== "cartulary.scheduler_pressure_summary.v4") {
+    errors.push(
+      `${pressureSummaryFile}: unsupported scheduler pressure summary schema ${pressureSummary.schema_id ?? "<missing>"}`,
+    );
+    return;
+  }
+  try {
+    validateSchemaSync("cartulary.scheduler_pressure_summary.v4", pressureSummary);
+  } catch (error) {
+    errors.push(`${pressureSummaryFile}: invalid scheduler pressure summary: ${error.message}`);
+    return;
   }
   const units = Array.isArray(pressureSummary.readiness_attribution_units)
     ? pressureSummary.readiness_attribution_units
@@ -214,7 +194,6 @@ function validateWarmReadinessAttribution(pressureSummaryFile, pressureSummary, 
       );
     }
   }
-  return true;
 }
 
 function validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors) {
@@ -298,16 +277,11 @@ function validateWarmCheckStream(eventsFile, options) {
   const events = readEvents(eventsFile);
   const schedulerSummaryFile = path.join(targetDir, "scheduler-summary.json");
   const schedulerSummary = existsSync(schedulerSummaryFile) ? readJSON(schedulerSummaryFile) : null;
-  const pressureSummaryFile = path.join(targetDir, "pressure-summary.json");
-  const pressureSummary = existsSync(pressureSummaryFile) ? readJSON(pressureSummaryFile) : null;
   const starts = new Map();
   for (const event of events) {
     if (event.event === "start" && typeof event.work_unit_id === "string") {
       starts.set(event.work_unit_id, event);
     }
-  }
-  if (!validateWarmReadinessAttribution(pressureSummaryFile, pressureSummary, errors)) {
-    validateWarmReadinessDurations(eventsFile, events, errors);
   }
   validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors);
   validateWarmFixtureBudget(runDir, errors);
@@ -421,6 +395,24 @@ const { schedulerEventFiles, errors } = validateSchedulerSummaryTiming(
   options.resultsDir,
   { target: options.target },
 );
+for (const eventsFile of schedulerEventFiles) {
+  const pressureSummaryFile = path.join(
+    path.dirname(eventsFile),
+    "pressure-summary.json",
+  );
+  let pressureSummary = null;
+  if (existsSync(pressureSummaryFile)) {
+    try {
+      pressureSummary = readJSON(pressureSummaryFile);
+    } catch (error) {
+      errors.push(
+        `${pressureSummaryFile}: invalid scheduler pressure summary JSON: ${error.message}`,
+      );
+      continue;
+    }
+  }
+  validateReadinessAttribution(pressureSummaryFile, pressureSummary, errors);
+}
 const warmCheck = validateWarmCheckHealth(schedulerEventFiles, options);
 errors.push(...warmCheck.errors);
 if (schedulerEventFiles.length === 0) {

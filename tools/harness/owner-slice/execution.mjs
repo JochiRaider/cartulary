@@ -8,6 +8,7 @@ import { adaptGoInvocation, buildGoInvocations } from "../execution/runners/go.m
 import { adaptShellInvocation, buildShellInvocations } from "../execution/runners/shell.mjs";
 import { adaptVitestInvocation, buildVitestInvocations } from "../execution/runners/vitest.mjs";
 import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
+import { goFixtureEnvironmentForCatalogRows } from "../backend/backend-target-plan.mjs";
 
 function regexEscape(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -157,6 +158,9 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
         unit.work_unit_id,
       );
       const invocations = invocationsForUnit(root, unit, rows, plan.workers, artifactRoot);
+      const goFixtureEnvironment = unit.runner === "go"
+        ? goFixtureEnvironmentForCatalogRows(root, rows)
+        : {};
       for (const [invocationIndex, rawInvocation] of invocations.entries()) {
         const invocationStarted = process.hrtime.bigint();
         const command = commandWithManagedServices(root, unit, rawInvocation);
@@ -164,6 +168,7 @@ export function executeOwnerSlicePlan(root, plan, options = {}) {
           cwd: root,
           env: {
             ...process.env,
+            ...goFixtureEnvironment,
             CARTULARY_TEST_OWNER: plan.owner_id,
             CARTULARY_TEST_CATALOG_ROW_IDS: unit.row_ids.join(","),
             CARTULARY_TEST_RUN_ID: ownerChildRunID(unit.work_unit_id, invocationIndex),

@@ -34,6 +34,7 @@ import {
   type WorkerAdminBlueprint,
   type WorkerAdminEntry,
   type WorkerAdminManifest,
+  workerAdminManifestSchemaID,
   workerAdminNeedsJanitor,
   writeWorkerAdminManifest,
 } from "./workerAdmin";
@@ -622,7 +623,10 @@ export async function reconcileWorkerAdminManifest(
     });
   }
 
-  return { worker_admins: nextEntries } satisfies WorkerAdminManifest;
+  return {
+    schema_id: workerAdminManifestSchemaID,
+    worker_admins: nextEntries,
+  } satisfies WorkerAdminManifest;
 }
 
 function patchBodyForWorkerAdmin(

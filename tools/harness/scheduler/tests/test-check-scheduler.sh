@@ -1949,6 +1949,31 @@ cat >"${summary_timing_dir}/valid/check/scheduler-summary.json" <<'JSON'
   "critical_path_terminal_unit": null
 }
 JSON
+cat >"${summary_timing_dir}/valid/check/pressure-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_pressure_summary.v4",
+  "target": "check",
+  "scheduler_kind": "check",
+  "status": "pass",
+  "total_work_units": 0,
+  "completed_work_units": 0,
+  "scheduler_total_duration_ms": 120000,
+  "target_counts": {},
+  "lane_duration_ms": {},
+  "resource_claim_counts": {},
+  "fixture_class_counts": {},
+  "row_fixture_pressure": [],
+  "execution_family_fixture_pressure": [],
+  "fixture_proof_records": [],
+  "fixture_tier_proofs": [],
+  "slowest_work_units": [],
+  "reused_accounting_counts": { "executed": 0, "reused": 0, "skipped": 0 },
+  "readiness_attribution_counts": {},
+  "readiness_attribution_duration_ms": {},
+  "readiness_attribution_units": [],
+  "generated_at": "2026-01-01T00:02:00.000Z"
+}
+JSON
 cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
 {
   "schema_id": "cartulary.target_summary.v5",
@@ -1998,6 +2023,7 @@ cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
 JSON
 cp "${summary_timing_dir}/valid/check/scheduler-events.jsonl" "${summary_timing_dir}/stale/check/scheduler-events.jsonl"
 cp "${summary_timing_dir}/valid/check/scheduler-summary.json" "${summary_timing_dir}/stale/check/scheduler-summary.json"
+cp "${summary_timing_dir}/valid/check/pressure-summary.json" "${summary_timing_dir}/stale/check/pressure-summary.json"
 cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir}/stale/check/target-summary.json"
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
 cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
@@ -2186,6 +2212,50 @@ function toolSummary(target, durationMs) {
     critical_path_blockers: [],
     critical_path_terminal_unit: null,
   });
+  const readinessUnits = coldProvisioning
+    ? [{
+        id: "testservices-build",
+        label: "testservices-build",
+        timing_role: "build_artifact",
+        readiness_class: "test_service_binary",
+        duration_ms: 30000,
+        warm_threshold_ms: 15000,
+        warm_status: "over_threshold",
+        reason: "test services binary build artifact readiness",
+      }]
+    : [];
+  const completedWorkUnits = events.filter((event) => event.event === "finish").length;
+  writeJSON(path.join(checkDir, "pressure-summary.json"), {
+    schema_id: "cartulary.scheduler_pressure_summary.v4",
+    target: "check",
+    scheduler_kind: "check",
+    status: "pass",
+    total_work_units: completedWorkUnits,
+    completed_work_units: completedWorkUnits,
+    scheduler_total_duration_ms: serviceMs,
+    target_counts: {},
+    lane_duration_ms: {},
+    resource_claim_counts: {},
+    fixture_class_counts: {},
+    row_fixture_pressure: [],
+    execution_family_fixture_pressure: [],
+    fixture_proof_records: [],
+    fixture_tier_proofs: [],
+    slowest_work_units: [],
+    reused_accounting_counts: {
+      executed: completedWorkUnits,
+      reused: 0,
+      skipped: 0,
+    },
+    readiness_attribution_counts: coldProvisioning
+      ? { test_service_binary: 1 }
+      : {},
+    readiness_attribution_duration_ms: coldProvisioning
+      ? { test_service_binary: 30000 }
+      : {},
+    readiness_attribution_units: readinessUnits,
+    generated_at: emittedAt(serviceMs),
+  });
   writeJSON(path.join(checkDir, "target-summary.json"), baseSummary("check", serviceMs));
   writeJSON(path.join(checkDir, "tool-run-summary.json"), toolSummary("check", serviceMs));
   const runSummary = {
@@ -2224,6 +2294,28 @@ writeWarmRun("fixture-overbudget", { fixtureOverBudget: true });
 writeWarmRun("visual-in-default", { forbiddenVisual: true });
 EOF
 assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
+cp -R "${summary_timing_dir}/warm/valid" "${summary_timing_dir}/warm/missing-pressure"
+rm -f "${summary_timing_dir}/warm/missing-pressure/check/pressure-summary.json"
+set +e
+warm_missing_pressure_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/missing-pressure" 2>&1)"
+warm_missing_pressure_status=$?
+set -e
+assert_equals "$warm_missing_pressure_status" "1" "warm check missing pressure summary status"
+assert_contains "$warm_missing_pressure_output" "missing required scheduler pressure summary" "warm check missing pressure summary output"
+cp -R "${summary_timing_dir}/warm/valid" "${summary_timing_dir}/warm/obsolete-pressure"
+"$NODE_BIN" --input-type=module - "${summary_timing_dir}/warm/obsolete-pressure/check/pressure-summary.json" <<'EOF'
+import { readFileSync, writeFileSync } from "node:fs";
+const [file] = process.argv.slice(2);
+const pressure = JSON.parse(readFileSync(file, "utf8"));
+pressure.schema_id = "cartulary.scheduler_pressure_summary.v3";
+writeFileSync(file, `${JSON.stringify(pressure, null, 2)}\n`);
+EOF
+set +e
+warm_obsolete_pressure_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/obsolete-pressure" 2>&1)"
+warm_obsolete_pressure_status=$?
+set -e
+assert_equals "$warm_obsolete_pressure_status" "1" "warm check obsolete pressure summary status"
+assert_contains "$warm_obsolete_pressure_output" "unsupported scheduler pressure summary schema cartulary.scheduler_pressure_summary.v3" "warm check obsolete pressure summary output"
 set +e
 warm_overbudget_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/overbudget" 2>&1)"
 warm_overbudget_status=$?
@@ -2297,12 +2389,14 @@ cat >"${summary_timing_dir}/critical/linked/check/scheduler-summary.json" <<'JSO
   "critical_path_terminal_unit": { "id": "build", "label": "build", "kind": "work_unit", "aggregate_target": "build", "duration_ms": 70000, "started_monotonic_ms": 50000, "finished_monotonic_ms": 120000, "needs": ["setup"], "completion_keys": ["build"] }
 }
 JSON
+cp "${summary_timing_dir}/valid/check/pressure-summary.json" "${summary_timing_dir}/critical/linked/check/pressure-summary.json"
 cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir}/critical/linked/check/target-summary.json"
 cp "${summary_timing_dir}/valid/check/tool-run-summary.json" "${summary_timing_dir}/critical/linked/check/tool-run-summary.json"
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/critical/linked/run-summary.json"
 cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/critical/linked/tool-run-summary.json"
 cp "${summary_timing_dir}/critical/linked/check/scheduler-events.jsonl" "${summary_timing_dir}/critical/unlinked/check/scheduler-events.jsonl"
 cp "${summary_timing_dir}/critical/linked/check/scheduler-summary.json" "${summary_timing_dir}/critical/unlinked/check/scheduler-summary.json"
+cp "${summary_timing_dir}/critical/linked/check/pressure-summary.json" "${summary_timing_dir}/critical/unlinked/check/pressure-summary.json"
 cp "${summary_timing_dir}/critical/linked/check/target-summary.json" "${summary_timing_dir}/critical/unlinked/check/target-summary.json"
 cp "${summary_timing_dir}/critical/linked/check/tool-run-summary.json" "${summary_timing_dir}/critical/unlinked/check/tool-run-summary.json"
 cp "${summary_timing_dir}/critical/linked/run-summary.json" "${summary_timing_dir}/critical/unlinked/run-summary.json"

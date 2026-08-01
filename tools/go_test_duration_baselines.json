@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
   "note": "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.",
   "default_shard_target_ms": 9000,
   "shard_target_ms_by_target": {
@@ -8,6 +8,8 @@
     "backend-store": 9000
   },
   "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 67406,
     "backend-integration-support": 67258,

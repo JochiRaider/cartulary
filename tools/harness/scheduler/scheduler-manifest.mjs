@@ -115,103 +115,6 @@ const readinessClasses = new Set([
   "service_readiness",
 ]);
 
-const makeTargetReadinessAttribution = Object.freeze({
-  "check-frontend-install": {
-    timing_role: "readiness",
-    readiness_class: "frontend_install",
-    warm_threshold_ms: 30000,
-    reason: "pnpm-managed workspace dependency readiness",
-  },
-  "frontend-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned frontend toolchain readiness",
-  },
-  "codegen-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned code-generation toolchain readiness",
-  },
-  "go-lint-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned Go lint toolchain readiness",
-  },
-  "govulncheck-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned Govulncheck toolchain readiness",
-  },
-  "gosec-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned Gosec toolchain readiness",
-  },
-  "shell-lint-toolchain": {
-    timing_role: "readiness",
-    readiness_class: "toolchain",
-    warm_threshold_ms: 10000,
-    reason: "pinned shell lint toolchain readiness",
-  },
-  "build-server": {
-    timing_role: "build_artifact",
-    readiness_class: "build_artifact",
-    warm_threshold_ms: 15000,
-    reason: "server binary build artifact readiness",
-  },
-  "build-server-harness": {
-    timing_role: "build_artifact",
-    readiness_class: "build_artifact",
-    warm_threshold_ms: 15000,
-    reason: "harness server binary build artifact readiness",
-  },
-  "build-migrate": {
-    timing_role: "build_artifact",
-    readiness_class: "build_artifact",
-    warm_threshold_ms: 15000,
-    reason: "migration binary build artifact readiness",
-  },
-  "build-operator": {
-    timing_role: "build_artifact",
-    readiness_class: "build_artifact",
-    warm_threshold_ms: 15000,
-    reason: "operator binary build artifact readiness",
-  },
-  "build-web": {
-    timing_role: "build_artifact",
-    readiness_class: "build_artifact",
-    warm_threshold_ms: 15000,
-    reason: "web build artifact readiness",
-  },
-  "embedded-web-assets": {
-    timing_role: "build_artifact",
-    readiness_class: "embedded_web_assets",
-    warm_threshold_ms: 15000,
-    reason: "embedded web asset archive readiness",
-  },
-  "testservices-build": {
-    timing_role: "build_artifact",
-    readiness_class: "test_service_binary",
-    warm_threshold_ms: 15000,
-    reason: "test services binary build artifact readiness",
-  },
-  "test-service-images": {
-    timing_role: "readiness",
-    readiness_class: "service_image",
-    warm_threshold_ms: 15000,
-    reason: "test service image warm readiness",
-  },
-});
-
-export function readinessAttributionForMakeTarget(target) {
-  const attribution = makeTargetReadinessAttribution[target];
-  return attribution ? { ...attribution } : null;
-}
 const schedulerCommandShapes = Object.freeze({
   make_target: {
     required: ["target"],
@@ -677,7 +580,7 @@ function normalizeMakePrerequisitePolicy(value, label, commandType) {
   return value;
 }
 
-function normalizeReadinessAttribution(value, label) {
+export function normalizeReadinessAttribution(value, label) {
   if (value === undefined) {
     return null;
   }

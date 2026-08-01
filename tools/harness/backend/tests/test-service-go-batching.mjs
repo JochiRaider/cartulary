@@ -76,10 +76,12 @@ function plan(rows, weights = {}) {
   writeFileSync(
     path.join(root, "tools/go_test_duration_baselines.json"),
     `${JSON.stringify({
-      schema_id: "cartulary.go_test_duration_baselines.v4",
+      schema_id: "cartulary.go_test_duration_baselines.v5",
       default_shard_target_ms: 9_000,
       shard_target_ms_by_target: { "backend-store": 9_000 },
       default_item_weight_ms: 10_000,
+      default_package_overhead_ms: 100,
+      default_command_overhead_ms: 70_000,
       command_overheads_by_target: { "backend-store": 20_000 },
       package_overheads: {},
       fixture_overheads_by_package: {},

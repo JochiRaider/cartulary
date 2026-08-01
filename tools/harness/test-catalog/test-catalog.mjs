@@ -94,14 +94,14 @@ const expectedProfileDefinitions = Object.freeze({
     { id: "none", resource_claims: {} },
   ],
   fixture_profiles: [
-    { id: "none", fixture_kind: "none", isolation_scope: "none", budget: {} },
-    { id: "object_store_isolated", fixture_kind: "object_store", isolation_scope: "row", budget: { max_buckets_or_prefixes: 1 } },
-    { id: "postgres_group_clone", fixture_kind: "postgres", isolation_scope: "execution_group", budget: { max_group_clones: 1 } },
-    { id: "postgres_migration_scratch", fixture_kind: "postgres", isolation_scope: "row", budget: { max_migration_scratch: 2 } },
-    { id: "postgres_package_reset", fixture_kind: "postgres", isolation_scope: "package", budget: { max_resets: 4 } },
-    { id: "postgres_template_clone", fixture_kind: "postgres", isolation_scope: "package", budget: { max_template_clones: 20 } },
-    { id: "postgres_transaction", fixture_kind: "postgres", isolation_scope: "row", budget: { max_transactions: 32 } },
-    { id: "service_stack", fixture_kind: "managed_services", isolation_scope: "execution_group", budget: { max_stacks: 1 } },
+    { id: "none", fixture_kind: "none", isolation_scope: "none", postgres_policy: "none", budget: {} },
+    { id: "object_store_isolated", fixture_kind: "object_store", isolation_scope: "row", postgres_policy: "none", budget: { max_buckets_or_prefixes: 1 } },
+    { id: "postgres_group_clone", fixture_kind: "postgres", isolation_scope: "execution_group", postgres_policy: "group_clone", budget: { max_group_clones: 1 } },
+    { id: "postgres_migration_scratch", fixture_kind: "postgres", isolation_scope: "row", postgres_policy: "migration_scratch", budget: { max_migration_scratch: 2 } },
+    { id: "postgres_package_reset", fixture_kind: "postgres", isolation_scope: "package", postgres_policy: "package_reset", budget: { max_resets: 4 } },
+    { id: "postgres_template_clone", fixture_kind: "postgres", isolation_scope: "package", postgres_policy: "template_clone", budget: { max_template_clones: 20 } },
+    { id: "postgres_transaction", fixture_kind: "postgres", isolation_scope: "row", postgres_policy: "transaction", budget: { max_transactions: 32 } },
+    { id: "service_stack", fixture_kind: "managed_services", isolation_scope: "execution_group", postgres_policy: "none", budget: { max_stacks: 1 } },
   ],
 });
 

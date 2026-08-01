@@ -80,8 +80,8 @@ const actionRegistry = [
     mutating: true,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.generated_structure_refresh.v2",
-      actionContractVersion: "v2",
+      inputProfileID: "agent_finalize.generated_structure_refresh.v3",
+      actionContractVersion: "v3",
     },
     substeps: [
       {
@@ -108,13 +108,20 @@ const actionRegistry = [
     mutating: false,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.schema_shape_validation.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.schema_shape_validation.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {
         id: "json-shape-check",
         target: "json-shape-check",
+        commandKind: "make_target",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+      },
+      {
+        id: "test-catalog-check",
+        target: "test-catalog-check",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: false,
@@ -129,8 +136,8 @@ const actionRegistry = [
     mutating: true,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_refresh.v3",
-      actionContractVersion: "v3",
+      inputProfileID: "agent_finalize.duration_baseline_refresh.v4",
+      actionContractVersion: "v4",
     },
     substeps: [
       {
@@ -171,8 +178,8 @@ const actionRegistry = [
     mutating: false,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_coverage.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.duration_baseline_coverage.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {
@@ -192,8 +199,8 @@ const actionRegistry = [
     mutating: false,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v2",
-      actionContractVersion: "v2",
+      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v3",
+      actionContractVersion: "v3",
     },
     substeps: [
       {
@@ -213,8 +220,8 @@ const actionRegistry = [
     mutating: false,
     cache: {
       eligible: true,
-      inputProfileID: "agent_finalize.scheduler_drift_validation.v1",
-      actionContractVersion: "v1",
+      inputProfileID: "agent_finalize.scheduler_drift_validation.v2",
+      actionContractVersion: "v2",
     },
     substeps: [
       {

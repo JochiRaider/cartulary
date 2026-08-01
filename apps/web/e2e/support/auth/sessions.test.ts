@@ -102,6 +102,7 @@ describe("reconcileWorkerAdminManifest", () => {
       fake.controlPlane,
       blueprints,
       {
+        schema_id: "cartulary.playwright_worker_admin_manifest.v1",
         worker_admins: [
           {
             parallel_index: 0,
@@ -142,6 +143,7 @@ describe("reconcileWorkerAdminManifest", () => {
       fake.controlPlane,
       blueprints,
       {
+        schema_id: "cartulary.playwright_worker_admin_manifest.v1",
         worker_admins: [
           {
             parallel_index: 0,

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v4",
+  "schema_id": "cartulary.execution_topology.v5",
   "runtime_profiles": [
     {
       "id": "default",
@@ -97,12 +97,14 @@
       "id": "none",
       "fixture_kind": "none",
       "isolation_scope": "none",
+      "postgres_policy": "none",
       "budget": {}
     },
     {
       "id": "object_store_isolated",
       "fixture_kind": "object_store",
       "isolation_scope": "row",
+      "postgres_policy": "none",
       "budget": {
         "max_buckets_or_prefixes": 1
       }
@@ -111,6 +113,7 @@
       "id": "postgres_group_clone",
       "fixture_kind": "postgres",
       "isolation_scope": "execution_group",
+      "postgres_policy": "group_clone",
       "budget": {
         "max_group_clones": 1
       }
@@ -119,6 +122,7 @@
       "id": "postgres_migration_scratch",
       "fixture_kind": "postgres",
       "isolation_scope": "row",
+      "postgres_policy": "migration_scratch",
       "budget": {
         "max_migration_scratch": 2
       }
@@ -127,6 +131,7 @@
       "id": "postgres_package_reset",
       "fixture_kind": "postgres",
       "isolation_scope": "package",
+      "postgres_policy": "package_reset",
       "budget": {
         "max_resets": 4
       }
@@ -135,6 +140,7 @@
       "id": "postgres_template_clone",
       "fixture_kind": "postgres",
       "isolation_scope": "package",
+      "postgres_policy": "template_clone",
       "budget": {
         "max_template_clones": 20
       }
@@ -143,6 +149,7 @@
       "id": "postgres_transaction",
       "fixture_kind": "postgres",
       "isolation_scope": "row",
+      "postgres_policy": "transaction",
       "budget": {
         "max_transactions": 32
       }
@@ -151,6 +158,7 @@
       "id": "service_stack",
       "fixture_kind": "managed_services",
       "isolation_scope": "execution_group",
+      "postgres_policy": "none",
       "budget": {
         "max_stacks": 1
       }
@@ -910,7 +918,7 @@
       }
     ],
     "target_profiles": {
-      "codegen-toolchain": {
+    "codegen-toolchain": {
         "schedules": [
           "check"
         ],
@@ -919,10 +927,16 @@
         "needs": [
           "toolchain-drift"
         ],
-        "priority_band": "setup",
-        "order": 100
+      "priority_band": "setup",
+      "order": 100,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "toolchain",
+        "warm_threshold_ms": 10000,
+        "reason": "pinned code-generation toolchain readiness"
+      }
       },
-      "go-lint-toolchain": {
+    "go-lint-toolchain": {
         "schedules": [
           "check"
         ],
@@ -931,10 +945,16 @@
         "needs": [
           "toolchain-drift"
         ],
-        "priority_band": "setup",
-        "order": 200
+      "priority_band": "setup",
+      "order": 200,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "toolchain",
+        "warm_threshold_ms": 10000,
+        "reason": "pinned Go lint toolchain readiness"
+      }
       },
-      "govulncheck-toolchain": {
+    "govulncheck-toolchain": {
         "schedules": [
           "check"
         ],
@@ -943,10 +963,16 @@
         "needs": [
           "toolchain-drift"
         ],
-        "priority_band": "setup",
-        "order": 300
+      "priority_band": "setup",
+      "order": 300,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "toolchain",
+        "warm_threshold_ms": 10000,
+        "reason": "pinned Govulncheck toolchain readiness"
+      }
       },
-      "gosec-toolchain": {
+    "gosec-toolchain": {
         "schedules": [
           "check"
         ],
@@ -955,10 +981,16 @@
         "needs": [
           "toolchain-drift"
         ],
-        "priority_band": "setup",
-        "order": 400
+      "priority_band": "setup",
+      "order": 400,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "toolchain",
+        "warm_threshold_ms": 10000,
+        "reason": "pinned Gosec toolchain readiness"
+      }
       },
-      "shell-lint-toolchain": {
+    "shell-lint-toolchain": {
         "schedules": [
           "check"
         ],
@@ -967,8 +999,14 @@
         "needs": [
           "toolchain-drift"
         ],
-        "priority_band": "setup",
-        "order": 500
+      "priority_band": "setup",
+      "order": 500,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "toolchain",
+        "warm_threshold_ms": 10000,
+        "reason": "pinned shell lint toolchain readiness"
+      }
       },
       "generate-drift": {
         "schedules": [
@@ -1100,27 +1138,39 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "testservices-build": {
+    "testservices-build": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_go_binary",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 1950,
-        "needs": [
+      "order": 1950,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "test_service_binary",
+        "warm_threshold_ms": 15000,
+        "reason": "test services binary build artifact readiness"
+      },
+      "needs": [
           "toolchain-drift"
         ]
       },
-      "test-service-images": {
+    "test-service-images": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_service_images",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 2000,
-        "needs": [
+      "order": 2000,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "service_image",
+        "warm_threshold_ms": 15000,
+        "reason": "test service image warm readiness"
+      },
+      "needs": [
           "testservices-build"
         ]
       },
@@ -1268,15 +1318,21 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "check-frontend-install": {
+    "check-frontend-install": {
         "schedules": [
           "check"
         ],
         "profile": "setup_cpu_io",
         "make_prerequisite_policy": "run",
         "needs": [],
-        "priority_band": "setup",
-        "order": 600
+      "priority_band": "setup",
+      "order": 600,
+      "readiness_attribution": {
+        "timing_role": "readiness",
+        "readiness_class": "frontend_install",
+        "warm_threshold_ms": 30000,
+        "reason": "pnpm-managed workspace dependency readiness"
+      }
       },
       "check-harness-smoke": {
         "schedules": [
@@ -1313,75 +1369,111 @@
         ],
         "make_prerequisite_policy": "skip"
       },
-      "build-server": {
+    "build-server": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_server",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 0,
-        "needs": [
+      "order": 0,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "build_artifact",
+        "warm_threshold_ms": 15000,
+        "reason": "server binary build artifact readiness"
+      },
+      "needs": [
           "embedded-web-assets"
         ]
       },
-      "build-server-harness": {
+    "build-server-harness": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_server",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 100,
-        "needs": [
+      "order": 100,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "build_artifact",
+        "warm_threshold_ms": 15000,
+        "reason": "harness server binary build artifact readiness"
+      },
+      "needs": [
           "embedded-web-assets"
         ]
       },
-      "embedded-web-assets": {
+    "embedded-web-assets": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_web_assets",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 250,
-        "needs": [
+      "order": 250,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "embedded_web_assets",
+        "warm_threshold_ms": 15000,
+        "reason": "embedded web asset archive readiness"
+      },
+      "needs": [
           "build-web"
         ]
       },
-      "build-migrate": {
+    "build-migrate": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_go_binary",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 1000,
-        "needs": [
+      "order": 1000,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "build_artifact",
+        "warm_threshold_ms": 15000,
+        "reason": "migration binary build artifact readiness"
+      },
+      "needs": [
           "toolchain-drift"
         ]
       },
-      "build-operator": {
+    "build-operator": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_go_binary",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 1500,
-        "needs": [
+      "order": 1500,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "build_artifact",
+        "warm_threshold_ms": 15000,
+        "reason": "operator binary build artifact readiness"
+      },
+      "needs": [
           "embedded-web-assets"
         ]
       },
-      "build-web": {
+    "build-web": {
         "schedules": [
           "check"
         ],
         "profile": "build_readiness_frontend",
         "make_prerequisite_policy": "run",
         "priority_band": "build_readiness",
-        "order": 500,
-        "needs": [
+      "order": 500,
+      "readiness_attribution": {
+        "timing_role": "build_artifact",
+        "readiness_class": "build_artifact",
+        "warm_threshold_ms": 15000,
+        "reason": "web build artifact readiness"
+      },
+      "needs": [
           "check-frontend-install"
         ]
       }

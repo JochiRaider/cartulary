@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v4";
+export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v5";
 const goDurationBaselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const goDurationBaselineRelativePath = path.join("tools", "go_test_duration_baselines.json");
 export const defaultShardTargetMs = 30_000;
 const defaultBackendIntegrationShardTargetMs = 18_000;
 export const defaultItemWeightMs = 10_000;
+export const defaultPackageOverheadMs = 100;
+export const defaultCommandOverheadMs = 70_000;
 export const baselineNote =
   "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.";
 
@@ -41,6 +43,8 @@ function emptyGoDurationBaseline() {
     default_shard_target_ms: defaultShardTargetMs,
     shard_target_ms_by_target: { ...defaultShardTargetMsByTarget },
     default_item_weight_ms: defaultItemWeightMs,
+    default_package_overhead_ms: defaultPackageOverheadMs,
+    default_command_overhead_ms: defaultCommandOverheadMs,
     command_overheads_by_target: {},
     package_overheads: {},
     fixture_overheads_by_package: {},
@@ -63,6 +67,15 @@ export function readGoDurationBaseline(repoRoot, file = "", options = {}) {
     throw new Error(
       `${path.relative(repoRoot, baselineFile)} must declare schema_id ${goDurationBaselineSchemaID}`,
     );
+  }
+  for (const [field, value] of [
+    ["default_item_weight_ms", baseline.default_item_weight_ms],
+    ["default_package_overhead_ms", baseline.default_package_overhead_ms],
+    ["default_command_overhead_ms", baseline.default_command_overhead_ms],
+  ]) {
+    if (!validBaselineValue(value)) {
+      throw new Error(`${path.relative(repoRoot, baselineFile)} ${field} must be a positive integer`);
+    }
   }
   for (const key of Object.keys(baseline.raw_aggregates ?? {})) {
     const parts = key.split("::");
@@ -87,6 +100,14 @@ function toGoDurationBaselineMaps(baseline) {
     ),
     shardTargetMsByTarget,
     defaultItemWeightMs: normalizePositiveInteger(baseline.default_item_weight_ms, defaultItemWeightMs),
+    defaultPackageOverheadMs: normalizePositiveInteger(
+      baseline.default_package_overhead_ms,
+      defaultPackageOverheadMs,
+    ),
+    defaultCommandOverheadMs: normalizePositiveInteger(
+      baseline.default_command_overhead_ms,
+      defaultCommandOverheadMs,
+    ),
     commandOverheadsByTarget: new Map(Object.entries(baseline.command_overheads_by_target ?? {})),
     packageOverheads: new Map(Object.entries(baseline.package_overheads ?? {})),
     fixtureOverheadsByPackage: new Map(Object.entries(baseline.fixture_overheads_by_package ?? {})),

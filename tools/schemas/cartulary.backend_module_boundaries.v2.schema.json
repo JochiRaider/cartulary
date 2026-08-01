@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.backend_module_boundaries.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "scan_roots",
+    "scan_excludes",
+    "owner_port_only_imports",
+    "raw_ndjson_targets",
+    "forbidden_route_dependencies",
+    "forbidden_go_imports",
+    "go_import_allowlists",
+    "source_table_access",
+    "forbidden_source_mappings",
+    "sql_table_allowlists",
+    "sql_table_access",
+    "forbidden_go_calls",
+    "command_root_shape",
+    "forbidden_source_tokens",
+    "forbidden_test_build_tokens",
+    "generated_root_writes"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.backend_module_boundaries.v2" },
+    "scan_roots": { "$ref": "#/$defs/stringArray" },
+    "scan_excludes": { "$ref": "#/$defs/stringArray" },
+    "owner_port_only_imports": { "$ref": "#/$defs/objectArray" },
+    "raw_ndjson_targets": { "$ref": "#/$defs/objectArray" },
+    "forbidden_route_dependencies": { "$ref": "#/$defs/objectArray" },
+    "forbidden_go_imports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/forbiddenGoImport" }
+    },
+    "go_import_allowlists": { "$ref": "#/$defs/objectArray" },
+    "source_table_access": { "$ref": "#/$defs/objectArray" },
+    "forbidden_source_mappings": { "$ref": "#/$defs/objectArray" },
+    "sql_table_allowlists": { "$ref": "#/$defs/objectArray" },
+    "sql_table_access": { "$ref": "#/$defs/objectArray" },
+    "forbidden_go_calls": { "$ref": "#/$defs/objectArray" },
+    "command_root_shape": { "type": "object" },
+    "forbidden_source_tokens": { "$ref": "#/$defs/objectArray" },
+    "forbidden_test_build_tokens": { "$ref": "#/$defs/objectArray" },
+    "generated_root_writes": { "$ref": "#/$defs/objectArray" }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "objectArray": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "forbiddenGoImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "match_kind",
+        "imports",
+        "scan_paths",
+        "allowed_paths",
+        "production_only"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "match_kind": { "enum": ["exact", "subtree"] },
+        "imports": { "$ref": "#/$defs/stringArray" },
+        "scan_paths": { "$ref": "#/$defs/stringArray" },
+        "allowed_paths": { "$ref": "#/$defs/stringArray" },
+        "production_only": { "type": "boolean" }
+      }
+    }
+  }
+}

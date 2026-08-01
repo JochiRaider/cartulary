@@ -83,29 +83,35 @@ function baseAction(definition, includePreflight, resultsDirInput) {
 }
 
 export function selectedActionDefinitions(actionRegistry, resultsDirInput) {
-  if (resultsDirInput) {
-    const actionByID = new Map(
-      actionRegistry.map((action) => [action.actionID, action]),
-    );
-    const retainedOrder = [
+  const actionByID = new Map(
+    actionRegistry.map((action) => [action.actionID, action]),
+  );
+  const order = resultsDirInput
+    ? [
       "scheduler_drift_validation",
       "schema_shape_validation",
+      "duration_baseline_coverage",
       "duration_baseline_refresh",
       "generated_structure_refresh",
-      "duration_baseline_coverage",
       "duration_baseline_drift_validation",
+    ]
+    : [
+      "schema_shape_validation",
+      "duration_baseline_coverage",
+      "generated_structure_refresh",
+      "duration_baseline_refresh",
+      "duration_baseline_drift_validation",
+      "scheduler_drift_validation",
     ];
-    const selected = retainedOrder.map((actionID) => actionByID.get(actionID));
-    if (
-      actionByID.size !== actionRegistry.length ||
-      actionByID.size !== retainedOrder.length ||
-      selected.some((action) => action === undefined)
-    ) {
-      throw new Error("agent-finalize retained action registry is incomplete");
-    }
-    return selected;
+  const selected = order.map((actionID) => actionByID.get(actionID));
+  if (
+    actionByID.size !== actionRegistry.length ||
+    actionByID.size !== order.length ||
+    selected.some((action) => action === undefined)
+  ) {
+    throw new Error("agent-finalize action registry is incomplete");
   }
-  return actionRegistry;
+  return selected;
 }
 
 export function selectedActions(actionRegistry, resultsDirInput) {

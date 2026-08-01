@@ -13,7 +13,9 @@ import {
 } from "./go-duration-artifacts.mjs";
 import {
   baselineNote,
+  defaultCommandOverheadMs,
   defaultItemWeightMs,
+  defaultPackageOverheadMs,
   defaultShardTargetMs,
   defaultShardTargetMsByTarget,
   goDurationBaselineSchemaID,
@@ -258,6 +260,8 @@ function main(argv) {
     ...(baseline.shard_target_ms_by_target ?? {}),
   };
   baseline.default_item_weight_ms ??= defaultItemWeightMs;
+  baseline.default_package_overhead_ms ??= defaultPackageOverheadMs;
+  baseline.default_command_overhead_ms ??= defaultCommandOverheadMs;
   baseline.command_overheads_by_target ??= {};
   baseline.package_overheads ??= {};
   baseline.fixture_overheads_by_package ??= {};

@@ -10,7 +10,7 @@ import {
   resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
-import { readinessAttributionForMakeTarget } from "../scheduler/scheduler-manifest.mjs";
+import { normalizeReadinessAttribution } from "../scheduler/scheduler-manifest.mjs";
 import {
   normalizeRuntimeBinaryEntries,
   runtimeBinaryRecordKeys,
@@ -18,7 +18,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v4";
+export const executionTopologySchemaID = "cartulary.execution_topology.v5";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v1";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
@@ -28,7 +28,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
+export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v2";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v7";
 export const makeTargetBaselineSchemaID =
   "cartulary.scheduler_work_unit_duration_baselines.v2";
@@ -61,6 +61,7 @@ const checkScheduleTargetKeys = new Set([
   "make_prerequisite_policy",
   "service_backed_schedule",
   "env",
+  "readiness_attribution",
 ]);
 const browserStageGeneratedNeedsPolicyKeys = new Set(["selected_peer_stages", "reason"]);
 const browserTopologyProfileKeys = new Set(["id", "kind", "key_ring_manifest_path"]);
@@ -779,6 +780,10 @@ function normalizeCheckScheduleMetadata(entry, profile, label, scheduleTargets) 
       ? null
       : requireString(raw.service_backed_schedule, `${label}.service_backed_schedule`),
     env: normalizeCheckScheduleEnv(raw.env, `${label}.env`),
+    readinessAttribution: normalizeReadinessAttribution(
+      raw.readiness_attribution,
+      label,
+    ),
   };
 }
 
@@ -900,7 +905,6 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
           `${targetLabel} target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
         );
       }
-      const readinessAttribution = readinessAttributionForMakeTarget(target);
       const unit = {
         target,
         priority,
@@ -914,7 +918,9 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${targetLabel} profile ${profile.name}`, claims),
         command: { type: "make_target", target },
-        ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
+        ...(metadata.readinessAttribution
+          ? { readiness_attribution: clone(metadata.readinessAttribution) }
+          : {}),
         ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
         ...(metadata.serviceBackedSchedule ? { service_backed_schedule: metadata.serviceBackedSchedule } : {}),
       };
@@ -1537,9 +1543,19 @@ export function renderCheckScheduleManifest(topology, options = {}) {
 }
 
 export function renderServiceBackedScheduleProfile(topology) {
+  const readinessAttributionByTarget = Object.fromEntries(
+    Object.entries(topology.checkScheduleProfile.target_profiles ?? {})
+      .filter(([, profile]) => profile.readiness_attribution !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([target, profile]) => [
+        target,
+        clone(profile.readiness_attribution),
+      ]),
+  );
   return {
     ...clone(topology.serviceBackedSchedules),
     runtime_binaries: clone(topology.runtimeBinaries ?? []),
+    readiness_attribution_by_target: readinessAttributionByTarget,
   };
 }
 

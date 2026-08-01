@@ -44,6 +44,7 @@ function addMissing(missing, label) {
 
 function checkBaselineCoverage(plan, baseline) {
   const missing = new Set();
+  const defaulted = new Set();
   const nonRawTargets = new Set();
   const nonRawPackageKeys = new Set();
 
@@ -59,7 +60,9 @@ function checkBaselineCoverage(plan, baseline) {
         continue;
       }
       if (!validBaselineValue(baseline.tests.get(item.baseline_key))) {
-        addMissing(missing, `test baseline key=${item.baseline_key} shard=${shard.name}`);
+        defaulted.add(
+          `test baseline key=${item.baseline_key} default_ms=${baseline.defaultItemWeightMs} shard=${shard.name}`,
+        );
       }
       nonRawTargets.add(item.target);
       for (const importPath of item.package_import_paths ?? []) {
@@ -70,16 +73,23 @@ function checkBaselineCoverage(plan, baseline) {
 
   for (const key of nonRawPackageKeys) {
     if (!validBaselineValue(baseline.packageOverheads.get(key))) {
-      addMissing(missing, `package overhead baseline key=${key}`);
+      defaulted.add(
+        `package overhead baseline key=${key} default_ms=${baseline.defaultPackageOverheadMs}`,
+      );
     }
   }
   for (const target of nonRawTargets) {
     if (!validBaselineValue(baseline.commandOverheadsByTarget.get(target))) {
-      addMissing(missing, `command overhead baseline target=${target}`);
+      defaulted.add(
+        `command overhead baseline target=${target} default_ms=${baseline.defaultCommandOverheadMs}`,
+      );
     }
   }
 
-  return [...missing].sort();
+  return {
+    missing: [...missing].sort(),
+    defaulted: [...defaulted].sort(),
+  };
 }
 
 function main(argv) {
@@ -87,11 +97,11 @@ function main(argv) {
   const baselineFile = resolveGoDurationBaselineFile(repoRoot, options.baselineFile);
   const baseline = readGoDurationBaselineMaps(repoRoot, baselineFile);
   const plan = withGoDurationBaselineFile(repoRoot, baselineFile, () => collectGoShardPlan(repoRoot));
-  const missing = checkBaselineCoverage(plan, baseline);
+  const coverage = checkBaselineCoverage(plan, baseline);
 
-  if (missing.length > 0) {
+  if (coverage.missing.length > 0) {
     process.stderr.write("Go test duration baseline coverage is incomplete:\n");
-    for (const error of missing) {
+    for (const error of coverage.missing) {
       process.stderr.write(`- missing ${error}\n`);
     }
     process.stderr.write(
@@ -100,7 +110,13 @@ function main(argv) {
     process.exit(1);
   }
 
-  process.stdout.write(`Go test duration baselines cover ${plan.shards.length} service-backed Go shards\n`);
+  for (const entry of coverage.defaulted) {
+    process.stdout.write(`defaulted ${entry}\n`);
+  }
+
+  process.stdout.write(
+    `Go test duration baselines cover ${plan.shards.length} service-backed Go shards; defaulted=${coverage.defaulted.length}\n`,
+  );
 }
 
 try {

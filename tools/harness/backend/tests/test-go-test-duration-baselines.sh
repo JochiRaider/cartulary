@@ -51,7 +51,7 @@ write_empty_baseline() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
   "default_shard_target_ms": 30000,
   "shard_target_ms_by_target": {
     "backend-integration": 18000,
@@ -59,6 +59,8 @@ write_empty_baseline() {
     "backend-store": 30000
   },
   "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {},
   "package_overheads": {},
   "raw_aggregates": {},
@@ -273,7 +275,7 @@ const integrationCommand = baseline.command_overheads_by_target["backend-integra
 const storeCommand = baseline.command_overheads_by_target["backend-store"];
 const rawHTTP = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx"];
 const rawPG = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest"];
-if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v4") {
+if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v5") {
   throw new Error(`expected v4 schema, got ${baseline.schema_id}`);
 }
 if (login !== 1000 || audit !== 1000 || store !== 20000) {
@@ -361,7 +363,10 @@ EOF
 
 cat >"$tmp_dir/contaminated-underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 10000,
     "backend-store": 1000
@@ -387,7 +392,10 @@ assert_contains "$drift_warning_output" "go_module_downloads=2" "contaminated un
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 11000,
     "backend-store": 1000
@@ -415,7 +423,10 @@ printf '50000\n' >"$underplanned_raw_results/_shared/backend-integration-testuti
 
 cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 20000,
     "backend-store": 1000
@@ -449,7 +460,10 @@ assert_contains "$underplanned_raw_output" "package=github.com/JochiRaider/cartu
 
 cat >"$tmp_dir/underplanned-components.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 100,
     "backend-store": 1000
@@ -519,7 +533,10 @@ assert_contains "$service_contaminated_drift_output" "service_timing_contaminati
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v4",
+  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "default_item_weight_ms": 10000,
+  "default_package_overhead_ms": 100,
+  "default_command_overhead_ms": 70000,
   "command_overheads_by_target": {
     "backend-integration": 80000,
     "backend-store": 80000
@@ -574,14 +591,8 @@ delete baseline.tests["github.com/JochiRaider/cartulary/internal/modules/auth::T
 fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
-set +e
 missing_test_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-test.json" 2>&1)"
-missing_test_coverage_status=$?
-set -e
-if [[ "$missing_test_coverage_status" -eq 0 ]]; then
-  fail "missing test baseline coverage should fail"
-fi
-assert_contains "$missing_test_coverage_output" "missing test baseline key=github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration" "missing test baseline coverage"
+assert_contains "$missing_test_coverage_output" "defaulted test baseline key=github.com/JochiRaider/cartulary/internal/modules/auth::TestLoginSessionLifecycle_Integration default_ms=10000" "defaulted test baseline coverage"
 
 "$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-raw.json" <<'EOF'
 const fs = require("node:fs");
@@ -608,14 +619,8 @@ delete baseline.package_overheads["backend-integration::github.com/JochiRaider/c
 fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
-set +e
 missing_package_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-package.json" 2>&1)"
-missing_package_coverage_status=$?
-set -e
-if [[ "$missing_package_coverage_status" -eq 0 ]]; then
-  fail "missing package overhead baseline coverage should fail"
-fi
-assert_contains "$missing_package_coverage_output" "missing package overhead baseline key=backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth" "missing package overhead coverage"
+assert_contains "$missing_package_coverage_output" "defaulted package overhead baseline key=backend-integration::github.com/JochiRaider/cartulary/internal/modules/auth default_ms=100" "defaulted package overhead coverage"
 
 "$NODE_BIN" - "$tmp_dir/coverage-complete.json" "$tmp_dir/coverage-missing-command.json" <<'EOF'
 const fs = require("node:fs");
@@ -625,11 +630,5 @@ delete baseline.command_overheads_by_target["backend-store"];
 fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
-set +e
 missing_command_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-command.json" 2>&1)"
-missing_command_coverage_status=$?
-set -e
-if [[ "$missing_command_coverage_status" -eq 0 ]]; then
-  fail "missing command overhead baseline coverage should fail"
-fi
-assert_contains "$missing_command_coverage_output" "missing command overhead baseline target=backend-store" "missing command overhead coverage"
+assert_contains "$missing_command_coverage_output" "defaulted command overhead baseline target=backend-store default_ms=70000" "defaulted command overhead coverage"

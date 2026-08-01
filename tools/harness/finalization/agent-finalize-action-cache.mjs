@@ -43,7 +43,7 @@ const implementationFiles = [
 ];
 
 const profileDefinitions = {
-  "agent_finalize.generated_structure_refresh.v2": {
+  "agent_finalize.generated_structure_refresh.v3": {
     prefixes: [
       "contracts/",
       "tools/",
@@ -73,7 +73,7 @@ const profileDefinitions = {
     outputPrefixes: [],
     outputSuffixes: [],
   },
-  "agent_finalize.schema_shape_validation.v1": {
+  "agent_finalize.schema_shape_validation.v2": {
     prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
@@ -90,7 +90,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.duration_baseline_refresh.v3": {
+  "agent_finalize.duration_baseline_refresh.v4": {
     prefixes: ["contracts/", "tools/"],
     suffixes: commonSuffixes,
     files: [
@@ -114,7 +114,7 @@ const profileDefinitions = {
       "tools/service_backed_make_target_duration_baselines.json",
     ],
   },
-  "agent_finalize.duration_baseline_coverage.v1": {
+  "agent_finalize.duration_baseline_coverage.v2": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "contracts/verification/registry.json"],
@@ -127,7 +127,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.duration_baseline_drift_validation.v2": {
+  "agent_finalize.duration_baseline_drift_validation.v3": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "contracts/verification/registry.json"],
@@ -143,7 +143,7 @@ const profileDefinitions = {
     ],
     outputPaths: [],
   },
-  "agent_finalize.scheduler_drift_validation.v1": {
+  "agent_finalize.scheduler_drift_validation.v2": {
     prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "contracts/verification/registry.json"],

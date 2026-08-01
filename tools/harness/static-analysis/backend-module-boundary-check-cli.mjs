@@ -10,7 +10,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
-const manifestSchemaID = "cartulary.backend_module_boundaries.v1";
+const manifestSchemaID = "cartulary.backend_module_boundaries.v2";
 const summarySchemaID = "cartulary.backend_module_boundary_summary.v1";
 const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
 const ignoredDirectoryNames = new Set([
@@ -109,6 +109,13 @@ function requireBoolean(value, label, defaultValue = false) {
   return value;
 }
 
+function requireEnum(value, allowed, label) {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    throw new Error(`${label} must be one of ${[...allowed].join(", ")}`);
+  }
+  return value;
+}
+
 function requireArray(value, label) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
@@ -167,6 +174,11 @@ function normalizeManifest(raw) {
     forbiddenGoImports: requireArray(raw.forbidden_go_imports ?? [], "forbidden_go_imports").map(
       (rule, index) => ({
         id: requireString(rule?.id, `forbidden_go_imports[${index + 1}].id`),
+        matchKind: requireEnum(
+          rule?.match_kind,
+          new Set(["exact", "subtree"]),
+          `forbidden_go_imports[${index + 1}].match_kind`,
+        ),
         imports: requireStringArray(
           rule?.imports ?? [],
           `forbidden_go_imports[${index + 1}].imports`,
@@ -429,11 +441,12 @@ function isProductionGo(file, productionOnly) {
   return file.relative.endsWith(".go") && (!productionOnly || !file.relative.endsWith("_test.go"));
 }
 
-function violation(code, file, symbolOrImport) {
+function violation(code, file, symbolOrImport, details = {}) {
   return {
     code,
     path: file.relative,
     symbol_or_import: symbolOrImport,
+    ...details,
     result: "fail",
   };
 }
@@ -487,8 +500,14 @@ function checkForbiddenGoImports(files, rules) {
       }
       for (const imported of extractGoImports(file.content)) {
         for (const forbiddenImport of rule.imports) {
-          if (imported === forbiddenImport || imported.startsWith(`${forbiddenImport}/`)) {
-            violations.push(violation("forbidden_go_import", file, imported));
+          const matches = rule.matchKind === "exact"
+            ? imported === forbiddenImport
+            : imported === forbiddenImport || imported.startsWith(`${forbiddenImport}/`);
+          if (matches) {
+            violations.push(violation("forbidden_go_import", file, imported, {
+              rule_id: rule.id,
+              match_kind: rule.matchKind,
+            }));
           }
         }
       }

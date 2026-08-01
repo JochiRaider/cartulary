@@ -29,7 +29,7 @@ import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
+const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v2";
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 
 class UsageError extends Error {}
@@ -482,6 +482,19 @@ function runtimeBinaryRecords(profile, ids) {
   );
 }
 
+function readinessAttributionForTarget(profile, target) {
+  const attribution = profile.readiness_attribution_by_target?.[target];
+  return attribution ? cloneObject(attribution) : null;
+}
+
+function readinessAttributionForTargets(profile, targets) {
+  return Object.fromEntries(
+    uniqueSorted(targets)
+      .map((target) => [target, readinessAttributionForTarget(profile, target)])
+      .filter(([, attribution]) => attribution !== null),
+  );
+}
+
 function goShardResourceClaims(profile, target) {
   const claims = {
     ...cloneObject(profile.defaults.go_shards_resource_claims),
@@ -542,19 +555,25 @@ function backendSource(profile, timing, scheduleProfile, target, priorities, { d
     throw new Error(`backend target ${target} is not service-backed`);
   }
   const runtimeBinaries = runtimeBinariesForBackendTarget(scheduleProfile, target);
+  const runtimeNeeds = runtimeBinaryNeeds(profile, runtimeBinaries);
+  const runtimeReadinessAttribution = readinessAttributionForTargets(profile, runtimeNeeds);
+  const readinessAttribution = readinessAttributionForTarget(profile, target);
   if (descriptor.sharding === "go_shards") {
     return {
       type: "go_shards",
       class: "backend",
       target,
       ...(runtimeBinaries.length > 0 ? { runtime_binary_records: runtimeBinaryRecords(profile, runtimeBinaries) } : {}),
+      ...(Object.keys(runtimeReadinessAttribution).length > 0
+        ? { runtime_readiness_attribution: runtimeReadinessAttribution }
+        : {}),
+      ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
       priority: priorities.backendCriticalPath,
       resource_claims: goShardResourceClaims(profile, target),
       resource_claims_by_execution_family: goShardResourceClaimsByExecutionFamily(profile),
       default_check_required: defaultCheckOnly,
     };
   }
-  const runtimeNeeds = runtimeBinaryNeeds(profile, runtimeBinaries);
   const runtimeEnv = runtimeBinaryEnv(profile, runtimeBinaries);
   const claims = requireObject(
     profile.defaults.backend_make_target_resource_claims,
@@ -568,6 +587,10 @@ function backendSource(profile, timing, scheduleProfile, target, priorities, { d
     class: "backend",
     target,
     needs: runtimeNeeds,
+    ...(Object.keys(runtimeReadinessAttribution).length > 0
+      ? { runtime_readiness_attribution: runtimeReadinessAttribution }
+      : {}),
+    ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
     ...(runtimeBinaries.length > 0 ? { runtime_binaries: runtimeBinaries } : {}),
     ...(Object.keys(runtimeEnv).length > 0 ? { env: runtimeEnv } : {}),
     priority: priorities.backendCriticalPath,

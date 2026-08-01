@@ -38,7 +38,6 @@ import {
   resourceClaimsObject,
   sortedUnique,
 } from "./schedule-utils.mjs";
-import { readinessAttributionForMakeTarget } from "../../scheduler/scheduler-manifest.mjs";
 
 const serviceSessionResource = "suite_service_stack";
 const buildServerHarnessTarget = "build-server-harness";
@@ -315,7 +314,7 @@ export function expandServiceBackedScheduleForCheck({
     }
 
     if (source.type === "make_target") {
-      const readinessAttribution = readinessAttributionForMakeTarget(source.target);
+      const readinessAttribution = source.readiness_attribution ?? null;
       expanded.push({
         id: `${scheduleTarget}:${source.target}`,
         kind: "service_make_target",
@@ -626,7 +625,7 @@ export function expandServiceBackedSchedule({
     }
 
     if (source.type === "make_target") {
-      const readinessAttribution = readinessAttributionForMakeTarget(source.target);
+      const readinessAttribution = source.readiness_attribution ?? null;
       counted.push({
         id: source.target,
         kind: "make_target",

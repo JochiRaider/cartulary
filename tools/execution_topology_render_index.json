@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:7158eaedb1f8c3acaf2898ac7128367828aeaf4b2c37e51773470bc9e8cdab1e",
+  "input_digest": "sha256:d7117d4e13c22596bd668b10e8b989d4b204b8edbb56d99e939c8a6ebf5105cd",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -327,12 +327,12 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:4a74ce23afa650a9964931213358783c9b45988475d2b223b9b797ce8c46b5c3"
+      "hash": "sha256:318d0f1df9cf41b163d5eb1f85849a931470abfef05226fb08cc1438a537fc79"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:342fdc2f41d045a7e6a005f539fd4727c4ae41d0892744a6129667077d4913c6"
+      "hash": "sha256:1fd7767d5d48626f3da0113d7b523d89b7cb9b39ea3e7b2da66d460cfbceff91"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -357,7 +357,7 @@
     {
       "path": "tools/harness/backend/backend-target-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:246a056099a9e950681bc77aa0943be23cf16b078262b37f656d17afe69600ab"
+      "hash": "sha256:15a168d122f82e708a5780191847ca5a6fbcdbcffd024f6f46c8d68bc51254d7"
     },
     {
       "path": "tools/harness/backend/go-duration-artifacts.mjs",
@@ -367,7 +367,7 @@
     {
       "path": "tools/harness/backend/go-duration-baselines.mjs",
       "role": "renderer_source",
-      "hash": "sha256:49ff63d346ce4e53c985b09ee1fc699f36ec6198d0bffb463ddc605327f70e89"
+      "hash": "sha256:14e5e61c463d10dc03e1e20f5ce86287737da8646cab07ee375cde8ed34c3fa1"
     },
     {
       "path": "tools/harness/backend/go-shard-plan-cli.mjs",
@@ -377,7 +377,7 @@
     {
       "path": "tools/harness/backend/go-shard-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:64fdcfaa9ccc16ad95560d54b10c715dd12fe1b1de6b9f70593d63eaf26d82da"
+      "hash": "sha256:1735515581584c2ab30aa9561068aa9b9d38731071c8e547fcc5d63cf20a219b"
     },
     {
       "path": "tools/harness/backend/go-shard-policy.mjs",
@@ -402,7 +402,7 @@
     {
       "path": "tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b28db31eb721df7fa82f9431d5baf8809b6d267783c21b86193417c8849c03a2"
+      "hash": "sha256:6dc286a3d51fcff1b3a24c48efd476e74c0464fd56ba3b1034cd7d0ab43af7f6"
     },
     {
       "path": "tools/harness/backend/go-test-duration-baseline-drift-cli.mjs",
@@ -412,7 +412,7 @@
     {
       "path": "tools/harness/backend/go-test-duration-baselines-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:821f62db6b8611a0eb57053882ba60612e1fac00d6574f548ce11353e500515a"
+      "hash": "sha256:f64a2e40380eb48d2fd21b370794e262dc31badcd93197242c31f70651b38c76"
     },
     {
       "path": "tools/harness/backend/postgres-fixture-budget-cli.mjs",
@@ -482,7 +482,7 @@
     {
       "path": "tools/harness/backend/target-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:64745f66e436ef95a8dec149fc025044dab4d30f659a3c3df86d63e1aeddb36d"
+      "hash": "sha256:a9db4fbfb7dbc65c7e7c2a3d5637a1b3a7917b070feb495f5fa3f5a62391f426"
     },
     {
       "path": "tools/harness/browser/browser-batch-manifest.mjs",
@@ -662,17 +662,17 @@
     {
       "path": "tools/harness/execution/service-backed/schedule-expansion.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6ac4056d777ef3de86f2a77a823861b030201ee13545312c8181d008f01185de"
+      "hash": "sha256:fe87dc985b3589df55e5277007ec43de6a7fb8ec16d202c2f9600678eb41b964"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-go-planning.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2d0d74867af5d527a9fb016c843ef60aa96ab141daa1e2fd482a0e58a2b910bf"
+      "hash": "sha256:cb9cbe56ff8f86ec7774728495603815437a443bebc7576f724a4d3e19eac2e3"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7de11cfca7fa4fc8f95a60fe16384e67ae1faf0cdf9be33c27950cd4fc7610af"
+      "hash": "sha256:ec2d6bd7c48f4f78548c9bf9bccf0afeb958210835fab60b871818b0013b0632"
     },
     {
       "path": "tools/harness/execution/service-backed/schedule-planning.mjs",
@@ -747,7 +747,7 @@
     {
       "path": "tools/harness/generated-artifacts/execution-topology.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8d073b67ac254b037f0721c16cd083b5c35217ae640d87bbbc74269c1a73a113"
+      "hash": "sha256:ca9a92775d3ce34a9de3fb1012086b6dfe6aea7846175dadd2732b5e4c48cfcf"
     },
     {
       "path": "tools/harness/generated-artifacts/index.mjs",
@@ -767,7 +767,7 @@
     {
       "path": "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:54e97ba50005fe7f015be6e374d6548ee6c1c5e26325c0d8096e49928884f4eb"
+      "hash": "sha256:d564fbb933688d9331760ae9df120df56bc8e149b1ba60a02f094748ff19d087"
     },
     {
       "path": "tools/harness/generated-artifacts/render-task-surface-make.mjs",
@@ -847,7 +847,7 @@
     {
       "path": "tools/harness/scheduler/scheduler-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ad903a486da1db0ab78652c6f80279141afe9b530876a495bb80af84fa2cd838"
+      "hash": "sha256:cb87ac934cc6cc27accd326b4ebf08fd2609c2746c244e21d3a0db12bb584682"
     },
     {
       "path": "tools/harness/scheduler/scheduler-reporting.mjs",
@@ -1002,7 +1002,7 @@
     {
       "path": "tools/harness/test-catalog/test-catalog.mjs",
       "role": "renderer_source",
-      "hash": "sha256:79f24bbc89f9587f6a4bba506b67217f6f3e07ff3d66e1a7805a73e476f114ca"
+      "hash": "sha256:035238756a1d16cd51125f66d9e1d3efbb5a664c110f4f071246b060d7f7adc9"
     },
     {
       "path": "tools/harness/test-catalog/verification-contracts.mjs",
@@ -1042,7 +1042,7 @@
     {
       "path": "tools/test_families/harness.browser.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ae2e603a6682b8aaa848127f0c77e8fcc9b5b10e5e4ec1455c133bc8fae338aa"
+      "hash": "sha256:2313446a7fd40fc66751c2b13ce2778232a4cac6b60f3a3296ac00490383cc99"
     },
     {
       "path": "tools/test_families/harness.evidence_accounting.json",

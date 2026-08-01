@@ -63,7 +63,10 @@ import {
 import {
   collectGoShardsForTargetFromRows,
 } from "../backend/backend-shard-plan.mjs";
-import { collectTargetPlanRows } from "../backend/backend-target-plan.mjs";
+import {
+  collectTargetPlanRows,
+  goFixtureEnvironmentForCatalogRows,
+} from "../backend/backend-target-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/index.mjs";
 import {
   loadHarnessHelperOwnership,
@@ -542,10 +545,6 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.evidence_epoch, "cartulary.test_evidence.nlspec.v1");
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
-  assert.equal(catalog.summary.owner_count, 60);
-  assert.equal(catalog.summary.family_count, 221);
-  assert.equal(catalog.summary.row_count, 1016);
-  assert.equal(catalog.summary.selector_count, 1912);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,
@@ -1160,6 +1159,26 @@ test("owner slice managed services wait for current service artifact readiness",
   } finally {
     rmSync(targetDir, { recursive: true, force: true });
   }
+});
+
+test("owner slice and scheduled Go planning share exact Postgres fixture assignments", () => {
+  const rowID =
+    "module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746";
+  const catalogRow = loadTestCatalog(repoRoot).rowByID.get(rowID);
+  const scheduledRow = collectTargetPlanRows(repoRoot).find(
+    (row) => row.id === rowID,
+  );
+  assert.ok(catalogRow);
+  assert.ok(scheduledRow);
+  assert.equal(scheduledRow.fixture_policy.postgres, "template_clone");
+  assert.deepEqual(goFixtureEnvironmentForCatalogRows(repoRoot, [catalogRow]), {
+    CARTULARY_POSTGRES_FIXTURE_POLICY_TESTS:
+      `${catalogRow.selector.tests[0]}=template_clone`,
+    CARTULARY_POSTGRES_FIXTURE_POLICY_PACKAGES: "",
+    CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT: "",
+    CARTULARY_POSTGRES_RESET_TABLES_TESTS: "",
+    CARTULARY_POSTGRES_RESET_TABLES_PACKAGES: "",
+  });
 });
 
 test("stateful owner browser rows execute as isolated single-worker partitions", () => {
@@ -2108,6 +2127,50 @@ test("owner catalog rejects structural, reference, selector, and path ambiguity"
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  }
+});
+
+test("owner catalog derives totals across valid row growth and removal", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "owner-catalog-growth."));
+  try {
+    const fixture = writeOwnerCatalogFixture(root, ({ familyManifest }) => {
+      const added = structuredClone(familyManifest.rows[0]);
+      added.row_id = "module.fixture.behavior.second";
+      added.selector.tests = ["TestSecond"];
+      familyManifest.rows.push(added);
+      familyManifest.rows.sort((left, right) =>
+        left.row_id.localeCompare(right.row_id),
+      );
+    });
+    writeFixtureFile(
+      root,
+      "internal/fixture/owned_test.go",
+      "package fixture\n\nfunc TestOwned(t *testing.T) {}\nfunc TestSecond(t *testing.T) {}\n",
+    );
+
+    const grown = loadTestCatalog(root);
+    assert.equal(grown.summary.row_count, 2);
+    assert.equal(grown.summary.selector_count, 2);
+    assert.equal(
+      Object.values(grown.summary.runner_counts).reduce(
+        (sum, count) => sum + count,
+        0,
+      ),
+      2,
+    );
+
+    fixture.familyManifest.rows = fixture.familyManifest.rows.filter(
+      (row) => row.row_id !== "module.fixture.behavior.second",
+    );
+    writeJSONFile(
+      path.join(root, "tools/test_families/module.fixture.json"),
+      fixture.familyManifest,
+    );
+    const reduced = loadTestCatalog(root);
+    assert.equal(reduced.summary.row_count, 1);
+    assert.equal(reduced.summary.selector_count, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -5217,6 +5280,68 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
           violation.path === "internal/modules/assessments/cross_owner_provider.go",
       ),
       `cross-owner provider import violation missing: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("backend module boundary distinguishes exact and subtree forbidden imports", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary-match-kind."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/evidence/root.go",
+      'package evidence\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/timeline"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/evidence/child.go",
+      'package evidence\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/timeline/private"\n',
+    );
+    const manifest = readJSON("tools/backend_module_boundaries.json");
+    manifest.forbidden_go_imports = [
+      {
+        id: "synthetic-match-kind",
+        match_kind: "exact",
+        imports: ["github.com/JochiRaider/cartulary/internal/modules/timeline"],
+        scan_paths: ["internal/modules/evidence/**"],
+        allowed_paths: [],
+        production_only: true,
+      },
+    ];
+    const manifestPath = path.join(root, "boundary.json");
+    const run = () => spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        manifestPath,
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const exact = run();
+    assert.notEqual(exact.status, 0);
+    assert.deepEqual(
+      JSON.parse(exact.stdout).violations
+        .filter((violation) => violation.code === "forbidden_go_import")
+        .map((violation) => [violation.path, violation.rule_id, violation.match_kind]),
+      [["internal/modules/evidence/root.go", "synthetic-match-kind", "exact"]],
+    );
+
+    manifest.forbidden_go_imports[0].match_kind = "subtree";
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const subtree = run();
+    assert.notEqual(subtree.status, 0);
+    assert.deepEqual(
+      JSON.parse(subtree.stdout).violations
+        .filter((violation) => violation.code === "forbidden_go_import")
+        .map((violation) => violation.path),
+      ["internal/modules/evidence/child.go", "internal/modules/evidence/root.go"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

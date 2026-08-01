@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import {
   type APIRequestContext,
   type APIResponse,
@@ -14,6 +14,7 @@ import {
   resolvePlaywrightStateFile,
   sharedPlaywrightStateDir,
 } from "../runtime/harnessState";
+import { atomicWritePrivateFile } from "../runtime/privateState";
 import {
   waitForAPIReady,
   waitForPageRequestAPIReady,
@@ -216,7 +217,7 @@ export function loadSuiteAdminTotpSecret() {
 }
 
 export function writeSuiteAdminTotpSecret(secretBase32: string) {
-  writeFileSync(suiteAdminTotpStatePath, `${secretBase32}\n`, "utf8");
+  atomicWritePrivateFile(suiteAdminTotpStatePath, `${secretBase32}\n`);
 }
 
 export function clearSuiteAdminTotpSecret() {

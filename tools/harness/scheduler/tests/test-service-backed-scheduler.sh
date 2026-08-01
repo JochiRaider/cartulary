@@ -1044,7 +1044,7 @@ write_manifest() {
 
   {
     printf '{\n'
-    printf '  "schema_id": "cartulary.service_backed_schedule_sources.v1",\n'
+    printf '  "schema_id": "cartulary.service_backed_schedule_sources.v2",\n'
     printf '  "schedules": [\n'
     printf '    { "target": "%s", "resource_limits": { "postgres": 32, "object_store": 32, "go_cpu": 6, "go_io": 6, "postgres_clone": 8, "postgres_reset": 8, "process": 2, "browser_stack": "auto", "browser_stage_webserver_backed": 1, "browser_stage_stateful": 1, "browser_stage_measurement": 1, "browser_stage_visual": 1 }, "work_unit_sources": [\n' "$target"
     local first=1
@@ -1296,7 +1296,7 @@ write_fake_make "$auto_capacity_dir"
 auto_capacity_manifest="${auto_capacity_dir}/manifest.json"
 cat >"${auto_capacity_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schema_id": "cartulary.service_backed_schedule_sources.v2",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1474,7 +1474,7 @@ write_fake_go_target_runner "$eager_finalizer_dir"
 eager_finalizer_manifest="${eager_finalizer_dir}/manifest.json"
 cat >"${eager_finalizer_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schema_id": "cartulary.service_backed_schedule_sources.v2",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -1629,7 +1629,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"${browser_auto_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schema_id": "cartulary.service_backed_schedule_sources.v2",
   "schedules": [
     {
       "target": "check-service-backed",
@@ -1823,7 +1823,7 @@ write_fake_make "$browser_failure_cleanup_dir"
 browser_failure_cleanup_manifest="${browser_failure_cleanup_dir}/manifest.json"
 cat >"${browser_failure_cleanup_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schema_id": "cartulary.service_backed_schedule_sources.v2",
   "schedules": [
     {
       "target": "test-service-backed",
@@ -2119,7 +2119,7 @@ write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
 cat >"${scheduler_priority_manifest}.sources" <<'JSON'
 {
-  "schema_id": "cartulary.service_backed_schedule_sources.v1",
+  "schema_id": "cartulary.service_backed_schedule_sources.v2",
   "schedules": [
     {
       "target": "check-service-backed",

@@ -4,7 +4,6 @@ import {
   runtimeBinaryProducerTargetsForIDs,
   runtimeBinaryRegistry,
 } from "../../runtime-binary-registry.mjs";
-import { readinessAttributionForMakeTarget } from "../../scheduler/scheduler-manifest.mjs";
 import { directRuntimeProducerClaims } from "./schedule-resource-claims.mjs";
 import { command, sortedUnique } from "./schedule-utils.mjs";
 
@@ -63,7 +62,7 @@ export function addDirectRuntimeProducerUnits(
     if (unitsByTarget.has(target) || omitTargets.has(target)) {
       continue;
     }
-    const readinessAttribution = readinessAttributionForMakeTarget(target);
+    const readinessAttribution = source.runtime_readiness_attribution?.[target] ?? null;
     unitsByTarget.set(target, {
       id: target,
       kind: "make_target",

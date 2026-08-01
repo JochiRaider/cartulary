@@ -31,7 +31,9 @@
       "paths": [
         "tools/harness/backend/backend-target-plan.mjs"
       ],
-      "allowed_consumers": []
+      "allowed_consumers": [
+        "tools/harness/owner-slice/execution.mjs"
+      ]
     },
     {
       "key": "browser_batch_manifest",

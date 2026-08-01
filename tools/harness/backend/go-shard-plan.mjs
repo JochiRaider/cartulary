@@ -302,10 +302,16 @@ function shardWeightMs(items, baselines) {
     }
   }
   for (const key of packageKeys) {
-    weightMs += normalizePositiveInteger(baselines.packageOverheads.get(key), 0);
+    weightMs += normalizePositiveInteger(
+      baselines.packageOverheads.get(key),
+      baselines.defaultPackageOverheadMs,
+    );
   }
   for (const target of targets) {
-    weightMs += normalizePositiveInteger(baselines.commandOverheadsByTarget.get(target), 0);
+    weightMs += normalizePositiveInteger(
+      baselines.commandOverheadsByTarget.get(target),
+      baselines.defaultCommandOverheadMs,
+    );
   }
   return weightMs;
 }
@@ -727,6 +733,8 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
       ),
     ),
     default_item_weight_ms: baselines.defaultItemWeightMs,
+    default_package_overhead_ms: baselines.defaultPackageOverheadMs,
+    default_command_overhead_ms: baselines.defaultCommandOverheadMs,
     targets: Array.from(shardTargets).sort(compareStrings),
     aggregates: aggregateList,
     shards: shardList,

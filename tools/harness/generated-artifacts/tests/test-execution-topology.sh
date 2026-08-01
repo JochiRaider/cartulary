@@ -40,7 +40,7 @@ const {
 
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
-assert.equal(summary.schema_id, "cartulary.execution_topology.v4");
+assert.equal(summary.schema_id, "cartulary.execution_topology.v5");
 assert.ok(summary.execution_dependencies >= 10);
 assert.ok(summary.go_targets >= 5);
 assert.ok(summary.check_schedules >= 1);
@@ -1013,7 +1013,7 @@ for (const owner of verificationRegistry.owners) copyCatalogFile(owner.contract_
   writeFileSync(path.join(root, renderArtifacts[0].file), renderArtifacts[0].content);
   const changedTopology = {
     ...renderIndexTopology,
-    schema_id: "cartulary.execution_topology.v4",
+    schema_id: "cartulary.execution_topology.v5",
     check_schedules: {
       ...renderIndexTopology.check_schedules,
       defaults: {
