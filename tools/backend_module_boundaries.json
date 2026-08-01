@@ -47,9 +47,9 @@
         "internal/modules/records/incident_bundle_source_port_test.go",
         "internal/modules/revisions/incident_bundle_source_port.go",
         "internal/modules/savedviews/incident_bundle_source_port.go",
-        "internal/modules/tasksdecisions/incident_bundle_portability.go",
         "internal/modules/tasksdecisions/incident_bundle_contribution.go",
-        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/portability.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
         "internal/modules/tasksdecisions/incident_bundle_source_port_test.go",
         "internal/modules/timeline/incident_bundle_source_port.go"
       ]
@@ -172,22 +172,27 @@
     },
     {
       "id": "tasks-decisions-delete-restore-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore",
       "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
+      "id": "tasks-decisions-incident-bundle-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/incidentbundle",
+      "allowed_importers": ["internal/modules/tasksdecisions/incident_bundle_contribution.go"]
+    },
+    {
       "id": "tasks-decisions-rollback-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/rollbackprovider",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/rollback",
       "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
       "id": "tasks-decisions-projection-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/projection",
       "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
       "id": "tasks-decisions-reporting-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/reportingprovider",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/reporting",
       "allowed_importers": ["internal/modules/tasksdecisions/**"]
     },
     {
@@ -221,7 +226,7 @@
         "internal/modules/indicators/deleterestore/provider.go",
         "internal/modules/parties/deleterestore/provider.go",
         "internal/modules/revisions/**",
-        "internal/modules/tasksdecisions/deleterestore/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
         "internal/modules/timeline/deleterestore/provider.go"
       ]
     }
@@ -235,19 +240,6 @@
     }
   ],
   "forbidden_go_imports": [
-    {
-      "id": "tasks-decisions-leaves-do-not-import-root",
-      "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-      ],
-      "scan_paths": [
-        "internal/modules/tasksdecisions/deleterestore/**",
-        "internal/modules/tasksdecisions/projectionprovider/**",
-        "internal/modules/tasksdecisions/reportingprovider/**"
-      ],
-      "allowed_paths": [],
-      "production_only": true
-    },
     {
       "id": "evidence-no-timeline-implementation",
       "imports": [
@@ -546,6 +538,30 @@
   ],
   "go_import_allowlists": [
     {
+      "id": "tasks-decisions-delete-restore-provider-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/deleterestore/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
+      ]
+    },
+    {
+      "id": "tasks-decisions-incident-bundle-provider-exact-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/incidentbundle/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentportability",
+        "github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy",
+        "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+      ]
+    },
+    {
       "id": "tasks-decisions-private-source-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
       "scan_paths": ["internal/modules/tasksdecisions/internal/source/**"],
@@ -558,7 +574,7 @@
     {
       "id": "tasks-decisions-rollback-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/rollbackprovider/**"],
+      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/rollback/**"],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -569,7 +585,7 @@
     {
       "id": "tasks-decisions-projection-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/projectionprovider/**"],
+      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/projection/**"],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -580,7 +596,7 @@
     {
       "id": "tasks-decisions-reporting-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
-      "scan_paths": ["internal/modules/tasksdecisions/reportingprovider/**"],
+      "scan_paths": ["internal/modules/tasksdecisions/internal/providers/reporting/**"],
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
@@ -749,15 +765,16 @@
       "id": "tasks-decisions-source-tables",
       "tables": ["decisions", "task_requests"],
       "allowed_paths": [
-        "internal/modules/tasksdecisions/deleterestore/provider.go",
-        "internal/modules/tasksdecisions/incident_bundle_portability.go",
-        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
-        "internal/modules/tasksdecisions/incident_bundle_subtype_presence.go",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/portability.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/subtype_presence.go",
         "internal/modules/tasksdecisions/internal/source/direct_updates.go",
         "internal/modules/tasksdecisions/internal/source/facts.go",
-        "internal/modules/tasksdecisions/mutations.go",
-        "internal/modules/tasksdecisions/projectionprovider/provider.go",
-        "internal/modules/tasksdecisions/rollbackprovider/provider.go",
+		"internal/modules/tasksdecisions/internal/source/inserts.go",
+		"internal/modules/tasksdecisions/internal/source/lifecycle.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/rollback/provider.go",
         "internal/modules/parties/deleterestore/provider.go"
       ]
     },
@@ -766,7 +783,7 @@
       "tables": ["record_links", "record_tags"],
       "allowed_paths": [
         "internal/modules/links/**",
-        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
         "internal/modules/tasksdecisions/internal/source/facts.go"
       ]
     },
@@ -878,12 +895,12 @@
       "table": "task_request_grid_projection",
       "scan_paths": ["internal/modules/**"],
       "read_allowed_paths": [
-        "internal/modules/tasksdecisions/projectionprovider/provider.go",
-        "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go",
-        "internal/modules/tasksdecisions/reportingprovider/provider.go"
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go",
+        "internal/modules/tasksdecisions/internal/providers/reporting/provider.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/tasksdecisions/projectionprovider/provider.go"
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go"
       ]
     },
     {
@@ -891,12 +908,12 @@
       "table": "decision_grid_projection",
       "scan_paths": ["internal/modules/**"],
       "read_allowed_paths": [
-        "internal/modules/tasksdecisions/projectionprovider/provider.go",
-        "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go",
-        "internal/modules/tasksdecisions/reportingprovider/provider.go"
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go",
+        "internal/modules/tasksdecisions/internal/providers/reporting/provider.go"
       ],
       "write_allowed_paths": [
-        "internal/modules/tasksdecisions/projectionprovider/provider.go"
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go"
       ]
     },
     {
@@ -972,14 +989,14 @@
         "internal/modules/parties/workbook_facade.go",
         "internal/modules/records/**",
         "internal/modules/recovery/application/service.go",
-        "internal/modules/tasksdecisions/incident_bundle_source_port.go",
+        "internal/modules/tasksdecisions/internal/providers/incidentbundle/source_port.go",
         "internal/modules/tasksdecisions/internal/source/facts.go",
         "internal/modules/tasksdecisions/internal/source/references.go",
-        "internal/modules/tasksdecisions/deleterestore/provider.go",
-        "internal/modules/tasksdecisions/projectionprovider/provider.go",
-        "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go",
-        "internal/modules/tasksdecisions/reportingprovider/provider.go",
-        "internal/modules/tasksdecisions/rollbackprovider/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go",
+        "internal/modules/tasksdecisions/internal/providers/reporting/provider.go",
+        "internal/modules/tasksdecisions/internal/providers/rollback/provider.go",
         "internal/modules/tasksdecisions/supersede_facade.go",
         "internal/modules/tasksdecisions/workbook_facade.go",
         "internal/modules/timeline/incident_bundle_portability.go",
@@ -1375,6 +1392,80 @@
       "production_only": true
     },
     {
+      "id": "tasks-decisions-retired-forwarders-and-dead-surfaces",
+      "tokens": [
+        "func ValidateTaskCreateParams(",
+        "func ValidateDecisionCreateParams(",
+        "func ValidateTaskDirectPatchChange(",
+        "func ValidateDecisionDirectPatchChange(",
+        "func ValidTaskKind(",
+        "func ValidTaskStatus(",
+        "func ValidTaskPriority(",
+        "func ValidDecisionType(",
+        "func ValidDecisionStatus(",
+        "func ValidateTaskCreateState(",
+        "func ValidateDecisionStatusTransition(",
+        "func ValidateDecisionMachineState(",
+        "func DecisionSupersedeValidationError(",
+        "type revisionAppendAdapter",
+        "func newRevisionAppendAdapter(",
+        "func NullableUUIDPointer(",
+        "func CollectFieldsTx(",
+        "func ImportIncidentBundleFilesTx(",
+        "func ExportIncidentBundleFiles(",
+        "taskRequestsImportViewSchemaID"
+      ],
+      "scan_paths": [
+        "internal/modules/tasksdecisions/*.go",
+        "internal/modules/tasksdecisions/internal/providers/reporting/**"
+      ],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "tasks-decisions-no-kitchen-sink-store",
+      "tokens": [
+        "type Store struct",
+        "func NewStore(",
+        "records.NewStore(",
+        "links.NewStore(",
+        "projections.NewTaskDecisionRows(",
+        "revisions.NewAppender("
+      ],
+      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "tasks-decisions-no-auth-or-raw-replay-leakage",
+      "tokens": [
+        "internal/platform/authn",
+        "authn.",
+        "ResponseJSON",
+        "json.Unmarshal(",
+        "ConflictIdempotency",
+        "ClassifyIdempotencyWriteError",
+        "IdempotencyOutcome",
+        "payload any"
+      ],
+      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "tasks-decisions-retired-composition-surfaces",
+      "tokens": [
+        "type WorkbookFacade struct",
+        "type SupersedeFacade struct",
+        "type MutationCapabilities struct",
+        "func NewWorkbookContribution(",
+        "func NewSupersedeFacade("
+      ],
+      "scan_paths": ["internal/modules/tasksdecisions/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "timeline-store-surface-private",
       "tokens": [
         "*timeline.Store",
@@ -1420,7 +1511,7 @@
         "internal/modules/evidence/deleterestore/**",
         "internal/modules/indicators/deleterestore/**",
         "internal/modules/parties/deleterestore/**",
-        "internal/modules/tasksdecisions/deleterestore/**",
+        "internal/modules/tasksdecisions/internal/providers/deleterestore/**",
         "internal/modules/timeline/deleterestore/**"
       ],
       "allowed_paths": [],

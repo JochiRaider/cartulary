@@ -2,8 +2,8 @@ package tasksdecisions
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore"
+	taskdecisionrollback "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/rollback"
 )
 
 func NewRevisionContribution() revisions.ProviderContribution {
@@ -14,7 +14,7 @@ func NewRevisionContribution() revisions.ProviderContribution {
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "task_request",
 				DeleteRestoreSource:    deleterestore.NewTaskRequestSource(),
-				RowRollbackProvider:    rollbackprovider.NewTaskRequestProvider(),
+				RowRollbackProvider:    taskdecisionrollback.NewTaskRequestProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 					ContributionID: "tasksdecisions.task_requests",
@@ -25,7 +25,7 @@ func NewRevisionContribution() revisions.ProviderContribution {
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "decision",
 				DeleteRestoreSource:    deleterestore.NewDecisionSource(),
-				RowRollbackProvider:    rollbackprovider.NewDecisionProvider(),
+				RowRollbackProvider:    taskdecisionrollback.NewDecisionProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 				RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 					ContributionID: "tasksdecisions.decisions",

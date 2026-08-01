@@ -717,3 +717,654 @@ Conformance-correction verdict: SL-00, SL-04, SL-05, and SL-06 done; CG-01
 passed. Structural-refactor verdict: SL-01 through SL-03 and SL-07 done; the
 overall handoff is closed. No public API, schema, or valid persisted-behavior
 compatibility surface changed.
+
+## 13. Production-Readiness Cleanup Iteration
+
+### 13.1 Planning posture and baseline
+
+This section preserves Sections 1 through 12 as the completed audit history of
+the first remediation. It is the controlling plan for the next iteration and
+does not reopen or rewrite the evidence recorded above.
+
+| Item | Planned posture |
+| --- | --- |
+| Iteration objective | Remove proven dead code and unnecessary internal compatibility seams, make target-owned providers physically private, and leave the Tasks/Decisions module in a fail-closed production composition posture |
+| Planning baseline | Git revision `41e5689d4b68c3fd021996d476f7895fe0f658f0`; worktree clean at the 2026-08-01 15:29 EDT inspection |
+| Current status | `COMPLETE`; PR-00 through PR-06 are `DONE` |
+| Current authorization | The 2026-08-01 15:46 EDT user work order authorizes PR-00 through PR-06 in the fixed sequence |
+| Execution authorization | Completed; PRB-001 is resolved and every authorized slice passed its exit criteria |
+| Fixed sequence | `PR-00 -> PR-01 -> PR-02 -> PR-03 -> PR-04 -> PR-05 -> PR-06` |
+| Public compatibility posture | Owner-led removal only; no public Tasks/Decisions surface is currently eligible for removal |
+| Data posture | No DDL, stored-data rewrite, historical-value rewrite, or automatic migration |
+| Owner-document posture | No Core or domain change; package topology and private implementation are outside `docs/domain.md` vocabulary ownership |
+
+The user selected owner-led public cleanup rather than an unconditional public
+compatibility freeze. That choice does not itself establish that a public
+surface is obsolete. Live owner and contract evidence produces these decisions:
+
+- the Task Requests and Decisions workbook routes and view-schema identities
+  remain required current-profile surfaces;
+- source tables, current projection behavior, valid persisted state, selectors,
+  reporting facts, and bundle family/path identities remain current;
+- Incident Bundle version 1 remains import-only but mandatory because Core 01
+  REQ-01-636 retirement conditions are not satisfied: no adopting stable release
+  or deprecation date is recorded, the release/time/telemetry conditions have not
+  elapsed, operator inventory is not clear, and Core has not removed version 1;
+- rollback `source` snapshots and `cells` values both have live producers and
+  remain supported; and
+- the removable compatibility burden in this iteration is therefore internal Go
+  surface and package topology, not public transport or persisted data.
+
+### 13.2 Live cleanup inventory
+
+The following inventory was derived from production-call searches at the
+planning baseline. A symbol is removable only when every caller is migrated in
+its named slice and the slice validation remains green.
+
+| Finding | Current evidence | Disposition | Owning slice |
+| --- | --- | --- | --- |
+| Root validator and enum forwarders | Used only inside the target after policy consolidation | Remove and call private policy directly | PR-01 |
+| `revisionAppendAdapter` and constructor | Defined but never constructed in Tasks/Decisions | Delete | PR-01 |
+| `NullableUUIDPointer` | Definition has no caller | Delete | PR-01 |
+| Reporting `CollectFieldsTx` | Legacy wrapper has no current caller; Reporting consumes typed facts | Delete | PR-01 |
+| `ImportIncidentBundleFilesTx` | Obsolete re-decoding entry point is bypassed by the typed prepared bundle | Delete | PR-01 |
+| Exported bundle exporter | Used only as the target-local source-port callback | Make private | PR-01 |
+| Duplicate Task Requests view constant | Private import constant duplicates the root identity | Delete and use the root identity | PR-01 |
+| Exported `Store` and `NewStore` | No external production caller; target-local methods mix workbook, import, supersession, links, revisions, and source SQL | Eliminate after source migration | PR-02 |
+| Import concrete construction | Target constructs Records, Links, and Projection implementations | Replace with injected import dependencies | PR-02 |
+| Concrete conflict idempotency | `MutationCapabilities` exposes `*authn.Store`; the conflict command carries `authn.UserRecord` | Replace with actor UUID and narrow shared idempotency contract | PR-03 |
+| Raw replay codec | Target receives `ResponseJSON`, decodes transport-shaped maps, and accepts `any` on idempotency write | Replace with a closed typed stored-mutation result | PR-03 |
+| Separate Workbook and supersede facades | Application composition builds equivalent capability sets twice | Replace with one mutation contribution/facade | PR-04 |
+| Panic-based dependency validation | Incomplete capability sets panic during construction | Return descriptive construction errors | PR-04 |
+| Convention-private provider leaves | Boundary manifest restricts leaves, but Go does not physically privatize them to the target | Move below `internal/providers` | PR-05 |
+| Harness `.store` terminology | Evidence row survives after the Store abstraction is removed | Rename to source/workbook behavior and regenerate | PR-05 |
+
+### 13.3 Adopted cleanup decisions
+
+| Decision | Adopted result | Compatibility consequence |
+| --- | --- | --- |
+| PR-DEC-001 | The permanent mutation entry point is `NewMutationContribution`; it constructs one `MutationFacade` implementing create, patch, conflict resolution, and decision supersession. | `NewWorkbookContribution` and `NewSupersedeFacade` are removed after atomic caller migration; no forwarding adapters remain. |
+| PR-DEC-002 | Cross-owner mutation and import dependencies remain explicit, operation-specific ports. Stable coordinator contract types may cross the boundary; concrete stores, platform actor records, raw replay bytes, transport status, and untyped idempotency payloads may not. | Internal Go adapters change; HTTP and replay behavior do not. |
+| PR-DEC-003 | Import composition supplies Records, Links, Projection, and Revision ports to `NewImportContribution`; the target constructs none of their implementations. | Internal constructor change only; import normalization, authorization, provenance, atomicity, and result shape remain stable. |
+| PR-DEC-004 | Incident-bundle, delete/restore, rollback, projection, and reporting providers live under `internal/modules/tasksdecisions/internal/providers/*`. | Old leaf import paths receive no legacy support; root contribution constructors remain stable coordinator-facing entry points except where PR-DEC-001 supersedes them. |
+| PR-DEC-005 | Missing required dependencies are ordinary composition errors returned by constructors, not panics or late nil dereferences. | Application and test composition must handle construction failure before runtime publication. |
+| PR-DEC-006 | Public routes, OpenAPI, view IDs, bundle family/major/paths, valid v1/v2 imports, schema, selectors, and valid stored behavior remain unchanged because their owners still require them. | No public migration or compatibility mode is introduced. |
+
+These decisions supersede only the target-internal topology and constructor
+details in TD-DEC-004. The earlier conformance decisions and their completed
+evidence remain authoritative for observable behavior.
+
+### 13.4 Workstream execution protocol
+
+For every PR slice, the executing session MUST:
+
+1. Confirm the predecessor is `DONE`, resolve any slice blocker, record the
+   starting revision/worktree state, and mark only that slice `IN_PROGRESS`.
+2. Make only the changes assigned to that slice. Temporary migration code MAY
+   exist inside the slice but MUST be removed before the slice becomes `DONE`.
+3. Run the focused validation named by the slice and classify every failure as
+   related or unrelated with its target and result/run root.
+4. Update this tracker to `DONE` with files changed, substantive behavior,
+   commands, results, rollback posture, and the next eligible slice.
+5. Run `make lint-markdown` after the tracker update and before beginning the
+   successor.
+
+No slice may be combined with its successor. A failed exit criterion leaves the
+slice `IN_PROGRESS`; it does not authorize later work. Generated artifacts and
+lockfiles MUST NOT be hand-edited.
+
+### 13.5 Planned workstreams
+
+#### PR-00 - Characterization and compatibility closure
+
+Status: `DONE`.
+
+- **Areas:** Tests, authored harness ownership, generated harness projections,
+  and this tracker.
+- **Remediation:** Add
+  `TestTasksDecisionsConflictResolutionContribution_Integration` through the
+  application-composed Workbook surface. Cover Task and Decision keep-saved and
+  use-unsaved outcomes, stale-token revalidation, exact replay,
+  changed-content conflict, and exact route-idempotency/change-set/revision/
+  intent counts. Add one service-backed `module.tasksdecisions` owner row with
+  collaborator `module.workbook`. Record the live reachability and public
+  compatibility closure above.
+- **Rationale and long-term benefit:** Conflict idempotency is the last concrete
+  platform seam in the target. Freezing its observable order and durable effects
+  permits the seam to change without weakening replay or authorization.
+- **Compatibility and migration:** Test and evidence-routing change only. The
+  new characterization MUST pass before production changes begin.
+- **Risk if unresolved:** PR-03 could silently change replay identity, failure
+  precedence, or durable-effect counts.
+- **Exit criteria:** The new symbol is selected exactly once; Tasks/Decisions
+  unit and service-backed owner slices pass; the Incident Bundles compatibility
+  owner evidence still proves v1 import; harness generation and drift checks are
+  green.
+
+Completion evidence:
+
+- Added the exact application-composed Task/Decision conflict characterization,
+  including keep-saved/use-unsaved durability, exact and changed replay, stale
+  token revalidation, collaboration intents, and row-version effects.
+- Added one service-backed owner row and the matching authored duration baseline;
+  updated catalog closure counts and regenerated the execution schedules.
+- Focused selector passed at
+  `.cartulary/test-results/20260801T195227Z-p698931`; complete owner unit and
+  service-backed slices passed at
+  `.cartulary/test-results/20260801T195245Z-p700392` and
+  `.cartulary/test-results/20260801T195321Z-p719716`; Incident Bundle v1
+  compatibility passed at
+  `.cartulary/test-results/20260801T195416Z-p738671`; harness contract and
+  generation drift passed at
+  `.cartulary/test-results/20260801T195430Z-p740482` and
+  `.cartulary/test-results/20260801T195459Z-p741724`.
+- Related setup failures were repaired: the row ID was regenerated with the
+  authored row-ID tool, catalog counts and duration coverage were updated, and
+  required Task/Decision fixture fields were added. A duration-baseline refresh
+  was safely refused because its successful source run contained one PostgreSQL
+  startup retry; this did not invalidate the authored conservative baseline or
+  the passing coverage check at
+  `.cartulary/test-results/20260801T195128Z-p693270`.
+- Compatibility impact is evidence-only; rollback is ordinary removal of the
+  new row/test and regeneration of schedules. PR-01 is the next eligible slice.
+
+#### PR-01 - Remove proven dead and forwarding surfaces
+
+Status: `DONE`; predecessor PR-00 is `DONE`.
+
+- **Areas:** Target implementation, reporting boundary evidence, backend
+  boundary policy, tests, and tracker.
+- **Remediation:** Delete the dead symbols and aliases enumerated in Section
+  13.2, make the bundle exporter private, and migrate all remaining target-local
+  validation calls directly to private policy. Add forbidden source tokens for
+  the retired names so later changes cannot silently restore them.
+- **Rationale and long-term benefit:** One callable path per behavior reduces
+  drift and makes the root export surface truthful.
+- **Compatibility and migration:** Internal Go-only break. No adapter or
+  deprecation window is retained because there is no external production caller.
+- **Risk if unresolved:** Obsolete re-decoding, validation, and reporting paths
+  may be reused and diverge from the current typed paths.
+- **Exit criteria:** Static search finds none of the retired names; reporting,
+  portability, rollback, import, owner slices, and the backend boundary check
+  pass.
+
+Completion evidence:
+
+- Deleted the root validation, enum, lifecycle, and supersession forwarding
+  functions, the unused revision adapter, `NullableUUIDPointer`, the reporting
+  `CollectFieldsTx` wrapper, and the obsolete Incident Bundle import entry point.
+  Remaining target callers now use the private policy kernel directly.
+- Made the Incident Bundle exporter private, removed the duplicate Task Requests
+  import identity, and added the
+  `tasks-decisions-retired-forwarders-and-dead-surfaces` backend-boundary rule.
+  Static search found no retired root symbol after formatting.
+- `make backend-module-boundary-check` passed at
+  `.cartulary/test-results/20260801T195904Z-p752062`; Tasks/Decisions unit and
+  service-backed owner slices passed at
+  `.cartulary/test-results/20260801T195915Z-p752623` and
+  `.cartulary/test-results/20260801T195956Z-p772952`. Those rows include the
+  target import, portability, and rollback coverage.
+- Reporting unit and service-backed owner slices passed at
+  `.cartulary/test-results/20260801T200104Z-p791866` and
+  `.cartulary/test-results/20260801T200117Z-p793577`. No validation failure
+  occurred; `make format` passed at
+  `.cartulary/test-results/20260801T195852Z-p748806`.
+- Compatibility impact is limited to removal of unreachable internal Go
+  symbols. No public route, schema, persisted payload, DDL, or data migration
+  changed. Rollback is ordinary version-control reversion of this slice; PR-02
+  is the next eligible slice after this tracker update and lint pass.
+
+#### PR-02 - Eliminate the exported kitchen-sink Store
+
+Status: `DONE`; predecessor PR-01 is `DONE`.
+
+- **Areas:** Target source implementation, Workbook and import orchestration,
+  import application composition, tests, boundary policy, and tracker.
+- **Remediation:** Delete `Store` and `NewStore`. Move fixed inserts, updates,
+  lifecycle normalization, touches, and fact loads into `internal/source`.
+  Keep link, transaction, and revision orchestration in the root entry paths.
+  Replace Store-bound import methods with a private import owner receiving
+  validated Records, Links, Projection, and Revision ports from import assembly.
+- **Rationale and long-term benefit:** Persistence becomes cohesive and private;
+  entry paths reuse source facts without sharing a mutable service object.
+- **Compatibility and migration:** All target-local and application callers move
+  atomically. No DDL, data rewrite, or behavior change.
+- **Risk if unresolved:** Concrete peer construction and mixed responsibilities
+  continue to make imports, Workbook changes, supersession, and portability
+  difficult to reason about independently.
+- **Exit criteria:** No target production `Store` or concrete peer-store
+  construction remains. Interactive mutation, import, rollback, portability,
+  projection, lifecycle, replay, and atomicity evidence passes.
+
+Completion evidence:
+
+- Deleted the target `Store`, `NewStore`, and Store-bound import/projection
+  methods. Fixed inserts, scalar updates, lifecycle normalization, touches, and
+  source-fact loads are stateless operations under `internal/source`; Workbook,
+  import, supersession, and portability callers now invoke those operations
+  directly.
+- Root mutation paths retain link orchestration and transaction, projection,
+  and revision coordination. Import now receives explicit Records insert, Links
+  synchronization, Projection refresh/load, and Revision finalization ports.
+  Import assembly constructs that dependency bundle once and reuses it for both
+  generated Tasks/Decisions bindings.
+- Static search confirms no target production `Store`, `NewStore`, or concrete
+  Records, Links, Projections, or Revisions construction. The backend boundary
+  gate passed at `.cartulary/test-results/20260801T200650Z-p802114`.
+- Tasks/Decisions unit and service-backed owner slices passed at
+  `.cartulary/test-results/20260801T200701Z-p805661` and
+  `.cartulary/test-results/20260801T200746Z-p826321`; these select lifecycle,
+  projection, supersession, import authorization/atomicity, portability,
+  rollback, and replay evidence.
+- Imports unit and service-backed owner slices passed at
+  `.cartulary/test-results/20260801T200831Z-p845242` and
+  `.cartulary/test-results/20260801T200922Z-p866666`. Workbook unit and
+  service-backed owner slices passed at
+  `.cartulary/test-results/20260801T201017Z-p887218` and
+  `.cartulary/test-results/20260801T201344Z-p925399`.
+- The first boundary run at
+  `.cartulary/test-results/20260801T200630Z-p801642` failed for a related reason:
+  the new private source files were absent from the exact source-table
+  allowlist. Updating that allowlist repaired the gate; no unrelated failure
+  occurred.
+- This is an atomic internal caller migration with no DDL, data rewrite, public
+  schema, route, or stored-state change. Rollback is ordinary version-control
+  reversion of PR-02; PR-03 is next after the tracker lint passes.
+
+#### PR-03 - Remove auth and replay-codec leakage
+
+Status: `DONE`; predecessor PR-02 is `DONE`.
+
+- **Areas:** Shared keep-saved coordinator contract, its current source-owner
+  callers, target capability contracts, Workbook application adapters, tests,
+  boundary policy, and tracker.
+- **Remediation:** Change the generic keep-saved command to carry the exact actor
+  UUID and use a narrow idempotency interface rather than `authn.UserRecord` or
+  `*authn.Store`; migrate every current caller in the same slice. Replace
+  Tasks/Decisions `ResponseJSON` and `any` exchange with a closed
+  operation-tagged stored-mutation result. Decode and encode the unchanged route
+  payload in application adapters, reject an operation-kind mismatch, and map
+  platform uniqueness failures to `ErrClientTxnConflict` there. Remove
+  `ConflictIdempotency` and `ClassifyIdempotencyWriteError` from the target root.
+- **Rationale and long-term benefit:** Source semantics no longer depend on
+  platform auth records or transport serialization, and replay behavior can be
+  tested with deterministic fakes.
+- **Compatibility and migration:** Shared internal coordinator signatures change
+  atomically. Public bodies, statuses, error codes, replay identity, and durable
+  effects remain byte/semantically equivalent as applicable.
+- **Risk if unresolved:** Authentication storage, transport encoding, and
+  source mutation remain coupled; malformed stored payloads can fail late in
+  source code.
+- **Exit criteria:** Target production code has no `authn` import, concrete auth
+  store, raw replay decoder, or untyped idempotency write payload. Conflict,
+  replay, failure-precedence, and all affected source-owner suites pass.
+
+Completion evidence:
+
+- The shared keep-saved command now carries only `ActorUserID`; its coordinator-
+  owned idempotency port exchanges a typed stored target and preserves hash
+  comparison before decoding. Artifacts, entities, evidence, parties, and
+  Tasks/Decisions migrated atomically; richer actors remain only in owner
+  commands whose non-keep-saved patch path requires them.
+- Tasks/Decisions route idempotency now exchanges a closed result tagged as
+  create, patch/conflict resolution, or decision supersession. Workbook
+  application composition alone encodes and decodes the unchanged stored route
+  payload, checks route/operation agreement, and maps platform uniqueness to
+  `ErrClientTxnConflict`.
+- Target production static search and the boundary policy confirm no `authn`
+  import, concrete auth store, `ResponseJSON`, raw JSON decoder, untyped write
+  payload, `ConflictIdempotency`, `IdempotencyOutcome`, or retired classifier.
+  The final backend boundary run passed at
+  `.cartulary/test-results/20260801T203905Z-p1072021`.
+- Exact adapter uniqueness/operation evidence passed at
+  `.cartulary/test-results/20260801T203148Z-p1007898`; the target pre-source
+  operation-mismatch evidence passed with the Store behavior row at
+  `.cartulary/test-results/20260801T203214Z-p1009357`.
+- Full Tasks/Decisions unit and service-backed owner slices passed at
+  `.cartulary/test-results/20260801T203533Z-p1025409` and
+  `.cartulary/test-results/20260801T203617Z-p1045317`. These include exact and
+  changed replay, stale-token revalidation, supersession replay, lifecycle,
+  portability, rollback, and import atomicity.
+- The shared Workbook source-owner conflict row passed in unit and service-
+  backed modes at `.cartulary/test-results/20260801T203907Z-p1072315` and
+  `.cartulary/test-results/20260801T203925Z-p1074457`. Harness contract passed at
+  `.cartulary/test-results/20260801T203939Z-p1075858`; baseline coverage and
+  generation drift passed at
+  `.cartulary/test-results/20260801T203421Z-p1013677` and
+  `.cartulary/test-results/20260801T203518Z-p1021410`.
+- Related failures were repaired without advancing the slice: the first owner
+  run exposed decode-before-hash failure precedence, the new adapter test first
+  exposed a test-only import cycle, harness validation required the new package
+  overhead baseline, and generation drift required regeneration after that
+  baseline changed. No unrelated failure remains.
+- Public status codes, response bodies, replay identity, and stored JSON shapes
+  remain unchanged. There is no DDL or stored-data rewrite; rollback is ordinary
+  version-control reversion of the atomic PR-03 caller migration. PR-04 is next
+  after tracker lint.
+
+#### PR-04 - Consolidate mutation composition and fail closed
+
+Status: `DONE`; predecessor PR-03 is `DONE`.
+
+- **Areas:** Target root API, Workbook application composition and consumer
+  ports, import construction, unit/integration tests, harness ownership, and
+  tracker.
+- **Remediation:** Add
+  `NewMutationContribution(pool, tokens, MutationDependencies)
+  (*MutationFacade, error)`. The single facade implements create, patch,
+  conflict resolution, and decision supersession and is constructed once per
+  Workbook runtime. Remove the old Workbook and supersede constructors after all
+  callers move. Make Workbook consume its own narrow interfaces rather than
+  concrete target facade pointers. Validate `MutationDependencies` and
+  `ImportDependencies` with descriptive returned errors.
+- **Rationale and long-term benefit:** One aggregate runtime prevents duplicate
+  dependency graphs and divergent lifecycle behavior; fail-closed construction
+  turns wiring defects into ordinary startup errors.
+- **Compatibility and migration:** Immediate internal Go migration without
+  wrappers. Runtime behavior and transport remain stable.
+- **Risk if unresolved:** Partial wiring can panic or fail late, and Workbook and
+  supersession can be assembled with inconsistent capability instances.
+- **Exit criteria:** Add and route
+  `TestMutationContributionRejectsIncompleteDependencies_Unit`,
+  `TestMutationContributionSharesOneFacade_Unit`, and
+  `TestImportContributionRejectsIncompleteDependencies_Unit`. Application
+  composition, server startup, owner tests, and backend boundaries pass.
+
+Completion evidence:
+
+- The target now exposes one `MutationFacade` through
+  `NewMutationContribution`, with explicit `MutationDependencies` validation
+  and descriptive errors. Create, patch, conflict resolution, and decision
+  supersession use that one object; the retired Workbook/supersede facades,
+  constructors, aliases, and revision append shim are absent and protected by
+  boundary policy.
+- Workbook application assembly constructs the facade once and injects it into
+  consumer-owned create, patch, conflict, and supersede ports. Import and
+  mutation constructors reject incomplete dependencies, and server composition
+  propagates those errors before the Workbook route registrar is assembled.
+- The three exact constructor/composition tests are uniquely owned by
+  `module.tasksdecisions.composition`; the focused row passed at
+  `.cartulary/test-results/20260801T204943Z-p1091556`. The complete
+  Tasks/Decisions unit and service-backed slices passed at
+  `.cartulary/test-results/20260801T205001Z-p1092737` and
+  `.cartulary/test-results/20260801T205042Z-p1113637`.
+- The complete Workbook unit and service-backed slices passed at
+  `.cartulary/test-results/20260801T205124Z-p1132669` and
+  `.cartulary/test-results/20260801T205434Z-p1170652`. The fail-closed server
+  startup row and complete server unit owner slice passed at
+  `.cartulary/test-results/20260801T205812Z-p1207073` and
+  `.cartulary/test-results/20260801T205819Z-p1207479`; real server composition
+  reached successful startup in the focused service-backed row at
+  `.cartulary/test-results/20260801T210007Z-p1238105`.
+- Backend boundaries, harness contract, generation drift, generated-artifact
+  policy, and JSON shape passed at
+  `.cartulary/test-results/20260801T204954Z-p1092401`,
+  `.cartulary/test-results/20260801T210020Z-p1239493`,
+  `.cartulary/test-results/20260801T210049Z-p1240744`,
+  `.cartulary/test-results/20260801T210100Z-p1244649`, and
+  `.cartulary/test-results/20260801T210103Z-p1244992`.
+- Two related authoring failures were corrected before validation: the row-ID
+  helper rejected an owner-only family ID, and the first format run detected
+  non-ASCII row ordering. No unrelated failure remains. There is no public,
+  database, or stored-state migration; rollback is ordinary version-control
+  reversion of this atomic constructor and caller migration. PR-05 is next
+  after tracker lint.
+
+#### PR-05 - Make providers physically private and repair evidence ownership
+
+Status: `DONE`; predecessor PR-04 is `DONE`.
+
+- **Areas:** Target provider packages, root contributions, authored boundary and
+  harness inputs, Make-generated schedules, tests, and tracker.
+- **Remediation:** Move the incident-bundle, delete/restore, rollback,
+  projection, and reporting implementations to these target-private families:
+  `internal/providers/incidentbundle`, `internal/providers/deleterestore`,
+  `internal/providers/rollback`, `internal/providers/projection`, and
+  `internal/providers/reporting`. Update exact import, source-table, and SQL
+  allowlists. Move the rollback test selector, add the composition row, and
+  rename the obsolete `.store` row/family to source/workbook behavior. Remove
+  every old leaf directory and rule rather than retaining aliases.
+- **Rationale and long-term benefit:** Go enforces provider privacy, the root is
+  the only target import surface, and evidence names match the implemented
+  architecture.
+- **Compatibility and migration:** Internal package and harness-row identity
+  change only. Generated schedules change solely through authored inputs and
+  Make generation.
+- **Risk if unresolved:** Privacy depends on a mutable convention and owner runs
+  continue to describe an abstraction that no longer exists.
+- **Exit criteria:** No old leaf path or import remains; no private provider
+  imports the root; every exact test symbol is selected once. Run, in order:
+  `make explain-test-owner OWNER=module.tasksdecisions`, both owner slices,
+  `make backend-module-boundary-check`, `make harness-contract`, `make generate`,
+  `make generate-drift`, `make generated-artifact-policy-check`, and
+  `make json-shape-check`.
+
+Completion evidence:
+
+- Incident Bundle, delete/restore, rollback, projection, and reporting
+  implementations now live only under the five adopted
+  `internal/providers/*` families. Root contribution constructors import those
+  private packages and remain the only coordinator-facing composition surface;
+  no private provider imports the target root, and the former public leaf
+  directories and import paths are absent without aliases.
+- Authored projection-source checks, reporting path guards, revision adapter
+  identities, owner-import rules, exact provider import allowlists,
+  source-table access, and projection SQL access now name the private paths.
+  The rollback selector moved with its package, the obsolete `.store` family
+  became `.source_workbook`, and the PR-04 composition row remains separately
+  owned.
+- `make explain-test-owner OWNER=module.tasksdecisions` reports nine rows and
+  nine distinct families, including composition and source/workbook. Complete
+  unit and service-backed owner slices passed at
+  `.cartulary/test-results/20260801T210731Z-p1256387` and
+  `.cartulary/test-results/20260801T210816Z-p1277621`. The moved projection
+  source-ownership row also passed in both modes at
+  `.cartulary/test-results/20260801T211058Z-p1305974` and
+  `.cartulary/test-results/20260801T211107Z-p1307325`.
+- The required ordered final gates passed: backend boundaries at
+  `.cartulary/test-results/20260801T210905Z-p1296852`, harness contract at
+  `.cartulary/test-results/20260801T210908Z-p1297205`, generation at
+  `.cartulary/test-results/20260801T210937Z-p1298452`, generation drift at
+  `.cartulary/test-results/20260801T210944Z-p1300632`, generated-artifact
+  policy at `.cartulary/test-results/20260801T210956Z-p1304556`, and JSON shape
+  at `.cartulary/test-results/20260801T210958Z-p1304926`.
+- One related boundary failure at
+  `.cartulary/test-results/20260801T210642Z-p1255170` showed that a prefix-based
+  no-root rule also rejected legitimate private policy/source imports. Exact
+  per-provider allowlists replaced it and passed, preserving the stronger
+  closed import set. An extra focused invocation of the legacy Revisions
+  delete/restore row was rejected before execution because `ROWS` requires
+  unique owner row IDs; it produced no result root, is not a PR-05 exit gate,
+  and the full Revisions owner evidence remains scheduled for PR-06. No public,
+  database, or stored-state migration exists; rollback is ordinary
+  version-control reversion of the atomic package moves and authored policy
+  updates. PR-06 is next after tracker lint.
+
+#### PR-06 - Final validation and handoff
+
+Status: `DONE`; predecessor PR-05 is `DONE`.
+
+- **Areas:** Validation evidence and this tracker only. No new design or product
+  change is permitted.
+- **Remediation:** Run the complete narrow-to-broad ladder, classify every
+  failure, and close statuses, completion criteria, blocker resolutions,
+  rollback notes, and retained-run metadata.
+- **Rationale and long-term benefit:** The cleanup ends with reproducible
+  evidence rather than an unverifiable absence-of-code claim.
+- **Compatibility and migration:** None beyond earlier slices.
+- **Risk if unresolved:** Cross-owner, generated, browser, or harness drift may
+  remain hidden and future maintainers cannot reproduce the completion claim.
+- **Exit criteria:** Run Tasks/Decisions owner slices; affected Workbook,
+  Imports, Revisions, Projection, Reporting, and Incident Bundles evidence;
+  backend and frontend boundaries; focused owner and webserver-backed browser
+  checks; harness/generation/drift checks; then `make agent-finalize` with
+  `RESULTS_DIR` unset and `make check`. If the full check yields a qualifying
+  successful run root, rerun `make agent-finalize RESULTS_DIR=<run-root>`.
+  Record any failure by target, result root, relatedness, causal slice, and
+  rollback posture; never report a failed ladder as success.
+
+Completion evidence:
+
+- Tasks/Decisions unit and service-backed slices passed at
+  `.cartulary/test-results/20260801T211328Z-p1314667` and
+  `.cartulary/test-results/20260801T211403Z-p1333611`. Workbook passed at
+  `.cartulary/test-results/20260801T211453Z-p1352594` and
+  `.cartulary/test-results/20260801T211806Z-p1390536`; Imports at
+  `.cartulary/test-results/20260801T212117Z-p1426266` and
+  `.cartulary/test-results/20260801T212207Z-p1447602`; Revisions at
+  `.cartulary/test-results/20260801T212305Z-p1468209` and
+  `.cartulary/test-results/20260801T212401Z-p1490574`; Projections at
+  `.cartulary/test-results/20260801T212515Z-p1511749` and
+  `.cartulary/test-results/20260801T212536Z-p1514175`; Reporting at
+  `.cartulary/test-results/20260801T212601Z-p1515920` and
+  `.cartulary/test-results/20260801T212612Z-p1517687`; Incident Bundles at
+  `.cartulary/test-results/20260801T212627Z-p1519043` and
+  `.cartulary/test-results/20260801T212711Z-p1522365`; and server composition at
+  `.cartulary/test-results/20260801T212754Z-p1524191` and
+  `.cartulary/test-results/20260801T212908Z-p1554415`.
+- Backend and frontend import boundaries passed at
+  `.cartulary/test-results/20260801T213028Z-p1583838` and
+  `.cartulary/test-results/20260801T213031Z-p1584178`. The focused frontend row
+  passed at `.cartulary/test-results/20260801T213040Z-p1584705`, and the
+  required webserver-backed browser target passed at
+  `.cartulary/test-results/20260801T213044Z-p1585095`.
+- Harness contract, generation, generation drift, generated-artifact policy,
+  JSON shape, migration drift, and toolchain drift passed at
+  `.cartulary/test-results/20260801T213551Z-p1615099`,
+  `.cartulary/test-results/20260801T213620Z-p1616346`,
+  `.cartulary/test-results/20260801T213626Z-p1618534`,
+  `.cartulary/test-results/20260801T213638Z-p1622448`,
+  `.cartulary/test-results/20260801T213640Z-p1622803`,
+  `.cartulary/test-results/20260801T213643Z-p1623317`, and
+  `.cartulary/test-results/20260801T213650Z-p1625787`.
+- The required unset-`RESULTS_DIR` finalizer passed at
+  `.cartulary/test-results/20260801T213702Z-p1626389`. The final complete
+  `make check` passed 194 of 194 work units and 872 tests at
+  `.cartulary/test-results/20260801T215105Z-p1883892`.
+- The first broad check failed at
+  `.cartulary/test-results/20260801T213729Z-p1633012` because the PR-00
+  conflict row declared a transaction fixture while its application-server
+  harness requires a template clone. This related verification-routing defect
+  was corrected to `postgres_template_clone`/`go_clone_heavy`; the exact row
+  passed at `.cartulary/test-results/20260801T214232Z-p1758186`, regenerated
+  harness and drift checks passed at
+  `.cartulary/test-results/20260801T214250Z-p1759620` and
+  `.cartulary/test-results/20260801T214319Z-p1760855`, and the final broad check
+  includes the corrected row. Rollback is reversion of that authored row
+  change; no product or data rollback applies.
+- A second broad check failed at
+  `.cartulary/test-results/20260801T214334Z-p1764914` on an unrelated partial
+  worker-admin JSON read in the incident-administration browser group. A later
+  standalone browser rerun at
+  `.cartulary/test-results/20260801T214545Z-p1853745` encountered an unrelated
+  collaboration locator timing failure while the captured row already held the
+  expected value. Neither failure has a causal remediation slice or product
+  rollback posture, and both browser areas passed in the final complete check.
+- Retained-run finalization was attempted at
+  `.cartulary/test-results/20260801T215423Z-p1991440` and correctly rejected the
+  successful check root as non-qualifying: `build-server` took 16,209 ms against
+  a 15,000 ms warm threshold and `check-service-backed` took 174,479 ms against
+  a 155,000 ms budget. This timing-only result is unrelated to the remediation,
+  requires no rollback or baseline rewrite, and means the conditional retained-
+  run maintenance step is not applicable. The mandatory unset finalizer and
+  full check both passed.
+- Public routes, OpenAPI, view-schema identities, database schema, selectors,
+  Incident Bundle formats, supported v1/v2 imports, rollback value shapes, and
+  valid stored behavior remain compatible. No DDL, data rewrite, compatibility
+  mode, forwarding package, lockfile change, or owner-specification change was
+  introduced.
+
+### 13.6 Planned interface and package end state
+
+The completed iteration MUST expose this target posture:
+
+```text
+internal/app/*assembly
+  -> tasksdecisions root contribution constructors and typed ports
+tasksdecisions root
+  -> internal/policy
+  -> internal/source
+  -> internal/providers/*
+internal/providers/*
+  -> generic coordinator contracts and permitted private policy/source only
+```
+
+The root retains public internal-Go types only when an external production
+caller or application adapter needs them: mutation/import commands, typed
+results and errors, dependency ports, contribution constructors, and canonical
+view-schema identities. It MUST NOT export a general Store, validation mirrors,
+provider implementations, transport codecs, HTTP status policy, platform actor
+records, or concrete peer stores.
+
+### 13.7 Planned evidence routing
+
+| Evidence family | Final selector posture |
+| --- | --- |
+| Conflict composition | New service-backed row selecting only `TestTasksDecisionsConflictResolutionContribution_Integration` from the application-composed Workbook package; collaborator `module.workbook` |
+| Composition contracts | New unit row selecting the three exact PR-04 constructor/composition tests from the target root package |
+| Source/workbook behavior | Rename the current `.store` row/family while preserving its five exact lifecycle, projection, and supersession symbols |
+| Import behavior | Preserve the three exact application import symbols and PostgreSQL transaction profile |
+| Incident portability | Preserve the eight exact portability symbols and PostgreSQL transaction profile |
+| Rollback policy | Preserve the two exact symbols, update the package to `./internal/modules/tasksdecisions/internal/providers/rollback`, and retain the no-service unit profile |
+| Frontend and browser | Preserve the existing exact unit/browser selectors and profiles |
+
+Every active exact symbol MUST be selected once by one owner row. Evidence
+routing does not define product behavior and no runtime or test code may read
+this tracker.
+
+### 13.8 Next-iteration work tracker
+
+| ID | Work item | Status | Dependency | Exit evidence |
+| --- | --- | --- | --- | --- |
+| PR-PLAN | Record the production-readiness plan and planning baseline | `DONE` | Completed Sections 1-12 | Tracker update and `make lint-markdown` passed at `.cartulary/test-results/20260801T193228Z-p664826` |
+| PR-00 | Characterization and compatibility closure | `DONE` | PRB-001 and PR-PLAN | Focused/owner slices, v1 compatibility, harness and generation drift passed at the recorded run roots |
+| PR-01 | Dead and forwarding surface removal | `DONE` | PR-00 | Static absence, owner/collaborator tests, backend boundary passed at the recorded run roots |
+| PR-02 | Store elimination and source cohesion | `DONE` | PR-01 | No Store/concrete construction and entry-path parity passed at the recorded run roots |
+| PR-03 | Auth and replay-codec boundary cleanup | `DONE` | PR-02 | Static boundary, conflict/replay, typed mismatch, and uniqueness evidence passed at the recorded run roots |
+| PR-04 | Mutation composition consolidation | `DONE` | PR-03 | Constructor tests, app/server composition, owner slices passed at the recorded run roots |
+| PR-05 | Provider privatization and evidence repair | `DONE` | PR-04 | Import graph, owner selection, and harness/generation ladder passed at the recorded run roots |
+| PR-06 | Final validation and handoff | `DONE` | PR-05 | Full ladder and unset finalizer passed; `make check` passed 194/194 work units and 872 tests at the recorded run root |
+
+### 13.9 Blockers and planning handoff
+
+| ID | Blocker | Required resolution | Status |
+| --- | --- | --- | --- |
+| PRB-001 | The planning request did not authorize production implementation. | The 2026-08-01 15:46 EDT user work order explicitly authorized PR-00 through PR-06 in the fixed sequence. | `RESOLVED` |
+
+There is no owner contradiction and no missing product decision. PRB-001 was an
+execution-authority boundary, not a technical ambiguity. It is resolved, and
+the authorized PR-00 through PR-06 sequence is complete.
+
+Planning-session log:
+
+| Time | Scope | Files changed | Command | Result | Next action |
+| --- | --- | --- | --- | --- | --- |
+| 2026-08-01 15:29 EDT | Tracker-only production-readiness planning | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | Baseline `git status --short`; `git rev-parse HEAD`; `make lint-markdown` | Baseline worktree clean at `41e5689d4b68c3fd021996d476f7895fe0f658f0`; Markdown lint passed at `.cartulary/test-results/20260801T193228Z-p664826` | PR-PLAN complete; keep PRB-001 open and begin only PR-00 after separate implementation authority |
+| 2026-08-01 15:46 EDT | PR-00 start and execution authorization | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `git status --short`; `git rev-parse HEAD` | User authorized the complete fixed sequence at baseline `41e5689d4b68c3fd021996d476f7895fe0f658f0`; pre-existing staged tracker plan preserved; PRB-001 resolved | Add and route the PR-00 conflict characterization only |
+| 2026-08-01 15:55 EDT | PR-00 characterization and compatibility closure | Workbook conflict characterization; Tasks/Decisions authored owner row and duration baseline; catalog-count evidence; generated scheduler/render index; tracker | `make format`; focused and complete Tasks/Decisions owner slices; exact Incident Bundle v1 row; `make harness-contract`; `make generate`; `make generate-drift`; duration coverage/refresh | All exit gates passed at the run roots recorded in PR-00 completion evidence. Intermediate manifest, fixture, and catalog failures were related and repaired; duration refresh was skipped after a safe contaminated-evidence refusal | PR-00 done; run tracker Markdown lint before marking PR-01 in progress |
+| 2026-08-01 15:56 EDT | PR-01 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-00 tracker lint passed at `.cartulary/test-results/20260801T195602Z-p746259`; PR-01 is the only eligible slice | Remove only the proven dead and forwarding surfaces |
+| 2026-08-01 16:02 EDT | PR-01 dead and forwarding surface removal | Target root validation and mutation files; reporting provider; Incident Bundle portability/source port; backend boundary policy; tracker | `make format`; static symbol search; Tasks/Decisions and Reporting unit/service-backed owner slices; `make backend-module-boundary-check` | All PR-01 exit gates passed at the completion-evidence run roots; no validation failure, schema change, or migration | PR-01 done; lint the tracker before marking PR-02 in progress |
+| 2026-08-01 16:03 EDT | PR-02 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-01 tracker lint passed at `.cartulary/test-results/20260801T200202Z-p795165`; PR-02 is the only eligible slice | Remove Store and inject cohesive import dependencies without changing behavior |
+| 2026-08-01 16:17 EDT | PR-02 Store elimination and source cohesion | Target source/mutation/import facades; import assembly; backend boundary policy; tracker | Static construction search; `make format`; Tasks/Decisions, Imports, and Workbook unit/service-backed owner slices; `make backend-module-boundary-check` | All PR-02 exit gates passed at the completion-evidence run roots. One related boundary allowlist failure was repaired; no unrelated failure | PR-02 done; lint the tracker before marking PR-03 in progress |
+| 2026-08-01 16:18 EDT | PR-03 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-02 tracker lint passed at `.cartulary/test-results/20260801T201801Z-p961507`; PR-03 is the only eligible slice | Remove shared auth-record leakage and target replay-codec leakage atomically |
+| 2026-08-01 16:40 EDT | PR-03 auth and replay-codec boundary cleanup | Shared conflict coordinator and five callers; target mutation/replay contracts; Workbook adapter and tests; boundary/harness inputs; generated schedules; tracker | Static leakage search; focused adapter/operation/conflict rows; full Tasks/Decisions owner slices; `make backend-module-boundary-check`; `make harness-contract`; `make generate`; `make generate-drift` | All PR-03 exit gates passed at the completion-evidence roots. Four related validation/setup failures were repaired; no unrelated failure remains | PR-03 done; lint the tracker before marking PR-04 in progress |
+| 2026-08-01 16:42 EDT | PR-04 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-03 tracker lint passed at `.cartulary/test-results/20260801T204109Z-p1077536`; PR-04 is the only eligible slice | Consolidate one fail-closed mutation facade and propagate construction errors before route publication |
+| 2026-08-01 17:01 EDT | PR-04 mutation composition consolidation | Target mutation facade/dependencies and composition tests; Workbook consumer ports and application/server assembly; boundary/harness inputs; generated schedules; tracker | Static retired-name search; focused composition/startup rows; complete Tasks/Decisions and Workbook unit/service-backed slices; complete server unit owner slice and focused real-startup row; boundary/harness/generation/policy/shape checks | All PR-04 exit gates passed at the completion-evidence roots. Two related manifest-authoring failures were repaired; no unrelated failure remains | PR-04 done; lint the tracker before marking PR-05 in progress |
+| 2026-08-01 17:02 EDT | PR-05 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-04 tracker lint passed at `.cartulary/test-results/20260801T210219Z-p1246018`; PR-05 is the only eligible slice | Move the five provider families beneath the target internal boundary and repair exact evidence ownership |
+| 2026-08-01 17:12 EDT | PR-05 provider privatization and evidence repair | Five target-private provider families; root contributions; projection/reporting/revision path checks; boundary and harness owner inputs; generated schedules; tracker | Required ordered owner explanation, Tasks/Decisions slices, boundary, harness, generation, drift, generated-policy, and JSON-shape gates; focused projection source-ownership evidence | All PR-05 exit gates passed at the completion-evidence roots. One related overbroad boundary failure was repaired; one extra legacy Revisions row focus was rejected before execution and deferred to the required PR-06 full owner run | PR-05 done; lint the tracker before marking PR-06 in progress |
+| 2026-08-01 17:13 EDT | PR-06 start | `docs/handoffs/tasksdecisions-module-refactor-tracker.md` | `make lint-markdown`; predecessor and worktree review | PR-05 tracker lint passed at `.cartulary/test-results/20260801T211244Z-p1312939`; PR-06 is the only eligible slice | Run the fixed final validation ladder without adding design or product behavior |
+| 2026-08-01 17:55 EDT | PR-06 final validation and handoff | Authored conflict-row fixture routing and tracker only; no product design change | Full owner ladder; boundaries; focused frontend/browser; harness/generation/drift; unset finalizer; repeated `make check`; conditional retained-run finalizer | The final `make check` passed 194/194 work units and 872 tests at `.cartulary/test-results/20260801T215105Z-p1883892`. One related routing failure was repaired; two unrelated browser flakes passed in the final check; retained-run maintenance was inapplicable because timing thresholds rejected the otherwise successful root | Mark PR-06 and the iteration done; run final tracker Markdown lint and hand off |
+
+### 13.10 Planning definition of done
+
+- [x] Sections 1 through 12 remain intact as completed audit history.
+- [x] The clean baseline revision and planning-only authority are recorded.
+- [x] Public legacy candidates are evaluated against current owner evidence.
+- [x] Incident Bundle v1 import and live rollback shapes are explicitly retained.
+- [x] Every cleanup gap has remediation, area, rationale, long-term benefit,
+  compatibility impact, unresolved risk, and validation criteria.
+- [x] PR-00 through PR-06 have a fixed sequence and binary exit criteria.
+- [x] Permanent interfaces, provider locations, evidence routing, rollback
+  posture, and final validation are decision-complete.
+- [x] `make lint-markdown` passes after the tracker update and PR-PLAN is marked
+  `DONE`.

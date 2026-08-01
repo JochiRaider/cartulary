@@ -1,6 +1,8 @@
 package workbookassembly
 
 import (
+	"fmt"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -16,14 +18,21 @@ func NewMutationStore(
 	pool postgres.DB,
 	contributionCatalog *workbook.WorkbookContributionCatalog,
 	appender *revisions.Appender,
-) *workbook.Store {
+	taskDecisionOwner *tasksdecisions.MutationFacade,
+) (*workbook.Store, error) {
+	if contributionCatalog == nil {
+		return nil, fmt.Errorf("compose Workbook mutation store: contribution catalog is required")
+	}
+	if appender == nil {
+		return nil, fmt.Errorf("compose Workbook mutation store: Revisions appender is required")
+	}
+	if taskDecisionOwner == nil {
+		return nil, fmt.Errorf("compose Workbook mutation store: Tasks/Decisions mutation contribution is required")
+	}
 	return workbook.NewStore(workbook.StoreDependencies{
 		RecordTargets:       records.NewRouteTargetResolver(pool),
 		ContextualNoteOwner: artifacts.NewContextualNoteFacade(pool, appender),
-		SupersedeOwner: tasksdecisions.NewSupersedeFacade(
-			pool,
-			newTaskDecisionMutationCapabilities(pool, appender),
-		),
+		SupersedeOwner:      taskDecisionOwner,
 		ContributionCatalog: contributionCatalog,
-	})
+	}), nil
 }

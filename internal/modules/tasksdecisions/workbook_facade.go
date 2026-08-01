@@ -16,27 +16,26 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictwindows"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 const TaskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
 
-type WorkbookFacade struct {
+type MutationFacade struct {
 	pool             postgres.DB
 	idempotency      IdempotencyCapability
-	conflictStore    *authn.Store
+	keepSaved        conflictresolution.IdempotencyPort
 	incidentAccess   IncidentStateCapability
 	memberReferences MemberReferenceCapability
 	recordStore      RecordEnvelopeCapability
 	linkStore        LinkCapability
 	projectionRows   ProjectionCapability
 	revisions        RevisionCapability
-	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
 }
 
@@ -127,28 +126,32 @@ func (e *SameFieldConflictError) Error() string {
 	return "tasksdecisions: same field conflict"
 }
 
-func NewWorkbookContribution(
+func NewMutationContribution(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
-	capabilities MutationCapabilities,
-) *WorkbookFacade {
-	capabilities.validate()
-	return &WorkbookFacade{
-		pool:             pool,
-		idempotency:      capabilities.Idempotency,
-		conflictStore:    capabilities.ConflictIdempotency,
-		incidentAccess:   capabilities.IncidentState,
-		memberReferences: capabilities.MemberReferences,
-		recordStore:      capabilities.RecordEnvelopes,
-		linkStore:        capabilities.Links,
-		projectionRows:   capabilities.Projections,
-		revisions:        capabilities.Revisions,
-		store:            newStoreWithLinks(capabilities.Links, nil),
-		conflictTokens:   conflictTokens,
+	dependencies MutationDependencies,
+) (*MutationFacade, error) {
+	if pool == nil {
+		return nil, fmt.Errorf("tasks/decisions mutation composition: Postgres is required")
 	}
+	if err := dependencies.validate(); err != nil {
+		return nil, err
+	}
+	return &MutationFacade{
+		pool:             pool,
+		idempotency:      dependencies.Idempotency,
+		keepSaved:        dependencies.KeepSavedIdempotency,
+		incidentAccess:   dependencies.IncidentState,
+		memberReferences: dependencies.MemberReferences,
+		recordStore:      dependencies.RecordEnvelopes,
+		linkStore:        dependencies.Links,
+		projectionRows:   dependencies.Projections,
+		revisions:        dependencies.Revisions,
+		conflictTokens:   conflictTokens,
+	}, nil
 }
 
-func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
+func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
 	request := command.Request
 	idempotencyKey := IdempotencyKey{
 		RouteKey:    command.RouteKey,
@@ -156,24 +159,18 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 		ScopeKey:    command.IncidentID.String() + ":" + request.ViewSchemaID,
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := f.idempotency.Get(ctx, idempotencyKey); err == nil {
+	if existing, err := f.idempotency.Get(ctx, idempotencyKey, command.RequestHash); err == nil {
 		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
 			return WorkbookMutationResult{}, ErrClientTxnConflict
 		}
-		payload, err := decodeSupersedeStoredResponse(existing.ResponseJSON)
-		if err != nil {
-			return WorkbookMutationResult{}, fmt.Errorf("decode replayed task/decision create payload: %w", err)
+		if existing.Result.Kind() != StoredMutationCreate {
+			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
 		}
-		recordID, err := extractPayloadUUID(payload, "row", "record_id")
-		if err != nil {
-			return WorkbookMutationResult{}, err
+		stored, ok := existing.Result.WorkbookResult()
+		if !ok || stored.ViewSchemaID != request.ViewSchemaID {
+			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
 		}
-		changeSetID, err := extractPayloadUUID(payload, "change_set_id")
-		if err != nil {
-			return WorkbookMutationResult{}, err
-		}
-		row, _ := payload["row"].(map[string]any)
-		return WorkbookMutationResult{Row: row, Replayed: true, IncidentID: command.IncidentID, RecordID: recordID, ChangeSetID: changeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+		return WorkbookMutationResult{Row: stored.Row, Replayed: true, IncidentID: command.IncidentID, RecordID: stored.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, ErrIdempotencyNotFound) {
 		return WorkbookMutationResult{}, fmt.Errorf("query task/decision create idempotency: %w", err)
 	}
@@ -212,16 +209,16 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}
 	switch request.ViewSchemaID {
 	case TaskRequestsViewSchemaID:
-		if err := f.store.InsertTaskRequestTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, TaskCreateParams{Values: request.Values}, now); err != nil {
+		if err := tasksource.InsertTaskRequestTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, TaskCreateParams{Values: request.Values}, now); err != nil {
 			return WorkbookMutationResult{}, err
 		}
 		if value, ok := request.Values[TaskDecisionRecordFieldKey]; ok && value.UUID != nil {
-			if _, err := f.store.ApplyTaskDirectChangeTx(ctx, tx, command.IncidentID, recordID, command.ActorUserID, TaskDecisionRecordFieldKey, value, now); err != nil {
+			if _, err := syncTaskDecisionReferenceTx(ctx, tx, f.linkStore, command.IncidentID, recordID, command.ActorUserID, value.UUID, now); err != nil {
 				return WorkbookMutationResult{}, err
 			}
 		}
 	case DecisionsViewSchemaID:
-		if err := f.store.InsertDecisionTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, DecisionCreateParams{Values: request.Values}, now); err != nil {
+		if err := tasksource.InsertDecisionTx(ctx, tx, recordID, command.IncidentID, command.ActorUserID, DecisionCreateParams{Values: request.Values}, now); err != nil {
 			return WorkbookMutationResult{}, err
 		}
 	default:
@@ -268,8 +265,13 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, row)
-	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, IdempotencyOutcomeCreated, payload); err != nil {
+	storedResult := NewStoredCreateResult(StoredWorkbookResult{
+		ViewSchemaID: request.ViewSchemaID,
+		RecordID:     recordID,
+		ChangeSetID:  changeSetID,
+		Row:          row,
+	})
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -288,7 +290,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}, nil
 }
 
-func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand) (WorkbookMutationResult, error) {
+func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand) (WorkbookMutationResult, error) {
 	request := command.Request
 	idempotencyKey := IdempotencyKey{
 		RouteKey:    command.RouteKey,
@@ -296,20 +298,18 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		ScopeKey:    command.RecordID.String(),
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := f.idempotency.Get(ctx, idempotencyKey); err == nil {
+	if existing, err := f.idempotency.Get(ctx, idempotencyKey, command.RequestHash); err == nil {
 		if !bytes.Equal(existing.RequestHash, command.RequestHash) {
 			return WorkbookMutationResult{}, ErrClientTxnConflict
 		}
-		payload, err := decodeSupersedeStoredResponse(existing.ResponseJSON)
-		if err != nil {
-			return WorkbookMutationResult{}, fmt.Errorf("decode replayed task/decision patch payload: %w", err)
+		if existing.Result.Kind() != StoredMutationPatch {
+			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
 		}
-		changeSetID, err := extractPayloadUUID(payload, "change_set_id")
-		if err != nil {
-			return WorkbookMutationResult{}, err
+		stored, ok := existing.Result.WorkbookResult()
+		if !ok || stored.ViewSchemaID != request.ViewSchemaID || stored.RecordID != command.RecordID {
+			return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
 		}
-		row, _ := payload["row"].(map[string]any)
-		return WorkbookMutationResult{Row: row, Replayed: true, RecordID: command.RecordID, ChangeSetID: changeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
+		return WorkbookMutationResult{Row: stored.Row, Replayed: true, RecordID: command.RecordID, ChangeSetID: stored.ChangeSetID, ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, ErrIdempotencyNotFound) {
 		return WorkbookMutationResult{}, fmt.Errorf("query task/decision patch idempotency: %w", err)
 	}
@@ -436,8 +436,13 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, afterRow)
-	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, IdempotencyOutcomeUpdated, payload); err != nil {
+	storedResult := NewStoredPatchResult(StoredWorkbookResult{
+		ViewSchemaID: request.ViewSchemaID,
+		RecordID:     command.RecordID,
+		ChangeSetID:  changeSetID,
+		Row:          afterRow,
+	})
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -458,9 +463,9 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 func validateCreateRequest(request WorkbookCreateRequest) error {
 	switch request.ViewSchemaID {
 	case TaskRequestsViewSchemaID:
-		return ValidateTaskCreateParams(TaskCreateParams{Values: request.Values})
+		return policy.ValidateTaskCreateParams(TaskCreateParams{Values: request.Values})
 	case DecisionsViewSchemaID:
-		return ValidateDecisionCreateParams(DecisionCreateParams{Values: request.Values})
+		return policy.ValidateDecisionCreateParams(DecisionCreateParams{Values: request.Values})
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
@@ -538,23 +543,23 @@ func validateTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID
 	return tasksource.ValidateTargetRecordTx(ctx, tx, incidentID, recordID, expectedType, field)
 }
 
-func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, error) {
+func (f *MutationFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, error) {
 	changed := false
 	var beforeTask TaskLifecycleState
 	var beforeDecisionStatus string
 	var err error
 	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
-		beforeTask, err = f.store.LoadTaskLifecycleStateTx(ctx, tx, recordID)
+		beforeTask, err = tasksource.LoadTaskLifecycleStateTx(ctx, tx, recordID)
 		if err != nil {
 			return false, err
 		}
 	}
 	if request.ViewSchemaID == DecisionsViewSchemaID {
-		if err := f.store.ValidateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
 			return false, err
 		}
 		if touchesField(request.Changes, "decision.status") {
-			beforeDecisionStatus, err = f.store.LoadDecisionStatusTx(ctx, tx, recordID)
+			beforeDecisionStatus, err = tasksource.LoadDecisionStatusTx(ctx, tx, recordID)
 			if err != nil {
 				return false, err
 			}
@@ -578,45 +583,45 @@ func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID
 		}
 	}
 	if request.ViewSchemaID == TaskRequestsViewSchemaID && touchesAnyField(request.Changes, "task.status", "task.blocked_reason", "task.completed_at", "task.owner_user_id") {
-		applied, err := f.store.NormalizeTaskLifecycleTx(ctx, tx, recordID, beforeTask, touchesField(request.Changes, "task.completed_at"), now)
+		applied, err := tasksource.NormalizeTaskLifecycleTx(ctx, tx, recordID, beforeTask, touchesField(request.Changes, "task.completed_at"), now)
 		if err != nil {
 			return false, err
 		}
 		changed = changed || applied
 	}
 	if request.ViewSchemaID == DecisionsViewSchemaID && touchesField(request.Changes, "decision.status") {
-		afterDecisionStatus, err := f.store.LoadDecisionStatusTx(ctx, tx, recordID)
+		afterDecisionStatus, err := tasksource.LoadDecisionStatusTx(ctx, tx, recordID)
 		if err != nil {
 			return false, err
 		}
-		if err := ValidateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
+		if err := policy.ValidateDecisionStatusTransition(beforeDecisionStatus, afterDecisionStatus); err != nil {
 			return false, err
 		}
-		if err := f.store.ValidateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
+		if err := validateDecisionMachineConsistentTx(ctx, tx, recordID); err != nil {
 			return false, err
 		}
 	}
 	return changed, nil
 }
 
-func (f *WorkbookFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change WorkbookPatchChange, now time.Time) (bool, error) {
+func (f *MutationFacade) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, change WorkbookPatchChange, now time.Time) (bool, error) {
 	switch viewSchemaID {
 	case TaskRequestsViewSchemaID:
-		if err := ValidateTaskDirectPatchChange(change.FieldKey, *change.Value); err != nil {
+		if err := policy.ValidateTaskDirectPatchChange(change.FieldKey, *change.Value); err != nil {
 			return false, err
 		}
-		return f.store.ApplyTaskDirectChangeTx(ctx, tx, incidentID, recordID, actorID, change.FieldKey, *change.Value, now)
+		return applyTaskDirectChangeTx(ctx, tx, f.linkStore, incidentID, recordID, actorID, change.FieldKey, *change.Value, now)
 	case DecisionsViewSchemaID:
-		if err := ValidateDecisionDirectPatchChange(change.FieldKey, *change.Value); err != nil {
+		if err := policy.ValidateDecisionDirectPatchChange(change.FieldKey, *change.Value); err != nil {
 			return false, err
 		}
-		return f.store.ApplyDecisionDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
+		return tasksource.ApplyDecisionDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
 	default:
 		return false, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
 }
 
-func (f *WorkbookFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]WorkbookCollectionActionPayload, now time.Time) error {
+func (f *MutationFacade) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]WorkbookCollectionActionPayload, now time.Time) error {
 	for fieldKey, payload := range collections {
 		if _, err := f.applyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, fieldKey, payload, now); err != nil {
 			return err
@@ -637,7 +642,7 @@ func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore LinkC
 	return linkStore.ValidateRecordRefCollectionTx(ctx, tx, command)
 }
 
-func (f *WorkbookFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload WorkbookCollectionActionPayload, now time.Time) (bool, error) {
+func (f *MutationFacade) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload WorkbookCollectionActionPayload, now time.Time) (bool, error) {
 	descriptor, ok := lookupCollectionDescriptor(fieldKey)
 	if !ok {
 		return false, &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
@@ -718,18 +723,18 @@ func recordRefActions(descriptor collectionDescriptor, payload WorkbookCollectio
 	return adds, removes, nil
 }
 
-func (f *WorkbookFacade) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
+func (f *MutationFacade) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {
 	switch viewSchemaID {
 	case TaskRequestsViewSchemaID:
-		return f.store.TouchTaskRequestTx(ctx, tx, recordID, now)
+		return tasksource.TouchTaskRequestTx(ctx, tx, recordID, now)
 	case DecisionsViewSchemaID:
-		return f.store.TouchDecisionTx(ctx, tx, recordID, now)
+		return tasksource.TouchDecisionTx(ctx, tx, recordID, now)
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
 }
 
-func (f *WorkbookFacade) refreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
+func (f *MutationFacade) refreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	switch viewSchemaID {
 	case TaskRequestsViewSchemaID:
 		return f.projectionRows.RefreshTaskRequestTx(ctx, tx, recordID)
@@ -738,30 +743,6 @@ func (f *WorkbookFacade) refreshRowTx(ctx context.Context, tx pgx.Tx, viewSchema
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
-}
-
-func buildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
-	return map[string]any{"view_schema_id": viewSchemaID, "change_set_id": changeSetID.String(), "row": row}
-}
-
-func extractPayloadUUID(payload map[string]any, path ...string) (uuid.UUID, error) {
-	current := any(payload)
-	for _, segment := range path {
-		object, ok := current.(map[string]any)
-		if !ok {
-			return uuid.UUID{}, fmt.Errorf("decode payload path %q", strings.Join(path, "."))
-		}
-		current = object[segment]
-	}
-	text, ok := current.(string)
-	if !ok {
-		return uuid.UUID{}, fmt.Errorf("decode payload path %q", strings.Join(path, "."))
-	}
-	parsed, err := uuid.Parse(text)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	return parsed, nil
 }
 
 func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, err error) error {

@@ -11,7 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
+	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
@@ -21,26 +22,70 @@ const (
 	decisionOwnerUserFieldKey = "decision.owner_user_id"
 )
 
+type ImportRecordEnvelopeCapability interface {
+	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
+}
+
+type ImportLinkCapability interface {
+	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
+}
+
+type ImportProjectionCapability interface {
+	RefreshTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) error
+	RefreshDecisionTx(context.Context, pgx.Tx, uuid.UUID) error
+	LoadTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
+}
+
+type ImportDependencies struct {
+	RecordEnvelopes ImportRecordEnvelopeCapability
+	Links           ImportLinkCapability
+	Projections     ImportProjectionCapability
+	Revisions       ownerfacade.RevisionAppender
+}
+
+func (d ImportDependencies) validate() error {
+	if d.RecordEnvelopes == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Records insert is required")
+	}
+	if d.Links == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Links synchronization is required")
+	}
+	if d.Projections == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Projection refresh/load is required")
+	}
+	if d.Revisions == nil {
+		return fmt.Errorf("tasks/decisions import dependencies: Revision finalization is required")
+	}
+	return nil
+}
+
+type importOwner struct {
+	dependencies ImportDependencies
+}
+
 func NewImportContribution(
 	targetViewSchemaID string,
 	facadeID string,
-	appender *revisions.Appender,
+	dependencies ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != TaskRequestsViewSchemaID &&
 		targetViewSchemaID != DecisionsViewSchemaID {
 		return nil, fmt.Errorf("tasks/decisions import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(appender)
+	if err := dependencies.validate(); err != nil {
+		return nil, err
+	}
+	owner := &importOwner{dependencies: dependencies}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		store.CreateImportRowTx,
+		owner.CreateImportRowTx,
 	)
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if err := validateImportedOwnerShape(request); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -48,15 +93,15 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	values := taskDecisionValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
 	now := command.Now.UTC()
 	switch request.TargetViewSchemaID {
-	case taskRequestsImportViewSchemaID:
+	case TaskRequestsViewSchemaID:
 		params := TaskCreateParams{Values: values}
-		if err := ValidateTaskCreateParams(params); err != nil {
+		if err := policy.ValidateTaskCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, taskOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
+		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
 			IncidentID:      request.IncidentID,
 			RecordType:      "task_request",
 			CreatedByUserID: request.ActorUserID,
@@ -68,30 +113,25 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := s.InsertTaskRequestTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
+		if err := tasksource.InsertTaskRequestTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if _, err := s.linkStore.SyncFieldReferenceCommandTx(ctx, tx, links.SyncFieldReferenceCommand{
-			IncidentID:  request.IncidentID,
-			SrcRecordID: recordID,
-			TargetID:    values[TaskDecisionRecordFieldKey].UUID,
-			FieldKey:    TaskDecisionRecordFieldKey,
-			LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
-			ActorUserID: request.ActorUserID,
-			Now:         now,
-		}); err != nil {
+		if _, err := syncTaskDecisionReferenceTx(
+			ctx, tx, o.dependencies.Links, request.IncidentID, recordID,
+			request.ActorUserID, values[TaskDecisionRecordFieldKey].UUID, now,
+		); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		return s.finalizeImportRowTx(ctx, tx, command, recordID)
+		return o.finalizeImportRowTx(ctx, tx, command, recordID)
 	case DecisionsViewSchemaID:
 		params := DecisionCreateParams{Values: values}
-		if err := ValidateDecisionCreateParams(params); err != nil {
+		if err := policy.ValidateDecisionCreateParams(params); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		if err := validateImportCreateReferencesTx(ctx, tx, request.IncidentID, request.ActorUserID, decisionOwnerUserFieldKey, values); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
+		recordID, err := o.dependencies.RecordEnvelopes.InsertTx(ctx, tx, records.InsertParams{
 			IncidentID:      request.IncidentID,
 			RecordType:      "decision",
 			CreatedByUserID: request.ActorUserID,
@@ -103,10 +143,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := s.InsertDecisionTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
+		if err := tasksource.InsertDecisionTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		return s.finalizeImportRowTx(ctx, tx, command, recordID)
+		return o.finalizeImportRowTx(ctx, tx, command, recordID)
 	default:
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("tasks/decisions import surface %q not mapped", request.TargetViewSchemaID)
 	}
@@ -128,12 +168,12 @@ func validateImportedOwnerShape(request ownerfacade.ImportOwnerCreateRequest) er
 	return nil
 }
 
-func (s *Store) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID) (ownerfacade.ImportOwnerCreateResponse, error) {
-	row, err := s.RefreshImportRowTx(ctx, tx, command.Request.TargetViewSchemaID, recordID)
+func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID) (ownerfacade.ImportOwnerCreateResponse, error) {
+	row, err := o.refreshImportRowTx(ctx, tx, command.Request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
 		Request:         command.Request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -143,6 +183,22 @@ func (s *Store) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command Impo
 		OwnerResultCode: "created",
 		Row:             row,
 	})
+}
+
+func (o *importOwner) refreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
+	switch viewSchemaID {
+	case TaskRequestsViewSchemaID:
+		if err := o.dependencies.Projections.RefreshTaskRequestTx(ctx, tx, recordID); err != nil {
+			return nil, err
+		}
+	case DecisionsViewSchemaID:
+		if err := o.dependencies.Projections.RefreshDecisionTx(ctx, tx, recordID); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("tasks/decisions import projection surface %q not mapped", viewSchemaID)
+	}
+	return o.dependencies.Projections.LoadTx(ctx, tx, viewSchemaID, recordID)
 }
 
 func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {

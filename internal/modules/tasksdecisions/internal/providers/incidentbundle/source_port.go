@@ -1,4 +1,4 @@
-package tasksdecisions
+package incidentbundle
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 )
 
-func newIncidentBundleSourcePort() sourceport.Port {
+func NewSourcePort() sourceport.Port {
 	descriptor := sourceport.Descriptor{
 		FamilyID: "tasks_decisions", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.tasksdecisions", OwnerRelationIDs: []string{"tasks-and-decisions"},
@@ -24,7 +24,7 @@ func newIncidentBundleSourcePort() sourceport.Port {
 		InvariantIDs: policy.PortabilityInvariantIDs(),
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
+		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
 			return prepareTasksDecisionsImport(bundle, importContext)
 		},
@@ -76,10 +76,9 @@ func validatePreparedTasksDecisionsImportTx(
 		}
 	}
 
-	store := NewStore(nil)
 	decisionIDs := sortedPortableDecisionIDs(prepared.decisions)
 	for _, recordID := range decisionIDs {
-		state, err := store.LoadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
+		state, err := tasksource.LoadDecisionMachineStateForUpdateTx(ctx, tx, recordID)
 		if err != nil {
 			return err
 		}
@@ -97,7 +96,7 @@ func validatePreparedTasksDecisionsImportTx(
 
 	taskIDs := sortedPortableTaskIDs(prepared.tasks)
 	for _, recordID := range taskIDs {
-		state, err := store.LoadTaskLifecycleStateTx(ctx, tx, recordID)
+		state, err := tasksource.LoadTaskLifecycleStateTx(ctx, tx, recordID)
 		if err != nil {
 			return err
 		}

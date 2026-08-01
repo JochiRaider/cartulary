@@ -968,12 +968,22 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	if enterpriseAuthenticationAdmitted {
 		authRouteOptions = append(authRouteOptions, auth.WithEnterpriseAuthBindings())
 	}
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
+		postgresHandle,
+		workbookConflictTokens,
+		revisionRuntime.Appender(),
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Workbook Tasks/Decisions mutation contribution: %w", err)
+	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		postgresHandle,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
 		timelineFacade,
 		evidenceOwner.WorkbookContribution(),
+		taskDecisionMutation,
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		intentAppender,
@@ -981,6 +991,16 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Workbook contribution catalog: %w", err)
+	}
+	workbookMutationStore, err := workbookassembly.NewMutationStore(
+		postgresHandle,
+		workbookContributionCatalog,
+		revisionRuntime.Appender(),
+		taskDecisionMutation,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Workbook mutation store: %w", err)
 	}
 	builtInRoutes, err := applicationRouteRegistrars([]routeContribution{
 		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},
@@ -1001,12 +1021,8 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
-				TimelineOwner: timelineFacade,
-				MutationStore: workbookassembly.NewMutationStore(
-					postgresHandle,
-					workbookContributionCatalog,
-					revisionRuntime.Appender(),
-				),
+				TimelineOwner:       timelineFacade,
+				MutationStore:       workbookMutationStore,
 				EntityOwner:         hostidentity.NewStore(postgresHandle, revisionRuntime.Appender()),
 				ConflictTokens:      workbookConflictTokens,
 				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,

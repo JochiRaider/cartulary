@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
-	taskdecisionreporting "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/reportingprovider"
+	taskdecisionreporting "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/reporting"
 )
 
 type ReportingContribution struct{}

@@ -17,13 +17,13 @@ type WorkbookConflictCommand struct {
 	Now            time.Time
 }
 
-func (f *WorkbookFacade) ResolveConflict(
+func (f *MutationFacade) ResolveConflict(
 	ctx context.Context,
 	command WorkbookConflictCommand,
 ) (WorkbookMutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
 		return f.Patch(ctx, WorkbookPatchCommand{
-			ActorUserID:      command.Mechanics.Actor.ID,
+			ActorUserID:      command.Mechanics.ActorUserID,
 			RecordID:         command.Mechanics.RecordID,
 			Request:          *command.Patch,
 			RequestHash:      command.Mechanics.RequestHash,
@@ -36,7 +36,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	result, err := conflictresolution.KeepSaved(
 		ctx,
 		f.pool,
-		f.conflictStore,
+		f.keepSaved,
 		command.Mechanics,
 		f.loadConflictTarget,
 	)
@@ -54,7 +54,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	}, nil
 }
 
-func (f *WorkbookFacade) loadConflictTarget(
+func (f *MutationFacade) loadConflictTarget(
 	ctx context.Context,
 	tx pgx.Tx,
 	command conflictresolution.Command,

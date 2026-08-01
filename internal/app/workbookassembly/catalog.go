@@ -28,6 +28,7 @@ func NewContributionCatalog(
 	projectionQuery *projections.QueryService,
 	timelineOwner *timeline.Facade,
 	evidenceOwner evidence.WorkbookContribution,
+	taskDecisionOwner *tasksdecisions.MutationFacade,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
@@ -44,6 +45,9 @@ func NewContributionCatalog(
 	if evidenceOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
 	}
+	if taskDecisionOwner == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Tasks/Decisions mutation contribution is required")
+	}
 	if intents == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
 	}
@@ -56,11 +60,6 @@ func NewContributionCatalog(
 	}
 	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
 	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
-	taskDecisionOwner := tasksdecisions.NewWorkbookContribution(
-		pool,
-		conflictTokens,
-		newTaskDecisionMutationCapabilities(pool, appender),
-	)
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(

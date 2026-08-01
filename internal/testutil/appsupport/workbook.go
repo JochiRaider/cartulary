@@ -29,12 +29,17 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
 	timelineBundle := timelineassembly.NewBundle(pool, conflictTokens, appender, intents, evidenceAttachments)
 	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents)
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender)
+	if err != nil {
+		panic(err)
+	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
 		timelineBundle.Facade,
 		evidenceContribution,
+		taskDecisionMutation,
 		conflictTokens,
 		appender,
 		intents,
@@ -42,5 +47,9 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	if err != nil {
 		panic(err)
 	}
-	return workbookassembly.NewMutationStore(pool, catalog, appender)
+	store, err := workbookassembly.NewMutationStore(pool, catalog, appender, taskDecisionMutation)
+	if err != nil {
+		panic(err)
+	}
+	return store
 }

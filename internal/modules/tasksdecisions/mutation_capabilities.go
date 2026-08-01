@@ -3,6 +3,7 @@ package tasksdecisions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,9 +12,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
-	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 // ErrIdempotencyNotFound is returned when no committed route result exists.
@@ -23,6 +23,10 @@ var ErrIdempotencyNotFound = errors.New("tasksdecisions: idempotency result not 
 // request content. Workbook translates this owner error at its transport edge.
 var ErrClientTxnConflict = errors.New("tasksdecisions: client transaction conflict")
 
+// ErrStoredMutationKindMismatch rejects replay data bound to a different
+// operation before any source transaction begins.
+var ErrStoredMutationKindMismatch = errors.New("tasksdecisions: stored mutation kind mismatch")
+
 type IdempotencyKey struct {
 	RouteKey    string
 	ActorUserID uuid.UUID
@@ -31,16 +35,66 @@ type IdempotencyKey struct {
 }
 
 type IdempotencyRecord struct {
-	RequestHash  []byte
-	ResponseJSON []byte
+	RequestHash []byte
+	Result      StoredMutationResult
 }
 
-type IdempotencyOutcome string
+type StoredMutationKind string
 
 const (
-	IdempotencyOutcomeCreated IdempotencyOutcome = "created"
-	IdempotencyOutcomeUpdated IdempotencyOutcome = "updated"
+	StoredMutationCreate               StoredMutationKind = "create"
+	StoredMutationPatch                StoredMutationKind = "patch"
+	StoredMutationDecisionSupersession StoredMutationKind = "decision_supersession"
 )
+
+type StoredWorkbookResult struct {
+	ViewSchemaID string
+	RecordID     uuid.UUID
+	ChangeSetID  uuid.UUID
+	Row          map[string]any
+}
+
+type StoredDecisionSupersessionResult struct {
+	ViewSchemaID string
+	ChangeSetID  uuid.UUID
+	Facts        SupersedeFacts
+}
+
+// StoredMutationResult is a closed operation-tagged union. Constructors are
+// the only way application adapters can create a valid stored result.
+type StoredMutationResult struct {
+	kind         StoredMutationKind
+	workbook     StoredWorkbookResult
+	supersession StoredDecisionSupersessionResult
+}
+
+func NewStoredCreateResult(result StoredWorkbookResult) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationCreate, workbook: result}
+}
+
+func NewStoredPatchResult(result StoredWorkbookResult) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationPatch, workbook: result}
+}
+
+func NewStoredDecisionSupersessionResult(result StoredDecisionSupersessionResult) StoredMutationResult {
+	return StoredMutationResult{kind: StoredMutationDecisionSupersession, supersession: result}
+}
+
+func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
+
+func (r StoredMutationResult) WorkbookResult() (StoredWorkbookResult, bool) {
+	if r.kind != StoredMutationCreate && r.kind != StoredMutationPatch {
+		return StoredWorkbookResult{}, false
+	}
+	return r.workbook, true
+}
+
+func (r StoredMutationResult) DecisionSupersessionResult() (StoredDecisionSupersessionResult, bool) {
+	if r.kind != StoredMutationDecisionSupersession {
+		return StoredDecisionSupersessionResult{}, false
+	}
+	return r.supersession, true
+}
 
 // IncidentStateCapability owns only incident lifecycle admission in a caller
 // supplied transaction.
@@ -57,8 +111,8 @@ type MemberReferenceCapability interface {
 // IdempotencyCapability preserves the existing lookup-before-validation and
 // transaction-bound write order without exposing the platform auth store.
 type IdempotencyCapability interface {
-	Get(context.Context, IdempotencyKey) (IdempotencyRecord, error)
-	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, IdempotencyOutcome, any) error
+	Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error)
+	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error
 }
 
 // RecordEnvelopeCapability is the exact Records-owned persistence used by the
@@ -97,25 +151,39 @@ type RevisionCapability interface {
 	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]historyquery.RevisionWindowRow, error)
 }
 
-// MutationCapabilities is assembled at the application composition root. The
-// two facades do not construct platform or peer-owner stores.
-type MutationCapabilities struct {
-	IncidentState       IncidentStateCapability
-	MemberReferences    MemberReferenceCapability
-	Idempotency         IdempotencyCapability
-	RecordEnvelopes     RecordEnvelopeCapability
-	Links               LinkCapability
-	Projections         ProjectionCapability
-	Revisions           RevisionCapability
-	ConflictIdempotency *authn.Store
+// MutationDependencies is assembled at the application composition root. The
+// facade does not construct platform or peer-owner stores.
+type MutationDependencies struct {
+	IncidentState        IncidentStateCapability
+	MemberReferences     MemberReferenceCapability
+	Idempotency          IdempotencyCapability
+	RecordEnvelopes      RecordEnvelopeCapability
+	Links                LinkCapability
+	Projections          ProjectionCapability
+	Revisions            RevisionCapability
+	KeepSavedIdempotency conflictresolution.IdempotencyPort
 }
 
-func (c MutationCapabilities) validate() {
-	if c.IncidentState == nil || c.MemberReferences == nil || c.Idempotency == nil ||
-		c.RecordEnvelopes == nil || c.Links == nil || c.Projections == nil ||
-		c.Revisions == nil || c.ConflictIdempotency == nil {
-		panic("tasksdecisions mutation capabilities are incomplete")
+func (d MutationDependencies) validate() error {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{name: "Incident admission", value: d.IncidentState},
+		{name: "Member validation", value: d.MemberReferences},
+		{name: "Route idempotency", value: d.Idempotency},
+		{name: "Record envelopes", value: d.RecordEnvelopes},
+		{name: "Links", value: d.Links},
+		{name: "Projections", value: d.Projections},
+		{name: "Revisions/history", value: d.Revisions},
+		{name: "Keep-saved idempotency", value: d.KeepSavedIdempotency},
 	}
+	for _, dependency := range required {
+		if dependency.value == nil {
+			return fmt.Errorf("tasks/decisions mutation dependencies: %s is required", dependency.name)
+		}
+	}
+	return nil
 }
 
 type memberReferenceValidator struct{}
@@ -134,13 +202,4 @@ func (memberReferenceValidator) ValidateIncidentMemberUserTx(
 	field string,
 ) error {
 	return validateIncidentMemberUserTx(ctx, tx, incidentID, userID, field)
-}
-
-// ClassifyIdempotencyWriteError keeps PostgreSQL classification in the source
-// adapter while allowing application composition to translate the conflict.
-func ClassifyIdempotencyWriteError(err error) error {
-	if tasksource.IsUniqueViolation(err) {
-		return ErrClientTxnConflict
-	}
-	return err
 }

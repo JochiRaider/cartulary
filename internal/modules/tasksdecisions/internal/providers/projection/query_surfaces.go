@@ -1,4 +1,4 @@
-package projectionprovider
+package projection
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/links/readshape"

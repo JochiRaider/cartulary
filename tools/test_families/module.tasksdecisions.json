@@ -34,6 +34,59 @@
       "status": "active"
     },
     {
+      "row_id": "module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.composition",
+      "collaborator_ids": [
+        "module.imports",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestImportContributionRejectsIncompleteDependencies_Unit",
+          "TestMutationContributionRejectsIncompleteDependencies_Unit",
+          "TestMutationContributionSharesOneFacade_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.conflict_composition",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestTasksDecisionsConflictResolutionContribution_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_clone_heavy",
+      "fixture_profile_id": "postgres_template_clone",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.frontend_unit",
@@ -55,6 +108,31 @@
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
       "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "module.tasksdecisions.idempotency_adapter.application_workbook_idempotency_adapter_boundar_90a3399bf6",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.idempotency_adapter",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestTaskDecisionIdempotencyAdapterBoundary_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "go_transaction_heavy",
+      "fixture_profile_id": "postgres_transaction",
       "default_check": true,
       "claim_posture": "implementation",
       "status": "active"
@@ -128,7 +206,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/tasksdecisions/rollbackprovider",
+        "package": "./internal/modules/tasksdecisions/internal/providers/rollback",
         "tests": [
           "TestProvidersRejectInvalidOwnerValues",
           "TestTaskSourcePreservesNullAndExcludesCollections"
@@ -143,9 +221,9 @@
       "status": "active"
     },
     {
-      "row_id": "module.tasksdecisions.store.task_requests_and_decisions_persist_as_workbook_a08a0c4c47",
+      "row_id": "module.tasksdecisions.source_workbook.task_requests_and_decisions_persist_as_workbook_887d6b579e",
       "owner_id": "module.tasksdecisions",
-      "family_id": "module.tasksdecisions.store",
+      "family_id": "module.tasksdecisions.source_workbook",
       "collaborator_ids": [],
       "verification_ids": [
         "module.tasksdecisions.verification.behavior_contract"
@@ -156,6 +234,7 @@
         "tests": [
           "TestDecisionLifecycleSupersessionAndConsistency_Unit",
           "TestDecisionTerminalTransitionMatrix_Unit",
+          "TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit",
           "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
           "TestTaskLifecycleGuardFailures_Unit",
           "TestTaskRequestLifecycleDecisionLinksAndProjection_Unit"

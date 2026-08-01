@@ -8,7 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/projection"
 )
 
 // ProjectionContribution is the complete source-owned projection boundary for

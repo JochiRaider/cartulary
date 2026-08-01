@@ -490,7 +490,11 @@ func NewPartyCreateProvider(owner *parties.WorkbookFacade) CreateProvider {
 	})
 }
 
-func NewTaskDecisionCreateProvider(viewSchemaID string, owner *tasksdecisions.WorkbookFacade) CreateProvider {
+type taskDecisionCreateOwner interface {
+	Create(context.Context, tasksdecisions.WorkbookCreateCommand) (tasksdecisions.WorkbookMutationResult, error)
+}
+
+func NewTaskDecisionCreateProvider(viewSchemaID string, owner taskDecisionCreateOwner) CreateProvider {
 	return newGenericCreateProvider(viewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
 		result, err := owner.Create(ctx, tasksdecisions.WorkbookCreateCommand{
 			ActorUserID: command.Actor.ID,
@@ -644,7 +648,11 @@ func NewPartyPatchProvider(owner *parties.WorkbookFacade) PatchProvider {
 	})
 }
 
-func NewTaskDecisionPatchProvider(recordType string, viewSchemaID string, owner *tasksdecisions.WorkbookFacade) PatchProvider {
+type taskDecisionPatchOwner interface {
+	Patch(context.Context, tasksdecisions.WorkbookPatchCommand) (tasksdecisions.WorkbookMutationResult, error)
+}
+
+func NewTaskDecisionPatchProvider(recordType string, viewSchemaID string, owner taskDecisionPatchOwner) PatchProvider {
 	return newGenericPatchProvider(recordType, []string{viewSchemaID}, func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
 		result, err := owner.Patch(ctx, tasksdecisions.WorkbookPatchCommand{
 			ActorUserID:      command.Actor.ID,
@@ -765,6 +773,7 @@ func newEntityConflictProvider(
 			}
 			result, err := owner.ResolveWorkbookConflict(ctx, hostidentity.WorkbookConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
+				Actor:          command.Actor,
 				ResolutionKind: request.ResolutionKind,
 				Patch:          entityPatch,
 				Now:            command.Now,
@@ -791,6 +800,7 @@ func NewArtifactConflictProvider(owner *artifacts.WorkbookFacade) ConflictProvid
 			}
 			result, err := owner.ResolveConflict(ctx, artifacts.WorkbookConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
+				Actor:          command.Actor,
 				ResolutionKind: request.ResolutionKind,
 				Patch:          ownerPatch,
 				Now:            command.Now,
@@ -817,6 +827,7 @@ func NewEvidenceConflictProvider(owner evidence.WorkbookContribution) ConflictPr
 			}
 			result, err := owner.ResolveConflict(ctx, evidence.WorkbookConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
+				Actor:          command.Actor,
 				ResolutionKind: request.ResolutionKind,
 				Patch:          ownerPatch,
 				Now:            command.Now,
@@ -843,6 +854,7 @@ func NewPartyConflictProvider(owner *parties.WorkbookFacade) ConflictProvider {
 			}
 			result, err := owner.ResolveConflict(ctx, parties.WorkbookConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
+				Actor:          command.Actor,
 				ResolutionKind: request.ResolutionKind,
 				Patch:          ownerPatch,
 				Now:            command.Now,
@@ -855,7 +867,7 @@ func NewPartyConflictProvider(owner *parties.WorkbookFacade) ConflictProvider {
 func NewTaskDecisionConflictProvider(
 	recordType string,
 	viewSchemaID string,
-	owner *tasksdecisions.WorkbookFacade,
+	owner taskDecisionConflictOwner,
 ) ConflictProvider {
 	return newGenericConflictProvider(
 		recordType,
@@ -880,6 +892,10 @@ func NewTaskDecisionConflictProvider(
 			return mutationResultFromTaskDecisionWorkbook(result), adaptTaskDecisionWorkbookOwnerError(err)
 		},
 	)
+}
+
+type taskDecisionConflictOwner interface {
+	ResolveConflict(context.Context, tasksdecisions.WorkbookConflictCommand) (tasksdecisions.WorkbookMutationResult, error)
 }
 
 type genericConflictFunc func(
@@ -937,7 +953,11 @@ func newGenericConflictProvider(
 					Changes:        []PatchChange{*request.ResolvedChange},
 				}
 			}
-			return resolve(ctx, command, request, patch)
+			result, err := resolve(ctx, command, request, patch)
+			if errors.Is(err, conflictresolution.ErrClientTxnConflict) {
+				return MutationResult{}, authn.ErrClientTxnConflict
+			}
+			return result, err
 		},
 	}
 }
@@ -947,7 +967,7 @@ func conflictMechanics(
 	clientTxnID string,
 ) conflictresolution.Command {
 	return conflictresolution.Command{
-		Actor:       command.Actor,
+		ActorUserID: command.Actor.ID,
 		RecordID:    command.RecordID,
 		Claims:      command.Claims,
 		ClientTxnID: clientTxnID,

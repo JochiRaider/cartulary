@@ -557,12 +557,17 @@ func newCatalogBackedWorkbookStore(
 	t.Helper()
 	conflictTokens := workbookTestConflictTokens()
 	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents)
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender)
+	if err != nil {
+		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
+	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
 		timelineBundle.Facade,
 		evidenceContribution,
+		taskDecisionMutation,
 		conflictTokens,
 		appender,
 		intents,
@@ -570,11 +575,16 @@ func newCatalogBackedWorkbookStore(
 	if err != nil {
 		t.Fatalf("compose workbook contribution catalog: %v", err)
 	}
-	return workbookassembly.NewMutationStore(
+	store, err := workbookassembly.NewMutationStore(
 		pool,
 		catalog,
 		appender,
+		taskDecisionMutation,
 	)
+	if err != nil {
+		t.Fatalf("compose Workbook mutation store: %v", err)
+	}
+	return store
 }
 
 func hasQueriedRow(rows []map[string]any, recordID uuid.UUID) bool {

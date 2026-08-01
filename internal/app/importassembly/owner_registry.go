@@ -11,8 +11,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -54,6 +56,18 @@ func NewOwnerCreateRegistry(
 		)
 	}
 
+	taskDecisionProjectionContribution := tasksdecisions.NewProjectionContribution()
+	taskDecisionImportDependencies := tasksdecisions.ImportDependencies{
+		RecordEnvelopes: records.NewStore(),
+		Links:           links.NewStore(),
+		Projections: projections.NewTaskDecisionRows(
+			dependencies.Postgres,
+			taskDecisionProjectionContribution.Source(),
+			taskDecisionProjectionContribution.QuerySurfaces()...,
+		),
+		Revisions: dependencies.RevisionAppender,
+	}
+
 	facades := make([]ownerfacade.ImportOwnerCreateFacade, 0)
 	for _, target := range importtargetregistry.Targets {
 		if target.TargetKind != imports.ImportTargetKindViewSchema ||
@@ -71,6 +85,7 @@ func NewOwnerCreateRegistry(
 			*target.TargetViewSchemaID,
 			*target.FacadeID,
 			dependencies,
+			taskDecisionImportDependencies,
 		)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -93,6 +108,7 @@ func newOwnerCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
 	dependencies OwnerRegistryDependencies,
+	taskDecisionImportDependencies tasksdecisions.ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	switch ownerContractRef {
 	case "module.artifacts@1":
@@ -142,7 +158,7 @@ func newOwnerCreateFacade(
 		return tasksdecisions.NewImportContribution(
 			targetViewSchemaID,
 			facadeID,
-			dependencies.RevisionAppender,
+			taskDecisionImportDependencies,
 		)
 	case "module.timeline@2":
 		return timeline.NewImportCreateFacade(

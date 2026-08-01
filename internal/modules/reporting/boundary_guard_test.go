@@ -160,7 +160,7 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 		"../links/reportingprovider/provider.go",
 		"../parties/reportingprovider/provider.go",
 		"../records/reportingprovider/provider.go",
-		"../tasksdecisions/reportingprovider/provider.go",
+		"../tasksdecisions/internal/providers/reporting/provider.go",
 		"../timeline/reportingprovider/provider.go",
 	}
 	for _, fileName := range providerFiles {

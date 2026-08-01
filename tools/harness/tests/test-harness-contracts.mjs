@@ -543,9 +543,9 @@ test("owner catalog closes identities, selectors, profiles, and routing digests"
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 60);
-  assert.equal(catalog.summary.family_count, 218);
-  assert.equal(catalog.summary.row_count, 1013);
-  assert.equal(catalog.summary.selector_count, 1906);
+  assert.equal(catalog.summary.family_count, 221);
+  assert.equal(catalog.summary.row_count, 1016);
+  assert.equal(catalog.summary.selector_count, 1912);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,

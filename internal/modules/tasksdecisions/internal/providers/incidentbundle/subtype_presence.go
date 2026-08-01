@@ -1,4 +1,4 @@
-package tasksdecisions
+package incidentbundle
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 type incidentBundleSubtypeSource struct{}
 
-func incidentBundleSubtypeContribution() subtypepresence.Contribution {
+func SubtypeContribution() subtypepresence.Contribution {
 	return subtypepresence.Contribution{
 		FamilyID: "tasks_decisions",
 		Source:   incidentBundleSubtypeSource{},

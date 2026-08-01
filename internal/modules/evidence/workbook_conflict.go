@@ -7,11 +7,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type WorkbookConflictCommand struct {
 	Mechanics      conflictresolution.Command
+	Actor          authn.UserRecord
 	ResolutionKind string
 	Patch          *WorkbookPatchRequest
 	Now            time.Time
@@ -23,7 +25,7 @@ func (f *WorkbookFacade) ResolveConflict(
 ) (WorkbookMutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
 		return f.Patch(ctx, WorkbookPatchCommand{
-			Actor:            command.Mechanics.Actor,
+			Actor:            command.Actor,
 			RecordID:         command.Mechanics.RecordID,
 			Request:          *command.Patch,
 			RequestHash:      command.Mechanics.RequestHash,
@@ -36,7 +38,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	result, err := conflictresolution.KeepSaved(
 		ctx,
 		f.pool,
-		f.authStore,
+		conflictresolution.NewRouteIdempotencyAdapter(f.authStore),
 		command.Mechanics,
 		f.loadConflictTarget,
 	)

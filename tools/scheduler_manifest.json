@@ -4643,27 +4643,27 @@
           }
         },
         {
-          "id": "check-service-backed:backend-store:module-tasksdecisions-store-shard-01",
+          "id": "check-service-backed:backend-integration:module-tasksdecisions-source-workbook-shard-01",
           "kind": "go_shard",
-          "target": "backend-store",
-          "label": "backend-store/module-tasksdecisions-store-shard-01",
-          "aggregate_target": "backend-store",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-source-workbook-shard-01",
+          "aggregate_target": "backend-integration",
           "priority": 35000,
-          "weight_ms": 69091,
+          "weight_ms": 69265,
           "needs": [
             "service_session:check-service-backed"
           ],
           "completion_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
           ],
           "failure_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
           ],
           "running_dependency_keys": [
-            "backend-store"
+            "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "module-tasksdecisions-store-shard-01",
+          "shard": "module-tasksdecisions-source-workbook-shard-01",
           "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "host_cpu": 1,
@@ -4676,8 +4676,8 @@
           },
           "command": {
             "type": "go_shard",
-            "target": "backend-store",
-            "shard": "module-tasksdecisions-store-shard-01",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-source-workbook-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -4717,6 +4717,46 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-assessments-store-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:module-tasksdecisions-conflict-composition-shard-01",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-conflict-composition-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 68975,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-conflict-composition-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-conflict-composition-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -5666,6 +5706,45 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-stagedobjects-integration-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "check-service-backed:backend-integration:module-tasksdecisions-idempotency-adapter-shard-01",
+          "kind": "go_shard",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-idempotency-adapter-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 67956,
+          "needs": [
+            "service_session:check-service-backed"
+          ],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "service_session": {
+            "target": "check-service-backed"
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -7364,7 +7443,6 @@
             "go_shard:module-savedviews-store-shard-01",
             "go_shard:module-entities-store-shard-01",
             "go_shard:module-timeline-store-shard-01",
-            "go_shard:module-tasksdecisions-store-shard-01",
             "go_shard:module-assessments-store-shard-01",
             "go_shard:module-auth-store-shard-01",
             "go_shard:module-workbook-store-shard-04",
@@ -7409,7 +7487,6 @@
             "module-savedviews-store-shard-01",
             "module-entities-store-shard-01",
             "module-timeline-store-shard-01",
-            "module-tasksdecisions-store-shard-01",
             "module-assessments-store-shard-01",
             "module-auth-store-shard-01",
             "module-workbook-store-shard-04",
@@ -7498,6 +7575,8 @@
             "go_shard:module-extensions-integration-shard-05",
             "go_shard:module-recovery-integration-shard-05",
             "go_shard:module-tasksdecisions-incident-portability-shard-01",
+            "go_shard:module-tasksdecisions-source-workbook-shard-01",
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01",
             "go_shard:module-incidents-integration-shard-05",
             "go_shard:module-extensions-integration-shard-06",
             "go_shard:module-workbook-integration-shard-05",
@@ -7514,6 +7593,7 @@
             "go_shard:module-projections-rebuild-shard-01",
             "go_shard:app-server-integration-shard-04",
             "go_shard:module-stagedobjects-integration-shard-01",
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01",
             "go_shard:module-extensions-integration-shard-07",
             "go_shard:module-auth-integration-shard-04",
             "go_shard:module-extensions-integration-shard-08",
@@ -7612,6 +7692,8 @@
             "module-extensions-integration-shard-05",
             "module-recovery-integration-shard-05",
             "module-tasksdecisions-incident-portability-shard-01",
+            "module-tasksdecisions-source-workbook-shard-01",
+            "module-tasksdecisions-conflict-composition-shard-01",
             "module-incidents-integration-shard-05",
             "module-extensions-integration-shard-06",
             "module-workbook-integration-shard-05",
@@ -7628,6 +7710,7 @@
             "module-projections-rebuild-shard-01",
             "app-server-integration-shard-04",
             "module-stagedobjects-integration-shard-01",
+            "module-tasksdecisions-idempotency-adapter-shard-01",
             "module-extensions-integration-shard-07",
             "module-auth-integration-shard-04",
             "module-extensions-integration-shard-08",
@@ -14427,6 +14510,41 @@
           }
         },
         {
+          "id": "backend-integration:module-tasksdecisions-source-workbook-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-source-workbook-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 69265,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-source-workbook-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-source-workbook-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
           "id": "backend-integration-support:module-auth-support-integration-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -14463,41 +14581,6 @@
           }
         },
         {
-          "id": "backend-store:module-tasksdecisions-store-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/module-tasksdecisions-store-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 35000,
-          "weight_ms": 69091,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-tasksdecisions-store-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1,
-            "object_store": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "module-tasksdecisions-store-shard-01",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-store:module-assessments-store-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -14529,6 +14612,42 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-assessments-store-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-conflict-composition-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-conflict-composition-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 68975,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-conflict-composition-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-conflict-composition-shard-01",
             "service_target": "test-service-backed"
           }
         },
@@ -15526,6 +15645,41 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-artifacts-linked-notes-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-idempotency-adapter-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-idempotency-adapter-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 67956,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
             "service_target": "test-service-backed"
           }
         },
@@ -17429,7 +17583,6 @@
             "go_shard:module-savedviews-store-shard-01",
             "go_shard:module-entities-store-shard-01",
             "go_shard:module-timeline-store-shard-01",
-            "go_shard:module-tasksdecisions-store-shard-01",
             "go_shard:module-assessments-store-shard-01",
             "go_shard:module-auth-store-shard-01",
             "go_shard:module-workbook-store-shard-04",
@@ -17472,7 +17625,6 @@
             "module-savedviews-store-shard-01",
             "module-entities-store-shard-01",
             "module-timeline-store-shard-01",
-            "module-tasksdecisions-store-shard-01",
             "module-assessments-store-shard-01",
             "module-auth-store-shard-01",
             "module-workbook-store-shard-04",
@@ -17564,6 +17716,8 @@
             "go_shard:module-extensions-integration-shard-05",
             "go_shard:module-recovery-integration-shard-05",
             "go_shard:module-tasksdecisions-incident-portability-shard-01",
+            "go_shard:module-tasksdecisions-source-workbook-shard-01",
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01",
             "go_shard:module-incidents-integration-shard-05",
             "go_shard:module-extensions-integration-shard-06",
             "go_shard:module-workbook-integration-shard-05",
@@ -17582,6 +17736,7 @@
             "go_shard:app-server-integration-shard-04",
             "go_shard:module-stagedobjects-integration-shard-01",
             "go_shard:module-artifacts-linked-notes-shard-01",
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01",
             "go_shard:module-extensions-integration-shard-07",
             "go_shard:module-auth-integration-shard-04",
             "go_shard:module-artifacts-import-facade-shard-01",
@@ -17684,6 +17839,8 @@
             "module-extensions-integration-shard-05",
             "module-recovery-integration-shard-05",
             "module-tasksdecisions-incident-portability-shard-01",
+            "module-tasksdecisions-source-workbook-shard-01",
+            "module-tasksdecisions-conflict-composition-shard-01",
             "module-incidents-integration-shard-05",
             "module-extensions-integration-shard-06",
             "module-workbook-integration-shard-05",
@@ -17702,6 +17859,7 @@
             "app-server-integration-shard-04",
             "module-stagedobjects-integration-shard-01",
             "module-artifacts-linked-notes-shard-01",
+            "module-tasksdecisions-idempotency-adapter-shard-01",
             "module-extensions-integration-shard-07",
             "module-auth-integration-shard-04",
             "module-artifacts-import-facade-shard-01",
@@ -21326,6 +21484,41 @@
           }
         },
         {
+          "id": "backend-integration:module-tasksdecisions-source-workbook-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-source-workbook-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 69265,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-source-workbook-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-source-workbook-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
           "id": "backend-integration-support:module-auth-support-integration-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -21362,41 +21555,6 @@
           }
         },
         {
-          "id": "backend-store:module-tasksdecisions-store-shard-01",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/module-tasksdecisions-store-shard-01",
-          "aggregate_target": "backend-store",
-          "priority": 35000,
-          "weight_ms": 69091,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
-          ],
-          "failure_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
-          ],
-          "running_dependency_keys": [
-            "backend-store"
-          ],
-          "complete_on_failure": true,
-          "shard": "module-tasksdecisions-store-shard-01",
-          "scheduler_profile": "transaction_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1,
-            "object_store": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-store",
-            "shard": "module-tasksdecisions-store-shard-01",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-store:module-assessments-store-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -21428,6 +21586,42 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-assessments-store-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-conflict-composition-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-conflict-composition-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 68975,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-conflict-composition-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-conflict-composition-shard-01",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -22425,6 +22619,41 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-artifacts-linked-notes-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-idempotency-adapter-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-idempotency-adapter-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 67956,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -24328,7 +24557,6 @@
             "go_shard:module-savedviews-store-shard-01",
             "go_shard:module-entities-store-shard-01",
             "go_shard:module-timeline-store-shard-01",
-            "go_shard:module-tasksdecisions-store-shard-01",
             "go_shard:module-assessments-store-shard-01",
             "go_shard:module-auth-store-shard-01",
             "go_shard:module-workbook-store-shard-04",
@@ -24371,7 +24599,6 @@
             "module-savedviews-store-shard-01",
             "module-entities-store-shard-01",
             "module-timeline-store-shard-01",
-            "module-tasksdecisions-store-shard-01",
             "module-assessments-store-shard-01",
             "module-auth-store-shard-01",
             "module-workbook-store-shard-04",
@@ -24463,6 +24690,8 @@
             "go_shard:module-extensions-integration-shard-05",
             "go_shard:module-recovery-integration-shard-05",
             "go_shard:module-tasksdecisions-incident-portability-shard-01",
+            "go_shard:module-tasksdecisions-source-workbook-shard-01",
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01",
             "go_shard:module-incidents-integration-shard-05",
             "go_shard:module-extensions-integration-shard-06",
             "go_shard:module-workbook-integration-shard-05",
@@ -24481,6 +24710,7 @@
             "go_shard:app-server-integration-shard-04",
             "go_shard:module-stagedobjects-integration-shard-01",
             "go_shard:module-artifacts-linked-notes-shard-01",
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01",
             "go_shard:module-extensions-integration-shard-07",
             "go_shard:module-auth-integration-shard-04",
             "go_shard:module-artifacts-import-facade-shard-01",
@@ -24583,6 +24813,8 @@
             "module-extensions-integration-shard-05",
             "module-recovery-integration-shard-05",
             "module-tasksdecisions-incident-portability-shard-01",
+            "module-tasksdecisions-source-workbook-shard-01",
+            "module-tasksdecisions-conflict-composition-shard-01",
             "module-incidents-integration-shard-05",
             "module-extensions-integration-shard-06",
             "module-workbook-integration-shard-05",
@@ -24601,6 +24833,7 @@
             "app-server-integration-shard-04",
             "module-stagedobjects-integration-shard-01",
             "module-artifacts-linked-notes-shard-01",
+            "module-tasksdecisions-idempotency-adapter-shard-01",
             "module-extensions-integration-shard-07",
             "module-auth-integration-shard-04",
             "module-artifacts-import-facade-shard-01",
@@ -28639,26 +28872,26 @@
           }
         },
         {
-          "id": "backend-store:module-tasksdecisions-store-shard-01",
+          "id": "backend-integration:module-tasksdecisions-source-workbook-shard-01",
           "kind": "go_shard",
           "class": "backend",
-          "target": "backend-store",
-          "label": "backend-store/module-tasksdecisions-store-shard-01",
-          "aggregate_target": "backend-store",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-source-workbook-shard-01",
+          "aggregate_target": "backend-integration",
           "priority": 35000,
-          "weight_ms": 69091,
+          "weight_ms": 69265,
           "needs": [],
           "completion_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
           ],
           "failure_keys": [
-            "go_shard:module-tasksdecisions-store-shard-01"
+            "go_shard:module-tasksdecisions-source-workbook-shard-01"
           ],
           "running_dependency_keys": [
-            "backend-store"
+            "backend-integration"
           ],
           "complete_on_failure": true,
-          "shard": "module-tasksdecisions-store-shard-01",
+          "shard": "module-tasksdecisions-source-workbook-shard-01",
           "scheduler_profile": "transaction_heavy",
           "resource_claims": {
             "go_cpu": 1,
@@ -28668,8 +28901,8 @@
           },
           "command": {
             "type": "go_shard",
-            "target": "backend-store",
-            "shard": "module-tasksdecisions-store-shard-01",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-source-workbook-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -28705,6 +28938,42 @@
             "type": "go_shard",
             "target": "backend-store",
             "shard": "module-assessments-store-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-conflict-composition-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-conflict-composition-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 68975,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-conflict-composition-shard-01",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-conflict-composition-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -29558,6 +29827,41 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "module-stagedobjects-integration-shard-01",
+            "service_target": "check-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration:module-tasksdecisions-idempotency-adapter-shard-01",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration",
+          "label": "backend-integration/module-tasksdecisions-idempotency-adapter-shard-01",
+          "aggregate_target": "backend-integration",
+          "priority": 35000,
+          "weight_ms": 67956,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "failure_keys": [
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01"
+          ],
+          "running_dependency_keys": [
+            "backend-integration"
+          ],
+          "complete_on_failure": true,
+          "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
+          "scheduler_profile": "transaction_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 1,
+            "object_store": 1,
+            "postgres": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration",
+            "shard": "module-tasksdecisions-idempotency-adapter-shard-01",
             "service_target": "check-service-backed"
           }
         },
@@ -31092,7 +31396,6 @@
             "go_shard:module-savedviews-store-shard-01",
             "go_shard:module-entities-store-shard-01",
             "go_shard:module-timeline-store-shard-01",
-            "go_shard:module-tasksdecisions-store-shard-01",
             "go_shard:module-assessments-store-shard-01",
             "go_shard:module-auth-store-shard-01",
             "go_shard:module-workbook-store-shard-04",
@@ -31134,7 +31437,6 @@
             "module-savedviews-store-shard-01",
             "module-entities-store-shard-01",
             "module-timeline-store-shard-01",
-            "module-tasksdecisions-store-shard-01",
             "module-assessments-store-shard-01",
             "module-auth-store-shard-01",
             "module-workbook-store-shard-04",
@@ -31224,6 +31526,8 @@
             "go_shard:module-extensions-integration-shard-05",
             "go_shard:module-recovery-integration-shard-05",
             "go_shard:module-tasksdecisions-incident-portability-shard-01",
+            "go_shard:module-tasksdecisions-source-workbook-shard-01",
+            "go_shard:module-tasksdecisions-conflict-composition-shard-01",
             "go_shard:module-incidents-integration-shard-05",
             "go_shard:module-extensions-integration-shard-06",
             "go_shard:module-workbook-integration-shard-05",
@@ -31240,6 +31544,7 @@
             "go_shard:module-projections-rebuild-shard-01",
             "go_shard:app-server-integration-shard-04",
             "go_shard:module-stagedobjects-integration-shard-01",
+            "go_shard:module-tasksdecisions-idempotency-adapter-shard-01",
             "go_shard:module-extensions-integration-shard-07",
             "go_shard:module-auth-integration-shard-04",
             "go_shard:module-extensions-integration-shard-08",
@@ -31335,6 +31640,8 @@
             "module-extensions-integration-shard-05",
             "module-recovery-integration-shard-05",
             "module-tasksdecisions-incident-portability-shard-01",
+            "module-tasksdecisions-source-workbook-shard-01",
+            "module-tasksdecisions-conflict-composition-shard-01",
             "module-incidents-integration-shard-05",
             "module-extensions-integration-shard-06",
             "module-workbook-integration-shard-05",
@@ -31351,6 +31658,7 @@
             "module-projections-rebuild-shard-01",
             "app-server-integration-shard-04",
             "module-stagedobjects-integration-shard-01",
+            "module-tasksdecisions-idempotency-adapter-shard-01",
             "module-extensions-integration-shard-07",
             "module-auth-integration-shard-04",
             "module-extensions-integration-shard-08",

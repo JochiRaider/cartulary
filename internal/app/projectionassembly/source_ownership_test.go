@@ -70,10 +70,10 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 		{path: "internal/modules/evidence/projectionprovider/query_surfaces.go", provider: "evidence"},
 		{path: "internal/modules/parties/projectionprovider/provider.go", provider: "party"},
 		{path: "internal/modules/parties/projectionprovider/query_surfaces.go", provider: "party"},
-		{path: "internal/modules/tasksdecisions/projectionprovider/provider.go", provider: "task_request"},
-		{path: "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go", provider: "task_request"},
-		{path: "internal/modules/tasksdecisions/projectionprovider/provider.go", provider: "decision"},
-		{path: "internal/modules/tasksdecisions/projectionprovider/query_surfaces.go", provider: "decision"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/provider.go", provider: "task_request"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go", provider: "task_request"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/provider.go", provider: "decision"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go", provider: "decision"},
 	}
 	covered := map[string]bool{}
 	for _, source := range sources {

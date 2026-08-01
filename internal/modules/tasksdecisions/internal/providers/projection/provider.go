@@ -1,4 +1,4 @@
-package projectionprovider
+package projection
 
 import (
 	"context"

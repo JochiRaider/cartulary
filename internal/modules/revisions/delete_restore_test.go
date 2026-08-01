@@ -29,13 +29,13 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	wantAdapters := map[string]string{
 		"artifact":       "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore.Source",
 		"assessment":     "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore.Source",
-		"decision":       "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore.DecisionSource",
+		"decision":       "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.DecisionSource",
 		"evidence":       "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore.Source",
 		"host":           "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.HostSource",
 		"identity":       "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.IdentitySource",
 		"indicator":      "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore.Source",
 		"party":          "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore.Source",
-		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore.TaskRequestSource",
+		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.TaskRequestSource",
 		"timeline_event": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore.Source",
 	}
 	contributions := revisionassembly.CurrentProviderContributions()
