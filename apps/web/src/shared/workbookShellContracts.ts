@@ -1,4 +1,4 @@
-import type { IncidentControlsSection } from "@cartulary/ui-contracts";
+import type { IncidentControlsSection } from "../app/landingAdminTypes";
 
 export type WorkbookIncidentRole =
   | "viewer"

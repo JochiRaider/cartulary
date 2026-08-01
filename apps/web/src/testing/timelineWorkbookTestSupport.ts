@@ -7,7 +7,6 @@ import {
   rowCellTestId,
   saveStateTestId,
   timelineScalarEditorTestId,
-  type WorkbookSurface,
   workbookFocusAnchorTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
@@ -605,7 +604,7 @@ export async function flushWorkbookAsync() {
 
 function workbookGridScope(
   container: HTMLElement,
-  surface: WorkbookSurface,
+  surface: string,
 ): HTMLElement {
   return (
     container.querySelector<HTMLElement>(
@@ -618,7 +617,7 @@ function workbookRowDiagnostic(options: {
   container: HTMLElement;
   expectedRecordIds?: string[] | undefined;
   expectedVisibleRows?: number | undefined;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   const grid = workbookGridScope(options.container, options.surface);
   const mountedRecordIds = visibleGridRows(grid)
@@ -637,7 +636,7 @@ function workbookRowDiagnostic(options: {
 
 export function visibleGridRowRecordIds(
   container: HTMLElement,
-  surface?: WorkbookSurface,
+  surface?: string,
 ): string[] {
   const scope = surface ? workbookGridScope(container, surface) : container;
   return visibleGridRows(scope).map(
@@ -662,7 +661,7 @@ export function requiredGridRow(
 export async function waitForVisibleGridRowRecordIds(
   container: HTMLElement,
   expectedRecordIds: string[],
-  surface: WorkbookSurface = timelineViewSchemaId,
+  surface: string = timelineViewSchemaId,
 ) {
   await waitFor(
     () => {
@@ -693,7 +692,7 @@ export async function waitForWorkbookRows({
   container: HTMLElement;
   expectedRecordIds?: string[] | undefined;
   expectedVisibleRows?: number | undefined;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   if (expectedRecordIds === undefined && expectedVisibleRows === undefined) {
     throw new Error(
@@ -747,7 +746,7 @@ async function waitForWorkbookReady({
 }: {
   container: HTMLElement;
   expectedVisibleRows: number;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   return waitForWorkbookRows({
     container,
@@ -771,7 +770,7 @@ export function gridScalarInput(
   container: HTMLElement,
   recordId: string,
   fieldKey: string,
-  surface?: WorkbookSurface,
+  surface?: string,
 ) {
   const row = Array.from(
     (surface
@@ -866,7 +865,7 @@ export async function focusReadyGridScalarInput({
   readonly container: HTMLElement;
   readonly fieldKey: string;
   readonly recordId: string;
-  readonly surface?: WorkbookSurface | undefined;
+  readonly surface?: string | undefined;
 }) {
   const input = gridScalarInput(container, recordId, fieldKey, surface);
   const expectedAnchor = `${surface}:${recordId}:${fieldKey}`;
@@ -904,7 +903,7 @@ export async function focusReadyGridScalarInput({
 
 export async function findWorkbookCell(
   container: HTMLElement,
-  surface: WorkbookSurface,
+  surface: string,
   recordId: string,
   fieldKey: string,
 ) {

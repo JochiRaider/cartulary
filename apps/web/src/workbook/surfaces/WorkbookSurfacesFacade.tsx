@@ -5,6 +5,7 @@ import {
   type SetStateAction,
   useState,
 } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import { AssessmentWorkbookSurface } from "../components/AssessmentWorkbookSurface";
@@ -19,7 +20,6 @@ import {
   replaceWorkbookSort,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
-import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
@@ -95,7 +95,7 @@ export type WorkbookSurfacesFacadeProps = {
     readonly activeContract: ViewContract;
     readonly queryControls?: ReactNode | undefined;
     readonly savedViewSelector?: ReactNode | undefined;
-    readonly sheetRef: WorkbookSheetRef;
+    readonly sheetRef: SheetRef;
     readonly sheetReloadToken: number;
     readonly surface: string;
   };

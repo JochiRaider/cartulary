@@ -79,7 +79,6 @@ import {
   timelineInspectorTestId,
   timelineRowMarkReviewedButtonTestId,
   timelineScalarEditorTestId,
-  type WorkbookSurface,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
   workbookConflictResolverTestId,
@@ -602,7 +601,7 @@ async function expectVisibleFocus(locator: Locator) {
 
 async function mountedGridCell(
   page: Page,
-  surface: WorkbookSurface,
+  surface: string,
   recordId: string,
   fieldKey: string,
 ): Promise<Locator> {
@@ -617,7 +616,7 @@ async function mountedGridCell(
 
 async function mountedGridTarget(
   page: Page,
-  surface: WorkbookSurface,
+  surface: string,
   targetTestId: string,
 ): Promise<Locator> {
   await scrollGridTargetIntoView({ page, surface, targetTestId });

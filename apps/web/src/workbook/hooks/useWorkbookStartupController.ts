@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
+import { isSheetRef } from "../../shared/sheetRef";
 import { baseSurfaceIdentityForViewSchemaId } from "../models/workbookSavedViewRuntime";
-import {
-  isWorkbookSheetRef,
-  type WorkbookSheetRef,
-} from "../models/workbookStartup";
 import {
   knownWorkbookViewSchemaId,
   timelineViewSchemaId,
@@ -13,7 +11,7 @@ import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 type WorkbookStartupMutableRef<T> = { current: T };
 
 export type WorkbookIdentity = {
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
   readonly viewSchemaId: string | null;
 };
 
@@ -40,18 +38,16 @@ export function useWorkbookStartupController({
       : timelineViewSchemaId;
   }, [params]);
   const [surface, setSurface] = useState(initialViewSchemaId);
-  const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
-    () => {
-      const explicitExtensionRef = {
-        kind: params.get("sheet_ref_kind"),
-        extension_profile_id: params.get("extension_profile_id"),
-        workspace_key: params.get("sheet_ref_id"),
-      };
-      return isWorkbookSheetRef(explicitExtensionRef)
-        ? explicitExtensionRef
-        : { kind: "view_schema", id: initialViewSchemaId };
-    },
-  );
+  const [startupSheetRef, setStartupSheetRef] = useState<SheetRef>(() => {
+    const explicitExtensionRef = {
+      kind: params.get("sheet_ref_kind"),
+      extension_profile_id: params.get("extension_profile_id"),
+      workspace_key: params.get("sheet_ref_id"),
+    };
+    return isSheetRef(explicitExtensionRef)
+      ? explicitExtensionRef
+      : { kind: "view_schema", id: initialViewSchemaId };
+  });
   const [sheetReloadToken, setSheetReloadToken] = useState(0);
   const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
     string | null
@@ -92,7 +88,7 @@ export function useWorkbookStartupController({
   );
 
   const selectExtensionWorkspace = useCallback(
-    (sheetRef: Extract<WorkbookSheetRef, { kind: "extension_workspace" }>) => {
+    (sheetRef: Extract<SheetRef, { kind: "extension_workspace" }>) => {
       applyWorkbookIdentity({ sheetRef, viewSchemaId: null });
     },
     [applyWorkbookIdentity],

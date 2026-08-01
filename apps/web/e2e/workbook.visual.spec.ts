@@ -67,7 +67,6 @@ import {
   timelineRowMarkReviewedButtonTestId,
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
-  type WorkbookSurface,
   workbookConflictControlTestId,
   workbookConflictResolverTestId,
   workbookEditRecoveryDiscardButtonTestId,
@@ -446,7 +445,7 @@ async function openTimelineRowActions(page: Page, recordId: string) {
 
 async function mountedGridTarget(
   page: Page,
-  surface: WorkbookSurface,
+  surface: string,
   targetTestId: string,
 ): Promise<Locator> {
   await scrollGridTargetIntoView({ page, surface, targetTestId });
@@ -455,7 +454,7 @@ async function mountedGridTarget(
 
 async function mountedGridCell(
   page: Page,
-  surface: WorkbookSurface,
+  surface: string,
   recordId: string,
   fieldKey: string,
 ): Promise<Locator> {

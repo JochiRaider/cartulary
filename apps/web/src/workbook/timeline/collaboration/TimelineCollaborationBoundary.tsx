@@ -3,7 +3,7 @@ import {
   IncidentCollaborationBoundary,
   useIncidentCollaborationSession,
 } from "../../../collaboration/IncidentCollaborationSession";
-import type { WorkbookSheetRef } from "../../../shared/workbookSheetRef";
+import type { SheetRef } from "../../../shared/sheetRef";
 import { useWorkbookCollaborationCoordinatorSession } from "../../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 
@@ -20,7 +20,7 @@ export function TimelineCollaborationBoundary({
   readonly children: ReactNode;
   readonly incidentId: string;
   readonly projection: WorkbookCollaborationCoordinator;
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
 }) {
   return (
     <IncidentCollaborationBoundary
@@ -52,7 +52,7 @@ function TimelineCollaborationSessionAttachment({
 }: {
   readonly children: ReactNode;
   readonly projection: WorkbookCollaborationCoordinator;
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
 }) {
   const session = useIncidentCollaborationSession();
   useWorkbookCollaborationCoordinatorSession({

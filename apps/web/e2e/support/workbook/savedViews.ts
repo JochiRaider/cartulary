@@ -1,3 +1,4 @@
+import type { SheetRef } from "@cartulary/protocol-ts/core-http";
 import {
   type BrowserNetworkRequestLike,
   type BrowserNetworkResponseLike,
@@ -20,7 +21,6 @@ import {
   savedViewSetDefaultButtonTestId,
   savedViewSetHomeButtonTestId,
   savedViewUpdateButtonTestId,
-  type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -98,11 +98,6 @@ export type SavedViewSelectionState = {
   readonly selectedSheetRefKind: string | null;
 };
 
-export type WorkbookSheetRef = {
-  readonly id: string;
-  readonly kind: "saved_view" | "view_schema";
-};
-
 export type SavedViewPreferenceActionResult = {
   readonly field: "default_sheet_ref" | "home_sheet_ref";
   readonly requestBody: Record<string, unknown>;
@@ -112,7 +107,7 @@ export type SavedViewPreferenceActionResult = {
 
 export async function selectSavedView(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   savedViewId: string,
 ) {
   const selector = page.getByTestId(savedViewSelectorTestId(surface));
@@ -125,7 +120,7 @@ export async function selectSavedView(
 
 export async function readSavedViewSelectionState(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ): Promise<SavedViewSelectionState> {
   const selector = page.getByTestId(savedViewSelectorTestId(surface));
   const evaluate = requireEvaluate(
@@ -141,7 +136,7 @@ export async function readSavedViewSelectionState(
 
 export async function openSavedViewActionMenu(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   const menu = page.getByTestId(savedViewActionMenuTestId(surface));
   const canVerifyVisibility = supportsVisibilityCheck(menu);
@@ -160,7 +155,7 @@ export async function openSavedViewActionMenu(
 
 export async function setSavedViewDraftName(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   displayName: string,
 ) {
   await openSavedViewActionMenu(page, surface);
@@ -169,7 +164,7 @@ export async function setSavedViewDraftName(
 
 export async function selectSavedViewScope(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   scope: "private" | "shared",
 ) {
   await openSavedViewActionMenu(page, surface);
@@ -183,7 +178,7 @@ export async function selectSavedViewScope(
 
 export async function createSavedViewFromCurrentSurface(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
     page,
@@ -194,7 +189,7 @@ export async function createSavedViewFromCurrentSurface(
 
 export async function updateSavedViewFromCurrentSurface(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   savedViewId: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -206,7 +201,7 @@ export async function updateSavedViewFromCurrentSurface(
 
 export async function duplicateSavedViewFromCurrentSurface(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   savedViewId: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -218,7 +213,7 @@ export async function duplicateSavedViewFromCurrentSurface(
 
 export async function deleteSavedViewFromCurrentSurface(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   savedViewId: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -230,7 +225,7 @@ export async function deleteSavedViewFromCurrentSurface(
 
 export async function setCurrentSavedViewAsHome(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
     page,
@@ -241,9 +236,9 @@ export async function setCurrentSavedViewAsHome(
 
 export async function setCurrentSavedViewAsHomeAndWait(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   options: {
-    expectedSheetRef: WorkbookSheetRef;
+    expectedSheetRef: SheetRef;
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
@@ -258,7 +253,7 @@ export async function setCurrentSavedViewAsHomeAndWait(
 
 export async function setCurrentSavedViewAsDefault(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
     page,
@@ -269,9 +264,9 @@ export async function setCurrentSavedViewAsDefault(
 
 export async function setCurrentSavedViewAsDefaultAndWait(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   options: {
-    expectedSheetRef: WorkbookSheetRef;
+    expectedSheetRef: SheetRef;
     incidentId: string;
   },
 ): Promise<SavedViewPreferenceActionResult> {
@@ -286,7 +281,7 @@ export async function setCurrentSavedViewAsDefaultAndWait(
 
 async function clickSavedViewMenuActionAndWaitForClose(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   actionTestId: string,
 ) {
   await openSavedViewActionMenu(page, surface);
@@ -296,7 +291,7 @@ async function clickSavedViewMenuActionAndWaitForClose(
 
 async function waitForSavedViewActionMenuClose(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   const menu = page.getByTestId(savedViewActionMenuTestId(surface));
   if (!supportsVisibilityCheck(menu)) {
@@ -314,10 +309,10 @@ async function waitForSavedViewActionMenuClose(
 
 async function setCurrentSavedViewPreferenceAndWait(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   options: {
     buttonTestId: string;
-    expectedSheetRef: WorkbookSheetRef;
+    expectedSheetRef: SheetRef;
     field: "default_sheet_ref" | "home_sheet_ref";
     incidentId: string;
     routeSuffix: "default" | "me";
@@ -424,7 +419,7 @@ async function readResponseJSON(
 function assertPreferenceBody(
   field: "default_sheet_ref" | "home_sheet_ref",
   body: Record<string, unknown>,
-  expectedSheetRef: WorkbookSheetRef,
+  expectedSheetRef: SheetRef,
 ) {
   const keys = Object.keys(body);
   if (keys.length !== 1 || keys[0] !== field) {
@@ -438,24 +433,28 @@ function assertPreferenceBody(
 function assertPreferenceResponseBody(
   field: "default_sheet_ref" | "home_sheet_ref",
   body: unknown,
-  expectedSheetRef: WorkbookSheetRef,
+  expectedSheetRef: SheetRef,
 ) {
   const envelope = requireRecord(body, `${field} response envelope`);
   const data = requireRecord(envelope.data, `${field} response data`);
   assertSheetRef(data[field], expectedSheetRef, `${field} response`);
 }
 
-function assertSheetRef(
-  actual: unknown,
-  expected: WorkbookSheetRef,
-  label: string,
-) {
+function assertSheetRef(actual: unknown, expected: SheetRef, label: string) {
   const record = requireRecord(actual, label);
-  if (record.kind !== expected.kind || record.id !== expected.id) {
+  const matches =
+    expected.kind === "extension_workspace"
+      ? record.kind === expected.kind &&
+        record.extension_profile_id === expected.extension_profile_id &&
+        record.workspace_key === expected.workspace_key
+      : record.kind === expected.kind && record.id === expected.id;
+  if (!matches) {
+    const expectedIdentity =
+      expected.kind === "extension_workspace"
+        ? `${expected.kind}:${expected.extension_profile_id}:${expected.workspace_key}`
+        : `${expected.kind}:${expected.id}`;
     throw new Error(
-      `${label} sheet ref mismatch: expected ${expected.kind}:${expected.id}, got ${String(
-        record.kind,
-      )}:${String(record.id)}`,
+      `${label} sheet ref mismatch: expected ${expectedIdentity}, got ${JSON.stringify(record)}`,
     );
   }
 }

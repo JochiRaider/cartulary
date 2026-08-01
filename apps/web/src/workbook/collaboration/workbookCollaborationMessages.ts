@@ -1,4 +1,4 @@
-import type { WorkbookSheetRef } from "../../shared/workbookSheetRef";
+import type { SheetRef } from "../../shared/sheetRef";
 import type {
   WorkbookPresenceInput,
   WorkbookPresenceMode,
@@ -52,7 +52,7 @@ export type MentionResolutionAction =
 
 export function buildWorkbookPresenceInput(
   presence: WorkbookPresenceDraft,
-  sheetRef: WorkbookSheetRef,
+  sheetRef: SheetRef,
 ): WorkbookPresenceInput {
   const input: WorkbookPresenceInput = {
     sheet_ref: { ...sheetRef },
@@ -73,7 +73,7 @@ export function buildWorkbookPresenceInput(
 
 export function buildWorkbookPresenceUpdateMessage(
   presence: WorkbookPresenceDraft,
-  sheetRef: WorkbookSheetRef,
+  sheetRef: SheetRef,
 ): WorkbookPresenceUpdateMessage {
   return {
     type: "presence_update",

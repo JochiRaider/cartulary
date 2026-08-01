@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { IncidentCollaborationSessionValue } from "../../collaboration/IncidentCollaborationSession";
-import type { WorkbookSheetRef } from "../../shared/workbookSheetRef";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
 
 export type WorkbookCollaborationStore = Pick<
@@ -25,7 +25,7 @@ export function useWorkbookCollaborationCoordinatorSession({
 }: {
   readonly projection: WorkbookCollaborationCoordinator;
   readonly session: IncidentCollaborationSessionValue;
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
 }) {
   useEffect(() => projection.retain(), [projection]);
   useEffect(() => projection.attachSession(session), [projection, session]);

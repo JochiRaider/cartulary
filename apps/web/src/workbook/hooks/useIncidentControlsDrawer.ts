@@ -1,5 +1,5 @@
-import type { IncidentControlsSection } from "@cartulary/ui-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { IncidentControlsSection } from "../../app/landingAdminTypes";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookIncidentControlsMenuItem,

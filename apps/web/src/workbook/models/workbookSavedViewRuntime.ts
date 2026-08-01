@@ -1,4 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -8,11 +9,10 @@ import {
   workbookQueryStateFromSavedViewQueryJson,
 } from "./workbookQuery";
 import type { SavedViewResource } from "./workbookSavedViews";
-import type { WorkbookSheetRef } from "./workbookStartup";
 import { knownWorkbookViewSchemaId } from "./workbookSurfaceRegistry";
 
 export type WorkbookSavedViewIdentity = {
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
   readonly viewSchemaId: string;
 };
 
@@ -61,7 +61,7 @@ export function baseSurfaceIdentityForViewSchemaId(
 }
 
 export function fallbackIdentityAfterSavedViewDelete(
-  activeSheetRef: WorkbookSheetRef,
+  activeSheetRef: SheetRef,
   deletedSavedView: Pick<SavedViewResource, "saved_view_id" | "view_schema_id">,
 ): WorkbookSavedViewIdentity | null {
   if (

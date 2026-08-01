@@ -1,9 +1,9 @@
-import type { WorkbookSheetRef } from "../../shared/workbookSheetRef";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { RecordChangedPayload } from "./workbookCollaborationMessages";
 
 export type WorkbookSurfaceIdentity = {
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
   readonly viewSchemaId: string | null;
 };
 

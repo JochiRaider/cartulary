@@ -1,4 +1,3 @@
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import {
   requireViewContract,
   type ViewContract,
@@ -334,7 +333,7 @@ export function genericCellLabel(value: unknown): string {
 }
 
 export function genericCellLabelForField(
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
   value: unknown,
 ): string {

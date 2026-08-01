@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:d09a19533230583a7a157b6bf3afdee7253fb1ee7872aede1148228c7c9e657d",
+  "input_digest": "sha256:6a174bddd7bce48246ec439766da4581a3803d01ed6af744ad9e29716275f17e",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -577,7 +577,7 @@
     {
       "path": "tools/harness/contract/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:8418e1b32b6fee941338b5a6eae5870823c0638754af81a8a1d0f02505de5c4c"
+      "hash": "sha256:ad52196dad34c003c1293da2b4fc72e142e4ec2c442a5d714da4b427d606c1b4"
     },
     {
       "path": "tools/harness/contract/json-shape.mjs",
@@ -598,6 +598,11 @@
       "path": "tools/harness/contract/runner-context.mjs",
       "role": "renderer_source",
       "hash": "sha256:4ccd2996a3b9da04ebaa55999386d4afd6d8b95b2d247ca51d54e30dc24a760b"
+    },
+    {
+      "path": "tools/harness/contract/strict-json.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:d8952c808f0546bd476c1395a023453a21679bfeeda9b49961f3f5933e2788ad"
     },
     {
       "path": "tools/harness/contract/test-output-context.mjs",
@@ -727,17 +732,17 @@
     {
       "path": "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:00f79047f07a4f2453608b0b215c8c4fd0d457ae81c94d6a59e4cd8013a0d2c9"
+      "hash": "sha256:451e27ed7559e09abf4ee3c8cbb2c3969b37c8b69a13b158f6cb7afd6c5fe381"
     },
     {
       "path": "tools/harness/generated-artifacts/design-tokens/design-tokens.mjs",
       "role": "renderer_source",
-      "hash": "sha256:2caf1527e5d041ab7bbb2f97fec456a1f220f7ee119c4e02bf64d8a17cd1c918"
+      "hash": "sha256:89b154614461cf3b1baf4ed6efea9ccafcb409996f37b889380a34344360e8ef"
     },
     {
       "path": "tools/harness/generated-artifacts/design-tokens/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:026ef16a2198debda9952f416d1d6590e1af0289037d97e488dd09587082b547"
+      "hash": "sha256:0ebe800d630d40ac56f98c782e9f10b4f3d7a67dd86d312c4f922e0996e3b1a2"
     },
     {
       "path": "tools/harness/generated-artifacts/execution-topology.mjs",
@@ -987,7 +992,7 @@
     {
       "path": "tools/harness/test-catalog/semantic-json.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bfb45939adc780ba0ad6d0acb6814c76e5bd6e7c38e19574ece2065416de4797"
+      "hash": "sha256:e3cf463fd9d1343e40d888cba83b30ff71cf4703570a4a32f33d12db4f47bb29"
     },
     {
       "path": "tools/harness/test-catalog/target-routing.mjs",
@@ -1227,7 +1232,7 @@
     {
       "path": "tools/test_families/package.ui.json",
       "role": "test_family_manifest",
-      "hash": "sha256:adc845a5db0e2bc986fd64215704ca8beed4966d67fc623285f529aba1867874"
+      "hash": "sha256:888f47b9b0753cd62043260dcf6c0eafc1f737a29798b6238b66a6408310f230"
     },
     {
       "path": "tools/test_families/package.view_contracts.json",

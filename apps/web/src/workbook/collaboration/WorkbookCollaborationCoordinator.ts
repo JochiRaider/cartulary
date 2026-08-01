@@ -6,10 +6,8 @@ import type {
   AuthorizationRecoveryPort,
   AuthorizationRecoveryResult,
 } from "../../shared/authorizationRecovery";
-import {
-  type WorkbookSheetRef,
-  workbookSheetRefKey,
-} from "../../shared/workbookSheetRef";
+import type { SheetRef } from "../../shared/sheetRef";
+import { sheetRefKey } from "../../shared/sheetRef";
 import type {
   WorkbookDependentPresentationInvalidationReason,
   WorkbookInvalidationReason,
@@ -62,7 +60,7 @@ function recordValue(value: unknown): Record<string, unknown> {
  */
 export class WorkbookCollaborationCoordinator {
   private activePort: WorkbookActiveSurfacePort | null = null;
-  private activeSheetRef: WorkbookSheetRef;
+  private activeSheetRef: SheetRef;
   private authorizationRecoveryController: AbortController | null = null;
   private authorizationRecoveryTimer: ReturnType<typeof setTimeout> | null =
     null;
@@ -107,7 +105,7 @@ export class WorkbookCollaborationCoordinator {
             >,
       ) => void;
       readonly incidentId: string;
-      readonly initialSheetRef: WorkbookSheetRef;
+      readonly initialSheetRef: SheetRef;
       readonly inspectorInvalidation: (
         reason: WorkbookDependentPresentationInvalidationReason,
       ) => void;
@@ -179,10 +177,8 @@ export class WorkbookCollaborationCoordinator {
     };
   }
 
-  setActiveSheet(sheetRef: WorkbookSheetRef): void {
-    if (
-      workbookSheetRefKey(this.activeSheetRef) === workbookSheetRefKey(sheetRef)
-    ) {
+  setActiveSheet(sheetRef: SheetRef): void {
+    if (sheetRefKey(this.activeSheetRef) === sheetRefKey(sheetRef)) {
       return;
     }
     this.activeSheetRef = { ...sheetRef };
@@ -197,7 +193,7 @@ export class WorkbookCollaborationCoordinator {
 
   registerActiveSurface(port: WorkbookActiveSurfacePort): () => void {
     this.activePort = port;
-    const key = workbookSheetRefKey(port.identity.sheetRef);
+    const key = sheetRefKey(port.identity.sheetRef);
     if (this.dirtySurfaceKeys.delete(key)) {
       void port
         .refresh({ reason: "inactive_surface_reconciliation" })
@@ -343,10 +339,9 @@ export class WorkbookCollaborationCoordinator {
     const port = this.activePort;
     if (
       port === null ||
-      workbookSheetRefKey(port.identity.sheetRef) !==
-        workbookSheetRefKey(this.activeSheetRef)
+      sheetRefKey(port.identity.sheetRef) !== sheetRefKey(this.activeSheetRef)
     ) {
-      this.dirtySurfaceKeys.add(workbookSheetRefKey(this.activeSheetRef));
+      this.dirtySurfaceKeys.add(sheetRefKey(this.activeSheetRef));
       return Promise.resolve();
     }
     return port.refresh({ reason, ...(recordId ? { recordId } : {}) });
@@ -513,7 +508,7 @@ export class WorkbookCollaborationCoordinator {
     }
     const port = this.activePort;
     if (port === null) {
-      this.dirtySurfaceKeys.add(workbookSheetRefKey(this.activeSheetRef));
+      this.dirtySurfaceKeys.add(sheetRefKey(this.activeSheetRef));
       return;
     }
     const result = port.applyRecordChanged(payload);

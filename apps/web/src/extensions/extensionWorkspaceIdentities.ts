@@ -1,4 +1,4 @@
-import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
+import type { SheetRef } from "../shared/sheetRef";
 
 export const networkFlowActivityProfileId = "network_flow_activity";
 export const networkFlowRouteFamily =
@@ -8,7 +8,7 @@ export const importProfileId = "import";
 export const importRouteFamily = "/api/v1/import-sessions";
 
 export function networkAnalysisSheetRef(): Extract<
-  WorkbookSheetRef,
+  SheetRef,
   { kind: "extension_workspace" }
 > {
   return {

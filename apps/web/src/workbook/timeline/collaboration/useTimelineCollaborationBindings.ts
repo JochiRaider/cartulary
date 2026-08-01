@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo } from "react";
-import type { WorkbookSheetRef } from "../../../shared/workbookSheetRef";
+import type { SheetRef } from "../../../shared/sheetRef";
 import { useWorkbookCollaborationCoordinator } from "../../collaboration/useWorkbookCollaborationCoordinator";
 import type {
   WorkbookCollaborationCoordinator,
@@ -65,7 +65,7 @@ export function useTimelineCollaborationBindings({
   rowsRef,
   setRows,
 }: {
-  readonly activeSheetRef: WorkbookSheetRef;
+  readonly activeSheetRef: SheetRef;
   readonly admission: TimelineRowAdmission;
   readonly beginRowsLoad: () => unknown;
   readonly collaborationProjection: TimelineCollaborationProjection;

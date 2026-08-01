@@ -1,12 +1,10 @@
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
-
 import { type BrowserPageLike, requireEvaluate } from "./browser";
 
 export async function setGridGroupExpanded(options: {
   expanded: boolean;
   groupTestId: string;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   const group = options.page.getByTestId(options.groupTestId);
   const evaluate = requireEvaluate(
@@ -44,7 +42,7 @@ export function expandGridGroup(
 export async function assertGroupRowPresentationOnly(options: {
   groupTestId: string;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   const group = options.page.getByTestId(options.groupTestId);
   const evaluate = requireEvaluate(

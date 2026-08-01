@@ -4,7 +4,6 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
-  type WorkbookSurface,
   workbookFilterPopoverTestId,
   workbookFilterPopoverTriggerTestId,
   workbookSortMenuTestId,
@@ -57,7 +56,7 @@ type WorkbookGridControlsProps = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
-  readonly surface: WorkbookSurface;
+  readonly surface: string;
 };
 
 type QueryChip = {

@@ -303,6 +303,26 @@ Design contract. Token references in document metadata MUST be resolved for vali
 
 Design contract. Duplicate YAML keys at any object level are invalid before token-reference resolution. Key order is not semantically significant. Canonical validation output MUST sort registry paths lexically by namespace and then token path.
 
+### 3.1.1 Executable token projection boundary
+
+Design contract. The YAML token registry in this document is the human-owned
+design authority. `contracts/design/tokens.v1.json` is its versioned,
+documentation-free machine projection for executable consumers. The machine
+projection MUST identify this document as its owner and MUST NOT supersede or
+independently extend the token behavior defined here.
+
+Design contract. The machine projection is an already-resolved CSS-variable
+registry. Its keys MUST use the CSS variable interface in §3.7, and its values
+MUST contain the final scalar text emitted for the declared default theme. It
+MUST NOT contain unresolved design-token references or require an executable
+consumer to parse YAML front matter, resolve documentation references, or infer
+token behavior from prose.
+
+Design contract. Generators, tests, conformance tooling, and release evidence
+MUST consume `contracts/design/tokens.v1.json` and MUST NOT read, stat, hash, or
+otherwise depend on this file or another path under `docs/`. Human review MUST
+establish that the machine projection faithfully implements this design owner.
+
 ### 3.2 Token registry schema contract
 
 Design contract. The token registry schema ID is `cartulary.design_tokens.v1`. A conforming token registry MUST satisfy every row in the table below.

@@ -1,19 +1,20 @@
 import {
   deploymentAdminTestId,
   deploymentUserRowTestId,
-  type IncidentControlsSection,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,
-  type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   type StableTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect } from "@playwright/test";
+import type {
+  IncidentControlsSection,
+  LandingAdminPanelId,
+} from "../../src/app/landingAdminTypes";
 
 const incidentControlsLoadedStatePattern = /^(partial|synced)$/;
 
@@ -63,7 +64,7 @@ export class DeploymentAdministration {
     ).toBeVisible();
   }
 
-  async selectPanel(panel: LandingAdminPanelToken) {
+  async selectPanel(panel: LandingAdminPanelId) {
     await this.open();
     const menuItem = this.page.getByTestId(landingAdminMenuItemTestId(panel));
     await menuItem.click();

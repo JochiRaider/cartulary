@@ -1,9 +1,5 @@
 import type { GridColumn, GridDataRow } from "@cartulary/grid-adapter";
-import {
-  gridRowTestId,
-  gridSortHeaderTestId,
-  type WorkbookSurface,
-} from "@cartulary/ui-contracts";
+import { gridRowTestId, gridSortHeaderTestId } from "@cartulary/ui-contracts";
 import {
   type NormalizedViewRowV1,
   normalizeViewRowV1,
@@ -70,7 +66,7 @@ export function workbookGridRows<Row>({
   readonly getRecordId: (row: Row) => string;
   readonly getRowVersion: (row: Row) => number;
   readonly rows: readonly Row[];
-  readonly surface: WorkbookSurface;
+  readonly surface: string;
 }): readonly GridDataRow<Row>[] {
   return rows.map((row) => {
     const recordId = getRecordId(row);
@@ -93,7 +89,7 @@ export function workbookContractColumns<Row>({
   widthForField,
 }: {
   readonly contract: ViewContract;
-  readonly surface: WorkbookSurface;
+  readonly surface: string;
   readonly widthForField?: (field: ViewFieldContract) => number;
 }): readonly GridColumn<Row>[] {
   return contract.fields.map((field) => ({

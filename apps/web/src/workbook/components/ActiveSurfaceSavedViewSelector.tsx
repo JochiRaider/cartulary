@@ -19,12 +19,12 @@ import {
 } from "@cartulary/ui-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import type { WorkbookChromeMode } from "../layout/workbookResponsiveLayout";
 import {
   canMutateSavedView,
   type SavedViewResource,
 } from "../models/workbookSavedViews";
-import type { WorkbookSheetRef } from "../models/workbookStartup";
 
 export function ActiveSurfaceSavedViewSelector({
   activeViewSchemaId,
@@ -50,7 +50,7 @@ export function ActiveSurfaceSavedViewSelector({
   readonly currentUserId: string | null;
   readonly isModified?: boolean | undefined;
   readonly savedViews: readonly SavedViewResource[];
-  readonly selectedSheetRef: WorkbookSheetRef;
+  readonly selectedSheetRef: SheetRef;
   readonly onCreateSavedView: (input: {
     readonly displayName: string;
     readonly scope: "private" | "shared";

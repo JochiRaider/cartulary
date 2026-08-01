@@ -1,11 +1,11 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type {
   FilterDraft,
   WorkbookQueryState,
 } from "../../models/workbookQuery";
-import type { WorkbookSheetRef } from "../../models/workbookStartup";
 import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../../ports/WorkbookIncidentPort";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
@@ -50,7 +50,7 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly currentUserId: string | null;
     readonly currentRole: TimelineWorkbookIncidentRole | null;
     readonly incidentPort: WorkbookIncidentPort;
-    readonly sheetRef: WorkbookSheetRef;
+    readonly sheetRef: SheetRef;
     readonly inspectorResetKey: string;
     readonly reloadToken: number;
   };

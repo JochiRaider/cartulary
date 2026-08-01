@@ -1,3 +1,4 @@
+import type { SheetRef } from "@cartulary/protocol-ts/core-http";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
@@ -1621,11 +1622,6 @@ function stableJSON(value: unknown): string {
   return JSON.stringify(value) ?? "undefined";
 }
 
-type WorkbookSheetRef = {
-  kind: "saved_view" | "view_schema";
-  id: string;
-};
-
 type SavedViewResource = {
   display_name: string;
   layout_json?: Record<string, unknown>;
@@ -1638,12 +1634,12 @@ type SavedViewResource = {
 };
 
 type WorkbookPreferencesResource = {
-  default_sheet_ref?: WorkbookSheetRef | null;
-  home_sheet_ref?: WorkbookSheetRef | null;
+  default_sheet_ref?: SheetRef | null;
+  home_sheet_ref?: SheetRef | null;
 };
 
 type WorkbookStartupResource = {
-  selected_sheet_ref: WorkbookSheetRef;
+  selected_sheet_ref: SheetRef;
   selected_view_schema_id: string;
   source: "default" | "explicit" | "home" | "timeline";
 };
@@ -1693,7 +1689,7 @@ async function deleteSavedView(
 async function putDefaultSheetRef(
   page: Page,
   incidentId: string,
-  ref: WorkbookSheetRef | null,
+  ref: SheetRef | null,
 ) {
   const response = await page.request.put(
     `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/default`,
@@ -1708,7 +1704,7 @@ async function putDefaultSheetRef(
 async function putUserHomeSheetRef(
   page: Page,
   incidentId: string,
-  ref: WorkbookSheetRef | null,
+  ref: SheetRef | null,
 ) {
   const response = await page.request.put(
     `${apiBase}/api/v1/incidents/${incidentId}/workbook-preferences/me`,

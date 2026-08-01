@@ -9,11 +9,13 @@
     "schema_id": { "const": "cartulary.design_token_registry.v1" },
     "owner_id": { "const": "package.ui" },
     "verification_id": { "const": "package.ui.verification.machine_owned_tokens" },
-    "default_theme_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "default_theme_id": { "const": "dark_graphite" },
     "token_vars": {
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "pattern": "^--ct-[A-Za-z0-9-]+$" },
+      "propertyNames": {
+        "pattern": "^--ct-(border|colors|component|density|elevation|layout|motion|rounded|spacing|typography)-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
+      },
       "additionalProperties": { "type": "string", "minLength": 1 }
     }
   }

@@ -34,7 +34,7 @@ import {
 } from "../extensions/extensionWorkspaceIdentities";
 import type { GeneratedExtensionProfileResource } from "../services/extensionContractAdapter";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
-import { workbookSheetRefKey } from "../shared/workbookSheetRef";
+import { sheetRefKey } from "../shared/sheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -698,8 +698,8 @@ function WorkbookShellContent({
         onSessionRoleChange: loadSessionRole,
       }) ?? null)
     );
-  const inspectorResetKey = `${surface}:${workbookSheetRefKey(startupSheetRef)}:${sheetReloadToken}:${inspectorInvalidationGeneration}:${evidenceInvalidationGeneration}`;
-  const continuityResetKey = `${surface}:${workbookSheetRefKey(startupSheetRef)}:${sheetReloadToken}:${continuityInvalidationGeneration}`;
+  const inspectorResetKey = `${surface}:${sheetRefKey(startupSheetRef)}:${sheetReloadToken}:${inspectorInvalidationGeneration}:${evidenceInvalidationGeneration}`;
+  const continuityResetKey = `${surface}:${sheetRefKey(startupSheetRef)}:${sheetReloadToken}:${continuityInvalidationGeneration}`;
   const activeExtensionWorkspace = (() => {
     if (startupSheetRef.kind !== "extension_workspace") {
       return null;

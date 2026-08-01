@@ -142,6 +142,7 @@
         "apps/web/src/app/api/**",
         "apps/web/src/collaboration/**",
         "apps/web/src/services/**",
+        "apps/web/src/shared/sheetRef.ts",
         "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.ts",
         "apps/web/src/workbook/adapters/**",
         "apps/web/src/workbook/timeline/adapters/**"
@@ -612,7 +613,7 @@
         "exclude": []
       },
       "allowed_importers": [
-        "packages/ui-contracts/src/index.ts"
+        "packages/ui-contracts/src/designTokens.ts"
       ],
       "restricted_imports": [
         {

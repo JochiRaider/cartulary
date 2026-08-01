@@ -44,3 +44,4 @@ export {
 export { findFilesNamed } from "./result-artifacts.mjs";
 export { relToRepo, resolveRepoPath } from "./repo-paths.mjs";
 export { createRunnerContext, runnerEnv } from "./runner-context.mjs";
+export { parseStrictJSON } from "./strict-json.mjs";

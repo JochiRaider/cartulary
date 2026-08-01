@@ -4,7 +4,6 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   rowCellTestId,
-  type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 
 import {
@@ -35,10 +34,7 @@ export type GridScrollDiagnostics = {
   readonly top: number;
 };
 
-export async function readGridScroll(
-  page: BrowserPageLike,
-  surface: WorkbookSurface,
-) {
+export async function readGridScroll(page: BrowserPageLike, surface: string) {
   const grid = page.getByTestId(gridShellTestId(surface));
   const evaluate = requireEvaluate(
     grid,
@@ -49,7 +45,7 @@ export async function readGridScroll(
 
 export async function scrollGridToBottom(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   const grid = page.getByTestId(gridShellTestId(surface));
   const evaluate = requireEvaluate(
@@ -61,7 +57,7 @@ export async function scrollGridToBottom(
 
 export async function scrollGridToOffset(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   top: number,
 ) {
   const grid = page.getByTestId(gridShellTestId(surface));
@@ -74,7 +70,7 @@ export async function scrollGridToOffset(
 
 async function scrollGridToPosition(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   top: number,
   left: number,
 ) {
@@ -91,7 +87,7 @@ export async function scrollGridCellIntoView(options: {
   intervalMs?: number;
   page: BrowserPageLike;
   recordId: string;
-  surface: WorkbookSurface;
+  surface: string;
   timeoutMs?: number;
 }) {
   const scanOptions: Parameters<typeof scrollGridTargetIntoView>[0] = {
@@ -111,7 +107,7 @@ export async function scrollGridCellIntoView(options: {
 export async function scrollGridTargetIntoView(options: {
   intervalMs?: number;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
   targetTestId: string;
   timeoutMs?: number;
 }) {
@@ -243,7 +239,7 @@ export async function scrollGridTargetIntoView(options: {
 
 async function alignVisibleGridTarget(options: {
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
   target: BrowserLocator;
   targetTestId: string;
 }) {
@@ -282,7 +278,7 @@ async function alignVisibleGridTarget(options: {
 export async function assertMountedGridRowCountAtMost(options: {
   maxRows: number;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   const { maxRows, page, surface } = options;
   const grid = page.getByTestId(gridShellTestId(surface));
@@ -305,7 +301,7 @@ export async function assertMountedGridRowCountAtMost(options: {
 
 export async function isTestIdVisibleWithinGridViewport(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   testId: string,
 ) {
   const target = page.getByTestId(testId);
@@ -335,7 +331,7 @@ export async function isTestIdVisibleWithinGridViewport(
 
 export async function readTestIdGridViewportState(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   testId: string,
 ) {
   const grid = page.getByTestId(gridShellTestId(surface));
@@ -413,7 +409,7 @@ export async function readTestIdGridViewportState(
 
 async function readScrollSnapshot(
   evaluate: BrowserEvaluate,
-  surface: WorkbookSurface,
+  surface: string,
   action: GridScrollAction = { kind: "none" },
 ) {
   const state = (await evaluate(readGridScrollState, {
@@ -430,7 +426,7 @@ async function readScrollSnapshot(
 
 export async function readGridScrollDiagnostics(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
 ) {
   const grid = page.getByTestId(gridShellTestId(surface));
   const evaluate = requireEvaluate(

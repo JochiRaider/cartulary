@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { SheetRef } from "../../../shared/sheetRef";
 import { WorkbookGridControls } from "../../components/WorkbookGridControls";
 import { WorkbookRowGutterContent } from "../../components/WorkbookPresenceMarkers";
 import { WorkbookStatusStrip } from "../../components/WorkbookStatusStrip";
@@ -52,7 +53,6 @@ import {
   removeFilterField,
 } from "../../models/workbookQuery";
 import { emptyGenericReferenceOptions } from "../../models/workbookReferenceOptions";
-import type { WorkbookSheetRef } from "../../models/workbookStartup";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -554,7 +554,7 @@ function TimelineWorkbookContent({
     async () => undefined,
   );
 
-  const activeSheetRef = useMemo<WorkbookSheetRef>(
+  const activeSheetRef = useMemo<SheetRef>(
     () => sheetRef ?? { kind: "view_schema", id: timelineViewSchemaId },
     [sheetRef],
   );

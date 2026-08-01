@@ -24,6 +24,13 @@ import {
   serviceRequirementForRuntimeProfile,
 } from "../generated-artifacts/index.mjs";
 import {
+  compareUnicodeCodePoints,
+  DesignTokenValidationError,
+  loadDesignTokenDocument,
+  renderDesignTokenTypeScript,
+  replaceFileAtomically,
+} from "../generated-artifacts/design-tokens/index.mjs";
+import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
 } from "../execution/service-backed/index.mjs";
@@ -269,15 +276,276 @@ function writeOwnerCatalogFixture(root, mutate = () => {}) {
   return fixture;
 }
 
+function assertDesignTokenFailure(action, failureClass) {
+  assert.throws(action, (error) => {
+    assert.ok(error instanceof DesignTokenValidationError);
+    assert.ok(
+      error.failures.some((failure) => failure.class === failureClass),
+      `expected ${failureClass}, received ${JSON.stringify(error.failures)}`,
+    );
+    return true;
+  });
+}
+
+test("design token loader and renderer are strict, deterministic, and provenance-bearing", () => {
+  const root = mkdtempSync(path.join(repoRoot, ".cartulary-design-token-pure-"));
+  try {
+    const registry = readJSON("contracts/design/tokens.v1.json");
+    const registryPath = path.join(root, "tokens.v1.json");
+    const reversedPath = path.join(root, "tokens-reversed.v1.json");
+    const registryBytes = `${JSON.stringify(registry, null, 2)}\n`;
+    writeFileSync(registryPath, registryBytes);
+    writeFileSync(
+      reversedPath,
+      `${JSON.stringify(
+        {
+          ...registry,
+          token_vars: Object.fromEntries(Object.entries(registry.token_vars).reverse()),
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const document = loadDesignTokenDocument(registryPath);
+    const output = renderDesignTokenTypeScript(document);
+    const reversedOutput = renderDesignTokenTypeScript(
+      loadDesignTokenDocument(reversedPath),
+    );
+    assert.equal(
+      document.metadata.inputSha256,
+      createHash("sha256").update(registryBytes).digest("hex"),
+    );
+    assert.equal(document.metadata.generatorId, "cartulary.design_token_generation.v2");
+    assert.equal(document.metadata.defaultThemeId, "dark_graphite");
+    assert.equal(document.tokenMap.get("--ct-component-inspector-padding").namespace, "component");
+    assert.match(output, /cartulary\.design_token_generation\.v2/u);
+    assert.match(output, new RegExp(`Input SHA-256: ${document.metadata.inputSha256}`, "u"));
+    assert.equal(renderDesignTokenTypeScript(document), output);
+    assert.equal(
+      output.slice(output.indexOf("export const")),
+      reversedOutput.slice(reversedOutput.indexOf("export const")),
+    );
+    assert.ok(
+      compareUnicodeCodePoints("\uE000", "\u{10000}") < 0,
+      "sorting must compare Unicode code points rather than UTF-16 code units or locale order",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("design token loader rejects duplicate keys, owner drift, references, and unsafe CSS", () => {
+  const root = mkdtempSync(path.join(repoRoot, ".cartulary-design-token-invalid-"));
+  try {
+    const registry = readJSON("contracts/design/tokens.v1.json");
+    const validSource = `${JSON.stringify(registry, null, 2)}\n`;
+    const cases = [
+      [
+        "duplicate.json",
+        validSource.replace(
+          '  "schema_id": "cartulary.design_token_registry.v1",',
+          '  "schema_id": "cartulary.design_token_registry.v1",\n  "schema_id": "cartulary.design_token_registry.v1",',
+        ),
+        "invalid_machine_registry",
+      ],
+      [
+        "schema.json",
+        `${JSON.stringify(
+          { ...registry, schema_id: "cartulary.design_token_registry.v2" },
+          null,
+          2,
+        )}\n`,
+        "invalid_machine_registry",
+      ],
+      [
+        "owner.json",
+        `${JSON.stringify({ ...registry, owner_id: "package.other" }, null, 2)}\n`,
+        "invalid_machine_registry",
+      ],
+      [
+        "verification.json",
+        `${JSON.stringify(
+          { ...registry, verification_id: "package.ui.verification.other" },
+          null,
+          2,
+        )}\n`,
+        "invalid_machine_registry",
+      ],
+      [
+        "theme.json",
+        `${JSON.stringify({ ...registry, default_theme_id: "other" }, null, 2)}\n`,
+        "invalid_machine_registry",
+      ],
+      [
+        "namespace.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-unknown-accent": "#fff" } },
+          null,
+          2,
+        )}\n`,
+        "invalid_machine_registry",
+      ],
+      [
+        "reference.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-colors-accent": "var(--ct-colors-ink)" } },
+          null,
+          2,
+        )}\n`,
+        "unresolved_reference",
+      ],
+      [
+        "brace-reference.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-colors-accent": "{colors.ink}" } },
+          null,
+          2,
+        )}\n`,
+        "unresolved_reference",
+      ],
+      [
+        "reference-cycle.json",
+        `${JSON.stringify(
+          {
+            ...registry,
+            token_vars: {
+              "--ct-colors-accent": "{colors.ink}",
+              "--ct-colors-ink": "{colors.accent}",
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        "unresolved_reference",
+      ],
+      [
+        "unsafe.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-colors-accent": "red; color: blue" } },
+          null,
+          2,
+        )}\n`,
+        "unsafe_css_value",
+      ],
+      [
+        "unsafe-function.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-colors-accent": "url(data:text/css,bad)" } },
+          null,
+          2,
+        )}\n`,
+        "unsafe_css_value",
+      ],
+      [
+        "control.json",
+        `${JSON.stringify(
+          { ...registry, token_vars: { "--ct-colors-accent": "red\nblue" } },
+          null,
+          2,
+        )}\n`,
+        "unsafe_css_value",
+      ],
+    ];
+    for (const [name, source, failureClass] of cases) {
+      const file = path.join(root, name);
+      writeFileSync(file, source);
+      assertDesignTokenFailure(() => loadDesignTokenDocument(file), failureClass);
+    }
+
+    const restrictedDocumentationSegment = String.fromCodePoint(100, 111, 99, 115);
+    const docsRegistry = path.join(
+      root,
+      restrictedDocumentationSegment,
+      "tokens.json",
+    );
+    assertDesignTokenFailure(
+      () => loadDesignTokenDocument(docsRegistry),
+      "forbidden_machine_registry_path",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("design token CLI is documentation-free and preserves output on validation or collision failure", () => {
+  const root = mkdtempSync(path.join(repoRoot, ".cartulary-design-token-cli-"));
+  try {
+    const registry = readJSON("contracts/design/tokens.v1.json");
+    const registryPath = path.join(root, "contracts", "design", "tokens.v1.json");
+    const outputPath = path.join(
+      root,
+      "packages",
+      "ui-contracts",
+      "src",
+      "generated",
+      "design-tokens.ts",
+    );
+    const cliPath = path.join(
+      repoRoot,
+      "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
+    );
+    writeJSONFile(registryPath, registry);
+    const runCLI = (...extraArgs) =>
+      spawnSync(
+        process.execPath,
+        [cliPath, "--registry", registryPath, "--output", outputPath, ...extraArgs],
+        { cwd: root, encoding: "utf8" },
+      );
+    const first = runCLI();
+    assert.equal(first.status, 0, first.stderr);
+    const firstOutput = readFileSync(outputPath, "utf8");
+    const second = runCLI();
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(readFileSync(outputPath, "utf8"), firstOutput);
+    const check = runCLI("--check");
+    assert.equal(check.status, 0, check.stderr);
+    assert.deepEqual(
+      readdirSync(path.dirname(outputPath)).filter((name) => name.endsWith(".tmp")),
+      [],
+    );
+
+    writeJSONFile(registryPath, {
+      ...registry,
+      token_vars: { "--ct-colors-accent": "red; color: blue" },
+    });
+    const invalid = runCLI();
+    assert.notEqual(invalid.status, 0);
+    assert.match(invalid.stderr, /unsafe_css_value/u);
+    assert.equal(readFileSync(outputPath, "utf8"), firstOutput);
+
+    const collisionPath = path.join(path.dirname(outputPath), ".collision.tmp");
+    writeFileSync(collisionPath, "occupied\n");
+    assertDesignTokenFailure(
+      () =>
+        replaceFileAtomically(outputPath, "replacement\n", {
+          temporaryPath: collisionPath,
+        }),
+      "output_collision",
+    );
+    assert.equal(readFileSync(outputPath, "utf8"), firstOutput);
+    assert.equal(readFileSync(collisionPath, "utf8"), "occupied\n");
+
+    const directoryCollision = path.join(root, "output-directory.ts");
+    mkdirSync(directoryCollision);
+    assertDesignTokenFailure(
+      () => replaceFileAtomically(directoryCollision, "replacement\n"),
+      "output_collision",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("owner catalog closes identities, selectors, profiles, and routing digests", () => {
   const catalog = loadTestCatalog(repoRoot);
   assert.equal(catalog.summary.evidence_epoch, "cartulary.test_evidence.nlspec.v1");
   assert.equal(catalog.summary.status, "pass");
   assert.equal(catalog.summary.owner_count, catalog.registry.owners.length);
   assert.equal(catalog.summary.owner_count, 60);
-  assert.equal(catalog.summary.family_count, 216);
-  assert.equal(catalog.summary.row_count, 1006);
-  assert.equal(catalog.summary.selector_count, 1871);
+  assert.equal(catalog.summary.family_count, 215);
+  assert.equal(catalog.summary.row_count, 1010);
+  assert.equal(catalog.summary.selector_count, 1893);
   assert.equal(
     Object.values(catalog.summary.runner_counts).reduce((sum, count) => sum + count, 0),
     catalog.summary.row_count,

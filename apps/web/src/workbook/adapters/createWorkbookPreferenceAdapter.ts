@@ -1,4 +1,4 @@
-import { workbookSheetRefsEqual } from "../../shared/workbookSheetRef";
+import { sheetRefsEqual } from "../../shared/sheetRef";
 import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 import {
   invalidWorkbookAdapterResult,
@@ -29,10 +29,7 @@ export function createWorkbookPreferenceAdapter(options: {
         }
         return outcome.value.data.incident_id === options.incidentId &&
           outcome.value.data.default_sheet_ref !== null &&
-          workbookSheetRefsEqual(
-            outcome.value.data.default_sheet_ref,
-            input.sheetRef,
-          )
+          sheetRefsEqual(outcome.value.data.default_sheet_ref, input.sheetRef)
           ? { kind: "accepted", value: undefined }
           : invalidWorkbookAdapterResult(message);
       } catch (error) {
@@ -53,10 +50,7 @@ export function createWorkbookPreferenceAdapter(options: {
         }
         return outcome.value.data.incident_id === options.incidentId &&
           outcome.value.data.home_sheet_ref !== null &&
-          workbookSheetRefsEqual(
-            outcome.value.data.home_sheet_ref,
-            input.sheetRef,
-          )
+          sheetRefsEqual(outcome.value.data.home_sheet_ref, input.sheetRef)
           ? { kind: "accepted", value: undefined }
           : invalidWorkbookAdapterResult(message);
       } catch (error) {

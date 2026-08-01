@@ -4,20 +4,19 @@ import {
   gridShellTestId,
   systemViewSwitcherMenuTestId,
   systemViewSwitcherTriggerTestId,
-  type WorkbookSurface,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect } from "@playwright/test";
 
-export function gridSavedRows(page: Page, surface: WorkbookSurface) {
+export function gridSavedRows(page: Page, surface: string) {
   return page
     .getByTestId(gridShellTestId(surface))
     .locator(gridSavedRowsSelector());
 }
 
-export function gridDraftRows(page: Page, surface: WorkbookSurface) {
+export function gridDraftRows(page: Page, surface: string) {
   return page
     .getByTestId(gridShellTestId(surface))
     .locator(gridDraftRowSelector());
@@ -25,7 +24,7 @@ export function gridDraftRows(page: Page, surface: WorkbookSurface) {
 
 export async function openSystemSurfaceBySwitcher(
   page: Page,
-  viewSchemaId: WorkbookSurface,
+  viewSchemaId: string,
   options: {
     actionTimeoutMs?: number;
     attempts?: number;

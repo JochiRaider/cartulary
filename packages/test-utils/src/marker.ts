@@ -1,4 +1,4 @@
-import { gridShellTestId, type WorkbookSurface } from "@cartulary/ui-contracts";
+import { gridShellTestId } from "@cartulary/ui-contracts";
 
 import { type BrowserPageLike, requireEvaluate } from "./browser";
 import {
@@ -31,7 +31,7 @@ export async function assertMarkerAnchoredToGridTarget(options: {
   anchorKind: "cell" | "row-gutter";
   markerTestId: string;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
   targetTestId: string;
 }) {
   const { anchorKind, markerTestId, page, surface, targetTestId } = options;
@@ -99,7 +99,7 @@ export async function assertMarkerAnchoredToGridTarget(options: {
 async function readMarkerAnchorState(options: {
   markerTestId: string;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
   targetTestId: string;
 }) {
   const { markerTestId, page, surface, targetTestId } = options;

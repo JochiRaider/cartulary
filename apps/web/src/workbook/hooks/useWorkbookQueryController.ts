@@ -1,4 +1,3 @@
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import type { ViewContract } from "@cartulary/view-contracts";
 import {
   type Dispatch,
@@ -7,6 +6,7 @@ import {
   useEffect,
   useMemo,
 } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   applyFilterDraft,
   defaultFilterDraft,
@@ -16,7 +16,6 @@ import {
   updateGroupBy,
   type WorkbookQueryState,
 } from "../models/workbookQuery";
-import type { WorkbookSheetRef } from "../models/workbookStartup";
 import {
   workbookContractForViewSchemaId,
   workbookQuerySurfaceSlot,
@@ -42,7 +41,7 @@ type WorkbookActiveQueryControls = {
   readonly onRemoveFilter: (fieldKey: string) => void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
-  readonly surface: WorkbookSurface;
+  readonly surface: string;
 };
 
 function clearAppliedFilterDraft(current: FilterDraft): FilterDraft {
@@ -57,7 +56,7 @@ export function useWorkbookQueryController({
   startupSheetRef,
   surface,
 }: {
-  readonly startupSheetRef: WorkbookSheetRef;
+  readonly startupSheetRef: SheetRef;
   readonly surface: string;
 }) {
   const viewSchemaIds = useMemo(
@@ -171,7 +170,7 @@ export function useWorkbookQueryController({
         );
       },
       queryState: activeEntry.queryState,
-      surface: surface as WorkbookSurface,
+      surface,
     };
   }, [
     activeContract,

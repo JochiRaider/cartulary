@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import type { SheetRef } from "../shared/sheetRef";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
@@ -29,7 +30,6 @@ import {
   type FilterDraft,
   type WorkbookQueryState,
 } from "../workbook/models/workbookQuery";
-import type { WorkbookSheetRef } from "../workbook/models/workbookStartup";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "../workbook/mutations/createWorkbookMutationCommandPorts";
 import { createBrowserSecureTransactionIdPort } from "../workbook/mutations/secureTransactionId";
@@ -46,7 +46,7 @@ export type TimelineWorkbookRuntimeFixtureProps = {
   readonly incidentId?: string | undefined;
   readonly apiBase?: string | undefined;
   readonly currentUserId?: string | null | undefined;
-  readonly sheetRef?: WorkbookSheetRef | undefined;
+  readonly sheetRef?: SheetRef | undefined;
   readonly inspectorResetKey?: string | undefined;
   readonly reloadToken?: number | undefined;
   readonly renderInlineQueryControls?: boolean | undefined;

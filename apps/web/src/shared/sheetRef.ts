@@ -1,17 +1,6 @@
-export type WorkbookSheetRef =
-  | {
-      readonly id: string;
-      readonly kind: "saved_view";
-    }
-  | {
-      readonly id: string;
-      readonly kind: "view_schema";
-    }
-  | {
-      readonly extension_profile_id: string;
-      readonly kind: "extension_workspace";
-      readonly workspace_key: string;
-    };
+import type { SheetRef } from "@cartulary/protocol-ts/core-http";
+
+export type { SheetRef } from "@cartulary/protocol-ts/core-http";
 
 const exactKeys = (record: Record<string, unknown>, expected: string[]) => {
   const keys = Object.keys(record).sort();
@@ -24,7 +13,7 @@ const exactKeys = (record: Record<string, unknown>, expected: string[]) => {
 const nonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim() !== "";
 
-export function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
+export function isSheetRef(value: unknown): value is SheetRef {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
@@ -42,16 +31,13 @@ export function isWorkbookSheetRef(value: unknown): value is WorkbookSheetRef {
   return false;
 }
 
-export function workbookSheetRefKey(sheetRef: WorkbookSheetRef): string {
+export function sheetRefKey(sheetRef: SheetRef): string {
   if (sheetRef.kind === "extension_workspace") {
     return `${sheetRef.kind}:${sheetRef.extension_profile_id}:${sheetRef.workspace_key}`;
   }
   return `${sheetRef.kind}:${sheetRef.id}`;
 }
 
-export function workbookSheetRefsEqual(
-  left: WorkbookSheetRef,
-  right: WorkbookSheetRef,
-): boolean {
-  return workbookSheetRefKey(left) === workbookSheetRefKey(right);
+export function sheetRefsEqual(left: SheetRef, right: SheetRef): boolean {
+  return sheetRefKey(left) === sheetRefKey(right);
 }

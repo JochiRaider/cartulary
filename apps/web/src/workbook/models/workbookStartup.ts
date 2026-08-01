@@ -1,14 +1,9 @@
-import {
-  isWorkbookSheetRef,
-  type WorkbookSheetRef,
-} from "../../shared/workbookSheetRef";
+import type { SheetRef } from "../../shared/sheetRef";
+import { isSheetRef } from "../../shared/sheetRef";
 import {
   isStandardizedWorkbookViewSchemaId,
   timelineViewSchemaId,
 } from "./workbookSurfaceRegistry";
-
-export type { WorkbookSheetRef };
-export { isWorkbookSheetRef };
 
 export type WorkbookStartupQuery = {
   readonly extensionProfileId?: string;
@@ -17,7 +12,7 @@ export type WorkbookStartupQuery = {
   readonly viewSchemaId?: string;
 };
 
-export type WorkbookStartupClearedSheetRef = {
+export type WorkbookStartupRejectedReference = {
   readonly kind: string;
   readonly id?: string;
   readonly extension_profile_id?: string;
@@ -36,16 +31,16 @@ export type WorkbookStartupSavedViewResource = Readonly<
 
 export type WorkbookStartupClearedPointer = {
   readonly reasonCode: string;
-  readonly sheetRef: WorkbookStartupClearedSheetRef;
+  readonly sheetRef: WorkbookStartupRejectedReference;
   readonly source: WorkbookStartupPointerSource;
 };
 
 export type WorkbookStartupSelection = {
   readonly clearedPointers: readonly WorkbookStartupClearedPointer[];
-  readonly defaultSheetRef: WorkbookSheetRef | null;
-  readonly homeSheetRef: WorkbookSheetRef | null;
+  readonly defaultSheetRef: SheetRef | null;
+  readonly homeSheetRef: SheetRef | null;
   readonly selectedSavedView: WorkbookStartupSavedViewResource | null;
-  readonly selectedSheetRef: WorkbookSheetRef;
+  readonly selectedSheetRef: SheetRef;
   readonly selectedViewSchemaId: string | null;
   readonly source: WorkbookStartupSource;
 };
@@ -54,7 +49,7 @@ export type WorkbookStartupCandidate = {
   readonly invalidReasonCode?: string;
   readonly selectedSavedView?: WorkbookStartupSavedViewResource | null;
   readonly selectedViewSchemaId?: string | null;
-  readonly sheetRef?: WorkbookSheetRef | null;
+  readonly sheetRef?: SheetRef | null;
   readonly valid: boolean;
 };
 
@@ -66,14 +61,14 @@ const startupSources = new Set<string>([
 ]);
 const pointerSources = new Set<string>(["default", "home"]);
 
-function isClearedSheetRef(
+function isRejectedReference(
   value: unknown,
-): value is WorkbookStartupClearedSheetRef {
+): value is WorkbookStartupRejectedReference {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
   const record = value as Record<string, unknown>;
-  if (isWorkbookSheetRef(record)) {
+  if (isSheetRef(record)) {
     return true;
   }
   return (
@@ -109,11 +104,11 @@ function isPointerSource(
   return typeof value === "string" && pointerSources.has(value);
 }
 
-function nullableSheetRef(value: unknown): WorkbookSheetRef | null | undefined {
+function nullableSheetRef(value: unknown): SheetRef | null | undefined {
   if (value === null || value === undefined) {
     return null;
   }
-  return isWorkbookSheetRef(value) ? { ...value } : undefined;
+  return isSheetRef(value) ? { ...value } : undefined;
 }
 
 function nullableStartupSavedView(
@@ -157,8 +152,8 @@ function selectedViewSchemaIdFor(
 
 function fallbackSelection(
   clearedPointers: readonly WorkbookStartupClearedPointer[],
-  homeSheetRef: WorkbookSheetRef | null,
-  defaultSheetRef: WorkbookSheetRef | null,
+  homeSheetRef: SheetRef | null,
+  defaultSheetRef: SheetRef | null,
 ): WorkbookStartupSelection {
   return {
     clearedPointers,
@@ -225,10 +220,7 @@ export function normalizeWorkbookStartupSelection(
   }
   const record = value as Record<string, unknown>;
   const selectedSheetRef = record.selected_sheet_ref;
-  if (
-    !isWorkbookSheetRef(selectedSheetRef) ||
-    !isStartupSource(record.source)
-  ) {
+  if (!isSheetRef(selectedSheetRef) || !isStartupSource(record.source)) {
     return null;
   }
   const selectedViewSchemaId = record.selected_view_schema_id;
@@ -271,7 +263,7 @@ export function normalizeWorkbookStartupSelection(
     const raw = pointer as Record<string, unknown>;
     if (
       !isPointerSource(raw.source) ||
-      !isClearedSheetRef(raw.sheet_ref) ||
+      !isRejectedReference(raw.sheet_ref) ||
       typeof raw.reason_code !== "string" ||
       raw.reason_code.trim() === ""
     ) {

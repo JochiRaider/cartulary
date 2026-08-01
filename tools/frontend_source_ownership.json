@@ -142,7 +142,7 @@
         "apps/web/src/shared/authorizationRecovery.ts",
         "apps/web/src/shared/publicError.test.ts",
         "apps/web/src/shared/publicError.ts",
-        "apps/web/src/shared/workbookSheetRef.ts",
+        "apps/web/src/shared/sheetRef.ts",
         "apps/web/src/shared/workbookShellContracts.ts"
       ]
     },

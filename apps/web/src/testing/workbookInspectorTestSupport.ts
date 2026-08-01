@@ -3,7 +3,6 @@ import {
   type EntityType,
   entityInspectorSubjectTestId,
   entityInspectorTestId,
-  type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import { waitFor } from "@testing-library/react";
 import {
@@ -15,7 +14,7 @@ export type EntityInspectorExpectedSubject = {
   readonly entityType: EntityType;
   readonly recordId: string;
   readonly rowVersion: number;
-  readonly viewSchemaId: WorkbookSurface;
+  readonly viewSchemaId: string;
 };
 
 type EntityInspectorReadiness = {

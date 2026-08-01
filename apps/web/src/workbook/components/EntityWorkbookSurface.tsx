@@ -29,7 +29,6 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   timelinePreviewRowTestId,
-  type WorkbookSurface,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
   workbookRowActionMenuButtonTestId,
@@ -305,7 +304,7 @@ export function EntityWorkbookSurface({
     inspectorConfig,
     "relationships",
   );
-  const surface: WorkbookSurface = contract.viewSchemaId;
+  const surface: string = contract.viewSchemaId;
   const draftRowRecordId = `${surface}:draft-row`;
   const writableFields = useMemo(
     () => contract.fields.filter((field) => field.writeKind !== "read_only"),

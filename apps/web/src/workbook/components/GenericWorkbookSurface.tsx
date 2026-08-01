@@ -24,7 +24,6 @@ import {
   gridActionsHeaderTestId,
   gridGroupRowTestId,
   gridShellTestId,
-  type WorkbookSurface,
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
@@ -39,6 +38,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import { useWorkbookCollaborationCoordinator } from "../collaboration/useWorkbookCollaborationCoordinator";
 import type { WorkbookCollaborationCoordinator } from "../collaboration/WorkbookCollaborationCoordinator";
 import {
@@ -88,7 +88,6 @@ import {
   selectInspectorConfig,
 } from "../models/workbookInspectorModel";
 import type { WorkbookQueryState } from "../models/workbookQuery";
-import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
@@ -121,7 +120,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly mutationCommands: WorkbookMutationCommandPorts;
   readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
   readonly onClearFilters: () => void;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onRefresh: () => Promise<void> | void;
@@ -162,7 +161,7 @@ export function ContractWorkbookSurface({
       state: layoutState,
     },
   } = layout;
-  const surface = contract.viewSchemaId as WorkbookSurface;
+  const surface = contract.viewSchemaId;
   const registration = requireWorkbookSurfaceRegistration(
     contract.viewSchemaId,
   );

@@ -1,5 +1,3 @@
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
-
 import { type BrowserPageLike, delay, requireEvaluate } from "./browser";
 import {
   readGridScroll,
@@ -19,7 +17,7 @@ export async function assertGridFocusContinuity(options: {
   preservedScroll: { left: number; top: number };
   requireExactHorizontalScroll?: boolean;
   requireExactVerticalScroll?: boolean;
-  surface: WorkbookSurface;
+  surface: string;
   timeoutMs?: number;
 }) {
   const {
@@ -72,7 +70,7 @@ async function assertGridFocusContinuityOnce(options: {
   preservedScroll: { left: number; top: number };
   requireExactHorizontalScroll: boolean;
   requireExactVerticalScroll: boolean;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   const {
     allowContainingGridCell,

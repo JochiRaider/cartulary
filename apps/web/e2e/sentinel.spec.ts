@@ -34,7 +34,6 @@ import {
   systemViewSwitcherTriggerTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
-  type WorkbookSurface,
   workbookAddRowButtonTestId,
   workbookConflictControlTestId,
   workbookConflictLocalValueTestId,
@@ -2984,9 +2983,9 @@ async function setGenericCreateField(
   await input.fill(Array.isArray(value) ? value.join("\n") : value);
 }
 
-function currentWorkbookSurface(page: Page): WorkbookSurface {
+function currentWorkbookSurface(page: Page): string {
   const viewSchemaId = new URL(page.url()).searchParams.get("view_schema_id");
-  return (viewSchemaId ?? timelineViewSchemaId) as WorkbookSurface;
+  return viewSchemaId ?? timelineViewSchemaId;
 }
 
 async function editExtendedSurfaceCell(

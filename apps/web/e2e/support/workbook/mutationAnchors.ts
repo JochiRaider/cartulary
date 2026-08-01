@@ -1,5 +1,3 @@
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
-
 type RequestPageLike = {
   evaluate?: (
     pageFunction: (arg?: unknown) => unknown,
@@ -30,7 +28,7 @@ export async function fillDownGridCells(options: {
     readonly baseRowVersion: number;
     readonly recordId: string;
   }[];
-  surface: WorkbookSurface;
+  surface: string;
   value: string;
 }) {
   if (options.page.request === undefined) {

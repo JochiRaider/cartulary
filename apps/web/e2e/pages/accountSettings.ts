@@ -1,13 +1,10 @@
-import {
-  accountTestId,
-  type LandingAdminPanelToken,
-} from "@cartulary/ui-contracts";
+import { accountTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect } from "@playwright/test";
+import type { LandingAdminPanelId } from "../../src/app/landingAdminTypes";
 
 type AccountSettingsPanel = Extract<
-  LandingAdminPanelToken,
+  LandingAdminPanelId,
   "account-profile" | "account-appearance" | "account-security"
 >;
 

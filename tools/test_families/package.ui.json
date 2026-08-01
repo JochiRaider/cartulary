@@ -72,30 +72,7 @@
       "status": "active"
     },
     {
-      "row_id": "package.ui.boundary_support.index_keeps_semantic_selector_helpers_byte_ident_953f0cffc5",
-      "owner_id": "package.ui",
-      "family_id": "package.ui.boundary_support",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "package.ui.verification.shared_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "packages/ui-contracts/src/index.test.ts",
-        "titles": [
-          "@cartulary/ui-contracts workbook row selectors does not export delivery-phase selector aliases"
-        ]
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "package.ui.frontend_unit.verify_stable_selector_and_test_id_builders_deri_9f7de0ca7e",
+      "row_id": "package.ui.frontend_unit.application_selector_contracts_675995f2ab",
       "owner_id": "package.ui",
       "family_id": "package.ui.frontend_unit",
       "collaborator_ids": [],
@@ -104,15 +81,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/index.test.ts",
+        "file": "packages/ui-contracts/src/application-selectors.test.ts",
         "titles": [
-          "builds stable System views switcher selectors from closed groups and view_schema_id",
-          "derives row and row-action selectors from record_id",
-          "derives row-history items and actions from stable history identity rather than render index",
-          "derives surface selectors from view_schema_id instead of visible titles",
-          "keeps visible field labels and display names out of cell selectors",
-          "returns deterministic selectors for identical stable identifiers",
-          "validates closed-vocabulary-derived selector tokens"
+          "@cartulary/ui-contracts application selectors keeps authentication selector identity on semantic state and stable field identifiers",
+          "@cartulary/ui-contracts application selectors provides shared builders for app shell and incident membership selectors",
+          "@cartulary/ui-contracts application selectors provides stable authentication bootstrap, landing, session, admin, and error selectors",
+          "@cartulary/ui-contracts application selectors rejects invalid authentication selector vocabularies"
         ]
       },
       "evidence_class": "unit",
@@ -124,39 +98,111 @@
       "status": "active"
     },
     {
-      "row_id": "package.ui.regression.index_suite_96dd807938",
+      "row_id": "package.ui.frontend_unit.network_flow_selector_contracts_b95d925bdf",
       "owner_id": "package.ui",
-      "family_id": "package.ui.regression",
+      "family_id": "package.ui.frontend_unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "package.ui.verification.shared_contract"
+        "package.ui.verification.behavior_contract"
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/index.test.ts",
+        "file": "packages/ui-contracts/src/network-flow-selectors.test.ts",
         "titles": [
-          "@cartulary/ui-contracts workbook row selectors builds escaped data-testid selectors and timeline editor test ids",
-          "@cartulary/ui-contracts workbook row selectors builds stable System views switcher selectors from closed groups and view_schema_id",
-          "@cartulary/ui-contracts workbook row selectors derives inspector field ids from the stable row cell id",
-          "@cartulary/ui-contracts workbook row selectors derives item-ref selectors without using item display text or fixture order",
-          "@cartulary/ui-contracts workbook row selectors derives row and row-action selectors from record_id",
-          "@cartulary/ui-contracts workbook row selectors derives row-history items and actions from stable history identity rather than render index",
-          "@cartulary/ui-contracts workbook row selectors derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids",
-          "@cartulary/ui-contracts workbook row selectors derives stable collaboration collaboration and status selectors",
-          "@cartulary/ui-contracts workbook row selectors derives surface selectors from view_schema_id instead of visible titles",
-          "@cartulary/ui-contracts workbook row selectors fails closed for System views switcher group and option selector inputs",
-          "@cartulary/ui-contracts workbook row selectors keeps authentication selector identity on semantic state and stable field identifiers",
-          "@cartulary/ui-contracts workbook row selectors keeps tab, field, column, row, and fixture reordering out of selector identity",
-          "@cartulary/ui-contracts workbook row selectors keeps visible field labels and display names out of cell selectors",
-          "@cartulary/ui-contracts workbook row selectors provides shared builders for app shell and incident membership selectors",
-          "@cartulary/ui-contracts workbook row selectors provides shared builders for workbook action families",
-          "@cartulary/ui-contracts workbook row selectors provides stable authentication bootstrap, landing, session, admin, and error selectors",
-          "@cartulary/ui-contracts workbook row selectors rejects invalid authentication selector vocabularies",
-          "@cartulary/ui-contracts workbook row selectors rejects malformed stable IDs and keeps selector segments collision-resistant",
-          "@cartulary/ui-contracts workbook row selectors returns deterministic selectors for identical stable identifiers",
-          "@cartulary/ui-contracts workbook row selectors targets saved and draft workbook rows when scoped through the grid shell",
-          "@cartulary/ui-contracts workbook row selectors validates closed-vocabulary-derived selector tokens",
-          "@cartulary/ui-contracts workbook row selectors validates view_schema_id selectors against the generated registry"
+          "@cartulary/ui-contracts Network Flow selectors builds ordered column actions and mapping-column identities",
+          "@cartulary/ui-contracts Network Flow selectors encodes stable Network Flow table, graph, row, and diagnostic identities",
+          "@cartulary/ui-contracts Network Flow selectors fails closed for malformed Network Flow identity and ordinal inputs",
+          "@cartulary/ui-contracts Network Flow selectors preserves every closed Network Analysis selector in exact order"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.frontend_unit.selector_core_contracts_375732dc80",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/selector-core.test.ts",
+        "titles": [
+          "@cartulary/ui-contracts selector core builds escaped data-testid selectors and timeline editor test ids",
+          "@cartulary/ui-contracts selector core derives surface selectors from view_schema_id instead of visible titles",
+          "@cartulary/ui-contracts selector core keeps tab, field, column, row, and fixture reordering out of selector identity",
+          "@cartulary/ui-contracts selector core rejects malformed stable IDs and keeps selector segments collision-resistant",
+          "@cartulary/ui-contracts selector core returns deterministic selectors for identical stable identifiers",
+          "@cartulary/ui-contracts selector core validates view_schema_id selectors against the generated registry"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.frontend_unit.workbook_interaction_contracts_dcad48388a",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/workbook-interaction-selectors.test.ts",
+        "titles": [
+          "@cartulary/ui-contracts workbook interaction selectors builds exact history-open selectors from stable record identity",
+          "@cartulary/ui-contracts workbook interaction selectors characterizes draft and paste-conflict selectors",
+          "@cartulary/ui-contracts workbook interaction selectors characterizes reusable-entity and merge-precondition selectors",
+          "@cartulary/ui-contracts workbook interaction selectors derives item-ref selectors without using item display text or fixture order",
+          "@cartulary/ui-contracts workbook interaction selectors derives row-history items and actions from stable history identity rather than render index",
+          "@cartulary/ui-contracts workbook interaction selectors derives stable collaboration collaboration and status selectors",
+          "@cartulary/ui-contracts workbook interaction selectors provides shared builders for workbook action families",
+          "@cartulary/ui-contracts workbook interaction selectors validates closed-vocabulary-derived selector tokens"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
+      "row_id": "package.ui.frontend_unit.workbook_shell_grid_contracts_07bd0aad94",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.test.ts",
+        "titles": [
+          "@cartulary/ui-contracts workbook shell and grid selectors builds exact filter selectors and rejects invalid filter identity",
+          "@cartulary/ui-contracts workbook shell and grid selectors builds stable System views switcher selectors from closed groups and view_schema_id",
+          "@cartulary/ui-contracts workbook shell and grid selectors derives inspector field ids from the stable row cell id",
+          "@cartulary/ui-contracts workbook shell and grid selectors derives row and row-action selectors from record_id",
+          "@cartulary/ui-contracts workbook shell and grid selectors derives sheet toolbar, inspector, draft row, and row menu selectors from stable workbook ids",
+          "@cartulary/ui-contracts workbook shell and grid selectors fails closed for System views switcher group and option selector inputs",
+          "@cartulary/ui-contracts workbook shell and grid selectors keeps visible field labels and display names out of cell selectors",
+          "@cartulary/ui-contracts workbook shell and grid selectors parses every density row height and fails closed for a malformed token",
+          "@cartulary/ui-contracts workbook shell and grid selectors preserves closed shell and system-view order with exact accessibility labels",
+          "@cartulary/ui-contracts workbook shell and grid selectors targets saved and draft workbook rows when scoped through the grid shell"
         ]
       },
       "evidence_class": "unit",

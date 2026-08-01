@@ -173,12 +173,25 @@ never mixes source, catalog, verification, or profile digests.
 ## 7. Implementation boundaries
 
 - `apps/web` owns application composition and web behavior.
+- `apps/web` owns controller state, navigation identity, transient load state,
+  and application-private copy. Shared selector packages do not become owners
+  of application state merely because selectors accept those values.
+- Navigation, startup, presence, saved-view, and extension-workspace semantics
+  use generated `SheetRef` from `@cartulary/protocol-ts/core-http`. Plain
+  `view_schema_id` strings are limited to view-schema-specific operations and
+  selector builders, where the canonical registry validates them.
 - `packages/grid-adapter` owns the shared grid integration boundary; application
   code does not import the underlying grid library directly.
+- `packages/ui-contracts` owns cross-runtime selector/test-ID construction,
+  semantic DOM contracts, stable shared accessibility names, and the authored
+  facade for generated design tokens and token-derived presentation values. It
+  does not own workbook identity or application controller-state vocabularies.
 - `packages/protocol-ts` and `packages/ui-contracts` generated roots are downstream
   artifacts and are never hand-edited.
-- Runtime UI code consumes machine-owned design tokens and contract packages rather
-  than parsing documentation.
+- Runtime UI code consumes the resolved machine token registry projected through
+  contract packages rather than parsing documentation. Human design authority
+  remains in `docs/design.md`; executable token generation consumes
+  `contracts/design/tokens.v1.json` and never accesses `docs/`.
 - Frontend tests and validators may retain inert documentation references for human
   traceability, but must not open, stat, resolve, or hash those paths.
 

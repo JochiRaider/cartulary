@@ -7,7 +7,6 @@ import {
   gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
-  type WorkbookSurface,
   workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 
@@ -27,13 +26,13 @@ export type GridAnchorCommandScenario = {
   commit: (context: {
     input: BrowserLocator;
     page: BrowserPageLike;
-    surface: WorkbookSurface;
+    surface: string;
   }) => Promise<void>;
   name: string;
 };
 
 export function gridAnchorCommandScenarios(
-  surface: WorkbookSurface,
+  surface: string,
 ): readonly GridAnchorCommandScenario[] {
   void surface;
   return [
@@ -69,7 +68,7 @@ export async function resizeGridColumn(options: {
   deltaPx: number;
   fieldKey: string;
   page: BrowserPageLike;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   void options.deltaPx;
   const headerTestId = gridSortHeaderTestId(options.surface, options.fieldKey);
@@ -88,7 +87,7 @@ export async function resizeGridColumn(options: {
 
 export async function assertActiveFilterChipVisible(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
 ) {
   const chip = page.getByTestId(gridFilterChipTestId(surface, fieldKey));
@@ -104,7 +103,7 @@ export async function pasteGridMatrix(options: {
   matrix: readonly (readonly string[])[];
   page: BrowserPageLike;
   recordId: string;
-  surface: WorkbookSurface;
+  surface: string;
 }) {
   await scrollGridCellIntoView({
     cellKey: options.fieldKey,
@@ -140,7 +139,7 @@ export async function pasteGridMatrix(options: {
 
 export async function sortByHeader(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
 ) {
   const headerTestId = gridSortHeaderTestId(surface, fieldKey);
@@ -150,7 +149,7 @@ export async function sortByHeader(
 
 export async function applyFilterChip(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
   value: string,
 ) {
@@ -169,7 +168,7 @@ export async function applyFilterChip(
 
 export async function removeFilterChip(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
 ) {
   await page.getByTestId(gridFilterChipTestId(surface, fieldKey)).click();
@@ -177,7 +176,7 @@ export async function removeFilterChip(
 
 export async function changeGrouping(
   page: BrowserPageLike,
-  surface: WorkbookSurface,
+  surface: string,
   fieldKey: string,
 ) {
   await page

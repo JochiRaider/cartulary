@@ -1,6 +1,4 @@
 import {
-  type IncidentControlsLoadState,
-  type IncidentControlsSection,
   incidentAdministrationTestId,
   incidentControlsActionMessageTestId,
   incidentControlsStatusTestId,
@@ -20,7 +18,6 @@ import {
 } from "@cartulary/ui-contracts";
 import { getViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-
 import {
   type APIError,
   clientTxnID,
@@ -28,10 +25,8 @@ import {
   fetchHTTPOperation,
   fetchJSON,
 } from "../services/browserApi";
-import {
-  isWorkbookSheetRef,
-  type WorkbookSheetRef,
-} from "../shared/workbookSheetRef";
+import type { SheetRef } from "../shared/sheetRef";
+import { isSheetRef } from "../shared/sheetRef";
 import type {
   CloseIncidentRequest,
   CloseIncidentResponse,
@@ -39,6 +34,10 @@ import type {
   ReopenIncidentRequest,
   ReopenIncidentResponse,
 } from "./api/publicHttpTypes";
+import type {
+  IncidentControlsLoadState,
+  IncidentControlsSection,
+} from "./landingAdminTypes";
 
 type IncidentRole = "viewer" | "editor" | "reviewer" | "admin" | "";
 type MembershipRole = Exclude<IncidentRole, "">;
@@ -57,12 +56,12 @@ type MembershipAuditEvent =
   ListIncidentMembershipAuditEventsResponse["data"]["audit_events"][number];
 
 type WorkbookPreferences = {
-  default_sheet_ref?: WorkbookSheetRef | null;
-  home_sheet_ref?: WorkbookSheetRef | null;
+  default_sheet_ref?: SheetRef | null;
+  home_sheet_ref?: SheetRef | null;
 };
 
 type PreferenceSlot = {
-  readonly sheetRef: WorkbookSheetRef | null;
+  readonly sheetRef: SheetRef | null;
   readonly status: "loading" | "loaded" | "unavailable";
 };
 
@@ -109,9 +108,7 @@ function loadingPreferenceSlot(): PreferenceSlot {
   return { sheetRef: null, status: "loading" };
 }
 
-function loadedPreferenceSlot(
-  sheetRef: WorkbookSheetRef | null,
-): PreferenceSlot {
+function loadedPreferenceSlot(sheetRef: SheetRef | null): PreferenceSlot {
   return { sheetRef, status: "loaded" };
 }
 
@@ -134,13 +131,13 @@ function preferenceSlotFromPayload(
   if (value === null) {
     return loadedPreferenceSlot(null);
   }
-  if (isWorkbookSheetRef(value)) {
+  if (isSheetRef(value)) {
     return loadedPreferenceSlot({ ...value });
   }
   return unavailablePreferenceSlot();
 }
 
-function formatWorkbookSheetRef(slot: PreferenceSlot): string {
+function formatSheetRef(slot: PreferenceSlot): string {
   if (slot.status === "loading") {
     return "Loading…";
   }
@@ -1412,7 +1409,7 @@ function renderIncidentSummary({
               )}
               style={valueStyle}
             >
-              {formatWorkbookSheetRef(defaultPreference)}
+              {formatSheetRef(defaultPreference)}
             </dd>
           </div>
           <div>
@@ -1421,7 +1418,7 @@ function renderIncidentSummary({
               data-testid={incidentAdministrationTestId("pref-home-sheet-ref")}
               style={valueStyle}
             >
-              {formatWorkbookSheetRef(userPreference)}
+              {formatSheetRef(userPreference)}
             </dd>
           </div>
         </dl>

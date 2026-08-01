@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   DesignTokenValidationError,
   loadDesignTokenDocument,
+  replaceFileAtomically,
   renderDesignTokenTypeScript,
 } from "./design-tokens.mjs";
 
@@ -45,12 +46,20 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === "--registry") {
-      options.registry = path.resolve(argv[index + 1] ?? "");
+      const value = argv[index + 1];
+      if (!value) {
+        usage();
+      }
+      options.registry = path.resolve(value);
       index += 1;
       continue;
     }
     if (arg === "--output") {
-      options.output = path.resolve(argv[index + 1] ?? "");
+      const value = argv[index + 1];
+      if (!value) {
+        usage();
+      }
+      options.output = path.resolve(value);
       index += 1;
       continue;
     }
@@ -74,8 +83,7 @@ function main() {
     console.log("design token validation passed: generated artifact is current");
     return;
   }
-  mkdirSync(path.dirname(options.output), { recursive: true });
-  writeFileSync(options.output, output, "utf8");
+  replaceFileAtomically(options.output, output);
   console.log(`generated ${path.relative(repoRoot, options.output)}`);
 }
 

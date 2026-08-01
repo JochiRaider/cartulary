@@ -7,7 +7,6 @@ import {
   gridSortHeaderTestId,
   rowCellTestId,
   timelineRowVersionTestId,
-  type WorkbookSurface,
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 
@@ -165,7 +164,7 @@ export async function waitForCommittedRowSummary(
   options: {
     expectedSummary: string;
     startedAtMs?: number;
-    surface: WorkbookSurface;
+    surface: string;
     timeoutMs: number;
   },
 ) {
@@ -315,7 +314,7 @@ export async function waitForCommittedRowSummary(
 
 export function findCommittedRowSummaryInRoot(
   root: ParentNode,
-  options: { expectedSummary: string; surface: WorkbookSurface },
+  options: { expectedSummary: string; surface: string },
 ): CommittedRowSummaryMatch | null {
   const grid = findElementByTestId(root, gridShellTestId(options.surface));
   if (grid === null) {

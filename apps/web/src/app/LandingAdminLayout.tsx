@@ -4,7 +4,6 @@ import {
   incidentControlsMenuTestId,
   incidentControlsTriggerTestId,
   incidentLandingTestId,
-  type LandingAdminPanelToken,
   landingAdminMenuItemTestId,
   landingAdminPanelTestId,
   landingAdminShellTestId,
@@ -71,10 +70,11 @@ import type {
   DeploymentAdministrationPanelToken,
   IncidentDirectoryShellProps,
   LandingAdminPanelDescriptor,
+  LandingAdminPanelId,
   LandingAdminShellProps,
 } from "./landingAdminTypes";
 
-const panelIcons: Record<LandingAdminPanelToken, typeof FolderOpen> = {
+const panelIcons: Record<LandingAdminPanelId, typeof FolderOpen> = {
   incidents: FolderOpen,
   "deployment-users": UsersRound,
   "administrative-audit": FileClock,
@@ -95,7 +95,7 @@ export function LandingAdminShell({
   statusText,
 }: LandingAdminShellProps) {
   const menuItemRefs = useRef(
-    new Map<LandingAdminPanelToken, HTMLButtonElement>(),
+    new Map<LandingAdminPanelId, HTMLButtonElement>(),
   );
   const deploymentPanels = availablePanels.filter(
     (panel) => panel.group === "deployment",
@@ -448,9 +448,7 @@ function MenuGroup({
   title,
 }: {
   activePanel: DeploymentAdministrationPanelToken;
-  menuItemRefs: MutableRefObject<
-    Map<LandingAdminPanelToken, HTMLButtonElement>
-  >;
+  menuItemRefs: MutableRefObject<Map<LandingAdminPanelId, HTMLButtonElement>>;
   onSelect: (
     panel: DeploymentAdministrationPanelToken,
     focus?: boolean,

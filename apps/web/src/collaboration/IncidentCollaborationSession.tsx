@@ -12,10 +12,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
+import type { SheetRef } from "../shared/sheetRef";
 
 export type CollaborationPresence = {
-  readonly sheet_ref: WorkbookSheetRef;
+  readonly sheet_ref: SheetRef;
   readonly mode: "viewing" | "editing" | "idle";
   readonly record_id?: string;
   readonly field_key?: string;

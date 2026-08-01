@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   normalizeWorkbookStartupSelection,
   resolveWorkbookStartupFallback,
-  type WorkbookSheetRef,
   workbookStartupQueryFromURLParams,
 } from "./workbookStartup";
 import {
@@ -16,15 +16,15 @@ import {
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 
-function viewSchemaRef(viewSchemaId: string): WorkbookSheetRef {
+function viewSchemaRef(viewSchemaId: string): SheetRef {
   return { kind: "view_schema", id: viewSchemaId };
 }
 
-function savedViewRef(id: string): WorkbookSheetRef {
+function savedViewRef(id: string): SheetRef {
   return { kind: "saved_view", id };
 }
 
-function extensionWorkspaceRef(): WorkbookSheetRef {
+function extensionWorkspaceRef(): SheetRef {
   return {
     kind: "extension_workspace",
     extension_profile_id: "network_flow_activity",

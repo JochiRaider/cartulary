@@ -1,5 +1,6 @@
 import type { ViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { SheetRef } from "../../shared/sheetRef";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -20,7 +21,6 @@ import {
   savedViewLayoutJsonForPersistence,
   savedViewQueryJsonForPersistence,
 } from "../models/workbookSavedViews";
-import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
@@ -28,7 +28,7 @@ import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResul
 import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
 
 type WorkbookIdentity = {
-  readonly sheetRef: WorkbookSheetRef;
+  readonly sheetRef: SheetRef;
   readonly viewSchemaId: string | null;
 };
 
@@ -80,7 +80,7 @@ export function useWorkbookSavedViewController({
   ) => WorkbookQueryState;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly savedViewPort: WorkbookSavedViewPort;
-  readonly startupSheetRef: WorkbookSheetRef;
+  readonly startupSheetRef: SheetRef;
 }) {
   const [savedViews, setSavedViews] = useState<SavedViewResource[]>([]);
   const contextVersionRef = useRef(0);

@@ -1,5 +1,4 @@
 import type { GridColumn, GridHandle } from "@cartulary/grid-adapter";
-import type { WorkbookSurface } from "@cartulary/ui-contracts";
 import { useCallback, useState } from "react";
 import { useWorkbookGridContinuity } from "../../continuity/useWorkbookGridContinuity";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
@@ -56,7 +55,7 @@ export function useTimelineGridInteractions<TViewportContinuityRequest>({
   );
 
   const updateTimelineFocusAnchor = useCallback(
-    (recordId: string | null, fieldKey: string, surface: WorkbookSurface) => {
+    (recordId: string | null, fieldKey: string, surface: string) => {
       if (
         recordId === null ||
         recordId.trim() === "" ||

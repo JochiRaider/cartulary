@@ -1,7 +1,3 @@
-import type {
-  IncidentControlsSection,
-  LandingAdminPanelToken,
-} from "@cartulary/ui-contracts";
 import type { ReactNode } from "react";
 import type { APIError } from "../services/browserApi";
 import type { ListAdministrativeAuditEventsResponse } from "./api/publicHttpTypes";
@@ -34,11 +30,34 @@ export type AppBootstrapState =
 
 export type LandingRefreshState = "idle" | "loading" | "failed";
 
+export type LandingAdminPanelId =
+  | "account-appearance"
+  | "account-profile"
+  | "account-security"
+  | "administrative-audit"
+  | "deployment-users"
+  | "incident-import"
+  | "incidents"
+  | "reference-packs";
+
+export type IncidentControlsSection =
+  | "import-assistant"
+  | "incident-fields"
+  | "membership-audit"
+  | "memberships"
+  | "summary";
+
+export type IncidentControlsLoadState =
+  | "loading"
+  | "partial"
+  | "synced"
+  | "unavailable";
+
 export type LandingAdminPanelDescriptor = {
   description: string;
   group: "account" | "deployment" | "primary";
   label: string;
-  token: LandingAdminPanelToken;
+  token: LandingAdminPanelId;
 };
 
 export type AccountSettingsPanelToken =
