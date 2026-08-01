@@ -3,65 +3,47 @@ import {
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import {
-  abortLatestQuery,
-  beginLatestQuery,
-  fetchWorkbookJSON,
-  handleWorkbookLoadFailure,
-  isAbortError,
-  type LatestQueryRuntime,
-  parseErrorMessage,
-  readEnvelope,
-  workbookLoadFailureIsAccessLoss,
-} from "../../services/workbookApi";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
 import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import { entityRowFromApi } from "../models/entityWorkbookModel";
-import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import {
   initialWorkbookQueryLoadState,
   type WorkbookQueryLoadState,
 } from "../models/workbookGridState";
-import {
-  buildQueryRequest,
-  type WorkbookQueryState,
-} from "../models/workbookQuery";
+import type { WorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
 import { reconcileWorkbookRecordRows } from "../utils/workbookRowReconciliation";
-import type { WorkbookQueryRow } from "./WorkbookQueryRow";
+import {
+  type WorkbookViewQueryPort,
+  workbookViewQueryFailureIsAccessLoss,
+} from "./WorkbookViewQueryPort";
+import {
+  abortLatestQuery,
+  beginLatestQuery,
+  type LatestQueryRuntime,
+} from "./workbookLatestRequest";
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
 
-type ViewQueryEnvelope = {
-  data: {
-    incident_id: string;
-    view_schema_id: string;
-    rows: WorkbookQueryRow[];
-  };
-};
-
 export type EntitySurfaceQueryInput = {
-  readonly apiBase: string | undefined;
   readonly hostQueryState: WorkbookQueryState;
   readonly identityQueryState: WorkbookQueryState;
-  readonly incidentId: string;
   readonly onIncidentAccessLost: (() => void) | undefined;
+  readonly viewQuery: WorkbookViewQueryPort;
 };
 
 export function useEntitySurfaceQuery({
-  apiBase,
   hostQueryState,
   identityQueryState,
-  incidentId,
   onIncidentAccessLost,
+  viewQuery,
 }: EntitySurfaceQueryInput) {
   const [hostRows, setHostRows] = useState<EntityRow[]>([]);
   const [identityRows, setIdentityRows] = useState<EntityRow[]>([]);
@@ -86,44 +68,6 @@ export function useEntitySurfaceQuery({
     return index;
   }, [hostRows, identityRows]);
 
-  const queryEntityView = useCallback(
-    async (
-      viewSchemaId: string,
-      entityType: EntityRow["entityType"],
-      queryState: WorkbookQueryState,
-      signal: AbortSignal,
-    ) => {
-      const contract =
-        viewSchemaId === hostsViewSchemaId ? hostsContract : identitiesContract;
-      const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          signal,
-          body: JSON.stringify(buildQueryRequest(contract, queryState)),
-        },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
-      if (envelope.data.view_schema_id !== viewSchemaId) {
-        throw new Error(
-          `Entity surface load returned ${envelope.data.view_schema_id} for ${viewSchemaId}.`,
-        );
-      }
-      return normalizeWorkbookViewRows(
-        contract,
-        envelope.data.rows,
-        `${viewSchemaId} query response`,
-      ).map((row) => entityRowFromApi(row, entityType));
-    },
-    [apiBase, incidentId],
-  );
-
   const refresh = useCallback(async () => {
     const request = beginLatestQuery(queryRuntimeRef);
     setLoadState(
@@ -131,42 +75,32 @@ export function useEntitySurfaceQuery({
         ? { kind: "refreshing" }
         : initialWorkbookQueryLoadState,
     );
-    try {
-      const [nextHosts, nextIdentities] = await Promise.all([
-        queryEntityView(
-          hostsViewSchemaId,
-          "host",
-          hostQueryState,
-          request.signal,
-        ),
-        queryEntityView(
-          identitiesViewSchemaId,
-          "identity",
-          identityQueryState,
-          request.signal,
-        ),
-      ]);
-      if (!request.isCurrent()) {
-        return;
-      }
-      setHostRows((current) => [
-        ...reconcileWorkbookRecordRows(current, nextHosts),
-      ]);
-      setIdentityRows((current) => [
-        ...reconcileWorkbookRecordRows(current, nextIdentities),
-      ]);
-      acceptedRowCountRef.current = nextHosts.length + nextIdentities.length;
-      setLoadState({ kind: "ready" });
-    } catch (error) {
-      if (!request.isCurrent() || isAbortError(error)) {
-        return;
-      }
-      const message = handleWorkbookLoadFailure(
-        error,
-        "Entity load failed.",
-        onIncidentAccessLost,
-      );
-      if (workbookLoadFailureIsAccessLoss(message)) {
+    const [hostsResult, identitiesResult] = await Promise.all([
+      viewQuery.query({
+        contract: hostsContract,
+        queryState: hostQueryState,
+        signal: request.signal,
+      }),
+      viewQuery.query({
+        contract: identitiesContract,
+        queryState: identityQueryState,
+        signal: request.signal,
+      }),
+    ]);
+    if (
+      !request.isCurrent() ||
+      hostsResult.kind === "aborted" ||
+      identitiesResult.kind === "aborted"
+    ) {
+      return;
+    }
+    const rejected = [hostsResult, identitiesResult].find(
+      (result) => result.kind === "rejected",
+    );
+    if (rejected?.kind === "rejected") {
+      const message = rejected.failure.message;
+      if (workbookViewQueryFailureIsAccessLoss(rejected.failure)) {
+        onIncidentAccessLost?.();
         hostRowsRef.current = [];
         identityRowsRef.current = [];
         acceptedRowCountRef.current = 0;
@@ -178,13 +112,29 @@ export function useEntitySurfaceQuery({
       } else {
         setLoadState({ kind: "unavailable", message });
       }
+      return;
     }
-  }, [
-    hostQueryState,
-    identityQueryState,
-    onIncidentAccessLost,
-    queryEntityView,
-  ]);
+    if (
+      hostsResult.kind !== "accepted" ||
+      identitiesResult.kind !== "accepted"
+    ) {
+      return;
+    }
+    const nextHosts = hostsResult.value.rows.map((row) =>
+      entityRowFromApi(row, "host"),
+    );
+    const nextIdentities = identitiesResult.value.rows.map((row) =>
+      entityRowFromApi(row, "identity"),
+    );
+    setHostRows((current) => [
+      ...reconcileWorkbookRecordRows(current, nextHosts),
+    ]);
+    setIdentityRows((current) => [
+      ...reconcileWorkbookRecordRows(current, nextIdentities),
+    ]);
+    acceptedRowCountRef.current = nextHosts.length + nextIdentities.length;
+    setLoadState({ kind: "ready" });
+  }, [hostQueryState, identityQueryState, onIncidentAccessLost, viewQuery]);
 
   const applyRecordChanged = useCallback(
     (

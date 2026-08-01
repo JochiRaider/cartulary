@@ -1,6 +1,6 @@
 import type { PasteWorkbookClipboardRequest } from "@cartulary/protocol-ts";
+import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import { parseSameFieldConflictFields } from "../../runtime/workbookConflictModel";
 import {

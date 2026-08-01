@@ -18,7 +18,7 @@ export type WorkbookConflictResolutionClass =
   | "collection_review"
   | "text_compare_merge";
 
-export type WorkbookCollectionValue = {
+type WorkbookCollectionValue = {
   readonly kind: "collection_value_v1";
   readonly ordered: boolean;
   readonly items: readonly Record<string, unknown>[];
@@ -96,7 +96,7 @@ export function workbookConflictEntry({
   };
 }
 
-export function isWorkbookCollectionValue(
+function isWorkbookCollectionValue(
   value: unknown,
 ): value is WorkbookCollectionValue {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {

@@ -13,6 +13,7 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   hostsViewSchemaId,
@@ -22,6 +23,15 @@ import { useEntitySurfaceQuery } from "./useEntitySurfaceQuery";
 
 const hostsContract = requireViewContract(hostsViewSchemaId);
 const identitiesContract = requireViewContract(identitiesViewSchemaId);
+const incidentId = "00000000-0000-4000-8000-000000000001";
+const hostCurrentId = "00000000-0000-4000-8000-000000000201";
+const hostObsoleteId = "00000000-0000-4000-8000-000000000202";
+const identityCurrentId = "00000000-0000-4000-8000-000000000203";
+const identityObsoleteId = "00000000-0000-4000-8000-000000000204";
+const viewQuery = createWorkbookViewQueryAdapter({
+  apiBase: undefined,
+  incidentId,
+});
 
 function hostRow(recordId: string, rowVersion: number, label: string) {
   return fullWorkbookViewRow(hostsContract, recordId, rowVersion, {
@@ -37,12 +47,24 @@ function identityRow(recordId: string, rowVersion: number, label: string) {
   });
 }
 
+function withoutLocalViewSchema(row: unknown): unknown {
+  const { view_schema_id: _viewSchemaId, ...wireRow } = row as Record<
+    string,
+    unknown
+  >;
+  return wireRow;
+}
+
 function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
   return jsonResponse({
     data: {
-      incident_id: "incident-1",
+      incident_id: incidentId,
       view_schema_id: viewSchemaId,
-      rows,
+      rows: rows.map(withoutLocalViewSchema),
+    },
+    meta: {
+      query: { filters: [], sort: [] },
+      request_id: "req-query",
     },
   });
 }
@@ -53,11 +75,10 @@ function EntityQueryHarness({
   readonly onIncidentAccessLost?: (() => void) | undefined;
 }) {
   const query = useEntitySurfaceQuery({
-    apiBase: undefined,
     hostQueryState: emptyWorkbookQueryState(),
     identityQueryState: emptyWorkbookQueryState(),
-    incidentId: "incident-1",
     onIncidentAccessLost,
+    viewQuery,
   });
   return (
     <>
@@ -74,7 +95,7 @@ function EntityQueryHarness({
         onClick={() =>
           query.applyRecordChanged(
             {
-              record_id: "host-current",
+              record_id: hostCurrentId,
               row_version: 2,
               change_set_id: "change-1",
               client_txn_id: "txn-1",
@@ -85,7 +106,7 @@ function EntityQueryHarness({
                   view_schema_id: hostsViewSchemaId,
                   change_kind: "patch",
                   patch_cells: {
-                    record_id: "host-current",
+                    record_id: hostCurrentId,
                     row_version: 2,
                     cells: {
                       "host.display_name": { value: "Patched host" },
@@ -132,13 +153,13 @@ describe("useEntitySurfaceQuery", () => {
         if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
           return Promise.resolve(
             queryResponse(hostsViewSchemaId, [
-              hostRow("host-current", 1, "Current host"),
+              hostRow(hostCurrentId, 1, "Current host"),
             ]),
           );
         }
         return Promise.resolve(
           queryResponse(identitiesViewSchemaId, [
-            identityRow("identity-current", 3, "Current identity"),
+            identityRow(identityCurrentId, 3, "Current identity"),
           ]),
         );
       }),
@@ -152,19 +173,19 @@ describe("useEntitySurfaceQuery", () => {
       ),
     );
     expect(screen.getByLabelText("host-rows").textContent).toBe(
-      "host-current:Current host",
+      `${hostCurrentId}:Current host`,
     );
     expect(screen.getByLabelText("identity-rows").textContent).toBe(
-      "identity-current:Current identity",
+      `${identityCurrentId}:Current identity`,
     );
     expect(screen.getByLabelText("entity-index").textContent).toBe(
-      "host-current,identity-current",
+      `${hostCurrentId},${identityCurrentId}`,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "patch" }));
     await waitFor(() =>
       expect(screen.getByLabelText("host-rows").textContent).toBe(
-        "host-current:Patched host",
+        `${hostCurrentId}:Patched host`,
       ),
     );
 
@@ -196,10 +217,10 @@ describe("useEntitySurfaceQuery", () => {
         return Promise.resolve(
           viewSchemaId === hostsViewSchemaId
             ? queryResponse(viewSchemaId, [
-                hostRow("host-current", 2, "Current host"),
+                hostRow(hostCurrentId, 2, "Current host"),
               ])
             : queryResponse(viewSchemaId, [
-                identityRow("identity-current", 2, "Current identity"),
+                identityRow(identityCurrentId, 2, "Current identity"),
               ]),
         );
       }),
@@ -211,7 +232,7 @@ describe("useEntitySurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
     await waitFor(() =>
       expect(screen.getByLabelText("entity-index").textContent).toBe(
-        "host-current,identity-current",
+        `${hostCurrentId},${identityCurrentId}`,
       ),
     );
     expect(firstSignals).toHaveLength(2);
@@ -219,18 +240,18 @@ describe("useEntitySurfaceQuery", () => {
 
     firstHost.resolve(
       queryResponse(hostsViewSchemaId, [
-        hostRow("host-obsolete", 1, "Obsolete host"),
+        hostRow(hostObsoleteId, 1, "Obsolete host"),
       ]),
     );
     firstIdentity.resolve(
       queryResponse(identitiesViewSchemaId, [
-        identityRow("identity-obsolete", 1, "Obsolete identity"),
+        identityRow(identityObsoleteId, 1, "Obsolete identity"),
       ]),
     );
     await Promise.resolve();
     await Promise.resolve();
     expect(screen.getByLabelText("entity-index").textContent).toBe(
-      "host-current,identity-current",
+      `${hostCurrentId},${identityCurrentId}`,
     );
   });
 
@@ -253,10 +274,10 @@ describe("useEntitySurfaceQuery", () => {
         return Promise.resolve(
           viewSchemaId === hostsViewSchemaId
             ? queryResponse(viewSchemaId, [
-                hostRow("host-current", 1, "Current host"),
+                hostRow(hostCurrentId, 1, "Current host"),
               ])
             : queryResponse(viewSchemaId, [
-                identityRow("identity-current", 1, "Current identity"),
+                identityRow(identityCurrentId, 1, "Current identity"),
               ]),
         );
       }),
@@ -268,7 +289,7 @@ describe("useEntitySurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
     await waitFor(() =>
       expect(screen.getByLabelText("entity-index").textContent).toBe(
-        "host-current,identity-current",
+        `${hostCurrentId},${identityCurrentId}`,
       ),
     );
     accessDenied = true;

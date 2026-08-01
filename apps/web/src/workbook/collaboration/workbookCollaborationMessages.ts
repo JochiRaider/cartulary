@@ -104,16 +104,6 @@ export function isRecordChangedMessage(
   );
 }
 
-export function shouldIgnoreSelfOriginatedRecordChange(
-  message: unknown,
-  resolvePendingSocketTxn: (clientTxnId: string | null | undefined) => boolean,
-): boolean {
-  if (!isRecordChangedMessage(message)) {
-    return false;
-  }
-  return resolvePendingSocketTxn(message.payload.client_txn_id);
-}
-
 export function buildMentionActionPayload(
   mention: MentionActionMentionLike,
   action: MentionResolutionAction,

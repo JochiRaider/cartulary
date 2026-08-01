@@ -16,7 +16,7 @@ import {
 import type { TimelineMutableRef } from "../models/timelineControllerPorts";
 import type { LocalConflictState } from "../models/workbookTimelineModel";
 
-export type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
+type TimelineSaveStateLabel = "Conflict" | "Saved" | "Syncing";
 
 type TimelineSetState<T> = (value: T) => void;
 

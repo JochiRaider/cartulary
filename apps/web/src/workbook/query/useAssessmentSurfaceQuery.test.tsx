@@ -13,6 +13,7 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import {
   emptyWorkbookQueryState,
   type WorkbookQueryState,
@@ -21,6 +22,13 @@ import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { useAssessmentSurfaceQuery } from "./useAssessmentSurfaceQuery";
 
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
+const incidentId = "00000000-0000-4000-8000-000000000001";
+const assessmentCurrentId = "00000000-0000-4000-8000-000000000301";
+const assessmentObsoleteId = "00000000-0000-4000-8000-000000000302";
+const viewQuery = createWorkbookViewQueryAdapter({
+  apiBase: undefined,
+  incidentId,
+});
 
 function assessmentRow(
   recordId: string,
@@ -35,12 +43,24 @@ function assessmentRow(
   });
 }
 
+function withoutLocalViewSchema(row: unknown): unknown {
+  const { view_schema_id: _viewSchemaId, ...wireRow } = row as Record<
+    string,
+    unknown
+  >;
+  return wireRow;
+}
+
 function queryResponse(rows: readonly unknown[]) {
   return jsonResponse({
     data: {
-      incident_id: "incident-1",
+      incident_id: incidentId,
       view_schema_id: assessmentsViewSchemaId,
-      rows,
+      rows: rows.map(withoutLocalViewSchema),
+    },
+    meta: {
+      query: { filters: [], sort: [] },
+      request_id: "req-query",
     },
   });
 }
@@ -56,10 +76,9 @@ function AssessmentQueryHarness({
 }) {
   const query = useAssessmentSurfaceQuery({
     active,
-    apiBase: undefined,
-    incidentId: "incident-1",
     onIncidentAccessLost,
     queryState,
+    viewQuery,
   });
   return (
     <>
@@ -69,7 +88,7 @@ function AssessmentQueryHarness({
       <button
         onClick={() =>
           query.applyRecordChanged({
-            record_id: "assessment-current",
+            record_id: assessmentCurrentId,
             row_version: 2,
             change_set_id: "change-1",
             client_txn_id: "txn-1",
@@ -80,7 +99,7 @@ function AssessmentQueryHarness({
                 view_schema_id: assessmentsViewSchemaId,
                 change_kind: "patch",
                 patch_cells: {
-                  record_id: "assessment-current",
+                  record_id: assessmentCurrentId,
                   row_version: 2,
                   cells: {
                     "assessment.rationale": { value: "Patched rationale" },
@@ -130,7 +149,7 @@ describe("useAssessmentSurfaceQuery", () => {
         }
         return Promise.resolve(
           queryResponse([
-            assessmentRow("assessment-current", 1, "Current rationale"),
+            assessmentRow(assessmentCurrentId, 1, "Current rationale"),
           ]),
         );
       }),
@@ -155,7 +174,7 @@ describe("useAssessmentSurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
     await waitFor(() =>
       expect(screen.getByLabelText("assessment-rows").textContent).toBe(
-        "assessment-current:Current rationale",
+        `${assessmentCurrentId}:Current rationale`,
       ),
     );
     expect(staleSignal?.aborted).toBe(true);
@@ -163,18 +182,18 @@ describe("useAssessmentSurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "patch" }));
     await waitFor(() =>
       expect(screen.getByLabelText("assessment-rows").textContent).toBe(
-        "assessment-current:Patched rationale",
+        `${assessmentCurrentId}:Patched rationale`,
       ),
     );
     staleResponse.resolve(
       queryResponse([
-        assessmentRow("assessment-obsolete", 1, "Obsolete rationale"),
+        assessmentRow(assessmentObsoleteId, 1, "Obsolete rationale"),
       ]),
     );
     await Promise.resolve();
     await Promise.resolve();
     expect(screen.getByLabelText("assessment-rows").textContent).toBe(
-      "assessment-current:Patched rationale",
+      `${assessmentCurrentId}:Patched rationale`,
     );
   });
 
@@ -192,7 +211,7 @@ describe("useAssessmentSurfaceQuery", () => {
         }
         return Promise.resolve(
           queryResponse([
-            assessmentRow("assessment-current", 1, "Current rationale"),
+            assessmentRow(assessmentCurrentId, 1, "Current rationale"),
           ]),
         );
       }),
@@ -215,7 +234,7 @@ describe("useAssessmentSurfaceQuery", () => {
       ),
     );
     expect(screen.getByLabelText("assessment-rows").textContent).toContain(
-      "assessment-current",
+      assessmentCurrentId,
     );
 
     responseKind = "denied";

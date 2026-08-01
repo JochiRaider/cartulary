@@ -161,7 +161,10 @@ describe("workbook startup model", () => {
           sheet_ref_kind: "saved_view",
         }),
       ),
-    ).toBe(`?sheet_ref_kind=saved_view&sheet_ref_id=${savedViewId}`);
+    ).toEqual({
+      sheetRefId: savedViewId,
+      sheetRefKind: "saved_view",
+    });
 
     expect(
       workbookStartupQueryFromURLParams(
@@ -172,9 +175,11 @@ describe("workbook startup model", () => {
           workspace_key: "legacy-alias-is-not-forwarded",
         }),
       ),
-    ).toBe(
-      "?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity",
-    );
+    ).toEqual({
+      extensionProfileId: "network_flow_activity",
+      sheetRefId: "network_analysis",
+      sheetRefKind: "extension_workspace",
+    });
   });
 
   it("rejects unsupported startup sheet_ref kinds at the frontend boundary", () => {
@@ -185,7 +190,10 @@ describe("workbook startup model", () => {
           sheet_ref_kind: "legacy_workspace",
         }),
       ),
-    ).toBe("?sheet_ref_kind=legacy_workspace&sheet_ref_id=legacy-surface");
+    ).toEqual({
+      sheetRefId: "legacy-surface",
+      sheetRefKind: "legacy_workspace",
+    });
 
     expect(
       normalizeWorkbookStartupSelection({

@@ -71,7 +71,7 @@ export function WorkbookRowGutterContent({
   );
 }
 
-export function WorkbookRowPresenceMarker({
+function WorkbookRowPresenceMarker({
   presences,
   recordId,
 }: {

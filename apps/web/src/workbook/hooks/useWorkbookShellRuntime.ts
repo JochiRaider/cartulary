@@ -1,8 +1,18 @@
 import { useMemo } from "react";
-import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
+import type {
+  ExtensionAvailabilityController,
+  ExtensionAvailabilityTag,
+  ExtensionWorkspaceIdentity,
+} from "../../extensions/extensionAvailability";
 import { useWorkbookColumnLayoutController } from "../layout/useWorkbookColumnLayoutController";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
+import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
 import { useWorkbookStartupAdmission } from "../startup/useWorkbookStartupAdmission";
+import type {
+  WorkbookStartupAvailability,
+  WorkbookStartupPort,
+} from "../startup/WorkbookStartupPort";
 import { useWorkbookQueryController } from "./useWorkbookQueryController";
 import { useWorkbookSavedViewController } from "./useWorkbookSavedViewController";
 import { useWorkbookStartupController } from "./useWorkbookStartupController";
@@ -12,23 +22,27 @@ type WorkbookShellMutableRef<T> = {
 };
 
 export function useWorkbookShellRuntime({
-  apiBase,
   incidentId,
   onIncidentAccessLost,
   surfaceSelectionVersionRef,
   extensionAvailability,
   onExtensionAvailabilityChange,
+  preferencePort,
+  savedViewPort,
+  startupPort,
 }: {
-  readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly surfaceSelectionVersionRef: WorkbookShellMutableRef<number>;
   readonly extensionAvailability: ExtensionAvailabilityController;
   readonly onExtensionAvailabilityChange: () => void;
+  readonly preferencePort: WorkbookPreferencePort;
+  readonly savedViewPort: WorkbookSavedViewPort;
+  readonly startupPort: WorkbookStartupPort;
 }) {
   const startupController = useWorkbookStartupController({
-    apiBase,
     incidentId,
+    preferencePort,
     surfaceSelectionVersionRef,
   });
   const {
@@ -79,14 +93,13 @@ export function useWorkbookShellRuntime({
 
   const savedViewController = useWorkbookSavedViewController({
     activeContract,
-    apiBase,
     applyLayoutStateForSurface,
     applyQueryStateForSurface,
     applyWorkbookIdentity,
     currentLayoutStateForSurface,
     currentQueryStateForSurface,
-    incidentId,
     onIncidentAccessLost,
+    savedViewPort,
     startupSheetRef,
   });
   const { activeSavedViewModified, savedViews } = savedViewController.snapshot;
@@ -115,13 +128,30 @@ export function useWorkbookShellRuntime({
     }),
     [applyLayoutStateForSurface, applyQueryStateForSurface, upsertSavedView],
   );
+  const startupAvailabilityPort = useMemo(
+    () => ({
+      acceptWorkbookStartup: (
+        tag: ExtensionAvailabilityTag,
+        availability: WorkbookStartupAvailability,
+      ) =>
+        extensionAvailability.acceptWorkbookStartupWorkspaces(
+          tag,
+          availability.workspaces,
+        ),
+      isRenderable: (identity: ExtensionWorkspaceIdentity) =>
+        extensionAvailability.isRenderable(identity),
+      reserve: () => extensionAvailability.reserve(),
+    }),
+    [extensionAvailability],
+  );
   useWorkbookStartupAdmission({
-    apiBase,
     incidentId,
     urlParams: params,
-    availabilityPort: extensionAvailability,
+    availabilityPort: startupAvailabilityPort,
     selectionPort: startupSelectionPort,
     savedViewStatePort: startupSavedViewStatePort,
+    startupPort,
+    onIncidentAccessLost,
     onAvailabilityChange: onExtensionAvailabilityChange,
   });
 

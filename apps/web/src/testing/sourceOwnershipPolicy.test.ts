@@ -134,7 +134,7 @@ describe("frontend source ownership policy", () => {
       "utf8",
     );
     expect(coordinatorSource).not.toMatch(
-      /from\s+["'][^"']*services\/(?:browserApi|workbookApi)["']/u,
+      /from\s+["'][^"']*services\/browserApi["']/u,
     );
   });
 });

@@ -1,44 +1,28 @@
 import type { GridEditCommitOutcome } from "@cartulary/grid-adapter";
-import { apiPath } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../services/workbookApi";
 import type { WorkbookMutationInvalidationReason } from "../lifecycle/workbookInvalidation";
 import type { SecureTransactionIdPort } from "../mutations/secureTransactionId";
 import {
   executeWorkbookConflictResolution,
   type WorkbookResolvedMutation,
 } from "../mutations/workbookConflictResolutionAdapter";
-import {
-  type PendingReplayScope,
-  type PendingReplayUnitState,
-  parsePendingReplayPublicError,
+import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import type {
+  PendingReplayScope,
+  PendingReplayUnitState,
 } from "../utils/workbookPendingQueue";
 import {
   buildWorkbookConflictResolutionPayload,
-  parseSameFieldConflict,
   type WorkbookConflictEntry,
   type WorkbookConflictResolutionKind,
   workbookConflictEntry,
 } from "./workbookConflictModel";
+import { workbookPendingMutationFailureResult } from "./workbookPendingMutationSettlement";
 import {
   createWorkbookPendingQueueRuntime,
   type WorkbookPendingQueueRuntime,
 } from "./workbookPendingReplayRuntime";
 
-type GenericMutationEnvelope = {
-  data: {
-    row: {
-      record_id: string;
-      row_version: number;
-    };
-  };
-};
-
 type WorkbookManagedPatchMeta = {
-  readonly apiBase: string | undefined;
   readonly fieldKey: string;
   readonly focusKey: string | null;
   readonly localValue: unknown;
@@ -48,7 +32,6 @@ type WorkbookManagedPatchMeta = {
 };
 
 export type WorkbookQueuedPatchRequest = {
-  readonly apiBase?: string | undefined;
   readonly baseRowVersion: number;
   readonly changes: readonly Record<string, unknown>[];
   readonly fieldKey: string;
@@ -104,6 +87,7 @@ type WorkbookSurfaceBlockedEditDiscard = (
 export class WorkbookMutationRuntime {
   readonly scope: PendingReplayScope;
   private readonly transactionIds: SecureTransactionIdPort;
+  private readonly pendingMutationPort: WorkbookPendingMutationPort;
   private readonly pendingRuntime: WorkbookPendingQueueRuntime<unknown>;
   private readonly managedPatchByUnitId = new Map<
     string,
@@ -142,9 +126,11 @@ export class WorkbookMutationRuntime {
   constructor(
     scope: PendingReplayScope,
     transactionIds: SecureTransactionIdPort,
+    pendingMutationPort: WorkbookPendingMutationPort,
   ) {
     this.scope = { ...scope };
     this.transactionIds = transactionIds;
+    this.pendingMutationPort = pendingMutationPort;
     this.pendingRuntime = createWorkbookPendingQueueRuntime(this.scope);
     this.snapshot = this.calculateSnapshot();
   }
@@ -384,7 +370,6 @@ export class WorkbookMutationRuntime {
       request.localValue,
     );
     this.managedPatchByUnitId.set(admission.unit.id, {
-      apiBase: request.apiBase,
       fieldKey: request.fieldKey,
       focusKey: request.focusKey ?? null,
       localValue: request.localValue,
@@ -729,23 +714,15 @@ export class WorkbookMutationRuntime {
     if (dispatch === null) return;
     this.emit();
 
-    let result: Awaited<ReturnType<typeof fetchWorkbookJSON>>;
+    let result: Awaited<ReturnType<WorkbookPendingMutationPort["execute"]>>;
     try {
-      result = await fetchWorkbookJSON(
-        apiPath(meta.apiBase, `/api/v1/records/${dispatch.unit.recordId}`),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            view_schema_id: dispatch.unit.viewSchemaId,
-            base_row_version:
-              dispatch.identity.kind === "patch"
-                ? dispatch.identity.base_row_version
-                : null,
-            client_txn_id: dispatch.unit.clientTxnId,
-            changes: dispatch.payloadIntent.changes,
-          }),
-        },
-      );
+      result = await this.pendingMutationPort.execute({
+        committedRowVersion:
+          dispatch.identity.kind === "patch"
+            ? dispatch.identity.base_row_version
+            : null,
+        unit: dispatch.unit,
+      });
     } catch {
       pending.model.settleDispatched({
         ok: false,
@@ -761,15 +738,20 @@ export class WorkbookMutationRuntime {
       return;
     }
 
-    if (!result.ok) {
-      const publicError = parsePendingReplayPublicError(result.payload);
+    if (result.kind === "rejected") {
+      const publicFailure = workbookPendingMutationFailureResult(
+        result.failure,
+      );
       const settlement = pending.model.settleDispatched({
         ok: false,
-        status: result.status,
-        error: publicError,
+        status: publicFailure.status,
+        error: publicFailure.error,
       });
       if (settlement.outcome === "same_field_conflict") {
-        const conflict = parseSameFieldConflict(result.payload);
+        const conflict =
+          result.failure.kind === "same_field_conflict"
+            ? result.failure.conflict
+            : null;
         if (conflict !== null) {
           const entry = workbookConflictEntry({
             conflict,
@@ -795,26 +777,9 @@ export class WorkbookMutationRuntime {
       return;
     }
 
-    let envelope: GenericMutationEnvelope;
-    try {
-      envelope = readEnvelope<GenericMutationEnvelope>(result.payload);
-    } catch {
-      pending.model.settleDispatched({
-        ok: false,
-        status: 502,
-        error: {
-          code: "invalid_response",
-          message: parseErrorMessage(result.payload),
-          retryable: true,
-        },
-      });
-      this.emit();
-      this.scheduleRetry();
-      return;
-    }
     const settlement = pending.model.settleDispatched({
       ok: true,
-      row: envelope.data.row,
+      row: result.value.row,
     });
     if (settlement.outcome === "success") {
       this.managedPatchByUnitId.delete(settlement.unit.id);

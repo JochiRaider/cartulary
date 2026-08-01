@@ -29,7 +29,6 @@
     "packages/ui",
     "packages/ui/**",
     "internal/gen/**",
-    "packages/protocol-ts/src/generated/**",
     "packages/ui-contracts/src/generated/**",
     "tools/task_surface.generated.mk",
     "tools/browser_e2e_batch_manifest.json",

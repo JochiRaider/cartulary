@@ -1,7 +1,7 @@
 import {
   createWorkbookOperationExecutor,
   type WorkbookOperationExecution,
-} from "./workbookOperationExecutor";
+} from "../adapters/workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 export type WorkbookResolvedMutation = {

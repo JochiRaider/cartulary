@@ -15,6 +15,10 @@ import {
   resolvePublicEvidenceHandleHref,
   uploadEvidenceObjectBlobTarget,
 } from "../../services/workbookEvidence";
+import {
+  createWorkbookOperationExecutor,
+  type WorkbookOperationExecutor,
+} from "../adapters/workbookOperationExecutor";
 import { buildAssessmentCreatePayload } from "../models/assessmentWorkbookModel";
 import {
   buildGenericCreatePayload,
@@ -46,10 +50,6 @@ import type {
   TimelineRelatedRecordCreated,
   WorkbookMutationCommandPorts,
 } from "./workbookMutationCommandPorts";
-import {
-  createWorkbookOperationExecutor,
-  type WorkbookOperationExecutor,
-} from "./workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "./workbookOperationOutcome";
 
 type CommandContext = {

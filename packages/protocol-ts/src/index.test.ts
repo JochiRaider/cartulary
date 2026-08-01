@@ -29,6 +29,7 @@ import {
   getViewSchemaRegistryEntry,
   type HTTPOperationRequest,
   type HTTPOperationResponse,
+  httpOperationBindings,
   type ListImportUnitsResponse,
   listContractArtifactFamilies,
   listExtensionProfiles,
@@ -159,6 +160,54 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(
       buildHTTPOperationPath("patchRecord", { record_id: "record/id" }),
     ).toBe("/api/v1/records/record%2Fid");
+    expect([
+      buildHTTPOperationPath("getIncident", { incident_id: "incident/id" }),
+      buildHTTPOperationPath("listIncidentMemberships", {
+        incident_id: "incident/id",
+      }),
+      buildHTTPOperationPath("listIncidentSavedViews", {
+        incident_id: "incident/id",
+      }),
+      buildHTTPOperationPath("createIncidentSavedView", {
+        incident_id: "incident/id",
+      }),
+      buildHTTPOperationPath("patchIncidentSavedView", {
+        incident_id: "incident/id",
+        saved_view_id: "saved/view",
+      }),
+      buildHTTPOperationPath("deleteIncidentSavedView", {
+        incident_id: "incident/id",
+        saved_view_id: "saved/view",
+      }),
+    ]).toEqual([
+      "/api/v1/incidents/incident%2Fid",
+      "/api/v1/incidents/incident%2Fid/memberships",
+      "/api/v1/incidents/incident%2Fid/saved-views",
+      "/api/v1/incidents/incident%2Fid/saved-views",
+      "/api/v1/incidents/incident%2Fid/saved-views/saved%2Fview",
+      "/api/v1/incidents/incident%2Fid/saved-views/saved%2Fview",
+    ]);
+    expect(
+      encodeHTTPOperationQuery("listIncidentSavedViews", {
+        cursor_token: "opaque /+ cursor",
+        limit: 50,
+      }),
+    ).toBe("?cursor_token=opaque%20%2F%2B%20cursor&limit=50");
+    expect(
+      [
+        "getIncident",
+        "listIncidentMemberships",
+        "listIncidentSavedViews",
+        "createIncidentSavedView",
+        "patchIncidentSavedView",
+        "deleteIncidentSavedView",
+      ].map(
+        (operationID) =>
+          httpOperationBindings[
+            operationID as keyof typeof httpOperationBindings
+          ].method,
+      ),
+    ).toEqual(["GET", "GET", "GET", "POST", "PATCH", "DELETE"]);
 
     const applyRequest: ApplyImportSessionRequest = {
       client_txn_id: "txn-apply",
@@ -190,17 +239,23 @@ describe("@cartulary/protocol-ts facade", () => {
 
     const strictWorkbookOperations = [
       "applyWorkbookBulkMutation",
+      "createIncidentSavedView",
       "createRecordLinkedNote",
       "createViewRow",
+      "deleteIncidentSavedView",
       "deleteRecord",
       "getCurrentUserWorkbookPreferences",
+      "getIncident",
       "getIncidentDefaultWorkbookPreferences",
       "getIncidentWorkbookStartup",
       "getRecordHistory",
       "getTimelineTimeConversionProfile",
+      "listIncidentMemberships",
+      "listIncidentSavedViews",
       "markTimelineRecordReviewed",
       "mergeEntityRecord",
       "pasteWorkbookClipboard",
+      "patchIncidentSavedView",
       "patchRecord",
       "putCurrentUserWorkbookPreferences",
       "putIncidentDefaultWorkbookPreferences",

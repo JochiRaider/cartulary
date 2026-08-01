@@ -64,10 +64,10 @@ const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 function assessmentWorkbookStartup() {
   return successEnvelope({
-    incident_id: "incident-1",
+    incident_id: "00000000-0000-4000-8000-000000000001",
     extension_workspace_availability: {
       schema_id: "cartulary.extension_workspace_availability.v1",
-      incident_id: "incident-1",
+      incident_id: "00000000-0000-4000-8000-000000000001",
       workspaces: [],
     },
     selected_sheet_ref: {
@@ -90,7 +90,7 @@ describe("Assessment workbook surface", () => {
     window.history.replaceState(
       {},
       "",
-      `/?incident_id=incident-1&view_schema_id=${encodeURIComponent(
+      `/?incident_id=00000000-0000-4000-8000-000000000001&view_schema_id=${encodeURIComponent(
         assessmentsViewSchemaId,
       )}`,
     );
@@ -123,16 +123,19 @@ describe("Assessment workbook surface", () => {
         assessmentState: "confirmed",
         confidenceBand: "medium",
         rationale: "Confirmed by support.",
-        subjectRecordId: "host-1",
+        subjectRecordId: "00000000-0000-4000-8000-000000000101",
         subjectType: "host",
-        supportRecordIds: ["support-1", "support-1"],
+        supportRecordIds: [
+          "00000000-0000-4000-8000-000000000102",
+          "00000000-0000-4000-8000-000000000102",
+        ],
       },
       "txn-assessment-create",
     );
 
     expect(payload).toEqual({
       client_txn_id: "txn-assessment-create",
-      "assessment.subject_ref": "host-1",
+      "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
       "assessment.subject_type": "host",
       "assessment.assessment_state": "confirmed",
       "assessment.confidence_score": 55,
@@ -143,7 +146,7 @@ describe("Assessment workbook surface", () => {
         actions: [
           {
             op: "add_record_ref",
-            linked_record_id: "support-1",
+            linked_record_id: "00000000-0000-4000-8000-000000000102",
           },
         ],
       },
@@ -158,12 +161,19 @@ describe("Assessment workbook surface", () => {
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          memberships: [
+            {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -174,11 +184,15 @@ describe("Assessment workbook surface", () => {
           incident_version: 1,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({
           memberships: [
             {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000000001",
               user_id: "user-1",
               display_name: "Admin User",
               role: "admin",
@@ -187,37 +201,49 @@ describe("Assessment workbook surface", () => {
           ],
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-preferences/",
+        )
+      ) {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         return assessmentWorkbookStartup();
       }
-      if (url.includes("/api/v1/incidents/incident-1/saved-views")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/saved-views",
+        )
+      ) {
         return successEnvelope({
           saved_views: [],
         });
       }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: hostsViewSchemaId,
           rows: [hostRow()],
         });
       }
       if (url.includes(`/views/${identitiesViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: identitiesViewSchemaId,
           rows: [],
         });
       }
       if (url.includes(`/views/${timelineViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [timelineRow()],
         });
@@ -227,7 +253,7 @@ describe("Assessment workbook surface", () => {
         init?.method === "POST"
       ) {
         const createdRow = assessmentRow({
-          supportRecordIds: ["support-1"],
+          supportRecordIds: ["00000000-0000-4000-8000-000000000102"],
         });
         createdRows.push(createdRow);
         return successEnvelope(
@@ -241,7 +267,7 @@ describe("Assessment workbook surface", () => {
       }
       if (url.includes(`/views/${assessmentsViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: assessmentsViewSchemaId,
           rows: createdRows,
         });
@@ -249,7 +275,7 @@ describe("Assessment workbook surface", () => {
       return successEnvelope({});
     });
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="00000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(
@@ -264,7 +290,7 @@ describe("Assessment workbook surface", () => {
             assessmentCreateControlTestId("subject"),
           ) as HTMLSelectElement
         ).value,
-      ).toBe("host-1");
+      ).toBe("00000000-0000-4000-8000-000000000101");
     });
 
     fireEvent.change(
@@ -313,7 +339,7 @@ describe("Assessment workbook surface", () => {
       "assessment create request body",
     );
     expect(body).toMatchObject({
-      "assessment.subject_ref": "host-1",
+      "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
       "assessment.subject_type": "host",
       "assessment.assessment_state": "confirmed",
       "assessment.confidence_score": 85,
@@ -326,7 +352,7 @@ describe("Assessment workbook surface", () => {
       actions: [
         {
           op: "add_record_ref",
-          linked_record_id: "support-1",
+          linked_record_id: "00000000-0000-4000-8000-000000000102",
         },
       ],
     });
@@ -340,12 +366,12 @@ describe("Assessment workbook surface", () => {
 
   it("preserves stable selection and an editable subject-only follow-on draft", async () => {
     const original = assessmentRow({
-      recordId: "assessment-original",
+      recordId: "00000000-0000-4000-8000-000000000301",
       state: "confirmed",
-      supportRecordIds: ["evidence-non-timeline"],
+      supportRecordIds: ["00000000-0000-4000-8000-000000000103"],
     });
     const filtered = assessmentRow({
-      recordId: "assessment-filtered",
+      recordId: "00000000-0000-4000-8000-000000000305",
       state: "cleared",
     });
     const created = assessmentRow({
@@ -361,12 +387,19 @@ describe("Assessment workbook surface", () => {
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          memberships: [
+            {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -377,11 +410,15 @@ describe("Assessment workbook surface", () => {
           incident_version: 1,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({
           memberships: [
             {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000000001",
               user_id: "user-1",
               display_name: "Admin User",
               role: "admin",
@@ -390,35 +427,47 @@ describe("Assessment workbook surface", () => {
           ],
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-preferences/",
+        )
+      ) {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         return assessmentWorkbookStartup();
       }
-      if (url.includes("/api/v1/incidents/incident-1/saved-views")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/saved-views",
+        )
+      ) {
         return successEnvelope({ saved_views: [] });
       }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: hostsViewSchemaId,
           rows: [hostRow()],
         });
       }
       if (url.includes(`/views/${identitiesViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: identitiesViewSchemaId,
           rows: [],
         });
       }
       if (url.includes(`/views/${timelineViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [timelineRow()],
         });
@@ -450,7 +499,7 @@ describe("Assessment workbook surface", () => {
       if (url.includes(`/views/${assessmentsViewSchemaId}/query`)) {
         const state = assessmentStateFilterValue(parseRequestBody(init));
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: assessmentsViewSchemaId,
           rows:
             state === null
@@ -464,10 +513,13 @@ describe("Assessment workbook surface", () => {
       return successEnvelope({});
     });
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="00000000-0000-4000-8000-000000000001" />);
 
     const originalCell = await screen.findByTestId(
-      rowCellTestId("assessment-original", "assessment.assessment_state"),
+      rowCellTestId(
+        "00000000-0000-4000-8000-000000000301",
+        "assessment.assessment_state",
+      ),
     );
     fireEvent.click(originalCell);
     expect(originalCell.closest("tr")?.getAttribute("aria-current")).toBe(
@@ -475,7 +527,7 @@ describe("Assessment workbook surface", () => {
     );
 
     applyAssessmentStateFilter("cleared");
-    await expectAssessmentRecordIds(["assessment-filtered"]);
+    await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000305"]);
     fireEvent.click(
       screen.getByTestId(
         workbookInspectorToggleTestId(assessmentsViewSchemaId),
@@ -491,8 +543,12 @@ describe("Assessment workbook surface", () => {
     );
 
     expect(screen.getByText("Append follow-on assessment")).toBeTruthy();
-    expect(screen.getByText(/evidence-non-timeline/u)).toBeTruthy();
-    expect(assessmentControlValue("subject")).toBe("host-1");
+    expect(
+      screen.getByText(/00000000-0000-4000-8000-000000000103/u),
+    ).toBeTruthy();
+    expect(assessmentControlValue("subject")).toBe(
+      "00000000-0000-4000-8000-000000000101",
+    );
     expect(assessmentControlValue("subject-type")).toBe("host");
     expect(assessmentControlValue("state")).toBe("unknown");
     expect(assessmentControlValue("confidence-band")).toBe("unset");
@@ -510,7 +566,7 @@ describe("Assessment workbook surface", () => {
     ).toEqual([
       {
         label: "Supporting timeline row",
-        value: "support-1",
+        value: "00000000-0000-4000-8000-000000000102",
       },
     ]);
 
@@ -533,7 +589,10 @@ describe("Assessment workbook surface", () => {
       ),
     );
     const restoredOriginalCell = await screen.findByTestId(
-      rowCellTestId("assessment-original", "assessment.assessment_state"),
+      rowCellTestId(
+        "00000000-0000-4000-8000-000000000301",
+        "assessment.assessment_state",
+      ),
     );
     expect(
       restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
@@ -575,7 +634,9 @@ describe("Assessment workbook surface", () => {
     expect(assessmentControlValue("rationale")).toBe(
       "Fresh follow-on rationale",
     );
-    expect(selectedAssessmentSupportRecordIds()).toEqual(["support-1"]);
+    expect(selectedAssessmentSupportRecordIds()).toEqual([
+      "00000000-0000-4000-8000-000000000102",
+    ]);
     expect(
       restoredOriginalCell.closest("tr")?.getAttribute("aria-current"),
     ).toBe("true");
@@ -605,7 +666,7 @@ describe("Assessment workbook surface", () => {
     expect(selectedAssessmentSupportRecordIds()).toEqual([]);
 
     expect(createBodies[0]).toMatchObject({
-      "assessment.subject_ref": "host-1",
+      "assessment.subject_ref": "00000000-0000-4000-8000-000000000101",
       "assessment.subject_type": "host",
       "assessment.assessment_state": "suspected",
       "assessment.confidence_score": null,
@@ -620,7 +681,7 @@ describe("Assessment workbook surface", () => {
       actions: [
         {
           op: "add_record_ref",
-          linked_record_id: "support-1",
+          linked_record_id: "00000000-0000-4000-8000-000000000102",
         },
       ],
     });
@@ -648,15 +709,15 @@ describe("Assessment workbook surface", () => {
   it("ignores superseded assessment query responses after rapid filter changes", async () => {
     const staleUnfiltered = deferred<Response>();
     const clearedRow = assessmentRow({
-      recordId: "assessment-cleared",
+      recordId: "00000000-0000-4000-8000-000000000302",
       state: "cleared",
     });
     const disprovenRow = assessmentRow({
-      recordId: "assessment-disproven",
+      recordId: "00000000-0000-4000-8000-000000000304",
       state: "disproven",
     });
     const confirmedRow = assessmentRow({
-      recordId: "assessment-confirmed",
+      recordId: "00000000-0000-4000-8000-000000000303",
       state: "confirmed",
     });
     let assessmentQueryCount = 0;
@@ -666,12 +727,19 @@ describe("Assessment workbook surface", () => {
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          memberships: [
+            {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -682,11 +750,15 @@ describe("Assessment workbook surface", () => {
           incident_version: 1,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({
           memberships: [
             {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000000001",
               user_id: "user-1",
               display_name: "Admin User",
               role: "admin",
@@ -695,32 +767,40 @@ describe("Assessment workbook surface", () => {
           ],
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-preferences/",
+        )
+      ) {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         return assessmentWorkbookStartup();
       }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: hostsViewSchemaId,
           rows: [hostRow()],
         });
       }
       if (url.includes(`/views/${identitiesViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: identitiesViewSchemaId,
           rows: [],
         });
       }
       if (url.includes(`/views/${timelineViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [timelineRow()],
         });
@@ -731,7 +811,7 @@ describe("Assessment workbook surface", () => {
         const state = assessmentStateFilterValue(body);
         if (state === "disproven") {
           return successEnvelope({
-            incident_id: "incident-1",
+            incident_id: "00000000-0000-4000-8000-000000000001",
             view_schema_id: assessmentsViewSchemaId,
             rows: [disprovenRow],
           });
@@ -741,13 +821,13 @@ describe("Assessment workbook surface", () => {
         }
         if (state === "cleared") {
           return successEnvelope({
-            incident_id: "incident-1",
+            incident_id: "00000000-0000-4000-8000-000000000001",
             view_schema_id: assessmentsViewSchemaId,
             rows: [clearedRow],
           });
         }
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: assessmentsViewSchemaId,
           rows: [clearedRow, disprovenRow, confirmedRow],
         });
@@ -755,16 +835,16 @@ describe("Assessment workbook surface", () => {
       return successEnvelope({});
     });
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="00000000-0000-4000-8000-000000000001" />);
 
     await expectAssessmentRecordIds([
-      "assessment-cleared",
-      "assessment-disproven",
-      "assessment-confirmed",
+      "00000000-0000-4000-8000-000000000302",
+      "00000000-0000-4000-8000-000000000304",
+      "00000000-0000-4000-8000-000000000303",
     ]);
 
     applyAssessmentStateFilter("disproven");
-    await expectAssessmentRecordIds(["assessment-disproven"]);
+    await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000304"]);
 
     fireEvent.click(
       screen.getByTestId(
@@ -775,18 +855,20 @@ describe("Assessment workbook surface", () => {
       ),
     );
     applyAssessmentStateFilter("cleared");
-    await expectAssessmentRecordIds(["assessment-cleared"]);
+    await expectAssessmentRecordIds(["00000000-0000-4000-8000-000000000302"]);
 
     staleUnfiltered.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "00000000-0000-4000-8000-000000000001",
         view_schema_id: assessmentsViewSchemaId,
         rows: [clearedRow, disprovenRow, confirmedRow],
       }),
     );
     await flushMicrotasks();
 
-    expect(currentAssessmentRecordIds()).toEqual(["assessment-cleared"]);
+    expect(currentAssessmentRecordIds()).toEqual([
+      "00000000-0000-4000-8000-000000000302",
+    ]);
   });
 
   it("ignores superseded entity query responses after rapid host filters", async () => {
@@ -798,12 +880,19 @@ describe("Assessment workbook surface", () => {
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
           user_id: "user-1",
-          memberships: [{ incident_id: "incident-1", role: "admin" }],
+          memberships: [
+            {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              role: "admin",
+            },
+          ],
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1")) {
+      if (
+        url.endsWith("/api/v1/incidents/00000000-0000-4000-8000-000000000001")
+      ) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -814,11 +903,15 @@ describe("Assessment workbook surface", () => {
           incident_version: 1,
         });
       }
-      if (url.endsWith("/api/v1/incidents/incident-1/memberships")) {
+      if (
+        url.endsWith(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/memberships",
+        )
+      ) {
         return successEnvelope({
           memberships: [
             {
-              incident_id: "incident-1",
+              incident_id: "00000000-0000-4000-8000-000000000001",
               user_id: "user-1",
               display_name: "Admin User",
               role: "admin",
@@ -827,13 +920,21 @@ describe("Assessment workbook surface", () => {
           ],
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-preferences/")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-preferences/",
+        )
+      ) {
         return successEnvelope({
           default_sheet_ref: null,
           home_sheet_ref: null,
         });
       }
-      if (url.includes("/api/v1/incidents/incident-1/workbook-startup")) {
+      if (
+        url.includes(
+          "/api/v1/incidents/00000000-0000-4000-8000-000000000001/workbook-startup",
+        )
+      ) {
         return assessmentWorkbookStartup();
       }
       if (url.includes(`/views/${hostsViewSchemaId}/query`)) {
@@ -843,34 +944,40 @@ describe("Assessment workbook surface", () => {
           return staleHostQuery.promise;
         }
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: hostsViewSchemaId,
           rows: [
             hostRow(
               value === "newer"
-                ? { recordId: "host-newer", displayName: "newer" }
-                : { recordId: "host-initial", displayName: "initial" },
+                ? {
+                    recordId: "00000000-0000-4000-8000-000000000112",
+                    displayName: "newer",
+                  }
+                : {
+                    recordId: "00000000-0000-4000-8000-000000000111",
+                    displayName: "initial",
+                  },
             ),
           ],
         });
       }
       if (url.includes(`/views/${identitiesViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: identitiesViewSchemaId,
           rows: [],
         });
       }
       if (url.includes(`/views/${timelineViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: timelineViewSchemaId,
           rows: [timelineRow()],
         });
       }
       if (url.includes(`/views/${assessmentsViewSchemaId}/query`)) {
         return successEnvelope({
-          incident_id: "incident-1",
+          incident_id: "00000000-0000-4000-8000-000000000001",
           view_schema_id: assessmentsViewSchemaId,
           rows: [],
         });
@@ -878,35 +985,46 @@ describe("Assessment workbook surface", () => {
       return successEnvelope({});
     });
 
-    render(<WorkbookShell incidentId="incident-1" />);
+    render(<WorkbookShell incidentId="00000000-0000-4000-8000-000000000001" />);
 
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(hostsViewSchemaId)),
     );
-    await expectRecordIds(hostsViewSchemaId, ["host-initial"]);
+    await expectRecordIds(hostsViewSchemaId, [
+      "00000000-0000-4000-8000-000000000111",
+    ]);
 
     applyHostStateFilter("older");
     await waitFor(() => {
       expect(staleHostQueryStarted).toBe(true);
     });
     applyHostStateFilter("newer");
-    await expectRecordIds(hostsViewSchemaId, ["host-newer"]);
+    await expectRecordIds(hostsViewSchemaId, [
+      "00000000-0000-4000-8000-000000000112",
+    ]);
 
     staleHostQuery.resolve(
       successEnvelope({
-        incident_id: "incident-1",
+        incident_id: "00000000-0000-4000-8000-000000000001",
         view_schema_id: hostsViewSchemaId,
-        rows: [hostRow({ recordId: "host-older", displayName: "older" })],
+        rows: [
+          hostRow({
+            recordId: "00000000-0000-4000-8000-000000000113",
+            displayName: "older",
+          }),
+        ],
       }),
     );
     await flushMicrotasks();
 
-    expect(currentRecordIds(hostsViewSchemaId)).toEqual(["host-newer"]);
+    expect(currentRecordIds(hostsViewSchemaId)).toEqual([
+      "00000000-0000-4000-8000-000000000112",
+    ]);
   });
 });
 
 function hostRow(options: { displayName?: string; recordId?: string } = {}) {
-  const recordId = options.recordId ?? "host-1";
+  const recordId = options.recordId ?? "00000000-0000-4000-8000-000000000101";
   const displayName = options.displayName ?? "Assessment Host";
   return {
     record_id: recordId,
@@ -942,7 +1060,7 @@ function hostRow(options: { displayName?: string; recordId?: string } = {}) {
 
 function timelineRow() {
   return fullTimelineRow({
-    recordId: "support-1",
+    recordId: "00000000-0000-4000-8000-000000000102",
     rowVersion: 1,
     summary: "Supporting timeline row",
     captureState: "reviewed",
@@ -963,7 +1081,9 @@ function assessmentRow(
     record_id: recordId,
     row_version: 1,
     cells: {
-      "assessment.subject_ref": { value: "host-1" },
+      "assessment.subject_ref": {
+        value: "00000000-0000-4000-8000-000000000101",
+      },
       "assessment.subject_type": { value: "host" },
       "assessment.assessment_state": { value: state },
       "assessment.confidence_band": { value: "high" },

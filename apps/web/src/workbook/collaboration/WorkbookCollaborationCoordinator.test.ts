@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IncidentCollaborationEvent } from "../../collaboration/IncidentCollaborationSession";
 import type { AuthorizationRecoveryPort } from "../../shared/authorizationRecovery";
+import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { WorkbookCollaborationCoordinator } from "./WorkbookCollaborationCoordinator";
 import type { WorkbookActiveSurfacePort } from "./workbookSurfacePort";
@@ -29,6 +30,10 @@ function projectionFixture(
       incidentId: "incident-1",
     },
     transactionIds,
+    createWorkbookPendingMutationAdapter({
+      apiBase: undefined,
+      incidentId: "incident-1",
+    }),
   );
   const invalidateMutation = mutationRuntime.invalidate.bind(mutationRuntime);
   const mutationInvalidation = vi.spyOn(mutationRuntime, "invalidate");

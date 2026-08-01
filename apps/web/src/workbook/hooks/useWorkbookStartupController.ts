@@ -1,9 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-} from "../../services/workbookApi";
 import { baseSurfaceIdentityForViewSchemaId } from "../models/workbookSavedViewRuntime";
 import {
   isWorkbookSheetRef,
@@ -13,6 +8,7 @@ import {
   knownWorkbookViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import type { WorkbookPreferencePort } from "../ports/WorkbookPreferencePort";
 
 type WorkbookStartupMutableRef<T> = { current: T };
 
@@ -21,19 +17,19 @@ export type WorkbookIdentity = {
   readonly viewSchemaId: string | null;
 };
 
-export type ApplyWorkbookIdentityOptions = {
+type ApplyWorkbookIdentityOptions = {
   readonly bumpSelectionVersion?: boolean;
   readonly focusFirstGridTarget?: boolean;
   readonly reloadSheet?: boolean;
 };
 
 export function useWorkbookStartupController({
-  apiBase,
   incidentId,
+  preferencePort,
   surfaceSelectionVersionRef,
 }: {
-  readonly apiBase?: string | undefined;
   readonly incidentId: string;
+  readonly preferencePort: WorkbookPreferencePort;
   readonly surfaceSelectionVersionRef: WorkbookStartupMutableRef<number>;
 }) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -110,36 +106,32 @@ export function useWorkbookStartupController({
   );
 
   const setWorkbookHomeSheetRef = useCallback(async () => {
-    const result = await fetchWorkbookJSON<Record<string, unknown>>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
-      ),
-      {
-        method: "PUT",
-        body: JSON.stringify({ home_sheet_ref: startupSheetRef }),
-      },
-    );
-    if (!result.ok) {
-      throw new Error(parseErrorMessage(result.payload));
+    const result = await preferencePort.setHomeSheet({
+      sheetRef: startupSheetRef,
+      signal: new AbortController().signal,
+    });
+    if (result.kind !== "accepted") {
+      throw new Error(
+        result.kind === "aborted"
+          ? "Workbook home preference update was aborted."
+          : result.failure.message,
+      );
     }
-  }, [apiBase, incidentId, startupSheetRef]);
+  }, [preferencePort, startupSheetRef]);
 
   const setWorkbookDefaultSheetRef = useCallback(async () => {
-    const result = await fetchWorkbookJSON<Record<string, unknown>>(
-      apiPath(
-        apiBase,
-        `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-      ),
-      {
-        method: "PUT",
-        body: JSON.stringify({ default_sheet_ref: startupSheetRef }),
-      },
-    );
-    if (!result.ok) {
-      throw new Error(parseErrorMessage(result.payload));
+    const result = await preferencePort.setDefaultSheet({
+      sheetRef: startupSheetRef,
+      signal: new AbortController().signal,
+    });
+    if (result.kind !== "accepted") {
+      throw new Error(
+        result.kind === "aborted"
+          ? "Workbook default preference update was aborted."
+          : result.failure.message,
+      );
     }
-  }, [apiBase, incidentId, startupSheetRef]);
+  }, [preferencePort, startupSheetRef]);
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search);

@@ -5,9 +5,13 @@ import {
   type ReactNode,
   type SetStateAction,
   useCallback,
+  useMemo,
   useState,
 } from "react";
 import { createAppAuthorizationRecoveryPort } from "../app/api/appShellClient";
+import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
+import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
+import { createWorkbookViewQueryAdapter } from "../workbook/adapters/createWorkbookViewQueryAdapter";
 import { WorkbookCollaborationCoordinator } from "../workbook/collaboration/WorkbookCollaborationCoordinator";
 import { WorkbookConflictResolver } from "../workbook/components/WorkbookConflictResolver";
 import {
@@ -162,6 +166,10 @@ export function TimelineWorkbookRuntimeFixture({
   }, []);
   const [runtimeAssembly] = useState(() => {
     const transactionIds = createBrowserSecureTransactionIdPort();
+    const pendingMutationPort = createWorkbookPendingMutationAdapter({
+      apiBase,
+      incidentId,
+    });
     return {
       mutationRuntime: new WorkbookMutationRuntime(
         {
@@ -169,15 +177,26 @@ export function TimelineWorkbookRuntimeFixture({
           incidentId,
         },
         transactionIds,
+        pendingMutationPort,
       ),
       mutationCommands: createWorkbookMutationCommandPorts({
         apiBase,
         incidentId,
         transactionIds,
       }),
+      pendingMutationPort,
     };
   });
-  const { mutationCommands, mutationRuntime } = runtimeAssembly;
+  const { mutationCommands, mutationRuntime, pendingMutationPort } =
+    runtimeAssembly;
+  const viewQuery = useMemo(
+    () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
+  const incidentPort = useMemo(
+    () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
   const [collaborationProjection] = useState(
     () =>
       new WorkbookCollaborationCoordinator({
@@ -202,6 +221,7 @@ export function TimelineWorkbookRuntimeFixture({
           attachCollaborationSession: true,
           collaborationProjection,
           mutationRuntime,
+          pendingMutationPort,
           mutationCommands: mutationCommands.timeline,
           incident: {
             id: incidentId,
@@ -209,11 +229,13 @@ export function TimelineWorkbookRuntimeFixture({
             continuityResetKey: inspectorResetKey,
             currentUserId,
             currentRole: currentIncidentRole,
+            incidentPort,
             sheetRef,
             inspectorResetKey,
             reloadToken,
           },
           query: {
+            viewQuery,
             state: providedQueryState ?? queryState,
             setState: onQueryStateChange ?? setQueryState,
             filterDraft: providedFilterDraft ?? filterDraft,

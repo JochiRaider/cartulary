@@ -1,5 +1,5 @@
 import type { RollbackRecordRequest } from "@cartulary/protocol-ts";
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
+import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,

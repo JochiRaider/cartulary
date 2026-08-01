@@ -1,77 +1,61 @@
-import { useCallback, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
+import { requireViewContract } from "@cartulary/view-contracts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
+import {
+  abortLatestQuery,
+  beginLatestQuery,
+  type LatestQueryRuntime,
+} from "../query/workbookLatestRequest";
 import {
   normalizeTimelineFullRow,
   rowFromApi,
-  validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../timeline/models/workbookTimelineModel";
 
-type WorkbookQueryEnvelope = {
-  data: {
-    view_schema_id: string;
-    rows: unknown[];
-  };
-};
+const timelineContract = requireViewContract(timelineViewSchemaId);
 
 export function useEntityTimelinePreview({
-  apiBase,
   entityType,
-  incidentId,
+  viewQuery,
 }: {
-  readonly apiBase: string | undefined;
   readonly entityType: "host" | "identity";
-  readonly incidentId: string;
+  readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const [timelinePreviewRows, setTimelinePreviewRows] = useState<WorkbookRow[]>(
     [],
   );
-  const previewSequenceRef = useRef(0);
+  const queryRuntimeRef = useRef<LatestQueryRuntime>({
+    controller: null,
+    sequence: 0,
+  });
 
   const clearTimelinePreview = useCallback(() => {
-    previewSequenceRef.current += 1;
+    abortLatestQuery(queryRuntimeRef);
     setTimelinePreviewRows([]);
   }, []);
 
   const loadTimelinePreview = useCallback(
     async (recordId: string) => {
-      const sequence = previewSequenceRef.current + 1;
-      previewSequenceRef.current = sequence;
+      const request = beginLatestQuery(queryRuntimeRef);
       setTimelinePreviewRows([]);
-      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({}),
-        },
-      );
-      if (!result.ok) {
-        if (previewSequenceRef.current === sequence) {
-          setTimelinePreviewRows([]);
-        }
+      const result = await viewQuery.query({
+        contract: timelineContract,
+        queryState: emptyWorkbookQueryState(),
+        signal: request.signal,
+      });
+      if (!request.isCurrent() || result.kind === "aborted") {
         return;
       }
-      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
-      try {
-        validateTimelineViewSchemaId(
-          envelope.data.view_schema_id,
-          "timeline preview query response",
-        );
-      } catch {
-        if (previewSequenceRef.current === sequence) {
-          setTimelinePreviewRows([]);
-        }
+      if (result.kind === "rejected") {
+        setTimelinePreviewRows([]);
         return;
       }
       const draftKey = entityType === "host" ? "hostRefs" : "identityRefs";
       let previewRows: WorkbookRow[];
       try {
-        previewRows = envelope.data.rows
+        previewRows = result.value.rows
           .map((row, index) =>
             rowFromApi(
               normalizeTimelineFullRow(
@@ -86,16 +70,21 @@ export function useEntityTimelinePreview({
             ),
           );
       } catch {
-        if (previewSequenceRef.current === sequence) {
-          setTimelinePreviewRows([]);
-        }
+        setTimelinePreviewRows([]);
         return;
       }
-      if (previewSequenceRef.current === sequence) {
+      if (request.isCurrent()) {
         setTimelinePreviewRows(previewRows);
       }
     },
-    [apiBase, entityType, incidentId],
+    [entityType, viewQuery],
+  );
+
+  useEffect(
+    () => () => {
+      abortLatestQuery(queryRuntimeRef);
+    },
+    [],
   );
 
   return {

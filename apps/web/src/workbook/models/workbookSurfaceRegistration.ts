@@ -15,11 +15,8 @@ import type {
 
 export type {
   ReferenceRequirement,
-  WorkbookSurfaceOwnerId,
-  WorkbookSurfacePolicy,
   WorkbookSurfacePolicyDefinition,
   WorkbookSurfaceRegistration,
-  WorkbookSurfaceRenderer,
 } from "../policies/workbookSurfacePolicy";
 
 const definitions: readonly WorkbookSurfacePolicyDefinition[] = [

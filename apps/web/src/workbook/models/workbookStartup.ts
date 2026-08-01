@@ -10,6 +10,13 @@ import {
 export type { WorkbookSheetRef };
 export { isWorkbookSheetRef };
 
+export type WorkbookStartupQuery = {
+  readonly extensionProfileId?: string;
+  readonly sheetRefId?: string;
+  readonly sheetRefKind?: string;
+  readonly viewSchemaId?: string;
+};
+
 export type WorkbookStartupClearedSheetRef = {
   readonly kind: string;
   readonly id?: string;
@@ -79,21 +86,17 @@ function isClearedSheetRef(
 
 export function workbookStartupQueryFromURLParams(
   params: URLSearchParams,
-): string {
-  const startupParams = new URLSearchParams();
-  for (const key of [
-    "view_schema_id",
-    "sheet_ref_kind",
-    "sheet_ref_id",
-    "extension_profile_id",
-  ]) {
-    const value = params.get(key);
-    if (value !== null) {
-      startupParams.set(key, value);
-    }
-  }
-  const query = startupParams.toString();
-  return query ? `?${query}` : "";
+): WorkbookStartupQuery {
+  const viewSchemaId = params.get("view_schema_id");
+  const sheetRefKind = params.get("sheet_ref_kind");
+  const sheetRefId = params.get("sheet_ref_id");
+  const extensionProfileId = params.get("extension_profile_id");
+  return {
+    ...(viewSchemaId === null ? {} : { viewSchemaId }),
+    ...(sheetRefKind === null ? {} : { sheetRefKind }),
+    ...(sheetRefId === null ? {} : { sheetRefId }),
+    ...(extensionProfileId === null ? {} : { extensionProfileId }),
+  };
 }
 
 function isStartupSource(value: unknown): value is WorkbookStartupSource {

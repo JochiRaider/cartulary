@@ -100,6 +100,7 @@ import {
 } from "../models/workbookSurfaceRegistry";
 import type { EntityMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import { RelationshipChip } from "../timeline/components/TimelineCellEditors";
@@ -120,8 +121,6 @@ const identitiesContract = requireViewContract(identitiesViewSchemaId);
 type WorkbookMutationSaveState = "Syncing" | "Saved" | "Conflict";
 
 export type EntityWorkbookSurfaceProps = {
-  incidentId: string;
-  apiBase?: string | undefined;
   continuityResetKey: string;
   entityType: EntityRow["entityType"];
   inspectorResetKey: string;
@@ -139,6 +138,7 @@ export type EntityWorkbookSurfaceProps = {
   mutationCommands: EntityMutationCommandPort;
   collaborationProjection: WorkbookCollaborationCoordinator;
   onClearFilters: () => void;
+  viewQuery: WorkbookViewQueryPort;
 };
 
 function entityCellContent(
@@ -182,8 +182,6 @@ function entityCellContent(
 }
 
 export function EntityWorkbookSurface({
-  incidentId,
-  apiBase,
   continuityResetKey,
   entityType,
   inspectorResetKey,
@@ -201,6 +199,7 @@ export function EntityWorkbookSurface({
   mutationCommands,
   collaborationProjection,
   onClearFilters,
+  viewQuery,
 }: EntityWorkbookSurfaceProps) {
   const {
     commands: { onColumnReorder, onColumnWidthChange },
@@ -243,9 +242,8 @@ export function EntityWorkbookSurface({
     mutationState === "Saved" ? sharedMutation.primaryLabel : mutationState;
   const { clearTimelinePreview, loadTimelinePreview, timelinePreviewRows } =
     useEntityTimelinePreview({
-      apiBase,
       entityType,
-      incidentId,
+      viewQuery,
     });
 
   const selectedEntity =
@@ -542,7 +540,6 @@ export function EntityWorkbookSurface({
       }
       setMutationError(null);
       const outcome = mutationRuntime.enqueuePatch({
-        apiBase,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -560,7 +557,7 @@ export function EntityWorkbookSurface({
       }
       return outcome;
     },
-    [apiBase, contract, mutationRuntime, rows],
+    [contract, mutationRuntime, rows],
   );
   const handleEntityPaste = useCallback(
     async (intent: GridCellPasteIntent) => {

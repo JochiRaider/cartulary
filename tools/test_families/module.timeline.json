@@ -429,33 +429,6 @@
       "status": "active"
     },
     {
-      "row_id": "module.timeline.frontend.timeline_pending_mutation_port_0f28ab91e4",
-      "owner_id": "module.timeline",
-      "family_id": "module.timeline.frontend",
-      "collaborator_ids": [
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/timeline/adapters/createTimelinePendingMutationAdapter.test.ts",
-        "titles": [
-          "fails closed for malformed or target-inconsistent replay success",
-          "materializes Timeline patches with the dispatch-time committed row version",
-          "materializes fresh and replayed Timeline creates through the generated binding"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
       "row_id": "module.timeline.frontend.timeline_query_port_validation_6d44f87e20",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -467,10 +440,10 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/adapters/createTimelineViewQueryAdapter.test.ts",
+        "file": "apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.test.ts",
         "titles": [
-          "derives and validates Timeline query transport behind the semantic query port",
-          "fails closed on malformed Timeline query success and contains aborts"
+          "derives and validates Workbook query transport behind the shared semantic port",
+          "fails closed on malformed or cross-context query success and contains aborts"
         ]
       },
       "evidence_class": "unit",

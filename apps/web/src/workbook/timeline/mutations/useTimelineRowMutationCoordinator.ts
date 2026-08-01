@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookPendingMutationAccepted } from "../../ports/WorkbookPendingMutationPort";
 import { useWorkbookMutationRuntime } from "../../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import type {
@@ -34,6 +35,7 @@ import {
   type FocusFieldKey,
   inputFocusKey,
   type LocalConflictState,
+  normalizeTimelineFullRow,
   rowFromApi,
   type TimelineApiRow,
   timelineFieldBinding,
@@ -42,10 +44,6 @@ import {
   validateTimelineViewSchemaId,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type {
-  TimelinePendingMutationAccepted,
-  TimelinePendingMutationPort,
-} from "../ports/TimelinePendingMutationPort";
 
 type TimelineMutationApplyOptions = {
   readonly clearActiveCollectionFocusKey?: string | undefined;
@@ -61,6 +59,25 @@ function recordWorkbookTiming(
 ) {
   if (typeof performance === "undefined") return;
   performance.mark(`cartulary.workbook.${name}`, { detail: details });
+}
+
+function normalizeResolvedTimelineMutation(input: {
+  readonly expectedRecordId: string;
+  readonly row: unknown;
+  readonly viewSchemaId: string;
+}): Pick<WorkbookPendingMutationAccepted, "row" | "viewSchemaId"> | null {
+  if (input.viewSchemaId !== timelineViewSchemaId) return null;
+  try {
+    const row = normalizeTimelineFullRow(
+      input.row,
+      "conflict resolution response row",
+    );
+    return row.record_id === input.expectedRecordId
+      ? { row, viewSchemaId: input.viewSchemaId }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function rowStillHasAutoResolvedNotice(
@@ -125,7 +142,6 @@ export function useTimelineRowMutationCoordinator({
   setPendingQueueSnapshot,
   setRows,
   setSelectedRowId,
-  timelinePendingMutation,
 }: {
   readonly advanceViewportContinuity: (
     token?: number,
@@ -160,7 +176,6 @@ export function useTimelineRowMutationCoordinator({
   ) => void;
   readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
   readonly setSelectedRowId: (recordId: string | null) => void;
-  readonly timelinePendingMutation: TimelinePendingMutationPort;
 }) {
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const conflicts = useTimelineConflicts({ conflictQueueRef });
@@ -248,7 +263,7 @@ export function useTimelineRowMutationCoordinator({
   const applyAcceptedRowMutation = useCallback(
     (
       rowKey: string,
-      mutation: Pick<TimelinePendingMutationAccepted, "row" | "viewSchemaId">,
+      mutation: Pick<WorkbookPendingMutationAccepted, "row" | "viewSchemaId">,
       options: TimelineMutationApplyOptions = {},
     ) => {
       let previousRow = rowsRef.current.find(
@@ -683,13 +698,13 @@ export function useTimelineRowMutationCoordinator({
               recordId,
             });
           }
-          const outcome = timelinePendingMutation.normalizeResolvedConflict({
+          const outcome = normalizeResolvedTimelineMutation({
             expectedRecordId: recordId,
             row: mutation.row,
             viewSchemaId: mutation.viewSchemaId,
           });
-          if (outcome.kind === "accepted") {
-            applyAcceptedRowMutation(recordId, outcome.value);
+          if (outcome !== null) {
+            applyAcceptedRowMutation(recordId, outcome);
           } else {
             await loadRowsRef.current({ showLoading: false });
           }
@@ -727,7 +742,6 @@ export function useTimelineRowMutationCoordinator({
       editorPort,
       loadRowsRef,
       mutationRuntime,
-      timelinePendingMutation,
     ],
   );
 

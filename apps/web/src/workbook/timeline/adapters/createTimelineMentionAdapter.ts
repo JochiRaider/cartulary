@@ -2,12 +2,12 @@ import type {
   CreateViewRowRequest,
   ResolveEntityMentionRequest,
 } from "@cartulary/protocol-ts";
+import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import { buildMentionActionPayload } from "../../collaboration/workbookCollaborationMessages";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type {
   TimelineMentionEntityCreated,

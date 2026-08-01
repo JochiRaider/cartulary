@@ -143,6 +143,31 @@
       "status": "active"
     },
     {
+      "row_id": "module.imports.frontend.sanitize_import_transport_errors_through_the_sha_1cdfb222a8",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/imports/importCoordinator.test.ts",
+        "titles": [
+          "extension import coordinator stages sanitizes unsafe import transport errors through the shared public error view"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "module.imports.frontend.skip_reselect_mapping_retention_522ba6591e",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",

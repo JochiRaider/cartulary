@@ -164,8 +164,11 @@ export function errorResponse(
     {
       error: {
         code,
+        details: details ?? {},
+        message: code,
+        request_id: "request-test",
+        retryable: false,
         status,
-        ...(details ? { details } : {}),
       },
     },
     status,

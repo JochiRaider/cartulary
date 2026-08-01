@@ -1,4 +1,4 @@
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
+import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type {
   TimelineRecordActionAccepted,

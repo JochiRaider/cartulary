@@ -1,8 +1,8 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
 import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createWorkbookMutationCommandPorts } from "./createWorkbookMutationCommandPorts";
-import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
 function successResponse(): Response {
   return new Response(

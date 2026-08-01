@@ -8,7 +8,7 @@ import type { WorkbookRow } from "../models/workbookTimelineModel";
 
 type TimelineBulkTagPort = Pick<TimelineBulkMutationPort, "assignTag">;
 
-export type TimelineBulkTagMessage = {
+type TimelineBulkTagMessage = {
   readonly kind: "error" | "success";
   readonly message: string;
 };

@@ -75,10 +75,8 @@ import { createTimelineClipboardPasteAdapter } from "../adapters/createTimelineC
 import { createTimelineEvidenceAttachmentAdapter } from "../adapters/createTimelineEvidenceAttachmentAdapter";
 import { createTimelineHistoryAdapter } from "../adapters/createTimelineHistoryAdapter";
 import { createTimelineMentionAdapter } from "../adapters/createTimelineMentionAdapter";
-import { createTimelinePendingMutationAdapter } from "../adapters/createTimelinePendingMutationAdapter";
 import { createTimelineRecordActionAdapter } from "../adapters/createTimelineRecordActionAdapter";
 import { createTimelineRowMutationEditorAdapter } from "../adapters/createTimelineRowMutationEditorAdapter";
-import { createTimelineViewQueryAdapter } from "../adapters/createTimelineViewQueryAdapter";
 import { useTimelineBulkTagController } from "../bulk/useTimelineBulkTagController";
 import { TimelineCollaborationBoundary } from "../collaboration/TimelineCollaborationBoundary";
 import { useTimelineCollaborationBindings } from "../collaboration/useTimelineCollaborationBindings";
@@ -210,6 +208,7 @@ function TimelineWorkbookContent({
   collaborationProjection,
   mutationCommands,
   mutationRuntime,
+  pendingMutationPort,
   incident,
   query,
   entities,
@@ -221,6 +220,7 @@ function TimelineWorkbookContent({
     apiBase,
     continuityResetKey,
     currentUserId,
+    incidentPort,
     sheetRef,
     inspectorResetKey,
     reloadToken,
@@ -233,6 +233,7 @@ function TimelineWorkbookContent({
     setState: setShellQueryState,
     renderInlineControls: renderInlineQueryControls,
     savedViewSelector,
+    viewQuery,
     viewBarQueryControls,
   } = query;
   const {
@@ -241,23 +242,6 @@ function TimelineWorkbookContent({
     index: entityIndex,
     refresh: onRefreshEntities,
   } = entities;
-  const timelineViewQuery = useMemo(
-    () =>
-      createTimelineViewQueryAdapter({
-        apiBase,
-        incidentId,
-        timelineContract,
-      }),
-    [apiBase, incidentId],
-  );
-  const timelinePendingMutation = useMemo(
-    () =>
-      createTimelinePendingMutationAdapter({
-        apiBase,
-        recordTiming: recordWorkbookTiming,
-      }),
-    [apiBase],
-  );
   const timelineHistory = useMemo(
     () => createTimelineHistoryAdapter({ apiBase }),
     [apiBase],
@@ -644,7 +628,6 @@ function TimelineWorkbookContent({
     setPendingQueueSnapshot,
     setRows,
     setSelectedRowId,
-    timelinePendingMutation,
   });
   const { activeConflict, commonMutationSnapshot, conflictQueue } =
     timelineRowMutations.snapshot;
@@ -764,7 +747,7 @@ function TimelineWorkbookContent({
     setLoadError,
     setRefreshError,
     setRows,
-    timelineViewQuery,
+    viewQuery,
   });
   const {
     beginWorkflow: beginCreateRelatedWorkflow,
@@ -789,9 +772,9 @@ function TimelineWorkbookContent({
     ) ?? false;
   const { options: timelineIncidentMemberOptions } =
     useIncidentMemberReferenceOptions({
-      apiBase,
       enabled: createRelatedNeedsIncidentMembers,
-      incidentId,
+      incidentPort,
+      onIncidentAccessLost,
     });
   const timelineCreateRelatedReferenceOptions = useMemo(
     () => ({
@@ -906,7 +889,7 @@ function TimelineWorkbookContent({
       timelineCollaboration.commands.requestAuthorizationRecovery(),
     setRefreshError,
     setRows,
-    timelinePendingMutation,
+    pendingMutationPort,
     trackPendingSocketTxn,
   });
   discardBlockedEditRef.current = discardBlockedEdit;

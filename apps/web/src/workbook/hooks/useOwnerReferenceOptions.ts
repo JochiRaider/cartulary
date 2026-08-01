@@ -1,11 +1,5 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  isAbortError,
-  readEnvelope,
-} from "../../services/workbookApi";
 import { genericReferenceOptionsFromRows } from "../models/genericWorkbookModel";
 import {
   emptyGenericReferenceOptions,
@@ -25,7 +19,10 @@ import {
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import { isAbortError } from "../query/workbookLatestRequest";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 
 const allRecordViewSchemaIds = [
@@ -42,24 +39,15 @@ const allRecordViewSchemaIds = [
   partiesViewSchemaId,
 ] as const;
 
-type MembershipEnvelope = {
-  readonly data: {
-    readonly memberships: readonly {
-      readonly display_name: string;
-      readonly user_id: string;
-    }[];
-  };
-};
-
 export function useIncidentMemberReferenceOptions({
-  apiBase,
   enabled,
-  incidentId,
+  incidentPort,
+  onIncidentAccessLost,
   refreshVersion = 0,
 }: {
-  readonly apiBase: string | undefined;
   readonly enabled: boolean;
-  readonly incidentId: string;
+  readonly incidentPort: WorkbookIncidentPort;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly refreshVersion?: number;
 }) {
   const [options, setOptions] = useState<
@@ -75,23 +63,24 @@ export function useIncidentMemberReferenceOptions({
       setOptions([]);
       return () => controller.abort();
     }
-    void fetchWorkbookJSON<MembershipEnvelope>(
-      apiPath(apiBase, `/api/v1/incidents/${incidentId}/memberships`),
-      { signal: controller.signal },
-    )
+    void incidentPort
+      .listMembers({ signal: controller.signal })
       .then((result) => {
-        if (controller.signal.aborted) return;
-        if (!result.ok) {
-          throw new Error("Incident member references are unavailable.");
+        if (controller.signal.aborted || result.kind === "aborted") return;
+        if (result.kind === "rejected") {
+          if (workbookOperationFailureIsAccessLoss(result.failure)) {
+            onIncidentAccessLost?.();
+          }
+          setOptions([]);
+          setError(result.failure.message);
+          return;
         }
         setOptions(
-          readEnvelope<MembershipEnvelope>(result.payload).data.memberships.map(
-            (membership) => ({
-              label: `${membership.display_name} (${membership.user_id})`,
-              recordId: membership.user_id,
-              viewSchemaId: "incident_member",
-            }),
-          ),
+          result.value.members.map((membership) => ({
+            label: `${membership.displayName} (${membership.userId})`,
+            recordId: membership.userId,
+            viewSchemaId: "incident_member",
+          })),
         );
       })
       .catch((loadError: unknown) => {
@@ -104,19 +93,19 @@ export function useIncidentMemberReferenceOptions({
         );
       });
     return () => controller.abort();
-  }, [apiBase, enabled, incidentId, refreshVersion]);
+  }, [enabled, incidentPort, onIncidentAccessLost, refreshVersion]);
 
   return { error, options };
 }
 
 export function useOwnerReferenceOptions({
-  apiBase,
-  incidentId,
+  incidentPort,
+  onIncidentAccessLost,
   referenceQueryBroker,
   viewSchemaId,
 }: {
-  readonly apiBase: string | undefined;
-  readonly incidentId: string;
+  readonly incidentPort: WorkbookIncidentPort;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly referenceQueryBroker: ReferenceQueryBrokerPort;
   readonly viewSchemaId: string;
 }) {
@@ -130,9 +119,9 @@ export function useOwnerReferenceOptions({
   const [refreshVersion, setRefreshVersion] = useState(0);
   const { error: incidentMemberLoadError, options: incidentMemberOptions } =
     useIncidentMemberReferenceOptions({
-      apiBase,
       enabled: needsIncidentMembers,
-      incidentId,
+      incidentPort,
+      onIncidentAccessLost,
       refreshVersion,
     });
   const contextVersionRef = useRef(0);

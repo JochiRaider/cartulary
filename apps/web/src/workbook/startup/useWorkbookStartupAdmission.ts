@@ -3,8 +3,6 @@ import type {
   ExtensionAvailabilityTag,
   ExtensionWorkspaceIdentity,
 } from "../../extensions/extensionAvailability";
-import { apiPath } from "../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import type { WorkbookIdentity } from "../hooks/useWorkbookStartupController";
 import {
   type WorkbookLayoutState,
@@ -16,12 +14,14 @@ import {
   normalizeSavedViewResource,
   type SavedViewResource,
 } from "../models/workbookSavedViews";
-import {
-  normalizeWorkbookStartupSelection,
-  workbookStartupQueryFromURLParams,
-} from "../models/workbookStartup";
+import { workbookStartupQueryFromURLParams } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import type {
+  WorkbookStartupAvailability,
+  WorkbookStartupPort,
+} from "./WorkbookStartupPort";
 
 export type StartupFallbackReason =
   | "availability_reservation_unavailable"
@@ -32,7 +32,7 @@ export interface WorkbookStartupAvailabilityPort {
   reserve(): ExtensionAvailabilityTag | null;
   acceptWorkbookStartup(
     tag: ExtensionAvailabilityTag,
-    availability: unknown,
+    availability: WorkbookStartupAvailability,
   ): boolean;
   isRenderable(identity: ExtensionWorkspaceIdentity): boolean;
 }
@@ -55,10 +55,6 @@ export interface WorkbookStartupSavedViewStatePort {
   ): void;
 }
 
-type WorkbookStartupEnvelope = {
-  readonly data?: unknown;
-};
-
 type StartupAdmissionGuard = {
   readonly incidentId: string;
   readonly requestOrdinal: number;
@@ -67,26 +63,28 @@ type StartupAdmissionGuard = {
 };
 
 export function useWorkbookStartupAdmission({
-  apiBase,
   incidentId,
   urlParams,
   availabilityPort,
   selectionPort,
   savedViewStatePort,
+  startupPort,
+  onIncidentAccessLost,
   onAvailabilityChange,
 }: {
-  readonly apiBase?: string | undefined;
   readonly incidentId: string;
   readonly urlParams: URLSearchParams;
   readonly availabilityPort: WorkbookStartupAvailabilityPort;
   readonly selectionPort: WorkbookStartupSelectionPort;
   readonly savedViewStatePort: WorkbookStartupSavedViewStatePort;
+  readonly startupPort: WorkbookStartupPort;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onAvailabilityChange: () => void;
 }): void {
   const requestOrdinalRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const startupQuery = workbookStartupQueryFromURLParams(urlParams);
     const selectionVersionAtDispatch = selectionPort.readSelectionVersion();
 
@@ -104,26 +102,28 @@ export function useWorkbookStartupAdmission({
         selectionVersionAtDispatch,
         availabilityTag,
       };
-      const result = await fetchWorkbookJSON<WorkbookStartupEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/workbook-startup${startupQuery}`,
-        ),
-      );
+      const result = await startupPort.load({
+        query: startupQuery,
+        signal: controller.signal,
+      });
       if (
-        cancelled ||
-        !result.ok ||
+        controller.signal.aborted ||
+        result.kind === "aborted" ||
         requestOrdinalRef.current !== guard.requestOrdinal ||
         guard.incidentId !== incidentId
       ) {
         return;
       }
-      const envelope = readEnvelope<WorkbookStartupEnvelope>(result.payload);
-      const startupRecord = envelope.data as Record<string, unknown>;
+      if (result.kind === "rejected") {
+        if (workbookOperationFailureIsAccessLoss(result.failure)) {
+          onIncidentAccessLost?.();
+        }
+        return;
+      }
       if (
         !availabilityPort.acceptWorkbookStartup(
           guard.availabilityTag,
-          startupRecord.extension_workspace_availability,
+          result.value.availability,
         )
       ) {
         onAvailabilityChange();
@@ -131,10 +131,7 @@ export function useWorkbookStartupAdmission({
         return;
       }
       onAvailabilityChange();
-      const startup = normalizeWorkbookStartupSelection(envelope.data);
-      if (!startup) {
-        return;
-      }
+      const startup = result.value.selection;
       if (
         guard.selectionVersionAtDispatch !==
         selectionPort.readSelectionVersion()
@@ -186,15 +183,16 @@ export function useWorkbookStartupAdmission({
 
     void loadStartup();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [
-    apiBase,
     availabilityPort,
     incidentId,
     onAvailabilityChange,
+    onIncidentAccessLost,
     savedViewStatePort,
     selectionPort,
+    startupPort,
     urlParams,
   ]);
 }

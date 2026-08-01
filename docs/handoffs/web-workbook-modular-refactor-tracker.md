@@ -1202,3 +1202,404 @@ consumers form one atomic rollback boundary. Each feature/controller slice and
 its ownership/test-family/topology updates form the narrower rollback boundary
 recorded in its ledger row. No database, server, persisted queue, or user-data
 migration is required.
+
+## 20. Authorized legacy and dead-code cleanup iteration
+
+### 20.1 Authority, objective, and scope
+
+Section 19 is immutable execution history. This section authorizes the next
+Workbook refactoring iteration and is the sole execution ledger for that
+iteration. It does not reopen, reinterpret, or replace any completed Section 19
+row.
+
+The primary objective is to remove caller-proven dead Workbook code, reduce
+unnecessary export surface, and delete the legacy `services/workbookApi.ts`
+transport seam. Scope extends outside `apps/web/src/workbook/**` only to the
+adjacent Evidence, Network Flow, Import, browser-service, protocol-projection,
+reachability, ownership, and test-accounting changes required to remove that
+seam cleanly.
+
+Repository-wide Fallow findings without demonstrated coupling to that seam are
+out of scope. Core NLSpecs, `docs/domain.md`, server behavior, database and
+WebSocket contracts, persisted data, and domain vocabulary are also out of
+scope. No finding in an out-of-scope area becomes an exit blocker for this
+iteration merely because it appears in the same advisory report.
+
+### 20.2 Planning baseline
+
+| Fact | Recorded value |
+| --- | --- |
+| Baseline HEAD | `6c412506ad3adf2c9aa3fa2ccbe9afd058d94a45` |
+| Baseline worktree | Clean before this tracker-only update |
+| Baseline command | `make frontend-fallow-static` |
+| Baseline result | PASS |
+| Run root | `.cartulary/test-results/20260731T205305Z-p235622` |
+| Dead-code report | `.cartulary/test-results/20260731T205305Z-p235622/frontend-fallow-static/fallow/dead-code.json` |
+| Report SHA-256 | `60c3b026f9ce364bfe23da23d5f0993ce75c7dcbf92925cb9bcb50b82632a18a` |
+| Fallow version and schema | Fallow 2.93.0; dead-code schema 7 |
+| Repository findings | 127 total: 8 unused files, 64 unused exports, 35 unused types, 1 unused dependency, 15 unused class members, 1 duplicate export, and 3 circular dependencies |
+| Workbook findings | 39 total: 12 unused exports, 13 unused types, and 14 unused class members; no unused Workbook file |
+
+The 14 class-member diagnostics are report facts, not pre-approved retention.
+The LC-P00 caller audit found direct or structurally typed callers for 12. It
+found no caller for `WorkbookCollaborationCoordinator.reconnect` or
+`WorkbookCollaborationCoordinator.presenceForRow`; those two are therefore
+LC-01 removal candidates. This corrects the planning assumption that all 14
+were analyzer-only false positives. Execution MUST NOT invent caller evidence
+to preserve a declaration.
+
+### 20.3 Binding cleanup decisions
+
+1. A Fallow finding is a discovery input, not deletion authority. Every
+   deletion requires a caller search, dynamic-entrypoint inspection when
+   relevant, owner evidence, and focused validation.
+2. Genuinely unused declarations are deleted. Locally useful declarations lose
+   unnecessary `export` modifiers rather than being deleted or moved solely to
+   satisfy the analyzer.
+3. Live class members remain without inline Fallow suppressions. Retained
+   exceptions record their callers, owner, continuing value, and removal
+   trigger in Section 20.6.
+4. `services/workbookApi.ts` is deleted after its final caller migrates. It is
+   not renamed, wrapped, re-exported, or retained as a compatibility facade.
+5. No fallback decoder, forwarding re-export, duplicate serializer, temporary
+   allowlist, global store, or message-text authorization classifier is added.
+6. The `ajv` runtime dependency remains. Generated protocol validators import
+   its runtime helpers; the reachability model is corrected instead of deleting
+   or broadly suppressing that dependency.
+7. Generated roots are changed only through Make-owned generators. Source
+   ownership and authored test-family inputs change in the same slice as any
+   production or test path addition, move, or deletion.
+8. Valid routes, request bodies, transaction identity, refresh order,
+   lifecycle behavior, saved-view behavior, focus and scroll continuity,
+   accessibility, and visible copy remain compatible. Malformed or obsolete
+   responses continue to fail closed.
+9. No Core NLSpec, `docs/domain.md`, server, database, WebSocket, or persisted
+   data change is authorized. An actual owner contradiction sets the active
+   row to `BLOCKED` and stops execution.
+10. Fallow remains advisory. This iteration improves the accuracy and
+    usefulness of its evidence but does not promote it to a repository gate.
+
+### 20.4 Gap and risk register
+
+| Gap | Remediation areas | Risk if unresolved | Completion evidence |
+| --- | --- | --- | --- |
+| LC-G001: reachability evidence misclassifies runtime entrypoints and `ajv` | Reachability owner, Fallow configuration, harness tests | Live tools or runtime dependencies can be deleted while real dead code remains obscured by noise | Spawned entrypoints are reachable, `ajv` is not reported unused, no broad dependency ignore is added, and static-analysis checks pass |
+| LC-G002: Workbook exposes dead or file-local symbols | Implementation, tests, source ownership | Public surface and refactoring cost continue to grow without consumers | Every one of the 12 export, 13 type, and 14 class-member findings is deleted, internalized, or retained with caller evidence |
+| LC-G003: `workbookApi.ts` exposes unchecked envelopes and raw HTTP results | Protocol projection, adapters, implementation, tests, README | Invalid wire data and transport details can re-enter workflow state; future operations duplicate legacy patterns | Zero imports of the service; the file and obsolete test are deleted; semantic ports own all former Workbook consumers |
+| LC-G004: query and pending-mutation requests have duplicate execution paths | Implementation, tests | Fresh/replayed behavior, response validation, aborts, and conflict handling can drift | Shared query and pending-mutation ports are the sole Workbook paths for their operations |
+| LC-G005: accounting can retain deleted or moved paths | Ownership, test-family inputs, generated topology, tracker | Verification can silently omit the final tree or continue naming removed files | Live source paths exactly match ownership; generated topology is drift-clean; each ledger row contains exact accounting evidence |
+
+Principal execution risks are accidental behavior change during transport
+migration, loss of a dynamically invoked entrypoint, stale async results being
+accepted after lifecycle invalidation, loss of pending transaction identity,
+and deletion of a symbol that is consumed through a structural type. Focused
+characterization precedes deletion wherever current evidence is not already
+direct and unambiguous.
+
+### 20.5 Interfaces and dependency rules
+
+The iteration introduces or promotes these private Workbook boundaries:
+
+- `WorkbookViewQueryPort`, returning a validated
+  `WorkbookOperationOutcome<T>` or the distinct `aborted` result.
+- Narrow startup, incident, membership, preference, and saved-view ports with
+  owner-specific accepted DTOs.
+- A shared `WorkbookPendingMutationPort` used by both Timeline replay and
+  `WorkbookMutationRuntime`.
+- The existing `WorkbookOperationOutcome<T>` failure algebra; no second
+  catch-all result type is introduced.
+
+The operation executor moves atomically from
+`workbook/mutations/workbookOperationExecutor.ts` to
+`workbook/adapters/workbookOperationExecutor.ts`. All callers migrate in the
+same slice, and the former path is deleted without a forwarding export.
+
+Dependency direction remains:
+
+`surface -> controller -> semantic port -> adapter -> browser service/protocol`
+
+Controllers and presentation do not import `workbookApi`, `httpTransport`, raw
+protocol envelopes, or manually constructed projected routes. Adapters do not
+import React, DOM renderers, or feature state. Query adapters validate incident
+and view-schema identity before accepting rows. Stateful consumers retain
+generation or abort guards for incident, schema, selection, authorization, and
+disposal changes.
+
+### 20.6 Finding disposition inventory
+
+#### 20.6.1 Delete in LC-01
+
+- `workbook/collaboration/workbookCollaborationMessages.ts`:
+  `shouldIgnoreSelfOriginatedRecordChange`.
+- `workbook/timeline/components/TimelineWorkbookStyles.ts`:
+  `timelineNoticeOverlayStyle`, `panelStyle`, `eyebrowStyle`, and
+  `headlineStyle`. Direct caller search confirmed that the three style exports
+  were not file-local after all, so deletion is cleaner than the planned
+  internalization.
+- `workbook/features/NetworkFlowFeature.tsx`: the forwarding exports
+  `networkAnalysisSheetRef`, `networkAnalysisWorkspaceKey`, and
+  `networkFlowActivityProfileId`; canonical extension identities remain.
+- `WorkbookCollaborationCoordinator.reconnect`; no coordinator caller was
+  found. Internal calls to `session.reconnect()` do not consume this wrapper.
+- `WorkbookCollaborationCoordinator.presenceForRow`; Timeline derives row
+  presence from `activeSheetPresenceRecords` and no coordinator caller exists.
+
+#### 20.6.2 Internalize in LC-01
+
+- `WorkbookPresenceMarkers.tsx`: `WorkbookRowPresenceMarker`.
+- `assessmentWorkbookModel.ts`: `isAssessmentSubjectType`.
+- `workbookOperationExecutor.ts`: `workbookOperationIDs` during the atomic
+  LC-F02 executor move. LC-01 accounts for the baseline finding as already
+  disposed by its prerequisite rather than reopening the moved adapter.
+- `workbookConflictModel.ts`: `isWorkbookCollectionValue` and the
+  `WorkbookCollectionValue` type that became independently visible after the
+  guard was internalized.
+- `useWorkbookQueryController.ts`: `WorkbookActiveQueryControls` and
+  `WorkbookQueryStateSetter`.
+- `useWorkbookStartupController.ts`: `ApplyWorkbookIdentityOptions`.
+- `workbookSurfaceRegistration.ts`: `WorkbookSurfaceOwnerId`,
+  `WorkbookSurfacePolicy`, and `WorkbookSurfaceRenderer`.
+- `workbookSurfaceRegistry.ts`: `WorkbookSurfaceKind` and
+  `WorkbookSurfaceStatus`.
+- `useTimelineBulkTagController.ts`: `TimelineBulkTagMessage`.
+- `useTimelineEditorDraftRegistry.ts`: `TimelineInputIdentity` and
+  `TimelineScalarEditorIdentity`.
+- `useTimelineSaveStatePresentation.ts`: `TimelineSaveStateLabel`.
+- `useWorkbookQueryState.ts`: `WorkbookQueryStateEntry`.
+
+#### 20.6.3 Retain with caller evidence
+
+| Owner and members | Caller evidence | Continuing value | Removal trigger |
+| --- | --- | --- | --- |
+| `WorkbookCollaborationCoordinator.getSnapshot`, `subscribe` | `useWorkbookCollaborationCoordinator.ts` and `useTimelineCollaborationBindings.ts` consume them through `Pick` projections and external-store subscription | Stable collaboration snapshot delivery to Workbook and Timeline | Remove only when both consumers move to a replacement snapshot subscription owner |
+| `WorkbookCollaborationCoordinator.retain`, `setActiveSheet` | `useWorkbookCollaborationCoordinator.ts` retains coordinator lifetime and applies the active sheet | Owns subscription lifetime and sheet-scoped presence admission | Remove only when coordinator lifecycle or sheet admission moves atomically to another owner |
+| `WorkbookCollaborationCoordinator.registerClientTxnResolver` | `useTimelineCollaborationBindings.ts` registers Timeline transaction resolution | Connects collaboration acknowledgements to pending mutation identity | Remove only when pending transaction resolution no longer uses collaboration events |
+| `WorkbookPendingQueueModel.clearSameFieldConflict` | `WorkbookMutationRuntime.ts` and `workbookPendingQueue.test.ts` | Clears an owner-resolved conflict without collapsing queue partitions | Remove only with deletion of same-field conflict recovery |
+| `WorkbookPendingQueueModel.discardHaltedUnit`, `retryHaltedWithNewClientTxnId` | `WorkbookMutationRuntime.ts`, `useTimelinePendingReplayController.ts`, and queue characterization tests | Implements explicit discard and transaction re-key recovery | Remove only when the matching user recovery command is removed under owner authority |
+| `WorkbookPendingQueueModel.pauseForAuthRecovery`, `pauseForTerminalLifecycle`, `resumeAfterAuthRecovery` | `WorkbookMutationRuntime.ts`, `WorkbookCollaborationCoordinator.ts`, Workbook collaboration tests, and queue characterization tests | Preserves the normative auth pause/requery and terminal lifecycle behavior | Remove only when the pending queue lifecycle state machine is replaced with equivalent owner-approved behavior |
+| `WorkbookPendingQueueModel.settleDispatched` | `WorkbookMutationRuntime.ts`, `useTimelinePendingReplayController.ts`, and extensive queue tests | Centralizes accepted, retryable, conflict, and terminal settlement | Remove only when dispatch settlement moves atomically to a replacement queue model |
+
+No inline suppression is authorized for these retained members. LC-V01 reruns
+caller searches so a member that becomes genuinely unused during this
+iteration is deleted rather than carried as a stale exception.
+
+### 20.7 Ordered workstream ledger
+
+Execution order is strict and linear:
+
+`LC-P00 -> LC-F01 -> LC-F02 -> LC-01 -> LC-02 -> LC-03 -> LC-04 -> LC-05 -> LC-06 -> LC-07 -> LC-V01`.
+
+| Workstream | Status | Depends on | Substantive remediation and exit criteria | Required owner evidence | Risk and rollback boundary |
+| --- | --- | --- | --- | --- | --- |
+| LC-P00 - tracker authorization | DONE | none | Preserved Section 19; added Section 20 scope, baseline, binding decisions, gap and risk register, interfaces, complete finding disposition, ordered ledger, mandatory gate, validation, compatibility, rollback, and deferrals. Corrected the unsupported assumption that all 14 class-member findings were live. The execution amendment assigns `workbookOperationIDs` internalization to the atomic LC-F02 executor move and requires saved-view state changes only after accepted responses; no optimistic list mutation is introduced. Non-Workbook Fallow findings remain routed follow-up work rather than hidden exceptions or blockers for this bounded iteration. No production, test, contract, generated, manifest, lockfile, normative, or other documentation file changed | Baseline Fallow PASS at `.cartulary/test-results/20260731T205305Z-p235622`; original Markdown PASS at `.cartulary/test-results/20260731T211021Z-p242593`; execution-amendment Markdown PASS at `.cartulary/test-results/20260731T213144Z-p258280`; `git diff --check` exit 0 after both tracker versions | Documentation-only rollback is the Section 20 addition and its execution amendment. No product behavior changes |
+| LC-F01 - reachability truth | DONE | LC-P00 | Added the six runtime-spawned browser/owner-slice CLIs to existing `harness_entrypoints.files`; added `tools/protocol-ts/generate-protocol-types.mjs` to the authored `generate-artifacts` backing scripts; removed only the generated protocol root from Fallow's global ignores while retaining generated-symbol overrides; regenerated `tools/task_surface_manifest.json` and `tools/execution_topology_render_index.json` through Make. Updated stale harness catalog-count assertions exposed by the new current-catalog validation. No schema, NLSpec, lockfile, broad ignore, suppression, or runtime behavior changed | PASS: generate `.cartulary/test-results/20260731T213256Z-p261854`; Fallow `.cartulary/test-results/20260731T213314Z-p264351` reports 119 issues instead of 127, one unused file instead of seven, zero unused dependencies, and no named entrypoint/`ajv` finding; harness contract `.cartulary/test-results/20260731T213512Z-p272763`; JSON `.cartulary/test-results/20260731T213406Z-p266497`; generate-drift `.cartulary/test-results/20260731T213406Z-p266504`; generated policy `.cartulary/test-results/20260731T213406Z-p266469`; `web.architecture` 11/11 `.cartulary/test-results/20260731T213558Z-p274379`; boundary `.cartulary/test-results/20260731T213558Z-p274461`; Markdown `.cartulary/test-results/20260731T213635Z-p276287`; direct report audit found no named entrypoint or `ajv`; `git diff --check` exit 0. Initial harness roots `.cartulary/test-results/20260731T213314Z-p264362` and `.cartulary/test-results/20260731T213406Z-p266741` exposed stale expected family, row, and selector totals; assertions were updated to the catalog's validated 60 owners, 216 families, 1006 rows, and 1871 selectors before the passing rerun | Runtime tools and generated validator dependencies remain live with no package migration. The remaining single unused file and other non-Workbook diagnostics are the explicit Section 20.11 deferrals. Roll back `.fallowrc.json`, reachability/task owners, harness count assertions, and both generated accounting files as one unit |
+| LC-F02 - protocol completion | DONE | LC-F01 | Added the six existing OpenAPI operations to `contracts/protocol-ts/http-operations.v1.json` and generated closed request/response aliases, paths, methods, query parameters, validators, and core types. Added exact facade path/query/method plus malformed-response tests. Moved the executor to `workbook/adapters/workbookOperationExecutor.ts`, internalized `workbookOperationIDs`, updated all ten direct importers, the protocol-adapter boundary, and authored source ownership, and left no forwarding export or former path. Generated outputs changed only through Make | PASS: final generate `.cartulary/test-results/20260731T214324Z-p350770`; format `.cartulary/test-results/20260731T214022Z-p284548`; protocol-ts 5/5 `.cartulary/test-results/20260731T214058Z-p290262`; Workbook 114/114 `.cartulary/test-results/20260731T214121Z-p292408`; incidents 8/8 work units and 40 tests `.cartulary/test-results/20260731T214121Z-p292418`, service-backed 8/8 and 25 tests `.cartulary/test-results/20260731T214356Z-p362095`; saved views 17/17 `.cartulary/test-results/20260731T214121Z-p292415`, service-backed 13/13 `.cartulary/test-results/20260731T214356Z-p362089`; final architecture 11/11 `.cartulary/test-results/20260731T214338Z-p353209`; typecheck `.cartulary/test-results/20260731T214058Z-p290360`; boundary `.cartulary/test-results/20260731T214058Z-p290392`; Biome `.cartulary/test-results/20260731T214058Z-p290422`; build-web `.cartulary/test-results/20260731T214338Z-p353637`; generate-drift `.cartulary/test-results/20260731T214338Z-p353126`; generated policy `.cartulary/test-results/20260731T214338Z-p353148`; JSON `.cartulary/test-results/20260731T214356Z-p362000`; Fallow `.cartulary/test-results/20260731T214356Z-p362251` reports 118 issues and removes the operation-ID export finding; Markdown `.cartulary/test-results/20260731T214615Z-p411184`; former-path audit and `git diff --check` pass. Initial generate `.cartulary/test-results/20260731T213919Z-p280446` rejected unsorted operation IDs; the projection was sorted. Initial architecture `.cartulary/test-results/20260731T214121Z-p292402` rejected an out-of-order ownership path; the authored list was corrected and regenerated | Valid projected routes and existing mutation behavior remain compatible; malformed success payloads fail closed. No server, owner-specification, data, or external API migration exists. Roll back the authored operation projection, generated protocol files, executor move/imports, facade tests, boundary/ownership inputs, and generated topology atomically |
+| LC-01 - Workbook symbol cleanup | DONE | LC-F02 | Accounted for all 39 baseline findings: LC-F02 internalized the operation-ID set; this slice deleted the unused collaboration helper, two coordinator methods, three Network Flow forwarding exports, the Timeline notice overlay and three uncalled style exports; internalized all remaining file-local functions/types and removed redundant surface type re-exports. Internalizing the conflict guard exposed its collection-value type as a cascade, so that type was internalized too. Retained exactly the 12 coordinator/queue members in Section 20.6.3 after fresh caller evidence. No suppression, facade, runtime path, ownership path, or generated artifact was added | PASS: final format `.cartulary/test-results/20260731T215024Z-p422177`; Workbook 114/114 `.cartulary/test-results/20260731T215107Z-p431351`; Timeline 9/9 work units and 56 tests `.cartulary/test-results/20260731T215107Z-p431359`; collaboration 3/3 `.cartulary/test-results/20260731T215107Z-p431370`; boundary `.cartulary/test-results/20260731T214944Z-p419750`; final typecheck `.cartulary/test-results/20260731T215037Z-p425660`; final Biome `.cartulary/test-results/20260731T215038Z-p425714`; build-web `.cartulary/test-results/20260731T215038Z-p425985`; Fallow `.cartulary/test-results/20260731T215038Z-p425715` reports 92 global issues and only the 12 caller-proven Workbook members; direct caller audit found 2-29 references per retained member; Markdown `.cartulary/test-results/20260731T215322Z-p464228`; `git diff --check` exit 0. Initial typecheck `.cartulary/test-results/20260731T214944Z-p419726` and Biome `.cartulary/test-results/20260731T214944Z-p419797` exposed the now-obsolete registry type imports; both were removed before passing reruns | Runtime behavior and canonical extension identities are unchanged. The retained members continue to implement collaboration snapshot/lifetime/transaction resolution and normative pending-queue recovery. Roll back declaration removals/internalizations and their import cleanup together; no generated or data rollback exists |
+| LC-02 - query seam convergence | DONE | LC-01 | Added `workbook/query/WorkbookViewQueryPort.ts`, `workbook/query/workbookLatestRequest.ts`, and `workbook/adapters/createWorkbookViewQueryAdapter.ts`. Workbook composition now creates one incident-bound adapter and injects it into Generic, Entity, Assessment, support-candidate, Timeline-preview, reference-broker, and Timeline consumers. The adapter alone executes `queryWorkbookView`, validates the generated envelope plus exact incident/schema identity, and normalizes rows through the requested view contract. Timeline now materializes its richer model only after the shared boundary and contains Timeline-specific materialization failures. Deleted the Timeline-specific adapter and port without forwarding exports; removed latest-request helpers from `services/workbookApi.ts`; updated source ownership, the Timeline test family, protocol-adapter policy, generated topology, and strict query fixtures. Searches prove one production query operation site, one latest-request helper definition, no raw query route, and no old Timeline query symbol in production/accounting inputs | PASS: final format `.cartulary/test-results/20260731T222632Z-p578118`; shared adapter row `.cartulary/test-results/20260731T220627Z-p488402`; final Workbook owner `.cartulary/test-results/20260731T222728Z-p582195`; Timeline owner `.cartulary/test-results/20260731T221217Z-p503137` and service-backed `.cartulary/test-results/20260731T222948Z-p607636`; Entities owner `.cartulary/test-results/20260731T221217Z-p503147` and service-backed `.cartulary/test-results/20260731T223120Z-p632962`; Assessments owner `.cartulary/test-results/20260731T222852Z-p587062` and service-backed `.cartulary/test-results/20260731T223301Z-p658436`; architecture `.cartulary/test-results/20260731T222933Z-p606395`; generate `.cartulary/test-results/20260731T223350Z-p676814`; boundary `.cartulary/test-results/20260731T223403Z-p679107`; typecheck `.cartulary/test-results/20260731T223407Z-p679668`; Biome `.cartulary/test-results/20260731T223418Z-p680365`; build `.cartulary/test-results/20260731T223434Z-p681142`; Fallow `.cartulary/test-results/20260731T223437Z-p684438` reports 87 global issues, down from 92, with no new in-scope dead-code finding; generate-drift `.cartulary/test-results/20260731T223550Z-p685501`; generated policy `.cartulary/test-results/20260731T223601Z-p689388`; JSON `.cartulary/test-results/20260731T223603Z-p689761`; absence audits and `git diff --check` pass. Initial focused query roots `.cartulary/test-results/20260731T220627Z-p488358`, `.cartulary/test-results/20260731T220627Z-p488355`, and `.cartulary/test-results/20260731T220627Z-p488375` exposed legacy non-UUID rows and incomplete generated envelopes; strict fixtures and the shared error-envelope helper were corrected. Initial broad roots `.cartulary/test-results/20260731T221217Z-p503141` and `.cartulary/test-results/20260731T221217Z-p503157` exposed stale symbolic IDs and incomplete Status Review, Evidence, Task, and Party row shapes; fixtures were brought to current contracts before passing reruns. The concurrent broad run also caused an assessment browser-readiness build collision, so final owner and service-backed gates ran sequentially | Valid requests preserve cancellation, late-result rejection, refresh/stale/access-loss behavior, dual-query admission, reference deduplication, and Timeline freshness/continuity semantics. Malformed or cross-incident/schema responses now intentionally fail closed. No server, owner-specification, external API, persisted-data, or compatibility migration exists. Remaining 87 Fallow findings are the routed Section 20.11 follow-up set, not new suppressions. Roll back the port, adapter, latest-request owner, all consumer/composition changes, deleted Timeline seam, strict fixtures, authored accounting, generated outputs, and this row as one unit |
+| LC-03 - startup and identity cleanup | DONE | LC-02 | Added semantic `WorkbookStartupPort`, `WorkbookPreferencePort`, `WorkbookIncidentPort`, and shared `WorkbookPortResult`; added generated-operation adapters plus the adapter-result normalizer under `workbook/adapters`. Workbook composition now creates the three incident-bound adapters once. Startup admission accepts semantic URL query fields and validated selection/availability, incident identity and member-reference hooks accept the incident port, and current/default preference commands accept only correlated server acknowledgements. Controllers no longer import the legacy service, build these routes, inspect HTTP envelopes/statuses, or classify access loss from message text. Startup validates incident and extension-availability identity; identity/membership validate incident/resource correlation; preferences validate incident and exact sheet-ref correlation. Abort, latest-request, selection-version, startup fallback, late-result, membership cleanup, extension admission, and accepted-response preference behavior remain explicit. Added direct route/query/method/CSRF/malformed/cross-context/authorization/abort tests, strict contract fixtures, authored source ownership, a catalogued Workbook row, and regenerated topology. Searches find no raw transport, manual route, message-substring access decision, or legacy import in the migrated controllers | PASS: final format `.cartulary/test-results/20260731T230353Z-p829596`; adapter boundary row `.cartulary/test-results/20260731T230512Z-p848420`; final Workbook owner 115/115 `.cartulary/test-results/20260731T225817Z-p765861`; incidents 8/8 work units and 40 tests `.cartulary/test-results/20260731T225623Z-p722771`, service-backed 8/8 and 25 tests `.cartulary/test-results/20260731T225721Z-p745116`; saved views 17 tests `.cartulary/test-results/20260731T225955Z-p772330`, service-backed 13 tests `.cartulary/test-results/20260731T230137Z-p800366`; architecture 11 tests `.cartulary/test-results/20260731T225941Z-p771052`; boundary `.cartulary/test-results/20260731T230319Z-p827965`; typecheck `.cartulary/test-results/20260731T230319Z-p827961`; Biome `.cartulary/test-results/20260731T230353Z-p829586`; build `.cartulary/test-results/20260731T230408Z-p833367`; Fallow `.cartulary/test-results/20260731T230408Z-p833305` reports the same 87 routed global issues and no new in-scope finding; final generate `.cartulary/test-results/20260731T230436Z-p841580`; generate-drift `.cartulary/test-results/20260731T230446Z-p843842`; generated policy `.cartulary/test-results/20260731T230446Z-p843844`; JSON `.cartulary/test-results/20260731T230446Z-p843846`; Markdown `.cartulary/test-results/20260731T230624Z-p849301`; absence audits and `git diff --check` pass. Initial typecheck `.cartulary/test-results/20260731T224613Z-p698757` exposed incomplete shell/test port injection. Initial Workbook root `.cartulary/test-results/20260731T225038Z-p708732` exposed mismatched incident identity and incomplete incident, membership, preference, and startup saved-view fixtures; the fixtures were corrected to the projected contract. A narrow `frontend-unit` attempt was rejected because that target does not declare `VITEST_FLAGS`; catalogued `ROWS` were used instead, and the initially unhashed new row ID was corrected to the required ten-hex suffix. Initial Biome `.cartulary/test-results/20260731T230319Z-p827971` rejected direct test cookie assignment; the test now spies on the cookie getter. Initial generate-drift `.cartulary/test-results/20260731T230408Z-p833239` detected that the row-ID correction postdated generation; generated outputs were refreshed before the passing drift run | Existing valid startup precedence, fallback, selection-version behavior, late-result rejection, extension gating, incident presentation, membership cleanup, and preference intent are preserved. Malformed, mismatched, stale, or unauthorized results now fail closed through semantic outcomes. No server, owner-specification, external API, persisted-data, WebSocket, or compatibility migration exists. Roll back the three ports/adapters, result helper, composition/controller changes, strict fixtures/tests, authored ownership/test row, generated outputs, and this row together; do not restore a raw compatibility facade |
+| LC-04 - saved-view cleanup | DONE | LC-03 | Added semantic `WorkbookSavedViewPort` and generated-operation `createWorkbookSavedViewAdapter`; Workbook composition creates the incident-bound adapter once and the controller no longer imports the legacy service, constructs routes, or observes HTTP envelopes/statuses. The adapter validates incident, saved-view, and schema correlation, paging shape/progress, versions, delete acknowledgements, and system-view immutability. Listing explicitly accumulates pages with seen-cursor and seen-resource guards and publishes only a complete accepted result. Create, duplicate, patch, and delete mutate list/selection state only after accepted responses; context-version guards reject late mutation results after incident/port replacement. Selection, query/layout restoration, fallback identity, version behavior, duplicate-name handling, access-loss semantics, and non-optimistic state changes remain explicit. Removed obsolete raw saved-view envelope types; added direct adapter and controller paging/correlation/late-result tests, strict shell fixtures, authored ownership and a catalogued adapter row, then regenerated topology. Searches find no saved-view route, raw envelope, legacy import, or HTTP mechanic above the adapter | PASS: final format `.cartulary/test-results/20260731T232307Z-p943400`; final adapter row `.cartulary/test-results/20260731T232311Z-p946531`; controller/adapter rows `.cartulary/test-results/20260731T231551Z-p873025`; surface row `.cartulary/test-results/20260731T231637Z-p877332`; Workbook 116/116 `.cartulary/test-results/20260731T231717Z-p881267`; saved views 17 tests `.cartulary/test-results/20260731T232040Z-p915344`; service-backed saved views 13 tests `.cartulary/test-results/20260731T232320Z-p946906`; architecture 11 tests `.cartulary/test-results/20260731T232503Z-p975595`; generate `.cartulary/test-results/20260731T231459Z-p866803`; boundary `.cartulary/test-results/20260731T232513Z-p976832`; final typecheck `.cartulary/test-results/20260731T232610Z-p987467`; final Biome `.cartulary/test-results/20260731T232621Z-p988057`; build `.cartulary/test-results/20260731T232531Z-p978609`; Fallow `.cartulary/test-results/20260731T232535Z-p981936` reports the same 87 routed global issues with no new finding; generate-drift `.cartulary/test-results/20260731T232547Z-p982587`; generated policy `.cartulary/test-results/20260731T232558Z-p986499`; JSON `.cartulary/test-results/20260731T232600Z-p986842`; Markdown `.cartulary/test-results/20260731T232748Z-p989252`; absence audits and `git diff --check` pass. Initial typecheck `.cartulary/test-results/20260731T231032Z-p857003` exposed readonly semantic values crossing into mutable generated requests and a stale test option; the adapter now owns explicit request cloning and the test uses the incident-bound port. Initial focused row `.cartulary/test-results/20260731T231511Z-p869120` exposed an unstable test port identity, and initial surface root `.cartulary/test-results/20260731T231601Z-p873528` exposed a fixture without projected paging; both fixtures were corrected. Initial saved-view owner root `.cartulary/test-results/20260731T231843Z-p886312` retained a failed browser-startup diagnostic even though its automatic retry passed the saved-view browser assertion; the clean sequential rerun is the passing `.cartulary/test-results/20260731T232040Z-p915344` root | Valid saved-view selection, restoration, fallback, versions, duplicate-name behavior, and accepted-response updates are preserved. Malformed, cyclic, duplicate-resource, mismatched, immutable-system-view, and late-context results now intentionally fail closed. No server, owner-specification, external API, persisted-data, WebSocket, or compatibility migration exists. Roll back the port/adapter, composition/controller changes, removed envelopes, strict fixtures/tests, authored ownership/test row, generated outputs, and this row together; do not restore a raw compatibility facade |
+| LC-05 - pending mutation convergence | DONE | LC-04 | Added semantic `WorkbookPendingMutationPort`, incident-bound `createWorkbookPendingMutationAdapter`, and shared semantic-failure-to-queue settlement mapping. Workbook composition creates one adapter and injects it into both `WorkbookMutationRuntime` and Timeline. The adapter alone builds generated `createViewRow`/`patchRecord` requests, replaces payload transaction/version fields with queue/dispatch identity, rejects cross-incident or unknown-schema units, validates schema/record/change-set correlation, and normalizes accepted rows through the registered view contract. The common runtime no longer imports the legacy service, serializes PATCH, parses status/envelopes, or carries `apiBase` in queued requests/meta. Timeline consumes the same port, retains richer row/high-water materialization above it, and owns resolved-conflict row normalization locally. Deleted the Timeline-only pending adapter/port without forwarding exports; removed `apiBase` from Generic/Entity autosave inputs; updated direct adapter/runtime tests, strict fixtures, source ownership, the test-family row, and generated topology. Refactored the new boundary into focused execution/correlation/normalization helpers after static health review. Searches prove one pending create/patch executor, zero old pending path/import, zero raw runtime serializer/envelope parser, and no queued `apiBase` | PASS: final format `.cartulary/test-results/20260731T235238Z-p1105147`; final shared adapter row `.cartulary/test-results/20260731T235253Z-p1108886`; stale-high-water plus adapter `.cartulary/test-results/20260731T235152Z-p1103769`; final Workbook 117/117 `.cartulary/test-results/20260731T235322Z-p1110040`; final Timeline 9/9 work units and 55 tests `.cartulary/test-results/20260731T235445Z-p1115051`; final service-backed Timeline 9/9 and 33 tests `.cartulary/test-results/20260731T235617Z-p1142757`; final architecture 11 tests `.cartulary/test-results/20260731T235847Z-p1178264`; final boundary `.cartulary/test-results/20260731T235751Z-p1168351`; final typecheck `.cartulary/test-results/20260731T235755Z-p1168872`; final Biome `.cartulary/test-results/20260731T235806Z-p1169457`; final build `.cartulary/test-results/20260731T235809Z-p1170090`; final Fallow `.cartulary/test-results/20260731T235258Z-p1109271` reports the same 87 routed findings with no new dead-code or pending-boundary health finding; final generate `.cartulary/test-results/20260731T234349Z-p1023037`; generate-drift `.cartulary/test-results/20260731T235812Z-p1173355`; generated policy `.cartulary/test-results/20260731T235824Z-p1177240`; JSON `.cartulary/test-results/20260731T235826Z-p1177583`; Markdown `.cartulary/test-results/20260731T235957Z-p1179853`; absence audits and `git diff --check` pass. Initial format `.cartulary/test-results/20260731T233721Z-p996448` found an implicit contract type; the next format preflight `.cartulary/test-results/20260731T233737Z-p999781` found the deleted selector in stale topology. Initial generate `.cartulary/test-results/20260731T233830Z-p1003206` found the new row out of ASCII order. Typecheck roots `.cartulary/test-results/20260731T233911Z-p1011076` and `.cartulary/test-results/20260731T234009Z-p1015155` found strict Timeline fixtures and the wrong generated response alias; typed contracts and fixtures were corrected. Mistyped narrow row IDs produced usage-only roots `.cartulary/test-results/20260731T234058Z-p1016952` and `.cartulary/test-results/20260731T234401Z-p1028479`; catalogued IDs were then used. Initial full Workbook `.cartulary/test-results/20260731T234135Z-p1017725` showed that rejecting a structurally valid stale replay before Timeline freshness admission broke high-water preservation; adapter validation was narrowed to identity/contract correlation and the controller continues to reject the stale application. Fallow `.cartulary/test-results/20260731T234929Z-p1093976` retained the global count but exposed new complexity recommendations; helper extraction removed them before the final report | FIFO/capacity, contiguous coalescing, stable unit/client transaction IDs, dispatch-time versions, accepted settlement, stale-result retention, row re-keying, same-field conflict routing, retry, discard, and authorization/lifecycle pause-resume remain unchanged. Malformed, cross-incident/schema/record, empty-change-set, and undispatchable responses now fail closed at the shared boundary. No server, owner-specification, external API, persisted-data, WebSocket, or compatibility migration exists. Roll back the shared port/adapter/settlement helper, both consumers and composition, removed Timeline seam, queue-input cleanup, strict tests/fixtures, authored accounting, generated outputs, and this row together; do not restore a duplicate serializer or forwarding facade |
+| LC-06 - adjacent consumer migration | DONE | LC-05 | Evidence blob-slot creation now calls projected `createObjectBlobSlot` through `services/browserApi.fetchHTTPOperation`, validates the generated success envelope plus requested/accepted incident, byte-size, filename, and content-type correlation, and reaches the server-issued upload target only after acceptance. Its direct upload still omits credentials, copies only string target headers, supplies a content type when absent, retries only network/503/504 outcomes within the existing bound, never reads response bodies, and sanitizes public errors. Network Flow now uses owner-neutral `fetchJSON` through profile-and-route-scoped `runProfileRequest`; `networkFlowRouteFamily` is owned with the extension identities, and existing URL construction, decoding, abort signals, CSRF, and structured error mapping remain above/below that boundary as appropriate. Imports removed `parseErrorMessage` and now derives safe status/reason text from `extractError` plus `publicErrorView` while retaining Import profile/route admission. Added direct malformed/cross-incident Evidence, Network Flow transport/gating/decoder, and unsafe Import error tests; catalogued the new rows, added `networkFlowClient.test.ts` to source ownership, and regenerated topology. Searches find no adjacent production import or use of `workbookApi`, its unchecked envelope cast, or a manual blob-slot operation path | PASS: final format `.cartulary/test-results/20260801T001816Z-p1311425`; focused Evidence `.cartulary/test-results/20260801T000810Z-p1198755`; focused Import `.cartulary/test-results/20260801T000818Z-p1199161`; focused Network Flow `.cartulary/test-results/20260801T000858Z-p1200306`; Evidence 45 tests `.cartulary/test-results/20260801T000913Z-p1200693` and service-backed 34 tests `.cartulary/test-results/20260801T001114Z-p1228938`; Imports 13/13 work units and 28 tests `.cartulary/test-results/20260801T001306Z-p1255151`, service-backed 13/13 and 17 tests `.cartulary/test-results/20260801T001357Z-p1276241`; Network Flow 31/31 `.cartulary/test-results/20260801T001446Z-p1296923`; architecture 11 tests `.cartulary/test-results/20260801T001743Z-p1309958`; boundary `.cartulary/test-results/20260801T001520Z-p1298787`; typecheck `.cartulary/test-results/20260801T001529Z-p1299343`; Biome `.cartulary/test-results/20260801T001559Z-p1300110`; build `.cartulary/test-results/20260801T001610Z-p1300784`; Fallow `.cartulary/test-results/20260801T001617Z-p1304144` reports the same 87 routed findings with no new in-scope finding; generate `.cartulary/test-results/20260801T000758Z-p1196478`; generate-drift `.cartulary/test-results/20260801T001647Z-p1304920`; generated policy `.cartulary/test-results/20260801T001706Z-p1308872`; JSON `.cartulary/test-results/20260801T001713Z-p1309258`; Markdown `.cartulary/test-results/20260801T001927Z-p1314966`; production-import/manual-route searches and `git diff --check` pass. Initial format preflights `.cartulary/test-results/20260801T000717Z-p1186737` and `.cartulary/test-results/20260801T000729Z-p1190018` rejected unknown collaborator IDs; only catalogued collaborators were retained. Initial Network Flow row `.cartulary/test-results/20260801T000825Z-p1199528` exposed a test fixture missing the standard `{data, meta}` HTTP envelope; the fixture now exercises malformed resources behind that envelope and the generated decoder | Valid Evidence creation/upload, Network Flow decoding/cancellation/CSRF/error behavior, and safe Import error detail remain compatible. Cross-incident or request-mismatched blob slots and unclaimed Network Flow routes now intentionally fail closed; unsafe Import server text is no longer surfaced. No server, owner-specification, external API, persisted-data, WebSocket, or compatibility migration exists. The 87 non-Workbook findings remain routed Section 20.11 work. Each adjacent consumer plus its direct tests is an independent code rollback unit; source ownership, authored test rows, generated topology, and this tracker update roll back with the affected unit, without restoring a forwarding facade |
+| LC-07 - legacy seam deletion | DONE | LC-06 | Zero production callers were proven, then `services/workbookApi.ts` and its obsolete test were deleted without a forwarding export. Existing `browserApi` tests retain JSON/CSRF behavior and now own the private-timing-header absence check; new `shared/publicError.test.ts` directly owns allowlisted detail and unsafe-message behavior; new `workbook/query/workbookLatestRequest.test.ts` owns request exclusivity and supersession. Removed the four obsolete `workbookApi` catalog rows, added the replacement owner rows, removed deleted paths and added replacement tests in source ownership, and regenerated topology. Removed the unused `csrfCookieName` re-export and internalized the transport constant. Removed the stale `workbookApi` alternative from the Workbook source-ownership policy; no executor-path or import-boundary allowance for the deleted seam remained. `apps/web/src/README.md` now documents the common Workbook adapter, semantic port, shared query/latest-request, startup, pending-mutation runtime, Evidence, Imports, and profile-route-scoped Network Flow owners and no longer lists the deleted Timeline query/pending seams. A strict Evidence fixture now echoes the requested blob-slot accepted contract. Searches find no legacy file, import, helper, forwarding export, README entry, test selector, ownership entry, or generated-topology path | PASS: final format `.cartulary/test-results/20260801T003141Z-p1344708`; replacement application rows `.cartulary/test-results/20260801T002633Z-p1329829`; replacement latest-request row `.cartulary/test-results/20260801T002642Z-p1330294`; full application 53/53 `.cartulary/test-results/20260801T002656Z-p1330686`; corrected surface row `.cartulary/test-results/20260801T002952Z-p1337926`; final Workbook 118/118 `.cartulary/test-results/20260801T003016Z-p1339532`; architecture 11 tests `.cartulary/test-results/20260801T003002Z-p1338299`; boundary `.cartulary/test-results/20260801T003153Z-p1347944`; typecheck `.cartulary/test-results/20260801T003202Z-p1348508`; Biome `.cartulary/test-results/20260801T003220Z-p1349217`; build `.cartulary/test-results/20260801T003229Z-p1349885`; Fallow `.cartulary/test-results/20260801T003243Z-p1353868` reports 84 routed findings, down from 87 because three legacy unused exports disappeared, with no replacement-test or in-scope finding; generate `.cartulary/test-results/20260801T002530Z-p1320553`; generate-drift `.cartulary/test-results/20260801T003318Z-p1354637`; generated policy `.cartulary/test-results/20260801T003336Z-p1358566`; JSON `.cartulary/test-results/20260801T003345Z-p1358952`; Markdown `.cartulary/test-results/20260801T003458Z-p1359961`; terminal legacy-path/helper/export/accounting searches and `git diff --check` pass. Initial full Workbook `.cartulary/test-results/20260801T002725Z-p1332194` exposed an old surface fixture whose otherwise valid blob-slot response described a different incident; product code correctly rejected it before upload. The fixture now derives incident, size, filename, and content type from the request, after which the focused and complete owner reruns passed | Valid app transport, public-error presentation, latest-query supersession, Workbook behavior, and Evidence upload behavior remain compatible. The unused browser-level CSRF constant export and raw legacy helpers are intentionally removed; there is no compatibility layer. Cross-incident blob slots remain intentionally rejected. No server, owner-specification, external API, persisted-data, WebSocket, or migration change exists. The remaining 84 findings are routed Section 20.11 work. Roll back the two deleted files, replacement tests, private export cleanup, README, strict fixture, source ownership, authored catalog, generated topology, and this tracker row as one unit; do not restore the legacy file without also restoring all former callers from prior slices |
+| LC-V01 - validation and handoff | DONE | LC-07 | Completed terminal absence and retained-caller audits, all planned focused and service-backed owner routes, common frontend/static/generated gates, `test-fast`, and all six requested browser targets. Added `module.workbook` and its service-backed route after the broad unit gate exposed that semantic startup tests are owned separately from `web.workbook`. V01 changed only strict fixtures and assertions: startup URL parsing now expects the semantic query object, the grid-provenance fixture uses a complete `active` incident plus an incident-correlated query envelope with wire-only rows, and the Timeline browser test expects the shared query boundary's error copy. No production, contract, generated, accounting, golden, normative, server, data, or compatibility-facade change was required in V01 | PASS focused: architecture `.cartulary/test-results/20260801T003843Z-p1369551`; protocol-ts `.cartulary/test-results/20260801T003858Z-p1370782`; web Workbook `.cartulary/test-results/20260801T003906Z-p1371148`; incidents `.cartulary/test-results/20260801T004029Z-p1376271` and service-backed `.cartulary/test-results/20260801T004147Z-p1398126`; saved views `.cartulary/test-results/20260801T004241Z-p1419134` and service-backed `.cartulary/test-results/20260801T004419Z-p1447013`; Timeline `.cartulary/test-results/20260801T004559Z-p1474424` and service-backed `.cartulary/test-results/20260801T004734Z-p1501006`; entities `.cartulary/test-results/20260801T004906Z-p1526305` and service-backed `.cartulary/test-results/20260801T005037Z-p1552349`; assessments `.cartulary/test-results/20260801T005207Z-p1577792` and service-backed `.cartulary/test-results/20260801T005248Z-p1596646`; Evidence `.cartulary/test-results/20260801T005327Z-p1615125` and service-backed `.cartulary/test-results/20260801T005518Z-p1641990`; Imports `.cartulary/test-results/20260801T005712Z-p1668258` and service-backed `.cartulary/test-results/20260801T005802Z-p1689161`; Network Flow `.cartulary/test-results/20260801T005852Z-p1709550`; final module Workbook 88 tests `.cartulary/test-results/20260801T010702Z-p1783652` and service-backed 56 tests `.cartulary/test-results/20260801T011400Z-p1874980`. PASS finalize/common: `agent-finalize` `.cartulary/test-results/20260801T005922Z-p1711396` recorded `RESULTS_DIR=-` and retained-run maintenance skipped; final format `.cartulary/test-results/20260801T012010Z-p1917098`; unit `.cartulary/test-results/20260801T012019Z-p1920299`; boundary `.cartulary/test-results/20260801T012055Z-p1922466`; typecheck `.cartulary/test-results/20260801T012102Z-p1923021`; Biome `.cartulary/test-results/20260801T012116Z-p1923646`; build `.cartulary/test-results/20260801T012126Z-p1924330`; Fallow `.cartulary/test-results/20260801T012136Z-p1928300`; generate-drift `.cartulary/test-results/20260801T012224Z-p1929247`; generated policy `.cartulary/test-results/20260801T012236Z-p1933153`; JSON `.cartulary/test-results/20260801T012238Z-p1933535`; `test-fast` 1002 tests `.cartulary/test-results/20260801T012245Z-p1934168`; browser support `.cartulary/test-results/20260801T012544Z-p2009055`; webserver-backed `.cartulary/test-results/20260801T012624Z-p2012467`; stateful `.cartulary/test-results/20260801T013116Z-p2042117`; accessibility `.cartulary/test-results/20260801T013339Z-p2066329`; measurement `.cartulary/test-results/20260801T013504Z-p2087418`; visual `.cartulary/test-results/20260801T013603Z-p2107668` with no golden update. Final Fallow schema-7 report has 90 total diagnostics, down from 127: its only 12 Workbook findings are the Section 20.6.3 members with fresh production callers; the other 78 are the routed Section 20.11 owner follow-ups. Terminal searches and `git diff --check` pass. Initial unit `.cartulary/test-results/20260801T010021Z-p1722382` exposed two stale query-string assertions plus an incomplete/cross-incident grid fixture; the first rerun `.cartulary/test-results/20260801T011718Z-p1913863` narrowed the remaining issue to the forbidden row-local schema field and invalid incident status. Initial module Workbook `.cartulary/test-results/20260801T010248Z-p1725940` exposed stale Timeline-specific error copy; its corrected row passed at `.cartulary/test-results/20260801T010625Z-p1765064`. Initial module Workbook service-backed `.cartulary/test-results/20260801T011012Z-p1821286` had zero product-row failures but one terminal browser-startup artifact; the isolated row passed at `.cartulary/test-results/20260801T011326Z-p1857011` before the clean full rerun | All application-private valid behavior remains compatible; malformed/cross-context results intentionally fail closed. No server API, database, persisted data, WebSocket, external consumer, or migration change exists, and no legacy compatibility layer remains. All LC-G001 through LC-G005 risks are closed with executable evidence. Residual risk is limited to the 78 explicitly deferred, source-owner-routed non-Workbook diagnostics. Roll back in reverse slice order with each slice's implementation, tests, authored inputs, generated outputs, and tracker evidence together; V01's four test-only fixture/assertion files are its independent rollback boundary. The post-entry Markdown and diff gate is recorded in Section 20.13 |
+
+### 20.8 Mandatory tracker gate
+
+After every implementation workstream and before the next begins:
+
+1. Complete focused implementation and validation.
+2. Update its ledger row with exact substantive changes, paths added, moved or
+   deleted, commands and run roots, failures and resolution, compatibility
+   decision, residual risk, and rollback boundary.
+3. Update source ownership and authored test-family inputs in the same slice
+   when paths change; regenerate downstream topology rather than editing it.
+4. Run `make frontend-fallow-static` and record both the global report and the
+   scoped disposition delta. A global out-of-scope finding is not silently
+   waived or converted into an in-scope blocker.
+5. Run `make lint-markdown` and `git diff --check` after the tracker update.
+6. Begin the next row only when the current row is `DONE`. An owner
+   contradiction changes the row to `BLOCKED` and stops execution.
+
+### 20.9 Validation plan
+
+Every frontend implementation slice runs, at minimum:
+
+- `make format`, followed by diff inspection.
+- `make frontend-import-boundary-check`.
+- `make frontend-typecheck`.
+- `make lint-biome`.
+- The narrow owner slice selected through
+  `make task-guide ROLE=module-author OWNER=<owner-id>`.
+- `make build-web`.
+- `make frontend-fallow-static`.
+- `git diff --check`.
+- `make lint-markdown` after its tracker update.
+
+Slices changing generated, ownership, or test-family inputs also run:
+
+- `make generate`.
+- `make generate-drift`.
+- `make generated-artifact-policy-check`.
+- `make json-shape-check`.
+
+Owner routing is:
+
+- LC-F01: harness/static-analysis ownership and `web.architecture`.
+- LC-F02: `package.protocol_ts`, `web.architecture`, `web.workbook`,
+  `module.incidents`, and `module.savedviews`.
+- LC-01: `web.workbook`, `module.timeline`, and collaboration ownership.
+- LC-02: `web.workbook`, `module.timeline`, `module.entities`,
+  `module.assessments`, and `web.architecture`.
+- LC-03: `web.workbook`, `module.incidents`, and `web.architecture`.
+- LC-04: `web.workbook`, `module.savedviews`, and `web.architecture`.
+- LC-05: `web.workbook`, `module.timeline`, and `web.architecture`.
+- LC-06: `module.evidence`, `module.imports`, `web.networkflow`, and
+  `web.architecture`.
+- LC-07: all directly affected owners plus `web.workbook` and
+  `web.architecture`.
+
+LC-V01 additionally runs:
+
+- Absence searches for `services/workbookApi`, `readEnvelope`, raw Workbook
+  `{ok,status,payload}` handling, manual projected routes, duplicate pending
+  PATCH serializers, message-string access-loss classification, forwarding
+  compatibility exports, and stale path accounting.
+- Direct caller searches for all retained Section 20.6.3 members.
+- `make frontend-unit`.
+- All focused owner slices listed above.
+- `make agent-finalize`; `RESULTS_DIR` is supplied only for a qualifying
+  successful full warm-check root, otherwise retained-run maintenance is
+  recorded as skipped.
+- `make test-fast`.
+- `make browser-e2e-webserver-backed`.
+- `make browser-e2e-stateful`.
+- `make browser-e2e-a11y`.
+- `make browser-e2e-measurement`.
+- `make browser-e2e-visual`, without a golden update unless a separately
+  authorized visual change is discovered.
+
+### 20.10 Compatibility, migration, and rollback
+
+All changed modules are application-private. Removing an export or file is
+allowed only after repository-wide caller evidence proves it unused. No public
+package API, server route, database record, stored saved view, pending queue,
+or user data requires migration.
+
+Valid server responses and existing Workbook interactions remain compatible.
+Malformed or contract-incompatible responses continue to become safe semantic
+failures. `ajv` remains installed and lockfiles do not change for LC-F01.
+Runtime-spawned tools remain executable after their reachability correction.
+
+Rollback is slice-granular in reverse order. Generated protocol inputs,
+outputs, and executor relocation are atomic. Query, startup, saved-view, and
+pending-mutation ports roll back with their adapters, consumers, and focused
+tests. Adjacent owner changes roll back independently. The final legacy-service
+deletion rolls back with its test relocation, README, source ownership, test
+families, and generated topology; it MUST NOT be restored without also
+restoring every former caller in the same rollback.
+
+### 20.11 Deferred findings
+
+The following remain explicitly outside this iteration:
+
+- Harness duplicate exports and circular dependencies reported by the baseline
+  Fallow run.
+- `tools/harness/observability/retained-reference-migration-cli.mjs`, which has
+  no discovered caller but requires a harness-owner audit before deletion.
+- Non-Workbook unused exports and types that are unrelated to removing
+  `workbookApi.ts`.
+- Any broader Network Flow, Import, Evidence, app-shell, or protocol-package
+  cleanup not required by LC-06.
+
+These findings are not silently accepted as permanent. LC-V01 records their
+final report locations and routes them to future owner-specific cleanup rather
+than expanding Workbook authority.
+
+### 20.12 Binary completion and handoff
+
+The iteration is complete only when:
+
+- Every row LC-P00 through LC-V01 is `DONE`.
+- `services/workbookApi.ts` and its obsolete test are absent and have zero
+  imports.
+- No unchecked Workbook envelope cast, raw Workbook HTTP result, manual route
+  for a projected operation, duplicate pending serializer, or message-string
+  access-loss classifier remains.
+- The scoped Fallow result contains no actionable unused Workbook file,
+  export, type, or class member. Any retained analyzer diagnostic has current
+  caller evidence in Section 20.6.3.
+- The seven dynamically invoked tools are modeled as reachable and `ajv` is
+  recognized as a live protocol-validator runtime dependency.
+- Source ownership, authored test families, and generated topology exactly
+  match the final tree.
+- No compatibility facade, forwarding re-export, fallback decoder, temporary
+  allowlist, generated hand edit, or undocumented owner exception exists.
+- All focused, broad frontend, browser, accessibility, measurement, visual,
+  Markdown, and diff checks are green and recorded with exact run roots.
+- The final tracker handoff records files changed, substantive edits,
+  generated/accounting changes, resolved failures, compatibility impact,
+  deferred findings, residual risks, and slice-granular rollback guidance.
+
+### 20.13 Final evidence summary
+
+All Section 20 rows are `DONE`, and every row was updated before its successor
+began. The preserved staged tracker state remains staged; no user change was
+reset, unstaged, or overwritten. The final worktree contains 131 changed paths:
+98 modified paths including this staged-plus-unstaged tracker, 9 deletions, and
+24 additions.
+
+The substantive result is one fail-closed Workbook architecture:
+
+- Runtime-spawned tools, the protocol generator, generated imports, and `ajv`
+  are represented by the existing harness and reachability owners.
+- The six adopted HTTP operations are projected and generated, and generated
+  protocol or transport details terminate at Workbook adapter boundaries.
+- Startup, incident, preference, saved-view, shared query, and shared pending
+  mutation behavior is expressed through private semantic ports composed once
+  by the Workbook shell.
+- The legacy service, Timeline-specific query and pending seams, duplicate raw
+  serializers, stale forwarding exports, and unused symbols are deleted rather
+  than retained behind compatibility facades.
+- Evidence, Imports, and Network Flow use their durable owner-neutral or
+  profile-scoped boundaries with strict response correlation and sanitized
+  errors.
+- Authored source ownership and test families, generated topology and task
+  surface, import boundaries, and the web source map describe the final tree.
+
+The generated/accounting changes are confined to the authored HTTP operation,
+reachability, task-surface, source-ownership, import-boundary, and test-family
+inputs plus Make-generated protocol, task-surface, and topology projections.
+No generated root was hand-edited. Generation drift, artifact policy, JSON
+shape, owner routing, and the 1,002-test fast gate are clean.
+
+The final Fallow report is
+`.cartulary/test-results/20260801T012136Z-p1928300/frontend-fallow-static/fallow/dead-code.json`
+with SHA-256
+`e7e84a24ea5ddf716ba0258c72599f2c0a06f91ef992158c909c3a78f1e19586`.
+Its 90 schema-7 diagnostics are fully dispositioned: 12 are the current,
+caller-proven Workbook members in Section 20.6.3, and 78 are non-Workbook
+follow-up work. The latter comprise one harness entrypoint audit, 50 unused
+exports, 22 unused types, one extension class member, one duplicate export,
+and three dependency cycles; their source owners retain cleanup authority.
+There is no unused dependency, unresolved import, boundary violation, stale
+suppression, unused catalog entry, or unresolved catalog reference.
+
+Compatibility impact is private TypeScript cutover only. Valid response,
+selection, cancellation, stale-result, saved-view, queue, transaction,
+conflict, authorization, lifecycle, upload, and public-error behavior remains
+supported. Newly rejected malformed, uncorrelated, cyclic-page, or
+cross-incident responses are intentional hardening. There is no server, API,
+database, WebSocket, persisted-data, external-consumer, or visual-golden
+migration and no legacy compatibility layer.
+
+LC-G001 through LC-G005 are closed. The only residual risk is the explicitly
+deferred non-Workbook static cleanup above; it is not hidden by a suppression
+or exception. Rollback remains slice-granular in reverse order. Each slice's
+production code, tests, authored accounting inputs, generated outputs, and
+tracker entry move together, and rollback must not recreate the legacy service
+or a forwarding facade independently.
+
+The final post-entry tracker gate passes: `make lint-markdown` at
+`.cartulary/test-results/20260801T014046Z-p2131282` and `git diff --check` with
+exit code 0. The verification below reruns both commands after recording this
+evidence so the checked content and the handed-off content are identical.

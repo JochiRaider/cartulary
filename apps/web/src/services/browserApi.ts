@@ -8,7 +8,6 @@ import {
 import { type PublicAPIError, publicErrorView } from "../shared/publicError";
 import { createClientTransactionId } from "./clientTransactionId";
 import {
-  csrfCookieName,
   csrfHeaderName,
   readCookie,
   requestJSON,
@@ -38,7 +37,7 @@ export type HTTPOperationResult<T> =
       readonly payload: { readonly error?: APIError };
     };
 
-export { csrfCookieName, csrfHeaderName, publicErrorView, readCookie };
+export { csrfHeaderName, publicErrorView, readCookie };
 
 export function apiPath(base: string | undefined, path: string): string {
   const trimmedBase = (base ?? "").trim();

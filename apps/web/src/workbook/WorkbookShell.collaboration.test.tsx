@@ -41,6 +41,7 @@ import {
   waitForTimelineConflictResolutionCalls,
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
+import { createWorkbookPendingMutationAdapter } from "./adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";
 import { WorkbookMutationRuntime } from "./runtime/WorkbookMutationRuntime";
@@ -687,6 +688,10 @@ describe("workbook collaboration coverage", () => {
         incidentId: "10000000-0000-4000-8000-000000000001",
       },
       createBrowserSecureTransactionIdPort(),
+      createWorkbookPendingMutationAdapter({
+        apiBase: undefined,
+        incidentId: "10000000-0000-4000-8000-000000000001",
+      }),
     );
     runtime.pauseForAuthRecovery();
     for (const [recordId, value, version] of [

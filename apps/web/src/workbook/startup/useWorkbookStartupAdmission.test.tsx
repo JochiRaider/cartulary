@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionAvailabilityTag } from "../../extensions/extensionAvailability";
+import { normalizeWorkbookStartupSelection } from "../models/workbookStartup";
 import {
   hostsViewSchemaId,
   timelineViewSchemaId,
@@ -11,6 +12,7 @@ import {
   type WorkbookStartupSavedViewStatePort,
   type WorkbookStartupSelectionPort,
 } from "./useWorkbookStartupAdmission";
+import type { WorkbookStartupPort } from "./WorkbookStartupPort";
 
 type Deferred<T> = {
   readonly promise: Promise<T>;
@@ -25,13 +27,6 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function response(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify({ data }), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 function baseStartup(viewSchemaId = hostsViewSchemaId) {
   return {
     incident_id: "incident-1",
@@ -44,6 +39,25 @@ function baseStartup(viewSchemaId = hostsViewSchemaId) {
     home_sheet_ref: null,
     default_sheet_ref: null,
   };
+}
+
+type StartupPortResult = Awaited<ReturnType<WorkbookStartupPort["load"]>>;
+
+function acceptedStartup(data: unknown): StartupPortResult {
+  const selection = normalizeWorkbookStartupSelection(data);
+  if (selection === null) {
+    throw new Error("Test startup fixture is invalid");
+  }
+  return {
+    kind: "accepted",
+    value: { availability: { workspaces: [] }, selection },
+  };
+}
+
+function startupPortReturning(
+  result: StartupPortResult | Promise<StartupPortResult>,
+): WorkbookStartupPort {
+  return { load: vi.fn(() => Promise.resolve(result)) };
 }
 
 function savedViewStartup() {
@@ -131,6 +145,9 @@ function renderAdmission(
   ownedPorts: ReturnType<typeof ports>,
   onAvailabilityChange = vi.fn(),
   incidentId = "incident-1",
+  startupPort: WorkbookStartupPort = startupPortReturning(
+    acceptedStartup(baseStartup()),
+  ),
 ) {
   return renderHook(
     ({ currentIncidentId }: { readonly currentIncidentId: string }) =>
@@ -142,6 +159,7 @@ function renderAdmission(
         availabilityPort: ownedPorts.availabilityPort,
         selectionPort: ownedPorts.selectionPort,
         savedViewStatePort: ownedPorts.savedViewStatePort,
+        startupPort,
         onAvailabilityChange,
       }),
     { initialProps: { currentIncidentId: incidentId } },
@@ -154,10 +172,6 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("applies an ordinary base-surface startup identity", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(response(baseStartup()))),
-    );
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
     renderAdmission(ownedPorts, onAvailabilityChange);
@@ -175,12 +189,13 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("hydrates a saved view in upsert-query-layout-identity order", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(response(savedViewStartup()))),
-    );
     const ownedPorts = ports();
-    renderAdmission(ownedPorts);
+    renderAdmission(
+      ownedPorts,
+      vi.fn(),
+      "incident-1",
+      startupPortReturning(acceptedStartup(savedViewStartup())),
+    );
 
     await waitFor(() => {
       expect(ownedPorts.selectionPort.applyStartupIdentity).toHaveBeenCalled();
@@ -194,19 +209,21 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("keeps a user selection made while startup is delayed", async () => {
-    const pending = deferred<Response>();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => pending.promise),
-    );
+    const pending = deferred<StartupPortResult>();
+    const startupPort = startupPortReturning(pending.promise);
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(ownedPorts, onAvailabilityChange);
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    renderAdmission(
+      ownedPorts,
+      onAvailabilityChange,
+      "incident-1",
+      startupPort,
+    );
+    await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
     ownedPorts.setSelectionVersion(1);
 
     await act(async () => {
-      pending.resolve(response(baseStartup()));
+      pending.resolve(acceptedStartup(baseStartup()));
       await pending.promise;
     });
 
@@ -220,21 +237,26 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("admits only the newest of two overlapping startup requests", async () => {
-    const first = deferred<Response>();
-    const second = deferred<Response>();
-    const fetchMock = vi
+    const first = deferred<StartupPortResult>();
+    const second = deferred<StartupPortResult>();
+    const startupLoad = vi
       .fn()
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
-    vi.stubGlobal("fetch", fetchMock);
+    const startupPort: WorkbookStartupPort = { load: startupLoad };
     const ownedPorts = ports();
-    const rendered = renderAdmission(ownedPorts);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const rendered = renderAdmission(
+      ownedPorts,
+      vi.fn(),
+      "incident-1",
+      startupPort,
+    );
+    await waitFor(() => expect(startupLoad).toHaveBeenCalledOnce());
     rendered.rerender({ currentIncidentId: "incident-2" });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(startupLoad).toHaveBeenCalledTimes(2));
 
     await act(async () => {
-      second.resolve(response(baseStartup(timelineViewSchemaId)));
+      second.resolve(acceptedStartup(baseStartup(timelineViewSchemaId)));
       await second.promise;
     });
     await waitFor(() => {
@@ -244,7 +266,7 @@ describe("useWorkbookStartupAdmission", () => {
     });
 
     await act(async () => {
-      first.resolve(response(baseStartup(hostsViewSchemaId)));
+      first.resolve(acceptedStartup(baseStartup(hostsViewSchemaId)));
       await first.promise;
     });
     expect(
@@ -257,10 +279,6 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("falls back exactly once when availability admission is stale", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(response(baseStartup()))),
-    );
     const ownedPorts = ports({ accept: false });
     const onAvailabilityChange = vi.fn();
     renderAdmission(ownedPorts, onAvailabilityChange);
@@ -275,12 +293,13 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("falls back exactly once when the selected extension is not renderable", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(response(extensionStartup()))),
-    );
     const ownedPorts = ports({ renderable: false });
-    renderAdmission(ownedPorts);
+    renderAdmission(
+      ownedPorts,
+      vi.fn(),
+      "incident-1",
+      startupPortReturning(acceptedStartup(extensionStartup())),
+    );
 
     await waitFor(() => {
       expect(ownedPorts.selectionPort.selectTimeline).toHaveBeenCalledWith(
@@ -291,14 +310,14 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("applies no response state for a non-OK result", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(response({ error: {} }, 503))),
-    );
+    const startupPort = startupPortReturning({
+      kind: "rejected",
+      failure: { kind: "retryable", message: "Startup is unavailable." },
+    });
     const ownedPorts = ports();
-    renderAdmission(ownedPorts);
+    renderAdmission(ownedPorts, vi.fn(), "incident-1", startupPort);
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
     await act(async () => {
       await Promise.resolve();
     });
@@ -311,22 +330,21 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("applies no selection-owned state for a malformed result", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          response({
-            extension_workspace_availability: { workspaces: [] },
-            selected_sheet_ref: "invalid",
-          }),
-        ),
-      ),
-    );
+    const startupPort = startupPortReturning({
+      kind: "rejected",
+      failure: { kind: "invalid_contract", message: "Invalid startup." },
+    });
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(ownedPorts, onAvailabilityChange);
+    renderAdmission(
+      ownedPorts,
+      onAvailabilityChange,
+      "incident-1",
+      startupPort,
+    );
 
-    await waitFor(() => expect(onAvailabilityChange).toHaveBeenCalledOnce());
+    await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
+    expect(onAvailabilityChange).not.toHaveBeenCalled();
     expect(
       ownedPorts.selectionPort.applyStartupIdentity,
     ).not.toHaveBeenCalled();
@@ -336,19 +354,21 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("applies no callback or response state after effect teardown", async () => {
-    const pending = deferred<Response>();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => pending.promise),
-    );
+    const pending = deferred<StartupPortResult>();
+    const startupPort = startupPortReturning(pending.promise);
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    const rendered = renderAdmission(ownedPorts, onAvailabilityChange);
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const rendered = renderAdmission(
+      ownedPorts,
+      onAvailabilityChange,
+      "incident-1",
+      startupPort,
+    );
+    await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
     rendered.unmount();
 
     await act(async () => {
-      pending.resolve(response(baseStartup()));
+      pending.resolve(acceptedStartup(baseStartup()));
       await pending.promise;
     });
     expect(onAvailabilityChange).not.toHaveBeenCalled();
@@ -361,19 +381,21 @@ describe("useWorkbookStartupAdmission", () => {
   });
 
   it("does not hydrate a late saved view after a later selection", async () => {
-    const pending = deferred<Response>();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => pending.promise),
-    );
+    const pending = deferred<StartupPortResult>();
+    const startupPort = startupPortReturning(pending.promise);
     const ownedPorts = ports();
     const onAvailabilityChange = vi.fn();
-    renderAdmission(ownedPorts, onAvailabilityChange);
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    renderAdmission(
+      ownedPorts,
+      onAvailabilityChange,
+      "incident-1",
+      startupPort,
+    );
+    await waitFor(() => expect(startupPort.load).toHaveBeenCalledOnce());
     ownedPorts.setSelectionVersion(2);
 
     await act(async () => {
-      pending.resolve(response(savedViewStartup()));
+      pending.resolve(acceptedStartup(savedViewStartup()));
       await pending.promise;
     });
 

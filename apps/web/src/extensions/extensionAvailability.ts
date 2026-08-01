@@ -390,6 +390,20 @@ export class ExtensionAvailabilityController {
     return true;
   }
 
+  acceptWorkbookStartupWorkspaces(
+    tag: ExtensionAvailabilityTag,
+    workspaces: readonly ExtensionWorkspaceIdentity[],
+  ): boolean {
+    if (!this.isCurrent(tag)) {
+      return false;
+    }
+    this.#availability.clear();
+    for (const workspace of workspaces) {
+      this.#availability.add(workspaceIdentityKey(workspace));
+    }
+    return true;
+  }
+
   invalidate(): ExtensionAvailabilityTag | null {
     this.#availability.clear();
     return this.reserve();

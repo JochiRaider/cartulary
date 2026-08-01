@@ -6,8 +6,10 @@ import {
 import {
   type APIResult,
   clientTxnID,
+  extractError,
   fetchHTTPOperation,
   fetchMultipartHTTPOperation,
+  publicErrorView,
 } from "../services/browserApi";
 import type {
   ApplyImportSessionResponse,
@@ -31,7 +33,6 @@ import type {
   SkipImportUnitResponse,
   WorkbookSourceColumnMapping,
 } from "../services/importContractAdapter";
-import { parseErrorMessage } from "../services/workbookApi";
 
 export type {
   DiscoveredImportColumn,
@@ -569,9 +570,20 @@ async function requireImportResult<T>(
 ): Promise<T> {
   const result = await runImportRequest(availability, request);
   if (!result.ok) {
-    throw new Error(parseErrorMessage(result.payload));
+    throw new Error(importPublicErrorMessage(result.payload, result.status));
   }
   return result.payload as T;
+}
+
+function importPublicErrorMessage(payload: unknown, status: number): string {
+  const view = publicErrorView(extractError(payload), status);
+  if (view === null) {
+    return "Request failed.";
+  }
+  const reason = view.details.find((detail) => detail.key === "reason_code");
+  return reason === undefined
+    ? view.statusText
+    : `${view.statusText}: ${reason.value}`;
 }
 
 function runImportRequest<T>(

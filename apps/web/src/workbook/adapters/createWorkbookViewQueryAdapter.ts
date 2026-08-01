@@ -2,69 +2,66 @@ import type {
   QueryWorkbookViewRequest,
   QueryWorkbookViewResponse,
 } from "@cartulary/protocol-ts";
-import type { ViewContract } from "@cartulary/view-contracts";
-import { buildQueryRequest } from "../../models/workbookQuery";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
+import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
+import { buildQueryRequest } from "../models/workbookQuery";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
-} from "../../mutations/workbookOperationOutcome";
-import {
-  normalizeTimelineFullRow,
-  rowFromApi,
-  validateTimelineViewSchemaId,
-} from "../models/workbookTimelineModel";
+} from "../mutations/workbookOperationOutcome";
 import type {
-  TimelineViewQueryPort,
-  TimelineViewQueryResult,
-} from "../ports/TimelineViewQueryPort";
+  WorkbookViewQueryPort,
+  WorkbookViewQueryResult,
+} from "../query/WorkbookViewQueryPort";
+import { createWorkbookOperationExecutor } from "./workbookOperationExecutor";
 
-const invalidTimelineProjection: WorkbookOperationFailure = {
+const invalidProjectionFailure: WorkbookOperationFailure = {
   kind: "invalid_contract",
-  message: "Timeline projection load failed.",
+  message: "Workbook view load failed.",
 };
 
-function invalidProjection(): TimelineViewQueryResult {
-  return { kind: "rejected", failure: invalidTimelineProjection };
+function invalidProjection(): WorkbookViewQueryResult {
+  return { kind: "rejected", failure: invalidProjectionFailure };
 }
 
-export function createTimelineViewQueryAdapter(options: {
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
+}
+
+export function createWorkbookViewQueryAdapter(options: {
   readonly apiBase: string | undefined;
   readonly incidentId: string;
-  readonly timelineContract: ViewContract;
-}): TimelineViewQueryPort {
+}): WorkbookViewQueryPort {
   const operations = createWorkbookOperationExecutor({
     apiBase: options.apiBase,
   });
   return {
     async query(input) {
+      const viewSchemaId = input.contract.viewSchemaId;
       let outcome: WorkbookOperationOutcome<QueryWorkbookViewResponse>;
       try {
         outcome = await operations.execute({
           operationID: "queryWorkbookView",
           pathParameters: {
             incident_id: options.incidentId,
-            view_schema_id: timelineViewSchemaId,
+            view_schema_id: viewSchemaId,
           },
           request: buildQueryRequest(
-            options.timelineContract,
+            input.contract,
             input.queryState,
           ) as QueryWorkbookViewRequest,
           signal: input.signal,
         });
       } catch (error) {
-        if (
-          input.signal.aborted ||
-          (error instanceof DOMException && error.name === "AbortError")
-        ) {
+        if (input.signal.aborted || isAbortError(error)) {
           return { kind: "aborted" };
         }
         return {
           kind: "rejected",
           failure: {
             kind: "retryable",
-            message: "Timeline projection load failed.",
+            message: "Workbook view load failed.",
           },
         };
       }
@@ -75,23 +72,19 @@ export function createTimelineViewQueryAdapter(options: {
       }
       if (
         outcome.value.data.incident_id !== options.incidentId ||
-        outcome.value.data.view_schema_id !== timelineViewSchemaId
+        outcome.value.data.view_schema_id !== viewSchemaId
       ) {
         return invalidProjection();
       }
       try {
-        validateTimelineViewSchemaId(
-          outcome.value.data.view_schema_id,
-          "query response",
-        );
         return {
           kind: "accepted",
           value: {
             incidentId: outcome.value.data.incident_id,
-            rows: outcome.value.data.rows.map((row, index) =>
-              rowFromApi(
-                normalizeTimelineFullRow(row, `query response rows[${index}]`),
-              ),
+            rows: normalizeWorkbookViewRows(
+              input.contract,
+              outcome.value.data.rows,
+              `${viewSchemaId} query response`,
             ),
             viewSchemaId: outcome.value.data.view_schema_id,
           },

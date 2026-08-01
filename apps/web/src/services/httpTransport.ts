@@ -1,6 +1,6 @@
 import type { Decoder } from "@cartulary/protocol-ts";
 
-export const csrfCookieName = "cartulary_csrf";
+const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 
 export type HTTPTransportError = {

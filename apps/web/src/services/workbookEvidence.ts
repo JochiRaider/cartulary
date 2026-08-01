@@ -3,13 +3,8 @@ import type {
   ObjectBlobCreateEnvelope,
   ObjectBlobCreateRequest,
 } from "@cartulary/protocol-ts";
-import {
-  buildHTTPOperationPath,
-  validateHTTPOperationResponse,
-} from "@cartulary/protocol-ts";
 import { publicErrorStatusText } from "../shared/publicError";
-import { apiPath } from "./browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "./workbookApi";
+import { apiPath, fetchHTTPOperation } from "./browserApi";
 
 export type EvidenceUploadOutcome =
   | { readonly kind: "accepted" }
@@ -106,25 +101,21 @@ export async function createUploadedEvidenceObjectBlob({
     filename_hint: file.name || null,
     content_type_hint: file.type || null,
   } satisfies ObjectBlobCreateRequest;
-  const createBlob = await fetchWorkbookJSON<ObjectBlobCreateEnvelope>(
-    apiPath(apiBase, buildHTTPOperationPath("createObjectBlobSlot")),
-    {
+  const createBlob = await fetchHTTPOperation<ObjectBlobCreateEnvelope>({
+    apiBase,
+    operationID: "createObjectBlobSlot",
+    init: {
       method: "POST",
       body: JSON.stringify(createBlobRequest),
     },
-  );
+  });
   if (!createBlob.ok) {
     throw new Error(evidencePublicErrorMessage(createBlob.payload));
   }
-  if (
-    !validateHTTPOperationResponse("createObjectBlobSlot", createBlob.payload)
-      .ok
-  ) {
+  const blobEnvelope = createBlob.payload;
+  if (!createdBlobMatchesRequest(blobEnvelope, createBlobRequest)) {
     throw new Error("invalid_public_contract_response");
   }
-  const blobEnvelope = readEnvelope<ObjectBlobCreateEnvelope>(
-    createBlob.payload,
-  );
   const upload = await uploadEvidenceObjectBlobTarget(
     apiBase,
     blobEnvelope.data.upload_target,
@@ -134,6 +125,20 @@ export async function createUploadedEvidenceObjectBlob({
     throw new Error(upload.message);
   }
   return blobEnvelope.data.object_blob_id;
+}
+
+function createdBlobMatchesRequest(
+  envelope: ObjectBlobCreateEnvelope,
+  request: ObjectBlobCreateRequest,
+): boolean {
+  const accepted = envelope.data.accepted_contract;
+  return (
+    envelope.data.incident_id === request.incident_id &&
+    accepted.incident_id === request.incident_id &&
+    accepted.byte_size === request.byte_size &&
+    accepted.filename_hint === request.filename_hint &&
+    accepted.content_type_hint === request.content_type_hint
+  );
 }
 
 function sleep(milliseconds: number): Promise<void> {

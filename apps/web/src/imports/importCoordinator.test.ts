@@ -239,6 +239,30 @@ describe("extension import coordinator stages", () => {
     expect(callFor(fetchMock, "/select")).toBeUndefined();
     expect(callFor(fetchMock, "/apply")).toBeUndefined();
   });
+
+  it("sanitizes unsafe import transport errors through the shared public error view", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          error: {
+            message: "stack trace at /home/service/import.go",
+            status: 500,
+          },
+        },
+        500,
+      ),
+    );
+
+    await expect(
+      uploadAndDiscoverWorkbookImport({
+        availability,
+        incidentId,
+        file: csvFile(),
+        transactionPrefix: "unsafe-error",
+      }),
+    ).rejects.toThrow("Request failed.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 function installHappyPath(

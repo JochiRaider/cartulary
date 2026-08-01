@@ -9,13 +9,13 @@ import {
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
 
-export type TimelineScalarEditorIdentity = {
+type TimelineScalarEditorIdentity = {
   readonly field: keyof RowValues;
   readonly rowKey: string;
   readonly surface: TimelineScalarEditorSurface;
 };
 
-export type TimelineInputIdentity = {
+type TimelineInputIdentity = {
   readonly field: FocusFieldKey;
   readonly rowKey: string;
   readonly surface: TimelineScalarEditorSurface;

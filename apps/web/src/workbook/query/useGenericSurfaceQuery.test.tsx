@@ -13,6 +13,7 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import {
   findingsViewSchemaId,
@@ -23,6 +24,14 @@ import type { WorkbookQueryRow } from "./WorkbookQueryRow";
 
 const findingsContract = requireViewContract(findingsViewSchemaId);
 const notesContract = requireViewContract(notesViewSchemaId);
+const incidentId = "00000000-0000-4000-8000-000000000001";
+const noteCurrentId = "00000000-0000-4000-8000-000000000101";
+const noteObsoleteId = "00000000-0000-4000-8000-000000000102";
+const findingCurrentId = "00000000-0000-4000-8000-000000000103";
+const viewQuery = createWorkbookViewQueryAdapter({
+  apiBase: undefined,
+  incidentId,
+});
 
 function noteRow(recordId: string, rowVersion: number, body: string) {
   return fullWorkbookViewRow(notesContract, recordId, rowVersion, {
@@ -37,12 +46,24 @@ function findingRow(recordId: string, rowVersion: number) {
   });
 }
 
+function withoutLocalViewSchema(row: unknown): unknown {
+  const { view_schema_id: _viewSchemaId, ...wireRow } = row as Record<
+    string,
+    unknown
+  >;
+  return wireRow;
+}
+
 function queryResponse(viewSchemaId: string, rows: readonly unknown[]) {
   return jsonResponse({
     data: {
-      incident_id: "incident-1",
+      incident_id: incidentId,
       view_schema_id: viewSchemaId,
-      rows,
+      rows: rows.map(withoutLocalViewSchema),
+    },
+    meta: {
+      query: { filters: [], sort: [] },
+      request_id: "req-query",
     },
   });
 }
@@ -58,11 +79,10 @@ function GenericQueryHarness({
 }) {
   const query = useGenericSurfaceQuery({
     active,
-    apiBase: undefined,
     contract: requireViewContract(viewSchemaId),
-    incidentId: "incident-1",
     onIncidentAccessLost,
     queryState: emptyWorkbookQueryState(),
+    viewQuery,
     viewSchemaId,
   });
   return (
@@ -73,7 +93,7 @@ function GenericQueryHarness({
       <button
         onClick={() =>
           query.applyRecordChanged({
-            record_id: "note-current",
+            record_id: noteCurrentId,
             row_version: 2,
             change_set_id: "change-1",
             client_txn_id: "txn-1",
@@ -84,7 +104,7 @@ function GenericQueryHarness({
                 view_schema_id: notesViewSchemaId,
                 change_kind: "patch",
                 patch_cells: {
-                  record_id: "note-current",
+                  record_id: noteCurrentId,
                   row_version: 2,
                   cells: {
                     "note.body": { value: "Patched note" },
@@ -132,7 +152,7 @@ describe("useGenericSurfaceQuery", () => {
 
   it("normalizes Notes rows and applies a newer sparse live patch", async () => {
     const { view_schema_id: _ignored, ...rawNote } = noteRow(
-      "note-current",
+      noteCurrentId,
       1,
       "Current note",
     );
@@ -154,7 +174,7 @@ describe("useGenericSurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "patch" }));
     await waitFor(() =>
       expect(screen.getByLabelText("generic-rows").textContent).toBe(
-        "note-current:Patched note",
+        `${noteCurrentId}:Patched note`,
       ),
     );
   });
@@ -178,7 +198,7 @@ describe("useGenericSurfaceQuery", () => {
           ? findingsViewSchemaId
           : notesViewSchemaId;
         return Promise.resolve(
-          queryResponse(viewSchemaId, [findingRow("finding-current", 2)]),
+          queryResponse(viewSchemaId, [findingRow(findingCurrentId, 2)]),
         );
       }),
     );
@@ -192,19 +212,19 @@ describe("useGenericSurfaceQuery", () => {
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
     await waitFor(() =>
       expect(screen.getByLabelText("generic-rows").textContent).toContain(
-        "finding-current",
+        findingCurrentId,
       ),
     );
     expect(staleSignal?.aborted).toBe(true);
     staleNotes.resolve(
       queryResponse(notesViewSchemaId, [
-        noteRow("note-obsolete", 1, "Obsolete note"),
+        noteRow(noteObsoleteId, 1, "Obsolete note"),
       ]),
     );
     await Promise.resolve();
     await Promise.resolve();
     expect(screen.getByLabelText("generic-rows").textContent).toContain(
-      "finding-current",
+      findingCurrentId,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "refresh" }));
@@ -214,7 +234,7 @@ describe("useGenericSurfaceQuery", () => {
       ),
     );
     expect(screen.getByLabelText("generic-rows").textContent).toContain(
-      "finding-current",
+      findingCurrentId,
     );
   });
 
@@ -233,7 +253,7 @@ describe("useGenericSurfaceQuery", () => {
       }
       return Promise.resolve(
         queryResponse(notesViewSchemaId, [
-          noteRow("note-current", 1, "Current note"),
+          noteRow(noteCurrentId, 1, "Current note"),
         ]),
       );
     });

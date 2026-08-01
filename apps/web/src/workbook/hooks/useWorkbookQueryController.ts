@@ -32,9 +32,7 @@ import {
   type WorkbookQueryStateSetter,
 } from "../view-state/useWorkbookQueryState";
 
-export type { WorkbookQueryStateSetter };
-
-export type WorkbookActiveQueryControls = {
+type WorkbookActiveQueryControls = {
   readonly contract: ViewContract;
   readonly filterDraft: FilterDraft;
   readonly onApplyFilter: (draft: FilterDraft) => void;

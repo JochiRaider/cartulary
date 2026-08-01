@@ -30,6 +30,31 @@
       "status": "active"
     },
     {
+      "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
+      "owner_id": "web.networkflow",
+      "family_id": "web.networkflow.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.networkflow.verification.extension_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+        "titles": [
+          "Network Flow client transport boundary fails before transport when the discovered Network Flow route is no longer claimed",
+          "Network Flow client transport boundary keeps malformed success responses behind the generated decoder",
+          "Network Flow client transport boundary uses the owner-neutral browser transport for decoding, cancellation, and CSRF"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "fixture_profile_id": "none",
+      "default_check": true,
+      "claim_posture": "implementation",
+      "status": "active"
+    },
+    {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.regression",

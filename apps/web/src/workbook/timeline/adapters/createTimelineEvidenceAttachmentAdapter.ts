@@ -7,11 +7,11 @@ import {
   createUploadedEvidenceObjectBlob,
   evidenceAttachPublicErrorMessage,
 } from "../../../services/workbookEvidence";
+import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
 } from "../../models/workbookSurfaceRegistry";
-import { createWorkbookOperationExecutor } from "../../mutations/workbookOperationExecutor";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import {
   buildAttachedEvidenceCreatePayload,

@@ -42,6 +42,12 @@ import type {
   WorkbookIncidentRole,
   WorkbookIncidentSnapshot,
 } from "../shared/workbookShellContracts";
+import { createWorkbookIncidentAdapter } from "./adapters/createWorkbookIncidentAdapter";
+import { createWorkbookPendingMutationAdapter } from "./adapters/createWorkbookPendingMutationAdapter";
+import { createWorkbookPreferenceAdapter } from "./adapters/createWorkbookPreferenceAdapter";
+import { createWorkbookSavedViewAdapter } from "./adapters/createWorkbookSavedViewAdapter";
+import { createWorkbookStartupAdapter } from "./adapters/createWorkbookStartupAdapter";
+import { createWorkbookViewQueryAdapter } from "./adapters/createWorkbookViewQueryAdapter";
 import { useWorkbookCollaborationCoordinatorSession } from "./collaboration/useWorkbookCollaborationCoordinator";
 import { WorkbookCollaborationCoordinator } from "./collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookActiveSurfacePort } from "./collaboration/workbookSurfacePort";
@@ -115,6 +121,14 @@ export type {
 };
 
 type IncidentRole = WorkbookIncidentRole;
+
+function recordWorkbookPendingMutationTiming(
+  name: string,
+  details: Readonly<Record<string, unknown>> = {},
+) {
+  if (typeof performance === "undefined") return;
+  performance.mark(`cartulary.workbook.${name}`, { detail: details });
+}
 
 type WorkbookShellProps = {
   authorizationRecovery: AuthorizationRecoveryPort;
@@ -204,6 +218,15 @@ function WorkbookShellContent({
     setExtensionAvailabilityRevision((current) => current + 1);
   }, []);
   const transactionIds = useMemo(createBrowserSecureTransactionIdPort, []);
+  const pendingMutationPort = useMemo(
+    () =>
+      createWorkbookPendingMutationAdapter({
+        apiBase,
+        incidentId,
+        recordTiming: recordWorkbookPendingMutationTiming,
+      }),
+    [apiBase, incidentId],
+  );
   const mutationRuntime = useMemo(
     () =>
       new WorkbookMutationRuntime(
@@ -212,8 +235,14 @@ function WorkbookShellContent({
           incidentId,
         },
         transactionIds,
+        pendingMutationPort,
       ),
-    [collaborationSession.clientInstanceId, incidentId, transactionIds],
+    [
+      collaborationSession.clientInstanceId,
+      incidentId,
+      pendingMutationPort,
+      transactionIds,
+    ],
   );
   const mutationCommands = useMemo(
     () =>
@@ -226,13 +255,31 @@ function WorkbookShellContent({
   );
   const mutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
   const surfaceSelectionVersionRef = useRef(0);
+  const incidentPort = useMemo(
+    () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
+  const preferencePort = useMemo(
+    () => createWorkbookPreferenceAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
+  const startupPort = useMemo(
+    () => createWorkbookStartupAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
+  const savedViewPort = useMemo(
+    () => createWorkbookSavedViewAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
   const workbookRuntime = useWorkbookShellRuntime({
-    apiBase,
     incidentId,
     onIncidentAccessLost,
     surfaceSelectionVersionRef,
     extensionAvailability,
     onExtensionAvailabilityChange: handleExtensionAvailabilityChange,
+    preferencePort,
+    savedViewPort,
+    startupPort,
   });
   const {
     activeContract,
@@ -279,14 +326,17 @@ function WorkbookShellContent({
   const [currentIncidentRole, setCurrentIncidentRole] =
     useState<IncidentRole | null>(null);
   const authorizationGeneration = `${currentUserId ?? "anonymous"}:${currentIncidentRole ?? "none"}`;
+  const viewQuery = useMemo(
+    () => createWorkbookViewQueryAdapter({ apiBase, incidentId }),
+    [apiBase, incidentId],
+  );
   const referenceQueryBroker = useMemo<ReferenceQueryBrokerPort>(
     () =>
       createReferenceQueryBroker({
-        apiBase,
         authorizationGeneration,
-        incidentId,
+        viewQuery,
       }),
-    [apiBase, authorizationGeneration, incidentId],
+    [authorizationGeneration, viewQuery],
   );
   useEffect(
     () => () => {
@@ -296,7 +346,7 @@ function WorkbookShellContent({
   );
   const { incidentIdentity, incidentIdentityError } =
     useWorkbookIncidentIdentity({
-      apiBase,
+      incidentPort,
       incidentId,
       initialIncidentIdentity,
       onIncidentAccessLost,
@@ -328,11 +378,10 @@ function WorkbookShellContent({
     rows: genericRows,
   } = useGenericSurfaceQuery({
     active: genericSurfaceActive,
-    apiBase,
     contract: activeContract,
-    incidentId,
     onIncidentAccessLost,
     queryState: genericQueryState,
+    viewQuery,
     viewSchemaId: surface,
   });
   const {
@@ -343,10 +392,9 @@ function WorkbookShellContent({
     rows: assessmentRows,
   } = useAssessmentSurfaceQuery({
     active: surface === assessmentsViewSchemaId,
-    apiBase,
-    incidentId,
     onIncidentAccessLost,
     queryState: assessmentQueryState,
+    viewQuery,
   });
   const {
     applyRecordChanged: applyEntityRecordChanged,
@@ -357,11 +405,10 @@ function WorkbookShellContent({
     loadState: entityLoadState,
     refresh: loadEntities,
   } = useEntitySurfaceQuery({
-    apiBase,
     hostQueryState,
     identityQueryState,
-    incidentId,
     onIncidentAccessLost,
+    viewQuery,
   });
   const [evidenceInvalidationGeneration, setEvidenceInvalidationGeneration] =
     useState(0);
@@ -962,6 +1009,7 @@ function WorkbookShellContent({
                   apiBase,
                   currentIncidentRole,
                   currentUserId,
+                  incidentPort,
                   incidentId,
                   onIncidentAccessLost,
                 }}
@@ -969,6 +1017,7 @@ function WorkbookShellContent({
                 layout={workbookLayout.surface}
                 mutations={{
                   commands: mutationCommands,
+                  pending: pendingMutationPort,
                   runtime: mutationRuntime,
                 }}
                 queries={{
@@ -1002,6 +1051,7 @@ function WorkbookShellContent({
                     state: genericQueryState,
                   },
                   referenceBroker: referenceQueryBroker,
+                  viewQuery,
                   timeline: {
                     setState: setTimelineQueryState,
                     state: timelineQueryState,

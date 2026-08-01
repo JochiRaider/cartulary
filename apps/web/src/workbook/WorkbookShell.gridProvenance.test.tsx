@@ -296,10 +296,21 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         url.endsWith("/api/v1/incidents/10000000-0000-4000-8000-000000000001")
       ) {
         return successEnvelope({
+          closed_at: null,
+          created_at: "2026-07-31T20:00:00Z",
+          created_by_user_id: "40000000-0000-4000-8000-000000000301",
           incident_id: "10000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
+          description: null,
+          severity: null,
+          tlp: null,
+          current_phase: null,
+          primary_external_case_ref: null,
           incident_version: 1,
+          status: "active",
+          updated_at: "2026-07-31T20:00:00Z",
+          updated_by_user_id: "40000000-0000-4000-8000-000000000301",
         });
       }
       if (
@@ -355,6 +366,7 @@ describe("Hosts, Identities, Notes grid provenance integration", () => {
         return viewRowsEnvelopeForView(
           decodeURIComponent(queryMatch[1] ?? ""),
           rowsByView,
+          "10000000-0000-4000-8000-000000000001",
         );
       }
       const createMatch = url.match(

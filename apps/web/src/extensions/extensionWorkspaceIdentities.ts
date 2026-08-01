@@ -1,6 +1,8 @@
 import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 
 export const networkFlowActivityProfileId = "network_flow_activity";
+export const networkFlowRouteFamily =
+  "/api/v1/incidents/{incident_id}/network-flow";
 export const networkAnalysisWorkspaceKey = "network_analysis";
 export const importProfileId = "import";
 export const importRouteFamily = "/api/v1/import-sessions";

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { createReferenceQueryBroker } from "./referenceQueryBroker";
+
+const incidentOne = "00000000-0000-4000-8000-000000000001";
+const incidentTwo = "00000000-0000-4000-8000-000000000002";
 
 const requirement = {
   requirementId: "parties",
@@ -20,13 +24,15 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function queryResponse(): Response {
+function queryResponse(incidentId = incidentOne): Response {
   return new Response(
     JSON.stringify({
       data: {
+        incident_id: incidentId,
         view_schema_id: requirement.viewSchemaId,
         rows: [],
       },
+      meta: { query: { filters: [], sort: [] }, request_id: "request-1" },
     }),
     {
       status: 200,
@@ -44,7 +50,10 @@ function brokerContext(
   return {
     authorizationGeneration:
       overrides.authorizationGeneration ?? "authorization-1",
-    incidentId: overrides.incidentId ?? "incident-1",
+    viewQuery: createWorkbookViewQueryAdapter({
+      apiBase: undefined,
+      incidentId: overrides.incidentId ?? incidentOne,
+    }),
   };
 }
 
@@ -97,13 +106,17 @@ describe("ReferenceQueryBroker", () => {
   });
 
   it("binds incident and authorization generation at construction", async () => {
-    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
-      Promise.resolve(queryResponse()),
+    const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(
+        queryResponse(
+          String(input).includes(incidentTwo) ? incidentTwo : incidentOne,
+        ),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     const first = createReferenceQueryBroker(brokerContext());
     const incidentSwitch = createReferenceQueryBroker(
-      brokerContext({ incidentId: "incident-2" }),
+      brokerContext({ incidentId: incidentTwo }),
     );
     const authorizationChange = createReferenceQueryBroker(
       brokerContext({ authorizationGeneration: "authorization-2" }),
@@ -118,10 +131,10 @@ describe("ReferenceQueryBroker", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "/incidents/incident-1/",
+      `/incidents/${incidentOne}/`,
     );
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/incidents/incident-2/",
+      `/incidents/${incidentTwo}/`,
     );
     first.dispose();
     incidentSwitch.dispose();

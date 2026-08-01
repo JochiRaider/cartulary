@@ -1,7 +1,15 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
+import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
+import {
+  abortLatestQuery,
+  beginLatestQuery,
+  type LatestQueryRuntime,
+} from "../../query/workbookLatestRequest";
 import type {
   WorkbookPendingQueueRuntime,
   WorkbookPendingRefreshBlockScope,
@@ -23,9 +31,10 @@ import { decideWorkbookRecordFreshness } from "../models/workbookRecordFreshness
 import {
   createDraftRow,
   inputFocusKey,
+  normalizeTimelineFullRow,
+  rowFromApi,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type { TimelineViewQueryPort } from "../ports/TimelineViewQueryPort";
 
 export type LoadRowsOptions = {
   afterProjectionCommit?: () => void;
@@ -36,6 +45,7 @@ export type LoadRowsOptions = {
 };
 
 const maxTimelineFreshnessRetryDepth = 2;
+const timelineContract = requireViewContract(timelineViewSchemaId);
 
 export function useTimelineRowsLoader({
   acceptCommittedTimelineRows,
@@ -67,7 +77,7 @@ export function useTimelineRowsLoader({
   setLoadError,
   setRefreshError,
   setRows,
-  timelineViewQuery,
+  viewQuery,
 }: {
   readonly acceptCommittedTimelineRows: (rows: readonly WorkbookRow[]) => void;
   readonly advanceViewportContinuity: (
@@ -125,14 +135,16 @@ export function useTimelineRowsLoader({
   readonly setLoadError: (message: string | null) => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: Dispatch<SetStateAction<WorkbookRow[]>>;
-  readonly timelineViewQuery: TimelineViewQueryPort;
+  readonly viewQuery: WorkbookViewQueryPort;
 }) {
-  const activeQueryRef = useRef<AbortController | null>(null);
+  const queryRuntimeRef = useRef<LatestQueryRuntime>({
+    controller: null,
+    sequence: 0,
+  });
 
   useEffect(
     () => () => {
-      activeQueryRef.current?.abort();
-      activeQueryRef.current = null;
+      abortLatestQuery(queryRuntimeRef);
     },
     [],
   );
@@ -277,18 +289,14 @@ export function useTimelineRowsLoader({
         setLoadError(null);
       }
 
-      activeQueryRef.current?.abort();
-      const queryAbort = new AbortController();
-      activeQueryRef.current = queryAbort;
-      const result = await timelineViewQuery.query({
+      const request = beginLatestQuery(queryRuntimeRef);
+      const result = await viewQuery.query({
+        contract: timelineContract,
         queryState,
-        signal: queryAbort.signal,
+        signal: request.signal,
       });
-      if (activeQueryRef.current === queryAbort) {
-        activeQueryRef.current = null;
-      }
 
-      if (!isCurrentLoadSequence(requestSequence)) {
+      if (!request.isCurrent() || !isCurrentLoadSequence(requestSequence)) {
         if (settleProjectionObligationsFromCurrentRows(options)) {
           return;
         }
@@ -344,7 +352,28 @@ export function useTimelineRowsLoader({
         return;
       }
 
-      const incomingRows = [...result.value.rows];
+      let incomingRows: WorkbookRow[];
+      try {
+        incomingRows = result.value.rows.map((row, index) =>
+          rowFromApi(
+            normalizeTimelineFullRow(row, `query response rows[${index}]`),
+          ),
+        );
+      } catch {
+        setIsRefreshing(false);
+        if (options.viewportContinuityToken !== undefined) {
+          failViewportContinuity(options.viewportContinuityToken);
+        }
+        const message = "Timeline projection load failed.";
+        if (hasLoadedRows()) {
+          setRefreshError(message);
+        } else {
+          setLoadAccessLost(false);
+          setLoadError(message);
+          setIsInitialLoading(false);
+        }
+        return;
+      }
       setLoadAccessLost(false);
       const incomingFreshness = freshTimelineRowsForQueryResult(
         incomingRows,
@@ -457,7 +486,7 @@ export function useTimelineRowsLoader({
       setLoadError,
       setRefreshError,
       setRows,
-      timelineViewQuery,
+      viewQuery,
     ],
   );
 

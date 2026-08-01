@@ -3,59 +3,41 @@ import {
   type ViewContract,
 } from "@cartulary/view-contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import {
-  abortLatestQuery,
-  beginLatestQuery,
-  fetchWorkbookJSON,
-  handleWorkbookLoadFailure,
-  isAbortError,
-  type LatestQueryRuntime,
-  parseErrorMessage,
-  readEnvelope,
-  workbookLoadFailureIsAccessLoss,
-} from "../../services/workbookApi";
 import type { RecordChangedPayload } from "../collaboration/workbookCollaborationMessages";
 import type { WorkbookSurfaceRecordChangeResult } from "../collaboration/workbookSurfacePort";
 import type { WorkbookQueryInvalidationReason } from "../lifecycle/workbookInvalidation";
-import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import {
   initialWorkbookQueryLoadState,
   type WorkbookQueryLoadState,
 } from "../models/workbookGridState";
-import {
-  buildQueryRequest,
-  type WorkbookQueryState,
-} from "../models/workbookQuery";
-import { notesViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookQueryRow } from "./WorkbookQueryRow";
+import {
+  type WorkbookViewQueryPort,
+  workbookViewQueryFailureIsAccessLoss,
+} from "./WorkbookViewQueryPort";
+import {
+  abortLatestQuery,
+  beginLatestQuery,
+  type LatestQueryRuntime,
+} from "./workbookLatestRequest";
 import { applyWorkbookQueryRowPatch } from "./workbookQueryRowPatch";
-
-type ViewQueryEnvelope = {
-  data: {
-    incident_id: string;
-    view_schema_id: string;
-    rows: WorkbookQueryRow[];
-  };
-};
 
 export type GenericSurfaceQueryInput = {
   readonly active: boolean;
-  readonly apiBase: string | undefined;
   readonly contract: ViewContract;
-  readonly incidentId: string;
   readonly onIncidentAccessLost: (() => void) | undefined;
   readonly queryState: WorkbookQueryState;
+  readonly viewQuery: WorkbookViewQueryPort;
   readonly viewSchemaId: string;
 };
 
 export function useGenericSurfaceQuery({
   active,
-  apiBase,
   contract,
-  incidentId,
   onIncidentAccessLost,
   queryState,
+  viewQuery,
   viewSchemaId,
 }: GenericSurfaceQueryInput) {
   const [rows, setRows] = useState<WorkbookQueryRow[]>([]);
@@ -96,52 +78,18 @@ export function useGenericSurfaceQuery({
         ? { kind: "refreshing" }
         : initialWorkbookQueryLoadState,
     );
-    try {
-      const result = await fetchWorkbookJSON<ViewQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${requestedViewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          signal: request.signal,
-          body: JSON.stringify(buildQueryRequest(contract, queryState)),
-        },
-      );
-      if (!request.isCurrent()) {
-        return;
-      }
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const envelope = readEnvelope<ViewQueryEnvelope>(result.payload);
-      if (envelope.data.view_schema_id !== requestedViewSchemaId) {
-        throw new Error(
-          `Surface load returned ${envelope.data.view_schema_id} for ${requestedViewSchemaId}.`,
-        );
-      }
-      const nextRows =
-        requestedViewSchemaId === notesViewSchemaId
-          ? normalizeWorkbookViewRows(
-              contract,
-              envelope.data.rows,
-              `${requestedViewSchemaId} query response`,
-            )
-          : envelope.data.rows;
-      rowsRef.current = nextRows;
-      setRows(nextRows);
-      acceptedRowCountRef.current = nextRows.length;
-      setLoadState({ kind: "ready" });
-    } catch (error) {
-      if (!request.isCurrent() || isAbortError(error)) {
-        return;
-      }
-      const message = handleWorkbookLoadFailure(
-        error,
-        "Surface load failed.",
-        onIncidentAccessLost,
-      );
-      if (workbookLoadFailureIsAccessLoss(message)) {
+    const result = await viewQuery.query({
+      contract,
+      queryState,
+      signal: request.signal,
+    });
+    if (!request.isCurrent() || result.kind === "aborted") {
+      return;
+    }
+    if (result.kind === "rejected") {
+      const message = result.failure.message;
+      if (workbookViewQueryFailureIsAccessLoss(result.failure)) {
+        onIncidentAccessLost?.();
         clearRows();
         setLoadState({ kind: "permission_denied", message });
       } else if (acceptedRowCountRef.current > 0) {
@@ -149,15 +97,20 @@ export function useGenericSurfaceQuery({
       } else {
         setLoadState({ kind: "unavailable", message });
       }
+      return;
     }
+    const nextRows = [...result.value.rows];
+    rowsRef.current = nextRows;
+    setRows(nextRows);
+    acceptedRowCountRef.current = nextRows.length;
+    setLoadState({ kind: "ready" });
   }, [
     active,
-    apiBase,
     clearRows,
     contract,
-    incidentId,
     onIncidentAccessLost,
     queryState,
+    viewQuery,
     viewSchemaId,
   ]);
 

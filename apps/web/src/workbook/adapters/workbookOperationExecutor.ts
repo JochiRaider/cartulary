@@ -9,30 +9,36 @@ import {
   httpOperationBindings,
 } from "@cartulary/protocol-ts";
 import { fetchHTTPOperation, publicErrorView } from "../../services/browserApi";
-import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationFieldFailure,
   WorkbookOperationOutcome,
-} from "./workbookOperationOutcome";
+} from "../mutations/workbookOperationOutcome";
+import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 
-export const workbookOperationIDs = [
+const workbookOperationIDs = [
   "applyWorkbookBulkMutation",
   "attachBlobToEvidenceRecord",
+  "createIncidentSavedView",
   "createObjectBlobSlot",
   "createRecordLinkedNote",
   "createViewRow",
+  "deleteIncidentSavedView",
   "deleteRecord",
   "getCurrentUserWorkbookPreferences",
+  "getIncident",
   "getIncidentDefaultWorkbookPreferences",
   "getIncidentWorkbookStartup",
   "getRecordHistory",
   "getTimelineTimeConversionProfile",
   "issueEvidenceDownloadHandle",
   "issueEvidencePreviewHandle",
+  "listIncidentMemberships",
+  "listIncidentSavedViews",
   "markTimelineRecordReviewed",
   "mergeEntityRecord",
   "pasteWorkbookClipboard",
+  "patchIncidentSavedView",
   "patchRecord",
   "putCurrentUserWorkbookPreferences",
   "putIncidentDefaultWorkbookPreferences",

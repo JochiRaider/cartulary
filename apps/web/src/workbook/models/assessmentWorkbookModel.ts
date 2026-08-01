@@ -31,7 +31,7 @@ export function isAssessmentConfidenceBand(
   );
 }
 
-export function isAssessmentSubjectType(
+function isAssessmentSubjectType(
   value: string,
 ): value is AssessmentSubjectType {
   return value === "host" || value === "identity";

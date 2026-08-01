@@ -136,6 +136,8 @@ function WorkbookShell(
 
 const savedViewId = "11111111-1111-4111-8111-111111111111";
 const savedViewCopyId = "33333333-3333-4333-8333-333333333333";
+const testUserId = "99999999-9999-4999-8999-999999999999";
+const testTimestamp = "2026-07-31T20:00:00Z";
 const testAccountMenuTriggerTestId = "test-account-menu-trigger";
 
 function TestAccountApplicationMenu({
@@ -276,7 +278,9 @@ async function openTimelineInspectorFromContext(recordId: string) {
 }
 
 type TestSavedViewResource = {
+  created_at: string;
   saved_view_id: string;
+  incident_id: string;
   view_schema_id: string;
   display_name: string;
   scope: "private" | "shared" | "system";
@@ -284,6 +288,7 @@ type TestSavedViewResource = {
   layout_json: unknown;
   owner_user_id: string | null;
   saved_view_version: number;
+  updated_at: string;
 };
 
 function testSavedViewResource(
@@ -291,12 +296,20 @@ function testSavedViewResource(
     Pick<TestSavedViewResource, "saved_view_id" | "view_schema_id">,
 ): TestSavedViewResource {
   return {
+    created_at: testTimestamp,
     display_name: "Saved view",
-    layout_json: {},
-    owner_user_id: "user-1",
-    query_json: {},
+    incident_id: "10000000-0000-4000-8000-000000000001",
+    layout_json: {
+      column_order: [],
+      column_widths: [],
+      hidden_field_keys: [],
+      layout_schema_id: "cartulary.layout.v1",
+    },
+    owner_user_id: testUserId,
+    query_json: { filters: [], sort: [] },
     saved_view_version: 1,
     scope: "private",
+    updated_at: testTimestamp,
     ...overrides,
   };
 }
@@ -497,7 +510,7 @@ describe("WorkbookShell surface selection", () => {
       const method = (init?.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/auth/session")) {
         return successEnvelope({
-          user_id: "user-1",
+          user_id: testUserId,
           memberships: [
             {
               incident_id: "10000000-0000-4000-8000-000000000001",
@@ -510,7 +523,11 @@ describe("WorkbookShell surface selection", () => {
         url.endsWith("/api/v1/incidents/10000000-0000-4000-8000-000000000001")
       ) {
         return successEnvelope({
-          incident_id: "00000000-0000-4000-8000-000000000001",
+          closed_at:
+            currentScenario.incidentStatus === "closed" ? testTimestamp : null,
+          created_at: testTimestamp,
+          created_by_user_id: testUserId,
+          incident_id: "10000000-0000-4000-8000-000000000001",
           incident_key: "IR-1",
           title: "Incident 1",
           description: null,
@@ -520,6 +537,8 @@ describe("WorkbookShell surface selection", () => {
           primary_external_case_ref: null,
           incident_version: 1,
           status: currentScenario.incidentStatus,
+          updated_at: testTimestamp,
+          updated_by_user_id: testUserId,
         });
       }
       if (
@@ -531,10 +550,14 @@ describe("WorkbookShell surface selection", () => {
           memberships: [
             {
               incident_id: "10000000-0000-4000-8000-000000000001",
-              user_id: "user-1",
+              user_id: testUserId,
               display_name: "Admin User",
+              added_by_user_id: testUserId,
+              joined_at: testTimestamp,
               role: "admin",
               membership_version: 1,
+              updated_at: testTimestamp,
+              updated_by_user_id: testUserId,
             },
           ],
         });
@@ -544,8 +567,18 @@ describe("WorkbookShell surface selection", () => {
           "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-preferences/default",
         )
       ) {
+        const request = JSON.parse(String(init?.body ?? "{}")) as {
+          default_sheet_ref?: SurfaceTestScenario["workbookDefaultSheetRef"];
+        };
+        if (method === "PUT" && request.default_sheet_ref !== undefined) {
+          currentScenario.workbookDefaultSheetRef = request.default_sheet_ref;
+        }
         return successEnvelope({
           default_sheet_ref: currentScenario.workbookDefaultSheetRef,
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          created_at: testTimestamp,
+          updated_at: testTimestamp,
+          updated_by_user_id: testUserId,
         });
       }
       if (
@@ -553,8 +586,18 @@ describe("WorkbookShell surface selection", () => {
           "/api/v1/incidents/10000000-0000-4000-8000-000000000001/workbook-preferences/me",
         )
       ) {
+        const request = JSON.parse(String(init?.body ?? "{}")) as {
+          home_sheet_ref?: SurfaceTestScenario["workbookHomeSheetRef"];
+        };
+        if (method === "PUT" && request.home_sheet_ref !== undefined) {
+          currentScenario.workbookHomeSheetRef = request.home_sheet_ref;
+        }
         return successEnvelope({
           home_sheet_ref: currentScenario.workbookHomeSheetRef,
+          incident_id: "10000000-0000-4000-8000-000000000001",
+          created_at: testTimestamp,
+          updated_at: testTimestamp,
+          user_id: testUserId,
         });
       }
       if (
@@ -644,7 +687,7 @@ describe("WorkbookShell surface selection", () => {
         currentScenario.savedViews = currentScenario.savedViews.filter(
           (savedView) => savedView.saved_view_id !== savedViewID,
         );
-        return successEnvelope({ saved_view_id: savedViewID });
+        return successEnvelope({ deleted: true, saved_view_id: savedViewID });
       }
       if (
         method === "GET" &&
@@ -652,9 +695,16 @@ describe("WorkbookShell surface selection", () => {
           "/api/v1/incidents/10000000-0000-4000-8000-000000000001/saved-views",
         )
       ) {
-        return successEnvelope({
-          saved_views: currentScenario.savedViews,
-        });
+        return new Response(
+          JSON.stringify({
+            data: { saved_views: currentScenario.savedViews },
+            meta: {
+              paging: { has_more: false, limit: 100, next_cursor: null },
+              request_id: "req-saved-view-list",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
       }
       const evidenceHandleMatch = url.match(
         /\/api\/v1\/evidence-records\/([^/]+)\/(preview|download)-handle$/,
@@ -709,9 +759,15 @@ describe("WorkbookShell surface selection", () => {
         );
       }
       if (method === "POST" && url.endsWith("/api/v1/object-blobs")) {
+        const request = JSON.parse(String(init?.body)) as {
+          readonly byte_size: number;
+          readonly content_type_hint: string | null;
+          readonly filename_hint: string | null;
+          readonly incident_id: string;
+        };
         return successEnvelope(
           {
-            incident_id: "00000000-0000-4000-8000-000000001001",
+            incident_id: request.incident_id,
             object_blob_id: "00000000-0000-4000-8000-000000003001",
             upload_state: "pending",
             target_expires_at: "2026-07-26T12:05:00Z",
@@ -725,10 +781,10 @@ describe("WorkbookShell surface selection", () => {
               },
             },
             accepted_contract: {
-              incident_id: "00000000-0000-4000-8000-000000001001",
-              byte_size: 15,
-              filename_hint: "screenshot.txt",
-              content_type_hint: "text/plain",
+              incident_id: request.incident_id,
+              byte_size: request.byte_size,
+              filename_hint: request.filename_hint,
+              content_type_hint: request.content_type_hint,
               sha256_hex: null,
             },
           },
@@ -974,7 +1030,7 @@ describe("WorkbookShell surface selection", () => {
       hostRow({
         displayName: "Origin host",
         hostname: "origin.example.test",
-        recordId: "host-origin",
+        recordId: "00000000-0000-4000-8000-000000000702",
         rowVersion: 1,
       }),
     ];
@@ -988,7 +1044,7 @@ describe("WorkbookShell surface selection", () => {
       hostRow({
         displayName: "Replacement host",
         hostname: "replacement.example.test",
-        recordId: "host-replacement",
+        recordId: "00000000-0000-4000-8000-000000000703",
         rowVersion: 1,
       }),
     ];
@@ -1000,7 +1056,7 @@ describe("WorkbookShell surface selection", () => {
         data: { rows: SurfaceTestRow[] };
       };
       expect(envelope.data.rows.map((row) => row.record_id)).toEqual([
-        "host-origin",
+        "00000000-0000-4000-8000-000000000702",
       ]);
       expect(originatingScenario.queryTrace).toEqual([
         `requested:${hostsViewSchemaId}`,
@@ -1570,12 +1626,11 @@ describe("WorkbookShell surface selection", () => {
     };
     scenario.genericRowsByView[statusReviewViewSchemaId] = [
       statusReviewRow(
-        "status-review-1",
+        "00000000-0000-4000-8000-000000000501",
         1,
         "Direct Status Review surface load",
       ),
     ];
-
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
     await waitFor(() => {
@@ -1588,7 +1643,7 @@ describe("WorkbookShell surface selection", () => {
       (
         await screen.findByTestId(
           rowCellTestId(
-            "status-review-1",
+            "00000000-0000-4000-8000-000000000501",
             "status_review.current_state_summary",
           ),
         )
@@ -1612,7 +1667,7 @@ describe("WorkbookShell surface selection", () => {
         view_schema_id: evidenceViewSchemaId,
         rows: [
           statusReviewRow(
-            "status-review-1",
+            "00000000-0000-4000-8000-000000000501",
             1,
             "Mismatched Status Review result",
           ),
@@ -1622,14 +1677,13 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
-    expect(
-      await screen.findByText(
-        `Surface load returned ${evidenceViewSchemaId} for ${statusReviewViewSchemaId}.`,
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText("Workbook view load failed.")).toBeTruthy();
     expect(
       screen.queryByTestId(
-        rowCellTestId("status-review-1", "status_review.current_state_summary"),
+        rowCellTestId(
+          "00000000-0000-4000-8000-000000000501",
+          "status_review.current_state_summary",
+        ),
       ),
     ).toBeNull();
   });
@@ -2065,7 +2119,9 @@ describe("WorkbookShell surface selection", () => {
   it("ignores superseded generic surface query responses after rapid filters", async () => {
     const staleEvidenceQuery = deferred<Response>();
     let staleEvidenceQueryStarted = false;
-    scenario.evidenceRows = [evidenceRow("evidence-initial", 1, "initial")];
+    scenario.evidenceRows = [
+      evidenceRow("00000000-0000-4000-8000-000000000601", 1, "initial"),
+    ];
     scenario.queryResponseOverride = (viewSchemaId, init) => {
       if (viewSchemaId !== evidenceViewSchemaId) {
         return null;
@@ -2079,7 +2135,9 @@ describe("WorkbookShell surface selection", () => {
         return successEnvelope({
           incident_id: "10000000-0000-4000-8000-000000000001",
           view_schema_id: evidenceViewSchemaId,
-          rows: [evidenceRow("evidence-newer", 1, "newer")],
+          rows: [
+            evidenceRow("00000000-0000-4000-8000-000000000602", 1, "newer"),
+          ],
         });
       }
       return null;
@@ -2090,29 +2148,37 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
     );
-    await expectRecordIds(evidenceViewSchemaId, ["evidence-initial"]);
+    await expectRecordIds(evidenceViewSchemaId, [
+      "00000000-0000-4000-8000-000000000601",
+    ]);
 
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "older");
     await waitFor(() => {
       expect(staleEvidenceQueryStarted).toBe(true);
     });
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "newer");
-    await expectRecordIds(evidenceViewSchemaId, ["evidence-newer"]);
+    await expectRecordIds(evidenceViewSchemaId, [
+      "00000000-0000-4000-8000-000000000602",
+    ]);
 
     staleEvidenceQuery.resolve(
       successEnvelope({
         incident_id: "10000000-0000-4000-8000-000000000001",
         view_schema_id: evidenceViewSchemaId,
-        rows: [evidenceRow("evidence-older", 1, "older")],
+        rows: [evidenceRow("00000000-0000-4000-8000-000000000603", 1, "older")],
       }),
     );
     await flushMicrotasks();
 
-    expect(currentRecordIds(evidenceViewSchemaId)).toEqual(["evidence-newer"]);
+    expect(currentRecordIds(evidenceViewSchemaId)).toEqual([
+      "00000000-0000-4000-8000-000000000602",
+    ]);
   });
 
   it("retains accepted generic rows and marks them stale when refresh fails", async () => {
-    scenario.evidenceRows = [evidenceRow("evidence-retained", 3, "retained")];
+    scenario.evidenceRows = [
+      evidenceRow("00000000-0000-4000-8000-000000000605", 3, "retained"),
+    ];
     scenario.queryResponseOverride = (viewSchemaId, init) => {
       if (viewSchemaId !== evidenceViewSchemaId) return null;
       return stringFilterValue(parseRequestBody(init)) === "failure"
@@ -2124,7 +2190,9 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.click(
       await screen.findByTestId(surfaceTabTestId(evidenceViewSchemaId)),
     );
-    await expectRecordIds(evidenceViewSchemaId, ["evidence-retained"]);
+    await expectRecordIds(evidenceViewSchemaId, [
+      "00000000-0000-4000-8000-000000000605",
+    ]);
 
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "failure");
 
@@ -2134,13 +2202,15 @@ describe("WorkbookShell surface selection", () => {
       ),
     ).toBeTruthy();
     expect(currentRecordIds(evidenceViewSchemaId)).toEqual([
-      "evidence-retained",
+      "00000000-0000-4000-8000-000000000605",
     ]);
   });
 
   it("keeps generic surface access loss routed through the shell access-lost callback", async () => {
     const onIncidentAccessLost = vi.fn();
-    scenario.evidenceRows = [evidenceRow("evidence-protected", 2, "protected")];
+    scenario.evidenceRows = [
+      evidenceRow("00000000-0000-4000-8000-000000000604", 2, "protected"),
+    ];
     scenario.startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: evidenceViewSchemaId },
       selected_view_schema_id: evidenceViewSchemaId,
@@ -2160,7 +2230,9 @@ describe("WorkbookShell surface selection", () => {
       />,
     );
 
-    await expectRecordIds(evidenceViewSchemaId, ["evidence-protected"]);
+    await expectRecordIds(evidenceViewSchemaId, [
+      "00000000-0000-4000-8000-000000000604",
+    ]);
     applyGenericFilter(evidenceViewSchemaId, "evidence.storage_ref", "denied");
 
     await waitFor(() => {
@@ -2479,7 +2551,7 @@ describe("WorkbookShell surface selection", () => {
     const host = hostRow({
       displayName: "Deferred host",
       hostname: "deferred.example.test",
-      recordId: "host-deferred",
+      recordId: "00000000-0000-4000-8000-000000000701",
       rowVersion: 7,
     });
     scenario.genericRowsByView[hostsViewSchemaId] = [host];
@@ -2500,16 +2572,21 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitForWorkbookRows({
       container,
-      expectedRecordIds: ["host-deferred"],
+      expectedRecordIds: ["00000000-0000-4000-8000-000000000701"],
       surface: hostsViewSchemaId,
     });
 
     fireEvent.click(
-      screen.getByTestId(entityInspectButtonTestId("host", "host-deferred")),
+      screen.getByTestId(
+        entityInspectButtonTestId(
+          "host",
+          "00000000-0000-4000-8000-000000000701",
+        ),
+      ),
     );
     await waitForEntityInspectorReady(container, {
       entityType: "host",
-      recordId: "host-deferred",
+      recordId: "00000000-0000-4000-8000-000000000701",
       rowVersion: 7,
       viewSchemaId: hostsViewSchemaId,
     });
@@ -2517,11 +2594,16 @@ describe("WorkbookShell surface selection", () => {
     await flushWorkbookAsync();
 
     expect(
-      screen.getByTestId(entityInspectorSubjectTestId("host", "host-deferred")),
+      screen.getByTestId(
+        entityInspectorSubjectTestId(
+          "host",
+          "00000000-0000-4000-8000-000000000701",
+        ),
+      ),
     ).toBeTruthy();
     await waitForEntityInspectorReady(container, {
       entityType: "host",
-      recordId: "host-deferred",
+      recordId: "00000000-0000-4000-8000-000000000701",
       rowVersion: 7,
       viewSchemaId: hostsViewSchemaId,
     });
@@ -2650,7 +2732,7 @@ describe("WorkbookShell surface selection", () => {
     scenario.genericRowsByView[identitiesViewSchemaId] = [
       identityRow({
         displayName: "Survivor identity",
-        recordId: "identity-survivor",
+        recordId: "00000000-0000-4000-8000-000000000803",
         reusableIdentifiers: [
           {
             identifierClass: "email",
@@ -2664,7 +2746,7 @@ describe("WorkbookShell surface selection", () => {
       identityRow({
         displayName: "Loser identity",
         email: "collision@example.test",
-        recordId: "identity-loser",
+        recordId: "00000000-0000-4000-8000-000000000802",
         rowVersion: 2,
         upn: "loser@example.test",
       }),
@@ -2684,7 +2766,7 @@ describe("WorkbookShell surface selection", () => {
               reason_code: "carry_forward_identifier_collision",
               identifier_class: "email",
               normalized_value: "collision@example.test",
-              blocking_record_id: "identity-blocker",
+              blocking_record_id: "00000000-0000-4000-8000-000000000801",
             },
           },
         }),
@@ -2697,18 +2779,24 @@ describe("WorkbookShell surface selection", () => {
     );
     await waitForWorkbookRows({
       container,
-      expectedRecordIds: ["identity-survivor", "identity-loser"],
+      expectedRecordIds: [
+        "00000000-0000-4000-8000-000000000803",
+        "00000000-0000-4000-8000-000000000802",
+      ],
       surface: identitiesViewSchemaId,
     });
 
     fireEvent.click(
       screen.getByTestId(
-        entityInspectButtonTestId("identity", "identity-survivor"),
+        entityInspectButtonTestId(
+          "identity",
+          "00000000-0000-4000-8000-000000000803",
+        ),
       ),
     );
     await waitForEntityInspectorReady(container, {
       entityType: "identity",
-      recordId: "identity-survivor",
+      recordId: "00000000-0000-4000-8000-000000000803",
       rowVersion: 11,
       viewSchemaId: identitiesViewSchemaId,
     });
@@ -2716,7 +2804,7 @@ describe("WorkbookShell surface selection", () => {
       screen.getByTestId(
         entityReusableIdentifierItemTestId(
           "identity",
-          "identity-survivor",
+          "00000000-0000-4000-8000-000000000803",
           "entity_preserved_identifier:survivor-legacy-email",
         ),
       ).textContent,
@@ -2724,7 +2812,7 @@ describe("WorkbookShell surface selection", () => {
     fireEvent.change(
       await screen.findByTestId(entityMergeControlTestId("loser-record")),
       {
-        target: { value: "identity-loser" },
+        target: { value: "00000000-0000-4000-8000-000000000802" },
       },
     );
     fireEvent.click(
@@ -2738,31 +2826,37 @@ describe("WorkbookShell surface selection", () => {
     });
     expect(
       screen.getByTestId(
-        entityMergePreconditionDetailsTestId("identity", "identity-survivor"),
+        entityMergePreconditionDetailsTestId(
+          "identity",
+          "00000000-0000-4000-8000-000000000803",
+        ),
       ).textContent,
-    ).toContain("Blocking record: identity-blocker");
+    ).toContain("Blocking record: 00000000-0000-4000-8000-000000000801");
     expect(
       screen.getByTestId(
-        entityMergePreconditionDetailsTestId("identity", "identity-survivor"),
+        entityMergePreconditionDetailsTestId(
+          "identity",
+          "00000000-0000-4000-8000-000000000803",
+        ),
       ).textContent,
     ).toContain("Normalized value: collision@example.test");
     expect(currentRecordIds(identitiesViewSchemaId)).toEqual([
-      "identity-survivor",
-      "identity-loser",
+      "00000000-0000-4000-8000-000000000803",
+      "00000000-0000-4000-8000-000000000802",
     ]);
     expect(mergeSubmissions).toBe(1);
   });
 
   it("keeps party-link mutations syncing until workbook and references refresh", async () => {
     const linkedTask = taskRequestRow(
-      "task-1",
+      "00000000-0000-4000-8000-000000000901",
       4,
       "Task requester link",
       "Requester raw",
-      "party-1",
+      "00000000-0000-4000-8000-000000000911",
     );
     const clearedTask = taskRequestRow(
-      "task-1",
+      "00000000-0000-4000-8000-000000000901",
       5,
       "Task requester link",
       "Requester raw",
@@ -2776,7 +2870,7 @@ describe("WorkbookShell surface selection", () => {
     };
     scenario.genericRowsByView[taskRequestsViewSchemaId] = [linkedTask];
     scenario.genericRowsByView[partiesViewSchemaId] = [
-      partyRow("party-1", "Requester Party"),
+      partyRow("00000000-0000-4000-8000-000000000911", "Requester Party"),
     ];
     const patchResponse = deferred<Response>();
     const refreshResponse = deferred<Response>();
@@ -2784,7 +2878,7 @@ describe("WorkbookShell surface selection", () => {
     let refreshStarted = false;
     let clearPatchBody: Record<string, unknown> | null = null;
     scenario.recordPatchResponseOverride = (recordId, init) => {
-      if (recordId !== "task-1") {
+      if (recordId !== "00000000-0000-4000-8000-000000000901") {
         return null;
       }
       clearPatchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
@@ -2807,7 +2901,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
-    await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
+    await expectRecordIds(taskRequestsViewSchemaId, [
+      "00000000-0000-4000-8000-000000000901",
+    ]);
     fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
@@ -2817,7 +2913,7 @@ describe("WorkbookShell surface selection", () => {
       await screen.findByTestId(
         genericEditRecordSelectTestId(taskRequestsViewSchemaId),
       ),
-      { target: { value: "task-1" } },
+      { target: { value: "00000000-0000-4000-8000-000000000901" } },
     );
     const clearButton = await screen.findByTestId(
       coordinationWorkflowTestId("party-clear-link"),
@@ -2864,7 +2960,9 @@ describe("WorkbookShell surface selection", () => {
       expect(screen.getByTestId(saveStateTestId()).textContent).toBe("Saved");
     });
     expect((clearButton as HTMLButtonElement).disabled).toBe(false);
-    expect(currentRecordIds(taskRequestsViewSchemaId)).toEqual(["task-1"]);
+    expect(currentRecordIds(taskRequestsViewSchemaId)).toEqual([
+      "00000000-0000-4000-8000-000000000901",
+    ]);
   });
 
   it("keeps failed generic party-link mutations in Conflict", async () => {
@@ -2876,16 +2974,16 @@ describe("WorkbookShell surface selection", () => {
     };
     scenario.genericRowsByView[taskRequestsViewSchemaId] = [
       taskRequestRow(
-        "task-1",
+        "00000000-0000-4000-8000-000000000901",
         4,
         "Task requester conflict",
         "Requester raw",
-        "party-1",
+        "00000000-0000-4000-8000-000000000911",
       ),
     ];
     let clearPatchBody: Record<string, unknown> | null = null;
     scenario.recordPatchResponseOverride = (recordId, init) => {
-      if (recordId !== "task-1") {
+      if (recordId !== "00000000-0000-4000-8000-000000000901") {
         return null;
       }
       clearPatchBody = JSON.parse(String(init?.body ?? "{}")) as Record<
@@ -2897,7 +2995,9 @@ describe("WorkbookShell surface selection", () => {
 
     render(<WorkbookShell incidentId="10000000-0000-4000-8000-000000000001" />);
 
-    await expectRecordIds(taskRequestsViewSchemaId, ["task-1"]);
+    await expectRecordIds(taskRequestsViewSchemaId, [
+      "00000000-0000-4000-8000-000000000901",
+    ]);
     fireEvent.click(
       await screen.findByTestId(
         workbookInspectorToggleTestId(taskRequestsViewSchemaId),
@@ -2907,7 +3007,7 @@ describe("WorkbookShell surface selection", () => {
       await screen.findByTestId(
         genericEditRecordSelectTestId(taskRequestsViewSchemaId),
       ),
-      { target: { value: "task-1" } },
+      { target: { value: "00000000-0000-4000-8000-000000000901" } },
     );
     fireEvent.click(
       await screen.findByTestId(coordinationWorkflowTestId("party-clear-link")),
@@ -2972,7 +3072,7 @@ describe("WorkbookShell surface selection", () => {
         ],
         resetKey: "reset-1",
         selectedRow: taskRequestRow(
-          "task-1",
+          "00000000-0000-4000-8000-000000000901",
           4,
           "Task requester link",
           "Created Party",
@@ -3008,23 +3108,12 @@ describe("WorkbookShell surface selection", () => {
 
   it("issues opaque evidence preview and download handles from the evidence surface", async () => {
     scenario.evidenceRows = [
-      {
-        record_id: "00000000-0000-4000-8000-000000004002",
-        row_version: 4,
-        cells: {
-          "evidence.title": { value: "EDR package" },
-          "evidence.lifecycle_state": { value: "available" },
-          "evidence.requested_at": { value: null },
-          "evidence.received_at": { value: null },
-          "evidence.storage_ref": { value: "slot" },
-          "evidence.blob_hash": { value: "sha" },
-          "evidence.collector_party_text": { value: "IR" },
-          "evidence.source_party_text": { value: "Endpoint" },
-          "evidence.upload_state": { value: "available" },
-          "evidence.linked_record_count": { value: 0 },
-          "evidence.edited_at": { value: null },
-        },
-      },
+      evidenceStateRow(
+        "00000000-0000-4000-8000-000000004002",
+        4,
+        "EDR package",
+        { lifecycleState: "available", uploadState: "available" },
+      ),
     ];
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -3560,7 +3649,9 @@ function evidenceRow(recordId: string, rowVersion: number, title: string) {
       "evidence.storage_ref": { value: "" },
       "evidence.blob_hash": { value: "" },
       "evidence.collector_party_text": { value: "Workbook upload" },
+      "evidence.collector_party_id": { value: null },
       "evidence.source_party_text": { value: "" },
+      "evidence.source_party_id": { value: null },
       "evidence.upload_state": { value: "pending" },
       "evidence.linked_record_count": { value: 0 },
       "evidence.edited_at": { value: null },
@@ -3658,9 +3749,10 @@ function statusReviewRow(
       "status_review.open_decision_ids": {
         value: { kind: "collection_value_v1", ordered: false, items: [] },
       },
+      "status_review.status_review_id": { value: recordId },
       "status_review.timestamp_day": { value: "2026-04-24" },
       "status_review.next_report_day": { value: null },
-      "status_review.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+      "status_review.updated_at": { value: "2026-04-24T15:00:00.000Z" },
     },
     group_values: {
       "status_review.timestamp_day": "2026-04-24",
@@ -3683,6 +3775,7 @@ function taskRequestRow(
     cells: {
       "task.title": { value: title },
       "task.task_kind": { value: "request" },
+      "task.workstream": { value: null },
       "task.status": { value: "open" },
       "task.requester_party_text": { value: requesterText },
       "task.requester_party_id": { value: requesterPartyId },
@@ -3692,7 +3785,12 @@ function taskRequestRow(
       "task.priority": { value: "normal" },
       "task.external_ticket_ref": { value: null },
       "task.blocked_reason": { value: null },
-      "task.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+      "task.completed_at": { value: null },
+      "task.closure_summary": { value: null },
+      "task.linked_record_ids": { value: collectionValue([]) },
+      "task.linked_record_count": { value: 0 },
+      "task.updated_at": { value: "2026-04-24T15:00:00.000Z" },
+      "task.no_owner": { value: true },
     },
   };
 }
@@ -3704,11 +3802,13 @@ function partyRow(recordId: string, displayName: string) {
     cells: {
       "party.display_name": { value: displayName },
       "party.party_kind": { value: "person" },
+      "party.organization_name": { value: null },
+      "party.role_title": { value: null },
       "party.primary_email": { value: null },
-      "party.primary_phone": { value: null },
+      "party.timezone_name": { value: null },
       "party.external_ref": { value: null },
       "party.notes": { value: null },
-      "party.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+      "party.updated_at": { value: "2026-04-24T15:00:00.000Z" },
     },
   };
 }
@@ -4061,26 +4161,36 @@ describe("generic workbook mutation payloads", () => {
     expect(
       buildGenericPatchChange(
         requireField(commLog, "comm_log.audience_party_ids"),
-        "party-1",
+        "00000000-0000-4000-8000-000000000911",
       ),
     ).toEqual({
       field_key: "comm_log.audience_party_ids",
       action_payload: {
         kind: "collection_actions_v1",
-        actions: [{ op: "add_party_ref", party_id: "party-1" }],
+        actions: [
+          {
+            op: "add_party_ref",
+            party_id: "00000000-0000-4000-8000-000000000911",
+          },
+        ],
       },
     });
     expect(
       buildGenericPatchChange(
         requireField(commLog, "comm_log.audience_party_ids"),
-        "party_ref:party-1",
+        "party_ref:00000000-0000-4000-8000-000000000911",
         "remove",
       ),
     ).toEqual({
       field_key: "comm_log.audience_party_ids",
       action_payload: {
         kind: "collection_actions_v1",
-        actions: [{ op: "remove_party_ref", item_ref: "party_ref:party-1" }],
+        actions: [
+          {
+            op: "remove_party_ref",
+            item_ref: "party_ref:00000000-0000-4000-8000-000000000911",
+          },
+        ],
       },
     });
     expect(

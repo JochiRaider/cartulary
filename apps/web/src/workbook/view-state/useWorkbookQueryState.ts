@@ -14,7 +14,7 @@ import {
 } from "../models/workbookQuery";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 
-export type WorkbookQueryStateEntry = {
+type WorkbookQueryStateEntry = {
   readonly filterDraft: FilterDraft;
   readonly queryState: WorkbookQueryState;
 };

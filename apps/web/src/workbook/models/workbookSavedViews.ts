@@ -18,22 +18,6 @@ export type SavedViewResource = {
   saved_view_version: number;
 };
 
-export type SavedViewListEnvelope = {
-  data: {
-    saved_views: SavedViewResource[];
-  };
-  meta?: {
-    paging?: {
-      has_more?: boolean;
-      next_cursor?: string | null;
-    };
-  };
-};
-
-export type SavedViewEnvelope = {
-  data: SavedViewResource;
-};
-
 export function normalizeSavedViewResource(
   value: unknown,
 ): SavedViewResource | null {

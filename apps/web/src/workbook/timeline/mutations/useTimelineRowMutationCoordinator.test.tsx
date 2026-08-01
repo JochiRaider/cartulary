@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { createWorkbookPendingMutationAdapter } from "../../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import { useTimelineEditorDraftRegistry } from "../editing/useTimelineEditorDraftRegistry";
@@ -19,7 +20,6 @@ import {
   rowFromApi,
   type WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type { TimelinePendingMutationPort } from "../ports/TimelinePendingMutationPort";
 import { useTimelineRowMutationCoordinator } from "./useTimelineRowMutationCoordinator";
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
@@ -47,20 +47,8 @@ function runtimeFixture() {
   return new WorkbookMutationRuntime(
     { clientInstanceId: "client-1", incidentId },
     { create: (prefix) => `${prefix}-txn` },
+    createWorkbookPendingMutationAdapter({ apiBase: undefined, incidentId }),
   );
-}
-
-function pendingMutationFixture(): TimelinePendingMutationPort {
-  return {
-    execute: vi.fn(async () => ({
-      kind: "rejected" as const,
-      failure: { kind: "terminal" as const, message: "unused" },
-    })),
-    normalizeResolvedConflict: vi.fn(() => ({
-      kind: "rejected" as const,
-      failure: { kind: "invalid_contract" as const, message: "unused" },
-    })),
-  };
 }
 
 function renderCoordinator(
@@ -73,7 +61,6 @@ function renderCoordinator(
     focus: vi.fn(),
     focusInput: vi.fn(),
   };
-  const pendingMutation = pendingMutationFixture();
   const rendered = renderHook(() => {
     const [rows, setRows] = useState(initialRows);
     const rowsRef = useRef(rows);
@@ -116,7 +103,6 @@ function renderCoordinator(
       setPendingQueueSnapshot: pending.commands.setPendingQueueSnapshot,
       setRows,
       setSelectedRowId,
-      timelinePendingMutation: pendingMutation,
     });
     return { coordinator, rows };
   });

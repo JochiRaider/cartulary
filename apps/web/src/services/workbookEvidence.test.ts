@@ -120,34 +120,13 @@ describe("workbookEvidence", () => {
   });
 
   it("creates and uploads a private Evidence object blob without exposing its target", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=evidence-csrf",
+    );
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/base/api/v1/object-blobs") {
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              incident_id: "00000000-0000-4000-8000-000000001001",
-              object_blob_id: "00000000-0000-4000-8000-000000003001",
-              upload_state: "pending",
-              target_expires_at: "2026-07-26T12:05:00Z",
-              pending_expires_at: "2026-07-26T12:10:00Z",
-              upload_target: {
-                href: "/api/v1/object-uploads/upload-token",
-                method: "PUT",
-                expires_at: "2026-07-26T12:05:00Z",
-                headers: {},
-              },
-              accepted_contract: {
-                incident_id: "00000000-0000-4000-8000-000000001001",
-                byte_size: 3,
-                filename_hint: "evidence.txt",
-                content_type_hint: "text/plain",
-                sha256_hex: null,
-              },
-            },
-            meta: { request_id: "request-create" },
-          }),
-        );
+        return Promise.resolve(jsonResponse(objectBlobEnvelope()));
       }
       if (url === "/base/api/v1/object-uploads/upload-token") {
         return Promise.resolve(new Response("", { status: 200 }));
@@ -166,8 +145,72 @@ describe("workbookEvidence", () => {
 
     expect(objectBlobId).toBe("00000000-0000-4000-8000-000000003001");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const createRequest = fetchMock.mock.calls[0]?.[1] as
+      | RequestInit
+      | undefined;
+    expect(createRequest?.method).toBe("POST");
+    expect(new Headers(createRequest?.headers).get("X-CSRF-Token")).toBe(
+      "evidence-csrf",
+    );
+    expect(JSON.parse(String(createRequest?.body))).toEqual({
+      incident_id: "00000000-0000-4000-8000-000000001001",
+      client_txn_id: "blob-txn-1",
+      byte_size: 3,
+      filename_hint: "evidence.txt",
+      content_type_hint: "text/plain",
+    });
+  });
+
+  it("fails closed before upload for malformed or cross-incident blob-slot responses", async () => {
+    for (const responsePayload of [
+      { data: { incident_id: "missing-required-fields" } },
+      objectBlobEnvelope({
+        incidentId: "00000000-0000-4000-8000-000000001099",
+      }),
+    ]) {
+      fetchMock.mockReset();
+      fetchMock.mockResolvedValue(jsonResponse(responsePayload));
+
+      await expect(
+        createUploadedEvidenceObjectBlob({
+          apiBase: "/base",
+          createClientTxnId: () => "blob-txn-1",
+          file: new File(["abc"], "evidence.txt", { type: "text/plain" }),
+          incidentId: "00000000-0000-4000-8000-000000001001",
+        }),
+      ).rejects.toThrow(/invalid public contract|invalid_public_contract/u);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
   });
 });
+
+function objectBlobEnvelope(options: { readonly incidentId?: string } = {}) {
+  const incidentId =
+    options.incidentId ?? "00000000-0000-4000-8000-000000001001";
+  return {
+    data: {
+      incident_id: incidentId,
+      object_blob_id: "00000000-0000-4000-8000-000000003001",
+      upload_state: "pending",
+      target_expires_at: "2026-07-26T12:05:00Z",
+      pending_expires_at: "2026-07-26T12:10:00Z",
+      upload_target: {
+        href: "/api/v1/object-uploads/upload-token",
+        method: "PUT",
+        expires_at: "2026-07-26T12:05:00Z",
+        headers: {},
+      },
+      accepted_contract: {
+        incident_id: incidentId,
+        byte_size: 3,
+        filename_hint: "evidence.txt",
+        content_type_hint: "text/plain",
+        sha256_hex: null,
+      },
+    },
+    meta: { request_id: "request-create" },
+  };
+}
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

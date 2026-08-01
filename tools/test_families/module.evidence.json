@@ -343,7 +343,8 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "creates and uploads a private Evidence object blob without exposing its target"
+          "creates and uploads a private Evidence object blob without exposing its target",
+          "fails closed before upload for malformed or cross-incident blob-slot responses"
         ]
       },
       "evidence_class": "unit",

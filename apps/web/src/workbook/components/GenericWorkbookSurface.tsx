@@ -91,6 +91,7 @@ import type { WorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
@@ -107,14 +108,13 @@ import { WorkbookSurfaceStatusStrip } from "./WorkbookStatusStrip";
 import { WorkbookViewBar } from "./WorkbookViewBar";
 
 export type ContractWorkbookSurfaceProps = {
-  readonly apiBase?: string | undefined;
   readonly contract: ViewContract;
   readonly continuityResetKey: string;
   readonly currentUserId: string | null;
+  readonly incidentPort: WorkbookIncidentPort;
   readonly inspectorResetKey: string;
   readonly queryControls?: ReactNode | undefined;
   readonly savedViewSelector?: ReactNode | undefined;
-  readonly incidentId: string;
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly loadState: WorkbookQueryLoadState;
   readonly mutationRuntime: WorkbookMutationRuntime;
@@ -123,6 +123,7 @@ export type ContractWorkbookSurfaceProps = {
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly sheetRef: WorkbookSheetRef;
   readonly onClearFilters: () => void;
+  readonly onIncidentAccessLost?: (() => void) | undefined;
   readonly onRefresh: () => Promise<void> | void;
   readonly onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   readonly queryState: WorkbookQueryState;
@@ -130,14 +131,13 @@ export type ContractWorkbookSurfaceProps = {
 };
 
 export function ContractWorkbookSurface({
-  apiBase,
   contract,
   continuityResetKey,
   currentUserId,
+  incidentPort,
   inspectorResetKey,
   queryControls,
   savedViewSelector,
-  incidentId,
   layout,
   loadState,
   mutationRuntime,
@@ -146,6 +146,7 @@ export function ContractWorkbookSurface({
   collaborationProjection,
   sheetRef: _sheetRef,
   onClearFilters,
+  onIncidentAccessLost,
   onRefresh,
   onSortChange,
   queryState,
@@ -196,8 +197,8 @@ export function ContractWorkbookSurface({
     useState<GenericCollectionMode>("add");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
     useOwnerReferenceOptions({
-      apiBase,
-      incidentId,
+      incidentPort,
+      onIncidentAccessLost,
       referenceQueryBroker,
       viewSchemaId: contract.viewSchemaId,
     });
@@ -374,7 +375,6 @@ export function ContractWorkbookSurface({
         };
       }
       return mutationRuntime.enqueuePatch({
-        apiBase,
         baseRowVersion: target.baseRowVersion,
         changes: [change],
         fieldKey,
@@ -386,7 +386,7 @@ export function ContractWorkbookSurface({
         viewSchemaId: contract.viewSchemaId,
       });
     },
-    [apiBase, contract, mutationRuntime, rows],
+    [contract, mutationRuntime, rows],
   );
   const visibleAnchorColumns = useMemo(
     () => applyWorkbookLayoutToColumns(contract, anchorColumns, layoutState),

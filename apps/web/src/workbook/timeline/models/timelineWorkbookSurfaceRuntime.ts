@@ -7,7 +7,10 @@ import type {
 } from "../../models/workbookQuery";
 import type { WorkbookSheetRef } from "../../models/workbookStartup";
 import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookIncidentPort } from "../../ports/WorkbookIncidentPort";
+import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
+import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 
 export type TimelineWorkbookIncidentRole =
@@ -38,6 +41,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly attachCollaborationSession: boolean;
   readonly collaborationProjection: WorkbookCollaborationCoordinator;
   readonly mutationRuntime: WorkbookMutationRuntime;
+  readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly incident: {
     readonly id: string;
@@ -45,11 +49,13 @@ export type TimelineWorkbookSurfaceRuntime = {
     readonly continuityResetKey: string;
     readonly currentUserId: string | null;
     readonly currentRole: TimelineWorkbookIncidentRole | null;
+    readonly incidentPort: WorkbookIncidentPort;
     readonly sheetRef: WorkbookSheetRef;
     readonly inspectorResetKey: string;
     readonly reloadToken: number;
   };
   readonly query: {
+    readonly viewQuery: WorkbookViewQueryPort;
     readonly state: WorkbookQueryState;
     readonly setState: Dispatch<SetStateAction<WorkbookQueryState>>;
     readonly filterDraft: FilterDraft;

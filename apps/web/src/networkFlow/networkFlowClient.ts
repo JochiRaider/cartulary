@@ -1,5 +1,9 @@
 import type { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
-import { apiPath, clientTxnID } from "../services/browserApi";
+import {
+  networkFlowActivityProfileId,
+  networkFlowRouteFamily,
+} from "../extensions/extensionWorkspaceIdentities";
+import { apiPath, clientTxnID, fetchJSON } from "../services/browserApi";
 import type {
   NetworkFlowContributorPageRequest,
   NetworkFlowContributorResult,
@@ -27,7 +31,6 @@ import {
   decodeNetworkFlowTableMutationResult,
   decodeNetworkFlowTableQueryResult,
 } from "../services/networkFlowContractAdapter";
-import { fetchWorkbookJSON } from "../services/workbookApi";
 import { networkFlowRequestError } from "./networkFlowErrors";
 import type {
   NetworkFlowAcceptedPageRequest,
@@ -364,5 +367,9 @@ function fetchNetworkFlowJSON<T>(
   input: RequestInfo | URL,
   init?: RequestInit,
 ) {
-  return availability.runRequest(() => fetchWorkbookJSON<T>(input, init));
+  return availability.runProfileRequest(
+    networkFlowActivityProfileId,
+    networkFlowRouteFamily,
+    () => fetchJSON<T>(input, init),
+  );
 }

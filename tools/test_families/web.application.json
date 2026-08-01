@@ -961,6 +961,7 @@
           "apiPath joins a trimmed base with the path",
           "apiPath returns the path unchanged when the base is empty",
           "fetchJSON adds JSON content type and CSRF header for mutating requests with included credentials",
+          "fetchJSON does not expose a private timing request protocol",
           "fetchJSON leaves GET requests without JSON content type or CSRF header",
           "fetchJSON omits the CSRF header for mutating requests that do not include credentials",
           "fetchJSON omits the CSRF header when 'the CSRF cookie is absent'",
@@ -1170,7 +1171,7 @@
       "status": "active"
     },
     {
-      "row_id": "web.application.regression.workbookapi_does_not_expose_a_private_timing_requ_8ce6af32c4",
+      "row_id": "web.application.regression.shared_public_error_normalization_and_sanitizati_80bdbb4daf",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
       "collaborator_ids": [],
@@ -1179,78 +1180,10 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/services/workbookApi.test.ts",
+        "file": "apps/web/src/shared/publicError.test.ts",
         "titles": [
-          "workbookApi does not expose a private timing request protocol"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.application.regression.workbookapi_keeps_latest_query_requests_exclusiv_b04e61e6c5",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/services/workbookApi.test.ts",
-        "titles": [
-          "workbookApi keeps latest-query requests exclusive and aborts superseded controllers"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.application.regression.workbookapi_keeps_public_error_parsing_and_incid_52c47314e4",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/services/workbookApi.test.ts",
-        "titles": [
-          "workbookApi keeps public error parsing and incident access-loss callbacks stable"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
-      "claim_posture": "implementation",
-      "status": "active"
-    },
-    {
-      "row_id": "web.application.regression.workbookapi_preserves_workbookshell_json_and_csr_45bb12bec4",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/services/workbookApi.test.ts",
-        "titles": [
-          "workbookApi preserves WorkbookShell JSON and CSRF request semantics"
+          "publicError normalization replaces unsafe messages and details with status-safe presentation",
+          "publicError normalization retains structured codes, safe messages, and allowlisted details"
         ]
       },
       "evidence_class": "unit",

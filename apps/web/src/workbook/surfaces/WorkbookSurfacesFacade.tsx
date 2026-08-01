@@ -22,7 +22,10 @@ import {
 import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";
 import type { WorkbookMutationCommandPorts } from "../mutations/workbookMutationCommandPorts";
+import type { WorkbookIncidentPort } from "../ports/WorkbookIncidentPort";
+import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { ReferenceQueryBrokerPort } from "../services/referenceQueryBroker";
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
@@ -38,6 +41,7 @@ export type WorkbookSurfacesFacadeProps = {
     readonly apiBase?: string | undefined;
     readonly currentIncidentRole: WorkbookIncidentRole | null;
     readonly currentUserId: string | null;
+    readonly incidentPort: WorkbookIncidentPort;
     readonly incidentId: string;
     readonly onIncidentAccessLost: (() => void) | undefined;
   };
@@ -47,9 +51,11 @@ export type WorkbookSurfacesFacadeProps = {
   readonly layout: WorkbookSurfaceLayoutOwner;
   readonly mutations: {
     readonly commands: WorkbookMutationCommandPorts;
+    readonly pending: WorkbookPendingMutationPort;
     readonly runtime: WorkbookMutationRuntime;
   };
   readonly queries: {
+    readonly viewQuery: WorkbookViewQueryPort;
     readonly assessment: {
       readonly loadState: WorkbookQueryLoadState;
       readonly refresh: () => Promise<void>;
@@ -109,6 +115,7 @@ export function WorkbookSurfacesFacade({
     apiBase,
     currentIncidentRole,
     currentUserId,
+    incidentPort,
     incidentId,
     onIncidentAccessLost,
   } = incident;
@@ -126,8 +133,13 @@ export function WorkbookSurfacesFacade({
     generic,
     referenceBroker: referenceQueryBroker,
     timeline,
+    viewQuery,
   } = queries;
-  const { commands: mutationCommands, runtime: mutationRuntime } = mutations;
+  const {
+    commands: mutationCommands,
+    pending: pendingMutationPort,
+    runtime: mutationRuntime,
+  } = mutations;
   const { projection: collaborationProjection } = collaboration;
   const inspectorResetKey = inspector.resetKey;
   const continuityResetKey = continuity.resetKey;
@@ -165,6 +177,7 @@ export function WorkbookSurfacesFacade({
           attachCollaborationSession: false,
           collaborationProjection,
           mutationRuntime,
+          pendingMutationPort,
           mutationCommands: mutationCommands.timeline,
           incident: {
             id: incidentId,
@@ -172,11 +185,13 @@ export function WorkbookSurfacesFacade({
             continuityResetKey,
             currentUserId,
             currentRole: currentIncidentRole,
+            incidentPort,
             sheetRef,
             inspectorResetKey,
             reloadToken: sheetReloadToken,
           },
           query: {
+            viewQuery,
             state: timelineQueryState,
             setState: setTimelineQueryState,
             filterDraft: timelineFilterDraft,
@@ -205,12 +220,10 @@ export function WorkbookSurfacesFacade({
     const isHosts = registration.renderer === "entity_hosts";
     return (
       <EntityWorkbookSurface
-        apiBase={apiBase}
         continuityResetKey={continuityResetKey}
         currentIncidentRole={currentIncidentRole}
         entityIndex={entityIndex}
         entityType={isHosts ? "host" : "identity"}
-        incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
         layout={layout}
         mutationRuntime={mutationRuntime}
@@ -237,6 +250,7 @@ export function WorkbookSurfacesFacade({
         queryControls={queryControls}
         rows={isHosts ? hostRows : identityRows}
         savedViewSelector={savedViewSelector}
+        viewQuery={viewQuery}
       />
     );
   }
@@ -244,13 +258,11 @@ export function WorkbookSurfacesFacade({
   if (registration.renderer === "assessment") {
     return (
       <AssessmentWorkbookSurface
-        apiBase={apiBase}
         assessmentRows={assessmentRows}
         currentIncidentRole={currentIncidentRole}
         continuityResetKey={continuityResetKey}
         hostRows={hostRows}
         identityRows={identityRows}
-        incidentId={incidentId}
         inspectorResetKey={inspectorResetKey}
         layout={layout}
         mutationRuntime={mutationRuntime}
@@ -269,6 +281,7 @@ export function WorkbookSurfacesFacade({
         queryState={assessmentQueryState}
         queryControls={queryControls}
         savedViewSelector={savedViewSelector}
+        viewQuery={viewQuery}
       />
     );
   }
@@ -276,11 +289,10 @@ export function WorkbookSurfacesFacade({
   return (
     <ContractWorkbookSurface
       key={activeContract.viewSchemaId}
-      apiBase={apiBase}
       contract={activeContract}
       continuityResetKey={continuityResetKey}
       currentUserId={currentUserId}
-      incidentId={incidentId}
+      incidentPort={incidentPort}
       inspectorResetKey={inspectorResetKey}
       loadState={genericLoadState}
       layout={layout}
@@ -289,6 +301,7 @@ export function WorkbookSurfacesFacade({
       referenceQueryBroker={referenceQueryBroker}
       collaborationProjection={collaborationProjection}
       sheetRef={sheetRef}
+      onIncidentAccessLost={onIncidentAccessLost}
       onClearFilters={() => {
         setGenericQueryState(emptyWorkbookQueryState());
       }}

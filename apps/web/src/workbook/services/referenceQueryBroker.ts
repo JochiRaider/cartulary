@@ -1,29 +1,13 @@
 import { requireViewContract } from "@cartulary/view-contracts";
-import { apiPath } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../services/workbookApi";
 import type { WorkbookInvalidationReason } from "../lifecycle/workbookInvalidation";
-import {
-  buildQueryRequest,
-  emptyWorkbookQueryState,
-} from "../models/workbookQuery";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import type { ReferenceRequirement } from "../models/workbookSurfaceRegistration";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
-
-type ViewQueryEnvelope = {
-  data: {
-    view_schema_id: string;
-    rows: WorkbookQueryRow[];
-  };
-};
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 
 export type ReferenceQueryBrokerContext = {
-  readonly apiBase?: string | undefined;
   readonly authorizationGeneration: string;
-  readonly incidentId: string;
+  readonly viewQuery: WorkbookViewQueryPort;
 };
 
 export type ReferenceQueryResult = {
@@ -124,27 +108,24 @@ class ReferenceQueryBroker implements ReferenceQueryBrokerPort {
       promise: Promise.resolve([]),
       settled: false,
     } as InFlightReferenceQuery;
-    const pending = fetchWorkbookJSON<ViewQueryEnvelope>(
-      apiPath(
-        this.#context.apiBase,
-        `/api/v1/incidents/${this.#context.incidentId}/views/${requirement.viewSchemaId}/query`,
-      ),
-      {
-        method: "POST",
+    const pending = this.#context.viewQuery
+      .query({
+        contract: targetContract,
+        queryState: emptyWorkbookQueryState(),
         signal: controller.signal,
-        body: JSON.stringify(
-          buildQueryRequest(targetContract, emptyWorkbookQueryState()),
-        ),
-      },
-    )
+      })
       .then((result) => {
-        if (!result.ok) {
-          throw new Error(parseErrorMessage(result.payload));
-        }
-        if (this.#disposed || controller.signal.aborted) {
+        if (
+          this.#disposed ||
+          controller.signal.aborted ||
+          result.kind === "aborted"
+        ) {
           throw abortFailure();
         }
-        return readEnvelope<ViewQueryEnvelope>(result.payload).data.rows;
+        if (result.kind === "rejected") {
+          throw new Error(result.failure.message);
+        }
+        return result.value.rows;
       })
       .finally(() => {
         entry.settled = true;

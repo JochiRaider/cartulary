@@ -112,6 +112,16 @@ export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | 
 export type ViewMutationData = ViewMutationDataFields;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewCreateLayoutJSON".
+ */
+export type SavedViewCreateLayoutJSON = {} | SavedViewLayoutJSON;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewScope".
+ */
+export type SavedViewScope = "private" | "shared" | "system";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SupersedeRecordResponseBody".
  */
 export type SupersedeRecordResponseBody = TimelineActionEnvelope | DecisionSupersedeEnvelope;
@@ -131,11 +141,6 @@ export type WorkbookClipboardPasteTarget =
        */
       record_id: string;
     };
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewScope".
- */
-export type SavedViewScope = "private" | "shared" | "system";
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "WorkbookStartupSource".
@@ -1184,6 +1189,36 @@ export interface IncidentLifecycleRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipListEnvelope".
+ */
+export interface IncidentMembershipListEnvelope {
+  data: IncidentMembershipListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipListData".
+ */
+export interface IncidentMembershipListData {
+  memberships: IncidentMembershipResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipResource".
+ */
+export interface IncidentMembershipResource {
+  added_by_user_id: string;
+  display_name: string;
+  incident_id: string;
+  joined_at: string;
+  membership_version: number;
+  role: "viewer" | "editor" | "reviewer" | "admin";
+  updated_at: string;
+  updated_by_user_id: string | null;
+  user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "JobCancelRequest".
  */
 export interface JobCancelRequest {
@@ -1692,6 +1727,139 @@ export interface SafeUserListData {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewCreateRequest".
+ */
+export interface SavedViewCreateRequest {
+  display_name: string;
+  layout_json?: SavedViewCreateLayoutJSON;
+  query_json: SavedViewCreateQueryJSON;
+  scope?: "private" | "shared";
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewLayoutJSON".
+ */
+export interface SavedViewLayoutJSON {
+  column_order: string[];
+  column_widths: SavedViewColumnWidth[];
+  hidden_field_keys: string[];
+  layout_schema_id: "cartulary.layout.v1";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewColumnWidth".
+ */
+export interface SavedViewColumnWidth {
+  field_key: string;
+  width_px: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewCreateQueryJSON".
+ */
+export interface SavedViewCreateQueryJSON {
+  filters?: ViewQueryFilter[];
+  group_by?: string;
+  sort?: SortEntry[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ViewQueryFilter".
+ */
+export interface ViewQueryFilter {
+  arg: {
+    [k: string]: unknown;
+  };
+  field_key: string;
+  op: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SortEntry".
+ */
+export interface SortEntry {
+  direction: "asc" | "desc";
+  field_key: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewDeleteEnvelope".
+ */
+export interface SavedViewDeleteEnvelope {
+  data: SavedViewDeleteData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewDeleteData".
+ */
+export interface SavedViewDeleteData {
+  deleted: true;
+  saved_view_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewEnvelope".
+ */
+export interface SavedViewEnvelope {
+  data: SavedViewResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewResource".
+ */
+export interface SavedViewResource {
+  created_at: string;
+  display_name: string;
+  incident_id: string;
+  layout_json: SavedViewLayoutJSON;
+  owner_user_id: string | null;
+  query_json: SavedViewQueryJSON;
+  saved_view_id: string;
+  saved_view_version: number;
+  scope: SavedViewScope;
+  updated_at: string;
+  view_schema_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewQueryJSON".
+ */
+export interface SavedViewQueryJSON {
+  filters: ViewQueryFilter[];
+  group_by?: string;
+  sort: SortEntry[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewListEnvelope".
+ */
+export interface SavedViewListEnvelope {
+  data: SavedViewListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewListData".
+ */
+export interface SavedViewListData {
+  saved_views: SavedViewResource[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SavedViewPatchRequest".
+ */
+export interface SavedViewPatchRequest {
+  base_saved_view_version: number;
+  display_name?: string;
+  layout_json?: SavedViewCreateLayoutJSON;
+  query_json?: SavedViewCreateQueryJSON;
+  scope?: "private" | "shared";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "SessionEnvelope".
  */
 export interface SessionEnvelope {
@@ -1900,14 +2068,6 @@ export interface CreateInputDescriptor {
   nullable: boolean;
   required: boolean;
   value_contract_id: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SortEntry".
- */
-export interface SortEntry {
-  direction: "asc" | "desc";
-  field_key: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -4269,17 +4429,6 @@ export interface WorkbookQueryMetaQuery {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "ViewQueryFilter".
- */
-export interface ViewQueryFilter {
-  arg: {
-    [k: string]: unknown;
-  };
-  field_key: string;
-  op: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "WorkbookQueryRequest".
  */
 export interface WorkbookQueryRequest {
@@ -4343,48 +4492,4 @@ export interface ExtensionWorkspaceAvailability {
 export interface ExtensionWorkspaceAvailabilityRow {
   extension_profile_id: string;
   workspace_key: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewResource".
- */
-export interface SavedViewResource {
-  created_at: string;
-  display_name: string;
-  incident_id: string;
-  layout_json: SavedViewLayoutJSON;
-  owner_user_id: string | null;
-  query_json: SavedViewQueryJSON;
-  saved_view_id: string;
-  saved_view_version: number;
-  scope: SavedViewScope;
-  updated_at: string;
-  view_schema_id: string;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewLayoutJSON".
- */
-export interface SavedViewLayoutJSON {
-  column_order: string[];
-  column_widths: SavedViewColumnWidth[];
-  hidden_field_keys: string[];
-  layout_schema_id: "cartulary.layout.v1";
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewColumnWidth".
- */
-export interface SavedViewColumnWidth {
-  field_key: string;
-  width_px: number;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "SavedViewQueryJSON".
- */
-export interface SavedViewQueryJSON {
-  filters: ViewQueryFilter[];
-  group_by?: string;
-  sort: SortEntry[];
 }

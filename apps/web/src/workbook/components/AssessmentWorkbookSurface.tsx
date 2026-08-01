@@ -71,6 +71,7 @@ import type { WorkbookQueryState } from "../models/workbookQuery";
 import { assessmentsViewSchemaId } from "../models/workbookSurfaceRegistry";
 import type { AssessmentMutationCommandPort } from "../mutations/workbookMutationCommandPorts";
 import type { WorkbookQueryRow } from "../query/WorkbookQueryRow";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
 import { useWorkbookMutationRuntime } from "../runtime/useWorkbookMutationRuntime";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import {
@@ -85,7 +86,6 @@ import { WorkbookViewBar } from "./WorkbookViewBar";
 const assessmentsContract = requireViewContract(assessmentsViewSchemaId);
 
 export type AssessmentWorkbookSurfaceProps = {
-  apiBase?: string | undefined;
   assessmentRows: WorkbookQueryRow[];
   continuityResetKey: string;
   currentIncidentRole: WorkbookIncidentRole | null;
@@ -94,7 +94,6 @@ export type AssessmentWorkbookSurfaceProps = {
   savedViewSelector?: ReactNode | undefined;
   hostRows: EntityRow[];
   identityRows: EntityRow[];
-  incidentId: string;
   layout: WorkbookSurfaceLayoutOwner;
   loadState: WorkbookQueryLoadState;
   mutationRuntime: WorkbookMutationRuntime;
@@ -104,10 +103,10 @@ export type AssessmentWorkbookSurfaceProps = {
   onRefreshAssessmentRows: () => Promise<void>;
   onSortChange: (sort: WorkbookQueryState["sort"]) => void;
   queryState: WorkbookQueryState;
+  viewQuery: WorkbookViewQueryPort;
 };
 
 export function AssessmentWorkbookSurface({
-  apiBase,
   assessmentRows,
   continuityResetKey,
   currentIncidentRole,
@@ -116,7 +115,6 @@ export function AssessmentWorkbookSurface({
   savedViewSelector,
   hostRows,
   identityRows,
-  incidentId,
   layout,
   loadState,
   mutationRuntime,
@@ -126,6 +124,7 @@ export function AssessmentWorkbookSurface({
   onRefreshAssessmentRows,
   onSortChange,
   queryState,
+  viewQuery,
 }: AssessmentWorkbookSurfaceProps) {
   const {
     commands: { onColumnReorder, onColumnWidthChange },
@@ -156,8 +155,7 @@ export function AssessmentWorkbookSurface({
     "workflow",
   );
   const supportCandidates = useAssessmentSupportCandidates({
-    apiBase,
-    incidentId,
+    viewQuery,
   });
   const roleCanCreate =
     currentIncidentRole === "editor" ||

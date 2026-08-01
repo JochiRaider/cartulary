@@ -340,7 +340,5 @@ test(exactScenarioTitle, async ({ page }) => {
     },
   );
   await page.goto(`/?incident_id=${incidentId}`);
-  await expect(
-    page.getByText("Timeline projection load failed."),
-  ).toBeVisible();
+  await expect(page.getByText("Workbook view load failed.")).toBeVisible();
 });

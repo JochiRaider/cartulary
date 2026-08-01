@@ -219,10 +219,6 @@ export class WorkbookCollaborationCoordinator {
     };
   }
 
-  reconnect(): void {
-    this.session?.reconnect();
-  }
-
   requestAuthorizationRecovery(): void {
     if (this.disposed) return;
     this.invalidateProtectedState({ kind: "session_unavailable" });
@@ -236,13 +232,6 @@ export class WorkbookCollaborationCoordinator {
       this.presenceTimer = null;
       this.publishPresenceNow();
     }, 150);
-  }
-
-  presenceForRow(recordId: string | null): readonly PresenceRecord[] {
-    if (recordId === null) return [];
-    return this.snapshot.activeSheetPresenceRecords.filter(
-      (presence) => presence.record_id === recordId,
-    );
   }
 
   editingPresenceForCell(

@@ -1,62 +1,43 @@
+import { requireViewContract } from "@cartulary/view-contracts";
 import { useEffect, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import { fetchWorkbookJSON, readEnvelope } from "../../services/workbookApi";
 import {
   type AssessmentSupportCandidate,
   assessmentSupportCandidate,
 } from "../models/assessmentWorkbookModel";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
-import {
-  normalizeTimelineFullRow,
-  validateTimelineViewSchemaId,
-} from "../timeline/models/workbookTimelineModel";
+import type { WorkbookViewQueryPort } from "../query/WorkbookViewQueryPort";
+import { normalizeTimelineFullRow } from "../timeline/models/workbookTimelineModel";
 
-type WorkbookQueryEnvelope = {
-  data: {
-    view_schema_id: string;
-    rows: unknown[];
-  };
-};
+const timelineContract = requireViewContract(timelineViewSchemaId);
 
 export function useAssessmentSupportCandidates({
-  apiBase,
-  incidentId,
+  viewQuery,
 }: {
-  readonly apiBase: string | undefined;
-  readonly incidentId: string;
+  readonly viewQuery: WorkbookViewQueryPort;
 }) {
   const [supportCandidates, setSupportCandidates] = useState<
     AssessmentSupportCandidate[]
   >([]);
 
   useEffect(() => {
-    let isCurrent = true;
+    const controller = new AbortController();
     async function loadSupportRows() {
-      const result = await fetchWorkbookJSON<WorkbookQueryEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-        ),
-        {
-          method: "POST",
-          body: JSON.stringify({}),
-        },
-      );
-      if (!isCurrent) {
+      const result = await viewQuery.query({
+        contract: timelineContract,
+        queryState: emptyWorkbookQueryState(),
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || result.kind === "aborted") {
         return;
       }
-      if (!result.ok) {
+      if (result.kind === "rejected") {
         setSupportCandidates([]);
         return;
       }
-      const envelope = readEnvelope<WorkbookQueryEnvelope>(result.payload);
       try {
-        validateTimelineViewSchemaId(
-          envelope.data.view_schema_id,
-          "assessment support query response",
-        );
         setSupportCandidates(
-          envelope.data.rows.map((row, index) => {
+          result.value.rows.map((row, index) => {
             const timelineRow = normalizeTimelineFullRow(
               row,
               `assessment support query rows[${index}]`,
@@ -73,9 +54,9 @@ export function useAssessmentSupportCandidates({
     }
     void loadSupportRows();
     return () => {
-      isCurrent = false;
+      controller.abort();
     };
-  }, [apiBase, incidentId]);
+  }, [viewQuery]);
 
   return supportCandidates;
 }

@@ -23,11 +23,8 @@ import {
   timelineViewSchemaId,
   type ViewContract,
   type WorkbookSurfaceContract,
-  type WorkbookSurfaceKind,
-  type WorkbookSurfaceStatus,
 } from "@cartulary/view-contracts";
 
-export type { WorkbookSurfaceKind, WorkbookSurfaceStatus };
 export {
   assessmentsViewSchemaId,
   commLogViewSchemaId,

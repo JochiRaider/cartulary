@@ -303,12 +303,22 @@ export function successEnvelope(data: unknown, status = 200) {
     "incident_id" in data &&
     "view_schema_id" in data &&
     "rows" in data;
+  const isSavedViewList =
+    data !== null &&
+    typeof data === "object" &&
+    "saved_views" in data &&
+    Array.isArray(data.saved_views);
   return new Response(
     JSON.stringify({
       data,
       meta: {
         request_id: `req-${status}`,
         ...(isWorkbookQuery ? { query: { filters: [], sort: [] } } : {}),
+        ...(isSavedViewList
+          ? {
+              paging: { has_more: false, limit: 100, next_cursor: null },
+            }
+          : {}),
       },
     }),
     {
@@ -385,7 +395,10 @@ function viewRowsEnvelope(
   return successEnvelope({
     incident_id: incidentId,
     view_schema_id: viewSchemaId,
-    rows: [...rows],
+    rows: rows.map(({ view_schema_id: rowViewSchemaId, ...row }) => {
+      void rowViewSchemaId;
+      return row;
+    }),
   });
 }
 

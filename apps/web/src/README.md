@@ -129,7 +129,8 @@ or `view_schema` owner. Workbook composition consumes it only through
 | `networkFlow/NetworkFlowQueryControls.tsx` | Accepted-row and rejected-row filter, sort, time-window, and reset controls. |
 | `networkFlow/NetworkFlowSemanticGrid.tsx` | Semantic accepted-row, rejected-row, and contributor grids with layout controls, selection, focus recovery, and inspector presentation. |
 | `networkFlow/networkFlowBoundaryPolicy.test.ts` | Static enforcement for controller composition, generated-decoder ownership, and browser projection-input exclusion. |
-| `networkFlow/networkFlowClient.ts` | Decoded Network Flow feature operations; browser routing remains owned by the app/workbook route seam. |
+| `networkFlow/networkFlowClient.ts` | Decoded Network Flow feature operations over the profile-and-route-scoped owner-neutral browser transport. |
+| `networkFlow/networkFlowClient.test.ts` | Tests for extension route admission, cancellation, CSRF, and generated response decoding at the client boundary. |
 | `networkFlow/networkFlowCollaborationInterpreter.ts` | Feature-local interpreter for decoded Network Flow extension invalidation/removal events. |
 | `networkFlow/networkFlowController.ts` | Pure Network Flow table selection and refresh/removal state reducer. |
 | `networkFlow/networkFlowErrors.ts` | Feature-local authorization-loss classification shared by query controllers. |
@@ -169,7 +170,7 @@ request/response handling already owned by specs and backend contracts.
 
 | File | Responsibility |
 | --- | --- |
-| `services/browserApi.ts` | Browser API base/path helpers for app-local HTTP calls. |
+| `services/browserApi.ts` | Owner-neutral browser JSON, multipart, and generated-operation transport with path/query derivation, response validation, CSRF, and public-error extraction. |
 | `services/clientTransactionId.ts` | Secure prefixed client transaction ID generation using Web Crypto UUIDs or RFC 4122 v4 fallback formatting. |
 | `services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. |
 | `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
@@ -178,12 +179,10 @@ request/response handling already owned by specs and backend contracts.
 | `services/networkFlowContractAdapter.ts` | Thin post-decode Network Flow presentation type and decoder facade; contains no handwritten wire model. |
 | `services/importTargetContractAdapter.test.ts` | Tests for strict Import target contract decoding and generated-protocol alignment. |
 | `services/networkFlowContractAdapter.test.ts` | Network Flow claimed-profile and compiled-contract-major admission tests. |
-| `services/workbookApi.ts` | Workbook HTTP helper utilities, envelope parsing, abort/query runtime helpers, and user-facing error extraction. |
 | `services/workbookEvidence.ts` | Evidence upload/attach client helpers and evidence public-error mapping. |
 | `services/browserApi.test.ts` | Tests for browser API base/path helpers. |
 | `services/clientTransactionId.test.ts` | Tests for platform UUID use, secure-random fallback formatting, prefixes, and unavailable-crypto failure. |
 | `services/clientTransactionIdPolicy.test.ts` | Static policy test excluding counters, clocks, and insecure randomness from browser mutation IDs. |
-| `services/workbookApi.test.ts` | Tests for workbook API envelope, abort, and error helpers. |
 | `services/workbookEvidence.test.ts` | Tests for evidence client helpers and error mapping. |
 
 ## `shared/`
@@ -193,6 +192,7 @@ specific.
 
 | File | Responsibility |
 | --- | --- |
+| `shared/publicError.test.ts` | Direct tests for allowlisted public detail projection and unsafe-message sanitization. |
 | `shared/publicError.ts` | Shared public-error normalization helpers. |
 | `shared/workbookSheetRef.ts` | Shared workbook sheet-reference contract and runtime guard. |
 | `shared/workbookShellContracts.ts` | Shared app/workbook shell contracts for account identity, application menu handoff, and incident-controls renderer props. |
@@ -246,6 +246,29 @@ internals.
 | `workbook/WorkbookShell.inspector.test.tsx` | Workbook interaction inspector and row-local action tests. |
 | `workbook/WorkbookShell.sentinel.test.tsx` | Workbook interaction sentinel, focus, and continuity tests. |
 | `workbook/WorkbookShell.surfaces.test.tsx` | Multi-surface workbook shell tests. |
+
+### `workbook/adapters/`
+
+Workbook adapters are the private generated-protocol boundary. Composition
+creates incident-bound adapters once and injects semantic ports into query,
+startup, saved-view, preference, incident, and pending-mutation consumers.
+Generated DTOs, HTTP status codes, envelopes, routes, and transport failures do
+not escape this directory.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/adapters/workbookOperationExecutor.ts` | Executes the closed Workbook operation-ID set and converts validated success/error envelopes to semantic outcomes. |
+| `workbook/adapters/workbookAdapterResult.ts` | Normalizes operation outcomes into shared semantic port results. |
+| `workbook/adapters/createWorkbookViewQueryAdapter.ts` | Executes one abortable Workbook query boundary with exact incident/schema correlation and contract-row normalization. |
+| `workbook/adapters/createWorkbookViewQueryAdapter.test.ts` | Tests projected query requests, aborts, malformed responses, and cross-context rejection. |
+| `workbook/adapters/createWorkbookPendingMutationAdapter.ts` | Executes queued create/patch units with dispatch identity, response correlation, and view-contract normalization. |
+| `workbook/adapters/createWorkbookPendingMutationAdapter.test.ts` | Tests create/patch projection, identity correlation, accepted rows, and semantic failure outcomes. |
+| `workbook/adapters/createWorkbookSavedViewAdapter.ts` | Executes explicit saved-view paging and CRUD behind incident-bound semantic outcomes. |
+| `workbook/adapters/createWorkbookSavedViewAdapter.test.ts` | Tests paging progress, CRUD correlation, versions, immutability, and malformed responses. |
+| `workbook/adapters/createWorkbookStartupAdapter.ts` | Loads validated Workbook startup state and correlated extension availability. |
+| `workbook/adapters/createWorkbookIncidentAdapter.ts` | Loads validated incident identity and memberships with exact resource correlation. |
+| `workbook/adapters/createWorkbookPreferenceAdapter.ts` | Loads and updates correlated current/default Workbook preferences. |
+| `workbook/adapters/createWorkbookStartupAndIncidentAdapters.test.ts` | Tests startup, incident, membership, and preference operation boundaries. |
 
 ### `workbook/components/`
 
@@ -448,6 +471,20 @@ choose domain references or authorize access.
 | `workbook/services/referenceQueryBroker.ts` | Creates instance-scoped, incident/authorization-bound reference-query ports with shared-consumer deduplication, typed invalidation, abort ownership, and idempotent disposal. |
 | `workbook/services/referenceQueryBroker.test.ts` | Tests in-flight deduplication, shared-consumer cancellation, two-shell isolation, context binding, invalidation, teardown, and late-result rejection. |
 
+### `workbook/ports/`
+
+Workbook ports expose semantic requests and outcomes only. They contain no
+generated DTOs, HTTP envelopes, route construction, status inspection, or API
+base coordinates.
+
+| File | Responsibility |
+| --- | --- |
+| `workbook/ports/WorkbookPortResult.ts` | Shared accepted/aborted/authentication/authorization/stale/retryable/terminal semantic result union. |
+| `workbook/ports/WorkbookIncidentPort.ts` | Incident identity and membership capabilities. |
+| `workbook/ports/WorkbookPreferencePort.ts` | Current-user and incident-default preference capabilities. |
+| `workbook/ports/WorkbookSavedViewPort.ts` | Explicit saved-view page listing and accepted-response CRUD capabilities. |
+| `workbook/ports/WorkbookPendingMutationPort.ts` | Shared queued create/patch execution capability over committed versions and semantic mutation units. |
+
 ### `workbook/query/`
 
 Workbook query owners bind request admission, live reconciliation, protected
@@ -457,6 +494,9 @@ Shared query rows are application contracts and do not belong to Timeline.
 | File | Responsibility |
 | --- | --- |
 | `workbook/query/WorkbookQueryRow.ts` | Shared schema-keyed view-query row shape below Timeline ownership. |
+| `workbook/query/WorkbookViewQueryPort.ts` | Shared abortable query capability returning correlated, contract-normalized rows. |
+| `workbook/query/workbookLatestRequest.ts` | Instance-local latest-request sequencing, supersession abort, and current-result admission. |
+| `workbook/query/workbookLatestRequest.test.ts` | Tests exclusive latest-request ownership and supersession aborts. |
 | `workbook/query/workbookQueryRowPatch.ts` | Pure sparse-patch application for shared query rows. |
 | `workbook/query/useAssessmentSurfaceQuery.ts` | Assessment-owned query construction, admission, live reconciliation, refresh, access cleanup, and cancellation. |
 | `workbook/query/useAssessmentSurfaceQuery.test.tsx` | Direct rapid-filter, stale-error, live-patch, access-loss, inactive-surface, and teardown characterization. |
@@ -473,6 +513,7 @@ and availability state remain behind injected ports.
 
 | File | Responsibility |
 | --- | --- |
+| `workbook/startup/WorkbookStartupPort.ts` | Semantic startup query inputs and correlated startup selection/availability outcomes. |
 | `workbook/startup/useWorkbookStartupAdmission.ts` | Startup request and response admission boundary with selection-version, incident, ordinal, availability, and cancellation guards. |
 | `workbook/startup/useWorkbookStartupAdmission.test.tsx` | Startup admission characterization for precedence, overlap, extension availability, fallbacks, teardown, and late work. |
 
@@ -498,10 +539,8 @@ owner-specific semantic outcomes to Timeline controllers.
 | `workbook/timeline/adapters/createTimelineEvidenceAttachmentAdapter.ts` | Creates an uploaded Evidence object and row, then links it to Timeline with stable transaction identity. |
 | `workbook/timeline/adapters/createTimelineHistoryAdapter.ts` | Loads validated record history and executes delete, restore, and rollback operations. |
 | `workbook/timeline/adapters/createTimelineMentionAdapter.ts` | Creates mention target entities and resolves mention actions through generated operations. |
-| `workbook/timeline/adapters/createTimelinePendingMutationAdapter.ts` | Materializes fresh and replayed semantic create/patch units with dispatch-time versions. |
 | `workbook/timeline/adapters/createTimelineRecordActionAdapter.ts` | Executes and normalizes Timeline review and supersede actions. |
 | `workbook/timeline/adapters/createTimelineRowMutationEditorAdapter.ts` | Translates semantic row-mutation editor commands into grid and continuity operations. |
-| `workbook/timeline/adapters/createTimelineViewQueryAdapter.ts` | Derives Timeline queries, validates projection envelopes, and contains aborts. |
 
 #### `workbook/timeline/bulk/`
 
@@ -621,9 +660,7 @@ or transport coordinates.
 | `workbook/timeline/ports/TimelineEvidenceAttachmentPort.ts` | Semantic file attachment and Timeline row outcomes. |
 | `workbook/timeline/ports/TimelineHistoryPort.ts` | Semantic history query, delete/restore, and rollback capabilities. |
 | `workbook/timeline/ports/TimelineMentionPort.ts` | Semantic mention entity creation and resolution capabilities. |
-| `workbook/timeline/ports/TimelinePendingMutationPort.ts` | Semantic fresh/replay mutation execution and resolved-conflict normalization. |
 | `workbook/timeline/ports/TimelineRecordActionPort.ts` | Semantic Timeline review and supersede capability. |
-| `workbook/timeline/ports/TimelineViewQueryPort.ts` | Semantic, abortable Timeline projection query capability. |
 
 ### `workbook/collaboration/`
 
@@ -648,7 +685,8 @@ import Timeline implementation.
 
 | File | Responsibility |
 | --- | --- |
-| `workbook/runtime/WorkbookMutationRuntime.ts` | Owns the incident/client-scoped pending queue across Base surface mounts. |
+| `workbook/runtime/WorkbookMutationRuntime.ts` | Owns the incident/client-scoped pending queue across Base surface mounts and dispatches through the injected shared pending-mutation port. |
+| `workbook/runtime/workbookPendingMutationSettlement.ts` | Maps semantic mutation failures to common queue settlement outcomes. |
 | `workbook/runtime/workbookPendingReplayRuntime.ts` | Pending-replay runtime state, admission contracts, and refresh barriers. |
 | `workbook/runtime/workbookConflictModel.ts` | Same-field conflict parsing and common envelope types. |
 | `workbook/runtime/workbookLifecycleModel.ts` | Shared load, refresh, save, conflict, and recovery lifecycle reducer. |

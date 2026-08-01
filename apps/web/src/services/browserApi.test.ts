@@ -34,6 +34,19 @@ describe("fetchJSON", () => {
     expect(request.headers.get(csrfHeaderName)).toBe("test-csrf");
   });
 
+  it("does not expose a private timing request protocol", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: { ok: true } }));
+
+    await fetchJSON(
+      "/api/v1/incidents/incident-1/views/cartulary.view.timeline.v2/rows",
+      { method: "POST", body: "{}" },
+    );
+
+    expect(
+      capturedRequest(fetchMock).headers.get("X-Cartulary-Timing-Debug"),
+    ).toBeNull();
+  });
+
   it.each([
     {
       cookie: "other_cookie=value",

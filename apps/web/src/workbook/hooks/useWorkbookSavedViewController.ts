@@ -1,12 +1,5 @@
 import type { ViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiPath } from "../../services/browserApi";
-import {
-  fetchWorkbookJSON,
-  handleWorkbookLoadFailure,
-  parseErrorMessage,
-  readEnvelope,
-} from "../../services/workbookApi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildSavedViewLayoutJson,
   buildSavedViewQueryJson,
@@ -23,9 +16,6 @@ import {
   upsertSavedViewList,
 } from "../models/workbookSavedViewRuntime";
 import {
-  normalizeSavedViewResource,
-  type SavedViewEnvelope,
-  type SavedViewListEnvelope,
   type SavedViewResource,
   savedViewLayoutJsonForPersistence,
   savedViewQueryJsonForPersistence,
@@ -33,26 +23,43 @@ import {
 import type { WorkbookSheetRef } from "../models/workbookStartup";
 import { workbookContractForViewSchemaId } from "../models/workbookSurfaceQueryRuntime";
 import { knownWorkbookViewSchemaId } from "../models/workbookSurfaceRegistry";
+import type { WorkbookPortResult } from "../ports/WorkbookPortResult";
+import { workbookOperationFailureIsAccessLoss } from "../ports/WorkbookPortResult";
+import type { WorkbookSavedViewPort } from "../ports/WorkbookSavedViewPort";
 
 type WorkbookIdentity = {
   readonly sheetRef: WorkbookSheetRef;
   readonly viewSchemaId: string | null;
 };
 
+function acceptedSavedViewResult<Accepted>(
+  result: WorkbookPortResult<Accepted>,
+  onIncidentAccessLost: (() => void) | undefined,
+): Accepted {
+  if (result.kind === "aborted") {
+    throw new Error("Saved-view request was aborted.");
+  }
+  if (result.kind === "rejected") {
+    if (workbookOperationFailureIsAccessLoss(result.failure)) {
+      onIncidentAccessLost?.();
+    }
+    throw new Error(result.failure.message);
+  }
+  return result.value;
+}
+
 export function useWorkbookSavedViewController({
   activeContract,
-  apiBase,
   applyLayoutStateForSurface,
   applyQueryStateForSurface,
   applyWorkbookIdentity,
   currentLayoutStateForSurface,
   currentQueryStateForSurface,
-  incidentId,
   onIncidentAccessLost,
+  savedViewPort,
   startupSheetRef,
 }: {
   readonly activeContract: ViewContract;
-  readonly apiBase?: string | undefined;
   readonly applyLayoutStateForSurface: (
     viewSchemaId: string,
     layoutState: WorkbookLayoutState,
@@ -71,11 +78,24 @@ export function useWorkbookSavedViewController({
   readonly currentQueryStateForSurface: (
     viewSchemaId: string,
   ) => WorkbookQueryState;
-  readonly incidentId: string;
   readonly onIncidentAccessLost?: (() => void) | undefined;
+  readonly savedViewPort: WorkbookSavedViewPort;
   readonly startupSheetRef: WorkbookSheetRef;
 }) {
   const [savedViews, setSavedViews] = useState<SavedViewResource[]>([]);
+  const contextVersionRef = useRef(0);
+  const savedViewPortRef = useRef(savedViewPort);
+  if (savedViewPortRef.current !== savedViewPort) {
+    savedViewPortRef.current = savedViewPort;
+    contextVersionRef.current += 1;
+  }
+
+  useEffect(
+    () => () => {
+      contextVersionRef.current += 1;
+    },
+    [],
+  );
 
   const upsertSavedView = useCallback((savedView: SavedViewResource) => {
     setSavedViews((current) => upsertSavedViewList(current, savedView));
@@ -118,27 +138,20 @@ export function useWorkbookSavedViewController({
       const layoutState = currentLayoutStateForSurface(
         activeContract.viewSchemaId,
       );
-      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            view_schema_id: activeContract.viewSchemaId,
-            display_name: input.displayName,
-            scope: input.scope,
-            query_json: buildSavedViewQueryJson(activeContract, queryState),
-            layout_json: buildSavedViewLayoutJson(activeContract, layoutState),
-          }),
+      const contextVersion = contextVersionRef.current;
+      const result = await savedViewPort.create({
+        definition: {
+          displayName: input.displayName,
+          layoutJson: buildSavedViewLayoutJson(activeContract, layoutState),
+          queryJson: buildSavedViewQueryJson(activeContract, queryState),
+          scope: input.scope,
+          viewSchemaId: activeContract.viewSchemaId,
         },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const savedView = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (savedView === null) {
-        throw new Error("Saved-view create returned an invalid resource.");
+        signal: new AbortController().signal,
+      });
+      const savedView = acceptedSavedViewResult(result, onIncidentAccessLost);
+      if (contextVersionRef.current !== contextVersion) {
+        throw new Error("Saved-view create was superseded.");
       }
       upsertSavedView(savedView);
       selectSavedView(savedView);
@@ -146,10 +159,10 @@ export function useWorkbookSavedViewController({
     },
     [
       activeContract,
-      apiBase,
       currentQueryStateForSurface,
       currentLayoutStateForSurface,
-      incidentId,
+      onIncidentAccessLost,
+      savedViewPort,
       selectSavedView,
       upsertSavedView,
     ],
@@ -158,39 +171,32 @@ export function useWorkbookSavedViewController({
   const duplicateSavedView = useCallback(
     async (source: SavedViewResource) => {
       const contract = workbookContractForViewSchemaId(source.view_schema_id);
-      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
-        apiPath(apiBase, `/api/v1/incidents/${incidentId}/saved-views`),
-        {
-          method: "POST",
-          body: JSON.stringify({
-            view_schema_id: source.view_schema_id,
-            display_name: `${source.display_name} Copy`,
-            scope: "private",
-            query_json: savedViewQueryJsonForPersistence(
-              contract,
-              source.query_json,
-            ),
-            layout_json: savedViewLayoutJsonForPersistence(
-              contract,
-              source.layout_json,
-            ),
-          }),
+      const contextVersion = contextVersionRef.current;
+      const result = await savedViewPort.create({
+        definition: {
+          displayName: `${source.display_name} Copy`,
+          layoutJson: savedViewLayoutJsonForPersistence(
+            contract,
+            source.layout_json,
+          ),
+          queryJson: savedViewQueryJsonForPersistence(
+            contract,
+            source.query_json,
+          ),
+          scope: "private",
+          viewSchemaId: source.view_schema_id,
         },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const savedView = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (savedView === null) {
-        throw new Error("Saved-view duplicate returned an invalid resource.");
+        signal: new AbortController().signal,
+      });
+      const savedView = acceptedSavedViewResult(result, onIncidentAccessLost);
+      if (contextVersionRef.current !== contextVersion) {
+        throw new Error("Saved-view duplicate was superseded.");
       }
       upsertSavedView(savedView);
       selectSavedView(savedView);
       return savedView;
     },
-    [apiBase, incidentId, selectSavedView, upsertSavedView],
+    [onIncidentAccessLost, savedViewPort, selectSavedView, upsertSavedView],
   );
 
   const updateSavedView = useCallback(
@@ -208,54 +214,47 @@ export function useWorkbookSavedViewController({
       const layoutState = currentLayoutStateForSurface(
         savedView.view_schema_id,
       );
-      const result = await fetchWorkbookJSON<SavedViewEnvelope>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
-        ),
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            base_saved_view_version: savedView.saved_view_version,
-            display_name: input.displayName,
-            scope: input.scope,
-            query_json: buildSavedViewQueryJson(contract, queryState),
-            layout_json: buildSavedViewLayoutJson(contract, layoutState),
-          }),
+      const contextVersion = contextVersionRef.current;
+      const result = await savedViewPort.patch({
+        baseVersion: savedView.saved_view_version,
+        definition: {
+          displayName: input.displayName,
+          layoutJson: buildSavedViewLayoutJson(contract, layoutState),
+          queryJson: buildSavedViewQueryJson(contract, queryState),
+          scope: input.scope,
         },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
-      }
-      const updated = normalizeSavedViewResource(
-        readEnvelope<SavedViewEnvelope>(result.payload).data,
-      );
-      if (updated === null) {
-        throw new Error("Saved-view update returned an invalid resource.");
+        savedViewId: savedView.saved_view_id,
+        scope: savedView.scope,
+        signal: new AbortController().signal,
+        viewSchemaId: savedView.view_schema_id,
+      });
+      const updated = acceptedSavedViewResult(result, onIncidentAccessLost);
+      if (contextVersionRef.current !== contextVersion) {
+        throw new Error("Saved-view update was superseded.");
       }
       upsertSavedView(updated);
       return updated;
     },
     [
-      apiBase,
       currentLayoutStateForSurface,
       currentQueryStateForSurface,
-      incidentId,
+      onIncidentAccessLost,
+      savedViewPort,
       upsertSavedView,
     ],
   );
 
   const deleteSavedView = useCallback(
     async (savedView: SavedViewResource) => {
-      const result = await fetchWorkbookJSON<Record<string, unknown>>(
-        apiPath(
-          apiBase,
-          `/api/v1/incidents/${incidentId}/saved-views/${savedView.saved_view_id}`,
-        ),
-        { method: "DELETE" },
-      );
-      if (!result.ok) {
-        throw new Error(parseErrorMessage(result.payload));
+      const contextVersion = contextVersionRef.current;
+      const result = await savedViewPort.delete({
+        savedViewId: savedView.saved_view_id,
+        scope: savedView.scope,
+        signal: new AbortController().signal,
+      });
+      acceptedSavedViewResult(result, onIncidentAccessLost);
+      if (contextVersionRef.current !== contextVersion) {
+        throw new Error("Saved-view delete was superseded.");
       }
       setSavedViews((current) =>
         removeSavedViewList(current, savedView.saved_view_id),
@@ -268,60 +267,64 @@ export function useWorkbookSavedViewController({
         applyWorkbookIdentity(fallback, { reloadSheet: true });
       }
     },
-    [apiBase, applyWorkbookIdentity, incidentId, startupSheetRef],
+    [
+      applyWorkbookIdentity,
+      onIncidentAccessLost,
+      savedViewPort,
+      startupSheetRef,
+    ],
   );
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const nextSavedViews: SavedViewResource[] = [];
+    const seenCursors = new Set<string>();
+    const seenSavedViewIds = new Set<string>();
     const loadSavedViews = async () => {
       let cursorToken: string | null = null;
       do {
-        const query = new URLSearchParams({ limit: "100" });
-        if (cursorToken !== null) {
-          query.set("cursor_token", cursorToken);
-        }
-        const result = await fetchWorkbookJSON<SavedViewListEnvelope>(
-          apiPath(
-            apiBase,
-            `/api/v1/incidents/${incidentId}/saved-views?${query.toString()}`,
-          ),
-        );
-        if (cancelled) {
+        const result = await savedViewPort.listPage({
+          cursorToken,
+          limit: 100,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || result.kind === "aborted") {
           return;
         }
-        if (!result.ok) {
-          handleWorkbookLoadFailure(
-            parseErrorMessage(result.payload),
-            "Saved views load failed.",
-            onIncidentAccessLost,
-          );
+        if (result.kind === "rejected") {
+          if (workbookOperationFailureIsAccessLoss(result.failure)) {
+            onIncidentAccessLost?.();
+          }
           setSavedViews([]);
           return;
         }
-        const envelope = readEnvelope<SavedViewListEnvelope>(result.payload);
-        for (const savedView of envelope.data.saved_views) {
-          const normalized = normalizeSavedViewResource(savedView);
-          if (normalized !== null) {
-            nextSavedViews.push(normalized);
+        for (const savedView of result.value.savedViews) {
+          if (seenSavedViewIds.has(savedView.saved_view_id)) {
+            setSavedViews([]);
+            return;
           }
+          seenSavedViewIds.add(savedView.saved_view_id);
+          nextSavedViews.push(savedView);
         }
-        const paging = envelope.meta?.paging;
-        cursorToken =
-          paging?.has_more === true && paging.next_cursor
-            ? paging.next_cursor
-            : null;
+        cursorToken = result.value.nextCursor;
+        if (cursorToken !== null) {
+          if (seenCursors.has(cursorToken)) {
+            setSavedViews([]);
+            return;
+          }
+          seenCursors.add(cursorToken);
+        }
       } while (cursorToken !== null);
 
-      if (!cancelled) {
+      if (!controller.signal.aborted) {
         setSavedViews(nextSavedViews);
       }
     };
     void loadSavedViews();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [apiBase, incidentId, onIncidentAccessLost]);
+  }, [onIncidentAccessLost, savedViewPort]);
 
   const activeSavedView = useMemo(
     () =>

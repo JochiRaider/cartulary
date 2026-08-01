@@ -4388,7 +4388,8 @@
       "name": "generate-artifacts",
       "backing_scripts": [
         "tools/harness/generated-artifacts/generate-artifacts.sh",
-        "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
+        "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
+        "tools/protocol-ts/generate-protocol-types.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],

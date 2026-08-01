@@ -5,14 +5,18 @@ import type {
   WorkbookOperationFailure,
   WorkbookOperationOutcome,
 } from "../../mutations/workbookOperationOutcome";
+import type {
+  WorkbookPendingMutationAccepted,
+  WorkbookPendingMutationPort,
+} from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
+import { workbookPendingMutationFailureResult } from "../../runtime/workbookPendingMutationSettlement";
 import {
   refreshBlocksWorkbookPendingUnit,
   type WorkbookPendingReplayAdmissionRequest,
   type WorkbookPendingSavesRefs,
 } from "../../runtime/workbookPendingReplayRuntime";
 import type {
-  PendingReplayPublicError,
   PendingReplayUnitInput,
   PendingReplayUnitState,
 } from "../../utils/workbookPendingQueue";
@@ -23,10 +27,6 @@ import type {
   TimelineScalarEditorSurface,
   WorkbookRow,
 } from "../models/workbookTimelineModel";
-import type {
-  TimelinePendingMutationAccepted,
-  TimelinePendingMutationPort,
-} from "../ports/TimelinePendingMutationPort";
 
 type TimelineMutableRef<T> = {
   current: T;
@@ -34,47 +34,6 @@ type TimelineMutableRef<T> = {
 
 type TimelinePendingReplayControllerAdmission =
   WorkbookPendingReplayAdmissionRequest<PendingReplayRuntimeMeta>;
-
-function pendingReplayFailureResult(failure: WorkbookOperationFailure): {
-  readonly status: number;
-  readonly error: PendingReplayPublicError;
-} {
-  if (failure.kind === "same_field_conflict") {
-    return {
-      status: 409,
-      error: {
-        code: "same_field_conflict",
-        message: failure.message,
-        conflict: failure.conflict,
-      },
-    };
-  }
-  const status =
-    failure.kind === "authentication_required"
-      ? 401
-      : failure.kind === "authorization_lost"
-        ? 403
-        : failure.kind === "stale_target"
-          ? 404
-          : failure.kind === "client_txn_conflict"
-            ? 409
-            : failure.kind === "validation"
-              ? 400
-              : failure.kind === "retryable"
-                ? 503
-                : 422;
-  return {
-    status,
-    error: {
-      code: failure.kind,
-      message: failure.message,
-      ...(failure.kind === "retryable" ? { retryable: true } : {}),
-      ...(failure.kind === "validation" && failure.fields?.[0] !== undefined
-        ? { details: { field_key: failure.fields[0].field } }
-        : {}),
-    },
-  };
-}
 
 function isCollectionDraftKey(
   focusField: FocusFieldKey,
@@ -106,12 +65,12 @@ export function useTimelinePendingReplayController({
   requestAuthorizationRecovery,
   setRefreshError,
   setRows,
-  timelinePendingMutation,
+  pendingMutationPort,
   trackPendingSocketTxn,
 }: {
   readonly applyAcceptedRowMutation: (
     rowKey: string,
-    accepted: TimelinePendingMutationAccepted,
+    accepted: WorkbookPendingMutationAccepted,
     options?: {
       clearActiveCollectionFocusKey?: string;
       continueOnFreshDraft?: boolean;
@@ -159,7 +118,7 @@ export function useTimelinePendingReplayController({
   readonly requestAuthorizationRecovery: () => void;
   readonly setRefreshError: (message: string | null) => void;
   readonly setRows: (rows: WorkbookRow[]) => void;
-  readonly timelinePendingMutation: TimelinePendingMutationPort;
+  readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly trackPendingSocketTxn: (clientTxnId: string) => void;
 }) {
   const completionCallbacksRef = useRef(
@@ -503,14 +462,14 @@ export function useTimelinePendingReplayController({
     publishPendingQueueState();
     trackPendingSocketTxn(dispatchedUnit.clientTxnId);
 
-    let result: WorkbookOperationOutcome<TimelinePendingMutationAccepted>;
+    let result: WorkbookOperationOutcome<WorkbookPendingMutationAccepted>;
     try {
       recordWorkbookTiming("pending_fetch_start", {
         clientTxnId: dispatchedUnit.clientTxnId,
         kind: dispatchedUnit.kind,
         rowKey: dispatchedUnit.rowKey,
       });
-      result = await timelinePendingMutation.execute({
+      result = await pendingMutationPort.execute({
         committedRowVersion: currentRow?.rowVersion ?? null,
         unit: dispatchedUnit,
       });
@@ -533,7 +492,9 @@ export function useTimelinePendingReplayController({
 
     if (result.kind === "rejected") {
       resolvePendingSocketTxn(dispatchedUnit.clientTxnId);
-      const publicFailure = pendingReplayFailureResult(result.failure);
+      const publicFailure = workbookPendingMutationFailureResult(
+        result.failure,
+      );
       const settlement = pending.model.settleDispatched({
         ok: false,
         status: publicFailure.status,

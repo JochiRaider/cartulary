@@ -1,16 +1,16 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, expect, it, vi } from "vitest";
-import { timelineRow } from "../../../testing/timelineWorkbookTestSupport";
-import { emptyWorkbookQueryState } from "../../models/workbookQuery";
-import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
-import { createTimelineViewQueryAdapter } from "./createTimelineViewQueryAdapter";
+import { timelineRow } from "../../testing/timelineWorkbookTestSupport";
+import { emptyWorkbookQueryState } from "../models/workbookQuery";
+import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { createWorkbookViewQueryAdapter } from "./createWorkbookViewQueryAdapter";
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-it("derives and validates Timeline query transport behind the semantic query port", async () => {
+it("derives and validates Workbook query transport behind the shared semantic port", async () => {
   const incidentId = "00000000-0000-4000-8000-000000000001";
   const recordId = "00000000-0000-4000-8000-000000000101";
   const fetchMock = vi.fn().mockResolvedValueOnce(
@@ -37,14 +37,14 @@ it("derives and validates Timeline query transport behind the semantic query por
     ),
   );
   vi.stubGlobal("fetch", fetchMock);
-  const query = createTimelineViewQueryAdapter({
+  const query = createWorkbookViewQueryAdapter({
     apiBase: "/base",
     incidentId,
-    timelineContract: requireViewContract(timelineViewSchemaId),
   });
 
   await expect(
     query.query({
+      contract: requireViewContract(timelineViewSchemaId),
       queryState: emptyWorkbookQueryState(),
       signal: new AbortController().signal,
     }),
@@ -52,7 +52,7 @@ it("derives and validates Timeline query transport behind the semantic query por
     kind: "accepted",
     value: {
       incidentId,
-      rows: [{ recordId, rowVersion: 3 }],
+      rows: [{ record_id: recordId, row_version: 3 }],
       viewSchemaId: timelineViewSchemaId,
     },
   });
@@ -62,7 +62,7 @@ it("derives and validates Timeline query transport behind the semantic query por
   );
 });
 
-it("fails closed on malformed Timeline query success and contains aborts", async () => {
+it("fails closed on malformed or cross-context query success and contains aborts", async () => {
   const incidentId = "00000000-0000-4000-8000-000000000001";
   const fetchMock = vi
     .fn()
@@ -71,6 +71,22 @@ it("fails closed on malformed Timeline query success and contains aborts", async
         status: 200,
         headers: { "content-type": "application/json" },
       }),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            incident_id: "00000000-0000-4000-8000-000000000099",
+            rows: [],
+            view_schema_id: timelineViewSchemaId,
+          },
+          meta: {
+            query: { filters: [], sort: [] },
+            request_id: "req-cross-context",
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
     )
     .mockImplementationOnce(
       (_input: RequestInfo | URL, init?: RequestInit) =>
@@ -81,14 +97,14 @@ it("fails closed on malformed Timeline query success and contains aborts", async
         }),
     );
   vi.stubGlobal("fetch", fetchMock);
-  const query = createTimelineViewQueryAdapter({
+  const query = createWorkbookViewQueryAdapter({
     apiBase: undefined,
     incidentId,
-    timelineContract: requireViewContract(timelineViewSchemaId),
   });
 
   await expect(
     query.query({
+      contract: requireViewContract(timelineViewSchemaId),
       queryState: emptyWorkbookQueryState(),
       signal: new AbortController().signal,
     }),
@@ -96,12 +112,27 @@ it("fails closed on malformed Timeline query success and contains aborts", async
     kind: "rejected",
     failure: {
       kind: "invalid_contract",
-      message: "Timeline projection load failed.",
+      message: "Workbook view load failed.",
+    },
+  });
+
+  await expect(
+    query.query({
+      contract: requireViewContract(timelineViewSchemaId),
+      queryState: emptyWorkbookQueryState(),
+      signal: new AbortController().signal,
+    }),
+  ).resolves.toEqual({
+    kind: "rejected",
+    failure: {
+      kind: "invalid_contract",
+      message: "Workbook view load failed.",
     },
   });
 
   const controller = new AbortController();
   const pending = query.query({
+    contract: requireViewContract(timelineViewSchemaId),
     queryState: emptyWorkbookQueryState(),
     signal: controller.signal,
   });
