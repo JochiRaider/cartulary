@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
@@ -7,15 +6,11 @@ import { canonicalJSONString, semanticJSONSHA256 } from "../test-catalog/semanti
 import { loadRetainedObservability, resolveExactRunDir } from "./observability.mjs";
 
 export const backendFinalizerTarget = "backend-output-finalizer";
-export const performanceEvidenceSchemaID = "cartulary.harness_performance_evidence_roots.v2";
-export const performanceBaselineSchemaID = "cartulary.harness_public_target_duration_baselines.v2";
+export const performanceEvidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
+export const performanceBaselineSchemaID = "cartulary.harness_public_target_duration_baselines.v3";
 
 function sameJSON(left, right) {
   return canonicalJSONString(left) === canonicalJSONString(right);
-}
-
-function retainedV1ExecutionPolicySHA256(value) {
-  return createHash("sha256").update(`${JSON.stringify(value, null, 2)}\n`).digest("hex");
 }
 
 function readJSON(file) {
@@ -29,6 +24,12 @@ export function median(values) {
   return sorted.length % 2 === 0
     ? (sorted[middle - 1] + sorted[middle]) / 2
     : sorted[middle];
+}
+
+export function nearestRankP90(values) {
+  if (values.length === 0) throw new Error("p90 requires at least one value");
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.ceil(sorted.length * 0.9) - 1];
 }
 
 function durationMs(span) {
@@ -84,9 +85,9 @@ function contractsByTarget(context) {
   return result;
 }
 
-export function qualificationReasons(context, { allowMissingInvocationBoundary = false } = {}) {
+export function qualificationReasons(context) {
   const reasons = new Set(context.contamination_reasons);
-  if (!context.invocation_boundary_retained && !allowMissingInvocationBoundary) reasons.add("artifact_incomplete");
+  if (!context.invocation_boundary_retained) reasons.add("artifact_incomplete");
   if (context.source_state !== "clean") reasons.add("dirty_source");
   if (context.status !== "passed") reasons.add("failed_execution");
   if (context.interrupted) reasons.add("interrupted_execution");
@@ -96,7 +97,7 @@ export function qualificationReasons(context, { allowMissingInvocationBoundary =
 }
 
 // Narrow fixture-facing projection retained for observability contract tests.
-// Qualification and performance acceptance use explicit v2 bindings below.
+// Qualification and performance acceptance use explicit v3 bindings below.
 export function collectRetainedObservations(retained, runDir) {
   const context = retained.context;
   const reasons = qualificationReasons(context);
@@ -143,6 +144,18 @@ function nativeTargetTiming(runDir, target) {
   if (!existsSync(file)) return nativeSummary(runDir, target);
   const timing = readJSON(file);
   if (timing.target !== target || timing.status !== "pass") throw new Error(`${target} native timing is not terminal-successful`);
+  const spans = (timing.buckets ?? [])
+    .flatMap((bucket) => bucket.spans ?? [])
+    .filter((span) => span.status === "pass");
+  if (spans.length > 0) {
+    const value = intervalUnionMs(spans);
+    if (value <= 0) throw new Error(`${target} native timing interval union is empty`);
+    return {
+      value,
+      start: spans.map((span) => span.start_time).sort()[0],
+      end: spans.map((span) => span.end_time).sort().at(-1),
+    };
+  }
   return {
     value: isoDurationMs(timing.start_time, timing.end_time, `${target} native timing`),
     start: timing.start_time,
@@ -192,33 +205,180 @@ function exactAggregateSpan(retained, target) {
   };
 }
 
+function schedulerEventFiles(root) {
+  const files = [];
+  const visit = (current) => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const candidate = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        visit(candidate);
+      } else if (entry.isFile() && entry.name === "scheduler-events.jsonl") {
+        files.push(candidate);
+      }
+    }
+  };
+  visit(root);
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function schedulerUnitTiming(runDir, target, { required }) {
+  const occurrences = [];
+  for (const file of schedulerEventFiles(runDir)) {
+    const events = readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line, index) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          throw new Error(`${target} scheduler event ${path.relative(runDir, file)}:${index + 1} is invalid JSON`, {
+            cause: error,
+          });
+        }
+      })
+      .filter((event) => event.work_unit_id === target && (event.event === "start" || event.event === "finish"));
+    if (events.length === 0) continue;
+    const starts = events.filter((event) => event.event === "start");
+    const finishes = events.filter((event) => event.event === "finish");
+    if (starts.length !== 1 || finishes.length !== 1) {
+      throw new Error(`${target} canonical scheduler unit does not have exactly one start/finish pair`);
+    }
+    const start = starts[0];
+    const finish = finishes[0];
+    if (finish.status !== 0) throw new Error(`${target} canonical scheduler unit is not terminal-successful`);
+    if (start.target !== finish.target) throw new Error(`${target} canonical scheduler unit crosses scheduler streams`);
+    const startMs = Date.parse(start.emitted_at);
+    const finishMs = Date.parse(finish.emitted_at);
+    if (!Number.isFinite(startMs) || !Number.isFinite(finishMs) || finishMs <= startMs) {
+      throw new Error(`${target} canonical scheduler unit has invalid timing boundaries`);
+    }
+    occurrences.push({
+      value: finishMs - startMs,
+      start: new Date(startMs).toISOString(),
+      end: new Date(finishMs).toISOString(),
+    });
+  }
+  if (occurrences.length === 0 && !required) return null;
+  if (occurrences.length !== 1) {
+    throw new Error(`${target} canonical scheduler unit is not exact-once`);
+  }
+  return occurrences[0];
+}
+
+export function canonicalSchedulerUnitTiming(runDir, target) {
+  return schedulerUnitTiming(runDir, target, { required: true });
+}
+
 function observationFor(record, target, timingSource, evidenceKind) {
   if (timingSource === "backend_report_collation_union") return nativeFinalizerTiming(record.runDir);
   if (timingSource === "public_invocation_envelope") {
     if (record.context.target !== target) throw new Error(`${target} public invocation timing requires a direct provider`);
-    if (record.context.invocation_boundary_retained) {
-      const { span } = rootSpan(record.retained);
-      return {
-        value: durationMs(span),
-        start: record.context.started_at,
-        end: record.context.ended_at,
-      };
+    if (!record.context.invocation_boundary_retained || evidenceKind !== "strict_current") {
+      throw new Error(`${target} current evidence has no invocation boundary`);
     }
-    if (evidenceKind !== "retained_v1_reference_migration") {
-      throw new Error(`${target} strict evidence has no invocation boundary`);
-    }
-    return nativeTargetTiming(record.runDir, target);
+    const { span } = rootSpan(record.retained);
+    return {
+      value: durationMs(span),
+      start: record.context.started_at,
+      end: record.context.ended_at,
+    };
   }
-  if (timingSource === "aggregate_scheduler_work_envelope") {
-    if (record.context.target === target) return nativeTargetTiming(record.runDir, target);
-    try {
-      return exactAggregateSpan(record.retained, target);
-    } catch (error) {
-      if (evidenceKind !== "retained_v1_reference_migration") throw error;
+  if (timingSource === "canonical_unit_interval_union") {
+    if (existsSync(timingFile(record.runDir, target)) || record.context.target === target) {
       return nativeTargetTiming(record.runDir, target);
     }
+    const schedulerTiming = schedulerUnitTiming(record.runDir, target, { required: false });
+    if (schedulerTiming) return schedulerTiming;
+    return exactAggregateSpan(record.retained, target);
+  }
+  if (timingSource === "canonical_timing_bucket_union") {
+    if (target !== backendFinalizerTarget) {
+      throw new Error(`${target} has no registered canonical timing bucket`);
+    }
+    return nativeFinalizerTiming(record.runDir);
   }
   throw new Error(`${target} has unsupported timing source ${timingSource}`);
+}
+
+function spanInterval(span) {
+  return [
+    Number(BigInt(span.start_time_unix_nano) / 1_000_000n),
+    Number(BigInt(span.end_time_unix_nano) / 1_000_000n),
+  ];
+}
+
+function exclusiveTimingAccounting(record) {
+  const { bundle, span: root } = rootSpan(record.retained);
+  const [rootStart, rootEnd] = spanInterval(root);
+  const bucketByPhase = new Map([
+    ["scheduler_wait", "setup"],
+    ["service", "fixture"],
+    ["target", "execution"],
+    ["sequence_step", "execution"],
+    ["scheduler_work", "execution"],
+    ["runner", "execution"],
+    ["artifact", "collation"],
+    ["finalizer", "collation"],
+    ["unattributed", "wrapper"],
+  ]);
+  const intervals = bundle.spans
+    .filter((item) => item.span_id !== root.span_id && bucketByPhase.has(item.phase))
+    .map((item) => {
+      const [start, end] = spanInterval(item);
+      return {
+        start: Math.max(rootStart, start),
+        end: Math.min(rootEnd, end),
+        bucket: bucketByPhase.get(item.phase),
+      };
+    })
+    .filter((item) => item.end > item.start);
+  const boundaries = [...new Set([
+    rootStart,
+    rootEnd,
+    ...intervals.flatMap((item) => [item.start, item.end]),
+  ])].sort((left, right) => left - right);
+  const totals = { setup: 0, fixture: 0, execution: 0, collation: 0, wrapper: 0 };
+  const precedence = ["collation", "fixture", "execution", "setup", "wrapper"];
+  for (let index = 1; index < boundaries.length; index += 1) {
+    const start = boundaries[index - 1];
+    const end = boundaries[index];
+    if (end <= start || start < rootStart || end > rootEnd) continue;
+    const active = new Set(intervals
+      .filter((item) => item.start < end && item.end > start)
+      .map((item) => item.bucket));
+    const bucket = precedence.find((name) => active.has(name)) ?? "wrapper";
+    totals[bucket] += end - start;
+  }
+  const hotspot = record.retained.built[0].result.hotspot;
+  const processCount = bundle.spans.filter((item) =>
+    item.phase === "runner" || item.phase === "scheduler_work" || item.phase === "sequence_step").length;
+  return {
+    critical_path_ms: hotspot.actual_dependency_critical_path_ms,
+    resource_blocking_ms: hotspot.resource_blocking_ms,
+    setup_ms: totals.setup,
+    fixture_ms: totals.fixture,
+    execution_ms: totals.execution,
+    collation_ms: totals.collation,
+    wrapper_ms: totals.wrapper,
+    process_count: processCount,
+    unattributed_ms: 0,
+  };
+}
+
+function timingAccounting(records) {
+  const samples = records.map((record) => exclusiveTimingAccounting(record));
+  const p50 = (field) => median(samples.map((sample) => sample[field]));
+  return {
+    critical_path_p50_ms: p50("critical_path_ms"),
+    resource_blocking_p50_ms: p50("resource_blocking_ms"),
+    setup_p50_ms: p50("setup_ms"),
+    fixture_p50_ms: p50("fixture_ms"),
+    execution_p50_ms: p50("execution_ms"),
+    collation_p50_ms: p50("collation_ms"),
+    wrapper_p50_ms: p50("wrapper_ms"),
+    process_count_p50: p50("process_count"),
+    unattributed_p50_ms: p50("unattributed_ms"),
+  };
 }
 
 function loadWindowRecord(root, window) {
@@ -228,12 +388,10 @@ function loadWindowRecord(root, window) {
   if (context.target !== window.provider_target) {
     throw new Error(`${context.run_id} provider ${context.target} does not match ${window.provider_target}`);
   }
-  if (window.evidence_kind === "strict_current" && context.schema_id !== "cartulary.harness_execution_context.v2") {
+  if (window.evidence_kind !== "strict_current" || context.schema_id !== "cartulary.harness_execution_context.v2") {
     throw new Error(`${context.run_id} strict evidence must use execution-context v2`);
   }
-  const reasons = qualificationReasons(context, {
-    allowMissingInvocationBoundary: window.evidence_kind === "retained_v1_reference_migration",
-  });
+  const reasons = qualificationReasons(context);
   if (reasons.length > 0) throw new Error(`${context.run_id} is not qualified: ${reasons.join(",")}`);
   return { runDir, retained, context, contracts: contractsByTarget(context) };
 }
@@ -251,9 +409,26 @@ function assertSame(target, values, label) {
   if (values.some((value) => !sameJSON(value, values[0]))) throw new Error(`${target} window has mismatched ${label}`);
 }
 
-function targetStatistics(binding, window, warmup, samples) {
+const requiredImprovementTargets = new Set([
+  "agent-finalize",
+  "browser-e2e",
+  "browser-e2e-a11y",
+  "browser-e2e-measurement",
+  "browser-e2e-stateful",
+  "browser-e2e-visual",
+  "browser-e2e-webserver-backed",
+  "check",
+  "ci",
+  "go-vulncheck",
+  "harness-contract",
+  "release-check",
+  "test",
+  "test-fast",
+]);
+
+function targetStatistics(binding, window, cold, warmup, samples, { diagnostic = false } = {}) {
   const target = binding.target;
-  const records = [warmup, ...samples];
+  const records = [cold, warmup, ...samples];
   const contracts = records.map((record) => record.contracts.get(target === backendFinalizerTarget ? "backend-unit" : target));
   if (contracts.some((contract) => contract === undefined)) throw new Error(`${target} has no retained measurement contract`);
   const contexts = records.map((record) => record.context);
@@ -270,18 +445,19 @@ function targetStatistics(binding, window, warmup, samples) {
     }
   }
   const contract = contracts[0];
-  const values = allObservations.slice(1).map((observation) => observation.value);
+  const values = allObservations.slice(2).map((observation) => observation.value);
   const baselineMedian = median(values);
   const mad = median(values.map((sample) => Math.abs(sample - baselineMedian)));
-  const executionPolicy = contract.execution_policy ?? {
-    retained_v1_execution_policy_sha256: contract.execution_policy_sha256,
-  };
-  if (contract.execution_policy && semanticJSONSHA256(contract.execution_policy) !== contract.execution_policy_sha256) {
+  if (!contract.execution_policy) {
+    throw new Error(`${target} retained measurement contract has no normalized execution-policy projection`);
+  }
+  const executionPolicy = contract.execution_policy;
+  if (semanticJSONSHA256(contract.execution_policy) !== contract.execution_policy_sha256) {
     throw new Error(`${target} retained execution-policy projection digest mismatch`);
   }
-  const gate = target === backendFinalizerTarget || contract.performance_gates.some((gateName) => gateName.endsWith("_improvement"))
-    ? "required_improvement"
-    : "no_regression";
+  const gate = diagnostic
+    ? "diagnostic_only"
+    : requiredImprovementTargets.has(target) ? "required_improvement" : "no_regression";
   const allowedPolicyTransition = contract.allowed_policy_transition ?? currentAllowedPolicyTransition(target);
   return {
     target,
@@ -290,7 +466,6 @@ function targetStatistics(binding, window, warmup, samples) {
     measurement_profile_id: contract.measurement_profile_id,
     canonical_inputs: contract.canonical_inputs,
     timing_source: binding.timing_source,
-    evidence_kind: window.evidence_kind,
     source_commit: contexts[0].commit,
     source_snapshot_sha256: contexts[0].source_snapshot_sha256,
     host_profile_sha256: contexts[0].host_profile_sha256,
@@ -301,19 +476,43 @@ function targetStatistics(binding, window, warmup, samples) {
     execution_policy_sha256: contract.execution_policy_sha256,
     ...(allowedPolicyTransition === undefined ? {} : { allowed_policy_transition: allowedPolicyTransition }),
     sample_provider_target: window.provider_target,
+    cold_root: rootRef(cold.runDir, cold.context),
+    cold_ms: allObservations[0].value,
     warmup_root: rootRef(warmup.runDir, warmup.context),
     sample_roots: samples.map((record) => rootRef(record.runDir, record.context)),
+    sample_count: values.length,
     samples_ms: values,
-    median_ms: baselineMedian,
+    p50_ms: baselineMedian,
+    p90_ms: nearestRankP90(values),
     mad_ms: mad,
-    no_regression_limit_ms: baselineMedian + Math.max(1000, 3 * mad, baselineMedian * 0.05),
-    required_improvement_ms: Math.max(1000, 3 * mad, baselineMedian * 0.1),
+    timing_accounting: timingAccounting(samples),
   };
 }
 
 function publicTargets() {
   const manifest = readJSON(path.join(repoRoot, "tools", "task_surface_manifest.json"));
   return [...manifest.observability_policy.required_targets].sort((left, right) => left.localeCompare(right));
+}
+
+export function sourceWindowRoster(rows) {
+  const windows = new Map();
+  for (const row of rows) {
+    const key = `${row.source_commit}\u0000${row.source_snapshot_sha256}`;
+    const window = windows.get(key) ?? {
+      source_commit: row.source_commit,
+      source_snapshot_sha256: row.source_snapshot_sha256,
+      targets: [],
+    };
+    window.targets.push(row.target);
+    windows.set(key, window);
+  }
+  return [...windows.values()]
+    .map((window) => ({
+      ...window,
+      targets: [...window.targets].sort((left, right) => left.localeCompare(right)),
+    }))
+    .sort((left, right) => left.source_commit.localeCompare(right.source_commit) ||
+      left.source_snapshot_sha256.localeCompare(right.source_snapshot_sha256));
 }
 
 function currentAllowedPolicyTransition(target) {
@@ -327,52 +526,72 @@ function currentAllowedPolicyTransition(target) {
 }
 
 export function buildQualifiedBaseline(windows, bindings, {
+  internalWindows = [],
+  internalBindings = [],
   rejectedRoots = [],
   role = "reference",
 } = {}) {
   assertUnique(windows, "window_id", `${role} windows`);
   assertUnique(bindings, "target", `${role} bindings`);
-  const windowsByID = new Map(windows.map((window) => [window.window_id, window]));
-  const loadedWindows = new Map();
-  for (const window of windows) {
-    if (role === "candidate" && window.evidence_kind !== "strict_current") {
-      throw new Error("candidate evidence cannot use retained-v1 migration mode");
+  assertUnique(internalWindows, "window_id", `${role} internal windows`);
+  assertUnique(internalBindings, "target", `${role} internal bindings`);
+  const loadRows = (selectedWindows, selectedBindings, { diagnostic = false } = {}) => {
+    const windowsByID = new Map(selectedWindows.map((window) => [window.window_id, window]));
+    const loadedWindows = new Map();
+    for (const window of selectedWindows) {
+      if (window.evidence_kind !== "strict_current") {
+        throw new Error(`${window.window_id} must use strict-current evidence`);
+      }
+      if (window.measured_roots.length !== 5 && window.measured_roots.length !== 6) {
+        throw new Error(`${window.window_id} must contain five or six measured roots`);
+      }
+      const roots = [window.cold_root, window.warmup_root, ...window.measured_roots];
+      if (new Set(roots).size !== roots.length) throw new Error(`${window.window_id} duplicates evidence roots`);
+      loadedWindows.set(window.window_id, {
+        cold: loadWindowRecord(window.cold_root, window),
+        warmup: loadWindowRecord(window.warmup_root, window),
+        samples: window.measured_roots.map((root) => loadWindowRecord(root, window)),
+      });
     }
-    const roots = [window.warmup_root, ...window.measured_roots];
-    if (new Set(roots).size !== 3) throw new Error(`${window.window_id} duplicates evidence roots`);
-    loadedWindows.set(window.window_id, {
-      warmup: loadWindowRecord(window.warmup_root, window),
-      samples: window.measured_roots.map((root) => loadWindowRecord(root, window)),
-    });
-  }
-  const targets = bindings.map((binding) => {
-    const window = windowsByID.get(binding.window_id);
-    if (!window) throw new Error(`${binding.target} binds unknown window ${binding.window_id}`);
-    const loaded = loadedWindows.get(binding.window_id);
-    return targetStatistics(binding, window, loaded.warmup, loaded.samples);
-  }).sort((left, right) => left.target.localeCompare(right.target));
+    const referencedWindows = new Set();
+    const rows = selectedBindings.map((binding) => {
+      const window = windowsByID.get(binding.window_id);
+      if (!window) throw new Error(`${binding.target} binds unknown window ${binding.window_id}`);
+      referencedWindows.add(binding.window_id);
+      const loaded = loadedWindows.get(binding.window_id);
+      const row = targetStatistics(binding, window, loaded.cold, loaded.warmup, loaded.samples, { diagnostic });
+      if (row.sample_count === 5 && row.mad_ms > row.p50_ms * 0.1) {
+        throw new Error(`${binding.target} requires a sixth measured observation because MAD exceeds ten percent of p50`);
+      }
+      return row;
+    }).sort((left, right) => left.target.localeCompare(right.target));
+    const unusedWindows = [...windowsByID.keys()].filter((windowID) => !referencedWindows.has(windowID));
+    if (unusedWindows.length > 0) throw new Error(`${role} contains unused windows: ${unusedWindows.join(",")}`);
+    return rows;
+  };
+  const targets = loadRows(windows, bindings);
+  const internalDiagnostics = loadRows(internalWindows, internalBindings, { diagnostic: true });
   const required = publicTargets();
-  const actualPublic = targets.map((row) => row.target).filter((target) => required.includes(target));
-  if (!sameJSON(actualPublic, required)) throw new Error("baseline does not contain the exact 48-target public inventory");
-  for (const requiredInternal of ["release-browser-readiness", backendFinalizerTarget]) {
-    if (!targets.some((row) => row.target === requiredInternal)) throw new Error(`baseline is missing ${requiredInternal}`);
+  const actualPublic = targets.map((row) => row.target);
+  if (!sameJSON(actualPublic, required)) {
+    throw new Error(`baseline does not contain the exact ${required.length}-target public inventory`);
   }
-  if (role === "candidate") {
-    const commits = new Set(targets.map((row) => row.source_commit));
-    const snapshots = new Set(targets.map((row) => row.source_snapshot_sha256));
-    if (commits.size !== 1 || snapshots.size !== 1) throw new Error("candidate windows must share one clean frozen commit and snapshot");
+  const publicSet = new Set(required);
+  for (const row of internalDiagnostics) {
+    if (publicSet.has(row.target)) throw new Error(`${row.target} is public and cannot be an internal diagnostic`);
   }
+  const totalP50 = targets.reduce((total, row) => total + row.p50_ms, 0);
   return {
     schema_id: performanceBaselineSchemaID,
     status: "qualified",
-    qualification: windows.every((window) => window.evidence_kind === "strict_current")
-      ? "strict_current"
-      : "composite_reference_migration",
+    qualification: "strict_current",
     targets,
+    internal_diagnostics: internalDiagnostics,
+    source_windows: sourceWindowRoster(targets),
     public_entrypoint_portfolio: {
       target_count: required.length,
       targets: required,
-      total_median_ms: targets.filter((row) => required.includes(row.target)).reduce((total, row) => total + row.median_ms, 0),
+      total_p50_ms: totalP50,
     },
     rejected_roots: [...rejectedRoots].sort((left, right) => left.root.localeCompare(right.root)),
   };
@@ -381,174 +600,18 @@ export function buildQualifiedBaseline(windows, bindings, {
 export function comparePerformanceWindows(manifest) {
   return compareQualifiedBaselines(
     buildQualifiedBaseline(manifest.reference_windows, manifest.reference_bindings, {
+      internalWindows: manifest.reference_internal_windows ?? [],
+      internalBindings: manifest.reference_internal_bindings ?? [],
       rejectedRoots: manifest.reference_rejected_roots ?? [],
       role: "reference",
     }),
     buildQualifiedBaseline(manifest.candidate_windows, manifest.candidate_bindings, {
+      internalWindows: manifest.candidate_internal_windows ?? [],
+      internalBindings: manifest.candidate_internal_bindings ?? [],
       rejectedRoots: manifest.candidate_rejected_roots ?? [],
       role: "candidate",
     }),
   );
-}
-
-function nominallyEligible(context) {
-  return context.source_state === "clean" &&
-    context.status === "passed" &&
-    !context.interrupted &&
-    context.retry_count === 0 &&
-    context.warm_eligibility === "eligible" &&
-    context.contamination_reasons.length === 0;
-}
-
-function retainedContextFile(runDir) {
-  return path.join(runDir, "_shared", "harness-observability", "execution-context.json");
-}
-
-function migrationCandidate(record, target) {
-  const contractTarget = target === backendFinalizerTarget ? "backend-unit" : target;
-  const contract = record.contracts.get(contractTarget);
-  if (!contract) return null;
-  if (target !== backendFinalizerTarget && contract.observation_eligibility === "direct_only" && record.context.target !== target) {
-    return null;
-  }
-  const timingSource = target === backendFinalizerTarget
-    ? "backend_report_collation_union"
-    : record.context.target === target
-      ? "public_invocation_envelope"
-      : "aggregate_scheduler_work_envelope";
-  try {
-    observationFor(record, target, timingSource, "retained_v1_reference_migration");
-  } catch {
-    return null;
-  }
-  const bundle = rootSpan(record.retained).bundle;
-  const breadth = new Set(bundle.spans.filter((span) => span.phase === "target" && span.status === "OK").map((span) => span.name)).size;
-  return {
-    record,
-    target,
-    timingSource,
-    breadth,
-    compatibility: canonicalJSONString({
-      provider: record.context.target,
-      commit: record.context.commit,
-      source_snapshot_sha256: record.context.source_snapshot_sha256,
-      host_profile_sha256: record.context.host_profile_sha256,
-      capacity_profile_sha256: record.context.capacity_profile_sha256,
-      toolchain_profile_sha256: record.context.toolchain_profile_sha256,
-      command_id: contract.command_id,
-      measurement_profile_id: contract.measurement_profile_id,
-      canonical_inputs: contract.canonical_inputs,
-      workload_evidence_profile_sha256: contract.workload_evidence_profile_sha256,
-      execution_policy_sha256: contract.execution_policy_sha256,
-      timing_source: timingSource,
-    }),
-  };
-}
-
-function selectMigrationTriple(target, records) {
-  const groups = new Map();
-  for (const record of records) {
-    const candidate = migrationCandidate(record, target);
-    if (!candidate) continue;
-    const values = groups.get(candidate.compatibility) ?? [];
-    values.push(candidate);
-    groups.set(candidate.compatibility, values);
-  }
-  const triples = [];
-  for (const values of groups.values()) {
-    values.sort((left, right) => Date.parse(left.record.context.started_at) - Date.parse(right.record.context.started_at));
-    if (values.length < 3) continue;
-    triples.push(values.slice(-3));
-  }
-  triples.sort((left, right) => {
-    const leftDirect = left[0].record.context.target === target ? 0 : 1;
-    const rightDirect = right[0].record.context.target === target ? 0 : 1;
-    return leftDirect - rightDirect ||
-      left[0].breadth - right[0].breadth ||
-      Date.parse(right[2].record.context.started_at) - Date.parse(left[2].record.context.started_at) ||
-      left[0].record.context.target.localeCompare(right[0].record.context.target);
-  });
-  if (triples.length === 0) throw new Error(`${target} has no compatible retained warm-up plus two-sample window`);
-  return triples[0];
-}
-
-export function buildRetainedV1ReferenceManifest(resultsRoot, { windowStartedAt, windowEndedAt }) {
-  const root = path.resolve(resultsRoot);
-  const started = Date.parse(windowStartedAt);
-  const ended = Date.parse(windowEndedAt);
-  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended <= started) throw new Error("invalid retained audit window");
-  const inspected = [];
-  for (const entry of readdirSync(root, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
-    if (!entry.isDirectory()) continue;
-    const runDir = path.join(root, entry.name);
-    const file = retainedContextFile(runDir);
-    if (!existsSync(file)) continue;
-    const context = readJSON(file);
-    const timestamp = Date.parse(context.started_at);
-    if (timestamp >= started && timestamp <= ended) inspected.push({ runDir, context });
-  }
-  const nominal = inspected.filter(({ context }) => nominallyEligible(context));
-  const strictRejected = [];
-  const migrationRecords = [];
-  let strictAccepted = 0;
-  for (const item of nominal) {
-    try {
-      const retained = loadRetainedObservability(item.runDir);
-      const strictReasons = qualificationReasons(retained.context);
-      if (strictReasons.length === 0) strictAccepted += 1;
-      else strictRejected.push({ root: `retained:${retained.context.run_id}`, reasons: strictReasons });
-      const migrationReasons = qualificationReasons(retained.context, { allowMissingInvocationBoundary: true });
-      if (migrationReasons.length === 0) {
-        migrationRecords.push({
-          runDir: item.runDir,
-          retained,
-          context: retained.context,
-          contracts: contractsByTarget(retained.context),
-        });
-      }
-    } catch {
-      strictRejected.push({ root: `retained:${item.context.run_id}`, reasons: ["artifact_incomplete"] });
-    }
-  }
-  const targets = [...publicTargets(), "release-browser-readiness", backendFinalizerTarget]
-    .sort((left, right) => left.localeCompare(right));
-  const windowsBySignature = new Map();
-  const bindings = [];
-  for (const target of targets) {
-    const triple = selectMigrationTriple(target, migrationRecords);
-    const signature = canonicalJSONString({
-      provider: triple[0].record.context.target,
-      roots: triple.map((candidate) => candidate.record.runDir),
-    });
-    let window = windowsBySignature.get(signature);
-    if (!window) {
-      const windowID = `reference-${String(windowsBySignature.size + 1).padStart(2, "0")}`;
-      window = {
-        window_id: windowID,
-        provider_target: triple[0].record.context.target,
-        evidence_kind: "retained_v1_reference_migration",
-        warmup_root: triple[0].record.runDir,
-        measured_roots: triple.slice(1).map((candidate) => candidate.record.runDir),
-      };
-      windowsBySignature.set(signature, window);
-    }
-    bindings.push({ target, window_id: window.window_id, timing_source: triple[0].timingSource });
-  }
-  return {
-    schema_id: performanceEvidenceSchemaID,
-    mode: "baseline",
-    reference_windows: [...windowsBySignature.values()],
-    reference_bindings: bindings,
-    reference_rejected_roots: strictRejected.sort((left, right) => left.root.localeCompare(right.root)),
-    reference_audit: {
-      window_started_at: new Date(started).toISOString(),
-      window_ended_at: new Date(ended).toISOString(),
-      inspected_contexts: inspected.length,
-      nominally_eligible_contexts: nominal.length,
-      strict_accepted_contexts: strictAccepted,
-      strict_rejected_contexts: strictRejected.length,
-    },
-  };
 }
 
 function validatePolicyTransition(target, baselineRow, candidateRow) {
@@ -557,17 +620,7 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
     throw new Error(`${target} baseline and candidate have mismatched policy transition contracts`);
   }
   if (transition === undefined) {
-    let matches;
-    if (baselineRow.evidence_kind === "retained_v1_reference_migration") {
-      const retainedDigest = baselineRow.execution_policy?.retained_v1_execution_policy_sha256;
-      if (retainedDigest !== baselineRow.execution_policy_sha256) {
-        throw new Error(`${target} migrated baseline policy wrapper and digest differ`);
-      }
-      matches = retainedV1ExecutionPolicySHA256(candidateRow.execution_policy) === retainedDigest;
-    } else {
-      matches = sameJSON(baselineRow.execution_policy, candidateRow.execution_policy);
-    }
-    if (!matches) {
+    if (!sameJSON(baselineRow.execution_policy, candidateRow.execution_policy)) {
       throw new Error(`${target} has an undeclared execution-policy change`);
     }
     return;
@@ -663,7 +716,6 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
         ["harness-contract", ["check"], "cpu_analysis"],
         ["go-gosec-audit", ["check"], "security_analysis"],
         ["deployable-shape", ["check"], "small_check"],
-        ["duration-baseline-drift-suite", ["check"], "artifact_generation"],
       ],
       "release-check": [
         ["check", [], "nested_check", 100],
@@ -792,6 +844,39 @@ function validatePolicyTransition(target, baselineRow, candidateRow) {
 }
 
 export function compareQualifiedBaselines(baseline, candidate) {
+  const assertArtifactClosure = (artifact, label) => {
+    const names = artifact.targets.map((row) => row.target);
+    const sortedNames = [...names].sort((left, right) => left.localeCompare(right));
+    if (!sameJSON(names, sortedNames) || new Set(names).size !== names.length) {
+      throw new Error(`${label} target rows must be unique and sorted`);
+    }
+    const portfolio = artifact.public_entrypoint_portfolio;
+    if (portfolio.target_count !== names.length || !sameJSON(portfolio.targets, names)) {
+      throw new Error(`${label} public roster, rows, and count do not close`);
+    }
+    const total = artifact.targets.reduce((sum, row) => sum + row.p50_ms, 0);
+    if (portfolio.total_p50_ms !== total) throw new Error(`${label} public portfolio sum does not close`);
+    const internalNames = artifact.internal_diagnostics.map((row) => row.target);
+    if (new Set(internalNames).size !== internalNames.length || internalNames.some((name) => names.includes(name))) {
+      throw new Error(`${label} internal diagnostics are not separate from public rows`);
+    }
+    if (!sameJSON(artifact.source_windows, sourceWindowRoster(artifact.targets))) {
+      throw new Error(`${label} source-window roster does not close`);
+    }
+    for (const row of [...artifact.targets, ...artifact.internal_diagnostics]) {
+      if (row.sample_count !== row.samples_ms.length || row.sample_count !== row.sample_roots.length) {
+        throw new Error(`${label} ${row.target} sample cardinality does not close`);
+      }
+      const p50 = median(row.samples_ms);
+      const p90 = nearestRankP90(row.samples_ms);
+      const mad = median(row.samples_ms.map((sample) => Math.abs(sample - p50)));
+      if (row.p50_ms !== p50 || row.p90_ms !== p90 || row.mad_ms !== mad) {
+        throw new Error(`${label} ${row.target} statistics do not close`);
+      }
+    }
+  };
+  assertArtifactClosure(baseline, "baseline");
+  assertArtifactClosure(candidate, "candidate");
   const baselineTargets = new Map(baseline.targets.map((row) => [row.target, row]));
   const candidateTargets = new Map(candidate.targets.map((row) => [row.target, row]));
   if (baselineTargets.size !== baseline.targets.length) throw new Error("baseline duplicates target identities");
@@ -805,38 +890,78 @@ export function compareQualifiedBaselines(baseline, candidate) {
     const baselineRow = baselineTargets.get(target);
     const candidateRow = candidateTargets.get(target);
     for (const field of [
-      "gate", "command_id", "measurement_profile_id", "timing_source", "host_profile_sha256",
+      "gate", "measurement_profile_id", "timing_source", "host_profile_sha256",
       "capacity_profile_sha256", "toolchain_profile_sha256", "workload_evidence_profile_sha256",
     ]) {
       if (baselineRow[field] !== candidateRow[field]) throw new Error(`${target} baseline and candidate have mismatched ${field}`);
+    }
+    if (baselineRow.command_id !== candidateRow.command_id) {
+      const pattern = /^(cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v)([1-9][0-9]*)$/u;
+      const before = pattern.exec(baselineRow.command_id);
+      const after = pattern.exec(candidateRow.command_id);
+      if (!before || !after || before[1] !== after[1] || Number(after[2]) !== Number(before[2]) + 1) {
+        throw new Error(`${target} command_id is not the immediate reviewed successor`);
+      }
     }
     if (!sameJSON(baselineRow.canonical_inputs, candidateRow.canonical_inputs)) {
       throw new Error(`${target} baseline and candidate have mismatched canonical inputs`);
     }
     validatePolicyTransition(target, baselineRow, candidateRow);
-    const limit = baselineRow.gate === "required_improvement"
-      ? baselineRow.median_ms - baselineRow.required_improvement_ms
-      : baselineRow.no_regression_limit_ms;
-    const passed = candidateRow.median_ms <= limit;
+    if (baselineRow.samples_ms.length !== candidateRow.samples_ms.length) {
+      throw new Error(`${target} reference and candidate sample counts differ`);
+    }
+    const evaluate = (beforeValues, afterValues) => {
+      const beforeP50 = median(beforeValues);
+      const beforeP90 = nearestRankP90(beforeValues);
+      const beforeMAD = median(beforeValues.map((sample) => Math.abs(sample - beforeP50)));
+      const afterP50 = median(afterValues);
+      const afterP90 = nearestRankP90(afterValues);
+      const afterMAD = median(afterValues.map((sample) => Math.abs(sample - afterP50)));
+      const band = 3 * Math.max(beforeMAD, afterMAD, 1);
+      const p90Passed = afterP90 <= beforeP90 + band;
+      const passed = baselineRow.gate === "required_improvement"
+        ? beforeP50 - afterP50 > band && p90Passed
+        : p90Passed;
+      return { passed, band, beforeP50, beforeP90, afterP50, afterP90 };
+    };
+    const result = evaluate(baselineRow.samples_ms, candidateRow.samples_ms);
+    const leaveOneOutChanges = baselineRow.samples_ms.some((_, index) => {
+      const before = baselineRow.samples_ms.filter((__, sampleIndex) => sampleIndex !== index);
+      const after = candidateRow.samples_ms.filter((__, sampleIndex) => sampleIndex !== index);
+      return evaluate(before, after).passed !== result.passed;
+    });
+    const highMAD = baselineRow.mad_ms > baselineRow.p50_ms * 0.1 ||
+      candidateRow.mad_ms > candidateRow.p50_ms * 0.1;
+    if (baselineRow.sample_count === 5 && (highMAD || leaveOneOutChanges)) {
+      throw new Error(`${target} requires one matched sixth observation`);
+    }
+    if (baselineRow.sample_count === 6 && (highMAD || leaveOneOutChanges)) {
+      throw new Error(`${target} remains unstable after six measured observations`);
+    }
+    const passed = result.passed;
     if (!passed) failures.push(target);
     rows.push({
       target,
       gate: baselineRow.gate,
-      baseline_median_ms: baselineRow.median_ms,
+      baseline_p50_ms: baselineRow.p50_ms,
+      baseline_p90_ms: baselineRow.p90_ms,
       baseline_mad_ms: baselineRow.mad_ms,
-      candidate_median_ms: candidateRow.median_ms,
-      limit_ms: limit,
+      candidate_p50_ms: candidateRow.p50_ms,
+      candidate_p90_ms: candidateRow.p90_ms,
+      candidate_mad_ms: candidateRow.mad_ms,
+      variability_band_ms: result.band,
       status: passed ? "pass" : "fail",
     });
   }
   const portfolio = {
     target_count: baseline.public_entrypoint_portfolio.target_count,
-    baseline_total_ms: baseline.public_entrypoint_portfolio.total_median_ms,
-    candidate_total_ms: candidate.public_entrypoint_portfolio.total_median_ms,
-    delta_ms: candidate.public_entrypoint_portfolio.total_median_ms - baseline.public_entrypoint_portfolio.total_median_ms,
-    status: candidate.public_entrypoint_portfolio.total_median_ms < baseline.public_entrypoint_portfolio.total_median_ms ? "pass" : "fail",
+    baseline_total_p50_ms: baseline.public_entrypoint_portfolio.total_p50_ms,
+    candidate_total_p50_ms: candidate.public_entrypoint_portfolio.total_p50_ms,
+    delta_p50_ms: candidate.public_entrypoint_portfolio.total_p50_ms - baseline.public_entrypoint_portfolio.total_p50_ms,
+    status: candidate.public_entrypoint_portfolio.total_p50_ms < baseline.public_entrypoint_portfolio.total_p50_ms
+      ? "improved"
+      : "increased_or_equal",
   };
-  if (portfolio.status === "fail") failures.push("public_entrypoint_portfolio_total_ms");
   return {
     baseline,
     candidate,

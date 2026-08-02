@@ -28,8 +28,8 @@ import (
 const (
 	seaweedFSS3Image                   = "docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9"
 	seaweedFSS3Port                    = "8333/tcp"
-	defaultSeaweedFSS3BrowserPortStart = 39000
-	defaultSeaweedFSS3BrowserPortEnd   = 39199
+	defaultSeaweedFSS3BrowserPortStart = 19000
+	defaultSeaweedFSS3BrowserPortEnd   = 19199
 	objectStorePortMappingTimeout      = 30 * time.Second
 	objectStoreHealthPollInterval      = 500 * time.Millisecond
 	objectStoreClientReadyTimeout      = 60 * time.Second
@@ -506,7 +506,7 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 		return err
 	}
 
-	if err := client.RemoveBucket(ctx, bucket); err != nil {
+	if err := client.RemoveBucket(ctx, bucket); err != nil && !isNoSuchBucketError(err) {
 		return fmt.Errorf("remove bucket %s: %w", bucket, err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -543,6 +543,9 @@ func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix strin
 
 	for objectInfo := range client.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
 		if objectInfo.Err != nil {
+			if isNoSuchBucketError(objectInfo.Err) {
+				return nil
+			}
 			return fmt.Errorf("list bucket %s: %w", bucket, objectInfo.Err)
 		}
 		if err := client.RemoveObject(ctx, bucket, objectInfo.Key, minio.RemoveObjectOptions{}); err != nil {
@@ -551,6 +554,14 @@ func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix strin
 	}
 
 	return nil
+}
+
+func isNoSuchBucketError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var response minio.ErrorResponse
+	return errors.As(err, &response) && strings.EqualFold(response.Code, "NoSuchBucket")
 }
 
 func (h *Harness) Env(bucket string) map[string]string {

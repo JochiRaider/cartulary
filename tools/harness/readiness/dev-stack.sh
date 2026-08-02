@@ -192,15 +192,12 @@ wait_for_http() {
 
 wait_for_process_status() {
   local group_id="$1"
-  local status=0
 
   if wait "${group_id}"; then
-    status=0
+    return 0
   else
-    status=$?
+    return $?
   fi
-
-  printf '%s\n' "${status}"
 }
 
 resolve_backend_command() {
@@ -272,14 +269,22 @@ supervise_dev_stack() {
     fi
 
     if ! process_group_running "${SERVER_PGID}"; then
-      server_status="$(wait_for_process_status "${SERVER_PGID}")"
+      if wait_for_process_status "${SERVER_PGID}"; then
+        server_status=0
+      else
+        server_status=$?
+      fi
       echo "backend exited during dev stack supervision (status=${server_status})" >&2
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
 
     if ! process_group_running "${VITE_PGID}"; then
-      vite_status="$(wait_for_process_status "${VITE_PGID}")"
+      if wait_for_process_status "${VITE_PGID}"; then
+        vite_status=0
+      else
+        vite_status=$?
+      fi
       echo "frontend exited during dev stack supervision (status=${vite_status})" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1

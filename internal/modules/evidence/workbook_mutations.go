@@ -78,9 +78,9 @@ func (s *Store) InsertWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uui
 		requestedAt = now
 	}
 	var objectBlobID any
-	var uploadState any = "pending"
+	uploadState := "pending"
 	var blobHash any
-	var storageRef any = nullableTextValue(params.Values, "evidence.storage_ref")
+	storageRef := nullableTextValue(params.Values, "evidence.storage_ref")
 	if params.InitialBlob != nil {
 		objectBlobID = params.InitialBlob.ObjectBlobID
 		uploadState = "available"

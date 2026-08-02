@@ -31,6 +31,7 @@
       "id": "browser_exclusive",
       "resource_claims": {
         "browser_stack": 1,
+        "postgres_cluster_advisory_lock": 1,
         "process": 1
       }
     },
@@ -65,6 +66,17 @@
       "resource_claims": {
         "go_cpu": 1,
         "go_io": 2,
+        "process": 1
+      }
+    },
+    {
+      "id": "go_postgres_advisory_lock_exclusive",
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "postgres": 1,
+        "postgres_clone": 1,
+        "postgres_cluster_advisory_lock": 1,
         "process": 1
       }
     },
@@ -428,14 +440,6 @@
             "check"
           ],
           "profile": "small_check",
-          "priority": 0
-        },
-        {
-          "target": "duration-baseline-drift-suite",
-          "needs": [
-            "check"
-          ],
-          "profile": "artifact_generation",
           "priority": 0
         }
       ]

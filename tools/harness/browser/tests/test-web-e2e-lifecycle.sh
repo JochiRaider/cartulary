@@ -63,6 +63,9 @@ assert_file_contains "$START_SCRIPT" 'finalize startup diagnostics' "terminal di
 assert_file_contains "$START_SCRIPT" 'publish immutable v4 stack' "v4 publication"
 # shellcheck disable=SC2016
 assert_file_contains "$START_SCRIPT" 'vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort' "strict preview"
+assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_START=19000' "service-backed frontend range starts below the default ephemeral range"
+assert_file_contains "$START_SCRIPT" 'TEST_SERVICE_FRONTEND_PORT_END=19199' "service-backed frontend range ends below the default ephemeral range"
+assert_file_not_contains "$START_SCRIPT" 'retrying with' "strict-port collision retry"
 assert_file_not_contains "$START_SCRIPT" 'dev-services.sh' "no development fallback"
 assert_file_not_contains "$START_SCRIPT" '127.0.0.1:8333' "no development proxy dependency"
 assert_file_not_contains "$START_SCRIPT" 'source: "standalone"' "no standalone database evidence"
@@ -74,6 +77,40 @@ assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright
 # Source the adapter only for fail-closed entrypoint checks.
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
 source "$START_SCRIPT"
+
+# A launcher may exit before a reporter descendant in the same process group.
+# Group liveness and cleanup must follow the whole group, not the leader PID.
+descendant_group=""
+start_process_group descendant_group "" bash -c 'sleep 120 &'
+sleep 0.3
+process_group_running "$descendant_group" ||
+  fail "process-group liveness lost a live descendant after leader exit"
+stop_process_group "$descendant_group" ||
+  fail "descendant process-group cleanup"
+if process_group_running "$descendant_group"; then
+  fail "descendant process group remained live after cleanup"
+fi
+
+# Port ownership survives the transient allocator shell and becomes stale only
+# after the transferred live owner exits.
+export CARTULARY_WEB_E2E_PORT_LEASE_ROOT="$tmp_dir/port-leases"
+PORT_LEASE_DIRS=()
+setsid sleep 120 &
+lease_owner_pid=$!
+cleanup_pids+=("$lease_owner_pid")
+reserve_port_lease 39001 frontend || fail "initial port lease reservation"
+transfer_port_lease_for_port 39001 "$lease_owner_pid" ||
+  fail "port lease ownership transfer"
+if reserve_port_lease 39001 frontend; then
+  fail "live transferred port lease must remain exclusive"
+fi
+kill -TERM "$lease_owner_pid" >/dev/null 2>&1 || true
+wait "$lease_owner_pid" >/dev/null 2>&1 || true
+remove_stale_port_lease "$(port_lease_dir 39001)" ||
+  fail "dead transferred port lease must become reclaimable"
+[[ ! -d "$(port_lease_dir 39001)" ]] ||
+  fail "dead transferred port lease was not removed"
+
 unset CARTULARY_TEST_SERVICES_ACTIVE
 CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
 SUITE_ID=suite-test

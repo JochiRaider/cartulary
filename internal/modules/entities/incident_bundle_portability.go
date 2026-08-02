@@ -33,11 +33,11 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	specs := []incidentportability.FixedImportSpec{
-		{"data/hosts.ndjson", "hosts", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO hosts SELECT * FROM jsonb_populate_record(NULL::hosts, $1::jsonb)`},
-		{"data/identities.ndjson", "identities", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO identities SELECT * FROM jsonb_populate_record(NULL::identities, $1::jsonb)`},
-		{"data/entity_preserved_identifiers.ndjson", "entity_preserved_identifiers", []string{"entity_preserved_identifier_id"}, []string{"entity_preserved_identifier_id", "record_id"}, `INSERT INTO entity_preserved_identifiers SELECT * FROM jsonb_populate_record(NULL::entity_preserved_identifiers, $1::jsonb)`},
-		{"data/entity_aliases.ndjson", "entity_aliases", []string{"entity_alias_id"}, []string{"entity_alias_id", "record_id"}, `INSERT INTO entity_aliases SELECT * FROM jsonb_populate_record(NULL::entity_aliases, $1::jsonb)`},
-		{"data/entity_mentions.ndjson", "entity_mentions", []string{"entity_mention_id"}, []string{"entity_mention_id", "source_record_id"}, `INSERT INTO entity_mentions SELECT * FROM jsonb_populate_record(NULL::entity_mentions, $1::jsonb)`},
+		{LogicalBundlePath: "data/hosts.ndjson", AttributionTable: "hosts", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO hosts SELECT * FROM jsonb_populate_record(NULL::hosts, $1::jsonb)`},
+		{LogicalBundlePath: "data/identities.ndjson", AttributionTable: "identities", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO identities SELECT * FROM jsonb_populate_record(NULL::identities, $1::jsonb)`},
+		{LogicalBundlePath: "data/entity_preserved_identifiers.ndjson", AttributionTable: "entity_preserved_identifiers", StableIdentity: []string{"entity_preserved_identifier_id"}, RequiredColumns: []string{"entity_preserved_identifier_id", "record_id"}, InsertSQL: `INSERT INTO entity_preserved_identifiers SELECT * FROM jsonb_populate_record(NULL::entity_preserved_identifiers, $1::jsonb)`},
+		{LogicalBundlePath: "data/entity_aliases.ndjson", AttributionTable: "entity_aliases", StableIdentity: []string{"entity_alias_id"}, RequiredColumns: []string{"entity_alias_id", "record_id"}, InsertSQL: `INSERT INTO entity_aliases SELECT * FROM jsonb_populate_record(NULL::entity_aliases, $1::jsonb)`},
+		{LogicalBundlePath: "data/entity_mentions.ndjson", AttributionTable: "entity_mentions", StableIdentity: []string{"entity_mention_id"}, RequiredColumns: []string{"entity_mention_id", "source_record_id"}, InsertSQL: `INSERT INTO entity_mentions SELECT * FROM jsonb_populate_record(NULL::entity_mentions, $1::jsonb)`},
 	}
 	for _, spec := range specs {
 		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {

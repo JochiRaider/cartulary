@@ -93,7 +93,7 @@
         "selector": { "oneOf": [{ "$ref": "#/$defs/go_selector" }, { "$ref": "#/$defs/vitest_selector" }, { "$ref": "#/$defs/playwright_selector" }, { "$ref": "#/$defs/shell_selector" }] },
         "evidence_class": { "enum": ["unit", "integration", "browser", "accessibility", "visual", "measurement", "static", "security", "release"] },
         "runtime_profile_id": { "enum": ["none", "default", "network_flow_claimed"] },
-        "resource_profile_id": { "enum": ["none", "go_balanced", "go_cpu_heavy", "go_io_heavy", "go_transaction_heavy", "go_reset_heavy", "go_clone_heavy", "browser_exclusive"] },
+        "resource_profile_id": { "enum": ["none", "go_balanced", "go_cpu_heavy", "go_io_heavy", "go_postgres_advisory_lock_exclusive", "go_transaction_heavy", "go_reset_heavy", "go_clone_heavy", "browser_exclusive"] },
         "fixture_profile_id": { "enum": ["none", "postgres_transaction", "postgres_package_reset", "postgres_group_clone", "postgres_template_clone", "postgres_migration_scratch", "object_store_isolated", "service_stack"] },
         "default_check": { "type": "boolean" },
         "claim_posture": { "type": "string", "pattern": "^(?:implementation|informative|claim\\.[a-z][a-z0-9_]{0,62})$" },

@@ -1,12 +1,9 @@
 package incidents
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -35,11 +32,4 @@ func TestRegisterRoutesRequiresIncidentPorts(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "collaboration session port is required") {
 		t.Fatalf("missing collaboration session port must fail route registration, got %v", err)
 	}
-}
-
-type noopCollaborationSessionPort struct{}
-
-func (noopCollaborationSessionPort) NotifyIncidentClosed(context.Context, uuid.UUID) {}
-
-func (noopCollaborationSessionPort) NotifyIncidentMembershipRevoked(context.Context, uuid.UUID, uuid.UUID) {
 }

@@ -188,7 +188,7 @@ func normalizeConfig(listenRaw, upstreamRaw, originRaw string) (proxyConfig, err
 	}
 	ip := net.ParseIP(host)
 	portNumber, err := strconv.Atoi(port)
-	if ip == nil || !ip.Equal(net.ParseIP("127.0.0.1")) || portNumber < 1 || portNumber > 65535 {
+	if err != nil || ip == nil || !ip.Equal(net.ParseIP("127.0.0.1")) || portNumber < 1 || portNumber > 65535 {
 		return proxyConfig{}, errors.New("listener must use 127.0.0.1 and a valid port")
 	}
 	listen := net.JoinHostPort(ip.String(), strconv.Itoa(portNumber))

@@ -137,6 +137,16 @@
         "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
         "max_limit": 8
       }
+    },
+    {
+      "name": "postgres_cluster_advisory_lock",
+      "display_name": "Postgres cluster advisory lock",
+      "schedulers": ["check", "service_backed", "test_slice"],
+      "display_order": 180,
+      "capacity": {
+        "default_limit": 1,
+        "max_limit": 1
+      }
     }
   ],
   "templates": [
@@ -157,7 +167,8 @@
         "host_cpu",
         "host_io",
         "suite_service_stack",
-        "migration_scratch_postgres"
+        "migration_scratch_postgres",
+        "postgres_cluster_advisory_lock"
       ]
     },
     {
@@ -170,6 +181,7 @@
         "go_io",
         "postgres_reset",
         "postgres_clone",
+        "postgres_cluster_advisory_lock",
         "process",
         "seaweedfs_fixture",
         "browser_stack"
@@ -178,7 +190,7 @@
     {
       "name": "service_backed_backend",
       "scheduler": "service_backed",
-      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process", "seaweedfs_fixture"]
+      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "postgres_cluster_advisory_lock", "process", "seaweedfs_fixture"]
     },
     {
       "name": "test_slice_default",
@@ -190,6 +202,7 @@
         "go_io",
         "postgres_reset",
         "postgres_clone",
+        "postgres_cluster_advisory_lock",
         "process",
         "seaweedfs_fixture",
         "browser_stack"

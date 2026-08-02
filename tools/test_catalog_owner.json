@@ -17,6 +17,11 @@
       "status": "active"
     },
     {
+      "owner_id": "harness.command_surface",
+      "manifest_path": "tools/test_families/harness.command_surface.json",
+      "status": "active"
+    },
+    {
       "owner_id": "harness.evidence_accounting",
       "manifest_path": "tools/test_families/harness.evidence_accounting.json",
       "status": "active"

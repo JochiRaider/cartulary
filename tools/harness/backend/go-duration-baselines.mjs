@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v5";
+export const goDurationBaselineSchemaID = "cartulary.go_test_duration_baselines.v6";
 const goDurationBaselineFileEnv = "CARTULARY_GO_TEST_DURATION_BASELINE_FILE";
 const goDurationBaselineRelativePath = path.join("tools", "go_test_duration_baselines.json");
 export const defaultShardTargetMs = 30_000;
 const defaultBackendIntegrationShardTargetMs = 18_000;
 export const defaultItemWeightMs = 10_000;
 export const defaultPackageOverheadMs = 100;
-export const defaultCommandOverheadMs = 70_000;
+export const defaultCommandOverheadMs = 5_000;
 export const baselineNote =
-  "Advisory backend service-backed shard weights with explicit test, package, command, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.";
+  "Advisory backend service-backed shard weights with explicit test, package, physical-command p90, fixture, and raw package timing components. Refresh with make go-test-duration-baselines RESULTS_DIR=<dir> PRUNE_OBSERVED_PACKAGES=1.";
 
 const defaultShardTargetMsByTargetEntries = [
   ["backend-store", defaultShardTargetMs],

@@ -933,6 +933,7 @@ func requireAssessmentPatchDecodeError(t testing.TB, fieldKey string, changeBody
 	_, apiErr := workbook.DecodePatchRequest(strings.NewReader(string(data)))
 	if apiErr == nil {
 		t.Fatalf("expected assessment patch for %s to be rejected", fieldKey)
+		return
 	}
 	if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
 		t.Fatalf("unexpected assessment patch error for %s: %#v", fieldKey, apiErr)

@@ -152,10 +152,10 @@ func TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange(t *tes
 	for _, want := range []string{
 		"http://localhost:5173",
 		"http://127.0.0.1:5173",
-		"http://localhost:39000",
-		"http://127.0.0.1:39000",
-		"http://localhost:39199",
-		"http://127.0.0.1:39199",
+		"http://localhost:19000",
+		"http://127.0.0.1:19000",
+		"http://localhost:19199",
+		"http://127.0.0.1:19199",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("default SeaweedFS S3 allowed origins missing %q in %q", want, got)
@@ -304,9 +304,12 @@ func TestHarnessStartsSeaweedFSS3AndRoundTripsObjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap bucket: %v", err)
 	}
+	cleaned := false
 	defer func() {
-		if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Fatalf("cleanup bucket: %v", err)
+		if !cleaned {
+			if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
+				t.Fatalf("cleanup bucket: %v", err)
+			}
 		}
 	}()
 
@@ -318,6 +321,13 @@ func TestHarnessStartsSeaweedFSS3AndRoundTripsObjects(t *testing.T) {
 
 	if !bytes.Equal(got, payload) {
 		t.Fatalf("unexpected object payload: %q", got)
+	}
+	if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
+		t.Fatalf("cleanup bucket: %v", err)
+	}
+	cleaned = true
+	if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
+		t.Fatalf("repeat cleanup bucket: %v", err)
 	}
 }
 

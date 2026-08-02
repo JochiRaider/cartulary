@@ -6,19 +6,22 @@
 | --- | --- |
 | Primary seam | Public test target to workload selection, scheduling, resource and fixture lifecycle, execution, and evidence publication |
 | Output path | `docs/handoffs/test-harness-bottleneck-refactor-tracker.md` |
-| Mode | Planning-only analysis and restartable implementation handoff |
-| Allowed change in this phase | This tracker only |
+| Mode | Tracker-gated implementation; WF-01 complete and WF-02 is the next authorized workstream |
+| Allowed change in this phase | The active workstream's adopted harness owner, authored machine inputs, implementation, focused tests, generated projections through Make, and this tracker |
 | Future implementation scope | Authored harness owner documents and machine inputs, harness tests and runtime helpers, test-only fixture support, schemas, and generated projections refreshed through Make |
 | Non-goals | No product behavior, production API, assertion weakening, dependency upgrade, generated-file hand edit, or performance claim based only on a smaller workload |
 | Planning baseline | `244f639d19d2e307748b1a8f17b62aa711d5f64d` on `main`, one commit ahead of `origin/main`, with a clean worktree before this tracker was added |
+| Implementation start | `9af2e005e75bb636a9114b3ff90cbe5cc8061d76` on `main`; the planning baseline remains historical provenance rather than the implementation HEAD |
 | Analysis posture | `temp/analysis-notes.md` is diagnostic evidence. Its inconsistent checked-in baseline and single-sample observations are not publishable performance proof. |
 | Compatibility decision | Selective hard cutover: retain useful public Make vocabulary and roles; permit coordinated command, schema, artifact, lifecycle, topology, and redundant-target changes without compatibility aliases |
 | Coverage decision | Tier by purpose: fast feedback may be narrower, while full, CI, and release entry points preserve the complete correctness and release-evidence union |
+| Validation decision | Accumulated affected-test ledger: each source version reruns its deterministic affected closure; unchanged compatible passes carry forward with their original provenance |
 
 This tracker applies the structure of
 `docs/handoffs/cartulary_modular_refactor_planning_framework.md` to one primary
-harness seam. It does not authorize implementation. A future implementation
-session MUST update this tracker as its controlling restart record.
+harness seam. It began as a planning handoff and now controls implementation.
+Every implementation session MUST update it as the restart, validation,
+risk, and sequencing record.
 
 The user's explicit direction changes the normal authority posture for this
 refactor: the adopted Testing Harness NLSpec is the owner of current behavior,
@@ -472,14 +475,15 @@ unchanged unless a workstream adds an explicit row before editing them.
 | BF-010 | The harness contract is concentrated in a giant test file. | Node file concurrency is ineffective and immutable inputs are repeatedly rebuilt. | Partition by owner behavior and create one shared validated index per invocation. |
 | BF-011 | Security scanning is repeated by nested or separate aggregates and has no trustworthy result key. | Aggregate tails and the direct target remain tool-bound. | One graph unit plus vulnerability-database-revision cache with exact finding parity. |
 | BF-012 | Baseline artifacts allow roster/count/sum drift and dispatch-only timing. | Performance gates can pass or fail for accounting defects instead of execution changes. | Close all derived fields against the owner roster and canonical events. |
+| SG-001 | The adopted owner still names superseded owner-slice/accounting schema versions, and `harness.command_surface` has no active test-family row. | The specification and verification routing disagree with the live reviewed projections before the v3 refactor begins. | Repair the current owner references, register an owner-routable command-surface row, and validate the corrected routing before runtime changes. |
 
 ## 6. Refactor Workstreams
 
 | ID | Workstream | Class | Depends on | Status | Required outcome |
 | --- | --- | --- | --- | --- | --- |
 | WF-00 | Source, scope, and authority bootstrap | root | none | `DONE (planning)` | Inspected inventory, clean baseline, non-goals, decisions, and clause disposition are recorded. Revalidate at implementation start. |
-| WF-01 | Measurement truth repair | chain | WF-00 | `TODO` | The 47-target roster closes exactly; internal targets are separate; browser and wrapper work is attributed; Go overhead is corrected. |
-| WF-02 | Public contract and tier freeze | chain | WF-01 | `TODO` | Every target/input/ID/schema/artifact/row has a disposition and the five tiers are machine-projectable. |
+| WF-01 | Measurement truth repair | chain | WF-00 | `DONE` | The 47-target roster closes exactly in the v3 writer; internal targets are separate; browser and wrapper work is attributed; Go overhead is corrected; validation closes through the versioned affected-test ledger below. |
+| WF-02 | Public contract and tier freeze | chain | WF-01 | `TODO` | Every target/input/ID/schema/artifact/row has a disposition; four monotonic row tiers and five aggregate entry-point policies are machine-projectable. |
 | WF-03 | Unified graph and scheduler | chain | WF-02 | `TODO` | Direct and aggregate selectors share graph IDs/digests; scheduling is deterministic, resource-fit, fair, cancellable, and deadlock checked. |
 | WF-04 | Service and backend fixture plane | parallel | WF-03 | `TODO` | One broker, explicit leases, pooled replenishment, compatible Go grouping, and owner-specific hotspot fixture repairs are complete. |
 | WF-05 | Browser decomposition and stack pooling | chain | WF-03, WF-04 | `TODO` | Browser groups schedule independently; stateful affinity, resets, snapshot writes, measurement quietness, and lane cleanup are explicit. |
@@ -490,8 +494,8 @@ unchanged unless a workstream adds an explicit row before editing them.
 
 ### WF-01 — Measurement truth repair
 
-Future edits start in the observability owner and schema inputs, not in the
-checked-in baseline. Required tasks:
+Edits started in the observability owner and schema inputs, not in the
+checked-in baseline. Completed tasks:
 
 1. Derive the required public measurement roster directly from
    `tools/task_surface_owner.json`; reject missing, extra, duplicate, or internal
@@ -505,11 +509,114 @@ checked-in baseline. Required tasks:
    one aggregate command envelope to every shard.
 6. Create a semantic-compatible legacy workload selector for before/after
    executor comparisons. It is private measurement support, not a public alias.
-7. Capture the qualified baseline described in Section 8 before tier or
-   scheduling changes.
+7. Retain the v7 timing windows for unchanged targets, use v8 only for changed
+   or previously missing target windows, and preserve every rejected attempt.
+8. Adopt TH-HARNESS-REQ-675 so later source versions rerun only their directly
+   affected validation closure while compatible passing results carry forward.
 
-Exit: baseline closure tests pass, no unattributed material interval remains,
-and every retained timing row names one canonical event-derived source.
+Exit: the v3 writer and schema close exactly over the 47-target owner roster,
+internal diagnostics are separate, no accepted timing observation is
+dispatch-only or relabeled, and the accumulated ledger below resolves every
+WF-01 functional obligation. The checked v2 baseline remains archival input;
+the v3 reference is published only after the final accepted performance
+comparison, not synthesized from incomplete windows.
+
+#### WF-01 completed implementation
+
+- Repaired stale owner-slice, accounting, diagnostic, and schema references in
+  the Testing Harness NLSpec and registered the active
+  `harness.command_surface` family and verification route.
+- Corrected the tracker to four monotonic row tiers across five aggregate entry
+  points and retained the original planning baseline separately from the
+  implementation start.
+- Added v3 performance-evidence and public-baseline schemas and a sole writer
+  that derives the exact 47-target roster, bindings, row count, statistics, and
+  portfolio sum from the task-surface owner. Internal diagnostics no longer
+  enter the public count or total.
+- Added exact per-target `source_windows` closure. Qualified target windows may
+  come from different frozen source versions, but each row retains its real
+  commit and snapshot; copying or relabeling an observation is forbidden.
+- Replaced aggregate-envelope timing with canonical target timing, exact
+  scheduler-unit start/finish intervals, and non-overlapping setup, fixture,
+  execution, collation, and wrapper buckets.
+- Replaced Go duration baseline v5 planning with v6 exclusive command-overhead
+  attribution, removed aggregate-envelope multiplication across shards, and
+  corrected deterministic batching estimates and generated duration data.
+- Corrected the CI sequence self-reference and incremented the changed CI
+  command ID once. Regenerated task-surface, topology, schedule, and duration
+  projections through their Make-owned paths.
+- Made generated-source publication preserve repository-owned modes, service
+  scope snapshots atomic, owned process-group completion exact, browser port
+  leases live for the owned group, and browser port ranges non-overlapping with
+  Linux ephemeral allocation.
+- Stabilized only directly affected test setup and synchronization boundaries:
+  pagination classification, rollback matrix bounds, browser-unit timeout,
+  Timeline post-edit response, workbook filter response, keyboard virtualization,
+  collaboration queue visibility, recovery and serving-lease success setup,
+  browser support request matching, and idempotent absent-bucket cleanup.
+  Product assertions, blocked-lease conflict deadlines, and evidence selectors
+  remain exact.
+- Removed the retained-v1 performance migration reader. Historical artifacts
+  remain archival bytes and are not current writer inputs.
+
+#### WF-01 qualified timing ledger
+
+Unchanged timings use v7 as directed. V8 contributes only the changed browser
+aggregate and the previously missing `test-fast` window. All rows use one
+forced-cold observation, one discarded warm-up, and five measured observations
+unless explicitly identified below as functional characterization only.
+
+| Provider or target set | Source | Measured samples (ms) | p50 / p90 / MAD (ms) | Disposition |
+| --- | --- | --- | --- | --- |
+| `release-check` and 29 exact child targets | v7, `9fd25002`, snapshot `870abee1...` | 313654, 303912, 299881, 315603, 315122 | 313654 / 315603 / 1949 | Qualified and retained; v8 is update-only validation. |
+| `agent-finalize` | v7 | 1150, 1080, 1100, 1090, 1090 | 1090 / 1150 / 10 | Qualified. |
+| `benchmark-claim-check` | v7 | 110, 120, 110, 110, 110 | 110 / 120 / 0 | Qualified. |
+| `frontend-fallow-static` | v7 | 7779, 7720, 7710, 7736, 7824 | 7736 / 7824 / 26 | Qualified. |
+| `lint` | v7 | 11334, 11659, 11340, 11275, 11358 | 11340 / 11659 / 18 | Qualified. |
+| `migration-drift` | v7 | 3730, 3720, 3770, 3720, 4520 | 3730 / 4520 / 10 | Qualified. |
+| `openapi-compatibility-check` | v7 | 170, 170, 170, 180, 170 | 170 / 180 / 0 | Qualified; restores the missing public row. |
+| `seaweedfs-release-evidence` | v7 | 460, 470, 470, 470, 530 | 470 / 530 / 0 | Qualified. |
+| `standup-operational-recovery-smoke` | v7 | 27480, 27570, 24780, 22590, 22770 | 24780 / 27570 / 2190 | Qualified; MAD is below ten percent. |
+| `standup-package-smoke` | v7 | 15470, 15100, 16670, 17160, 17390 | 16670 / 17390 / 720 | Qualified. |
+| `test-slice OWNER=module.auth` | v7 | 139814, 143659, 140054, 139462, 145498 | 140054 / 145498 / 592 | Qualified; exact 53-row closure. |
+| `service-backed-test-slice OWNER=module.auth` | v7 | 146139, 134619, 141902, 145572, 136282 | 141902 / 146139 / 4237 | Qualified; exact 30-row closure. |
+| `test-evidence-audit OWNER=module.auth` | v7 | 2452, 2437, 2412, 2432, 2413 | 2432 / 2452 / 19 | Qualified; all 53 rows and ten target partitions. |
+| `browser-e2e` and its exact measurement child | v8, `6fdd0605`, snapshot `a97b7d5a...` | 282184, 282045, 285118, 321151, 297928 | 285118 / 321151 / 12934 | Qualified after cleanup fix; every lane cleaned. |
+| `test-fast` | v8 | 195484, 201633, 202229, 202480, 195804 | 201633 / 202480 / 847 | Qualified and previously missing. |
+| `test` | v10 cold characterization | 320299 cold | not a warm window | Functional broad pass only; no value is published as a v3 reference sample. |
+| `ci` | `wf01-ci-proof-v2` | 207184 characterization | not a warm window | Functional broad pass carried forward; no value is published as a v3 reference sample. |
+
+The v7 release provider supplies 30 exact public observations, twelve v7 direct
+windows supply their exact public targets, and the v8 browser and `test-fast`
+windows supply three changed or missing observations. The remaining `test` and
+`ci` entries have retained functional characterization but no synthetic v3
+performance row. WF-09 must measure their final changed implementations before
+publishing the complete v3 reference/candidate comparison.
+
+#### WF-01 accumulated validation ledger
+
+This ledger implements TH-HARNESS-REQ-675. Each later version reran only the
+rows or targets directly affected by its changes; earlier compatible passes
+remain valid for unaffected scopes. Dirty focused proof roots retain their exact
+source snapshot and are functional evidence only, never performance samples.
+
+| Version or source snapshot | Directly affected closure | Passing retained evidence | Carried-forward closure |
+| --- | --- | --- | --- |
+| `b4a5f4e7`, `ef3fba0a...` | Process-group ownership plus broad aggregate behavior | `wf01-process-group-service-slice-proof`, `wf01-browser-e2e-proof`, `wf01-test-fast-proof`, `wf01-test-proof` | Earlier schema, catalog, static, security, and generation passes. |
+| `575dc8df`, `9d5996d1...` | CI sequence identity, aggregate timing, command v2 | `wf01-ci-proof-v2` | Broad test/browser closure from `b4a5f4e7`. |
+| `c1903e83` plus focused snapshots | Port allocation and keyboard/browser synchronization | `wf01-release-check-proof-v4`, `wf01-keyboard-fill-proof`, `wf01-collaboration-timeout-proof` | Unchanged backend, static, schema, security, and aggregate rows. |
+| `60c155ca` through `9fd25002` | Recovery lease setup and browser support request identity | `wf01-target-admission-deadline-proof`, `wf01-support-selector-proof-v2`, v7 five-run release/direct windows | All unaffected v7 target windows. |
+| `6fdd0605`, `a97b7d5a...` | Owned object-store cleanup and affected browser/aggregate paths | `wf01-idempotent-bucket-cleanup-proof`, v8 five-run `browser-e2e` and `test-fast` windows, four passing v8 release observations | Qualified v7 timings for every unchanged target. |
+| `85b836c2`, `1f89bde4...` | Shared/exclusive serving-lease success setup | `wf01-processlease-success-acquisition-proof`, successful v10 cold `test` root | All unaffected v7/v8 functional and timing entries. |
+| Main working snapshot after source-window closure | Performance source-window roster and accumulated-validation owner text | `wf01-windowed-source-roster-proof`; final Markdown/schema/contract gates in the WF-01 handoff | Every unaffected implementation and test result above. |
+
+Rejected evidence remains immutable: v1-v6 measurement cohorts were
+superseded by source changes or failed attempts; v7 browser m5 exposed absent
+bucket cleanup; v8 release m5 had an unrelated frontend-unit assertion; v8
+`test` warm-up exposed the serving-lease setup deadline; v9 cold was
+contaminated by concurrent pnpm link mutation; v9 warm-up and v10 warm-up were
+interrupted and are not passes. None contributes a timing sample or erases its
+recorded failure.
 
 ### WF-02 — Public contract and tier freeze
 
@@ -667,6 +774,11 @@ failures, infrastructure failures, and unrelated repository failures are
 recorded separately. A failed checkpoint returns to its named rollback state;
 it does not update duration references or proceed to public cutover.
 
+Checkpoint status at this handoff: `CP-00`, `CP-01`, and `CP-02` are `DONE`
+through the WF-01 implementation and accumulated validation ledger. `CP-03` is
+the next checkpoint and MUST NOT begin until the final WF-01 tracker Markdown
+lint recorded in Section 10 passes.
+
 ## 8. Validation and Performance Acceptance
 
 ### Functional and structural matrix
@@ -708,6 +820,25 @@ Run the narrowest applicable ladder at each checkpoint:
    a qualifying retained run. If no such run exists, record that retained-run
    maintenance was skipped rather than substituting unrelated evidence.
 
+### Incremental validation protocol
+
+Validation closure follows TH-HARNESS-REQ-675. Every source version records its
+changed inputs and deterministic affected row/target closure. Only that closure
+is rerun. A passing entry from an earlier version carries forward when its
+command, selector, profiles, evidence contract, canonical inputs, toolchain
+contract, and producer dependencies are unchanged. A later failure invalidates
+only affected entries and remains visible; it can be superseded only by a
+relevant source change followed by a complete affected rerun. Same-version
+retry cannot erase a failure.
+
+The workstream gate is the union of newest applicable passes, not the status of
+the latest broad attempt. The union must close every current required row,
+public target, schema/generation gate, security freshness boundary, lifecycle
+check, and cleanup obligation exactly once. This does not authorize test-result
+caching or skipping selected work within a Make invocation. Performance samples
+remain same-source within each target window, while different targets may use
+independently qualified windows with exact provenance.
+
 ### Performance protocol
 
 There is no fixed global wall-clock target. Performance closure uses comparable
@@ -715,15 +846,17 @@ observations and variability-derived materiality.
 
 For each bottlenecked direct or aggregate target:
 
-1. Require identical source, toolchain, platform, declared inputs, semantic
-   selection digest, and capacity profile for executor before/after comparison.
+1. Require one clean frozen source snapshot within each reference or candidate
+   window. Reference and candidate snapshots MAY differ only by the reviewed
+   refactor. Toolchain, platform, declared inputs, semantic selection digest,
+   and capacity profile MUST match across the comparison.
 2. Record one cold invocation with reusable work forced off.
 3. Discard one warm-up invocation, then record five successful warm invocations.
 4. Report p50, p90, median absolute deviation, critical path, resource blocking,
    utilization, setup/fixture work, process count, cache posture, and graph digest.
-5. Define material warm improvement as a p50 reduction greater than three times
-   the pooled before/after median absolute deviation. The after p90 MUST NOT
-   regress beyond that same variability band.
+5. Define `variability_band = 3 * max(reference MAD, candidate MAD, 1ms)`.
+   Material warm improvement requires a p50 reduction greater than that band.
+   Candidate p90 MUST NOT exceed reference p90 plus the same band.
 6. Require the addressed structural metric—critical-path contribution,
    resource-blocking wall, setup interval, process count, or duplicate work—to
    decrease as predicted. A smaller tier inventory alone is not executor proof.
@@ -735,10 +868,11 @@ targets, `test-fast`, `test`, `check`, `ci`, `release-check`, `agent-finalize`,
 `harness-contract`, and `go-vulncheck`. Every other retained public verification
 target MUST be non-regressing within its measured variability band.
 
-If three observations do not produce a stable comparison, extend both windows in
-matched pairs up to six measured runs. If the conclusion remains unstable, mark
-the gate `BLOCKED: unstable measurement environment`; do not refresh the
-reference.
+If either five-run window has MAD greater than ten percent of its median, or a
+leave-one-out evaluation changes the gate result, add one matched observation to
+each side. Stop at six measured observations per side. If the conclusion remains
+unstable, mark the gate `BLOCKED: unstable measurement environment`; do not
+refresh the reference.
 
 ### Rebaseline rule
 
@@ -750,14 +884,15 @@ acceleration.
 
 ### Tracker-document verification
 
-This planning-only phase changes Markdown only. Its required command is:
+After every workstream, update this tracker and append the workstream handoff,
+then run:
 
 ```sh
 make lint-markdown
 ```
 
-Product, generated, conformance, and release checks are intentionally not run
-for creation of this tracker.
+Only after Markdown lint passes may the next workstream begin. Additional
+affected gates are selected through the incremental validation protocol above.
 
 ## 9. Top-Level Work Tracker
 
@@ -766,12 +901,12 @@ for creation of this tracker.
 | T-001 | Define target module and scope | scope | `DONE` | none | planning actor | Section 1 | One execution-control seam and exclusions are explicit. |
 | T-002 | Inspect current repo state | discovery | `DONE` | T-001 | planning actor | Sections 1–2 | Owners, projections, representative runtime paths, tests, and diagnostic evidence are inventoried. |
 | T-003 | Map owner contracts | contracts | `DONE (planning)` | T-002 | harness owners | Section 4 | Every impacted current contract family has retain/revise/delete posture and successor. Owner adoption remains WF-02. |
-| T-004 | Freeze characterization evidence | tests | `TODO` | T-003 | harness evidence accounting | CP-01, CP-02 | Corrected legacy-equivalent baseline and missing characterization are retained. |
+| T-004 | Freeze characterization evidence | tests | `DONE` | T-003 | harness evidence accounting | CP-01, CP-02 and the WF-01 ledger | Corrected legacy-equivalent timing, source provenance, and rejected characterization are retained. |
 | T-005 | Plan boundary guardrails | architecture | `DONE` | T-003 | harness command surface | Sections 3, 8 | Graph, ownership, generated, cache, artifact, and compatibility guardrails are binary. |
 | T-006 | Plan behavior-preserving moves | implementation | `DONE` | T-004, T-005 | workstream owners | Sections 6–7 | Ordered checkpoints, dependencies, rollback points, and hotspot tasks are defined. |
 | T-007 | Plan validation loop | validation | `DONE` | T-006 | harness evidence accounting | Section 8 | Focused, aggregate, lifecycle, artifact, and performance gates are named. |
-| T-008 | Update docs/contracts if required | docs | `TODO` | T-003 | Testing Harness owner | WF-02, WF-08 | Owner changes precede authored projections and generated refresh. |
-| T-009 | Execute or hand off | handoff | `DONE (planning handoff)` | T-006, T-007 | planning actor | Section 10 | Another actor can begin WF-01 without rediscovery; implementation remains unauthorized by this planning session. |
+| T-008 | Update docs/contracts if required | docs | `DONE (WF-01 slice)` | T-003 | Testing Harness owner | WF-01 owner amendments; WF-02 and WF-08 remain | WF-01 owner changes preceded implementation; later owner slices remain workstream-gated. |
+| T-009 | Execute or hand off | handoff | `DONE (WF-01 handoff)` | T-006, T-007 | implementation actor | Section 10 | WF-01 is closed and WF-02 can begin without rediscovery. |
 
 Implementation status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`,
 `DEFERRED`, and `DROPPED`. A future actor MUST update both the workstream table
@@ -798,6 +933,37 @@ and this top-level tracker at every checkpoint.
 | Blockers | No planning blocker. WF-01 blocks all performance claims until accounting is corrected. |
 | Next recommended workflow | WF-01 measurement truth repair |
 | Safe restart command | `make task-guide ROLE=module-author OWNER=harness.evidence_accounting` |
+
+### WF-01 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 13:08 EDT |
+| Branch/commit | Main worktree based at `9af2e005e75bb636a9114b3ff90cbe5cc8061d76`; clean detached measurement lineage ends at `85b836c2a4c87583839831c49856502643e4da6e` |
+| Worktree state and intentional pre-existing changes | Dirty with the intentional WF-01 implementation, owner, test, generated, maintenance-prerequisite, and tracker changes; 69 tracked paths plus four new authored schema/family paths; `docs/domain.md` unchanged |
+| Current workflow/checkpoint | WF-01 `DONE`; CP-00 through CP-02 `DONE`; WF-02 / CP-03 is the next workstream |
+| Completed workflows/checkpoints | WF-00 planning; WF-01 measurement truth, SG-001 hygiene, v3 roster/timing writer, Go attribution, lifecycle stabilization, qualified timing collection, and accumulated validation adoption |
+| Changed authored files | `docs/testing-harness-nlspec.md`; task-surface, topology, scheduler-resource, catalog, test-family, verification-route, schema-attachment, observability, backend-duration, browser-lifecycle, readiness, output, scheduler-test, and harness-contract sources under `tools/**`; focused browser and Go tests; test-only S3/service diagnostics; the CP-00 Go-vet/staticcheck prerequisite used keyed literals and removed dead helpers without changing product contracts |
+| Regenerated files and owning generator | `tools/task_surface.generated.mk` and `tools/task_surface_manifest.json` from task-surface owner generation; `tools/scheduler_manifest.json` and `tools/execution_topology_render_index.json` from topology generation; `tools/go_test_duration_baselines.json` from the Go-duration writer; `internal/gen/contractextensions/artifacts_gen.go` from contract generation |
+| Commands run | Make-owned `format`, `generate`, `generate-drift`, `lint-markdown`, `json-shape-check`, `harness-contract`, `agent-finalize`, focused owner/slice targets, direct browser/test/test-fast/check/CI/release targets, and the recorded cold/warm performance windows; read-only `explain-run`, owner/task reports, Git, `rg`, `jq`, process, and retained-artifact inspection |
+| Passing validation and run roots | Broad carry-forward: `wf01-browser-e2e-proof`, `wf01-test-fast-proof`, `wf01-test-proof`, `wf01-ci-proof-v2`, `wf01-release-check-proof-v4`; focused latest-change proofs: `wf01-keyboard-fill-proof`, `wf01-collaboration-timeout-proof`, `wf01-target-admission-deadline-proof`, `wf01-support-selector-proof-v2`, `wf01-idempotent-bucket-cleanup-proof`, `wf01-processlease-success-acquisition-proof`, and main `wf01-windowed-source-roster-proof`; final affected gates: `wf01-final-json-shape-check`, `wf01-final-harness-contract`, successful command-surface task guide, and `wf01-final-tracker-lint`; qualified v7/v8 windows are listed above |
+| Failing validation and classification | Retained and rejected: source-evolution v1-v6 cohorts; v7 browser cleanup failure; unrelated v8 release frontend assertion; v8 serving-lease setup failure fixed in the next version; v9 pnpm-link contamination; interrupted v9/v10 warm-ups. No rejected result is counted as a pass. |
+| Performance source/system/semantic digests | v7 source `9fd25002` / snapshot `870abee1...`; v8 source `6fdd0605` / snapshot `a97b7d5a...`; v10 cold source `85b836c2` / snapshot `1f89bde4...`; common host `60b1b04a...`, capacity `0eb1de6a...`, toolchain `877e09fe...`; non-tracker implementation patch digest before final lint `bf96d2ae...` |
+| Decisions and deviations | User-directed v7 timing retention; v8 updates only affected/missing surfaces. Per-target frozen windows replace one portfolio-wide source restriction. TH-HARNESS-REQ-675 permits affected-test reruns and compatible pass carry-forward. `test` and `ci` have functional characterization but no synthetic v3 warm timing row; their final changed implementations must be measured before WF-09 publication. |
+| Open risks or blockers | No WF-01 blocker. WF-02 must freeze every public target/row disposition before runtime graph work. The checked v2 public baseline remains archival until accepted v3 publication; no compatibility reader was restored. |
+| Rollback state | Clean measurement commits preserve each WF-01 source version. Main changes can be reviewed by authored/generated group; historical run roots are immutable. No destructive reset or deletion was used; displaced caches remain recoverable under explicit `/tmp/cartulary-wf01-cache-before-*` paths. |
+| Next workflow/checkpoint | WF-02 — public contract and tier freeze / CP-03 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.command_surface` |
+
+The final affected-gate commands were `make json-shape-check`,
+`make harness-contract`, and
+`make task-guide ROLE=module-author OWNER=harness.command_surface`. Broad
+`test`, `check`, `ci`, and `release-check` were not rerun after documentation
+and source-window-ledger changes because TH-HARNESS-REQ-675 carries their
+unchanged passing roots above; the exact directly affected observability and
+schema/contract gates were rerun instead. Retained-run finalizer maintenance was
+not rerun because this closure did not select a new successful full warm
+`check` root.
 
 ### Future handoff record template
 
@@ -841,6 +1007,7 @@ without the corresponding artifact. Missing evidence is `TODO`, not inference.
 | RB-009 | External scanner or host variance prevents stable improvement proof. | Medium | Matched system digests, extended paired windows, freshness-keyed reuse, explicit unstable-environment blocker. | Stable comparison passes or work remains blocked without rebaseline. |
 | RB-010 | Unrelated repository failure obscures final validation. | Medium | Reproduce and classify at CP-00; record exact failing target and source state. | Failure is fixed separately or retained as explicit unrelated evidence. |
 | RB-011 | Temporary comparison runner becomes permanent duplicate architecture. | Medium | Private-only binding and mandatory deletion in CP-11. | No comparison runner is reachable after cutover except retained static fixtures. |
+| RB-012 | Incremental carry-forward hides a changed test or erases a historical failure. | High | TH-HARNESS-REQ-675 deterministic impact closure, exact source provenance, same-version retry prohibition, immutable failures, and exact combined roster closure. | AC-081 fixtures and the final ledger prove every current requirement resolves to the newest applicable pass exactly once. |
 
 ## 12. Binary Completion Criteria
 
@@ -876,13 +1043,13 @@ without the corresponding artifact. Missing evidence is `TODO`, not inference.
 | THBR-AC-011 | Finalization renders generated structure once; harness contracts use parallel semantic suites; vulnerability scans execute once per graph and cached findings equal uncached findings. |
 | THBR-AC-012 | Canonical unit events account for all material wall intervals and derive run, target, hotspot, pressure, critical-path, and baseline artifacts without dispatch-only or duplicated timing. |
 | THBR-AC-013 | Public command/schema changes use one versioned hard cutover; no alias, forwarding wrapper, dual writer, old live reader, obsolete input, or ineffective special cache remains. |
-| THBR-AC-014 | Functional, artifact, generated, focused owner, direct target, aggregate, finalizer, CI, and release validation passes at one source state, with exact run roots recorded. |
+| THBR-AC-014 | Functional, artifact, generated, focused owner, direct target, aggregate, finalizer, CI, and release validation closes through the exact TH-HARNESS-REQ-675 affected-test ledger, with every source version, impact set, pass, failure, supersession, and run root recorded. |
 | THBR-AC-015 | Every named bottleneck target materially improves under the variability-derived protocol; every other retained public verification target is non-regressing; baselines refresh only afterward. |
 | THBR-AC-016 | The final tracker records changed/authored/generated files, commands, run roots, semantic/system digests, failures, cleanup, decisions, residual risks, and safe restart state. |
 
 ### Final checklist
 
-- [ ] WF-01 corrected measurement truth is retained before optimization.
+- [x] WF-01 corrected measurement truth and its accumulated validation ledger are retained before optimization.
 - [ ] Every active row and public input has a target-state disposition.
 - [ ] Owner changes precede schemas, authored projections, generation, and code.
 - [ ] Direct and aggregate work use one graph and scheduler.
@@ -891,7 +1058,7 @@ without the corresponding artifact. Missing evidence is `TODO`, not inference.
 - [ ] Cache closure and security freshness fail safe.
 - [ ] Artifact roster, timing, critical path, and totals close exactly.
 - [ ] Executor improvement is separated from tier inventory reduction.
-- [ ] Focused and accumulated validation pass at one source state.
+- [ ] Focused and accumulated validation close through exact affected-test provenance.
 - [ ] Generated output was refreshed only through Make.
 - [ ] Obsolete compatibility paths and schema readers are removed.
 - [ ] Performance references were refreshed only after acceptance.

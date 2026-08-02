@@ -66,13 +66,13 @@ func RegisterRoutes(settings ...Settings) httpapi.RouteRegistrar {
 
 func newService(deps httpapi.DependencySet, settings Settings) (*Service, error) {
 	if settings.AcceptSocket == nil {
-		return nil, errors.New("Collaboration WebSocket accept dependency is required")
+		return nil, errors.New("collaboration WebSocket accept dependency is required")
 	}
 	if settings.CheckBrowserOrigin == nil {
-		return nil, errors.New("Collaboration WebSocket Origin dependency is required")
+		return nil, errors.New("collaboration WebSocket Origin dependency is required")
 	}
 	if settings.Hub == nil {
-		return nil, errors.New("Collaboration Hub dependency is required")
+		return nil, errors.New("collaboration Hub dependency is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {

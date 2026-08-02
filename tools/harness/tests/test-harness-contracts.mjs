@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -498,9 +500,12 @@ test("design token CLI is documentation-free and preserves output on validation 
     const first = runCLI();
     assert.equal(first.status, 0, first.stderr);
     const firstOutput = readFileSync(outputPath, "utf8");
+    assert.equal(lstatSync(outputPath).mode & 0o7777, 0o644);
+    chmodSync(outputPath, 0o600);
     const second = runCLI();
     assert.equal(second.status, 0, second.stderr);
     assert.equal(readFileSync(outputPath, "utf8"), firstOutput);
+    assert.equal(lstatSync(outputPath).mode & 0o7777, 0o644);
     const check = runCLI("--check");
     assert.equal(check.status, 0, check.stderr);
     assert.deepEqual(
@@ -2989,8 +2994,16 @@ test("test clock-control schema is closed and mode-scoped", async () => {
   );
 });
 
-function runVitestStepSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
-  const stepDir = path.join(root, sidecarJSON ? "step-sidecar" : "step-fallback");
+function runVitestStepSummaryFixture({
+  root,
+  runnerJSON,
+  sidecarJSON = "",
+  countingMode = "counted",
+}) {
+  const stepDir = path.join(
+    root,
+    `step-${sidecarJSON ? "sidecar" : "fallback"}-${countingMode}`,
+  );
   const resultsDir = path.relative(repoRoot, path.join(root, "results"));
   const result = spawnSync(
     process.execPath,
@@ -3011,6 +3024,7 @@ function runVitestStepSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
         CARTULARY_STEP_LOGICAL_DURATION_MS: "1000",
         CARTULARY_STEP_EXECUTED_DURATION_MS: "1000",
         CARTULARY_STEP_EXIT_STATUS: "1",
+        CARTULARY_STEP_COUNTING_MODE: countingMode,
         CARTULARY_STEP_RUNNER_LOG: runnerJSON,
         CARTULARY_STEP_STDOUT_LOG: path.join(root, "stdout.log"),
         CARTULARY_STEP_STDERR_LOG: path.join(root, "stderr.log"),
@@ -3158,6 +3172,21 @@ test("Vitest failure sidecar overrides STACK_TRACE_ERROR summary fallback", () =
       sidecarSummary.dossiers[0].raw,
       /vitest-failure-details\.json/,
       "sidecar-backed failures must retain the sidecar artifact ref",
+    );
+
+    const nonCountingSummary = runVitestStepSummaryFixture({
+      root,
+      runnerJSON,
+      sidecarJSON,
+      countingMode: "none",
+    });
+    assert.equal(nonCountingSummary.status, "fail");
+    assert.equal(nonCountingSummary.counts.tests, 0);
+    assert.equal(nonCountingSummary.counts.failed, 0);
+    assert.equal(
+      nonCountingSummary.failures[0].failure_reason,
+      "test_assertion_failure",
+      "non-counting wrappers must retain product-test failure classification",
     );
 
     const fallbackSummary = runVitestStepSummaryFixture({
@@ -3591,7 +3620,7 @@ test("machine task-surface owner defines public output classes and side effects"
     .join("\n")}\n`;
   assert.equal(
     createHash("sha256").update(publicIdentityBytes).digest("hex"),
-    "26e5d05d49683da029bd1ebe45449eab240c603e9528f48dc7745d246d658cfa",
+    "7735f7ef41b4d6b9e5ebff6bd8b5b9aeb2e4960b85f69784c9a203317cc16ff7",
     "public target and command ID inventory changed; revise the authored owner and this explicit interface digest together",
   );
   for (const target of publicTargets) {

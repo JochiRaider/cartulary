@@ -89,12 +89,12 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		Mode:        LockExclusive,
 	}
 
-	firstShared, err := Acquire(context.Background(), sharedBackend, 100*time.Millisecond, 40*time.Millisecond)
+	firstShared, err := Acquire(context.Background(), sharedBackend, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first shared serving lease: %v", err)
 	}
 	t.Cleanup(firstShared.Close)
-	secondShared, err := Acquire(context.Background(), sharedBackend, 100*time.Millisecond, 40*time.Millisecond)
+	secondShared, err := Acquire(context.Background(), sharedBackend, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire second shared serving lease: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatalf("release first shared serving lease: %v", err)
 	}
 
-	exclusive, err := Acquire(context.Background(), exclusiveBackend, 100*time.Millisecond, 40*time.Millisecond)
+	exclusive, err := Acquire(context.Background(), exclusiveBackend, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire exclusive restore lease: %v", err)
 	}

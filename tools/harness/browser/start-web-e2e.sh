@@ -9,8 +9,8 @@ GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_HARNESS_BIN="${CARTULARY_SERVER_HARNESS_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
-TEST_SERVICE_FRONTEND_PORT_START=39000
-TEST_SERVICE_FRONTEND_PORT_END=39199
+TEST_SERVICE_FRONTEND_PORT_START=19000
+TEST_SERVICE_FRONTEND_PORT_END=19199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
 WEB_DIST_INDEX="${ROOT_DIR}/apps/web/dist/index.html"
 SESSION_EVIDENCE_HELPER="${ROOT_DIR}/tools/harness/browser/browser-session-evidence.mjs"
@@ -50,7 +50,6 @@ SERVER_PGID=""
 VITE_PGID=""
 CHILD_PGID=""
 PORT_LEASE_DIRS=()
-FRONTEND_PORT_CONFIGURED=0
 cleanup_done=0
 SESSION_MODE="wrap"
 SESSION_ENV_FILE=""
@@ -660,6 +659,8 @@ EOF
   export CARTULARY_TEST_SERVICES_ACTIVE
   CARTULARY_TEST_ROUTE_TOKEN_FILE="${TEST_ROUTE_TOKEN_FILE}"
   export CARTULARY_TEST_ROUTE_TOKEN_FILE
+  adopt_port_lease_for_cleanup "${BACKEND_PORT}"
+  adopt_port_lease_for_cleanup "${FRONTEND_PORT}"
 }
 
 stop_session() {
@@ -977,44 +978,6 @@ browser_wait_frontend_ready() {
   return 1
 }
 
-startup_diagnostic_failure_reason() {
-  local node_bin="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
-
-  if [[ -z "${STARTUP_DIAGNOSTIC_FILE}" || ! -f "${STARTUP_DIAGNOSTIC_FILE}" ]]; then
-    return 1
-  fi
-  if [[ ! -x "${node_bin}" ]]; then
-    node_bin="node"
-  fi
-
-  "${node_bin}" - "${STARTUP_DIAGNOSTIC_FILE}" <<'EOF'
-const fs = require("node:fs");
-
-try {
-  const payload = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-  if (payload && typeof payload.failure_reason === "string") {
-    process.stdout.write(`${payload.failure_reason}\n`);
-    process.exit(0);
-  }
-} catch {
-}
-process.exit(1);
-EOF
-}
-
-frontend_resource_conflict_retry_allowed() {
-  local reason=""
-
-  if ! using_test_services_stack; then
-    return 1
-  fi
-  if [[ "${FRONTEND_PORT_CONFIGURED}" -eq 1 ]]; then
-    return 1
-  fi
-  reason="$(startup_diagnostic_failure_reason 2>/dev/null || true)"
-  [[ "${reason}" == "resource_conflict" ]]
-}
-
 start_frontend_preview_process() {
   local pnpm_bin="$1"
 
@@ -1028,40 +991,11 @@ start_frontend_preview_process() {
     "${pnpm_bin}" --dir apps/web exec vite preview --host 127.0.0.1 --port "${FRONTEND_PORT}" --strictPort
 }
 
-retry_frontend_preview_port() {
-  local previous_port="${FRONTEND_PORT}"
-
-  if [[ -n "${VITE_PGID:-}" ]]; then
-    stop_process_group "${VITE_PGID}" || true
-    VITE_PGID=""
-  fi
-  allocate_available_port FRONTEND_PORT "frontend" "" "${BACKEND_PORT},${previous_port}" || return $?
-  release_port_lease_for_port "${previous_port}"
-  PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
-  export CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}"
-  export CARTULARY_WEB_E2E_FRONTEND_PORT="${FRONTEND_PORT}"
-  WEB_LOG="${TARGET_ARTIFACT_DIR:-${RUNTIME_ROOT_BASE}}/web-${FRONTEND_PORT}.log"
-  export CARTULARY_WEB_E2E_WEB_LOG="${WEB_LOG}"
-  echo "frontend port ${previous_port} hit a resource conflict; retrying with ${FRONTEND_PORT}" >&2
-}
-
-start_frontend_preview_ready_with_retry() {
+start_frontend_preview_ready() {
   local pnpm_bin="$1"
-  local attempt
-  local max_attempts=3
 
-  for attempt in $(seq 1 "${max_attempts}"); do
-    start_frontend_preview_process "${pnpm_bin}"
-    if browser_wait_frontend_ready; then
-      return 0
-    fi
-    if (( attempt >= max_attempts )) || ! frontend_resource_conflict_retry_allowed; then
-      return 1
-    fi
-    retry_frontend_preview_port || return $?
-  done
-
-  return 1
+  start_frontend_preview_process "${pnpm_bin}"
+  browser_wait_frontend_ready
 }
 
 browser_verify_frontend_ready() {
@@ -1085,15 +1019,12 @@ browser_verify_frontend_ready() {
 
 wait_for_process_status() {
   local group_id="$1"
-  local status=0
 
   if wait "${group_id}"; then
-    status=0
+    return 0
   else
-    status=$?
+    return $?
   fi
-
-  printf '%s\n' "${status}"
 }
 
 supervise_stack() {
@@ -1111,7 +1042,11 @@ supervise_stack() {
     fi
 
     if ! process_group_running "${SERVER_PGID}"; then
-      server_status="$(wait_for_process_status "${SERVER_PGID}")"
+      if wait_for_process_status "${SERVER_PGID}"; then
+        server_status=0
+      else
+        server_status=$?
+      fi
       echo "backend exited unexpectedly during browser e2e supervision (status=${server_status})" >&2
       cat "${SERVER_LOG}" >&2 || true
       if [[ -n "${CHILD_PGID:-}" ]]; then
@@ -1121,7 +1056,11 @@ supervise_stack() {
     fi
 
     if ! process_group_running "${VITE_PGID}"; then
-      vite_status="$(wait_for_process_status "${VITE_PGID}")"
+      if wait_for_process_status "${VITE_PGID}"; then
+        vite_status=0
+      else
+        vite_status=$?
+      fi
       echo "frontend exited unexpectedly during browser e2e supervision (status=${vite_status})" >&2
       cat "${WEB_LOG}" >&2 || true
       if [[ -n "${CHILD_PGID:-}" ]]; then
@@ -1131,7 +1070,11 @@ supervise_stack() {
     fi
 
     if [[ -n "${CHILD_PGID:-}" ]] && ! process_group_running "${CHILD_PGID}"; then
-      child_status="$(wait_for_process_status "${CHILD_PGID}")"
+      if wait_for_process_status "${CHILD_PGID}"; then
+        child_status=0
+      else
+        child_status=$?
+      fi
       return "${child_status}"
     fi
 
@@ -1221,15 +1164,16 @@ main() {
     "${backend_listen_command[@]}"
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready
-  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry "${pnpm_bin}"
+  CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e startup frontend ready" start_frontend_preview_ready "${pnpm_bin}"
   run_timing_span "setup" "browser-e2e finalize startup diagnostics" finalize_startup_ready
   run_timing_span "setup" "browser-e2e publish immutable v4 stack" write_stack_metadata
 
   if [[ "${SESSION_MODE}" == "start" ]]; then
     run_timing_span "setup" "browser-e2e write session lease" write_session_files
+    transfer_port_lease_for_port "${BACKEND_PORT}" "${SERVER_PGID}"
+    transfer_port_lease_for_port "${FRONTEND_PORT}" "${VITE_PGID}"
     release_process_group_monitor "${SERVER_PGID}"
     release_process_group_monitor "${VITE_PGID}"
-    release_port_leases || true
     trap - EXIT
     return 0
   fi

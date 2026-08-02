@@ -305,10 +305,46 @@ func RefreshSummary(env map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("encode suite-service summary: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(suiteDir, "service-scope.json"), append(payload, '\n'), 0o600); err != nil {
+	if err := writeFileAtomically(filepath.Join(suiteDir, "service-scope.json"), append(payload, '\n'), 0o600); err != nil {
 		return fmt.Errorf("write suite-service summary: %w", err)
 	}
 	return nil
+}
+
+func writeFileAtomically(destination string, payload []byte, mode os.FileMode) (returnErr error) {
+	directory := filepath.Dir(destination)
+	temporary, err := os.CreateTemp(directory, ".service-scope.*.tmp")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() {
+		if returnErr != nil {
+			_ = temporary.Close()
+		}
+		_ = os.Remove(temporaryPath)
+	}()
+	if err := temporary.Chmod(mode); err != nil {
+		return err
+	}
+	if _, err := temporary.Write(payload); err != nil {
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(temporaryPath, destination); err != nil {
+		return err
+	}
+	directoryHandle, err := os.Open(directory)
+	if err != nil {
+		return err
+	}
+	defer directoryHandle.Close()
+	return directoryHandle.Sync()
 }
 
 func Summarize(env map[string]string) (ServiceScope, bool, error) {

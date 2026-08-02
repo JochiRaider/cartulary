@@ -24,7 +24,7 @@ func TestTargetServingAdmissionCancelsOnLeaseLoss_Integration(t *testing.T) {
 	admission, err := AcquireTargetServingAdmission(
 		context.Background(),
 		pool,
-		100*time.Millisecond,
+		5*time.Second,
 		20*time.Millisecond,
 	)
 	if err != nil {

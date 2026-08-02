@@ -50,9 +50,12 @@ release_port_lease_dir() {
   if [[ -f "${lease_dir}/pid" ]]; then
     IFS= read -r lease_pid <"${lease_dir}/pid" || true
   fi
-  if [[ "${lease_pid}" == "$$" ]]; then
+  if [[ "${lease_pid}" == "$$" ]] ||
+    { [[ "${lease_pid}" =~ ^[0-9]+$ ]] && ! kill -0 "${lease_pid}" 2>/dev/null; }; then
     rm -rf "${lease_dir}"
+    return 0
   fi
+  return 1
 }
 
 release_port_leases() {
@@ -78,6 +81,41 @@ track_port_lease_dir() {
     fi
   done
   PORT_LEASE_DIRS+=("${lease_dir}")
+}
+
+transfer_port_lease_for_port() {
+  local port="$1"
+  local owner_pid="$2"
+  local lease_dir
+  local lease_pid=""
+  local next_pid_file
+
+  if [[ ! "${owner_pid}" =~ ^[0-9]+$ ]] || ! kill -0 "${owner_pid}" 2>/dev/null; then
+    echo "cannot transfer port ${port} lease to inactive owner ${owner_pid}" >&2
+    return 1
+  fi
+  lease_dir="$(port_lease_dir "${port}")"
+  if [[ -f "${lease_dir}/pid" ]]; then
+    IFS= read -r lease_pid <"${lease_dir}/pid" || true
+  fi
+  if [[ "${lease_pid}" != "$$" ]]; then
+    echo "cannot transfer port ${port} lease owned by ${lease_pid:-unknown}" >&2
+    return 1
+  fi
+  next_pid_file="${lease_dir}/pid.next.$$"
+  printf '%s\n' "${owner_pid}" >"${next_pid_file}"
+  mv -f "${next_pid_file}" "${lease_dir}/pid"
+  printf 'owner_process_group_pid=%s\n' "${owner_pid}" >>"${lease_dir}/metadata"
+}
+
+adopt_port_lease_for_cleanup() {
+  local port="$1"
+  local lease_dir
+
+  lease_dir="$(port_lease_dir "${port}")"
+  if [[ -d "${lease_dir}" ]]; then
+    track_port_lease_dir "${lease_dir}"
+  fi
 }
 
 remove_stale_port_lease() {
@@ -339,13 +377,7 @@ allocate_available_port() {
 }
 
 resolve_owned_stack_ports() {
-  # shellcheck disable=SC2034
-  FRONTEND_PORT_CONFIGURED=0
   allocate_available_port BACKEND_PORT "backend" "${CARTULARY_WEB_E2E_BACKEND_PORT:-}" "" || return $?
-  if [[ -n "${CARTULARY_WEB_E2E_FRONTEND_PORT:-}" ]]; then
-    # shellcheck disable=SC2034
-    FRONTEND_PORT_CONFIGURED=1
-  fi
   allocate_available_port FRONTEND_PORT "frontend" "${CARTULARY_WEB_E2E_FRONTEND_PORT:-}" "${BACKEND_PORT}" || return $?
 
   if [[ "${BACKEND_PORT}" == "${FRONTEND_PORT}" ]]; then

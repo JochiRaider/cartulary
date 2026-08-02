@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import {
   applyFilterChip,
   changeGrouping,
@@ -279,6 +281,7 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
       response.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
   const postEditQuery = waitForTimelineQuery(page, incidentId);
+  const postEditQueryResponse = waitForTimelineQueryResponse(page, incidentId);
   const betaSummary = page.getByTestId(
     rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
@@ -323,19 +326,27 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
       { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
   });
+  expect((await postEditQueryResponse).ok()).toBeTruthy();
   await expect(
     page.getByText("No rows match the current filters."),
   ).toBeVisible();
 
-  const removeReviewedFilterRequest = waitForTimelineQuery(page, incidentId);
-  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
-  expect(readPostBody(await removeReviewedFilterRequest)).toEqual({
+  const expectedRemoveReviewedFilterBody = {
     group_by: "timeline.capture_state",
     sort: [
       { direction: "asc", field_key: "timeline.capture_state" },
       { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
-  });
+  };
+  const removeReviewedFilterRequest = waitForTimelineQuery(
+    page,
+    incidentId,
+    expectedRemoveReviewedFilterBody,
+  );
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await removeReviewedFilterRequest)).toEqual(
+    expectedRemoveReviewedFilterBody,
+  );
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page,
@@ -515,11 +526,29 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
   ).toBeVisible();
 });
 
-function waitForTimelineQuery(page: Page, incidentId: string) {
+function waitForTimelineQuery(
+  page: Page,
+  incidentId: string,
+  expectedBody?: Record<string, unknown>,
+) {
   return page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
       request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+        ) &&
+      (expectedBody === undefined ||
+        isDeepStrictEqual(readPostBody(request), expectedBody)),
+  );
+}
+
+function waitForTimelineQueryResponse(page: Page, incidentId: string) {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
         .url()
         .endsWith(
           `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,

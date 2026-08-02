@@ -51,7 +51,7 @@ write_empty_baseline() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_shard_target_ms": 30000,
   "shard_target_ms_by_target": {
     "backend-integration": 18000,
@@ -60,7 +60,7 @@ write_empty_baseline() {
   },
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {},
   "package_overheads": {},
   "raw_aggregates": {},
@@ -112,11 +112,23 @@ JSON
 cat >"$results_dir/backend-unit/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v7","target":"backend-unit","event":"fixture"}
 JSONL
+mkdir -p "$shared_dir/harness-observability"
+cat >"$shared_dir/harness-observability/execution-context.json" <<'JSON'
+{
+  "schema_id": "cartulary.harness_execution_context.v2",
+  "status": "passed",
+  "source_state": "clean",
+  "warm_eligibility": "eligible",
+  "interrupted": false,
+  "retry_count": 0,
+  "contamination_reasons": []
+}
+JSON
 
 cat >"$shared_dir/backend-integration-auth-shard-01/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestLoginSessionLifecycle_Integration","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestUserAdminAudit_Integration","Elapsed":1}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
+{"Time":"2026-01-01T00:00:30Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
 JSONL
 printf '50000\n' >"$shared_dir/backend-integration-auth-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-integration-auth-shard-01/exit_status.txt"
@@ -124,7 +136,7 @@ printf '0\n' >"$shared_dir/backend-integration-auth-shard-01/exit_status.txt"
 cat >"$shared_dir/backend-integration-auth-shard-02/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestLoginSessionLifecycle_Integration","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestUserAdminAudit_Integration","Elapsed":1}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
+{"Time":"2026-01-01T00:00:30Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":30}
 JSONL
 cat >"$shared_dir/backend-integration-auth-shard-02/stderr.log" <<'LOG'
 go: downloading example.org/slow/module v1.2.3
@@ -144,7 +156,7 @@ printf '0\n' >"$shared_dir/backend-integration-testutil-shard-01/exit_status.txt
 
 cat >"$shared_dir/backend-store-shard-01/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestConcurrencyLimitRevokesLRUNonCurrent_Unit","Elapsed":20}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":21}
+{"Time":"2026-01-01T00:00:21Z","Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Elapsed":21}
 JSONL
 printf '22000\n' >"$shared_dir/backend-store-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-store-shard-01/exit_status.txt"
@@ -162,10 +174,11 @@ fi
 assert_contains "$missing_retained_output" "duration retained run must contain target-summary.json evidence" "missing retained-run evidence guard"
 
 missing_shards_results="$tmp_dir/missing-shards-results"
-mkdir -p "$missing_shards_results/backend-unit" "$missing_shards_results/backend-store"
+mkdir -p "$missing_shards_results/backend-unit" "$missing_shards_results/backend-store" "$missing_shards_results/_shared/harness-observability"
 cp "$results_dir/backend-store/target-summary.json" "$missing_shards_results/backend-store/target-summary.json"
 cp "$results_dir/backend-unit/scheduler-summary.json" "$missing_shards_results/backend-unit/scheduler-summary.json"
 cp "$results_dir/backend-unit/scheduler-events.jsonl" "$missing_shards_results/backend-unit/scheduler-events.jsonl"
+cp "$shared_dir/harness-observability/execution-context.json" "$missing_shards_results/_shared/harness-observability/execution-context.json"
 write_empty_baseline "$tmp_dir/missing-shards-baseline.json"
 set +e
 missing_shards_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/missing-shards-baseline.json" "$missing_shards_results" 2>&1)"
@@ -275,7 +288,7 @@ const integrationCommand = baseline.command_overheads_by_target["backend-integra
 const storeCommand = baseline.command_overheads_by_target["backend-store"];
 const rawHTTP = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx"];
 const rawPG = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest"];
-if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v5") {
+if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v6") {
   throw new Error(`expected v4 schema, got ${baseline.schema_id}`);
 }
 if (login !== 1000 || audit !== 1000 || store !== 20000) {
@@ -363,10 +376,10 @@ EOF
 
 cat >"$tmp_dir/contaminated-underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {
     "backend-integration": 10000,
     "backend-store": 1000
@@ -392,10 +405,10 @@ assert_contains "$drift_warning_output" "go_module_downloads=2" "contaminated un
 
 cat >"$tmp_dir/tolerated-underplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {
     "backend-integration": 11000,
     "backend-store": 1000
@@ -423,10 +436,10 @@ printf '50000\n' >"$underplanned_raw_results/_shared/backend-integration-testuti
 
 cat >"$tmp_dir/underplanned-raw.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {
     "backend-integration": 20000,
     "backend-store": 1000
@@ -460,10 +473,10 @@ assert_contains "$underplanned_raw_output" "package=github.com/JochiRaider/cartu
 
 cat >"$tmp_dir/underplanned-components.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {
     "backend-integration": 100,
     "backend-store": 1000
@@ -533,10 +546,10 @@ assert_contains "$service_contaminated_drift_output" "service_timing_contaminati
 
 cat >"$tmp_dir/overplanned.json" <<'JSON'
 {
-  "schema_id": "cartulary.go_test_duration_baselines.v5",
+  "schema_id": "cartulary.go_test_duration_baselines.v6",
   "default_item_weight_ms": 10000,
   "default_package_overhead_ms": 100,
-  "default_command_overhead_ms": 70000,
+  "default_command_overhead_ms": 5000,
   "command_overheads_by_target": {
     "backend-integration": 80000,
     "backend-store": 80000
@@ -631,4 +644,4 @@ fs.writeFileSync(target, `${JSON.stringify(baseline, null, 2)}\n`);
 EOF
 
 missing_command_coverage_output="$("$NODE_BIN" "$COVERAGE_SCRIPT" --baseline-file "$tmp_dir/coverage-missing-command.json" 2>&1)"
-assert_contains "$missing_command_coverage_output" "defaulted command overhead baseline target=backend-store default_ms=70000" "defaulted command overhead coverage"
+assert_contains "$missing_command_coverage_output" "defaulted command overhead baseline target=backend-store default_ms=5000" "defaulted command overhead coverage"

@@ -913,33 +913,38 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
     recordId: beta.record_id,
     surface: timelineViewSchemaId,
   });
-  const [fillSourceRecordId, fillTargetRecordId] = await page
-    .getByTestId(gridShellTestId(timelineViewSchemaId))
-    .evaluate(
-      (grid, knownSourceRecordIds) => {
-        const recordIds = Array.from(
-          grid.querySelectorAll<HTMLElement>(
-            '[role="row"][data-grid-record-id]',
-          ),
-          (row) => row.dataset.gridRecordId,
-        ).filter((recordId): recordId is string => recordId !== undefined);
-        for (let index = 0; index < recordIds.length - 1; index += 1) {
-          const sourceRecordId = recordIds[index];
-          const targetRecordId = recordIds[index + 1];
-          if (
-            sourceRecordId !== undefined &&
-            targetRecordId !== undefined &&
-            knownSourceRecordIds.includes(sourceRecordId)
-          ) {
-            return [sourceRecordId, targetRecordId] as [string, string];
-          }
-        }
+  const fillSourceRawCellLocator = page.getByTestId(
+    rowCellTestId(beta.record_id, "timeline.raw_activity_text"),
+  );
+  await fillSourceRawCellLocator.evaluate((cell) => {
+    cell.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await expect(fillSourceRawCellLocator).toBeVisible();
+  const [fillSourceRecordId, fillTargetRecordId] =
+    await fillSourceRawCellLocator.evaluate((cell) => {
+      const sourceRow = cell.closest<HTMLElement>(
+        '[role="row"][data-grid-record-id]',
+      );
+      const mountedRows = Array.from(
+        sourceRow?.parentElement?.querySelectorAll<HTMLElement>(
+          '[role="row"][data-grid-record-id]',
+        ) ?? [],
+      );
+      const sourceIndex =
+        sourceRow === null ? -1 : mountedRows.indexOf(sourceRow);
+      const targetRow =
+        sourceIndex < 0
+          ? undefined
+          : (mountedRows[sourceIndex + 1] ?? mountedRows[sourceIndex - 1]);
+      const sourceRecordId = sourceRow?.dataset.gridRecordId;
+      const targetRecordId = targetRow?.dataset.gridRecordId;
+      if (sourceRecordId === undefined || targetRecordId === undefined) {
         throw new Error(
-          "Expected a visible non-empty source with a committed fill target",
+          "Expected the centered non-empty source to have a committed fill target",
         );
-      },
-      [alpha.record_id, beta.record_id],
-    );
+      }
+      return [sourceRecordId, targetRecordId] as [string, string];
+    });
   const fillSource = await waitForViewRow(
     page,
     incidentId,

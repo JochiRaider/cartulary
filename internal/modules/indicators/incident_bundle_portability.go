@@ -31,9 +31,9 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	specs := []incidentportability.FixedImportSpec{
-		{"data/indicators.ndjson", "indicators", []string{"record_id"}, []string{"record_id", "incident_id"}, `INSERT INTO indicators SELECT * FROM jsonb_populate_record(NULL::indicators, $1::jsonb)`},
-		{"data/indicator_observations.ndjson", "indicator_observations", []string{"indicator_observation_id"}, []string{"indicator_observation_id"}, `INSERT INTO indicator_observations SELECT * FROM jsonb_populate_record(NULL::indicator_observations, $1::jsonb)`},
-		{"data/indicator_state_intervals.ndjson", "indicator_state_intervals", []string{"indicator_state_interval_id"}, []string{"indicator_state_interval_id"}, `INSERT INTO indicator_state_intervals SELECT * FROM jsonb_populate_record(NULL::indicator_state_intervals, $1::jsonb)`},
+		{LogicalBundlePath: "data/indicators.ndjson", AttributionTable: "indicators", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO indicators SELECT * FROM jsonb_populate_record(NULL::indicators, $1::jsonb)`},
+		{LogicalBundlePath: "data/indicator_observations.ndjson", AttributionTable: "indicator_observations", StableIdentity: []string{"indicator_observation_id"}, RequiredColumns: []string{"indicator_observation_id"}, InsertSQL: `INSERT INTO indicator_observations SELECT * FROM jsonb_populate_record(NULL::indicator_observations, $1::jsonb)`},
+		{LogicalBundlePath: "data/indicator_state_intervals.ndjson", AttributionTable: "indicator_state_intervals", StableIdentity: []string{"indicator_state_interval_id"}, RequiredColumns: []string{"indicator_state_interval_id"}, InsertSQL: `INSERT INTO indicator_state_intervals SELECT * FROM jsonb_populate_record(NULL::indicator_state_intervals, $1::jsonb)`},
 	}
 	for _, spec := range specs {
 		if err := incidentportability.ImportFixedBundleFileNDJSON(ctx, tx, spec, files, actorUserID, attributions); err != nil {

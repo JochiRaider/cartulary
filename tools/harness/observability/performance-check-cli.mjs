@@ -57,11 +57,11 @@ if (manifest) {
     }
     for (const row of comparison.rows) {
       process.stdout.write(
-        `[PERFORMANCE] target=${row.target} gate=${row.gate} status=${row.status} baseline_median_ms=${row.baseline_median_ms} baseline_mad_ms=${row.baseline_mad_ms} candidate_median_ms=${row.candidate_median_ms} limit_ms=${row.limit_ms}\n`,
+        `[PERFORMANCE] target=${row.target} gate=${row.gate} status=${row.status} baseline_p50_ms=${row.baseline_p50_ms} baseline_p90_ms=${row.baseline_p90_ms} baseline_mad_ms=${row.baseline_mad_ms} candidate_p50_ms=${row.candidate_p50_ms} candidate_p90_ms=${row.candidate_p90_ms} candidate_mad_ms=${row.candidate_mad_ms} variability_band_ms=${row.variability_band_ms}\n`,
       );
     }
     process.stdout.write(
-      `[PERFORMANCE-PORTFOLIO] status=${comparison.portfolio.status} targets=${comparison.portfolio.target_count} baseline_total_ms=${comparison.portfolio.baseline_total_ms} candidate_total_ms=${comparison.portfolio.candidate_total_ms} delta_ms=${comparison.portfolio.delta_ms}\n`,
+      `[PERFORMANCE-PORTFOLIO] status=${comparison.portfolio.status} targets=${comparison.portfolio.target_count} baseline_total_p50_ms=${comparison.portfolio.baseline_total_p50_ms} candidate_total_p50_ms=${comparison.portfolio.candidate_total_p50_ms} delta_p50_ms=${comparison.portfolio.delta_p50_ms}\n`,
     );
     if (comparison.failures.length > 0) {
       acceptanceFailure(`failed-targets:${comparison.failures.join(",")}`);

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  chmodSync,
   closeSync,
   fsyncSync,
   lstatSync,
@@ -22,6 +23,7 @@ const ownerID = "package.ui";
 const verificationID = "package.ui.verification.machine_owned_tokens";
 const defaultThemeID = "dark_graphite";
 const generatorID = "cartulary.design_token_generation.v2";
+const generatedSourceMode = 0o644;
 const tokenNamespaces = Object.freeze([
   "border",
   "colors",
@@ -252,17 +254,25 @@ function outputCollision(message) {
 export function replaceFileAtomically(outputPath, output, options = {}) {
   const resolvedOutput = path.resolve(outputPath);
   const outputDirectory = path.dirname(resolvedOutput);
+  let existingOutput;
   try {
     const existing = lstatSync(resolvedOutput);
     if (!existing.isFile()) {
       throw outputCollision(`${resolvedOutput}: existing output is not a regular file`);
     }
+    existingOutput = existing;
   } catch (error) {
     if (error?.code !== "ENOENT") {
       throw error;
     }
   }
   mkdirSync(outputDirectory, { recursive: true });
+  if (existingOutput && readFileSync(resolvedOutput, "utf8") === output) {
+    if ((existingOutput.mode & 0o7777) !== generatedSourceMode) {
+      chmodSync(resolvedOutput, generatedSourceMode);
+    }
+    return;
+  }
   const temporaryPath = path.resolve(
     options.temporaryPath ??
       path.join(
@@ -284,6 +294,7 @@ export function replaceFileAtomically(outputPath, output, options = {}) {
     temporaryCreated = true;
     writeFileSync(descriptor, output, "utf8");
     fsyncSync(descriptor);
+    chmodSync(temporaryPath, generatedSourceMode);
     closeSync(descriptor);
     descriptor = undefined;
     renameSync(temporaryPath, resolvedOutput);

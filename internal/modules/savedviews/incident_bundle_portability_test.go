@@ -1044,16 +1044,3 @@ func errorText(err error) string {
 	}
 	return err.Error()
 }
-
-func decodeMap(t testing.TB, value any) map[string]any {
-	t.Helper()
-	raw, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("marshal normalized json: %v", err)
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		t.Fatalf("decode normalized json: %v", err)
-	}
-	return decoded
-}

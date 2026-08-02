@@ -25,11 +25,14 @@ import {
 } from "../observability.mjs";
 import { validateSchemaSync } from "../../contract/index.mjs";
 import {
+  canonicalSchedulerUnitTiming,
   collectRetainedObservations,
   compareQualifiedBaselines,
   intervalUnionMs,
   median,
+  nearestRankP90,
   qualificationReasons,
+  sourceWindowRoster,
 } from "../performance-evidence.mjs";
 import { semanticJSONSHA256 } from "../../test-catalog/semantic-json.mjs";
 import {
@@ -244,17 +247,15 @@ function exactCISequencePolicy() {
         step("harness-contract", ["check"], "cpu_analysis", { host_cpu: 4, host_io: 1, process: 1 }, "host_cpu"),
         step("go-gosec-audit", ["check"], "security_analysis", { host_cpu: "limit", host_io: 1, process: 1 }, "host_cpu"),
         step("deployable-shape", ["check"], "small_check", { host_cpu: 1, host_io: 1, process: 1 }, 1),
-        step("duration-baseline-drift-suite", ["check"], "artifact_generation", { host_cpu: 2, host_io: 4, process: 1 }, "host_cpu"),
       ],
     },
   };
 }
 
 function performanceArtifact({
-  standardMedian = 13_000,
-  improvementMedian = 17_000,
+  standardMedian = 10_003,
+  improvementMedian = 19_996,
   transitionPolicy = "b".repeat(64),
-  portfolioTotal = 40_000,
 } = {}) {
   const exactLintSequencePolicy = {
     target: "lint",
@@ -295,7 +296,6 @@ function performanceArtifact({
     canonical_inputs: {},
     workload_evidence_profile_sha256: "c".repeat(64),
     timing_source: "public_invocation_envelope",
-    evidence_kind: "strict_current",
     source_commit: "a".repeat(40),
     source_snapshot_sha256: "d".repeat(64),
     host_profile_sha256: "e".repeat(64),
@@ -307,16 +307,29 @@ function performanceArtifact({
     execution_policy_sha256: policy,
     ...(transition ? { allowed_policy_transition: transition } : {}),
     sample_provider_target: name,
+    cold_root: "root-cold",
+    cold_ms: medianMs + 1000,
     warmup_root: "root-0",
-    sample_roots: ["root-1", "root-2"],
-    samples_ms: [medianMs, medianMs],
-    median_ms: medianMs,
+    sample_roots: ["root-1", "root-2", "root-3", "root-4", "root-5"],
+    sample_count: 5,
+    samples_ms: [medianMs, medianMs, medianMs, medianMs, medianMs],
+    p50_ms: medianMs,
+    p90_ms: medianMs,
     mad_ms: 0,
-    no_regression_limit_ms: name === "standard-target" ? 13_000 : medianMs + 1000,
-    required_improvement_ms: name === "improvement-target" ? 3000 : 1000,
+    timing_accounting: {
+      critical_path_p50_ms: medianMs,
+      resource_blocking_p50_ms: 0,
+      setup_p50_ms: 0,
+      fixture_p50_ms: 0,
+      execution_p50_ms: medianMs,
+      collation_p50_ms: 0,
+      wrapper_p50_ms: 0,
+      process_count_p50: 1,
+      unattributed_p50_ms: 0,
+    },
   });
-  return {
-    schema_id: "cartulary.harness_public_target_duration_baselines.v2",
+  const artifact = {
+    schema_id: "cartulary.harness_public_target_duration_baselines.v3",
     status: "qualified",
     qualification: "strict_current",
     targets: [
@@ -330,13 +343,36 @@ function performanceArtifact({
         transition: "serial_to_topology_dag",
       }),
     ],
+    internal_diagnostics: [],
+    source_windows: [],
     public_entrypoint_portfolio: {
       target_count: 3,
       targets: ["improvement-target", "lint", "standard-target"],
-      total_median_ms: portfolioTotal,
+      total_p50_ms: 0,
     },
     rejected_roots: [],
   };
+  artifact.targets.sort((left, right) => left.target.localeCompare(right.target));
+  artifact.source_windows = sourceWindowRoster(artifact.targets);
+  artifact.public_entrypoint_portfolio.total_p50_ms = artifact.targets
+    .reduce((total, row) => total + row.p50_ms, 0);
+  return artifact;
+}
+
+function reclosePerformanceArtifact(artifact) {
+  artifact.targets.sort((left, right) => left.target.localeCompare(right.target));
+  for (const row of artifact.targets) {
+    row.sample_count = row.samples_ms.length;
+    row.p50_ms = median(row.samples_ms);
+    row.p90_ms = nearestRankP90(row.samples_ms);
+    row.mad_ms = median(row.samples_ms.map((sample) => Math.abs(sample - row.p50_ms)));
+  }
+  artifact.public_entrypoint_portfolio.targets = artifact.targets.map((row) => row.target);
+  artifact.public_entrypoint_portfolio.target_count = artifact.targets.length;
+  artifact.public_entrypoint_portfolio.total_p50_ms = artifact.targets
+    .reduce((total, row) => total + row.p50_ms, 0);
+  artifact.source_windows = sourceWindowRoster(artifact.targets);
+  return artifact;
 }
 
 function digestTree(dir) {
@@ -350,10 +386,6 @@ function digestTree(dir) {
   }
   visit(dir);
   return result;
-}
-
-function retainedV1PolicyDigest(value) {
-  return createHash("sha256").update(`${JSON.stringify(value, null, 2)}\n`).digest("hex");
 }
 
 function verifyRun(runDir) {
@@ -462,51 +494,63 @@ try {
     { start_time_unix_nano: "3000000000", end_time_unix_nano: "7000000000" },
     { start_time_unix_nano: "9000000000", end_time_unix_nano: "10000000000" },
   ]), 8000);
+  const schedulerTimingRoot = path.join(fixtureRoot, "scheduler-unit-timing");
+  writeJSONL(path.join(schedulerTimingRoot, "primary", "scheduler-events.jsonl"), [
+    schedulerEvent(1, "start", 500, { work_unit: "alpha", work_unit_id: "alpha", work_unit_class: "test" }),
+    schedulerEvent(2, "finish", 3000, { work_unit: "alpha", work_unit_id: "alpha", status: 0 }),
+  ]);
+  assert.deepEqual(canonicalSchedulerUnitTiming(schedulerTimingRoot, "alpha"), {
+    value: 2500,
+    start: "2026-07-20T12:00:00.500Z",
+    end: "2026-07-20T12:00:03.000Z",
+  });
+  writeJSONL(path.join(schedulerTimingRoot, "duplicate", "scheduler-events.jsonl"), [
+    schedulerEvent(1, "start", 4000, { work_unit: "alpha", work_unit_id: "alpha", work_unit_class: "test" }),
+    schedulerEvent(2, "finish", 5000, { work_unit: "alpha", work_unit_id: "alpha", status: 0 }),
+  ]);
+  assert.throws(
+    () => canonicalSchedulerUnitTiming(schedulerTimingRoot, "alpha"),
+    /not exact-once/u,
+  );
+  const failedSchedulerTimingRoot = path.join(fixtureRoot, "failed-scheduler-unit-timing");
+  writeJSONL(path.join(failedSchedulerTimingRoot, "primary", "scheduler-events.jsonl"), [
+    schedulerEvent(1, "start", 500, { work_unit: "alpha", work_unit_id: "alpha", work_unit_class: "test" }),
+    schedulerEvent(2, "finish", 3000, { work_unit: "alpha", work_unit_id: "alpha", status: 1 }),
+  ]);
+  assert.throws(
+    () => canonicalSchedulerUnitTiming(failedSchedulerTimingRoot, "alpha"),
+    /not terminal-successful/u,
+  );
   const baselinePerformance = performanceArtifact({
     standardMedian: 10_000,
     improvementMedian: 20_000,
     transitionPolicy: "a".repeat(64),
-    portfolioTotal: 50_000,
   });
   const boundaryPerformance = performanceArtifact();
   assert.deepEqual(compareQualifiedBaselines(
     baselinePerformance,
     boundaryPerformance,
   ).failures, [], "exact performance boundaries must pass");
-  const digestOnlyMigrationBaseline = performanceArtifact({
-    standardMedian: 10_000,
-    improvementMedian: 20_000,
-    transitionPolicy: "a".repeat(64),
-    portfolioTotal: 50_000,
-  });
-  const digestOnlyMigrationCandidate = performanceArtifact();
-  const migratedStandard = digestOnlyMigrationBaseline.targets.find((row) => row.target === "standard-target");
-  const strictStandard = digestOnlyMigrationCandidate.targets.find((row) => row.target === "standard-target");
-  const migratedDigest = retainedV1PolicyDigest(strictStandard.execution_policy);
-  migratedStandard.evidence_kind = "retained_v1_reference_migration";
-  migratedStandard.execution_policy = { retained_v1_execution_policy_sha256: migratedDigest };
-  migratedStandard.execution_policy_sha256 = migratedDigest;
+  const windowedBaseline = structuredClone(baselinePerformance);
+  const windowedRow = windowedBaseline.targets.find((row) => row.target === "standard-target");
+  windowedRow.source_commit = "b".repeat(40);
+  windowedRow.source_snapshot_sha256 = "c".repeat(64);
+  reclosePerformanceArtifact(windowedBaseline);
+  assert.equal(windowedBaseline.source_windows.length, 2);
   assert.deepEqual(
-    compareQualifiedBaselines(digestOnlyMigrationBaseline, digestOnlyMigrationCandidate).failures,
+    compareQualifiedBaselines(windowedBaseline, boundaryPerformance).failures,
     [],
-    "digest-only v1 migration must prove an unchanged strict policy through its isolated legacy digest",
+    "independently qualified target windows may retain exact source provenance",
   );
-  const changedMigratedCandidate = structuredClone(digestOnlyMigrationCandidate);
-  changedMigratedCandidate.targets.find((row) => row.target === "standard-target").execution_policy.revision = "changed";
+  const malformedSourceWindows = structuredClone(windowedBaseline);
+  malformedSourceWindows.source_windows[0].targets = ["unrelated-target"];
   assert.throws(
-    () => compareQualifiedBaselines(digestOnlyMigrationBaseline, changedMigratedCandidate),
-    /undeclared execution-policy change/u,
-  );
-  const invalidMigrationWrapper = structuredClone(digestOnlyMigrationBaseline);
-  invalidMigrationWrapper.targets.find((row) => row.target === "standard-target")
-    .execution_policy.retained_v1_execution_policy_sha256 = "0".repeat(64);
-  assert.throws(
-    () => compareQualifiedBaselines(invalidMigrationWrapper, digestOnlyMigrationCandidate),
-    /migrated baseline policy wrapper and digest differ/u,
+    () => compareQualifiedBaselines(malformedSourceWindows, boundaryPerformance),
+    /source-window roster does not close/u,
   );
   const failedPerformance = performanceArtifact({
     standardMedian: 13_001,
-    improvementMedian: 17_001,
+    improvementMedian: 19_997,
   });
   assert.deepEqual(compareQualifiedBaselines(
     baselinePerformance,
@@ -531,7 +575,7 @@ try {
   for (const artifact of [exactCITransitionBaseline, exactCITransitionCandidate]) {
     const row = artifact.targets.find((item) => item.target === "lint");
     row.target = "ci";
-    row.command_id = "cartulary.harness.command.ci.v1";
+    row.command_id = "cartulary.harness.command.ci.v2";
     row.measurement_profile_id = "ci_profile";
     row.sample_provider_target = "ci";
     artifact.public_entrypoint_portfolio.targets = artifact.public_entrypoint_portfolio.targets
@@ -543,6 +587,8 @@ try {
     execution_mode: "serial",
   };
   exactCITransitionCandidate.targets.find((row) => row.target === "ci").execution_policy = exactCISequencePolicy();
+  reclosePerformanceArtifact(exactCITransitionBaseline);
+  reclosePerformanceArtifact(exactCITransitionCandidate);
   assert.deepEqual(
     compareQualifiedBaselines(exactCITransitionBaseline, exactCITransitionCandidate).failures,
     [],
@@ -592,6 +638,8 @@ try {
       },
     },
   };
+  reclosePerformanceArtifact(backendProcessBaseline);
+  reclosePerformanceArtifact(backendProcessCandidate);
   assert.deepEqual(
     compareQualifiedBaselines(backendProcessBaseline, backendProcessCandidate).failures,
     [],
@@ -618,12 +666,11 @@ try {
     "release-browser-readiness",
     "standard-target",
   ];
+  reclosePerformanceArtifact(browserBaseline);
   const browserCandidate = structuredClone(browserBaseline);
   const browserImprovementRow = browserCandidate.targets
     .find((row) => row.target === "improvement-target");
-  browserImprovementRow.median_ms = 14_000;
-  browserImprovementRow.samples_ms = [14_000, 14_000];
-  browserCandidate.public_entrypoint_portfolio.total_median_ms = 39_000;
+  browserImprovementRow.samples_ms = [14_000, 14_000, 14_000, 14_000, 14_000];
   const browserCandidateRow = browserCandidate.targets
     .find((row) => row.target === "release-browser-readiness");
   browserCandidateRow.execution_policy = {
@@ -651,6 +698,7 @@ try {
     },
   };
   browserCandidateRow.execution_policy_sha256 = "b".repeat(64);
+  reclosePerformanceArtifact(browserCandidate);
   assert.deepEqual(
     compareQualifiedBaselines(browserBaseline, browserCandidate).failures,
     [],
@@ -675,11 +723,11 @@ try {
     "improvement-target",
     "standard-target",
   ];
+  reclosePerformanceArtifact(webserverBaseline);
   const webserverCandidate = structuredClone(webserverBaseline);
   const webserverImprovementRow = webserverCandidate.targets
     .find((row) => row.target === "improvement-target");
-  webserverImprovementRow.median_ms = 14_000;
-  webserverImprovementRow.samples_ms = [14_000, 14_000];
+  webserverImprovementRow.samples_ms = [14_000, 14_000, 14_000, 14_000, 14_000];
   const webserverCandidateRow = webserverCandidate.targets
     .find((row) => row.target === "browser-e2e-webserver-backed");
   webserverCandidateRow.execution_policy = {
@@ -701,7 +749,7 @@ try {
     },
   };
   webserverCandidateRow.execution_policy_sha256 = "b".repeat(64);
-  webserverCandidate.public_entrypoint_portfolio.total_median_ms = 39_000;
+  reclosePerformanceArtifact(webserverCandidate);
   assert.deepEqual(
     compareQualifiedBaselines(webserverBaseline, webserverCandidate).failures,
     [],
@@ -728,13 +776,13 @@ try {
   }
   for (const [field, value, message] of [
     ["gate", "required_improvement", /mismatched gate/u],
-    ["command_id", "cartulary.harness.command.different.v1", /mismatched command_id/u],
+    ["command_id", "cartulary.harness.command.different.v1", /not the immediate reviewed successor/u],
     ["measurement_profile_id", "different_profile", /mismatched measurement_profile_id/u],
     ["workload_evidence_profile_sha256", "4".repeat(64), /mismatched workload_evidence_profile_sha256/u],
     ["canonical_inputs", { OWNER: "different" }, /mismatched canonical inputs/u],
   ]) {
     const mismatchedContract = performanceArtifact();
-    mismatchedContract.targets[0][field] = value;
+    mismatchedContract.targets.find((row) => row.target === "standard-target")[field] = value;
     assert.throws(
       () => compareQualifiedBaselines(baselinePerformance, mismatchedContract),
       message,
@@ -750,23 +798,24 @@ try {
   duplicateTarget.targets.push(structuredClone(duplicateTarget.targets[0]));
   assert.throws(
     () => compareQualifiedBaselines(baselinePerformance, duplicateTarget),
-    /duplicates target identities/u,
+    /target rows must be unique and sorted/u,
   );
   const missingTarget = performanceArtifact();
   missingTarget.targets.pop();
   assert.throws(
     () => compareQualifiedBaselines(baselinePerformance, missingTarget),
-    /target inventories differ/u,
+    /public roster, rows, and count do not close/u,
   );
   const baselineRootsManifest = {
-    schema_id: "cartulary.harness_performance_evidence_roots.v2",
+    schema_id: "cartulary.harness_performance_evidence_roots.v3",
     mode: "baseline",
     reference_windows: [{
       window_id: "reference-1",
       provider_target: "standard-target",
-      evidence_kind: "retained_v1_reference_migration",
+      evidence_kind: "strict_current",
+      cold_root: "root-cold",
       warmup_root: "root-0",
-      measured_roots: ["root-1", "root-2"],
+      measured_roots: ["root-1", "root-2", "root-3", "root-4", "root-5"],
     }],
     reference_bindings: [{
       target: "standard-target",
@@ -774,16 +823,17 @@ try {
       timing_source: "public_invocation_envelope",
     }],
   };
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", baselineRootsManifest);
-  validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v3", baselineRootsManifest);
+  validateSchemaSync("cartulary.harness_performance_evidence_roots.v3", {
     ...baselineRootsManifest,
     mode: "comparison",
     candidate_windows: [{
       window_id: "candidate-1",
       provider_target: "standard-target",
       evidence_kind: "strict_current",
+      cold_root: "candidate-cold",
       warmup_root: "candidate-0",
-      measured_roots: ["candidate-1", "candidate-2"],
+      measured_roots: ["candidate-1", "candidate-2", "candidate-3", "candidate-4", "candidate-5"],
     }],
     candidate_bindings: [{
       target: "standard-target",
@@ -792,13 +842,16 @@ try {
     }],
   });
   assert.throws(
-    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v3", {
       ...baselineRootsManifest,
-      reference_windows: [{ ...baselineRootsManifest.reference_windows[0], measured_roots: ["root-1"] }],
+      reference_windows: [{
+        ...baselineRootsManifest.reference_windows[0],
+        measured_roots: ["root-1", "root-2", "root-3", "root-4"],
+      }],
     }),
   );
   assert.throws(
-    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v2", {
+    () => validateSchemaSync("cartulary.harness_performance_evidence_roots.v3", {
       ...baselineRootsManifest,
       mode: "comparison",
     }),
@@ -813,8 +866,9 @@ try {
       window_id: "candidate-1",
       provider_target: "standard-target",
       evidence_kind: "strict_current",
+      cold_root: "candidate-cold",
       warmup_root: "candidate-0",
-      measured_roots: ["candidate-1", "candidate-2"],
+      measured_roots: ["candidate-1", "candidate-2", "candidate-3", "candidate-4", "candidate-5"],
     }],
     candidate_bindings: [{
       target: "standard-target",
@@ -843,13 +897,6 @@ try {
   };
   assert.ok(
     qualificationReasons({ ...eligibleContext, invocation_boundary_retained: false }).includes("artifact_incomplete"),
-  );
-  assert.deepEqual(
-    qualificationReasons(
-      { ...eligibleContext, invocation_boundary_retained: false },
-      { allowMissingInvocationBoundary: true },
-    ),
-    [],
   );
   for (const [field, value, reason] of [
     ["source_state", "dirty", "dirty_source"],

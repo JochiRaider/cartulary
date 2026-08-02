@@ -1026,21 +1026,6 @@ func materializeClientSupport(source map[string]any, descriptors []map[string]an
 	}, nil
 }
 
-func sortedUniqueStrings(values []string) []string {
-	set := map[string]struct{}{}
-	for _, value := range values {
-		if value != "" {
-			set[value] = struct{}{}
-		}
-	}
-	result := make([]string, 0, len(set))
-	for value := range set {
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result
-}
-
 func materializeExtensionSchemas(source map[string]any) ([]map[string]any, error) {
 	rows, err := objectArray(source["schemas"], "generated schema sources")
 	if err != nil {

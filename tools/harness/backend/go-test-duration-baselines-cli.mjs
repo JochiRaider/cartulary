@@ -87,6 +87,12 @@ function isSuspiciousCommandOverheadDecrease(existingMs, observedMs) {
   );
 }
 
+function nearestRankP90(values) {
+  if (values.length === 0) throw new Error("command overhead p90 requires at least one observation");
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.ceil(sorted.length * 0.9) - 1];
+}
+
 function walkFiles(root) {
   const files = [];
   const stack = [root];
@@ -184,6 +190,7 @@ function main(argv) {
   const fixtureOverheadsByPackage = new Map();
   const fixtureOverheadsByTest = new Map();
   const commandOverheads = new Map();
+  const commandOverheadSamples = new Map();
   const rawAggregateDurations = new Map();
   const observedRawAggregatePrefixes = new Set();
   const observedPackages = new Set();
@@ -215,10 +222,9 @@ function main(argv) {
       );
       continue;
     }
-    commandOverheads.set(
-      artifact.commandOverhead.target,
-      Math.max(commandOverheads.get(artifact.commandOverhead.target) ?? 0, artifact.commandOverhead.overheadMs),
-    );
+    const commandSamples = commandOverheadSamples.get(artifact.commandOverhead.target) ?? [];
+    commandSamples.push(artifact.commandOverhead.overheadMs);
+    commandOverheadSamples.set(artifact.commandOverhead.target, commandSamples);
     for (const packageName of artifact.observedPackages) {
       observedPackages.add(packageName);
       if (!observedPackagesByTarget.has(artifact.target)) {
@@ -250,6 +256,10 @@ function main(argv) {
         Math.max(fixtureOverheadsByTest.get(observedTest.key) ?? 0, observedTest.fixtureMs),
       );
     }
+  }
+
+  for (const [target, samples] of commandOverheadSamples) {
+    commandOverheads.set(target, nearestRankP90(samples));
   }
 
   baseline.schema_id = goDurationBaselineSchemaID;

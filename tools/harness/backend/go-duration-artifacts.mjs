@@ -63,6 +63,12 @@ function validateGoDurationRetainedRun(_root, resultsDir) {
   const targetSummaryFiles = files.filter((file) => path.basename(file) === "target-summary.json");
   const schedulerSummaryFiles = files.filter((file) => path.basename(file) === "scheduler-summary.json");
   const schedulerEventFiles = files.filter((file) => path.basename(file) === "scheduler-events.jsonl");
+  const executionContextFile = path.join(
+    absoluteResultsDir,
+    "_shared",
+    "harness-observability",
+    "execution-context.json",
+  );
 
   if (targetSummaryFiles.length === 0) {
     throw new Error("duration retained run must contain target-summary.json evidence");
@@ -72,6 +78,26 @@ function validateGoDurationRetainedRun(_root, resultsDir) {
   }
   if (schedulerEventFiles.length === 0) {
     throw new Error("duration retained run must contain scheduler-events.jsonl evidence");
+  }
+  if (!existsSync(executionContextFile)) {
+    throw new Error("duration retained run must contain execution-context.json evidence");
+  }
+  const executionContext = readJSONArtifact(executionContextFile);
+  const contaminationReasons = Array.isArray(executionContext.contamination_reasons)
+    ? executionContext.contamination_reasons
+    : [];
+  if (
+    executionContext.schema_id !== "cartulary.harness_execution_context.v2" ||
+    executionContext.status !== "passed" ||
+    executionContext.source_state !== "clean" ||
+    executionContext.warm_eligibility !== "eligible" ||
+    executionContext.interrupted !== false ||
+    executionContext.retry_count !== 0 ||
+    contaminationReasons.length > 0
+  ) {
+    throw new Error(
+      `duration retained run execution context is not clean warm evidence: ${contaminationReasons.join(",") || "ineligible_context"}`,
+    );
   }
 
   for (const file of targetSummaryFiles) {
@@ -99,6 +125,7 @@ function validateGoDurationRetainedRun(_root, resultsDir) {
     targetSummaryCount: targetSummaryFiles.length,
     schedulerSummaryCount: schedulerSummaryFiles.length,
     schedulerEventCount: schedulerEventFiles.length,
+    executionContextFile,
   };
 }
 
@@ -209,18 +236,37 @@ function observedPackageOverheads(target, topLevelEvents, packageEvents) {
     .sort((left, right) => left.key.localeCompare(right.key));
 }
 
+function eventInterval(event) {
+  const end = Date.parse(event.Time ?? "");
+  const elapsed = Number(event.Elapsed ?? 0) * 1000;
+  if (!Number.isFinite(end) || !Number.isFinite(elapsed) || elapsed <= 0) return null;
+  return [end - elapsed, end];
+}
+
+function packageExecutionUnionMs(events) {
+  const intervals = events
+    .map(eventInterval)
+    .filter((interval) => interval !== null)
+    .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+  let total = 0;
+  let current = null;
+  for (const interval of intervals) {
+    if (!current || interval[0] > current[1]) {
+      if (current) total += current[1] - current[0];
+      current = [...interval];
+    } else {
+      current[1] = Math.max(current[1], interval[1]);
+    }
+  }
+  if (current) total += current[1] - current[0];
+  return Math.round(total);
+}
+
 function commandOverhead(target, shardDurationMs, packageEvents, topLevelEvents) {
-  let observedElapsedMs = 0;
-  if (packageEvents.length > 0) {
-    observedElapsedMs = packageEvents.reduce(
-      (sum, event) => sum + Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
-      0,
-    );
-  } else {
-    observedElapsedMs = topLevelEvents.reduce(
-      (sum, event) => sum + Math.max(1, Math.round(Number(event.Elapsed ?? 0) * 1000)),
-      0,
-    );
+  const executionEvents = packageEvents.length > 0 ? packageEvents : topLevelEvents;
+  const observedElapsedMs = packageExecutionUnionMs(executionEvents);
+  if (observedElapsedMs <= 0) {
+    throw new Error(`${target} physical Go report has no canonical package timing intervals`);
   }
   return {
     target,

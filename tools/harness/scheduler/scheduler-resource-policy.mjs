@@ -20,6 +20,7 @@ const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const postgresCloneResource = "postgres_clone";
+const postgresClusterAdvisoryLockResource = "postgres_cluster_advisory_lock";
 export const testSliceDefaultCapacityProfile = "test_slice_default";
 export const sequenceAdaptiveCapacityProfile = "sequence_adaptive";
 
@@ -108,6 +109,14 @@ export function goShardSchedulerProfileClaims(profile, { scheduler, resourceLimi
       addProfileClaim(ioResource, 2);
       addProfileClaim(postgresCloneResource, 1);
       break;
+    case "postgres_advisory_lock_exclusive":
+      requireLimit(postgresCloneResource);
+      requireLimit(postgresClusterAdvisoryLockResource);
+      addProfileClaim(cpuResource, 1);
+      addProfileClaim(ioResource, 2);
+      addProfileClaim(postgresCloneResource, 1);
+      addProfileClaim(postgresClusterAdvisoryLockResource, 1);
+      break;
     case "transaction_heavy":
       addProfileClaim(cpuResource, 1);
       addProfileClaim(ioResource, 1);
@@ -192,6 +201,7 @@ export function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
     profileCount("transaction_heavy") +
     profileCount("io_heavy") * 2 +
     profileCount("clone_heavy") * 2 +
+    profileCount("postgres_advisory_lock_exclusive") * 2 +
     profileCount("reset_heavy") * 2 +
     Math.ceil(profileCount("cpu_heavy") / 2);
   return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);

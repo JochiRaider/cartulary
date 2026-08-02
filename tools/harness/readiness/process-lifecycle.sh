@@ -106,7 +106,7 @@ start_process_group() {
 process_group_running() {
   local group_id="${1:-}"
 
-  [[ -n "${group_id}" ]] && kill -0 "${group_id}" >/dev/null 2>&1
+  [[ -n "${group_id}" ]] && kill -0 -- "-${group_id}" >/dev/null 2>&1
 }
 
 wait_for_process_group_exit() {

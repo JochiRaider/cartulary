@@ -1028,27 +1028,6 @@ export function handleVitestStep({ catalogAware }) {
     return 1;
   }
 
-  if (context.countingMode === "none") {
-    writeStepArtifacts(context, {
-      status: "pass",
-      step: catalogOwnerFromEnvironment(),
-      counts: createCounts(),
-      owners: [],
-      inventory: [],
-      dossiers: [],
-      artifacts: {
-        runner_json: reportFile,
-        stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
-        stderr_log: existsSync(stderrLog) ? stderrLog : "",
-        watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
-        vitest_failure_details_json: existsSync(failureDetailsLog)
-          ? failureDetailsLog
-          : "",
-      },
-    });
-    return 0;
-  }
-
   const summary = summarizeVitestRun(
     reportFile,
     context.label,
@@ -1056,6 +1035,15 @@ export function handleVitestStep({ catalogAware }) {
     [reportFile, failureDetailsLog, stdoutLog, stderrLog],
     failureDetailsLog,
   );
+  const projectedSummary =
+    context.countingMode === "none"
+      ? {
+          ...summary,
+          counts: createCounts(),
+          owners: [],
+          inventory: [],
+        }
+      : summary;
   const selectedSlicePassed =
     summary.dossiers.length === 0 &&
     (context.exitStatus === 0 || optionalEnv("CARTULARY_REPORT_SLICE") === "1");
@@ -1063,7 +1051,7 @@ export function handleVitestStep({ catalogAware }) {
   return finalizeManifestAwareRunnerStep(context, {
     catalogAware,
     runner: "vitest",
-    summary,
+    summary: projectedSummary,
     selectedSlicePassed,
     artifacts: {
       runner_json: reportFile,

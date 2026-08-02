@@ -21,7 +21,7 @@ func New(db postgres.DB) *Provider {
 
 func (provider *Provider) ListAvailableRecoveryObjects(ctx context.Context) ([]recovery.EvidenceObjectState, error) {
 	if provider == nil || provider.db == nil {
-		return nil, fmt.Errorf("Evidence recovery provider requires database")
+		return nil, fmt.Errorf("evidence recovery provider requires database")
 	}
 	rows, err := provider.db.Query(ctx, `
 SELECT b.object_blob_id,
@@ -80,7 +80,7 @@ SELECT b.object_blob_id,
 
 func (provider *Provider) CountRecoveryRows(ctx context.Context) (int64, error) {
 	if provider == nil || provider.db == nil {
-		return 0, fmt.Errorf("Evidence recovery provider requires database")
+		return 0, fmt.Errorf("evidence recovery provider requires database")
 	}
 	var count int64
 	if err := provider.db.QueryRow(ctx, `SELECT COUNT(*) FROM object_blobs`).Scan(&count); err != nil {

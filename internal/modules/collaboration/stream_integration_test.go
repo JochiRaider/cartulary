@@ -17,7 +17,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	timelinemodule "github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -442,7 +441,7 @@ SELECT token_hash
 		if err != nil {
 			t.Fatalf("replay after store restart: %v", err)
 		}
-		if replay.Status != platformws.ResumeStatusReplayed || len(replay.Messages) != 2 {
+		if replay.Status != collaboration.ResumeStatusReplayed || len(replay.Messages) != 2 {
 			t.Fatalf("restart replay result = status %q messages %d want replayed/2", replay.Status, len(replay.Messages))
 		}
 		if replay.Messages[0].StreamSeq == nil || replay.Messages[1].StreamSeq == nil ||
@@ -461,7 +460,7 @@ SELECT token_hash
 		if err != nil {
 			t.Fatalf("validate mismatched token: %v", err)
 		}
-		if reset.Status != platformws.ResumeStatusResetNeeded || len(reset.Messages) != 0 {
+		if reset.Status != collaboration.ResumeStatusResetNeeded || len(reset.Messages) != 0 {
 			t.Fatalf("mismatched token replayed data: %#v", reset)
 		}
 
@@ -588,10 +587,10 @@ func appendCommittedIntent(t testing.TB, pool *pgxpool.Pool, intents collaborati
 type recordingBroadcaster struct {
 	mu            sync.Mutex
 	failRemaining int
-	messages      []platformws.Message
+	messages      []collaboration.Message
 }
 
-func (b *recordingBroadcaster) DeliverReplayable(message platformws.Message) error {
+func (b *recordingBroadcaster) DeliverReplayable(message collaboration.Message) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.messages = append(b.messages, message)
@@ -602,14 +601,14 @@ func (b *recordingBroadcaster) DeliverReplayable(message platformws.Message) err
 	return nil
 }
 
-func (b *recordingBroadcaster) snapshot() []platformws.Message {
+func (b *recordingBroadcaster) snapshot() []collaboration.Message {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return append([]platformws.Message(nil), b.messages...)
+	return append([]collaboration.Message(nil), b.messages...)
 }
 
-func messagesForIncident(messages []platformws.Message, incidentID string) []platformws.Message {
-	filtered := make([]platformws.Message, 0, len(messages))
+func messagesForIncident(messages []collaboration.Message, incidentID string) []collaboration.Message {
+	filtered := make([]collaboration.Message, 0, len(messages))
 	for _, message := range messages {
 		if message.IncidentID == incidentID {
 			filtered = append(filtered, message)

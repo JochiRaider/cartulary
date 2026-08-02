@@ -1364,14 +1364,7 @@ test("browser Notes full_text and prefix queries remain exact", async ({
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
 
-  const uiFilterRequest = waitForViewQuery(page, incidentId, notesViewSchemaId);
-  await applyFilterChip(
-    page,
-    notesViewSchemaId,
-    "note.full_text",
-    "shell alpha shell",
-  );
-  expect(readPostBody(await uiFilterRequest)).toEqual({
+  const uiFilterBody = {
     filters: [
       {
         arg: { query: "shell alpha shell" },
@@ -1379,7 +1372,20 @@ test("browser Notes full_text and prefix queries remain exact", async ({
         op: "full_text",
       },
     ],
-  });
+  };
+  const uiFilterRequest = waitForViewQueryBody(
+    page,
+    incidentId,
+    notesViewSchemaId,
+    uiFilterBody,
+  );
+  await applyFilterChip(
+    page,
+    notesViewSchemaId,
+    "note.full_text",
+    "shell alpha shell",
+  );
+  expect(readPostBody(await uiFilterRequest)).toEqual(uiFilterBody);
   await expect(
     page.getByTestId(rowCellTestId(alpha.record_id as string, "note.title")),
   ).toHaveText("Alpha Delta");

@@ -20,6 +20,7 @@ const schedulerProfileByResourceProfile = Object.freeze({
   go_clone_heavy: "clone_heavy",
   go_cpu_heavy: "cpu_heavy",
   go_io_heavy: "io_heavy",
+  go_postgres_advisory_lock_exclusive: "postgres_advisory_lock_exclusive",
   go_reset_heavy: "reset_heavy",
   go_transaction_heavy: "transaction_heavy",
 });

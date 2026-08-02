@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_performance_evidence_roots.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "mode", "reference_windows", "reference_bindings"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_performance_evidence_roots.v3" },
+    "mode": { "enum": ["baseline", "comparison"] },
+    "reference_windows": { "$ref": "#/$defs/windows" },
+    "reference_bindings": { "$ref": "#/$defs/bindings" },
+    "reference_internal_windows": { "$ref": "#/$defs/windows" },
+    "reference_internal_bindings": { "$ref": "#/$defs/bindings" },
+    "reference_rejected_roots": { "$ref": "#/$defs/rejected_roots" },
+    "reference_audit": { "$ref": "#/$defs/audit" },
+    "candidate_windows": { "$ref": "#/$defs/windows" },
+    "candidate_bindings": { "$ref": "#/$defs/bindings" },
+    "candidate_internal_windows": { "$ref": "#/$defs/windows" },
+    "candidate_internal_bindings": { "$ref": "#/$defs/bindings" },
+    "candidate_rejected_roots": { "$ref": "#/$defs/rejected_roots" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "mode": { "const": "baseline" } }, "required": ["mode"] },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["candidate_windows"] },
+            { "required": ["candidate_bindings"] },
+            { "required": ["candidate_internal_windows"] },
+            { "required": ["candidate_internal_bindings"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": { "properties": { "mode": { "const": "comparison" } }, "required": ["mode"] },
+      "then": { "required": ["candidate_windows", "candidate_bindings"] }
+    },
+    {
+      "if": { "required": ["reference_internal_windows"] },
+      "then": { "required": ["reference_internal_bindings"] }
+    },
+    {
+      "if": { "required": ["reference_internal_bindings"] },
+      "then": { "required": ["reference_internal_windows"] }
+    },
+    {
+      "if": { "required": ["candidate_internal_windows"] },
+      "then": { "required": ["candidate_internal_bindings"] }
+    },
+    {
+      "if": { "required": ["candidate_internal_bindings"] },
+      "then": { "required": ["candidate_internal_windows"] }
+    }
+  ],
+  "$defs": {
+    "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_id", "provider_target", "evidence_kind", "cold_root", "warmup_root", "measured_roots"],
+      "properties": {
+        "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+        "provider_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "evidence_kind": { "const": "strict_current" },
+        "cold_root": { "$ref": "#/$defs/root" },
+        "warmup_root": { "$ref": "#/$defs/root" },
+        "measured_roots": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/root" }
+        },
+        "stability_extension_reason": {
+          "enum": ["high_mad", "leave_one_out_gate_change", "high_mad_and_leave_one_out_gate_change"]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "measured_roots": { "minItems": 6 } }, "required": ["measured_roots"] },
+          "then": { "required": ["stability_extension_reason"] },
+          "else": { "not": { "required": ["stability_extension_reason"] } }
+        }
+      ]
+    },
+    "windows": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/window" }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "window_id", "timing_source"],
+      "properties": {
+        "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+        "timing_source": {
+          "enum": [
+            "public_invocation_envelope",
+            "canonical_unit_interval_union",
+            "canonical_timing_bucket_union",
+            "backend_report_collation_union"
+          ]
+        }
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/binding" }
+    },
+    "rejected_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "reasons"],
+      "properties": {
+        "root": { "$ref": "#/$defs/root" },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        }
+      }
+    },
+    "rejected_roots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/rejected_root" }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_started_at", "window_ended_at", "inspected_contexts", "accepted_contexts", "rejected_contexts"],
+      "properties": {
+        "window_started_at": { "type": "string", "format": "date-time" },
+        "window_ended_at": { "type": "string", "format": "date-time" },
+        "inspected_contexts": { "type": "integer", "minimum": 0 },
+        "accepted_contexts": { "type": "integer", "minimum": 0 },
+        "rejected_contexts": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

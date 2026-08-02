@@ -85,10 +85,3 @@ func hasWorkbookTimestamp(values map[string]WorkbookFieldValue, field string) bo
 	value, ok := values[field]
 	return ok && value.Timestamp != nil
 }
-
-func derefWorkbookText(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}

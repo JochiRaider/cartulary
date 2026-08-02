@@ -94,6 +94,7 @@
   lint-scripts \
   lint-markdown \
   harness-contract-tests \
+  harness-command-surface-contract \
   harness-evidence-contract \
   harness-contract \
   lint-shell \
@@ -834,6 +835,11 @@ harness-contract-tests: export CARTULARY_TEST_TARGET ?= harness-contract-tests
 harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-contract-tests: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-contracts.mjs
+
+harness-command-surface-contract: export CARTULARY_TEST_TARGET ?= harness-command-surface-contract
+harness-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-command-surface-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) --test --test-name-pattern=task-surface ./tools/harness/tests/test-harness-contracts.mjs
 
 harness-evidence-contract: export CARTULARY_TEST_TARGET ?= harness-evidence-contract
 harness-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1

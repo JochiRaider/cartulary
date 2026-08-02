@@ -191,6 +191,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.go_test_duration_baselines.v6",
+      "path": "tools/schemas/cartulary.go_test_duration_baselines.v6.schema.json",
+      "classification": "owner_input",
+      "producer": "backend duration accounting",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.govulncheck_findings.v1",
       "path": "tools/schemas/cartulary.govulncheck_findings.v1.schema.json",
       "classification": "public_contract",
@@ -275,6 +282,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_performance_evidence_roots.v3",
+      "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v3.schema.json",
+      "classification": "owner_input",
+      "producer": "harness performance acceptance",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_public_target_duration_baselines.v1",
       "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v1.schema.json",
       "classification": "owner_input",
@@ -284,6 +298,13 @@
     {
       "schema_id": "cartulary.harness_public_target_duration_baselines.v2",
       "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "harness performance baseliner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_public_target_duration_baselines.v3",
+      "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v3.schema.json",
       "classification": "owner_input",
       "producer": "harness performance baseliner",
       "validation": "json-shape-check"

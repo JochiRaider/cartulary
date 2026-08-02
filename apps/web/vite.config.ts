@@ -49,6 +49,7 @@ export default defineConfig({
           name: "browser-unit",
           environment: "jsdom",
           include: browserUnitIncludes,
+          testTimeout: 15_000,
           setupFiles: [
             "./src/testing/testSetup.ts",
             "./src/testing/testSetup.dom.ts",

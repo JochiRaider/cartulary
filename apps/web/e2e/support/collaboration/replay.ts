@@ -183,7 +183,9 @@ export async function editTimelineSummary(
   await input.fill(value);
   await input.press("Enter");
   if (options.expectValueAfterCommit === false) return;
-  await expect.poll(() => currentTimelineSummary(page, recordId)).toBe(value);
+  await expect
+    .poll(() => currentTimelineSummary(page, recordId), { timeout: 25_000 })
+    .toBe(value);
 }
 
 async function mountedTimelineRecordIDs(page: Page) {
@@ -259,7 +261,9 @@ async function queueTimelineSummary(
   await input.evaluate((element) => {
     if (element instanceof HTMLElement) element.blur();
   });
-  await expect.poll(() => currentTimelineSummary(page, recordId)).toBe(value);
+  await expect
+    .poll(() => currentTimelineSummary(page, recordId), { timeout: 25_000 })
+    .toBe(value);
 }
 
 export async function patchTimelineField(

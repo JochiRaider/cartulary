@@ -23,13 +23,6 @@ func parseScope(value string) (scope, bool) {
 	}
 }
 
-func defaultCreateScope(value *string) (scope, bool) {
-	if value == nil {
-		return scopePrivate, true
-	}
-	return parseScope(*value)
-}
-
 func isOrdinaryCreateScope(value scope) bool {
 	return value == scopePrivate || value == scopeShared
 }

@@ -22,16 +22,6 @@ const (
 	IndicatorLinkParticipantID = "network_flow_activity.indicator_link_v1"
 )
 
-type importApplyReadCapability interface {
-	crossownertransaction.ReadCapability
-	ValidateImportApply(context.Context, imports.ExtensionImportApplyRequest) error
-}
-
-type importApplyWriteCapability interface {
-	crossownertransaction.WriteCapability
-	CreateImportedTable(context.Context, CreateTableParams) (TableRecord, error)
-}
-
 type indicatorLinkReadCapability interface {
 	crossownertransaction.ReadCapability
 	ValidateIndicatorLinkTarget(context.Context, indicatorLinkMutation) error
@@ -175,72 +165,6 @@ type indicatorTargetParticipantError struct {
 
 func (e *indicatorTargetParticipantError) Error() string {
 	return "network flow indicator target invalid: " + e.ReasonCode
-}
-
-type importApplyParticipant struct {
-	facade   *importFacade
-	request  imports.ExtensionImportApplyRequest
-	prepared preparedImportApply
-}
-
-func (p *importApplyParticipant) ID() string { return ImportApplyParticipantID }
-
-func (p *importApplyParticipant) BuildInput(_ context.Context, _ crossownertransaction.OperationContext) (crossownertransaction.Input, error) {
-	canonical, err := json.Marshal(map[string]any{
-		"schema_id":                      "cartulary.network_flow_activity.import_apply_transaction_input.v1",
-		"incident_id":                    p.request.IncidentID.String(),
-		"actor_user_id":                  p.request.ActorUserID.String(),
-		"target_kind":                    p.request.TargetKind,
-		"extension_profile_id":           p.request.ExtensionProfileID,
-		"import_session_id":              p.request.ImportSessionID.String(),
-		"import_unit_id":                 p.request.ImportUnitID.String(),
-		"source_stream_ref":              p.request.SourceCapability.SourceStreamRef,
-		"expected_source_content_sha256": p.request.ExpectedSourceContentSHA256,
-		"mapping_fingerprint":            p.request.MappingFingerprint,
-		"owner_mapping_schema_id":        p.request.OwnerMappingSchemaID,
-		"owner_mapping":                  json.RawMessage(p.request.OwnerMapping),
-		"client_txn_id":                  p.request.ClientTxnID,
-	})
-	return crossownertransaction.Input{
-		SchemaID:       "cartulary.network_flow_activity.import_apply_transaction_input.v1",
-		CanonicalBytes: canonical,
-	}, err
-}
-
-func (p *importApplyParticipant) Prepare(ctx context.Context, _ crossownertransaction.Invocation) (crossownertransaction.PrepareResult, error) {
-	prepared, err := p.facade.prepareImportApply(ctx, p.request)
-	if err != nil {
-		return crossownertransaction.PrepareResult{}, err
-	}
-	p.prepared = prepared
-	return crossownertransaction.PrepareResult{SerializationKeys: []crossownertransaction.SerializationKey{
-		{KeyKind: "network_flow_activity.import_unit", Key: p.request.ImportSessionID.String() + ":" + p.request.ImportUnitID.String()},
-		{KeyKind: "network_flow_activity.incident", Key: p.request.IncidentID.String()},
-	}}, nil
-}
-
-func (p *importApplyParticipant) Validate(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.ValidationResult, error) {
-	access, ok := invocation.ReadAccess.(importApplyReadCapability)
-	if !ok {
-		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
-	}
-	if err := access.ValidateImportApply(ctx, p.request); err != nil {
-		return crossownertransaction.ValidationResult{}, err
-	}
-	return crossownertransaction.Valid(), nil
-}
-
-func (p *importApplyParticipant) Write(ctx context.Context, invocation crossownertransaction.Invocation) (crossownertransaction.WriteResult, error) {
-	access, ok := invocation.WriteAccess.(importApplyWriteCapability)
-	if !ok {
-		return crossownertransaction.WriteResult{}, crossownertransaction.ErrUnavailable
-	}
-	table, err := access.CreateImportedTable(ctx, p.prepared.params)
-	if err != nil {
-		return crossownertransaction.WriteResult{}, storeApplyError(err)
-	}
-	result := p.prepared.result(table)
-	return crossownertransaction.Written(result), nil
 }
 
 type indicatorLinkParticipant struct {

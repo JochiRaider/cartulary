@@ -1031,7 +1031,7 @@ cat >"$smoke_manifest" <<'JSON'
 }
 JSON
 smoke_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$smoke_dir" "$smoke_manifest" smoke --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
-assert_contains "$smoke_output" "[CHECK-SCHEDULER] check start work_units=3 capacity={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1}" "smoke scheduler start"
+assert_contains "$smoke_output" "[CHECK-SCHEDULER] check start work_units=3 capacity={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "smoke scheduler start"
 assert_contains "$smoke_output" "[SUMMARY] target=check status=pass work_units=3/3" "smoke scheduler pass summary"
 assert_not_contains "$smoke_output" "[STEP] check" "smoke output hides per-unit steps"
 assert_check_scheduler_artifacts "$smoke_dir" smoke check pass - 3 finish
@@ -1200,7 +1200,7 @@ EOF
 
 smoke_dry_run_output="$(MAKEFLAGS=n run_scheduler "$smoke_dir" "$smoke_manifest" smoke-dry-run --resource-limit host_cpu=2 --resource-limit host_io=2 2>&1)"
 assert_contains "$smoke_dry_run_output" "[DRY-RUN] check manifest=" "smoke dry-run output"
-assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1} work_units=3 dependencies=2 classes={:3} types={make_target:3} top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"
+assert_contains "$smoke_dry_run_output" "resource_limits={host_cpu:2,host_io:2,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1} work_units=3 dependencies=2 classes={:3} types={make_target:3} top_weighted=setup:30,local:20,meta:10" "smoke dry-run compact summary"
 assert_not_contains "$smoke_dry_run_output" "[DRY-RUN] check unit" "smoke dry-run hides unit expansion"
 exit 0
 fi
@@ -1578,13 +1578,14 @@ const expectedProfileClaims = new Map([
   ["io_heavy", { check: "{host_cpu:1,host_io:2}", service_backed: "{go_cpu:1,go_io:2}", test_slice: "{go_cpu:1,go_io:2}" }],
   ["reset_heavy", { check: "{host_cpu:1,host_io:2,postgres_reset:1}", service_backed: "{go_cpu:1,go_io:2,postgres_reset:1}", test_slice: "{go_cpu:1,go_io:2,postgres_reset:1}" }],
   ["clone_heavy", { check: "{host_cpu:1,host_io:2,postgres_clone:1}", service_backed: "{go_cpu:1,go_io:2,postgres_clone:1}", test_slice: "{go_cpu:1,go_io:2,postgres_clone:1}" }],
+  ["postgres_advisory_lock_exclusive", { check: "{host_cpu:1,host_io:2,postgres_clone:1,postgres_cluster_advisory_lock:1}", service_backed: "{go_cpu:1,go_io:2,postgres_clone:1,postgres_cluster_advisory_lock:1}", test_slice: "{go_cpu:1,go_io:2,postgres_clone:1,postgres_cluster_advisory_lock:1}" }],
   ["transaction_heavy", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", test_slice: "{go_cpu:1,go_io:1}" }],
 ]);
 for (const [profile, byScheduler] of expectedProfileClaims.entries()) {
   for (const [scheduler, expected] of Object.entries(byScheduler)) {
     const claims = goShardSchedulerProfileClaims(profile, {
       scheduler,
-      resourceLimits: new Map([["postgres_reset", 1], ["postgres_clone", 1]]),
+      resourceLimits: new Map([["postgres_reset", 1], ["postgres_clone", 1], ["postgres_cluster_advisory_lock", 1]]),
     });
     if (formatResourceMap(new Map(Object.entries(claims))) !== expected) {
       fail(`${scheduler} ${profile} claims changed`);
@@ -2618,7 +2619,7 @@ cat >"$success_manifest" <<'JSON'
 }
 JSON
 default_capacity_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" default-capacity 2>&1)"
-assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:${check_auto_cpu},host_io:${check_auto_io},suite_service_stack:1,migration_scratch_postgres:1}" "default capacity comes from registry"
+assert_contains "$default_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:${check_auto_cpu},host_io:${check_auto_io},suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "default capacity comes from registry"
 "$NODE_BIN" - "${success_dir}/results/default-capacity/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
@@ -2631,7 +2632,7 @@ if (summary.resource_limit_sources?.host_io !== "auto:host_io") {
 }
 EOF
 env_capacity_output="$(CHECK_HOST_CPU_JOBS=5 CHECK_HOST_IO_JOBS=4 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 FAKE_SLEEP_SERVICE=0.01 run_scheduler "$success_dir" "$success_manifest" env-capacity 2>&1)"
-assert_contains "$env_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:5,host_io:4,suite_service_stack:1,migration_scratch_postgres:1}" "env capacity overrides registry default"
+assert_contains "$env_capacity_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:5,host_io:4,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "env capacity overrides registry default"
 "$NODE_BIN" - "${success_dir}/results/env-capacity/check/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
@@ -2664,7 +2665,7 @@ cat >"$cpu_constrained_manifest" <<'JSON'
 }
 JSON
 cpu_constrained_output="$(CHECK_HOST_CPU_JOBS=2 CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.01 run_scheduler "$success_dir" "$cpu_constrained_manifest" cpu-constrained 2>&1)"
-assert_contains "$cpu_constrained_output" "[CHECK-SCHEDULER] check start work_units=1 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "auto host_io must not resolve below declared claims under constrained host_cpu"
+assert_contains "$cpu_constrained_output" "[CHECK-SCHEDULER] check start work_units=1 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "auto host_io must not resolve below declared claims under constrained host_cpu"
 
 browser_auto_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-browser-auto.XXXXXX")"
 cleanup_paths+=("$browser_auto_dir")
@@ -2900,7 +2901,7 @@ if (startBeta === -1 || startAlpha === -1 || startBeta > startAlpha) {
 EOF
 success_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_LOCAL=0.2 FAKE_SLEEP_SERVICE=0.2 run_scheduler "$success_dir" "$success_manifest" success --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_not_contains "$success_output" "[RUN] check" "success hides legacy run start"
-assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "success concise scheduler start"
+assert_contains "$success_output" "[CHECK-SCHEDULER] check start work_units=5 capacity={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "success concise scheduler start"
 assert_contains "$success_output" "[PROGRESS] target=check completed=0/5" "success human scheduler progress"
 assert_contains "$success_output" "blocker=dependencies" "success human scheduler progress explains blocker"
 assert_not_contains "$success_output" "bottleneck=service:3/6" "success flattened service work has no nested bottleneck"
@@ -3129,7 +3130,7 @@ assert_output_budget "${ROOT_DIR}/tools/task_surface_manifest.json" check "${suc
 verbose_output="$(VERBOSE=1 run_scheduler "$success_dir" "$success_manifest" verbose --resource-limit host_cpu=2 --resource-limit host_io=3 2>&1)"
 assert_contains "$verbose_output" "[CHECK-SCHEDULER] check start work_unit=setup claims={host_cpu:1} active=1 pending=4" "verbose scheduler start telemetry"
 assert_contains "$verbose_output" "active_resource_claims={host_cpu:1}" "verbose scheduler active resource telemetry"
-assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1}" "verbose scheduler resource limit telemetry"
+assert_contains "$verbose_output" "resource_limits={host_cpu:2,host_io:3,suite_service_stack:1,migration_scratch_postgres:1,postgres_cluster_advisory_lock:1}" "verbose scheduler resource limit telemetry"
 
 split_lane_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-split-lanes.XXXXXX")"
 cleanup_paths+=("$split_lane_dir")

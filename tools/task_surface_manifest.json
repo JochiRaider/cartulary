@@ -1459,21 +1459,6 @@
           },
           "make_jobs": 1,
           "priority": 0
-        },
-        {
-          "type": "step",
-          "target": "duration-baseline-drift-suite",
-          "needs": [
-            "check"
-          ],
-          "resource_profile": "artifact_generation",
-          "resource_claims": {
-            "host_cpu": 2,
-            "host_io": 4,
-            "process": 1
-          },
-          "make_jobs": "host_cpu",
-          "priority": 0
         }
       ],
       "execution_mode": "dag",
@@ -2763,6 +2748,22 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "./tools/harness/tests/test-harness-contracts.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-command-surface-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-command-surface-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-name-pattern=task-surface",
         "./tools/harness/tests/test-harness-contracts.mjs"
       ],
       "test_target": "self"
@@ -7296,7 +7297,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.harness_performance_check.v2",
+      "command_id": "cartulary.harness.command.harness_performance_check.v3",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -7367,7 +7368,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.harness_public_target_duration_baselines.v2",
+      "command_id": "cartulary.harness.command.harness_public_target_duration_baselines.v3",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -7634,7 +7635,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.go_test_duration_baselines.v1",
+      "command_id": "cartulary.harness.command.go_test_duration_baselines.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -7763,7 +7764,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v1",
+      "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -7834,7 +7835,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.go_test_duration_baseline_drift.v1",
+      "command_id": "cartulary.harness.command.go_test_duration_baseline_drift.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -9221,6 +9222,16 @@
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-command-surface-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-contracts.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_command_surface_contract.v1",
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
@@ -10708,7 +10719,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.tool_run_summary.v5"
       },
-      "command_id": "cartulary.harness.command.ci.v1",
+      "command_id": "cartulary.harness.command.ci.v2",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",

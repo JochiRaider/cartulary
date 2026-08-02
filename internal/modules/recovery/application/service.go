@@ -817,21 +817,6 @@ func (service Service) validateRecoveryStateCatalog(ctx context.Context, pool Po
 	return nil
 }
 
-func (service Service) validateLegacySnapshotShadow(body []byte) error {
-	snapshot, err := recovery.DecodePostgresSnapshotArtifact(body)
-	if err != nil {
-		return fmt.Errorf("decode legacy snapshot for recovery state shadow validation: %w", err)
-	}
-	tableNames := make([]string, 0, len(snapshot.Tables))
-	for _, table := range snapshot.Tables {
-		tableNames = append(tableNames, table.TableName)
-	}
-	if err := service.RecoveryStateCatalog.ValidateLegacyShadowTables(tableNames); err != nil {
-		return fmt.Errorf("compare legacy snapshot with frozen recovery state catalog: %w", err)
-	}
-	return nil
-}
-
 func (service Service) acquireOperationLock(ctx context.Context, pool PostgresPool) (func(), error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -925,24 +910,6 @@ func (service Service) evidenceRepository(pool PostgresPool) (RecoveryEvidenceRe
 		return nil, errors.New("operator recovery requires evidence repository factory")
 	}
 	return service.NewEvidenceRepository(pool)
-}
-
-func backupObjectStoreBucket(deployment Deployment) (string, error) {
-	settings := deployment.ObjectSettings
-	switch settings.BindingKind {
-	case "managed_service":
-		if strings.TrimSpace(settings.Bucket) == "" {
-			return "", errors.New("backup create requires configured object-store bucket")
-		}
-		return settings.Bucket, nil
-	case "filesystem_root":
-		if strings.TrimSpace(settings.RootPath) == "" {
-			return "", errors.New("backup create requires configured filesystem object-store root")
-		}
-		return "filesystem-root:" + filepath.Clean(settings.RootPath), nil
-	default:
-		return "", fmt.Errorf("backup create unsupported object-store binding kind %q", settings.BindingKind)
-	}
 }
 
 func (service Service) restoreVerificationBasisForConfigs(

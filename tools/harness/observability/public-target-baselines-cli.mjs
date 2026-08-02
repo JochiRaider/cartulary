@@ -50,7 +50,12 @@ if (evidence) {
     const baseline = buildQualifiedBaseline(
       evidence.reference_windows,
       evidence.reference_bindings,
-      { rejectedRoots: evidence.reference_rejected_roots ?? [], role: "reference" },
+      {
+        internalWindows: evidence.reference_internal_windows ?? [],
+        internalBindings: evidence.reference_internal_bindings ?? [],
+        rejectedRoots: evidence.reference_rejected_roots ?? [],
+        role: "reference",
+      },
     );
     validateSchemaSync(baseline.schema_id, baseline);
     const output = path.join(repoRoot, "tools", "harness_public_target_duration_baselines.json");

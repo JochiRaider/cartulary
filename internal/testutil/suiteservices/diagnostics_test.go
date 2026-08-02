@@ -1,6 +1,59 @@
 package suiteservices
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+)
+
+func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) {
+	resultsRoot := t.TempDir()
+	env := map[string]string{
+		SuiteIDEnv:        "suite-atomic-summary",
+		TargetEnv:         "check-service-backed",
+		testResultsDirEnv: resultsRoot,
+		testRunIDEnv:      "run-atomic-summary",
+	}
+	if err := RecordEvent(env, Event{Type: EventServiceStarted, Timestamp: "2026-04-25T12:00:00Z", PID: 101, Name: ServicePostgres}); err != nil {
+		t.Fatalf("record service event: %v", err)
+	}
+	if err := RefreshSummary(env); err != nil {
+		t.Fatalf("write initial summary: %v", err)
+	}
+	summaryPath := filepath.Join(resultsRoot, "run-atomic-summary", "_shared", "test-services", "suite-atomic-summary", "service-scope.json")
+
+	const refreshers = 8
+	const reads = 250
+	var writers sync.WaitGroup
+	writers.Add(refreshers)
+	for range refreshers {
+		go func() {
+			defer writers.Done()
+			for range 20 {
+				if err := RefreshSummary(env); err != nil {
+					t.Errorf("refresh summary: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	for range reads {
+		raw, err := os.ReadFile(summaryPath)
+		if err != nil {
+			t.Fatalf("read summary: %v", err)
+		}
+		var scope ServiceScope
+		if err := json.Unmarshal(raw, &scope); err != nil {
+			t.Fatalf("reader observed incomplete summary: %v", err)
+		}
+		if scope.SchemaID != "cartulary.test_services.scope.v1" {
+			t.Fatalf("unexpected scope schema %q", scope.SchemaID)
+		}
+	}
+	writers.Wait()
+}
 
 func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 	env := map[string]string{
