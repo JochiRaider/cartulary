@@ -19,7 +19,7 @@ import (
 
 func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-04-indicators")
-	store := NewStore(harness.DB, revisionsupport.MustAppender(t))
+	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector indicator-storage")
 	defangedValue := "203(.)0(.)113(.)88"
@@ -126,7 +126,7 @@ SELECT count(*)
 func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "network-flow-core02-indicator-participant")
-	store := NewStore(harness.DB, revisionsupport.MustAppender(t))
+	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
 

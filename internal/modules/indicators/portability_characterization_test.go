@@ -21,7 +21,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "indicator-portable-rows-characterization")
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-portability@example.test", "Indicator Portability", "IndicatorPortabilityPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-portability-incident", "IR-IND-PORT", "Indicator portability characterization")
-	store := indicators.NewStore(harness.DB, revisionsupport.MustAppender(t))
+	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 
 	created, err := store.CreateIndicatorRow(ctx, actor, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-indicator-portability-create",

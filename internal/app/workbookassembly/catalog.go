@@ -26,6 +26,7 @@ func NewContributionCatalog(
 	pool postgres.DB,
 	projectionCatalog *projections.Catalog,
 	projectionQuery *projections.QueryService,
+	indicatorOwner *indicators.Store,
 	timelineOwner *timeline.Facade,
 	evidenceOwner evidence.WorkbookContribution,
 	taskDecisionOwner *tasksdecisions.MutationFacade,
@@ -39,6 +40,9 @@ func NewContributionCatalog(
 	}
 	if projectionQuery == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: projection query service is required")
+	}
+	if indicatorOwner == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
 	}
 	if timelineOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Timeline owner is required")
@@ -58,7 +62,6 @@ func NewContributionCatalog(
 	keepSaved := NewConflictIdempotencyPort(pool)
 
 	entityStore := hostidentity.NewStore(pool, appender, keepSaved)
-	indicatorStore := indicators.NewStore(pool, appender)
 	assessmentFacade, err := newAssessmentFacade(pool, projectionCatalog, entityStore, appender)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
@@ -99,7 +102,7 @@ func NewContributionCatalog(
 		timeline.TimelineViewSchemaID:       workbook.NewTimelineCreateProvider(timelineOwner),
 		hostidentity.HostsViewSchemaID:      workbook.NewHostCreateProvider(entityStore),
 		hostidentity.IdentitiesViewSchemaID: workbook.NewIdentityCreateProvider(entityStore),
-		indicators.ViewSchemaID:             workbook.NewIndicatorCreateProvider(indicatorStore),
+		indicators.ViewSchemaID:             workbook.NewIndicatorCreateProvider(indicatorOwner),
 		assessments.AssessmentsViewSchemaID: workbook.NewAssessmentCreateProvider(assessmentFacade),
 		workbook.NotesViewSchemaID:          workbook.NewArtifactCreateProvider(workbook.NotesViewSchemaID, artifactOwner),
 		workbook.CommLogViewSchemaID:        workbook.NewArtifactCreateProvider(workbook.CommLogViewSchemaID, artifactOwner),

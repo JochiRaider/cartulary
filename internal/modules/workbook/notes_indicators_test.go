@@ -122,7 +122,10 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
-	indicatorStore := indicators.NewStore(harness.DB, appender)
+	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{Postgres: harness.DB, Revisions: appender})
+	if err != nil {
+		t.Fatalf("compose Indicator test owner: %v", err)
+	}
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-incident", "IR-I902", "Workbook inspector workbook-interaction")
 
@@ -564,10 +567,18 @@ func newCatalogBackedWorkbookStore(
 	if err != nil {
 		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
 	}
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  pool,
+		Revisions: appender,
+	})
+	if err != nil {
+		t.Fatalf("compose Indicators owner: %v", err)
+	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
+		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
 		taskDecisionMutation,

@@ -15,6 +15,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -197,12 +198,20 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		intents,
 		evidence.NewTimelineAttachmentContribution(storeHarness.DB),
 	)
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  storeHarness.DB,
+		Revisions: appender,
+	})
+	if err != nil {
+		t.Fatalf("compose Indicators owner: %v", err)
+	}
 	registry, err := importassembly.NewOwnerCreateRegistry(importassembly.OwnerRegistryDependencies{
 		Postgres:          storeHarness.DB,
 		RevisionAppender:  appender,
 		Intents:           intents,
 		Timeline:          timelineBundle.Facade,
 		ProjectionCatalog: timelineBundle.ProjectionCatalog.Catalog,
+		Indicators:        indicatorOwner,
 	})
 	if err != nil {
 		t.Fatalf("compose application import owner registry: %v", err)

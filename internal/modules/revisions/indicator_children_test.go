@@ -22,10 +22,13 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "history_revision-i-7-06-indicator-child-rollback")
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
-	store := indicators.NewStore(
-		harness.Server.Runtime.Postgres,
-		harness.Server.Runtime.Revisions.Appender(),
-	)
+	store, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  harness.Server.Runtime.Postgres,
+		Revisions: harness.Server.Runtime.Revisions.Appender(),
+	})
+	if err != nil {
+		t.Fatalf("compose Indicator test owner: %v", err)
+	}
 	actor := authn.UserRecord{ID: actorID}
 
 	t.Run("resolved observation create reversal tombstones and invalidates every affected record", func(t *testing.T) {

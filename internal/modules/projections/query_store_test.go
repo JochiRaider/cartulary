@@ -18,6 +18,7 @@ import (
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -107,6 +108,13 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		t.Fatalf("create assessment parity row: %v", err)
 	}
 
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  harness.DB,
+		Revisions: appender,
+	})
+	if err != nil {
+		t.Fatalf("compose Indicators owner: %v", err)
+	}
 	importRegistry, err := importassembly.NewOwnerCreateRegistry(
 		importassembly.OwnerRegistryDependencies{
 			Postgres:          harness.DB,
@@ -114,6 +122,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 			Intents:           revisionComposition.Intents,
 			Timeline:          timelineBundle.Facade,
 			ProjectionCatalog: projectionCatalog.Catalog,
+			Indicators:        indicatorOwner,
 		},
 	)
 	if err != nil {

@@ -27,6 +27,7 @@ type OwnerRegistryDependencies struct {
 	Intents           collaboration.IntentAppender
 	Timeline          *timeline.Facade
 	ProjectionCatalog *projections.Catalog
+	Indicators        *indicators.Store
 }
 
 func NewOwnerCreateRegistry(
@@ -53,6 +54,11 @@ func NewOwnerCreateRegistry(
 	if dependencies.ProjectionCatalog == nil {
 		return nil, fmt.Errorf(
 			"compose import owner-create registry: projection catalog is required",
+		)
+	}
+	if dependencies.Indicators == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Indicators owner is required",
 		)
 	}
 
@@ -144,8 +150,7 @@ func newOwnerCreateFacade(
 		return indicators.NewImportCreateFacade(
 			targetViewSchemaID,
 			facadeID,
-			dependencies.Postgres,
-			dependencies.RevisionAppender,
+			dependencies.Indicators,
 		)
 	case "module.parties@1":
 		return parties.NewImportCreateFacade(

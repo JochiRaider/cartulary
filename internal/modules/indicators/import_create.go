@@ -7,9 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
@@ -17,13 +15,14 @@ type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
-	pool postgres.DB,
-	appender *revisions.Appender,
+	store *Store,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != ViewSchemaID {
 		return nil, fmt.Errorf("indicator import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(pool, appender)
+	if store == nil {
+		return nil, fmt.Errorf("indicator import owner facade is required")
+	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,

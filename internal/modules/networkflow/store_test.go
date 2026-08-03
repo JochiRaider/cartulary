@@ -37,10 +37,14 @@ func newTestNetworkFlowStore(
 	options ...StoreOption,
 ) *Store {
 	t.Helper()
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{Postgres: db, Revisions: appender})
+	if err != nil {
+		t.Fatalf("compose Indicator test owner: %v", err)
+	}
 	defaults := []StoreOption{WithOwnerParticipants(
 		incidents.NewTransactionParticipant(),
 		authn.NewAdministrativeAuditAppender(),
-		indicators.NewStore(db, appender),
+		indicatorOwner,
 	), WithSafeDigester(testNetworkFlowSafeDigester{}), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender())}
 	return NewStore(db, append(defaults, options...)...)
 }

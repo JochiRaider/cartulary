@@ -18,7 +18,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -309,7 +308,7 @@ func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.User
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
-	record, err := insertIndicatorObservationTx(ctx, tx, actor.ID, params, createdAt)
+	record, err := s.observations.insertTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
@@ -362,14 +361,14 @@ func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.Use
 		_ = tx.Rollback(ctx)
 	}()
 
-	current, err := loadIndicatorObservationTx(ctx, tx, params.ObservationID, true)
+	current, err := s.observations.loadTx(ctx, tx, params.ObservationID, true)
 	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
-	if err := validateIndicatorRecordIncidentTx(ctx, tx, current.IncidentID, params.ResolvedIndicatorRecordID); err != nil {
+	if err := s.sources.validateIncidentTx(ctx, tx, current.IncidentID, params.ResolvedIndicatorRecordID); err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 
@@ -388,22 +387,8 @@ func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.Use
 	}
 	next.ResolutionMethod = &method
 	next.RowVersion = current.RowVersion + 1
-	tag, err := tx.Exec(ctx, `
-UPDATE indicator_observations
-   SET resolution_status = 'resolved',
-       resolved_indicator_record_id = $2,
-       resolved_by_user_id = $3,
-       resolved_at = $4,
-       resolution_method = $5,
-       row_version = $6
- WHERE indicator_observation_id = $1
-   AND deleted_at IS NULL
-`, next.ObservationID, params.ResolvedIndicatorRecordID, actor.ID, resolvedAt, method, next.RowVersion)
-	if err != nil {
-		return IndicatorObservationRecord{}, uuid.UUID{}, fmt.Errorf("resolve indicator observation: %w", err)
-	}
-	if tag.RowsAffected() != 1 {
-		return IndicatorObservationRecord{}, uuid.UUID{}, ErrIndicatorObservationNotFound
+	if err := s.observations.resolveTx(ctx, tx, next); err != nil {
+		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
@@ -455,7 +440,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := validateIndicatorRecordIncidentTx(ctx, tx, params.IncidentID, params.IndicatorRecordID); err != nil {
+	if err := s.sources.validateIncidentTx(ctx, tx, params.IncidentID, params.IndicatorRecordID); err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
@@ -465,7 +450,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
 	}
-	record, err := insertIndicatorLifecycleIntervalTx(ctx, tx, actor.ID, params, createdAt)
+	record, err := s.lifecycles.insertTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
@@ -511,7 +496,7 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 	if err != nil {
 		return IndicatorRecord{}, nil, "", 0, err
 	}
-	current, matched, err := loadIndicatorByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
+	current, matched, err := s.sources.loadByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return IndicatorRecord{}, nil, "", 0, err
 	}
@@ -546,7 +531,7 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 			return IndicatorRecord{}, nil, "", 0, err
 		}
 		record.RecordID = recordID
-		if err := insertIndicatorTx(ctx, tx, &record); err != nil {
+		if err := s.sources.insertTx(ctx, tx, &record); err != nil {
 			return IndicatorRecord{}, nil, "", 0, err
 		}
 		return record, nil, "create", httpStatusCreated, nil
@@ -583,7 +568,7 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 		}
 		next.UpdatedAt = now.UTC()
 		next.UpdatedByUser = actor.ID
-		if err := updateIndicatorTx(ctx, tx, next); err != nil {
+		if err := s.sources.updateTx(ctx, tx, next); err != nil {
 			return IndicatorRecord{}, nil, "", 0, err
 		}
 	}
@@ -614,103 +599,20 @@ func indicatorInputFromCreateCommand(command CreateCommand) (indicatorUpsertInpu
 	return indicatorUpsertInput{}, err
 }
 
-func loadIndicatorByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (IndicatorRecord, bool, error) {
-	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
-SELECT
-    i.record_id,
-    i.incident_id,
-    i.indicator_type,
-    i.value_kind,
-    i.display_value,
-    i.normalized_value,
-    i.dedupe_key,
-    i.defanged_value,
-    i.hash_algorithm,
-    i.hash_value,
-    i.stix_pattern,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    r.deleted_at,
-    r.deleted_by_user_id
-  FROM indicators i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.incident_id = $1
-   AND i.indicator_type = $2
-   AND i.dedupe_key = $3
-   AND r.deleted_at IS NULL
- LIMIT 1
- FOR UPDATE OF i, r
-`, incidentID, indicatorType, dedupeKey))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorRecord{}, false, nil
-	}
-	if err != nil {
-		return IndicatorRecord{}, false, fmt.Errorf("load indicator by dedupe: %w", err)
-	}
-	return record, true, nil
-}
-
-func insertIndicatorTx(ctx context.Context, tx pgx.Tx, record *IndicatorRecord) error {
-	return tx.QueryRow(ctx, `
-INSERT INTO indicators (
-    record_id,
-    incident_id,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, $14, $14)
-RETURNING record_id
-`, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
-}
-
-func updateIndicatorTx(ctx context.Context, tx pgx.Tx, record IndicatorRecord) error {
-	_, err := tx.Exec(ctx, `
-UPDATE indicators
-   SET defanged_value = $2,
-       hash_algorithm = $3,
-       hash_value = $4,
-       stix_pattern = $5,
-       row_version = $6,
-       updated_at = $7,
-       updated_by_user_id = $8
- WHERE record_id = $1
-`, record.RecordID, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
-	if err != nil {
-		return fmt.Errorf("update indicator: %w", err)
-	}
-	return nil
-}
-
 func refreshIndicatorProjectionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IndicatorProjectionRecord, error) {
-	record, err := loadIndicatorRecordTx(ctx, tx, recordID)
+	record, err := (sourceRepository{}).loadTx(ctx, tx, recordID)
 	if err != nil {
 		return IndicatorProjectionRecord{}, err
 	}
-	aggregate, err := loadIndicatorObservationAggregateTx(ctx, tx, record.RecordID)
+	aggregate, err := (observationRepository{}).loadAggregateTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return IndicatorProjectionRecord{}, err
 	}
-	lifecycleSummary, err := loadIndicatorLifecycleSummaryTx(ctx, tx, record.RecordID)
+	lifecycleSummary, err := (lifecycleRepository{}).loadSummaryTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return IndicatorProjectionRecord{}, err
 	}
-	supportingLinkCount, err := loadIndicatorSupportingLinkCountTx(ctx, tx, record.RecordID)
+	supportingLinkCount, err := (sourceRepository{}).loadSupportingLinkCountTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return IndicatorProjectionRecord{}, err
 	}
@@ -766,301 +668,6 @@ SET incident_id = EXCLUDED.incident_id,
 		return IndicatorProjectionRecord{}, fmt.Errorf("upsert indicator projection: %w", err)
 	}
 	return projected, nil
-}
-
-type indicatorObservationAggregate struct {
-	FirstObservedAt  *time.Time
-	LastObservedAt   *time.Time
-	ObservationCount int
-}
-
-func loadIndicatorObservationAggregateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (indicatorObservationAggregate, error) {
-	var (
-		firstObserved pgtype.Timestamptz
-		lastObserved  pgtype.Timestamptz
-		count         int
-	)
-	if err := tx.QueryRow(ctx, `
-SELECT MIN(created_at), MAX(created_at), COUNT(*)
- FROM indicator_observations
- WHERE resolved_indicator_record_id = $1
-   AND resolution_status = 'resolved'
-   AND deleted_at IS NULL
-`, recordID).Scan(&firstObserved, &lastObserved, &count); err != nil {
-		return indicatorObservationAggregate{}, fmt.Errorf("load indicator observation aggregate: %w", err)
-	}
-	return indicatorObservationAggregate{
-		FirstObservedAt:  timePointerFromPG(firstObserved),
-		LastObservedAt:   timePointerFromPG(lastObserved),
-		ObservationCount: count,
-	}, nil
-}
-
-func loadIndicatorLifecycleSummaryTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (*string, error) {
-	var summary pgtype.Text
-	if err := tx.QueryRow(ctx, `
-SELECT lifecycle_state
- FROM indicator_state_intervals
- WHERE indicator_record_id = $1
-   AND deleted_at IS NULL
- ORDER BY CASE WHEN valid_to IS NULL THEN 0 ELSE 1 END ASC, valid_from DESC, indicator_state_interval_id DESC
- LIMIT 1
-`, recordID).Scan(&summary); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("load indicator lifecycle summary: %w", err)
-	}
-	return textPointer(summary), nil
-}
-
-func loadIndicatorSupportingLinkCountTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int, error) {
-	var count int
-	if err := tx.QueryRow(ctx, `
-SELECT COUNT(*)
-  FROM active_record_links_v1
- WHERE dst_record_id = $1
-`, recordID).Scan(&count); err != nil {
-		return 0, fmt.Errorf("load indicator supporting link count: %w", err)
-	}
-	return count, nil
-}
-
-func loadIndicatorRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IndicatorRecord, error) {
-	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
-SELECT
-    i.record_id,
-    i.incident_id,
-    i.indicator_type,
-    i.value_kind,
-    i.display_value,
-    i.normalized_value,
-    i.dedupe_key,
-    i.defanged_value,
-    i.hash_algorithm,
-    i.hash_value,
-    i.stix_pattern,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    r.deleted_at,
-    r.deleted_by_user_id
-  FROM indicators i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.record_id = $1
-`, recordID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorRecord{}, ErrIndicatorNotFound
-	}
-	if err != nil {
-		return IndicatorRecord{}, fmt.Errorf("load indicator record: %w", err)
-	}
-	return record, nil
-}
-
-func validateIndicatorRecordIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) error {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE record_id = $1
-       AND incident_id = $2
-       AND record_type = 'indicator'
-       AND deleted_at IS NULL
-)
-`, recordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate indicator record incident: %w", err)
-	}
-	if !exists {
-		return ErrIndicatorNotFound
-	}
-	return nil
-}
-
-func insertIndicatorObservationTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
-	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil {
-		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
-	}
-	if strings.TrimSpace(params.SourceFieldKey) == "" || strings.TrimSpace(params.OriginKind) == "" || strings.TrimSpace(params.OriginLocator) == "" {
-		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
-	}
-	observedText, ok := fieldnorm.NormalizeLine(params.ObservedText)
-	if !ok {
-		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
-	}
-	if err := validateTimelineSourceIncidentTx(ctx, tx, params.IncidentID, params.SourceRecordID); err != nil {
-		return IndicatorObservationRecord{}, err
-	}
-	parsedIndicatorType, normalizedCandidate, err := identity.NormalizeObservationCandidate(params.ParsedIndicatorType, params.NormalizedCandidate, observedText)
-	if err != nil {
-		return IndicatorObservationRecord{}, err
-	}
-	resolutionStatus := "unresolved"
-	var resolvedByUserID *uuid.UUID
-	var resolvedAt *time.Time
-	resolutionMethod := params.ResolutionMethod
-	if params.ResolvedIndicatorRecordID != nil {
-		if err := validateIndicatorRecordIncidentTx(ctx, tx, params.IncidentID, *params.ResolvedIndicatorRecordID); err != nil {
-			return IndicatorObservationRecord{}, err
-		}
-		resolutionStatus = "resolved"
-		resolvedByUserID = &actorUserID
-		value := createdAt.UTC()
-		resolvedAt = &value
-		if resolutionMethod == nil {
-			value := observationCreateSource
-			resolutionMethod = &value
-		}
-	}
-	record := IndicatorObservationRecord{
-		IncidentID:                params.IncidentID,
-		SourceRecordID:            params.SourceRecordID,
-		SourceFieldKey:            params.SourceFieldKey,
-		OriginKind:                params.OriginKind,
-		OriginLocator:             params.OriginLocator,
-		ObservedText:              observedText,
-		ParsedIndicatorType:       parsedIndicatorType,
-		NormalizedCandidate:       normalizedCandidate,
-		ResolutionStatus:          resolutionStatus,
-		ResolvedIndicatorRecordID: params.ResolvedIndicatorRecordID,
-		RowVersion:                1,
-		CreatedByUserID:           actorUserID,
-		CreatedAt:                 createdAt,
-		ResolvedByUserID:          resolvedByUserID,
-		ResolvedAt:                resolvedAt,
-		ResolutionMethod:          resolutionMethod,
-	}
-	if err := tx.QueryRow(ctx, `
-INSERT INTO indicator_observations (
-    incident_id,
-    source_record_id,
-    source_field_key,
-    origin_kind,
-    origin_locator,
-    observed_text,
-    parsed_indicator_type,
-    normalized_candidate,
-    resolution_status,
-    resolved_indicator_record_id,
-    row_version,
-    created_by_user_id,
-    created_at,
-    resolved_by_user_id,
-    resolved_at,
-    resolution_method
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11, $12, $13, $14, $15)
-RETURNING indicator_observation_id
-`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind, record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
-		return IndicatorObservationRecord{}, fmt.Errorf("insert indicator observation: %w", err)
-	}
-	return record, nil
-}
-
-func loadIndicatorObservationTx(ctx context.Context, tx pgx.Tx, observationID uuid.UUID, forUpdate bool) (IndicatorObservationRecord, error) {
-	query := `
-SELECT
-    indicator_observation_id,
-    incident_id,
-    source_record_id,
-    source_field_key,
-    origin_kind,
-    origin_locator,
-    observed_text,
-    parsed_indicator_type,
-    normalized_candidate,
-    resolution_status,
-    resolved_indicator_record_id,
-    row_version,
-    created_by_user_id,
-    created_at,
-    resolved_by_user_id,
-    resolved_at,
-    resolution_method,
-    deleted_at,
-    deleted_by_user_id
-  FROM indicator_observations
- WHERE indicator_observation_id = $1
-   AND deleted_at IS NULL`
-	if forUpdate {
-		query += ` FOR UPDATE`
-	}
-	record, err := scanIndicatorObservationRecord(tx.QueryRow(ctx, query, observationID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorObservationRecord{}, ErrIndicatorObservationNotFound
-	}
-	if err != nil {
-		return IndicatorObservationRecord{}, fmt.Errorf("load indicator observation: %w", err)
-	}
-	return record, nil
-}
-
-func insertIndicatorLifecycleIntervalTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorLifecycleAppendParams, createdAt time.Time) (IndicatorLifecycleIntervalRecord, error) {
-	if strings.TrimSpace(params.LifecycleState) == "" {
-		return IndicatorLifecycleIntervalRecord{}, ErrInvalidCreateRequest
-	}
-	record := IndicatorLifecycleIntervalRecord{
-		IncidentID:        params.IncidentID,
-		IndicatorRecordID: params.IndicatorRecordID,
-		LifecycleState:    strings.TrimSpace(params.LifecycleState),
-		ValidFrom:         params.ValidFrom.UTC(),
-		ValidTo:           normalizeTimePointer(params.ValidTo),
-		Confidence:        cloneIntPointer(params.Confidence),
-		Rationale:         cloneStringPointer(params.Rationale),
-		SupportRefs:       append([]string(nil), params.SupportRefs...),
-		Assessor:          cloneStringPointer(params.Assessor),
-		AssessedAt:        createdAt,
-		RowVersion:        1,
-		CreatedByUserID:   actorUserID,
-		CreatedAt:         createdAt,
-	}
-	if record.ValidFrom.IsZero() {
-		record.ValidFrom = createdAt
-	}
-	if err := tx.QueryRow(ctx, `
-INSERT INTO indicator_state_intervals (
-    incident_id,
-    indicator_record_id,
-    lifecycle_state,
-    valid_from,
-    valid_to,
-    confidence,
-    rationale,
-    support_refs,
-    assessor,
-    assessed_at,
-    row_version,
-    created_by_user_id,
-    created_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, 1, $11, $12)
-RETURNING indicator_state_interval_id
-`, record.IncidentID, record.IndicatorRecordID, record.LifecycleState, record.ValidFrom.UTC(), record.ValidTo, record.Confidence, record.Rationale, mustJSON(record.SupportRefs), record.Assessor, record.AssessedAt.UTC(), record.CreatedByUserID, record.CreatedAt.UTC()).Scan(&record.IntervalID); err != nil {
-		return IndicatorLifecycleIntervalRecord{}, fmt.Errorf("insert indicator lifecycle interval: %w", err)
-	}
-	return record, nil
-}
-
-func validateTimelineSourceIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceRecordID uuid.UUID) error {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records
-     WHERE record_id = $1
-       AND incident_id = $2
-)
-`, sourceRecordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate source record incident: %w", err)
-	}
-	if !exists {
-		return revisions.ErrRecordDeletedUseRestore
-	}
-	return nil
 }
 
 func normalizeTimePointer(value *time.Time) *time.Time {

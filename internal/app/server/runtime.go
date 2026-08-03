@@ -808,6 +808,14 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		evidenceOwner.TimelineAttachmentContribution(),
 	)
 	runtime.Timeline = timelineBundle
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  postgresHandle,
+		Revisions: revisionRuntime.Appender(),
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Indicators owner: %w", err)
+	}
 	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
@@ -833,7 +841,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		Transactions:    postgres.NewTransactionRunner(postgresHandle),
 		IncidentLocks:   incidents.NewTransactionParticipant(),
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
-		Indicators:      indicators.NewStore(postgresHandle, revisionRuntime.Appender()),
+		Indicators:      indicatorOwner,
 		ResourceIntents: intentAdapters,
 	})
 	if err != nil {
@@ -921,6 +929,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			Intents:           intentAppender,
 			Timeline:          timelineFacade,
 			ProjectionCatalog: timelineBundle.ProjectionCatalog.Catalog,
+			Indicators:        indicatorOwner,
 		},
 	)
 	if err != nil {
@@ -1004,6 +1013,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		postgresHandle,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
+		indicatorOwner,
 		timelineFacade,
 		evidenceOwner.WorkbookContribution(),
 		taskDecisionMutation,

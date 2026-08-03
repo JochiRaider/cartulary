@@ -6,6 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -29,6 +30,13 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	conflictFields := revisionRuntime.ConflictFieldResolver()
 	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
 	timelineBundle := timelineassembly.NewBundle(pool, conflictTokens, appender, intents, evidenceAttachments)
+	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  pool,
+		Revisions: appender,
+	})
+	if err != nil {
+		panic(err)
+	}
 	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents, conflictFields, workbookassembly.NewConflictIdempotencyPort(pool))
 	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender, conflictFields)
 	if err != nil {
@@ -38,6 +46,7 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		pool,
 		timelineBundle.ProjectionCatalog.Catalog,
 		timelineBundle.ProjectionCatalog.Query,
+		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
 		taskDecisionMutation,

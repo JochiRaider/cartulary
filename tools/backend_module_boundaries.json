@@ -998,6 +998,8 @@
         "internal/modules/indicators/projectionprovider/query_surfaces.go",
         "internal/modules/indicators/query.go",
         "internal/modules/indicators/rollbackprovider/children.go",
+        "internal/modules/indicators/observation_repository.go",
+        "internal/modules/indicators/source_repository.go",
         "internal/modules/indicators/store.go",
         "internal/modules/links/collection_actions.go",
         "internal/modules/links/field_refs.go",

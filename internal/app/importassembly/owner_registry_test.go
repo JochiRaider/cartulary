@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -23,6 +24,7 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		Intents:           inertIntentAppender{},
 		Timeline:          inertTimelineFacade(),
 		ProjectionCatalog: &projections.Catalog{},
+		Indicators:        inertIndicatorOwner(),
 	})
 	if err != nil {
 		t.Fatalf("compose owner-create registry: %v", err)
@@ -67,6 +69,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				Intents:           inertIntentAppender{},
 				Timeline:          inertTimelineFacade(),
 				ProjectionCatalog: &projections.Catalog{},
+				Indicators:        inertIndicatorOwner(),
 			},
 		},
 		{
@@ -76,6 +79,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				Intents:           inertIntentAppender{},
 				Timeline:          inertTimelineFacade(),
 				ProjectionCatalog: &projections.Catalog{},
+				Indicators:        inertIndicatorOwner(),
 			},
 		},
 		{
@@ -85,6 +89,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				RevisionAppender:  &revisions.Appender{},
 				Timeline:          inertTimelineFacade(),
 				ProjectionCatalog: &projections.Catalog{},
+				Indicators:        inertIndicatorOwner(),
 			},
 		},
 		{
@@ -94,6 +99,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				RevisionAppender:  &revisions.Appender{},
 				Intents:           inertIntentAppender{},
 				ProjectionCatalog: &projections.Catalog{},
+				Indicators:        inertIndicatorOwner(),
 			},
 		},
 		{
@@ -103,6 +109,17 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				RevisionAppender: &revisions.Appender{},
 				Intents:          inertIntentAppender{},
 				Timeline:         inertTimelineFacade(),
+				Indicators:       inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "indicators",
+			deps: OwnerRegistryDependencies{
+				Postgres:          inertOwnerRegistryDB{},
+				RevisionAppender:  &revisions.Appender{},
+				Intents:           inertIntentAppender{},
+				Timeline:          inertTimelineFacade(),
+				ProjectionCatalog: &projections.Catalog{},
 			},
 		},
 	}
@@ -115,6 +132,17 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func inertIndicatorOwner() *indicators.Store {
+	owner, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:  inertOwnerRegistryDB{},
+		Revisions: &revisions.Appender{},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return owner
 }
 
 func inertTimelineFacade() *timeline.Facade {

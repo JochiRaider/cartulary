@@ -37,16 +37,33 @@ type Store struct {
 	incidentAccess incidentLifecycleAccess
 	recordStore    *records.Store
 	revisionsStore revisionAppendPort
+	sources        sourceRepository
+	observations   observationRepository
+	lifecycles     lifecycleRepository
 }
 
-func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
-	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		incidentAccess: newIncidentLifecycleAccess(pool),
-		recordStore:    records.NewStore(),
-		revisionsStore: newRevisionAppendAdapter(appender),
+type StoreDependencies struct {
+	Postgres  postgres.DB
+	Revisions *revisions.Appender
+}
+
+func NewStore(dependencies StoreDependencies) (*Store, error) {
+	if dependencies.Postgres == nil {
+		return nil, fmt.Errorf("compose Indicators store: Postgres is required")
 	}
+	if dependencies.Revisions == nil {
+		return nil, fmt.Errorf("compose Indicators store: Revisions is required")
+	}
+	return &Store{
+		pool:           dependencies.Postgres,
+		authStore:      authn.NewStore(dependencies.Postgres),
+		incidentAccess: newIncidentLifecycleAccess(dependencies.Postgres),
+		recordStore:    records.NewStore(),
+		revisionsStore: newRevisionAppendAdapter(dependencies.Revisions),
+		sources:        sourceRepository{},
+		observations:   observationRepository{},
+		lifecycles:     lifecycleRepository{},
+	}, nil
 }
 
 type CreateCommand struct {
