@@ -37,6 +37,14 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	duplicate["record_id"] = "00000000-0000-4000-8000-000000000002"
 	_, err = port.PrepareImport(context.Background(), portableIdentityBundle(t, row, duplicate), importContext)
 	assertIndicatorInvariantFailure(t, err, "indicators.identity_unique")
+
+	invalidOriginBundle := portableIdentityBundle(t, row)
+	invalidOriginBundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{{
+		"indicator_observation_id": "00000000-0000-4000-8000-000000000010",
+		"origin_kind":              "auto_extract",
+	}})
+	_, err = port.PrepareImport(context.Background(), invalidOriginBundle, importContext)
+	assertIndicatorInvariantFailure(t, err, "indicators.representation_legal")
 }
 
 func portableIdentityRow(recordID string, canonical identity.Canonical) map[string]any {
@@ -74,7 +82,7 @@ func portableIdentityBundle(t testing.TB, indicatorRows ...map[string]any) indic
 	t.Helper()
 	return indicatorTestBundle{
 		"data/indicators.ndjson":                marshalNDJSONRows(t, indicatorRows),
-		"data/indicator_observations.ndjson":    marshalNDJSONRows(t, []map[string]any{{"indicator_observation_id": "00000000-0000-4000-8000-000000000010"}}),
+		"data/indicator_observations.ndjson":    marshalNDJSONRows(t, []map[string]any{{"indicator_observation_id": "00000000-0000-4000-8000-000000000010", "origin_kind": "manual_entry"}}),
 		"data/indicator_state_intervals.ndjson": marshalNDJSONRows(t, []map[string]any{{"indicator_state_interval_id": "00000000-0000-4000-8000-000000000020"}}),
 	}
 }

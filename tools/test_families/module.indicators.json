@@ -52,6 +52,79 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.indicators.origin.observation_origin_registry_and_producer_context_40d43e15e1",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.origin",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.observation_origin"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestInvalidObservationProducerFailsBeforeTransaction",
+          "TestObservationOriginRegistryAndProducerMapping",
+          "TestObservationProducerSurfaceHasNoSystemConstructor"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.indicators.origin.observation_origin_storage_constraint_and_system_93f5dcc952",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.origin",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.observation_origin"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorObservationOriginConstraint_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.indicators.origin.rollback_rejects_nonregistry_observation_origin_41b5cf9c90",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.origin",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.observation_origin"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators/internal/providers/rollback",
+        "tests": [
+          "TestParseChildValueRejectsNonRegistryObservationOrigin"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.indicators.portability.indicator_source_rows_are_deterministic_complete_68b42b02f6",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.portability",

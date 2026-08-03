@@ -67,7 +67,7 @@ SELECT count(*)
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceOne,
 		SourceFieldKey:            "timeline.activity_synopsis_text",
-		OriginKind:                "manual_entry",
+		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "timeline:one:summary:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",
 		ResolvedIndicatorRecordID: &created.RecordID,
@@ -80,7 +80,7 @@ SELECT count(*)
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceTwo,
 		SourceFieldKey:            "timeline.raw_activity_text",
-		OriginKind:                "manual_entry",
+		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "timeline:two:source:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",
 		ResolvedIndicatorRecordID: &created.RecordID,
@@ -91,6 +91,9 @@ SELECT count(*)
 	}
 	if observationOne.ObservationID == observationTwo.ObservationID {
 		t.Fatalf("observations collapsed into one occurrence: %#v %#v", observationOne, observationTwo)
+	}
+	if observationOne.OriginKind != ManualEntryObservationOrigin || observationTwo.OriginKind != ManualEntryObservationOrigin {
+		t.Fatalf("repeated observation origins = %q, %q; want manual_entry", observationOne.OriginKind, observationTwo.OriginKind)
 	}
 	lifecycleTime := time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC)
 	interval, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, IndicatorLifecycleAppendParams{

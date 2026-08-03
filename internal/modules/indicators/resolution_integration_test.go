@@ -73,7 +73,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 			IncidentID:                incidentID,
 			SourceRecordID:            sourceID,
 			SourceFieldKey:            sourceRecordID.field,
-			OriginKind:                "manual_entry",
+			Producer:                  indicators.ManualEntryObservationProducer(),
 			OriginLocator:             "entity_linking-i-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &recordID,

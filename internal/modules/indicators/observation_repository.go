@@ -19,8 +19,12 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
-	if strings.TrimSpace(params.SourceFieldKey) == "" || strings.TrimSpace(params.OriginKind) == "" || strings.TrimSpace(params.OriginLocator) == "" {
+	if strings.TrimSpace(params.SourceFieldKey) == "" || strings.TrimSpace(params.OriginLocator) == "" {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
+	}
+	originKind, err := params.Producer.originForWrite()
+	if err != nil || originKind != params.originKind {
+		return IndicatorObservationRecord{}, ErrInvalidObservationOrigin
 	}
 	observedText, ok := fieldnorm.NormalizeLine(params.ObservedText)
 	if !ok {
@@ -54,7 +58,7 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 		IncidentID:                params.IncidentID,
 		SourceRecordID:            params.SourceRecordID,
 		SourceFieldKey:            params.SourceFieldKey,
-		OriginKind:                params.OriginKind,
+		OriginKind:                originKind,
 		OriginLocator:             params.OriginLocator,
 		ObservedText:              observedText,
 		ParsedIndicatorType:       parsedIndicatorType,
@@ -89,7 +93,7 @@ INSERT INTO indicator_observations (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11, $12, $13, $14, $15)
 RETURNING indicator_observation_id
-`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind, record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
+`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind.String(), record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
 		return IndicatorObservationRecord{}, fmt.Errorf("insert indicator observation: %w", err)
 	}
 	return record, nil

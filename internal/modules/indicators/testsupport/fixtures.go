@@ -1,6 +1,11 @@
 package testsupport
 
-import "time"
+import (
+	"testing"
+	"time"
+
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+)
 
 type Example struct {
 	IndicatorType   string
@@ -49,3 +54,16 @@ var (
 		},
 	}
 )
+
+func CanonicalDedupeKey(t testing.TB, indicatorType string, valueKind string, displayValue string) string {
+	t.Helper()
+	canonical, err := identity.Canonicalize(identity.Input{
+		IndicatorType: indicatorType,
+		ValueKind:     valueKind,
+		DisplayValue:  displayValue,
+	})
+	if err != nil {
+		t.Fatalf("canonicalize Indicator fixture: %v", err)
+	}
+	return canonical.DedupeKey
+}

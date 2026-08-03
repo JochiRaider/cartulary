@@ -53,7 +53,7 @@ type IndicatorObservationCreateParams struct {
 	IncidentID                uuid.UUID
 	SourceRecordID            uuid.UUID
 	SourceFieldKey            string
-	OriginKind                string
+	Producer                  ObservationProducerContext
 	OriginLocator             string
 	ObservedText              string
 	ParsedIndicatorType       *string
@@ -64,6 +64,7 @@ type IndicatorObservationCreateParams struct {
 	ClientTxnID               *string
 	MutationSource            string
 	CreatedAt                 time.Time
+	originKind                ObservationOrigin
 }
 
 type IndicatorObservationResolveParams struct {
@@ -96,7 +97,7 @@ type IndicatorObservationRecord struct {
 	IncidentID                uuid.UUID
 	SourceRecordID            uuid.UUID
 	SourceFieldKey            string
-	OriginKind                string
+	OriginKind                ObservationOrigin
 	OriginLocator             string
 	ObservedText              string
 	ParsedIndicatorType       *string
@@ -292,6 +293,11 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 }
 
 func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.UserRecord, params IndicatorObservationCreateParams) (IndicatorObservationRecord, uuid.UUID, error) {
+	originKind, err := params.Producer.originForWrite()
+	if err != nil {
+		return IndicatorObservationRecord{}, uuid.UUID{}, err
+	}
+	params.originKind = originKind
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, fmt.Errorf("begin indicator observation transaction: %w", err)
@@ -634,7 +640,7 @@ func buildIndicatorObservationValue(record IndicatorObservationRecord) map[strin
 		"incident_id":                  record.IncidentID.String(),
 		"source_record_id":             record.SourceRecordID.String(),
 		"source_field_key":             record.SourceFieldKey,
-		"origin_kind":                  record.OriginKind,
+		"origin_kind":                  record.OriginKind.String(),
 		"origin_locator":               record.OriginLocator,
 		"observed_text":                record.ObservedText,
 		"parsed_indicator_type":        derefString(record.ParsedIndicatorType),
@@ -730,6 +736,7 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 		rawObservationID    pgtype.UUID
 		rawIncidentID       pgtype.UUID
 		rawSourceRecordID   pgtype.UUID
+		rawOriginKind       string
 		rawParsedType       pgtype.Text
 		rawNormalized       pgtype.Text
 		rawResolvedID       pgtype.UUID
@@ -745,7 +752,7 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 		&rawIncidentID,
 		&rawSourceRecordID,
 		&record.SourceFieldKey,
-		&record.OriginKind,
+		&rawOriginKind,
 		&record.OriginLocator,
 		&record.ObservedText,
 		&rawParsedType,
@@ -763,6 +770,11 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 	); err != nil {
 		return IndicatorObservationRecord{}, err
 	}
+	originKind, err := ParseObservationOrigin(rawOriginKind)
+	if err != nil {
+		return IndicatorObservationRecord{}, err
+	}
+	record.OriginKind = originKind
 	record.ObservationID = uuid.Must(uuid.FromBytes(rawObservationID.Bytes[:]))
 	record.IncidentID = uuid.Must(uuid.FromBytes(rawIncidentID.Bytes[:]))
 	record.SourceRecordID = uuid.Must(uuid.FromBytes(rawSourceRecordID.Bytes[:]))

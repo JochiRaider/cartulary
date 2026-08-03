@@ -38,7 +38,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		IncidentID:                incident.ID,
 		SourceRecordID:            timelinetest.RecordID,
 		SourceFieldKey:            timelinetest.FieldSourceText,
-		OriginKind:                "manual_entry",
+		Producer:                  indicators.ManualEntryObservationProducer(),
 		OriginLocator:             "indicator-portability-characterization",
 		ObservedText:              "PORTABLE[.]EXAMPLE.TEST",
 		ResolvedIndicatorRecordID: &created.RecordID,
@@ -108,6 +108,9 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		}
 		if rows[0]["deleted_at"] != nil || rows[0]["deleted_by_user_id"] != nil {
 			t.Fatalf("%s nullable tombstone fields were not explicit nulls: %#v", file.Path, rows[0])
+		}
+		if file.Path == "data/indicator_observations.ndjson" && rows[0]["origin_kind"] != "manual_entry" {
+			t.Fatalf("%s origin_kind = %#v, want manual_entry", file.Path, rows[0]["origin_kind"])
 		}
 		createdAt, ok := rows[0]["created_at"].(string)
 		if !ok {

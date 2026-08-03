@@ -91,7 +91,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		IncidentID:                incidentID,
 		SourceRecordID:            created.RecordID,
 		SourceFieldKey:            "indicator.display_value",
-		OriginKind:                "manual_entry",
+		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "indicator-atomicity-observation",
 		ObservedText:              "source.example",
 		ResolvedIndicatorRecordID: &created.RecordID,

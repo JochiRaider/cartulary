@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -170,6 +171,9 @@ func parseChildValue(targetKind string, value map[string]any) (childIdentity, er
 			if requiredChildText(value, key) == "" {
 				return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 			}
+		}
+		if _, err := indicatororigin.Parse(requiredChildText(value, "origin_kind")); err != nil {
+			return childIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 		identity.resolvedID, _, err = optionalChildUUID(value, "resolved_indicator_record_id")
 		if err != nil {

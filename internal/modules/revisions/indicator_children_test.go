@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
@@ -39,7 +40,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
 		observation, changeSetID, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.raw_activity_text",
-			OriginKind: "manual_entry", OriginLocator: "timeline:raw:0-12", ObservedText: "192[.]0[.]2[.]10",
+			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:raw:0-12", ObservedText: "192[.]0[.]2[.]10",
 			ResolvedIndicatorRecordID: &indicatorID, CreatedAt: createdAt,
 		})
 		if err != nil {
@@ -128,7 +129,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			OriginKind: "manual_entry", OriginLocator: "timeline:summary:0-16", ObservedText: "resolve.example.test", CreatedAt: createdAt,
+			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:summary:0-16", ObservedText: "resolve.example.test", CreatedAt: createdAt,
 		})
 		if err != nil {
 			t.Fatalf("create unresolved observation: %v", err)
@@ -166,7 +167,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			OriginKind: "manual_entry", OriginLocator: "timeline:summary:20-36", ObservedText: "reresolve.example.test",
+			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:summary:20-36", ObservedText: "reresolve.example.test",
 			ResolvedIndicatorRecordID: &oldIndicatorID, CreatedAt: createdAt,
 		})
 		if err != nil {
@@ -238,7 +239,7 @@ INSERT INTO indicators (
     dedupe_key, created_by_user_id, updated_by_user_id
 )
 VALUES ($1, $2, 'domain_name', 'atomic', $3, $3, $4, $5, $5)
-`, recordID, incidentID, value, "domain_name:"+value, actorID); err != nil {
+`, recordID, incidentID, value, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", value), actorID); err != nil {
 		t.Fatalf("seed indicator child record: %v", err)
 	}
 	return recordID

@@ -19,6 +19,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -543,8 +544,8 @@ INSERT INTO indicators (
     created_by_user_id,
     updated_by_user_id
 )
-VALUES ($1, $2, 'domain', 'atomic', 'history_revision.example.test', 'history_revision.example.test', 'domain:history_revision.example.test', $3, $3)
-`, recordID, incidentID, actorUserID); err != nil {
+VALUES ($1, $2, 'domain_name', 'atomic', 'history_revision.example.test', 'history_revision.example.test', $3, $4, $4)
+`, recordID, incidentID, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", "history_revision.example.test"), actorUserID); err != nil {
 		t.Fatalf("seed indicator record: %v", err)
 	}
 	return recordID

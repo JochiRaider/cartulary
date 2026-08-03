@@ -1417,7 +1417,7 @@ INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
     dedupe_key, row_version, created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, 'domain', 'atomic', 'portable.example.test', 'portable.example.test', 'domain:portable.example.test', 1, $3, $3)
+VALUES ($1, $2, 'domain_name', 'atomic', 'portable.example.test', 'portable.example.test', 'd59be6c0414ce3dbabb81a943e021c0143695ac1151bfefc2d393911d5c9abae', 1, $3, $3)
 `, indicatorID, incidentUUID, actorUUID); err != nil {
 		t.Fatalf("seed indicator row: %v", err)
 	}
@@ -1428,7 +1428,7 @@ INSERT INTO indicator_observations (
     resolved_indicator_record_id, row_version, created_by_user_id, resolved_by_user_id,
     resolved_at, resolution_method, deleted_at, deleted_by_user_id
 )
-VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'extension_profile', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 2, $4, $4, now(), 'fixture', now(), $4)
+VALUES ($1, $2, 'timeline.activity_synopsis_text', 'extraction', 'extension_profile', 'portable.example.test', 'domain_name', 'portable.example.test', 'resolved', $3, 2, $4, $4, now(), 'fixture', now(), $4)
 `, incidentUUID, timelineUUID, indicatorID, actorUUID); err != nil {
 		t.Fatalf("seed indicator observation: %v", err)
 	}

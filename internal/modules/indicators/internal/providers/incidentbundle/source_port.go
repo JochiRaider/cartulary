@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
 func NewSourcePort() sourceport.Port {
@@ -87,6 +88,19 @@ func prepareIndicatorFiles(descriptor sourceport.Descriptor, bundle sourceport.B
 			return nil, indicatorSourceFailure("indicators.identity_unique")
 		}
 		seen[key] = struct{}{}
+	}
+	observationRows, err := incidentportability.DecodeNDJSON(prepared["data/indicator_observations.ndjson"])
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range observationRows {
+		raw, ok := row["origin_kind"].(string)
+		if !ok {
+			return nil, indicatorSourceFailure("indicators.representation_legal")
+		}
+		if _, err := indicatororigin.Parse(raw); err != nil {
+			return nil, indicatorSourceFailure("indicators.representation_legal")
+		}
 	}
 	return prepared, nil
 }

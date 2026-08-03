@@ -326,6 +326,12 @@
       "filename": "00054_revisions_incident_bundle_sequence_repair.sql",
       "sha256": "eb81b8b00c86596c8cca0899fc9927d2df75f8666c796bea4759b32e5cd73498",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 55,
+      "filename": "00055_indicator_observation_origin_constraint.sql",
+      "sha256": "1d5a1b11120d428932f9dcc343877f53e0cf105e6d4b617b8788c17aa2de5f7a",
+      "historical_phase_shaped": false
     }
   ]
 }
