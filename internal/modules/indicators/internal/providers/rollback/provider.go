@@ -103,7 +103,7 @@ SELECT indicator_type, value_kind, display_value, normalized_value, dedupe_key,
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	state.dedupeKey = canonical.DedupeKey
-	_, err = tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 UPDATE indicators
    SET indicator_type = $2,
        value_kind = $3,
@@ -121,7 +121,13 @@ UPDATE indicators
        deleted_by_user_id = NULL
  WHERE record_id = $1
 `, request.RecordID, state.indicatorType, state.valueKind, state.displayValue, state.normalized, state.dedupeKey, state.defanged, state.hashAlgorithm, state.hashValue, state.stixPattern, request.NextRowVersion, request.Now.UTC(), request.ActorUserID)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return rollbackcontract.ErrStaleTarget
+	}
+	return nil
 }
 
 func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {

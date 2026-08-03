@@ -18,7 +18,7 @@ type AdministrativeAuditPort interface {
 }
 
 type IndicatorParticipationPort interface {
-	GetActiveIndicatorParticipant(context.Context, uuid.UUID, uuid.UUID) (indicators.IndicatorRecord, error)
-	GetActiveIndicatorParticipantTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (indicators.IndicatorRecord, error)
+	GetActiveIndicatorParticipant(context.Context, uuid.UUID, uuid.UUID) (indicators.IndicatorReference, error)
+	GetActiveIndicatorParticipantTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (indicators.IndicatorReference, error)
 	FindOrCreateIndicatorParticipantTx(context.Context, pgx.Tx, indicators.IndicatorFindOrCreateParticipantCommand) (indicators.IndicatorFindOrCreateParticipantResult, error)
 }

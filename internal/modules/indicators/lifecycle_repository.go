@@ -2,6 +2,7 @@ package indicators
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,10 @@ func (lifecycleRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID 
 	if record.ValidFrom.IsZero() {
 		record.ValidFrom = createdAt
 	}
+	supportRefsJSON, err := json.Marshal(record.SupportRefs)
+	if err != nil {
+		return IndicatorLifecycleIntervalRecord{}, fmt.Errorf("encode indicator lifecycle support refs: %w", err)
+	}
 	if err := tx.QueryRow(ctx, `
 INSERT INTO indicator_state_intervals (
     incident_id,
@@ -50,7 +55,7 @@ INSERT INTO indicator_state_intervals (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, 1, $11, $12)
 RETURNING indicator_state_interval_id
-`, record.IncidentID, record.IndicatorRecordID, record.LifecycleState, record.ValidFrom.UTC(), record.ValidTo, record.Confidence, record.Rationale, mustJSON(record.SupportRefs), record.Assessor, record.AssessedAt.UTC(), record.CreatedByUserID, record.CreatedAt.UTC()).Scan(&record.IntervalID); err != nil {
+`, record.IncidentID, record.IndicatorRecordID, record.LifecycleState, record.ValidFrom.UTC(), record.ValidTo, record.Confidence, record.Rationale, supportRefsJSON, record.Assessor, record.AssessedAt.UTC(), record.CreatedByUserID, record.CreatedAt.UTC()).Scan(&record.IntervalID); err != nil {
 		return IndicatorLifecycleIntervalRecord{}, fmt.Errorf("insert indicator lifecycle interval: %w", err)
 	}
 	return record, nil

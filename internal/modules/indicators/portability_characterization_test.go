@@ -39,11 +39,9 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		IncidentID:                incident.ID,
 		SourceRecordID:            timelinetest.RecordID,
 		SourceFieldKey:            timelinetest.FieldSourceText,
-		Producer:                  indicators.ManualEntryObservationProducer(),
 		OriginLocator:             "indicator-portability-characterization",
 		ObservedText:              "PORTABLE[.]EXAMPLE.TEST",
 		ResolvedIndicatorRecordID: &created.RecordID,
-		CreatedAt:                 indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("create observation: %v", err)
 	}
@@ -52,7 +50,6 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		IndicatorRecordID: created.RecordID,
 		LifecycleState:    "active",
 		ValidFrom:         indicatortest.PastTime,
-		CreatedAt:         indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("append interval: %v", err)
 	}

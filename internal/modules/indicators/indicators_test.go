@@ -44,7 +44,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}
-	if replayed.RecordID != created.RecordID || replayed.StatusCode != 200 {
+	if replayed.RecordID != created.RecordID || replayed.Outcome != CreateOutcomeUpdated {
 		t.Fatalf("expected same canonical indicator identity on duplicate create, got first=%#v replay=%#v", created, replayed)
 	}
 	requireEntityCount(t, harness, `
@@ -61,17 +61,13 @@ SELECT count(*)
 	sourceTwo := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceOne)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceTwo)
-	firstObserved := time.Date(2026, 5, 17, 16, 30, 0, 0, time.UTC)
-	lastObserved := time.Date(2026, 5, 17, 16, 45, 0, 0, time.UTC)
 	observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceOne,
 		SourceFieldKey:            "timeline.activity_synopsis_text",
-		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "timeline:one:summary:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",
 		ResolvedIndicatorRecordID: &created.RecordID,
-		CreatedAt:                 firstObserved,
 	})
 	if err != nil {
 		t.Fatalf("create first observation: %v", err)
@@ -80,11 +76,9 @@ SELECT count(*)
 		IncidentID:                incident.ID,
 		SourceRecordID:            sourceTwo,
 		SourceFieldKey:            "timeline.raw_activity_text",
-		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "timeline:two:source:0-12",
 		ObservedText:              "203[.]0[.]113[.]88",
 		ResolvedIndicatorRecordID: &created.RecordID,
-		CreatedAt:                 lastObserved,
 	})
 	if err != nil {
 		t.Fatalf("create second observation: %v", err)
@@ -92,7 +86,7 @@ SELECT count(*)
 	if observationOne.ObservationID == observationTwo.ObservationID {
 		t.Fatalf("observations collapsed into one occurrence: %#v %#v", observationOne, observationTwo)
 	}
-	if observationOne.OriginKind != ManualEntryObservationOrigin || observationTwo.OriginKind != ManualEntryObservationOrigin {
+	if observationOne.OriginKind != "manual_entry" || observationTwo.OriginKind != "manual_entry" {
 		t.Fatalf("repeated observation origins = %q, %q; want manual_entry", observationOne.OriginKind, observationTwo.OriginKind)
 	}
 	lifecycleTime := time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC)
@@ -101,12 +95,11 @@ SELECT count(*)
 		IndicatorRecordID: created.RecordID,
 		LifecycleState:    "active",
 		ValidFrom:         lifecycleTime,
-		CreatedAt:         lifecycleTime,
 	})
 	if err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}
-	if interval.IndicatorRecordID != created.RecordID || interval.ValidFrom.Equal(firstObserved) {
+	if interval.IndicatorRecordID != created.RecordID || interval.ValidFrom.Equal(observationOne.CreatedAt) {
 		t.Fatalf("lifecycle interval is not distinct from observation timestamps: %#v", interval)
 	}
 
@@ -114,10 +107,10 @@ SELECT count(*)
 	if projected.ObservationCount != 2 {
 		t.Fatalf("expected observation_count=2, got %#v", projected)
 	}
-	if projected.FirstObservedAt == nil || !projected.FirstObservedAt.UTC().Equal(firstObserved) {
+	if projected.FirstObservedAt == nil || !projected.FirstObservedAt.UTC().Equal(observationOne.CreatedAt.Truncate(time.Microsecond)) {
 		t.Fatalf("expected first_observed_at from observations, got %#v", projected)
 	}
-	if projected.LastObservedAt == nil || !projected.LastObservedAt.UTC().Equal(lastObserved) {
+	if projected.LastObservedAt == nil || !projected.LastObservedAt.UTC().Equal(observationTwo.CreatedAt.Truncate(time.Microsecond)) {
 		t.Fatalf("expected last_observed_at from observations, got %#v", projected)
 	}
 	if projected.LifecycleSummary == nil || *projected.LifecycleSummary != "active" {

@@ -26,7 +26,7 @@ type NetworkFlowRowRef struct {
 type IndicatorBindingRecord struct {
 	BindingID                  string
 	IncidentID                 uuid.UUID
-	TargetIndicator            indicators.IndicatorRecord
+	TargetIndicator            indicators.IndicatorReference
 	SelectorKind               string
 	CandidateValue             string
 	SourceRowRefs              []NetworkFlowRowRef
@@ -40,7 +40,7 @@ type IndicatorBindingRecord struct {
 type CreateIndicatorBindingParams struct {
 	IncidentID              uuid.UUID
 	ActorUserID             uuid.UUID
-	TargetIndicator         indicators.IndicatorRecord
+	TargetIndicator         indicators.IndicatorReference
 	SelectorKind            string
 	CandidateValue          string
 	SourceRowRefs           []NetworkFlowRowRef
@@ -60,7 +60,7 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 	if err := s.lockIncidentTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorBindingRecord{}, false, err
 	}
-	if params.TargetIndicator.IncidentID != params.IncidentID || params.TargetIndicator.DeletedAt != nil {
+	if params.TargetIndicator.IncidentID != params.IncidentID {
 		return IndicatorBindingRecord{}, false, ErrInvalidStorageArgument
 	}
 	if params.TargetIndicator.ValueKind != "atomic" || params.TargetIndicator.NormalizedValue == nil || *params.TargetIndicator.NormalizedValue != params.CandidateValue {
@@ -110,13 +110,13 @@ func (s *Store) CreateOrReuseIndicatorBindingTx(ctx context.Context, tx pgx.Tx, 
 	return IndicatorBindingRecord{}, false, ErrIDGenerationFailed
 }
 
-func (s *Store) GetActiveIndicator(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorRecord, error) {
+func (s *Store) GetActiveIndicator(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (indicators.IndicatorReference, error) {
 	if s.indicators == nil {
-		return indicators.IndicatorRecord{}, fmt.Errorf("network flow indicator participant unavailable")
+		return indicators.IndicatorReference{}, fmt.Errorf("network flow indicator participant unavailable")
 	}
 	record, err := s.indicators.GetActiveIndicatorParticipant(ctx, incidentID, indicatorID)
 	if errors.Is(err, indicators.ErrIndicatorNotFound) {
-		return indicators.IndicatorRecord{}, ErrTableNotFound
+		return indicators.IndicatorReference{}, ErrTableNotFound
 	}
 	return record, err
 }

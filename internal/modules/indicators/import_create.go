@@ -10,8 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
-
 func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
@@ -28,11 +26,11 @@ func NewImportCreateFacade(
 			TargetViewSchemaID: targetViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		store.CreateImportRowTx,
+		store.createImportRowTx,
 	)
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)

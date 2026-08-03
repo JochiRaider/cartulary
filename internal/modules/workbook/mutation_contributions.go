@@ -259,10 +259,19 @@ func NewIndicatorCreateProvider(owner *indicators.Store) CreateProvider {
 			if errors.As(err, &validation) {
 				err = mutationValidationError(validation.Field, validation.ReasonCode)
 			}
+			statusCode := 0
+			var payload map[string]any
+			if err == nil {
+				statusCode = http.StatusOK
+				if result.Outcome == indicators.CreateOutcomeCreated {
+					statusCode = http.StatusCreated
+				}
+				payload = BuildMutationPayload(indicators.ViewSchemaID, result.ChangeSetID, result.CanonicalRow)
+			}
 			return mutationResultFromSimpleCreate(
-				result.Payload,
-				result.StatusCode,
-				result.Replayed,
+				payload,
+				statusCode,
+				result.Outcome == indicators.CreateOutcomeReplayed,
 				result.RecordID,
 				result.ChangeSetID,
 				result.RowVersion,

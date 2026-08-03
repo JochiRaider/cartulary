@@ -103,7 +103,7 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 	if c == nil || c.participantID != IndicatorLinkParticipantID || c.store == nil || c.store.indicators == nil {
 		return indicatorLinkCommitResult{}, crossownertransaction.ErrUnavailable
 	}
-	var target indicators.IndicatorRecord
+	var target indicators.IndicatorReference
 	var err error
 	switch mutation.Request.Target.Mode {
 	case "existing_indicator":
@@ -149,7 +149,7 @@ func (c *transactionCapability) WriteIndicatorLink(ctx context.Context, mutation
 	return indicatorLinkCommitResult{Binding: binding, Duplicate: duplicate, Payload: payload, Status: status}, nil
 }
 
-func validateIndicatorTargetLogical(record indicators.IndicatorRecord, candidateValue string, targetType string) error {
+func validateIndicatorTargetLogical(record indicators.IndicatorReference, candidateValue string, targetType string) error {
 	if record.IndicatorType != targetType {
 		return &indicatorTargetParticipantError{ReasonCode: "target_type_mismatch"}
 	}

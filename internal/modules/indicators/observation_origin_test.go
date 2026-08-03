@@ -1,20 +1,14 @@
 package indicators
 
 import (
-	"context"
 	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"reflect"
 	"slices"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 )
 
 func TestObservationOriginRegistryAndProducerMapping(t *testing.T) {
@@ -29,7 +23,7 @@ func TestObservationOriginRegistryAndProducerMapping(t *testing.T) {
 		"system",
 	}
 	for _, raw := range valid {
-		parsed, err := ParseObservationOrigin(raw)
+		parsed, err := indicatororigin.Parse(raw)
 		if err != nil || parsed.String() != raw {
 			t.Fatalf("parse exact origin %q = %q, %v", raw, parsed, err)
 		}
@@ -45,91 +39,91 @@ func TestObservationOriginRegistryAndProducerMapping(t *testing.T) {
 		"extension:manual_entry",
 		"unknown",
 	} {
-		if _, err := ParseObservationOrigin(raw); !errors.Is(err, ErrInvalidObservationOrigin) {
+		if _, err := indicatororigin.Parse(raw); !errors.Is(err, indicatororigin.ErrInvalidObservationOrigin) {
 			t.Fatalf("parse invalid origin %q = %v", raw, err)
 		}
-	}
-
-	producers := []struct {
-		context ObservationProducerContext
-		want    string
-	}{
-		{ManualEntryObservationProducer(), "manual_entry"},
-		{ClipboardPasteObservationProducer(), "clipboard_paste"},
-		{CSVImportObservationProducer(), "csv_import"},
-		{XLSXImportObservationProducer(), "xlsx_import"},
-		{APIImportObservationProducer(), "api_import"},
-		{ExtractionObservationProducer(), "extraction"},
-	}
-	for _, producer := range producers {
-		origin, err := producer.context.originForWrite()
-		if err != nil || origin.String() != producer.want {
-			t.Fatalf("producer origin = %q, %v; want %q", origin, err, producer.want)
-		}
-	}
-	if _, err := (ObservationProducerContext{}).originForWrite(); !errors.Is(err, ErrInvalidObservationOrigin) {
-		t.Fatalf("zero producer context = %v", err)
 	}
 }
 
 func TestObservationProducerSurfaceHasNoSystemConstructor(t *testing.T) {
 	t.Parallel()
-	parsed, err := parser.ParseFile(token.NewFileSet(), "observation_origin.go", nil, 0)
+	parsed, err := parser.ParseDir(token.NewFileSet(), ".", nil, 0)
 	if err != nil {
-		t.Fatalf("parse observation producer surface: %v", err)
+		t.Fatalf("parse Indicator owner surface: %v", err)
 	}
-	constructors := []string{}
-	for _, declaration := range parsed.Decls {
-		function, ok := declaration.(*ast.FuncDecl)
-		if !ok || function.Recv != nil || !function.Name.IsExported() || function.Type.Results == nil {
-			continue
-		}
-		for _, result := range function.Type.Results.List {
-			identifier, ok := result.Type.(*ast.Ident)
-			if ok && identifier.Name == "ObservationProducerContext" {
-				constructors = append(constructors, function.Name.Name)
+	forbidden := []string{
+		"ObservationOrigin",
+		"ObservationProducerContext",
+		"ParseObservationOrigin",
+		"ManualEntryObservationProducer",
+		"ClipboardPasteObservationProducer",
+		"CSVImportObservationProducer",
+		"XLSXImportObservationProducer",
+		"APIImportObservationProducer",
+		"ExtractionObservationProducer",
+	}
+	for _, file := range parsed["indicators"].Files {
+		for _, declaration := range file.Decls {
+			name := exportedDeclarationName(declaration)
+			if slices.Contains(forbidden, name) {
+				t.Fatalf("retired observation producer surface %s remains exported", name)
 			}
 		}
-	}
-	slices.Sort(constructors)
-	want := []string{
-		"APIImportObservationProducer",
-		"CSVImportObservationProducer",
-		"ClipboardPasteObservationProducer",
-		"ExtractionObservationProducer",
-		"ManualEntryObservationProducer",
-		"XLSXImportObservationProducer",
-	}
-	if !reflect.DeepEqual(constructors, want) {
-		t.Fatalf("ordinary producer constructors = %v, want %v", constructors, want)
 	}
 }
 
 func TestInvalidObservationProducerFailsBeforeTransaction(t *testing.T) {
 	t.Parallel()
-	db := &rejectOriginBeginDB{}
-	store := &Store{pool: db}
-	_, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{}, IndicatorObservationCreateParams{
-		IncidentID:     uuid.New(),
-		SourceRecordID: uuid.New(),
-		SourceFieldKey: "timeline.raw_activity_text",
-		OriginLocator:  "origin-prewrite-test",
-		ObservedText:   "192.0.2.10",
-	})
-	if !errors.Is(err, ErrInvalidObservationOrigin) {
-		t.Fatalf("invalid producer error = %v", err)
+	parsed, err := parser.ParseFile(token.NewFileSet(), "store.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parse Indicator observation command: %v", err)
 	}
-	if db.began {
-		t.Fatal("invalid observation producer began a transaction")
+	forbiddenFields := []string{"Producer", "OriginKind", "MutationSource", "CreatedAt"}
+	for _, declaration := range parsed.Decls {
+		general, ok := declaration.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, specification := range general.Specs {
+			typeSpec, ok := specification.(*ast.TypeSpec)
+			if !ok || typeSpec.Name.Name != "IndicatorObservationCreateParams" {
+				continue
+			}
+			structure := typeSpec.Type.(*ast.StructType)
+			for _, field := range structure.Fields.List {
+				for _, name := range field.Names {
+					if slices.Contains(forbiddenFields, name.Name) {
+						t.Fatalf("caller-controlled observation field %s remains public", name.Name)
+					}
+				}
+			}
+			return
+		}
 	}
+	t.Fatal("IndicatorObservationCreateParams declaration not found")
 }
 
-type rejectOriginBeginDB struct {
-	postgres.DB
-	began bool
-}
-
-func (db *rejectOriginBeginDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
-	db.began = true
-	return nil, errors.New("transaction must not start")
+func exportedDeclarationName(declaration ast.Decl) string {
+	switch typed := declaration.(type) {
+	case *ast.FuncDecl:
+		if typed.Name.IsExported() {
+			return typed.Name.Name
+		}
+	case *ast.GenDecl:
+		for _, specification := range typed.Specs {
+			switch spec := specification.(type) {
+			case *ast.TypeSpec:
+				if spec.Name.IsExported() {
+					return spec.Name.Name
+				}
+			case *ast.ValueSpec:
+				for _, name := range spec.Names {
+					if name.IsExported() {
+						return name.Name
+					}
+				}
+			}
+		}
+	}
+	return ""
 }

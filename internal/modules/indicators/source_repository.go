@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (sourceRepository) loadByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (IndicatorRecord, bool, error) {
+func (sourceRepository) loadByDedupeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorType string, dedupeKey string) (indicatorRecord, bool, error) {
 	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
 SELECT
     i.record_id,
@@ -43,15 +43,15 @@ SELECT
  FOR UPDATE OF active_identity, i, r
 `, incidentID, indicatorType, dedupeKey))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorRecord{}, false, nil
+		return indicatorRecord{}, false, nil
 	}
 	if err != nil {
-		return IndicatorRecord{}, false, fmt.Errorf("load indicator by dedupe: %w", err)
+		return indicatorRecord{}, false, fmt.Errorf("load indicator by dedupe: %w", err)
 	}
 	return record, true, nil
 }
 
-func (sourceRepository) insertTx(ctx context.Context, tx pgx.Tx, record *IndicatorRecord) error {
+func (sourceRepository) insertTx(ctx context.Context, tx pgx.Tx, record *indicatorRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO indicators (
     record_id,
@@ -76,8 +76,8 @@ RETURNING record_id
 `, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
 }
 
-func (sourceRepository) updateTx(ctx context.Context, tx pgx.Tx, record IndicatorRecord) error {
-	_, err := tx.Exec(ctx, `
+func (sourceRepository) updateTx(ctx context.Context, tx pgx.Tx, record indicatorRecord) error {
+	tag, err := tx.Exec(ctx, `
 UPDATE indicators
    SET defanged_value = $2,
        hash_algorithm = $3,
@@ -90,6 +90,9 @@ UPDATE indicators
 `, record.RecordID, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update indicator: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return fmt.Errorf("update indicator affected %d rows", tag.RowsAffected())
 	}
 	return nil
 }

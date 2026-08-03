@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
@@ -101,11 +100,9 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 			IncidentID:                incidentID,
 			SourceRecordID:            sourceID,
 			SourceFieldKey:            sourceRecordID.field,
-			Producer:                  indicators.ManualEntryObservationProducer(),
 			OriginLocator:             "entity_linking-i-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &recordID,
-			CreatedAt:                 indicatortest.PastTime.Add(time.Duration(index) * time.Minute),
 		}); err != nil {
 			t.Fatalf("create observation %d: %v", index, err)
 		}
@@ -115,7 +112,6 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		IndicatorRecordID: recordID,
 		LifecycleState:    "active",
 		ValidFrom:         indicatortest.PastTime,
-		CreatedAt:         indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("append lifecycle: %v", err)
 	}

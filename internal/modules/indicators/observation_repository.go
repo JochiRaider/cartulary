@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+	indicatororigin "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/origin"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -22,10 +23,10 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 	if strings.TrimSpace(params.SourceFieldKey) == "" || strings.TrimSpace(params.OriginLocator) == "" {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
-	originKind, err := params.Producer.originForWrite()
-	if err != nil || originKind != params.originKind {
-		return IndicatorObservationRecord{}, ErrInvalidObservationOrigin
+	if params.originKind != indicatororigin.ManualEntry {
+		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
 	}
+	originKind := params.originKind
 	observedText, ok := fieldnorm.NormalizeLine(params.ObservedText)
 	if !ok {
 		return IndicatorObservationRecord{}, ErrInvalidCreateRequest
@@ -58,7 +59,7 @@ func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx,
 		IncidentID:                params.IncidentID,
 		SourceRecordID:            params.SourceRecordID,
 		SourceFieldKey:            params.SourceFieldKey,
-		OriginKind:                originKind,
+		OriginKind:                originKind.String(),
 		OriginLocator:             params.OriginLocator,
 		ObservedText:              observedText,
 		ParsedIndicatorType:       parsedIndicatorType,
@@ -93,7 +94,7 @@ INSERT INTO indicator_observations (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11, $12, $13, $14, $15)
 RETURNING indicator_observation_id
-`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind.String(), record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
+`, record.IncidentID, record.SourceRecordID, record.SourceFieldKey, record.OriginKind, record.OriginLocator, record.ObservedText, record.ParsedIndicatorType, record.NormalizedCandidate, record.ResolutionStatus, record.ResolvedIndicatorRecordID, record.CreatedByUserID, record.CreatedAt.UTC(), record.ResolvedByUserID, record.ResolvedAt, record.ResolutionMethod).Scan(&record.ObservationID); err != nil {
 		return IndicatorObservationRecord{}, fmt.Errorf("insert indicator observation: %w", err)
 	}
 	return record, nil

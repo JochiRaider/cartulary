@@ -91,11 +91,9 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		IncidentID:                incidentID,
 		SourceRecordID:            created.RecordID,
 		SourceFieldKey:            "indicator.display_value",
-		Producer:                  ManualEntryObservationProducer(),
 		OriginLocator:             "indicator-atomicity-observation",
 		ObservedText:              "source.example",
 		ResolvedIndicatorRecordID: &created.RecordID,
-		CreatedAt:                 now.Add(2 * time.Minute),
 	}); !errors.Is(observationErr, errInjectedIndicatorRevision) {
 		t.Fatalf("observation revision failure = %v", observationErr)
 	}
@@ -109,7 +107,6 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		IndicatorRecordID: created.RecordID,
 		LifecycleState:    "active",
 		ValidFrom:         now.Add(3 * time.Minute),
-		CreatedAt:         now.Add(3 * time.Minute),
 	}); !errors.Is(lifecycleErr, errInjectedIndicatorRevision) {
 		t.Fatalf("lifecycle revision failure = %v", lifecycleErr)
 	}

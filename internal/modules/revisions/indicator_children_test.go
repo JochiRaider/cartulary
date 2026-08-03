@@ -40,8 +40,8 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
 		observation, changeSetID, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.raw_activity_text",
-			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:raw:0-12", ObservedText: "192[.]0[.]2[.]10",
-			ResolvedIndicatorRecordID: &indicatorID, CreatedAt: createdAt,
+			OriginLocator: "timeline:raw:0-12", ObservedText: "192[.]0[.]2[.]10",
+			ResolvedIndicatorRecordID: &indicatorID,
 		})
 		if err != nil {
 			t.Fatalf("create resolved observation: %v", err)
@@ -129,13 +129,13 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:summary:0-16", ObservedText: "resolve.example.test", CreatedAt: createdAt,
+			OriginLocator: "timeline:summary:0-16", ObservedText: "resolve.example.test",
 		})
 		if err != nil {
 			t.Fatalf("create unresolved observation: %v", err)
 		}
 		resolved, changeSetID, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
-			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID, ResolvedAt: createdAt.Add(time.Minute),
+			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID,
 		})
 		if err != nil || resolved.RowVersion != 2 {
 			t.Fatalf("resolve observation = %#v, %v", resolved, err)
@@ -167,14 +167,14 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			Producer: indicators.ManualEntryObservationProducer(), OriginLocator: "timeline:summary:20-36", ObservedText: "reresolve.example.test",
-			ResolvedIndicatorRecordID: &oldIndicatorID, CreatedAt: createdAt,
+			OriginLocator: "timeline:summary:20-36", ObservedText: "reresolve.example.test",
+			ResolvedIndicatorRecordID: &oldIndicatorID,
 		})
 		if err != nil {
 			t.Fatalf("create initially resolved observation: %v", err)
 		}
 		_, changeSetID, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
-			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID, ResolvedAt: createdAt.Add(time.Minute),
+			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID,
 		})
 		if err != nil {
 			t.Fatalf("re-resolve observation: %v", err)
@@ -205,7 +205,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "interval")
 		createdAt := time.Date(2026, 7, 9, 17, 0, 0, 0, time.UTC)
 		interval, changeSetID, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicators.IndicatorLifecycleAppendParams{
-			IncidentID: incidentID, IndicatorRecordID: indicatorID, LifecycleState: "active", ValidFrom: createdAt, CreatedAt: createdAt,
+			IncidentID: incidentID, IndicatorRecordID: indicatorID, LifecycleState: "active", ValidFrom: createdAt,
 		})
 		if err != nil {
 			t.Fatalf("create lifecycle interval: %v", err)

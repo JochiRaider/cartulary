@@ -3,7 +3,6 @@ package indicators_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -23,7 +22,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 
-	create := func(clientTxnID string) indicators.MutationResult {
+	create := func(clientTxnID string) indicators.CreateResult {
 		t.Helper()
 		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
 			ClientTxnID:   clientTxnID,
@@ -38,29 +37,26 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 	}
 	first := create("txn-entity_linking-u-4-07-first")
 	second := create("txn-entity_linking-u-4-07-second")
-	if first.RecordID != second.RecordID || second.StatusCode != 200 {
+	if first.RecordID != second.RecordID || second.Outcome != indicators.CreateOutcomeReused {
 		t.Fatalf("canonical indicator dedupe failed: first=%#v second=%#v", first, second)
 	}
 
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.SiblingRecordID)
 	for index, sourceRecordID := range []struct {
-		id      uuid.UUID
-		field   string
-		created time.Time
+		id    uuid.UUID
+		field string
 	}{
-		{id: timelinetest.RecordID, field: timelinetest.FieldSourceText, created: indicatortest.PastTime},
-		{id: timelinetest.SiblingRecordID, field: timelinetest.FieldSummary, created: indicatortest.BaseTime},
+		{id: timelinetest.RecordID, field: timelinetest.FieldSourceText},
+		{id: timelinetest.SiblingRecordID, field: timelinetest.FieldSummary},
 	} {
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID:                incident.ID,
 			SourceRecordID:            sourceRecordID.id,
 			SourceFieldKey:            sourceRecordID.field,
-			Producer:                  indicators.ManualEntryObservationProducer(),
 			OriginLocator:             "entity_linking-u-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &first.RecordID,
-			CreatedAt:                 sourceRecordID.created,
 		})
 		if err != nil || observation.ObservationID == first.RecordID {
 			t.Fatalf("create source-bound observation %d: %#v %v", index, observation, err)
@@ -71,7 +67,6 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 		IndicatorRecordID: first.RecordID,
 		LifecycleState:    "active",
 		ValidFrom:         indicatortest.PastTime,
-		CreatedAt:         indicatortest.PastTime,
 	}); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}

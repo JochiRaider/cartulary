@@ -34,15 +34,18 @@ const (
 var ErrInvalidCreateRequest = errors.New("indicators: invalid create request")
 
 type Store struct {
-	pool           postgres.DB
-	authStore      *authn.Store
-	incidentAccess incidentLifecycleAccess
-	recordStore    *records.Store
-	revisionsStore revisionAppendPort
-	projections    ProjectionPort
-	sources        sourceRepository
-	observations   observationRepository
-	lifecycles     lifecycleRepository
+	pool               postgres.DB
+	authStore          *authn.Store
+	incidentAccess     incidentLifecycleAccess
+	recordStore        *records.Store
+	revisionsStore     revisionAppendPort
+	projections        ProjectionPort
+	sources            sourceRepository
+	observations       observationRepository
+	lifecycles         lifecycleRepository
+	createService      indicatorCreateService
+	observationService indicatorObservationService
+	lifecycleService   indicatorLifecycleService
 }
 
 type StoreDependencies struct {
@@ -66,7 +69,7 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	if dependencies.Projections == nil {
 		return nil, fmt.Errorf("compose Indicators store: Projections is required")
 	}
-	return &Store{
+	store := &Store{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
 		incidentAccess: newIncidentLifecycleAccess(dependencies.Postgres),
@@ -76,7 +79,11 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		sources:        sourceRepository{},
 		observations:   observationRepository{},
 		lifecycles:     lifecycleRepository{},
-	}, nil
+	}
+	store.createService = indicatorCreateService{owner: store}
+	store.observationService = indicatorObservationService{owner: store}
+	store.lifecycleService = indicatorLifecycleService{owner: store}
+	return store, nil
 }
 
 type CreateCommand struct {
@@ -110,10 +117,23 @@ type IndicatorFindOrCreateParticipantCommand struct {
 type IndicatorFindOrCreateParticipantResult struct {
 	SchemaID  string
 	Status    string
-	Indicator IndicatorRecord
+	Indicator IndicatorReference
 }
 
-type IndicatorRecord struct {
+// IndicatorReference is the immutable Indicator identity contract exposed to
+// transaction participants. Envelope state and optional representations remain
+// owner-internal so consumers cannot couple to unrelated persistence details.
+type IndicatorReference struct {
+	RecordID        uuid.UUID
+	IncidentID      uuid.UUID
+	IndicatorType   string
+	ValueKind       string
+	DisplayValue    string
+	NormalizedValue *string
+	DedupeKey       string
+}
+
+type indicatorRecord struct {
 	RecordID        uuid.UUID
 	IncidentID      uuid.UUID
 	IndicatorType   string
@@ -134,20 +154,38 @@ type IndicatorRecord struct {
 	DeletedByUserID *uuid.UUID
 }
 
-type MutationResult struct {
-	Payload     map[string]any
-	StatusCode  int
-	Replayed    bool
-	RecordID    uuid.UUID
-	ChangeSetID uuid.UUID
-	RowVersion  int64
+type CreateOutcome string
+
+const (
+	CreateOutcomeCreated  CreateOutcome = "created"
+	CreateOutcomeReused   CreateOutcome = "reused"
+	CreateOutcomeUpdated  CreateOutcome = "updated"
+	CreateOutcomeReplayed CreateOutcome = "replayed"
+)
+
+type CreateResult struct {
+	Outcome      CreateOutcome
+	CanonicalRow map[string]any
+	RecordID     uuid.UUID
+	ChangeSetID  uuid.UUID
+	RowVersion   int64
 }
 
-func BuildMutationPayload(changeSetID uuid.UUID, row map[string]any) map[string]any {
+func buildStoredCreateResponse(changeSetID uuid.UUID, row map[string]any) map[string]any {
 	return map[string]any{
 		"view_schema_id": ViewSchemaID,
 		"change_set_id":  changeSetID.String(),
 		"row":            row,
+	}
+}
+
+func referenceFromRecord(record indicatorRecord) IndicatorReference {
+	return IndicatorReference{
+		RecordID: record.RecordID, IncidentID: record.IncidentID,
+		IndicatorType: record.IndicatorType, ValueKind: record.ValueKind,
+		DisplayValue:    record.DisplayValue,
+		NormalizedValue: cloneStringPointer(record.NormalizedValue),
+		DedupeKey:       record.DedupeKey,
 	}
 }
 
@@ -177,6 +215,22 @@ func extractUUIDFromPayload(payload map[string]any, path ...string) (uuid.UUID, 
 		return uuid.UUID{}, err
 	}
 	return parsed, nil
+}
+
+func extractInt64FromPayload(payload map[string]any, path ...string) (int64, error) {
+	current := any(payload)
+	for _, segment := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			return 0, fmt.Errorf("decode payload path %q", strings.Join(path, "."))
+		}
+		current = object[segment]
+	}
+	number, ok := current.(float64)
+	if !ok || number < 1 || number != float64(int64(number)) {
+		return 0, fmt.Errorf("decode payload integer path %q", strings.Join(path, "."))
+	}
+	return int64(number), nil
 }
 
 func entityVersionID(prefix string, recordID uuid.UUID, rowVersion int64) string {
@@ -233,6 +287,6 @@ func uuidPointerFromPG(value pgtype.UUID) *uuid.UUID {
 	if !value.Valid {
 		return nil
 	}
-	parsed := uuid.Must(uuid.FromBytes(value.Bytes[:]))
+	parsed := uuid.UUID(value.Bytes)
 	return &parsed
 }

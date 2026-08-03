@@ -15,17 +15,17 @@ type indicatorRecordQuerier interface {
 
 // GetActiveIndicatorParticipant reads an indicator through the Indicator
 // owner. Consumers never query the indicators or records tables directly.
-func (s *Store) GetActiveIndicatorParticipant(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorRecord, error) {
+func (s *Store) GetActiveIndicatorParticipant(ctx context.Context, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
 	return getActiveIndicatorParticipant(ctx, s.pool, incidentID, indicatorID)
 }
 
 // GetActiveIndicatorParticipantTx participates in a consumer-owned atomic
 // operation without taking ownership of the outer transaction.
-func (*Store) GetActiveIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorRecord, error) {
+func (*Store) GetActiveIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
 	return getActiveIndicatorParticipant(ctx, tx, incidentID, indicatorID)
 }
 
-func getActiveIndicatorParticipant(ctx context.Context, querier indicatorRecordQuerier, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorRecord, error) {
+func getActiveIndicatorParticipant(ctx context.Context, querier indicatorRecordQuerier, incidentID uuid.UUID, indicatorID uuid.UUID) (IndicatorReference, error) {
 	record, err := scanIndicatorRecord(querier.QueryRow(ctx, `
 SELECT
     i.record_id, i.incident_id, i.indicator_type, i.value_kind, i.display_value,
@@ -39,10 +39,10 @@ SELECT
    AND r.deleted_at IS NULL
 `, incidentID, indicatorID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorRecord{}, ErrIndicatorNotFound
+		return IndicatorReference{}, ErrIndicatorNotFound
 	}
 	if err != nil {
-		return IndicatorRecord{}, fmt.Errorf("get active indicator participant: %w", err)
+		return IndicatorReference{}, fmt.Errorf("get active indicator participant: %w", err)
 	}
-	return record, nil
+	return referenceFromRecord(record), nil
 }

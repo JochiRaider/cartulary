@@ -8,7 +8,6 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -27,15 +26,13 @@ func TestIndicatorObservationOriginConstraint_Integration(t *testing.T) {
 		IncidentID:     incident.ID,
 		SourceRecordID: sourceID,
 		SourceFieldKey: timelinetest.FieldSourceText,
-		Producer:       indicators.ManualEntryObservationProducer(),
 		OriginLocator:  "origin-constraint-test",
 		ObservedText:   "constraint.example.test",
-		CreatedAt:      indicatortest.BaseTime,
 	})
 	if err != nil {
 		t.Fatalf("create valid observation: %v", err)
 	}
-	if observation.OriginKind.String() != "manual_entry" {
+	if observation.OriginKind != "manual_entry" {
 		t.Fatalf("stored origin = %q", observation.OriginKind)
 	}
 
