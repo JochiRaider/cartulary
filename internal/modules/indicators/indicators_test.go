@@ -61,28 +61,20 @@ SELECT count(*)
 	sourceTwo := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceOne)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceTwo)
-	observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
-		IncidentID:                incident.ID,
-		SourceRecordID:            sourceOne,
-		SourceFieldKey:            "timeline.activity_synopsis_text",
-		OriginLocator:             "timeline:one:summary:0-12",
-		ObservedText:              "203[.]0[.]113[.]88",
-		ResolvedIndicatorRecordID: &created.RecordID,
-	})
+	observationOneResult, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+		incident.ID, sourceOne, "timeline.activity_synopsis_text", &created.RecordID, "txn-indicator-observation-one",
+	))
 	if err != nil {
 		t.Fatalf("create first observation: %v", err)
 	}
-	observationTwo, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
-		IncidentID:                incident.ID,
-		SourceRecordID:            sourceTwo,
-		SourceFieldKey:            "timeline.raw_activity_text",
-		OriginLocator:             "timeline:two:source:0-12",
-		ObservedText:              "203[.]0[.]113[.]88",
-		ResolvedIndicatorRecordID: &created.RecordID,
-	})
+	observationOne := observationOneResult.Observation
+	observationTwoResult, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+		incident.ID, sourceTwo, "timeline.raw_activity_text", &created.RecordID, "txn-indicator-observation-two",
+	))
 	if err != nil {
 		t.Fatalf("create second observation: %v", err)
 	}
+	observationTwo := observationTwoResult.Observation
 	if observationOne.ObservationID == observationTwo.ObservationID {
 		t.Fatalf("observations collapsed into one occurrence: %#v %#v", observationOne, observationTwo)
 	}
@@ -90,15 +82,13 @@ SELECT count(*)
 		t.Fatalf("repeated observation origins = %q, %q; want manual_entry", observationOne.OriginKind, observationTwo.OriginKind)
 	}
 	lifecycleTime := time.Date(2026, 5, 17, 15, 0, 0, 0, time.UTC)
-	interval, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, IndicatorLifecycleAppendParams{
-		IncidentID:        incident.ID,
-		IndicatorRecordID: created.RecordID,
-		LifecycleState:    "active",
-		ValidFrom:         lifecycleTime,
-	})
+	intervalResult, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, lifecycleAppendParams(
+		incident.ID, created.RecordID, 4, lifecycleTime, "txn-indicator-lifecycle",
+	))
 	if err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}
+	interval := intervalResult.Interval
 	if interval.IndicatorRecordID != created.RecordID || interval.ValidFrom.Equal(observationOne.CreatedAt) {
 		t.Fatalf("lifecycle interval is not distinct from observation timestamps: %#v", interval)
 	}

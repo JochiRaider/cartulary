@@ -33,15 +33,26 @@ func SeedTimelineRecord(
 	actorUserID uuid.UUID,
 	recordID uuid.UUID,
 ) {
+	SeedTimelineRecordWithSourceText(t, db, incidentID, actorUserID, recordID, "record-support-source-row")
+}
+
+func SeedTimelineRecordWithSourceText(
+	t testing.TB,
+	db any,
+	incidentID uuid.UUID,
+	actorUserID uuid.UUID,
+	recordID uuid.UUID,
+	sourceText string,
+) {
 	t.Helper()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "timeline_event")
 	if err := execDB(db, `
 INSERT INTO timeline_events (
-    record_id, incident_id, activity_synopsis_text, capture_state,
+    record_id, incident_id, activity_synopsis_text, raw_activity_text, capture_state,
     created_by_user_id, updated_by_user_id
 )
-VALUES ($1, $2, 'record-support-source-row', 'reviewed', $3, $3)
-`, recordID, incidentID, actorUserID); err != nil {
+VALUES ($1, $2, $3, $3, 'reviewed', $4, $4)
+`, recordID, incidentID, sourceText, actorUserID); err != nil {
 		t.Fatalf("seed timeline record: %v", err)
 	}
 }

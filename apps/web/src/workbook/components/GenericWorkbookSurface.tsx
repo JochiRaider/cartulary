@@ -27,7 +27,10 @@ import {
   workbookInlineDraftRowTestId,
   workbookInspectorCloseButtonTestId,
 } from "@cartulary/ui-contracts";
-import type { ViewContract } from "@cartulary/view-contracts";
+import type {
+  InspectorFeatureGroup,
+  ViewContract,
+} from "@cartulary/view-contracts";
 import { X } from "lucide-react";
 import {
   type CSSProperties,
@@ -51,6 +54,11 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
 import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
+import {
+  type IndicatorInspectorAction,
+  IndicatorInspectorWorkflow,
+  isIndicatorInspectorAction,
+} from "../features/indicators/IndicatorInspectorWorkflow";
 import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
@@ -192,6 +200,8 @@ export function ContractWorkbookSurface({
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
+  const [indicatorInspectorAction, setIndicatorInspectorAction] =
+    useState<IndicatorInspectorAction | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
@@ -703,6 +713,13 @@ export function ContractWorkbookSurface({
       ),
     [selectedEditRow],
   );
+  const supportsIndicatorFeature = useCallback(
+    (featureGroup: InspectorFeatureGroup) =>
+      contract.viewSchemaId === "cartulary.view.indicators.v1" &&
+      isIndicatorInspectorAction(featureGroup.routeBinding.actionKey) &&
+      featureGroup.routeBinding.actionKey !== "indicator.observations.manage",
+    [contract.viewSchemaId],
+  );
 
   useEffect(() => {
     if (selectedEditField?.writeKind !== "action_payload") {
@@ -858,9 +875,26 @@ export function ContractWorkbookSurface({
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
                 disabledTokens={genericInspectorDisabledTokens}
+                isFeatureActionSupported={supportsIndicatorFeature}
                 key={panel.panelId}
                 panelId={panel.panelId}
-              />
+                onFeatureAction={(featureGroup) => {
+                  const action = featureGroup.routeBinding.actionKey;
+                  if (isIndicatorInspectorAction(action)) {
+                    setIndicatorInspectorAction(action);
+                  }
+                }}
+              >
+                {panel.panelId === "workflow" && selectedEditRow !== null ? (
+                  <IndicatorInspectorWorkflow
+                    action={indicatorInspectorAction}
+                    indicatorRecordId={selectedEditRow.record_id}
+                    port={mutationCommands.indicators}
+                    rowVersion={selectedEditRow.row_version}
+                    onMutationCommitted={onRefresh}
+                  />
+                ) : null}
+              </WorkbookInspectorPanelSection>
             ))}
             {isNotesSurface ? (
               <label

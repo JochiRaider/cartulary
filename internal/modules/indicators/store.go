@@ -26,6 +26,10 @@ const (
 var (
 	ErrIndicatorNotFound            = errors.New("indicators: indicator not found")
 	ErrIndicatorObservationNotFound = errors.New("indicators: indicator observation not found")
+	ErrIndicatorSourceNotFound      = errors.New("indicators: source record not found")
+	ErrResolvedIndicatorNotFound    = errors.New("indicators: resolved Indicator not found")
+	ErrRowVersionConflict           = errors.New("indicators: row version conflict")
+	ErrIllegalTransition            = errors.New("indicators: illegal transition")
 )
 
 type incidentLifecycleAccess interface {
@@ -48,78 +52,112 @@ func (e *IndicatorCreateValidationError) Error() string {
 type IndicatorObservationCreateParams struct {
 	IncidentID                uuid.UUID
 	SourceRecordID            uuid.UUID
+	BaseRowVersion            int64
 	SourceFieldKey            string
-	OriginLocator             string
-	ObservedText              string
+	SpanStartByte             int
+	SpanEndByte               int
 	ParsedIndicatorType       *string
-	NormalizedCandidate       *string
 	ResolvedIndicatorRecordID *uuid.UUID
-	ResolutionMethod          *string
-	RequestID                 *string
-	ClientTxnID               *string
+	RequestID                 string
+	ClientTxnID               string
+	RequestHash               []byte
 	originKind                indicatororigin.ObservationOrigin
+	originLocator             string
+	observedText              string
+	normalizedCandidate       *string
 }
 
 type IndicatorObservationResolveParams struct {
 	ObservationID             uuid.UUID
 	ResolvedIndicatorRecordID uuid.UUID
-	RequestID                 *string
-	ClientTxnID               *string
+	BaseRowVersion            int64
+	RequestID                 string
+	ClientTxnID               string
+	RequestHash               []byte
+}
+
+type IndicatorObservationActionParams struct {
+	ObservationID  uuid.UUID
+	BaseRowVersion int64
+	RequestID      string
+	ClientTxnID    string
+	RequestHash    []byte
 }
 
 type IndicatorLifecycleAppendParams struct {
 	IncidentID        uuid.UUID
 	IndicatorRecordID uuid.UUID
+	BaseRowVersion    int64
 	LifecycleState    string
 	ValidFrom         time.Time
 	ValidTo           *time.Time
 	Confidence        *int
 	Rationale         *string
-	SupportRefs       []string
+	SupportRefs       []uuid.UUID
 	Assessor          *string
-	RequestID         *string
-	ClientTxnID       *string
+	RequestID         string
+	ClientTxnID       string
+	RequestHash       []byte
 }
 
 type IndicatorObservationRecord struct {
-	ObservationID             uuid.UUID
-	IncidentID                uuid.UUID
-	SourceRecordID            uuid.UUID
-	SourceFieldKey            string
-	OriginKind                string
-	OriginLocator             string
-	ObservedText              string
-	ParsedIndicatorType       *string
-	NormalizedCandidate       *string
-	ResolutionStatus          string
-	ResolvedIndicatorRecordID *uuid.UUID
-	RowVersion                int64
-	CreatedByUserID           uuid.UUID
-	CreatedAt                 time.Time
-	ResolvedByUserID          *uuid.UUID
-	ResolvedAt                *time.Time
-	ResolutionMethod          *string
-	DeletedAt                 *time.Time
-	DeletedByUserID           *uuid.UUID
+	ObservationID             uuid.UUID  `json:"observation_id"`
+	IncidentID                uuid.UUID  `json:"incident_id"`
+	SourceRecordID            uuid.UUID  `json:"source_record_id"`
+	SourceFieldKey            string     `json:"source_field_key"`
+	OriginKind                string     `json:"origin_kind"`
+	OriginLocator             string     `json:"origin_locator"`
+	ObservedText              string     `json:"observed_text"`
+	ParsedIndicatorType       *string    `json:"parsed_indicator_type"`
+	NormalizedCandidate       *string    `json:"normalized_candidate"`
+	ResolutionStatus          string     `json:"resolution_status"`
+	ResolvedIndicatorRecordID *uuid.UUID `json:"resolved_indicator_record_id"`
+	RowVersion                int64      `json:"row_version"`
+	CreatedByUserID           uuid.UUID  `json:"created_by_user_id"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	ResolvedByUserID          *uuid.UUID `json:"resolved_by_user_id"`
+	ResolvedAt                *time.Time `json:"resolved_at"`
+	ResolutionMethod          *string    `json:"resolution_method"`
+	DeletedAt                 *time.Time `json:"-"`
+	DeletedByUserID           *uuid.UUID `json:"-"`
 }
 
 type IndicatorLifecycleIntervalRecord struct {
-	IntervalID        uuid.UUID
-	IncidentID        uuid.UUID
-	IndicatorRecordID uuid.UUID
-	LifecycleState    string
-	ValidFrom         time.Time
-	ValidTo           *time.Time
-	Confidence        *int
-	Rationale         *string
-	SupportRefs       []string
-	Assessor          *string
-	AssessedAt        time.Time
-	RowVersion        int64
-	CreatedByUserID   uuid.UUID
-	CreatedAt         time.Time
-	DeletedAt         *time.Time
-	DeletedByUserID   *uuid.UUID
+	IntervalID        uuid.UUID   `json:"interval_id"`
+	IncidentID        uuid.UUID   `json:"incident_id"`
+	IndicatorRecordID uuid.UUID   `json:"indicator_record_id"`
+	LifecycleState    string      `json:"lifecycle_state"`
+	ValidFrom         time.Time   `json:"valid_from"`
+	ValidTo           *time.Time  `json:"valid_to"`
+	Confidence        *int        `json:"confidence"`
+	Rationale         *string     `json:"rationale"`
+	SupportRefs       []uuid.UUID `json:"support_refs"`
+	Assessor          *string     `json:"assessor"`
+	AssessedAt        time.Time   `json:"assessed_at"`
+	RowVersion        int64       `json:"row_version"`
+	CreatedByUserID   uuid.UUID   `json:"created_by_user_id"`
+	CreatedAt         time.Time   `json:"created_at"`
+	DeletedAt         *time.Time  `json:"-"`
+	DeletedByUserID   *uuid.UUID  `json:"-"`
+}
+
+type AffectedRecordVersion struct {
+	RecordID   uuid.UUID `json:"record_id"`
+	RowVersion int64     `json:"row_version"`
+}
+
+type IndicatorObservationMutationResult struct {
+	Observation     IndicatorObservationRecord `json:"observation"`
+	ChangeSetID     uuid.UUID                  `json:"change_set_id"`
+	Replayed        bool                       `json:"replayed"`
+	AffectedRecords []AffectedRecordVersion    `json:"affected_records"`
+}
+
+type IndicatorLifecycleMutationResult struct {
+	Interval        IndicatorLifecycleIntervalRecord `json:"interval"`
+	ChangeSetID     uuid.UUID                        `json:"change_set_id"`
+	Replayed        bool                             `json:"replayed"`
+	AffectedRecords []AffectedRecordVersion          `json:"affected_records"`
 }
 
 type indicatorUpsertInput = identity.Canonical
@@ -213,7 +251,7 @@ func buildIndicatorLifecycleValue(record IndicatorLifecycleIntervalRecord) map[s
 		"valid_to":                    formatTimestampPointer(record.ValidTo),
 		"confidence":                  derefInt(record.Confidence),
 		"rationale":                   derefString(record.Rationale),
-		"support_refs":                append([]string(nil), record.SupportRefs...),
+		"support_refs":                indicatorUUIDStrings(record.SupportRefs),
 		"assessor":                    derefString(record.Assessor),
 		"assessed_at":                 formatTimestamp(record.AssessedAt),
 		"row_version":                 record.RowVersion,
@@ -222,6 +260,14 @@ func buildIndicatorLifecycleValue(record IndicatorLifecycleIntervalRecord) map[s
 		"deleted_at":                  formatTimestampPointer(record.DeletedAt),
 		"deleted_by_user_id":          formatUUIDPointer(record.DeletedByUserID),
 	}
+}
+
+func indicatorUUIDStrings(values []uuid.UUID) []string {
+	result := make([]string, len(values))
+	for index, value := range values {
+		result[index] = value.String()
+	}
+	return result
 }
 
 func scanIndicatorRecord(scanner interface{ Scan(dest ...any) error }) (indicatorRecord, error) {

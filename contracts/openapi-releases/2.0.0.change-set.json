@@ -740,6 +740,186 @@
       "classification": "additive",
       "owner_id": "platform.viewschema",
       "rationale": "Publish Indicator-owned observation and lifecycle route owners for Inspector bindings."
+    },
+    {
+      "fingerprint": "d44dee6709d121363790f918083015c45deb18830fdf727aa4df0bac0373483f",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the canonical Indicator identifier path parameter for production child routes."
+    },
+    {
+      "fingerprint": "5b29599193a0fc2feb6494c0a8fcd0f97ed0c3f18be3d0bec2d2a17afb3bcdbd",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the opaque keyset cursor parameter for Indicator child collections."
+    },
+    {
+      "fingerprint": "aab626efb60e0510c51efbb6657bd462e6cbba83a063a5fddb2b0d6c5afbeebd",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the bounded page-size parameter for Indicator child collections."
+    },
+    {
+      "fingerprint": "41377abb47a8faf778c6d1c67d2a150427349704ceb90bc21b9c9a2f015f3fba",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the canonical observation identifier path parameter for Indicator actions."
+    },
+    {
+      "fingerprint": "bfac656eea44c442e3dccd9088eb5ca10e17b096d8b94ba30ab0043bc8363087",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the authorization failure response used by Indicator child routes."
+    },
+    {
+      "fingerprint": "4297c597389a828300280350ab4624b0c7a1da1a1f72c4d65805fdd536af4b52",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the malformed-request response used by Indicator child routes."
+    },
+    {
+      "fingerprint": "d55623a9df1f9f70299287adc482fb01722d27129acb10e9af340aed09251373",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the idempotency, concurrency, and transition conflict response used by Indicator child routes."
+    },
+    {
+      "fingerprint": "dedfebeab763b49f4f4ef5130c90389753c49650077a429206995d5cbdbdf368",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the concealed resource-not-found response used by Indicator child routes."
+    },
+    {
+      "fingerprint": "6f7dd50c4dc3f858b39ea45004e4d2405d729a4073a08e94a57a8139fa3fa73f",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the session-required response used by Indicator child routes."
+    },
+    {
+      "fingerprint": "ad01dd7d2ac342bb57df01fc26e74626a74811410fc8805112eae78f3792e006",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the sorted affected-record version entry returned by Indicator child mutations."
+    },
+    {
+      "fingerprint": "613bbb48f2a6b17ac41a339d9497b18596800a0d73ad506c39271699aab4efc3",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the closed Indicator lifecycle append request."
+    },
+    {
+      "fingerprint": "7dfbf5f387f550a09bf8b2f19ccbcb39f4b6234a6564c8fa5d7669117e7ca1ee",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator lifecycle collection data contract."
+    },
+    {
+      "fingerprint": "40d72fd6c7aa44d7f05cbb44b83c8ce9a869a70e3db8598f4c6cdbbb588b9e14",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the paged Indicator lifecycle collection envelope."
+    },
+    {
+      "fingerprint": "339e8f3d5c52519ce1e48320eb2521291126c1e425b325959305388af1427c2f",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator lifecycle mutation result contract."
+    },
+    {
+      "fingerprint": "7e923c9941dfa4907234ec7af979ce77ad1f5a3476841cb697a0f9b6182e59b4",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator lifecycle mutation success envelope."
+    },
+    {
+      "fingerprint": "b2599735f8f011efe608946157b6d2d8982a002588fa0ede59b0d30bda93761b",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the exact Indicator observation resource."
+    },
+    {
+      "fingerprint": "ab0c50389e8c9fd6edf7274846f84b3402bf2472e6a98879137d7469f2d44cc5",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the closed dismiss and restore request."
+    },
+    {
+      "fingerprint": "9d38f9875255b55e9c78a429f384ceca4168cee46b62404651dc76f660b2be62",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the source-span-bound manual observation request."
+    },
+    {
+      "fingerprint": "2ea1bf880ed7df55be5f7e569b9d6e7a369dde76fa9e9a4a07dc96f6dd242785",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator observation collection data contract."
+    },
+    {
+      "fingerprint": "c5a951bf58be9d933c3cdeb1d6e14fd2fe88db8537978080eb1adc5719a08dd1",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the paged Indicator observation collection envelope."
+    },
+    {
+      "fingerprint": "289b938ce1a38e8667add5d0c931005127bd9cf29d7f5b0bd7134dea2593524f",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator observation mutation result contract."
+    },
+    {
+      "fingerprint": "65c99a089c2adfb806390155f0da58ac39d9e9d82572e996dd0707ab88bd11a4",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the Indicator observation mutation success envelope."
+    },
+    {
+      "fingerprint": "33441aa06a9d91e8e5b455fde99c775f0c294d4657d3dbedbd0ae3d2d15a1e54",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the closed Indicator observation resolve request."
+    },
+    {
+      "fingerprint": "8d5f75231e71514e77e564aa1c4d8d5b1f6d3a7f3738886e8bc8be4a2133127a",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Publish the exact Indicator lifecycle interval resource."
+    },
+    {
+      "fingerprint": "a211d71955abea21f28b717b34e28f2ccae352e09a95a457c7cc0041169da87a",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the Indicator observation dismiss operation."
+    },
+    {
+      "fingerprint": "fbd5bf62efc99fc03eb83e481ddee4e33cba127550625a77a72d06970abaf255",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the Indicator observation resolve operation."
+    },
+    {
+      "fingerprint": "67e00db4eaff343f493f96b612914de61c63b0e35f3fae51c89252ac2cf3146c",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the Indicator observation restore operation."
+    },
+    {
+      "fingerprint": "af8e195df9d9daa9fdee83334c80c2bbe2452158a38a4f4bccbb86c13226b874",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the Indicator-scoped observation collection operation."
+    },
+    {
+      "fingerprint": "628560d42f1f80dafb0d4182f4c824295ba1c4044b3cc4c4038361513445a035",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the Indicator lifecycle collection and append operations."
+    },
+    {
+      "fingerprint": "22d0580f3debf82b001633bbe254624a96f38474dbbd0d0b3088c2b81b3bb2fd",
+      "classification": "additive",
+      "owner_id": "module.indicators",
+      "rationale": "Add the source-record observation collection and manual capture operations."
     }
   ]
 }

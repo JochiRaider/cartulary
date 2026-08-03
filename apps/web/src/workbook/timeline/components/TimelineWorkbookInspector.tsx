@@ -38,6 +38,7 @@ export function TimelineWorkbookInspector({
   onSetInspectorMessage,
   onClose,
   onFeatureAction,
+  isFeatureActionSupported,
   onCreateEntityFromMention,
   onSubmitMentionAction,
   renderEvidenceAttachSection,
@@ -66,6 +67,9 @@ export function TimelineWorkbookInspector({
   readonly onSetInspectorMessage: (message: string) => void;
   readonly onClose: () => void;
   readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
+  readonly isFeatureActionSupported: (
+    featureGroup: InspectorFeatureGroup,
+  ) => boolean;
   readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
@@ -142,6 +146,7 @@ export function TimelineWorkbookInspector({
         key={panelId}
         panelId={panelId}
         onFeatureAction={onFeatureAction}
+        isFeatureActionSupported={isFeatureActionSupported}
       >
         {content}
       </WorkbookInspectorPanelSection>

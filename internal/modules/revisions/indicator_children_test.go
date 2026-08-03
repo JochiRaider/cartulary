@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
@@ -27,6 +28,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		Postgres:    harness.Server.Runtime.Postgres,
 		Revisions:   harness.Server.Runtime.Revisions.Appender(),
 		Projections: harness.Server.Runtime.Timeline.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(harness.Server.Runtime.Timeline.ProjectionCoordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -38,14 +40,13 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "create")
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
-		observation, changeSetID, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
-			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.raw_activity_text",
-			OriginLocator: "timeline:raw:0-12", ObservedText: "192[.]0[.]2[.]10",
-			ResolvedIndicatorRecordID: &indicatorID,
-		})
+		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+			incidentID, sourceID, "timeline.raw_activity_text", &indicatorID, "txn-i-7-06-observation-create",
+		))
 		if err != nil {
 			t.Fatalf("create resolved observation: %v", err)
 		}
+		observation, changeSetID := created.Observation, created.ChangeSetID
 		var sourceItem map[string]any
 		for _, recordID := range []uuid.UUID{sourceID, indicatorID} {
 			item := historyItemForChangeSetTarget(t, harness, login, recordID, changeSetID, "indicator_observation", observation.ObservationID.String())
@@ -67,7 +68,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatalf("hold affected Indicator lock: %v", err)
 		}
 		locked := rollbackRecord(t, harness, login, sourceID, map[string]any{
-			"base_row_version": 1,
+			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-observation-locked",
 			"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 		})
@@ -80,7 +81,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		defer unsubscribe()
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{
-			"base_row_version": 1,
+			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-observation-create-rollback",
 			"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 		}
@@ -109,7 +110,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		if countRows(t, harness.DB, `SELECT observation_count FROM indicator_grid_projection WHERE record_id = $1`, indicatorID) != 0 {
 			t.Fatal("tombstoned observation remained in indicator aggregate")
 		}
-		if countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id IN ($1, $2) AND row_version = 2`, sourceID, indicatorID) != 2 {
+		if countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id IN ($1, $2) AND row_version = 3`, sourceID, indicatorID) != 2 {
 			t.Fatal("observation rollback did not advance every affected record envelope")
 		}
 		rollbackChangeSetID := payload["rollback_change_set_id"].(string)
@@ -127,26 +128,28 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "resolve")
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
-		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
-			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			OriginLocator: "timeline:summary:0-16", ObservedText: "resolve.example.test",
-		})
+		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+			incidentID, sourceID, "timeline.activity_synopsis_text", nil, "txn-i-7-06-observation-unresolved",
+		))
 		if err != nil {
 			t.Fatalf("create unresolved observation: %v", err)
 		}
-		resolved, changeSetID, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
-			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID,
+		observation := created.Observation
+		resolvedResult, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
+			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: indicatorID, BaseRowVersion: 1,
+			ClientTxnID: "txn-i-7-06-observation-resolve", RequestID: "req-i-7-06-observation-resolve", RequestHash: []byte("hash-i-7-06-observation-resolve"),
 		})
-		if err != nil || resolved.RowVersion != 2 {
-			t.Fatalf("resolve observation = %#v, %v", resolved, err)
+		if err != nil || resolvedResult.Observation.RowVersion != 2 {
+			t.Fatalf("resolve observation = %#v, %v", resolvedResult, err)
 		}
+		changeSetID := resolvedResult.ChangeSetID
 		for _, recordID := range []uuid.UUID{sourceID, indicatorID} {
 			_ = historyItemForChangeSetTarget(t, harness, login, recordID, changeSetID, "indicator_observation", observation.ObservationID.String())
 		}
 		ref := historyEntryRefForTarget(t, harness, login, indicatorID, "indicator_observation", observation.ObservationID.String())
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(2*time.Minute))
 		payload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, indicatorID, map[string]any{
-			"base_row_version": 1,
+			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-observation-resolve-rollback",
 			"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 		}), 200)["data"].(map[string]any)
@@ -165,20 +168,21 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		oldIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-old")
 		newIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-new")
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
-		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
-			IncidentID: incidentID, SourceRecordID: sourceID, SourceFieldKey: "timeline.activity_synopsis_text",
-			OriginLocator: "timeline:summary:20-36", ObservedText: "reresolve.example.test",
-			ResolvedIndicatorRecordID: &oldIndicatorID,
-		})
+		created, err := store.CreateIndicatorObservation(context.Background(), actor, indicatorChildObservationParams(
+			incidentID, sourceID, "timeline.activity_synopsis_text", &oldIndicatorID, "txn-i-7-06-observation-reresolve-create",
+		))
 		if err != nil {
 			t.Fatalf("create initially resolved observation: %v", err)
 		}
-		_, changeSetID, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
-			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID,
+		observation := created.Observation
+		resolved, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
+			ObservationID: observation.ObservationID, ResolvedIndicatorRecordID: newIndicatorID, BaseRowVersion: 1,
+			ClientTxnID: "txn-i-7-06-observation-reresolve", RequestID: "req-i-7-06-observation-reresolve", RequestHash: []byte("hash-i-7-06-observation-reresolve"),
 		})
 		if err != nil {
 			t.Fatalf("re-resolve observation: %v", err)
 		}
+		changeSetID := resolved.ChangeSetID
 		for _, recordID := range []uuid.UUID{sourceID, oldIndicatorID, newIndicatorID} {
 			_ = historyItemForChangeSetTarget(t, harness, login, recordID, changeSetID, "indicator_observation", observation.ObservationID.String())
 		}
@@ -188,7 +192,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		ref := historyEntryRefForTarget(t, harness, login, newIndicatorID, "indicator_observation", observation.ObservationID.String())
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(2*time.Minute))
 		payload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, newIndicatorID, map[string]any{
-			"base_row_version": 1,
+			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-observation-reresolve-rollback",
 			"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 		}), 200)["data"].(map[string]any)
@@ -204,18 +208,19 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	t.Run("lifecycle create reversal tombstones and clears lifecycle projection", func(t *testing.T) {
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "interval")
 		createdAt := time.Date(2026, 7, 9, 17, 0, 0, 0, time.UTC)
-		interval, changeSetID, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicators.IndicatorLifecycleAppendParams{
-			IncidentID: incidentID, IndicatorRecordID: indicatorID, LifecycleState: "active", ValidFrom: createdAt,
-		})
+		created, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicatorChildLifecycleParams(
+			incidentID, indicatorID, 1, createdAt, "txn-i-7-06-interval-create",
+		))
 		if err != nil {
 			t.Fatalf("create lifecycle interval: %v", err)
 		}
+		interval, changeSetID := created.Interval, created.ChangeSetID
 		item := historyItemForChangeSetTarget(t, harness, login, indicatorID, changeSetID, "indicator_state_interval", interval.IntervalID.String())
 		requireHistoryActionContains(t, item, "history_entry")
 		ref := historyEntryRefForTarget(t, harness, login, indicatorID, "indicator_state_interval", interval.IntervalID.String())
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, indicatorID, map[string]any{
-			"base_row_version": 1,
+			"base_row_version": 2,
 			"client_txn_id":    "txn-i-7-06-interval-create-rollback",
 			"target":           map[string]any{"kind": "history_entry", "history_entry_ref": ref},
 		}), 200)
@@ -226,6 +231,23 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatal("tombstoned interval remained in lifecycle selection")
 		}
 	})
+}
+
+func indicatorChildObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey string, resolvedID *uuid.UUID, clientTxnID string) indicators.IndicatorObservationCreateParams {
+	return indicators.IndicatorObservationCreateParams{
+		IncidentID: incidentID, SourceRecordID: sourceID, BaseRowVersion: 1,
+		SourceFieldKey: fieldKey, SpanStartByte: 0, SpanEndByte: len("record-support-source-row"),
+		ResolvedIndicatorRecordID: resolvedID, ClientTxnID: clientTxnID,
+		RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+	}
+}
+
+func indicatorChildLifecycleParams(incidentID uuid.UUID, indicatorID uuid.UUID, baseRowVersion int64, validFrom time.Time, clientTxnID string) indicators.IndicatorLifecycleAppendParams {
+	return indicators.IndicatorLifecycleAppendParams{
+		IncidentID: incidentID, IndicatorRecordID: indicatorID, BaseRowVersion: baseRowVersion,
+		LifecycleState: "active", ValidFrom: validFrom, SupportRefs: []uuid.UUID{},
+		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+	}
 }
 
 func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string) uuid.UUID {

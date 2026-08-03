@@ -38,6 +38,11 @@ import type {
   WorkbookContinuityAnchor,
   WorkbookContinuityToken,
 } from "../../continuity/workbookContinuityPort";
+import {
+  type IndicatorInspectorAction,
+  IndicatorInspectorWorkflow,
+  isIndicatorInspectorAction,
+} from "../../features/indicators/IndicatorInspectorWorkflow";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { WorkbookSurfaceLayout } from "../../layout/WorkbookSurfaceLayout";
@@ -165,6 +170,18 @@ import {
 
 const timelineContract = requireViewContract(timelineViewSchemaId);
 const timelineInspectorConfig = selectInspectorConfig(timelineContract);
+const timelineObservationSourceFields = [
+  { fieldKey: "timeline.date_entered_text", label: "Date Entered" },
+  { fieldKey: "timeline.analyst_text", label: "Analyst" },
+  { fieldKey: "timeline.mitre_stage_text", label: "MITRE Stage" },
+  { fieldKey: "timeline.device_object_text", label: "Device/Object" },
+  { fieldKey: "timeline.ip_address_text", label: "IP Address" },
+  { fieldKey: "timeline.activity_utc_text", label: "Activity UTC" },
+  { fieldKey: "timeline.activity_local_text", label: "Activity Local" },
+  { fieldKey: "timeline.raw_activity_text", label: "Raw Activity" },
+  { fieldKey: "timeline.activity_synopsis_text", label: "Activity Synopsis" },
+  { fieldKey: "timeline.data_source_text", label: "Data Source" },
+] as const;
 const createRelatedTargetViewSchemaIds = [
   notesViewSchemaId,
   taskRequestsViewSchemaId,
@@ -206,6 +223,7 @@ function recordWorkbookTiming(
 
 function TimelineWorkbookContent({
   collaborationProjection,
+  indicatorWorkflow,
   mutationCommands,
   mutationRuntime,
   pendingMutationPort,
@@ -267,6 +285,8 @@ function TimelineWorkbookContent({
       }),
     [apiBase, incidentId, mutationCommands.identity],
   );
+  const [indicatorInspectorAction, setIndicatorInspectorAction] =
+    useState<IndicatorInspectorAction | null>(null);
   const {
     commands: {
       onColumnHiddenChange: handleColumnHiddenChange,
@@ -765,6 +785,31 @@ function TimelineWorkbookContent({
     setInspectorMessage,
     targetContracts: createRelatedTargetContracts,
   });
+  const handleInspectorFeatureAction = useCallback(
+    (featureGroup: Parameters<typeof beginCreateRelatedWorkflow>[0]) => {
+      const action = featureGroup.routeBinding.actionKey;
+      if (isIndicatorInspectorAction(action)) {
+        setIndicatorInspectorAction(action);
+        setInspectorMessage(null);
+        cancelCreateRelatedWorkflow();
+        return;
+      }
+      setIndicatorInspectorAction(null);
+      beginCreateRelatedWorkflow(featureGroup);
+    },
+    [
+      beginCreateRelatedWorkflow,
+      cancelCreateRelatedWorkflow,
+      setInspectorMessage,
+    ],
+  );
+  const supportsTimelineInspectorFeature = useCallback(
+    (featureGroup: Parameters<typeof beginCreateRelatedWorkflow>[0]) =>
+      (featureGroup.routeBinding.kind === "view_row_create" &&
+        featureGroup.routeBinding.owner === "view_row_create_route") ||
+      featureGroup.routeBinding.actionKey === "indicator.observations.manage",
+    [],
+  );
   const createRelatedNeedsIncidentMembers =
     createRelatedWorkflow?.targetContract.fields.some(
       (field) =>
@@ -1797,7 +1842,8 @@ function TimelineWorkbookContent({
               clearRowHistory();
               cancelCreateRelatedWorkflow();
             }}
-            onFeatureAction={beginCreateRelatedWorkflow}
+            onFeatureAction={handleInspectorFeatureAction}
+            isFeatureActionSupported={supportsTimelineInspectorFeature}
             onResolveTargetChange={handleResolveTargetChange}
             onSelectMention={handleSelectMention}
             onSetInspectorMessage={setInspectorMessage}
@@ -1806,7 +1852,23 @@ function TimelineWorkbookContent({
             renderEvidenceAttachSection={renderEvidenceAttachSection}
             renderInspectorFieldEditors={renderInspectorFieldEditors}
             renderRelationshipEditors={renderInspectorRelationshipEditors}
-            renderWorkflowSection={renderCreateRelatedWorkflowSection}
+            renderWorkflowSection={() => (
+              <>
+                {renderCreateRelatedWorkflowSection()}
+                {selectedRow?.recordId && selectedRow.rowVersion !== null ? (
+                  <IndicatorInspectorWorkflow
+                    action={indicatorInspectorAction}
+                    port={indicatorWorkflow}
+                    rowVersion={selectedRow.rowVersion}
+                    sourceFields={timelineObservationSourceFields}
+                    sourceRecordId={selectedRow.recordId}
+                    onMutationCommitted={() =>
+                      loadRowsRef.current({ showLoading: false })
+                    }
+                  />
+                ) : null}
+              </>
+            )}
             renderRowHistorySection={renderRowHistorySection}
             rowHistoryRecordId={
               currentHistoryDeleted ? currentHistoryRecordId : null

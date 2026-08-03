@@ -29,12 +29,16 @@ export function WorkbookInspectorPanelSection({
   children,
   config,
   disabledTokens,
+  isFeatureActionSupported,
   panelId,
   onFeatureAction,
 }: {
   readonly children?: ReactNode;
   readonly config: InspectorConfig;
   readonly disabledTokens: ReadonlySet<InspectorDisabledToken>;
+  readonly isFeatureActionSupported?:
+    | ((featureGroup: InspectorFeatureGroup) => boolean)
+    | undefined;
   readonly panelId: InspectorPanelId;
   readonly onFeatureAction?: (featureGroup: InspectorFeatureGroup) => void;
 }) {
@@ -44,7 +48,11 @@ export function WorkbookInspectorPanelSection({
   if (!panel) {
     return null;
   }
-  const featureGroups = inspectorFeatureGroupsForPanel(config, panelId);
+  const featureGroups = inspectorFeatureGroupsForPanel(config, panelId).filter(
+    (featureGroup) =>
+      onFeatureAction !== undefined &&
+      (isFeatureActionSupported?.(featureGroup) ?? true),
+  );
   return (
     <section
       data-testid={workbookInspectorPanelTestId(config.viewSchemaId, panelId)}

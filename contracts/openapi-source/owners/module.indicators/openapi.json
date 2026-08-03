@@ -1,5 +1,4 @@
 {
-  "x-cartulary-activation": "SL-12",
   "paths": {
     "/api/v1/records/{source_record_id}/indicator-observations": {
       "parameters": [

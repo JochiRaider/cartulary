@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -22,16 +21,13 @@ func TestIndicatorObservationOriginConstraint_Integration(t *testing.T) {
 
 	sourceID := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceID)
-	observation, _, err := store.CreateIndicatorObservation(ctx, actor, indicators.IndicatorObservationCreateParams{
-		IncidentID:     incident.ID,
-		SourceRecordID: sourceID,
-		SourceFieldKey: timelinetest.FieldSourceText,
-		OriginLocator:  "origin-constraint-test",
-		ObservedText:   "constraint.example.test",
-	})
+	result, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(
+		incident.ID, sourceID, timelinetest.FieldSourceText, nil, "txn-origin-constraint-test",
+	))
 	if err != nil {
 		t.Fatalf("create valid observation: %v", err)
 	}
+	observation := result.Observation
 	if observation.OriginKind != "manual_entry" {
 		t.Fatalf("stored origin = %q", observation.OriginKind)
 	}

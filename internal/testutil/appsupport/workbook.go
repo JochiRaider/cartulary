@@ -1,6 +1,7 @@
 package appsupport
 
 import (
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -34,6 +35,7 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		Postgres:    pool,
 		Revisions:   appender,
 		Projections: timelineBundle.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
 	})
 	if err != nil {
 		panic(err)

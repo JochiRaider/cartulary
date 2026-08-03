@@ -26,6 +26,7 @@ var requiredBuiltInRouteContributionIDs = []string{
 	"workbook",
 	"timeline",
 	"revisions",
+	"indicators",
 }
 
 type extensionRouteBinding struct {

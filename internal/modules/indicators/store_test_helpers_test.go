@@ -8,7 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -22,6 +23,7 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 		Postgres:    db,
 		Revisions:   appender,
 		Projections: coordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(coordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test store: %v", err)
@@ -31,11 +33,24 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 
 func newIndicatorTestProjectionCoordinator(t testing.TB, db postgres.DB) *projections.Coordinator {
 	t.Helper()
-	catalog, err := projectionassembly.NewCatalog(nil)
-	if err != nil {
-		t.Fatalf("compose Indicator projection catalog: %v", err)
+	return timelineassembly.NewProjectionBundle(db).Coordinator
+}
+
+func manualObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey string, resolvedID *uuid.UUID, clientTxnID string) indicators.IndicatorObservationCreateParams {
+	return indicators.IndicatorObservationCreateParams{
+		IncidentID: incidentID, SourceRecordID: sourceID, BaseRowVersion: 1,
+		SourceFieldKey: fieldKey, SpanStartByte: 0, SpanEndByte: len("record-support-source-row"),
+		ResolvedIndicatorRecordID: resolvedID, ClientTxnID: clientTxnID,
+		RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
 	}
-	return projections.NewCoordinator(db, catalog)
+}
+
+func lifecycleAppendParams(incidentID uuid.UUID, indicatorID uuid.UUID, baseRowVersion int64, validFrom time.Time, clientTxnID string) indicators.IndicatorLifecycleAppendParams {
+	return indicators.IndicatorLifecycleAppendParams{
+		IncidentID: incidentID, IndicatorRecordID: indicatorID, BaseRowVersion: baseRowVersion,
+		LifecycleState: "active", ValidFrom: validFrom, SupportRefs: []uuid.UUID{},
+		ClientTxnID: clientTxnID, RequestID: "req-" + clientTxnID, RequestHash: []byte("hash-" + clientTxnID),
+	}
 }
 
 type indicatorProjectionRow struct {

@@ -34,6 +34,7 @@ import {
   buildAttachedEvidencePatchPayload,
   normalizeTimelineFullRow,
 } from "../timeline/models/workbookTimelineModel";
+import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { SecureTransactionIdPort } from "./secureTransactionId";
 import type {
   AssessmentCreateOutcome,
@@ -438,6 +439,10 @@ export function createWorkbookMutationCommandPorts(
     apiBase: context.apiBase,
   });
   return {
+    indicators: createIndicatorWorkflowPort({
+      apiBase: context.apiBase,
+      createMutationID: (prefix) => createId(context.transactionIds, prefix),
+    }),
     timeline: {
       identity: {
         createLogicalActionId() {

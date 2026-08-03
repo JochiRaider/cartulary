@@ -40,6 +40,11 @@
       "role": "owner"
     },
     {
+      "owner_id": "module.indicators",
+      "path": "contracts/openapi-source/owners/module.indicators/openapi.json",
+      "role": "owner"
+    },
+    {
       "owner_id": "module.incidents",
       "path": "contracts/openapi-source/owners/module.incidents/openapi.json",
       "role": "owner"

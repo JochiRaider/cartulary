@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
@@ -112,6 +113,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 		Postgres:    harness.DB,
 		Revisions:   appender,
 		Projections: projectionCatalog.Coordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(projectionCatalog.Coordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

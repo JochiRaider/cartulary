@@ -17,6 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
 	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -31,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	indicatorshttpapi "github.com/JochiRaider/cartulary/internal/modules/indicators/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -812,6 +814,8 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		Postgres:    postgresHandle,
 		Revisions:   revisionRuntime.Appender(),
 		Projections: timelineBundle.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
+		Clock:       now,
 	})
 	if err != nil {
 		runtime.Close()
@@ -1067,6 +1071,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			Facade: timelineFacade,
 		})},
 		{id: "revisions", registrar: revisionRoutes},
+		{id: "indicators", registrar: indicatorshttpapi.RegisterRoutes(indicatorOwner)},
 	}, []extensionRouteBinding{
 		{
 			id: "enterprise_authentication_routes",

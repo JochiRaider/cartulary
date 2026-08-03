@@ -35,22 +35,14 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("create indicator: %v", err)
 	}
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.RecordID)
-	if _, _, err := store.CreateIndicatorObservation(ctx, actor, indicators.IndicatorObservationCreateParams{
-		IncidentID:                incident.ID,
-		SourceRecordID:            timelinetest.RecordID,
-		SourceFieldKey:            timelinetest.FieldSourceText,
-		OriginLocator:             "indicator-portability-characterization",
-		ObservedText:              "PORTABLE[.]EXAMPLE.TEST",
-		ResolvedIndicatorRecordID: &created.RecordID,
-	}); err != nil {
+	if _, err := store.CreateIndicatorObservation(ctx, actor, manualObservationParams(
+		incident.ID, timelinetest.RecordID, timelinetest.FieldSourceText, &created.RecordID, "txn-indicator-portability-observation",
+	)); err != nil {
 		t.Fatalf("create observation: %v", err)
 	}
-	if _, _, err := store.AppendIndicatorLifecycleInterval(ctx, actor, indicators.IndicatorLifecycleAppendParams{
-		IncidentID:        incident.ID,
-		IndicatorRecordID: created.RecordID,
-		LifecycleState:    "active",
-		ValidFrom:         indicatortest.PastTime,
-	}); err != nil {
+	if _, err := store.AppendIndicatorLifecycleInterval(ctx, actor, lifecycleAppendParams(
+		incident.ID, created.RecordID, 2, indicatortest.PastTime, "txn-indicator-portability-lifecycle",
+	)); err != nil {
 		t.Fatalf("append interval: %v", err)
 	}
 

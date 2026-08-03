@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -43,10 +44,12 @@ func newTestNetworkFlowStore(
 	if err != nil {
 		t.Fatalf("compose Indicator projection catalog: %v", err)
 	}
+	projectionCoordinator := projections.NewCoordinator(db, projectionCatalog)
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    db,
 		Revisions:   appender,
-		Projections: projections.NewCoordinator(db, projectionCatalog),
+		Projections: projectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(projectionCoordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

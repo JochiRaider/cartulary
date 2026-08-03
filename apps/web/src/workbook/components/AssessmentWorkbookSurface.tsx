@@ -456,6 +456,14 @@ export function AssessmentWorkbookSurface({
               <WorkbookInspectorPanelSection
                 config={inspectorConfig}
                 disabledTokens={assessmentInspectorDisabledTokens}
+                isFeatureActionSupported={(featureGroup) =>
+                  featureGroup.featureGroupKey ===
+                    "create_related.assessment" &&
+                  featureGroup.routeBinding.kind === "view_row_create" &&
+                  featureGroup.routeBinding.owner === "view_row_create_route" &&
+                  featureGroup.routeBinding.targetViewSchemaId ===
+                    assessmentsViewSchemaId
+                }
                 key={panel.panelId}
                 panelId={panel.panelId}
                 onFeatureAction={beginAssessmentFeatureAction}

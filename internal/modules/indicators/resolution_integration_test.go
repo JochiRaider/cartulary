@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
@@ -19,6 +18,8 @@ import (
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorsRoute_Integration(t *testing.T) {
+	t.Run("production child workflows", verifyIndicatorProductionChildRoutes)
+
 	harness := appsupport.StartServer(t, "entity_linking-i-4-07-indicators")
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -96,23 +97,16 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		{id: timelinetest.SiblingRecordID.String(), field: timelinetest.FieldSummary},
 	} {
 		sourceID := appsupport.MustUUID(t, sourceRecordID.id)
-		if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
-			IncidentID:                incidentID,
-			SourceRecordID:            sourceID,
-			SourceFieldKey:            sourceRecordID.field,
-			OriginLocator:             "entity_linking-i-4-07-observation-" + string(rune('1'+index)),
-			ObservedText:              indicatortest.Examples[0].DefangedValue,
-			ResolvedIndicatorRecordID: &recordID,
-		}); err != nil {
+		if _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, manualObservationParams(
+			incidentID, sourceID, sourceRecordID.field, &recordID,
+			"txn-entity-linking-route-observation-"+string(rune('1'+index)),
+		)); err != nil {
 			t.Fatalf("create observation %d: %v", index, err)
 		}
 	}
-	if _, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorLifecycleAppendParams{
-		IncidentID:        incidentID,
-		IndicatorRecordID: recordID,
-		LifecycleState:    "active",
-		ValidFrom:         indicatortest.PastTime,
-	}); err != nil {
+	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, lifecycleAppendParams(
+		incidentID, recordID, 3, indicatortest.PastTime, "txn-entity-linking-route-lifecycle",
+	)); err != nil {
 		t.Fatalf("append lifecycle: %v", err)
 	}
 	rowsBeforeRebuild := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login)

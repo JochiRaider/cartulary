@@ -47,11 +47,23 @@ func TestProductionCompletenessFoundation(t *testing.T) {
 	requireBearerScheme(t, schemes, "credentialBootstrapBearer")
 
 	parameters := fixtureObject(t, components["parameters"], "components.parameters")
-	if len(parameters) != 8 {
-		t.Fatalf("expected eight shared path parameters, got %d", len(parameters))
+	expectedParameters := []string{
+		"AuthBindingIDPathParameter", "ConflictTokenPathParameter", "EvidenceHandleTokenPathParameter",
+		"IncidentIDPathParameter", "IndicatorIDPath", "IndicatorListCursor", "IndicatorListLimit",
+		"IndicatorObservationIDPath", "ProviderKeyPathParameter", "RecordIDPathParameter",
+		"UserIDPathParameter", "ViewSchemaIDPathParameter",
+	}
+	if strings.Join(sortedMapKeysForTest(parameters), "\x00") != strings.Join(expectedParameters, "\x00") {
+		t.Fatalf("shared parameter inventory changed: %#v", sortedMapKeysForTest(parameters))
 	}
 	for name, raw := range parameters {
 		parameter := fixtureObject(t, raw, "components.parameters."+name)
+		if name == "IndicatorListCursor" || name == "IndicatorListLimit" {
+			if parameter["in"] != "query" || parameter["required"] != false {
+				t.Fatalf("%s must be an optional query parameter, got %#v", name, parameter)
+			}
+			continue
+		}
 		if parameter["in"] != "path" || parameter["required"] != true {
 			t.Fatalf("%s must be a required path parameter, got %#v", name, parameter)
 		}

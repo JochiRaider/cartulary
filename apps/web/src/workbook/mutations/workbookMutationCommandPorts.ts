@@ -260,6 +260,87 @@ export interface CoordinationMutationCommandPort {
   }): Promise<DecisionSupersedeOutcome>;
 }
 
+export type IndicatorLifecycleState =
+  | "active"
+  | "benign"
+  | "false_positive"
+  | "retired";
+
+export type IndicatorObservation = {
+  readonly observation_id: string;
+  readonly incident_id: string;
+  readonly source_record_id: string;
+  readonly source_field_key: string;
+  readonly origin_kind: string;
+  readonly origin_locator: string;
+  readonly observed_text: string;
+  readonly parsed_indicator_type: string | null;
+  readonly normalized_candidate: string | null;
+  readonly resolution_status: "unresolved" | "resolved" | "dismissed";
+  readonly resolved_indicator_record_id: string | null;
+  readonly row_version: number;
+  readonly created_by_user_id: string;
+  readonly created_at: string;
+  readonly resolved_by_user_id: string | null;
+  readonly resolved_at: string | null;
+  readonly resolution_method: string | null;
+};
+
+export type IndicatorStateInterval = {
+  readonly interval_id: string;
+  readonly incident_id: string;
+  readonly indicator_record_id: string;
+  readonly lifecycle_state: IndicatorLifecycleState;
+  readonly valid_from: string;
+  readonly valid_to: string | null;
+  readonly confidence: number | null;
+  readonly rationale: string | null;
+  readonly support_refs: readonly string[];
+  readonly assessor: string | null;
+  readonly assessed_at: string;
+  readonly row_version: number;
+  readonly created_by_user_id: string;
+  readonly created_at: string;
+};
+
+export interface IndicatorWorkflowPort {
+  listSourceObservations(input: {
+    readonly sourceRecordId: string;
+  }): Promise<WorkbookOperationOutcome<readonly IndicatorObservation[]>>;
+  listObservations(input: {
+    readonly indicatorRecordId: string;
+  }): Promise<WorkbookOperationOutcome<readonly IndicatorObservation[]>>;
+  listStateIntervals(input: {
+    readonly indicatorRecordId: string;
+  }): Promise<WorkbookOperationOutcome<readonly IndicatorStateInterval[]>>;
+  createManualObservation(input: {
+    readonly baseRowVersion: number;
+    readonly parsedIndicatorType?: string | undefined;
+    readonly resolvedIndicatorRecordId?: string | undefined;
+    readonly sourceFieldKey: string;
+    readonly sourceRecordId: string;
+    readonly spanEndByte: number;
+    readonly spanStartByte: number;
+  }): Promise<WorkbookOperationOutcome<IndicatorObservation>>;
+  transitionObservation(input: {
+    readonly action: "dismiss" | "resolve" | "restore";
+    readonly baseRowVersion: number;
+    readonly observationId: string;
+    readonly resolvedIndicatorRecordId?: string | undefined;
+  }): Promise<WorkbookOperationOutcome<IndicatorObservation>>;
+  appendStateInterval(input: {
+    readonly assessor: string | null;
+    readonly baseRowVersion: number;
+    readonly confidence: number | null;
+    readonly indicatorRecordId: string;
+    readonly lifecycleState: IndicatorLifecycleState;
+    readonly rationale: string | null;
+    readonly supportRefs: readonly string[];
+    readonly validFrom: string;
+    readonly validTo: string | null;
+  }): Promise<WorkbookOperationOutcome<IndicatorStateInterval>>;
+}
+
 export type WorkbookMutationCommandPorts = {
   readonly timeline: TimelineMutationCommandPorts;
   readonly generic: GenericMutationCommandPort;
@@ -267,4 +348,5 @@ export type WorkbookMutationCommandPorts = {
   readonly assessment: AssessmentMutationCommandPort;
   readonly evidence: EvidenceCapabilityPort;
   readonly coordination: CoordinationMutationCommandPort;
+  readonly indicators: IndicatorWorkflowPort;
 };

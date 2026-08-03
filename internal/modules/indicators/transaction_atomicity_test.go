@@ -25,6 +25,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		Postgres:    db,
 		Revisions:   &revisions.Appender{},
 		Projections: transactionTestProjectionPort{},
+		SourceText:  transactionTestSourceTextPort{},
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
@@ -87,13 +88,17 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 
 	owner.revisionsStore = &failingIndicatorRevisionPort{failAt: 1}
-	if _, _, observationErr := owner.CreateIndicatorObservation(ctx, actor, IndicatorObservationCreateParams{
+	if _, observationErr := owner.CreateIndicatorObservation(ctx, actor, IndicatorObservationCreateParams{
 		IncidentID:                incidentID,
 		SourceRecordID:            created.RecordID,
+		BaseRowVersion:            1,
 		SourceFieldKey:            "indicator.display_value",
-		OriginLocator:             "indicator-atomicity-observation",
-		ObservedText:              "source.example",
+		SpanStartByte:             0,
+		SpanEndByte:               len("source.example"),
 		ResolvedIndicatorRecordID: &created.RecordID,
+		ClientTxnID:               "txn-indicator-atomicity-observation",
+		RequestID:                 "request-indicator-atomicity-observation",
+		RequestHash:               []byte("indicator-atomicity-observation"),
 	}); !errors.Is(observationErr, errInjectedIndicatorRevision) {
 		t.Fatalf("observation revision failure = %v", observationErr)
 	}
@@ -102,11 +107,16 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 
 	owner.revisionsStore = &failingIndicatorRevisionPort{failAt: 1}
-	if _, _, lifecycleErr := owner.AppendIndicatorLifecycleInterval(ctx, actor, IndicatorLifecycleAppendParams{
+	if _, lifecycleErr := owner.AppendIndicatorLifecycleInterval(ctx, actor, IndicatorLifecycleAppendParams{
 		IncidentID:        incidentID,
 		IndicatorRecordID: created.RecordID,
+		BaseRowVersion:    1,
 		LifecycleState:    "active",
 		ValidFrom:         now.Add(3 * time.Minute),
+		SupportRefs:       []uuid.UUID{},
+		ClientTxnID:       "txn-indicator-atomicity-lifecycle",
+		RequestID:         "request-indicator-atomicity-lifecycle",
+		RequestHash:       []byte("indicator-atomicity-lifecycle"),
 	}); !errors.Is(lifecycleErr, errInjectedIndicatorRevision) {
 		t.Fatalf("lifecycle revision failure = %v", lifecycleErr)
 	}
@@ -130,6 +140,21 @@ func (failingIndicatorProjectionPort) LoadRowTx(context.Context, pgx.Tx, string,
 
 type transactionTestProjectionPort struct{}
 
+type transactionTestSourceTextPort struct{}
+
+func (transactionTestSourceTextPort) LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error) {
+	row := map[string]any{"cells": map[string]any{}}
+	return SourceTextValue{ViewSchemaID: ViewSchemaID, Text: "source.example", Row: row}, nil
+}
+
+func (transactionTestSourceTextPort) LoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error) {
+	return map[string]any{"view_schema_id": "cartulary.view.timeline.v2", "cells": map[string]any{}}, nil
+}
+
+func (transactionTestSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error) {
+	return map[string]any{"view_schema_id": "cartulary.view.timeline.v2", "cells": map[string]any{}}, nil
+}
+
 func (transactionTestProjectionPort) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	if viewSchemaID != ViewSchemaID {
 		return errors.New("unexpected projection view")
@@ -146,9 +171,10 @@ func (transactionTestProjectionPort) LoadRowTx(ctx context.Context, tx pgx.Tx, v
 		return nil, err
 	}
 	return map[string]any{
-		"record_id":   recordID.String(),
-		"row_version": rowVersion,
-		"cells":       map[string]any{},
+		"view_schema_id": ViewSchemaID,
+		"record_id":      recordID.String(),
+		"row_version":    rowVersion,
+		"cells":          map[string]any{},
 	}, nil
 }
 

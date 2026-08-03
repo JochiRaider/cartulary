@@ -25,10 +25,14 @@ func TestIndicatorStoreCompositionAndRepositoryBoundaries(t *testing.T) {
 	if _, err := NewStore(StoreDependencies{Postgres: inertIndicatorDB{}, Revisions: &revisions.Appender{}}); err == nil || !strings.Contains(err.Error(), "Projections is required") {
 		t.Fatalf("missing Projections dependency error = %v", err)
 	}
+	if _, err := NewStore(StoreDependencies{Postgres: inertIndicatorDB{}, Revisions: &revisions.Appender{}, Projections: inertIndicatorProjectionPort{}}); err == nil || !strings.Contains(err.Error(), "SourceText is required") {
+		t.Fatalf("missing SourceText dependency error = %v", err)
+	}
 	owner, err := NewStore(StoreDependencies{
 		Postgres:    inertIndicatorDB{},
 		Revisions:   &revisions.Appender{},
 		Projections: inertIndicatorProjectionPort{},
+		SourceText:  inertIndicatorSourceTextPort{},
 	})
 	if err != nil || owner == nil {
 		t.Fatalf("compose complete Indicators owner: owner=%#v err=%v", owner, err)
@@ -82,6 +86,8 @@ type inertIndicatorDB struct{}
 
 type inertIndicatorProjectionPort struct{}
 
+type inertIndicatorSourceTextPort struct{}
+
 type recordingIndicatorProjectionPort struct {
 	calls []string
 	row   map[string]any
@@ -103,6 +109,18 @@ func (inertIndicatorProjectionPort) RefreshRowTx(context.Context, pgx.Tx, string
 
 func (inertIndicatorProjectionPort) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
 	panic("unexpected LoadRowTx")
+}
+
+func (inertIndicatorSourceTextPort) LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error) {
+	panic("unexpected LoadTextTx")
+}
+
+func (inertIndicatorSourceTextPort) LoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error) {
+	panic("unexpected LoadRowTx")
+}
+
+func (inertIndicatorSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error) {
+	panic("unexpected RefreshAndLoadRowTx")
 }
 
 func (inertIndicatorDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {

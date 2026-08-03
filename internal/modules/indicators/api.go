@@ -31,7 +31,10 @@ const (
 	httpStatusOK      = 200
 )
 
-var ErrInvalidCreateRequest = errors.New("indicators: invalid create request")
+var (
+	ErrInvalidCreateRequest  = errors.New("indicators: invalid create request")
+	ErrSourceTextUnavailable = errors.New("indicators: source text unavailable")
+)
 
 type Store struct {
 	pool               postgres.DB
@@ -40,6 +43,8 @@ type Store struct {
 	recordStore        *records.Store
 	revisionsStore     revisionAppendPort
 	projections        ProjectionPort
+	sourceText         SourceTextPort
+	now                func() time.Time
 	sources            sourceRepository
 	observations       observationRepository
 	lifecycles         lifecycleRepository
@@ -52,11 +57,28 @@ type StoreDependencies struct {
 	Postgres    postgres.DB
 	Revisions   *revisions.Appender
 	Projections ProjectionPort
+	SourceText  SourceTextPort
+	Clock       func() time.Time
 }
 
 type ProjectionPort interface {
 	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
 	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
+}
+
+// SourceTextPort is the narrow transaction-visible read boundary used by
+// manual observation admission. Its implementation resolves the owning view
+// contract and returns the canonical projected row with the exact text value.
+type SourceTextPort interface {
+	LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error)
+	LoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error)
+	RefreshAndLoadRowTx(context.Context, pgx.Tx, uuid.UUID, string, string) (map[string]any, error)
+}
+
+type SourceTextValue struct {
+	ViewSchemaID string
+	Text         string
+	Row          map[string]any
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -69,6 +91,13 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	if dependencies.Projections == nil {
 		return nil, fmt.Errorf("compose Indicators store: Projections is required")
 	}
+	if dependencies.SourceText == nil {
+		return nil, fmt.Errorf("compose Indicators store: SourceText is required")
+	}
+	now := dependencies.Clock
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
 	store := &Store{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
@@ -76,6 +105,8 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 		recordStore:    records.NewStore(),
 		revisionsStore: newRevisionAppendAdapter(dependencies.Revisions),
 		projections:    dependencies.Projections,
+		sourceText:     dependencies.SourceText,
+		now:            now,
 		sources:        sourceRepository{},
 		observations:   observationRepository{},
 		lifecycles:     lifecycleRepository{},

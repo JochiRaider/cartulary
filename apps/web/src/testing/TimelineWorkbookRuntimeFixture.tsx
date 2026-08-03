@@ -223,6 +223,7 @@ export function TimelineWorkbookRuntimeFixture({
           mutationRuntime,
           pendingMutationPort,
           mutationCommands: mutationCommands.timeline,
+          indicatorWorkflow: mutationCommands.indicators,
           incident: {
             id: incidentId,
             apiBase,

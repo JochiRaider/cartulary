@@ -6,7 +6,10 @@ import type {
   FilterDraft,
   WorkbookQueryState,
 } from "../../models/workbookQuery";
-import type { TimelineMutationCommandPorts } from "../../mutations/workbookMutationCommandPorts";
+import type {
+  IndicatorWorkflowPort,
+  TimelineMutationCommandPorts,
+} from "../../mutations/workbookMutationCommandPorts";
 import type { WorkbookIncidentPort } from "../../ports/WorkbookIncidentPort";
 import type { WorkbookPendingMutationPort } from "../../ports/WorkbookPendingMutationPort";
 import type { WorkbookQueryRow } from "../../query/WorkbookQueryRow";
@@ -43,6 +46,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly mutationRuntime: WorkbookMutationRuntime;
   readonly pendingMutationPort: WorkbookPendingMutationPort;
   readonly mutationCommands: TimelineMutationCommandPorts;
+  readonly indicatorWorkflow: IndicatorWorkflowPort;
   readonly incident: {
     readonly id: string;
     readonly apiBase: string | undefined;

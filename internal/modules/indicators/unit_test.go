@@ -50,24 +50,17 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 		{id: timelinetest.RecordID, field: timelinetest.FieldSourceText},
 		{id: timelinetest.SiblingRecordID, field: timelinetest.FieldSummary},
 	} {
-		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
-			IncidentID:                incident.ID,
-			SourceRecordID:            sourceRecordID.id,
-			SourceFieldKey:            sourceRecordID.field,
-			OriginLocator:             "entity_linking-u-4-07-observation-" + string(rune('1'+index)),
-			ObservedText:              indicatortest.Examples[0].DefangedValue,
-			ResolvedIndicatorRecordID: &first.RecordID,
-		})
-		if err != nil || observation.ObservationID == first.RecordID {
-			t.Fatalf("create source-bound observation %d: %#v %v", index, observation, err)
+		result, err := store.CreateIndicatorObservation(context.Background(), actor, manualObservationParams(
+			incident.ID, sourceRecordID.id, sourceRecordID.field, &first.RecordID,
+			"txn-entity-linking-observation-"+string(rune('1'+index)),
+		))
+		if err != nil || result.Observation.ObservationID == first.RecordID {
+			t.Fatalf("create source-bound observation %d: %#v %v", index, result, err)
 		}
 	}
-	if _, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicators.IndicatorLifecycleAppendParams{
-		IncidentID:        incident.ID,
-		IndicatorRecordID: first.RecordID,
-		LifecycleState:    "active",
-		ValidFrom:         indicatortest.PastTime,
-	}); err != nil {
+	if _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, lifecycleAppendParams(
+		incident.ID, first.RecordID, 3, indicatortest.PastTime, "txn-entity-linking-lifecycle",
+	)); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}
 	projection := lookupIndicatorProjection(t, harness.DB, first.RecordID)

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -202,6 +203,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		Postgres:    storeHarness.DB,
 		Revisions:   appender,
 		Projections: timelineBundle.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

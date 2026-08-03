@@ -601,15 +601,23 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
       ),
     ).toBeTruthy();
     expect(
+      screen.queryByTestId(
+        workbookInspectorFeatureActionTestId(
+          timelineViewSchemaId,
+          "timeline.mark_reviewed",
+        ),
+      ),
+    ).toBeNull();
+    expect(
       screen
         .getByTestId(
           workbookInspectorFeatureActionTestId(
             timelineViewSchemaId,
-            "timeline.mark_reviewed",
+            "indicator.observations.manage",
           ),
         )
         .getAttribute("data-route-owner"),
-    ).toBe("record_mark_reviewed_route");
+    ).toBe("indicator_observations_route");
     expect(
       screen.getByTestId(
         relationshipItemsTestId(

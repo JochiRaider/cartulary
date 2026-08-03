@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
@@ -135,10 +136,12 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 }
 
 func inertIndicatorOwner() *indicators.Store {
+	coordinator := projections.NewCoordinator(inertOwnerRegistryDB{}, &projections.Catalog{})
 	owner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    inertOwnerRegistryDB{},
 		Revisions:   &revisions.Appender{},
-		Projections: projections.NewCoordinator(inertOwnerRegistryDB{}, &projections.Catalog{}),
+		Projections: coordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(coordinator),
 	})
 	if err != nil {
 		panic(err)

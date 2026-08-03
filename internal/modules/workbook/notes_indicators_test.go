@@ -11,6 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -126,6 +127,7 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 		Postgres:    harness.DB,
 		Revisions:   appender,
 		Projections: timelineBundle.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -575,6 +577,7 @@ func newCatalogBackedWorkbookStore(
 		Postgres:    pool,
 		Revisions:   appender,
 		Projections: timelineBundle.ProjectionCoordinator,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
