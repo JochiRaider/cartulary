@@ -6,7 +6,7 @@
 - **Target label:** `indicators` (validated lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters)
 - **Output path:** `docs/handoffs/indicators-module-refactor-tracker.md`
 - **Repository baseline:** branch `main`, commit `67d2ce2c98ce9f124c87ca6d980ec9321b4d2ef7`, observed at `2026-08-03T08:32:42-04:00`
-- **Status:** Iteration 1 complete; Iteration 2 in progress (SL-14)
+- **Status:** Iteration 1 complete; Iteration 2 complete
 - **Allowed change:** the specification, authored contracts, implementation, tests, migrations, harness inputs, generated projections, and handoff evidence required by SL-00 through SL-08
 - **Non-goals:** unrelated frontend timestamp inference, draft Reference Pack ownership changes, and the historically Timeline-named runtime projection bundle
 - **Implementation authorization:** the user authorized the complete remediation plan on `2026-08-03`, including IND-016 owner closure and SL-00 through SL-08
@@ -623,7 +623,7 @@ No `BLOCKED: owner contradiction` entry is present because no conflict between a
 - **Authorization:** the user authorized the complete Indicators Production-Readiness and Legacy Retirement Iteration on `2026-08-03`.
 - **Starting branch and HEAD:** clean `main` at `15fb90cc48c6877dda5d84239927ec2136087822`.
 - **Baseline observed:** `2026-08-03T14:07:08-04:00` with no tracked or untracked worktree changes.
-- **Iteration status:** `IN PROGRESS — SL-14 test retirement, verification, and handoff`.
+- **Iteration status:** `COMPLETE — production handoff recorded in Section 13.15`.
 - **Execution order:** `tracker bootstrap -> SL-09 -> IND-029 -> SL-10 -> SL-11 -> SL-12 -> SL-13 -> SL-14`.
 - **Checkpoint gate:** every named workstream is one separately reviewable commit. Its validation evidence, migration notes, run roots, commit SHA, and next action must be recorded here before dependent work begins.
 - **Blocker rule:** unknown lifecycle values, duplicate active identities, owner-contract drift, unsafe migration data, or a failed owner acceptance gate blocks dependent work. No compatibility alias or guessed data rewrite may clear a blocker.
@@ -687,7 +687,7 @@ These findings establish the starting classification and are inputs to the exhau
 | 4 | SL-11 semantic facade and dead API retirement | IND-031 | Internal services, typed outcomes, exported-surface allowlist, narrow consumers, explicit database failures. | SL-10 content committed at `60329298`; claim maintenance available. | COMPLETE | Root AST allowlist, Indicator unit/service-backed owners, fast suite, focused Revisions child rollback, Projections owner, and backend boundary pass; retained nested-browser harness failures are classified below. | SL-12 admitted. |
 | 5 | SL-12 production observation and lifecycle workflows | IND-032 | Six route families/eight HTTP operations, source-span verification, closed transitions, keyset reads, Inspector handlers, and OpenAPI activation. | IND-029 adopted and SL-11 content committed at `5ce05c8e`. | COMPLETE | Indicator unit/service-backed routes, exact source spans, replay, transitions, history, projection, canonical collaboration, frontend unit/typecheck, Inspector bindings, browser, OpenAPI, generation, boundaries, and fast tests pass. | SL-13 admitted. |
 | 6 | SL-13 contract migration and physical dead-state removal | IND-033 | Constraint validation, mirror-column removal, fixed Records joins, reversible reconstruction. | SL-10 through SL-12 content is complete; production application remains gated on an operator-confirmed old-writer drain. | COMPLETE | Dedicated empty/upgrade/Down/Up migration evidence, source-SQL boundary, Indicator and Incident Bundle owners, focused Revisions, affected owner non-browser units, generation/shape/policy/boundary gates, and fast tests pass. | SL-14 admitted; retain the deployment drain gate. |
-| 7 | SL-14 test retirement, verification, and handoff | IND-034 | Focused current-contract suite, explicit verification rows, final gates, deployment handoff. | All prior slices committed. | PENDING | Final HEAD, run roots, residual risks, complete classification, and full check. | Hand off production-ready module. |
+| 7 | SL-14 test retirement, verification, and handoff | IND-034 | Focused current-contract suite, explicit verification rows, final gates, deployment handoff. | All prior slices committed. | COMPLETE | Pure identity tests, owner fixtures, 23 explicit Indicator rows, affected owner evidence, frontend/browser gates, fast suite, finalize, and full check are recorded in Section 13.15. | Apply the operator-gated deployment sequence; route residual harness debt to the Testing Harness owner. |
 
 ### 13.5 Validation and ownership matrix
 
@@ -719,7 +719,7 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 | SL-11 | COMPLETE | `5ce05c8e` | Indicator test/service-backed `.cartulary/test-results/20260803T192140Z-p1431035` and `.cartulary/test-results/20260803T192803Z-p1528395`; fast `.cartulary/test-results/20260803T192232Z-p1435684`; Projections `.cartulary/test-results/20260803T192643Z-p1519389`; focused Revisions child rollback `.cartulary/test-results/20260803T192746Z-p1526566`; boundary and Markdown `.cartulary/test-results/20260803T192854Z-p1537499` and `.cartulary/test-results/20260803T192856Z-p1537883`. | No migration or wire-format change. Repository Go callers moved atomically; no compatibility wrappers remain. Existing Indicator idempotency response bytes are preserved internally while Workbook owns HTTP projection. | SL-12 admitted. |
 | SL-12 | COMPLETE | `1b4eda62` | Indicator final test/service-backed `.cartulary/test-results/20260803T203930Z-p1948272` and `.cartulary/test-results/20260803T203913Z-p1946271`; focused production routes `.cartulary/test-results/20260803T203854Z-p1944763`; frontend unit/typecheck `.cartulary/test-results/20260803T202210Z-p1808392` and `.cartulary/test-results/20260803T201213Z-p1709530`; browser `.cartulary/test-results/20260803T202420Z-p1846683`; final fast `.cartulary/test-results/20260803T203939Z-p1950284`; drift, shape, policy, boundary, and lint roots in Section 13.13. | Additive route and OpenAPI activation only; no database migration. Exact manual provenance is derived from transaction-visible source bytes; no origin aliases or caller-selected `system`. | SL-13 admitted subject to the documented old-writer drain deployment gate. |
 | SL-13 | COMPLETE | `86ad647f` | Indicator test/service-backed `.cartulary/test-results/20260803T210650Z-p2190061` and `.cartulary/test-results/20260803T211311Z-p2271032`; migration Down/Up `.cartulary/test-results/20260803T211254Z-p2269530`; Incident Bundle test/service `.cartulary/test-results/20260803T210735Z-p2195912` and `.cartulary/test-results/20260803T205614Z-p2061670`; focused Revisions `.cartulary/test-results/20260803T205739Z-p2077771`; final fast `.cartulary/test-results/20260803T210904Z-p2210650`; final drift/policy/shape/boundary roots in Section 13.14. | Contract migration 00057 requires old-writer drain. Down reconstructs all mirrors from Records before old-binary restoration. Valid portable bytes remain unchanged. | SL-14 admitted. |
-| SL-14 | PENDING | pending | pending | Runtime-neutral retirement and final accounting. | Retire historical tests, publish final verification rows, and complete the handoff. |
+| SL-14 | COMPLETE | `509ee738` | Indicator test/service `.cartulary/test-results/20260803T212527Z-p2303652` and `.cartulary/test-results/20260803T212545Z-p2307211`; Revisions and Incident Bundle fixture rows `.cartulary/test-results/20260803T212644Z-p2309421` and `.cartulary/test-results/20260803T212656Z-p2311284`; frontend unit/typecheck `.cartulary/test-results/20260803T213222Z-p2416147` and `.cartulary/test-results/20260803T213412Z-p2451543`; browser `.cartulary/test-results/20260803T213427Z-p2452089`; fast `.cartulary/test-results/20260803T213839Z-p2507038`; final completion roots in Section 13.15. | Runtime-neutral test and verification retirement. Portable rows and bundle v1/v2 behavior remain unchanged. Contract migration 00057 retains its drain and Down-before-old-binary gates. | Iteration 2 complete; hand off deployment and the separately owned harness residuals. |
 
 ### 13.7 Deployment, migration, and rollback gates
 
@@ -741,9 +741,9 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 - [x] SL-11 removes the approved dead/broad API surface, retains a semantic owner facade, and passes its exported allowlist.
 - [x] SL-12 exposes secure production observation and lifecycle workflows with real Inspector handlers and no inert feature controls.
 - [x] SL-13 provides the writer-drain-gated physical envelope contraction and proves its reversible reconstruction path.
-- [ ] SL-14 removes redundant historical tests, publishes explicit current-contract verification rows, and closes every finding.
-- [ ] Backend and frontend boundary, migration, generation, artifact policy, JSON shape, Markdown, fast, focused service, frontend, browser, finalize, and full-check gates pass with recorded roots.
-- [ ] The final tracker records all slice SHAs, deployment and rollback instructions, residual risks, next-owner handoffs, final HEAD, and no unclassified finding.
+- [x] SL-14 removes redundant historical tests, publishes explicit current-contract verification rows, and closes every finding.
+- [x] Backend and frontend boundaries, generation, artifact policy, JSON shape, Markdown, fast, focused service, frontend, browser, finalize, and full-check gates pass with recorded roots; the public migration target's external PostgreSQL routing failure is classified in Section 13.15 alongside independently passing migration evidence.
+- [x] The final tracker records all slice SHAs, deployment and rollback instructions, residual risks, next-owner handoffs, final HEAD, and no unclassified finding.
 
 ### 13.9 SL-09 reachability and migration preflight
 
@@ -1178,3 +1178,70 @@ Retained failure evidence and disposition:
 - `make migration-drift` at `.cartulary/test-results/20260803T211358Z-p2277111` passed migration-history and input validation, then could not start this worktree's Compose PostgreSQL because the unrelated `repo-postgres-1` container from `/home/jochi/code/cartulary-wf01.kD7A0s/repo` owns host port 5432. No external container was stopped or changed. Migration-scratch owner tests independently replayed empty head, version 56 upgrade, Down, and subsequent Up through the repository migration API. SL-14 must rerun the public target when the external port owner is absent or retain this environmental disposition.
 
 SL-13 has no unclassified implementation or data condition. Its content checkpoint is `86ad647f`; production migration application remains gated on operator-confirmed preflight and old-writer drain. This ledger admits SL-14.
+
+### 13.15 SL-14 test retirement, verification, and production handoff
+
+#### Current-contract suite and dead-surface retirement
+
+Indicator identity verification now lives with the pure owner-internal identity package. It covers the complete nine-type registry, all three value-kind positions including the exact IP restrictions, malformed aliases and hash representations, presentation-field exclusion from identity, IPv4/IPv6 canonical exactness, and canonical dedupe convergence. The two root-package characterization wrappers and the duplicate IP wrapper file were deleted. A small root adapter test remains because projecting identity validation fields into the public `CreateCommand` error contract is owner-facade behavior rather than identity-package behavior.
+
+The two PostgreSQL-backed tests formerly named `_Unit` are now honestly named `_Integration`, and the remaining Indicator tests use named imports instead of dot imports. Production child routes have their own top-level integration test instead of executing transitively under the create/query route test. Static analysis at the completion gate also found and removed three newly unreachable helpers: the obsolete multi-row projection loader and the root identity normalization/dedupe wrappers that only the retired tests had consumed.
+
+Indicator test support now owns `SeedRecord` and `SeedSubtype`. Revisions uses the complete record fixture, while Incident Bundles uses the subtype-only fixture because it deliberately controls portable envelope timestamps. Those consumers no longer embed physical `INSERT INTO indicators` statements. The owner fixture canonicalizes identity before insertion, so cross-owner tests depend on a semantic test contract rather than subtype column order or a copied dedupe digest.
+
+The verification contract now contains 19 explicit claims, and the Indicator family manifest contains 23 ASCII-sorted rows. New independently attributable rows cover:
+
+- exported-surface minimization;
+- active identity claims following Records state and deterministic recovery rebuild;
+- exact lifecycle vocabulary;
+- production observation and lifecycle routes;
+- UTF-8 source-span admission and frontend provenance exclusion;
+- the closed observation transition state machine and transaction rollback;
+- migration 57 Down/Up storage contraction;
+- retained deterministic Indicator portability.
+
+The active-claim row exposed one stale test query that supplied normalized text where the claim schema requires the canonical dedupe key. It now obtains that key from the Indicator owner fixture. The final broad check exposed four new public Indicator not-found codes that had been adopted in Core 01 but were missing from the OpenTelemetry classification owner and machine registry. All four now map to `not_found`; `make otel-conformance` passes, and no runtime inference or prefix mapping was added.
+
+#### Passing validation evidence
+
+- `make test-slice OWNER=module.indicators` passed 26 of 26 at `.cartulary/test-results/20260803T215118Z-p2742578`.
+- `make service-backed-test-slice OWNER=module.indicators` passed 13 of 13 at `.cartulary/test-results/20260803T215134Z-p2749804`.
+- Focused Revisions delete/restore and Indicator child-history fixtures passed five of five at `.cartulary/test-results/20260803T212644Z-p2309421`.
+- Focused Incident Bundle import/portability fixtures passed four of four at `.cartulary/test-results/20260803T212656Z-p2311284`; the complete service-backed Incident Bundle owner passed at `.cartulary/test-results/20260803T213129Z-p2394807`.
+- Focused Workbook admission/projection and Network Flow participant rows passed at `.cartulary/test-results/20260803T212914Z-p2339859` and `.cartulary/test-results/20260803T212917Z-p2341227`.
+- Projections passed ten of ten authored rows and ten of ten service-backed units at `.cartulary/test-results/20260803T212924Z-p2346627` and `.cartulary/test-results/20260803T213041Z-p2386210`.
+- View Schema and OpenAPI owner slices passed at `.cartulary/test-results/20260803T213028Z-p2385739` and `.cartulary/test-results/20260803T213030Z-p2385936`.
+- `make backend-module-boundary-check` and `make frontend-import-boundary-check` passed at `.cartulary/test-results/20260803T212717Z-p2313075` and `.cartulary/test-results/20260803T212719Z-p2313450`.
+- `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check` passed at `.cartulary/test-results/20260803T212721Z-p2313768`, `.cartulary/test-results/20260803T212728Z-p2316285`, and `.cartulary/test-results/20260803T212729Z-p2316677`.
+- `make frontend-unit` passed 358 of 358 at `.cartulary/test-results/20260803T213222Z-p2416147`; `make frontend-typecheck` passed at `.cartulary/test-results/20260803T213412Z-p2451543`.
+- `make browser-e2e-webserver-backed` passed 62 of 62 against the real application at `.cartulary/test-results/20260803T213427Z-p2452089`.
+- `make otel-conformance` passed ten of ten after the complete public error mapping at `.cartulary/test-results/20260803T214930Z-p2724409`; `make lint-go` also passed after dead-helper removal.
+- Final `make test-fast` passed 347 of 347 at `.cartulary/test-results/20260803T215144Z-p2751286`.
+- Final `make check` passed 712 of 712 at `.cartulary/test-results/20260803T215410Z-p2812206`.
+- Final `make lint-markdown` and `make agent-finalize` passed at `.cartulary/test-results/20260803T215919Z-p2938373` and `.cartulary/test-results/20260803T215928Z-p2939866`.
+
+Module-author task guidance was consulted for Indicators, Workbook, Projections, Revisions, Network Flow, Incident Bundles, Recovery, View Schemas (`platform.viewschema`), and OpenAPI before selecting their final evidence. Retained-run maintenance was skipped because `RESULTS_DIR` was unset; no older run was presented as refreshed evidence.
+
+#### Classified harness and environment residuals
+
+There is no unclassified Indicator product, contract, migration-data, or test finding.
+
+- Broad Workbook, Network Flow, Revisions, and Recovery owner slices at `.cartulary/test-results/20260803T213044Z-p2387481`, `.cartulary/test-results/20260803T213055Z-p2389666`, `.cartulary/test-results/20260803T213112Z-p2391486`, and `.cartulary/test-results/20260803T213148Z-p2397334` pass their non-browser work but fail nested browser units because `start-web-e2e.sh` receives no `OWNER` from `test-slice` or `service-backed-test-slice`. The independently invoked webserver-backed browser gate passes 62 of 62. This remains Testing Harness owner debt and does not justify weakening owner routing.
+- `make migration-drift` at `.cartulary/test-results/20260803T213807Z-p2504228` passes the immutable-history and all-57-file input checks. Its empty and penultimate databases are created through the Compose service, but the migration client resolves `127.0.0.1:5432` to another local PostgreSQL and reports both generated database names absent. No external service was stopped or modified. The migration-scratch Indicator row in Section 13.14 separately proves empty-head, version-56 upgrade, Down reconstruction, hostile constraints, and subsequent Up through the repository migration API. The public target must be rerun in deployment CI or a workspace without the localhost routing collision.
+- The first full check at `.cartulary/test-results/20260803T214242Z-p2561392` passed 710 of 712 and correctly found the dead helpers and telemetry registry omissions described above. Both findings were repaired; the final check passes 712 of 712.
+
+These are explicitly owned follow-ups, not hidden acceptance exceptions. Bundle v1 retirement remains governed by the adopted release-age, usage, inventory, and later-revision gates. Reference Pack normalization ownership, frontend raw timestamp inference, and the historically Timeline-named runtime projection catalog remain outside this iteration as already classified in the Iteration 1 handoff.
+
+#### Deployment and rollback handoff
+
+The validated product/content HEAD is `509ee7382a12524bddeaeb184408cc3d465ee7be`. The terminal tracker checkpoint is documentation-only and follows that content commit.
+
+Production deployment remains conditional, not automatic:
+
+1. Rerun the exact SL-09 read-only preflight against the target database. Unknown lifecycle values, envelope disagreements, duplicate active canonical identities, malformed children, or incompatible Indicator idempotency payloads block deployment and require explicit operator disposition.
+2. Confirm migration 00056 is applied and `indicator_active_identities_are_valid()` is true. The claim table remains excluded, rebuildable recovery state and must not be added to Incident Bundles or authoritative backups.
+3. Drain every binary capable of writing the removed Indicator envelope mirrors. Migration 00057 is a contract migration and must not be applied during a mixed-version rolling window.
+4. Apply 00057 and start only compatible binaries. Validate create, identity reuse, delete/restore conflict, observation/lifecycle routes, history, projections, and retained bundle v1/v2 import/export before reopening writers broadly.
+5. Prefer forward repair after cutover. To restore an old binary, stop new writers, run migration 00057 Down, verify all seven mirrors were reconstructed from Records, and only then start the old binary.
+
+The module is ready for production rollout once those environment-specific gates pass. Every Iteration 2 finding is completed or assigned to its proper non-Indicator owner; none remains unclassified or silently deferred.
