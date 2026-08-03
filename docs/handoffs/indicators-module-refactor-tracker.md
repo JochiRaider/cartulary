@@ -6,7 +6,7 @@
 - **Target label:** `indicators` (validated lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters)
 - **Output path:** `docs/handoffs/indicators-module-refactor-tracker.md`
 - **Repository baseline:** branch `main`, commit `67d2ce2c98ce9f124c87ca6d980ec9321b4d2ef7`, observed at `2026-08-03T08:32:42-04:00`
-- **Status:** Iteration 1 complete; Iteration 2 in progress (SL-13)
+- **Status:** Iteration 1 complete; Iteration 2 in progress (SL-14)
 - **Allowed change:** the specification, authored contracts, implementation, tests, migrations, harness inputs, generated projections, and handoff evidence required by SL-00 through SL-08
 - **Non-goals:** unrelated frontend timestamp inference, draft Reference Pack ownership changes, and the historically Timeline-named runtime projection bundle
 - **Implementation authorization:** the user authorized the complete remediation plan on `2026-08-03`, including IND-016 owner closure and SL-00 through SL-08
@@ -623,7 +623,7 @@ No `BLOCKED: owner contradiction` entry is present because no conflict between a
 - **Authorization:** the user authorized the complete Indicators Production-Readiness and Legacy Retirement Iteration on `2026-08-03`.
 - **Starting branch and HEAD:** clean `main` at `15fb90cc48c6877dda5d84239927ec2136087822`.
 - **Baseline observed:** `2026-08-03T14:07:08-04:00` with no tracked or untracked worktree changes.
-- **Iteration status:** `IN PROGRESS — SL-13 contract migration and physical dead-state removal`.
+- **Iteration status:** `IN PROGRESS — SL-14 test retirement, verification, and handoff`.
 - **Execution order:** `tracker bootstrap -> SL-09 -> IND-029 -> SL-10 -> SL-11 -> SL-12 -> SL-13 -> SL-14`.
 - **Checkpoint gate:** every named workstream is one separately reviewable commit. Its validation evidence, migration notes, run roots, commit SHA, and next action must be recorded here before dependent work begins.
 - **Blocker rule:** unknown lifecycle values, duplicate active identities, owner-contract drift, unsafe migration data, or a failed owner acceptance gate blocks dependent work. No compatibility alias or guessed data rewrite may clear a blocker.
@@ -686,7 +686,7 @@ These findings establish the starting classification and are inputs to the exhau
 | 3 | SL-10 expand storage and identity claims | IND-030 | Expand migration, backfill, dual writes, Records envelope reads, rebuild/recovery contract. | IND-029 adopted at `4f009366`; preflight conditions clear. | COMPLETE | Migration 00056, claim lifecycle/rebuild test, concurrency lock, retained portability, recovery classification, generated recovery catalog, and fast suite pass. | SL-11 admitted. |
 | 4 | SL-11 semantic facade and dead API retirement | IND-031 | Internal services, typed outcomes, exported-surface allowlist, narrow consumers, explicit database failures. | SL-10 content committed at `60329298`; claim maintenance available. | COMPLETE | Root AST allowlist, Indicator unit/service-backed owners, fast suite, focused Revisions child rollback, Projections owner, and backend boundary pass; retained nested-browser harness failures are classified below. | SL-12 admitted. |
 | 5 | SL-12 production observation and lifecycle workflows | IND-032 | Six route families/eight HTTP operations, source-span verification, closed transitions, keyset reads, Inspector handlers, and OpenAPI activation. | IND-029 adopted and SL-11 content committed at `5ce05c8e`. | COMPLETE | Indicator unit/service-backed routes, exact source spans, replay, transitions, history, projection, canonical collaboration, frontend unit/typecheck, Inspector bindings, browser, OpenAPI, generation, boundaries, and fast tests pass. | SL-13 admitted. |
-| 6 | SL-13 contract migration and physical dead-state removal | IND-033 | Constraint validation, mirror-column removal, fixed Records joins, reversible reconstruction. | SL-10 through SL-12 deployed; old-writer drain confirmed. | PENDING | Empty/upgrade/Down/Up, migration, recovery, rollback, delete/restore, import, and portability evidence. | Retire obsolete tests and complete accounting. |
+| 6 | SL-13 contract migration and physical dead-state removal | IND-033 | Constraint validation, mirror-column removal, fixed Records joins, reversible reconstruction. | SL-10 through SL-12 content is complete; production application remains gated on an operator-confirmed old-writer drain. | COMPLETE | Dedicated empty/upgrade/Down/Up migration evidence, source-SQL boundary, Indicator and Incident Bundle owners, focused Revisions, affected owner non-browser units, generation/shape/policy/boundary gates, and fast tests pass. | SL-14 admitted; retain the deployment drain gate. |
 | 7 | SL-14 test retirement, verification, and handoff | IND-034 | Focused current-contract suite, explicit verification rows, final gates, deployment handoff. | All prior slices committed. | PENDING | Final HEAD, run roots, residual risks, complete classification, and full check. | Hand off production-ready module. |
 
 ### 13.5 Validation and ownership matrix
@@ -718,8 +718,8 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 | SL-10 | COMPLETE | `60329298` | Indicator test `.cartulary/test-results/20260803T185824Z-p1257688`; Indicator service-backed `.cartulary/test-results/20260803T190500Z-p1394816`; Incident Bundle test/service-backed `.cartulary/test-results/20260803T185953Z-p1307484` and `.cartulary/test-results/20260803T190014Z-p1315764`; fast `.cartulary/test-results/20260803T190229Z-p1334968`; final drift/policy/shape roots in Section 13.11. | Additive migration 00056 backfills claims, installs Records-aware `ENABLE ALWAYS` compatibility triggers, and has a Down path that removes only the derived table and bridge functions. No authoritative data is rewritten. | SL-11 admitted. |
 | SL-11 | COMPLETE | `5ce05c8e` | Indicator test/service-backed `.cartulary/test-results/20260803T192140Z-p1431035` and `.cartulary/test-results/20260803T192803Z-p1528395`; fast `.cartulary/test-results/20260803T192232Z-p1435684`; Projections `.cartulary/test-results/20260803T192643Z-p1519389`; focused Revisions child rollback `.cartulary/test-results/20260803T192746Z-p1526566`; boundary and Markdown `.cartulary/test-results/20260803T192854Z-p1537499` and `.cartulary/test-results/20260803T192856Z-p1537883`. | No migration or wire-format change. Repository Go callers moved atomically; no compatibility wrappers remain. Existing Indicator idempotency response bytes are preserved internally while Workbook owns HTTP projection. | SL-12 admitted. |
 | SL-12 | COMPLETE | `1b4eda62` | Indicator final test/service-backed `.cartulary/test-results/20260803T203930Z-p1948272` and `.cartulary/test-results/20260803T203913Z-p1946271`; focused production routes `.cartulary/test-results/20260803T203854Z-p1944763`; frontend unit/typecheck `.cartulary/test-results/20260803T202210Z-p1808392` and `.cartulary/test-results/20260803T201213Z-p1709530`; browser `.cartulary/test-results/20260803T202420Z-p1846683`; final fast `.cartulary/test-results/20260803T203939Z-p1950284`; drift, shape, policy, boundary, and lint roots in Section 13.13. | Additive route and OpenAPI activation only; no database migration. Exact manual provenance is derived from transaction-visible source bytes; no origin aliases or caller-selected `system`. | SL-13 admitted subject to the documented old-writer drain deployment gate. |
-| SL-13 | PENDING | pending | pending | Contract migration requires confirmed old-writer drain. | Implement the reversible contract migration and Records-only source SQL. |
-| SL-14 | PENDING | pending | pending | Runtime-neutral retirement and final accounting. | Await SL-13. |
+| SL-13 | COMPLETE | `86ad647f` | Indicator test/service-backed `.cartulary/test-results/20260803T210650Z-p2190061` and `.cartulary/test-results/20260803T211311Z-p2271032`; migration Down/Up `.cartulary/test-results/20260803T211254Z-p2269530`; Incident Bundle test/service `.cartulary/test-results/20260803T210735Z-p2195912` and `.cartulary/test-results/20260803T205614Z-p2061670`; focused Revisions `.cartulary/test-results/20260803T205739Z-p2077771`; final fast `.cartulary/test-results/20260803T210904Z-p2210650`; final drift/policy/shape/boundary roots in Section 13.14. | Contract migration 00057 requires old-writer drain. Down reconstructs all mirrors from Records before old-binary restoration. Valid portable bytes remain unchanged. | SL-14 admitted. |
+| SL-14 | PENDING | pending | pending | Runtime-neutral retirement and final accounting. | Retire historical tests, publish final verification rows, and complete the handoff. |
 
 ### 13.7 Deployment, migration, and rollback gates
 
@@ -740,7 +740,7 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 - [x] SL-10 establishes transactional active identity claims, Records-based envelope reads, and deterministic recovery rebuild while preserving old-writer compatibility.
 - [x] SL-11 removes the approved dead/broad API surface, retains a semantic owner facade, and passes its exported allowlist.
 - [x] SL-12 exposes secure production observation and lifecycle workflows with real Inspector handlers and no inert feature controls.
-- [ ] SL-13 removes physical envelope mirrors only after the writer-drain gate and proves its reversible reconstruction path.
+- [x] SL-13 provides the writer-drain-gated physical envelope contraction and proves its reversible reconstruction path.
 - [ ] SL-14 removes redundant historical tests, publishes explicit current-contract verification rows, and closes every finding.
 - [ ] Backend and frontend boundary, migration, generation, artifact policy, JSON shape, Markdown, fast, focused service, frontend, browser, finalize, and full-check gates pass with recorded roots.
 - [ ] The final tracker records all slice SHAs, deployment and rollback instructions, residual risks, next-owner handoffs, final HEAD, and no unclassified finding.
@@ -1130,3 +1130,51 @@ Retained failure evidence and disposition:
 - Route attempts at `.cartulary/test-results/20260803T203433Z-p1920542` and `.cartulary/test-results/20260803T203613Z-p1936856` tested an explicit Indicator Collaboration port. The first lacked a view schema and the second proved that Revisions already emitted the same canonical intent. The redundant port and adapter were removed completely. A subsequent count failure at `.cartulary/test-results/20260803T203814Z-p1942536` included the ordinary Indicator-create intent; the assertion now scopes its evidence to child-workflow revision sources and passes.
 
 SL-12 has no unclassified runtime, compatibility, or migration finding. Its content checkpoint is `1b4eda62`; this ledger gate admits SL-13 only under the old-writer drain and preflight requirements in Sections 13.7 and 13.9.
+
+### 13.14 SL-13 contract migration and physical dead-state removal
+
+#### Records-only storage contract
+
+Migration `00057_indicator_envelope_contract.sql` is the explicit contract half of the Indicator storage cutover. Its Up path takes stable locks and refuses to discard the legacy mirrors when any Indicator lacks an exact `record_type='indicator'` Records envelope, when row version, timestamps, actors, or deletion tuples drift, or when active identity claims do not match Records-authoritative state. It validates the expand migration's previously unvalidated claim constraints before contraction.
+
+The migration drops the Indicator subtype's row version, creation/update timestamps, creation/update actors, and deletion tuple together with the three actor foreign keys and the deletion-dependent dedupe and normalized-value indexes. The active claim primary key remains the sole active canonical identity exclusion. The normalized-value index is rebuilt over subtype fields without pretending to encode activeness; callers join Records for deletion state. Generated SQL models now expose only the eleven Indicator-owned subtype columns.
+
+Ordinary create, enrichment, Imports, Network Flow find-or-create, rollback, delete/restore, and Incident Bundle apply no longer write an Indicator envelope mirror. Delete/restore's source contribution is intentionally a no-op because generic Revisions coordination updates the Records envelope. Rollback updates only canonical subtype fields while generic coordination owns version and deletion restoration. Portable import inserts only subtype fields, while export and validation continue joining Records. A production AST boundary test rejects future Indicator SQL that reads or writes a removed mirror.
+
+The claim triggers remain Indicator-owned coordination. They now avoid delete/reinsert churn for unrelated Records version advances and source enrichment, but still create, release, and rekey claims on source identity or Records activeness changes. The deterministic validation and rebuild functions remain available and recovery continues to classify the claim table as excluded, rebuildable state.
+
+#### Storage hardening and reversibility
+
+The contract migration validates exact Indicator types, exact value kinds, the IP/atomic relation, canonical lowercase SHA-256 dedupe keys, nonempty subtype fields, hash pairing/format, positive child row versions, the seven observation origins, exact observation candidate and resolution tuples, the four lifecycle tokens, time/confidence bounds, tombstone pairs, canonical UUID-array support references, and same-incident Indicator child references. A normal owner trigger enforces support-record incident membership on live interval writes; recovery may load authoritative tables with ordinary triggers disabled and then uses its owner validation path without acquiring a fragile table-order dependency. PostgreSQL text storage itself rejects NUL bytes; the added length checks exclude empty admitted text without incorrectly banning supported multivalue observation text.
+
+The Down path first recreates all seven mirror columns, copies their values exclusively from Records, refuses incomplete reconstruction, restores defaults, nullability, actor foreign keys, and legacy partial indexes, and only then returns the schema to an old binary. It removes contract-only child constraints and restores the prior single-column child foreign keys. A dedicated migration-scratch test starts at version 56 with valid data, applies 57, verifies every mirror is absent and every selected constraint is validated, migrates Down to 56, proves exact Records reconstruction, reapplies 57, and attributes hostile type, lifecycle, resolution, support-shape, and cross-incident support rows to their intended constraints.
+
+This migration MUST NOT be applied during an ordinary rolling deployment. Operators rerun Section 13.9 preflight, drain every incompatible writer, apply 57, and start only compatible binaries. Forward repair is preferred after cutover. An old binary may be restored only after the Down migration completes and its mirror reconstruction is verified.
+
+#### Validation and failure accounting
+
+Passing evidence:
+
+- `make test-slice OWNER=module.indicators`: 18 of 18 at `.cartulary/test-results/20260803T210650Z-p2190061`.
+- Final `make service-backed-test-slice OWNER=module.indicators`: 11 of 11 at `.cartulary/test-results/20260803T211311Z-p2271032`.
+- The dedicated storage contraction migration row passed three of three at `.cartulary/test-results/20260803T211254Z-p2269530`.
+- `make test-slice OWNER=module.incidentbundles`: 26 of 26 at `.cartulary/test-results/20260803T210735Z-p2195912`.
+- `make service-backed-test-slice OWNER=module.incidentbundles`: 15 of 15 at `.cartulary/test-results/20260803T205614Z-p2061670`.
+- The two affected Revisions delete/restore and Indicator child-rollback rows passed four of four at `.cartulary/test-results/20260803T205739Z-p2077771`.
+- Recovery, Imports, and Network Flow service-backed runs passed all non-browser product units: 18, 17, and 9 respectively, at `.cartulary/test-results/20260803T205907Z-p2079801`, `.cartulary/test-results/20260803T210005Z-p2106998`, and `.cartulary/test-results/20260803T210034Z-p2112398`.
+- Final `make generate-drift`, `make generated-artifact-policy-check`, `make json-shape-check`, and `make backend-module-boundary-check` passed at `.cartulary/test-results/20260803T211323Z-p2273196`, `.cartulary/test-results/20260803T211330Z-p2275728`, `.cartulary/test-results/20260803T211331Z-p2276126`, and `.cartulary/test-results/20260803T211334Z-p2276577`.
+- `make lint-markdown` passed after the completed checkpoint update at `.cartulary/test-results/20260803T211514Z-p2279907`.
+- Final `make test-fast` passed 346 of 346 at `.cartulary/test-results/20260803T210904Z-p2210650`.
+- The committed-hash `make migration-drift` input phase validated all 57 files and the current-line history manifest at `.cartulary/test-results/20260803T211358Z-p2277111` before the classified local port conflict below.
+
+Retained failure evidence and disposition:
+
+- The initial Indicator service-backed run at `.cartulary/test-results/20260803T205022Z-p2022098` exposed `support_refs:null` from a nil Go slice and tests reading or writing deleted mirrors. Lifecycle admission now always persists an array, and source-owned fixtures use Records for envelopes. The final owner run passes.
+- The first Incident Bundle service-backed run at `.cartulary/test-results/20260803T205457Z-p2050716` exposed a cross-owner fixture inserting mirror columns. It now inserts the source subtype contract only, and the final 15-unit run passes.
+- The broad Revisions run at `.cartulary/test-results/20260803T205635Z-p2064617` exposed one source-adapter assertion that still expected an Indicator mirror tombstone and one child event assertion that reported unchanged Timeline text as changed. Both contract assertions were corrected, and their exact focused rows pass. Its seven remaining failures, and the later broad test-slice failures at `.cartulary/test-results/20260803T210752Z-p2200009`, are solely the existing nested-browser `OWNER is required` harness-routing defect.
+- Recovery, Imports, and Network Flow broad service-backed runs likewise fail only their one, two, and fifteen nested browser rows because the slice harness omits `OWNER`. No non-browser product row failed.
+- The first shape run at `.cartulary/test-results/20260803T210406Z-p2177999` required ownership for the two new Indicator constraint functions. The authored Indicator schema-object ownership pattern now covers them and final shape validation passes.
+- Dedicated migration retries at `.cartulary/test-results/20260803T211134Z-p2262774` and `.cartulary/test-results/20260803T211212Z-p2264478` made malformed JSON trigger admission total and changed the test to inspect PostgreSQL's structured constraint name instead of relying on display text. The final Down/Up and hostile-row proof passes.
+- `make migration-drift` at `.cartulary/test-results/20260803T211358Z-p2277111` passed migration-history and input validation, then could not start this worktree's Compose PostgreSQL because the unrelated `repo-postgres-1` container from `/home/jochi/code/cartulary-wf01.kD7A0s/repo` owns host port 5432. No external container was stopped or changed. Migration-scratch owner tests independently replayed empty head, version 56 upgrade, Down, and subsequent Up through the repository migration API. SL-14 must rerun the public target when the external port owner is absent or retain this environmental disposition.
+
+SL-13 has no unclassified implementation or data condition. Its content checkpoint is `86ad647f`; production migration application remains gated on operator-confirmed preflight and old-writer drain. This ledger admits SL-14.
