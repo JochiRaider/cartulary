@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.indicator_observations.row.v1",
+  "title": "Indicator observations incident bundle row",
+  "description": "Exact source-bound Indicator observation row shared by Incident Bundle versions 1 and 2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "indicator_observation_id",
+    "incident_id",
+    "source_record_id",
+    "source_field_key",
+    "origin_kind",
+    "origin_locator",
+    "observed_text",
+    "parsed_indicator_type",
+    "normalized_candidate",
+    "resolution_status",
+    "resolved_indicator_record_id",
+    "row_version",
+    "created_by_user_id",
+    "created_at",
+    "resolved_by_user_id",
+    "resolved_at",
+    "resolution_method",
+    "deleted_at",
+    "deleted_by_user_id"
+  ],
+  "properties": {
+    "indicator_observation_id": { "$ref": "#/$defs/uuid" },
+    "incident_id": { "$ref": "#/$defs/uuid" },
+    "source_record_id": { "$ref": "#/$defs/uuid" },
+    "source_field_key": { "$ref": "#/$defs/nonempty_text" },
+    "origin_kind": { "enum": ["manual_entry", "clipboard_paste", "csv_import", "xlsx_import", "api_import", "extraction", "system"] },
+    "origin_locator": { "$ref": "#/$defs/nonempty_text" },
+    "observed_text": { "$ref": "#/$defs/nonempty_text" },
+    "parsed_indicator_type": {
+      "oneOf": [
+        { "enum": ["ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text"] },
+        { "type": "null" }
+      ]
+    },
+    "normalized_candidate": { "$ref": "#/$defs/nullable_nonempty_text" },
+    "resolution_status": { "enum": ["unresolved", "resolved", "dismissed"] },
+    "resolved_indicator_record_id": { "$ref": "#/$defs/nullable_uuid" },
+    "row_version": { "type": "integer", "minimum": 1 },
+    "created_by_user_id": { "$ref": "#/$defs/uuid" },
+    "created_at": { "$ref": "#/$defs/timestamp" },
+    "resolved_by_user_id": { "$ref": "#/$defs/nullable_uuid" },
+    "resolved_at": { "$ref": "#/$defs/nullable_timestamp" },
+    "resolution_method": { "$ref": "#/$defs/nullable_nonempty_text" },
+    "deleted_at": { "$ref": "#/$defs/nullable_timestamp" },
+    "deleted_by_user_id": { "$ref": "#/$defs/nullable_uuid" }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "resolution_status": { "const": "unresolved" },
+            "resolved_indicator_record_id": { "type": "null" },
+            "resolved_by_user_id": { "type": "null" },
+            "resolved_at": { "type": "null" },
+            "resolution_method": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "resolution_status": { "const": "resolved" },
+            "resolved_indicator_record_id": { "$ref": "#/$defs/uuid" },
+            "resolved_by_user_id": { "$ref": "#/$defs/uuid" },
+            "resolved_at": { "$ref": "#/$defs/timestamp" },
+            "resolution_method": { "$ref": "#/$defs/nonempty_text" }
+          }
+        },
+        {
+          "properties": {
+            "resolution_status": { "const": "dismissed" },
+            "resolved_indicator_record_id": { "type": "null" },
+            "resolved_by_user_id": { "$ref": "#/$defs/uuid" },
+            "resolved_at": { "$ref": "#/$defs/timestamp" },
+            "resolution_method": { "$ref": "#/$defs/nonempty_text" }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "deleted_at": { "type": "null" },
+            "deleted_by_user_id": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "deleted_at": { "$ref": "#/$defs/timestamp" },
+            "deleted_by_user_id": { "$ref": "#/$defs/uuid" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "nullable_uuid": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "nonempty_text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000]+$"
+    },
+    "nullable_nonempty_text": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonempty_text" },
+        { "type": "null" }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?\\+00:00$"
+    },
+    "nullable_timestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/timestamp" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

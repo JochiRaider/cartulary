@@ -7205,6 +7205,111 @@ The corresponding source-owner invariant meanings are exactly:
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
+For Incident Bundle versions `1` and `2`, source family `indicators`, contract
+major `1`, each non-empty row of the three Indicator files MUST be one exact
+JSON object. Every member listed below is required, including members whose
+value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
+noncanonical, blank-line, multivalue, or trailing-content input fails
+admission. Indicators MUST NOT repair, skip, merge, default, or normalize such
+input.
+
+| `data/indicators.ndjson` member | Required form |
+| --- | --- |
+| `record_id` | Canonical lowercase hyphenated UUID string, stable and unique in the Indicator file. |
+| `incident_id` | Canonical UUID equal to the immutable import context and manifest incident. |
+| `indicator_type` | One exact current Core 02 Indicator type token. |
+| `value_kind` | Exactly `atomic`, `pattern`, or `reference`. |
+| `display_value` | Non-empty JSON string without NUL in the canonical type-specific form. |
+| `normalized_value` | JSON `null` or a non-empty JSON string without NUL in the canonical type-specific form. |
+| `dedupe_key` | Exactly 64 lowercase hexadecimal characters equal to the owner identity derivation. |
+| `defanged_value` | JSON `null` or a JSON string without NUL, preserved exactly and excluded from canonical identity. |
+| `hash_algorithm` | JSON `null` or a non-empty JSON string without NUL in canonical lowercase form. |
+| `hash_value` | JSON `null` or non-empty lowercase hexadecimal text; it is populated if and only if `hash_algorithm` is populated. |
+| `stix_pattern` | JSON `null` or a JSON string without NUL, preserved exactly and excluded from canonical identity. |
+| `row_version` | Canonical positive JSON integer greater than or equal to `1`, equal to the Records envelope. |
+| `created_at`, `updated_at` | Canonical UTC RFC3339Nano strings using `+00:00`, with at most six fractional digits; `created_at <= updated_at`; both equal the Records envelope. |
+| `created_by_user_id`, `updated_by_user_id` | Canonical UUIDs resolving exactly once through the admitted actor catalog and equal to the Records envelope. |
+| `deleted_at`, `deleted_by_user_id` | Both JSON `null`, or respectively a canonical timestamp and actor UUID; the pair equals the Records envelope and `created_at <= deleted_at <= updated_at`. |
+
+| `data/indicator_observations.ndjson` member | Required form |
+| --- | --- |
+| `indicator_observation_id` | Canonical lowercase hyphenated UUID string, stable and unique in the observation file. |
+| `incident_id` | Canonical UUID equal to the immutable import context and manifest incident. |
+| `source_record_id` | Canonical UUID resolving exactly once to an admitted same-incident Records envelope. |
+| `source_field_key` | Non-empty JSON string without NUL, preserved exactly. |
+| `origin_kind` | Exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, or `system`. |
+| `origin_locator` | Non-empty JSON string without NUL, preserved exactly. |
+| `observed_text` | Non-empty JSON string without NUL, preserved exactly. |
+| `parsed_indicator_type` | JSON `null` or one exact current Core 02 Indicator type token. |
+| `normalized_candidate` | JSON `null` or a non-empty JSON string without NUL. When populated, `parsed_indicator_type` is populated and the value equals owner canonicalization. |
+| `resolution_status` | Exactly `unresolved`, `resolved`, or `dismissed`. |
+| `resolved_indicator_record_id` | JSON `null` or a canonical UUID resolving exactly once to an admitted same-incident Indicator. |
+| `row_version` | Canonical positive JSON integer greater than or equal to `1`. |
+| `created_by_user_id`, `created_at` | Canonical actor UUID and canonical timestamp. |
+| `resolved_by_user_id`, `resolved_at`, `resolution_method` | For `unresolved`, all are JSON `null`; for `resolved`, these and `resolved_indicator_record_id` are populated; for `dismissed`, actor, timestamp, and non-empty method are populated while the Indicator target is JSON `null`. |
+| `deleted_at`, `deleted_by_user_id` | Both JSON `null` or respectively a canonical timestamp and actor UUID. Deletion is not earlier than creation or resolution. |
+
+| `data/indicator_state_intervals.ndjson` member | Required form |
+| --- | --- |
+| `indicator_state_interval_id` | Canonical lowercase hyphenated UUID string, stable and unique in the interval file. |
+| `incident_id` | Canonical UUID equal to the immutable import context and manifest incident. |
+| `indicator_record_id` | Canonical UUID resolving exactly once to an admitted same-incident Indicator. |
+| `lifecycle_state` | Non-empty JSON string without NUL in the adopted Indicator lifecycle vocabulary. |
+| `valid_from` | Canonical timestamp. |
+| `valid_to` | JSON `null` or a canonical timestamp not earlier than `valid_from`. |
+| `confidence` | JSON `null` or a canonical JSON integer from `0` through `100`. |
+| `rationale` | JSON `null` or a JSON string without NUL, preserved exactly. |
+| `support_refs` | JSON array of canonical UUID strings; each resolves exactly once to an admitted same-incident Records envelope. |
+| `assessor` | JSON `null` or a JSON string without NUL, preserved exactly. |
+| `assessed_at` | Canonical timestamp distinct in meaning from observation time and interval validity. |
+| `row_version` | Canonical positive JSON integer greater than or equal to `1`. |
+| `created_by_user_id`, `created_at` | Canonical actor UUID and canonical timestamp. |
+| `deleted_at`, `deleted_by_user_id` | Both JSON `null` or respectively a canonical timestamp not earlier than creation and an actor UUID. |
+
+Canonical Indicator timestamps are UTC RFC3339Nano strings using `+00:00` and at
+most six fractional digits. Export emits exactly the listed members, including
+explicit JSON `null`, and sorts Indicators by `record_id`, observations by
+`indicator_observation_id`, and intervals by
+`indicator_state_interval_id`, all ascending. Physical relation column order,
+`SELECT *`, `to_jsonb(table_row)`, and database record-population functions are
+not portable-shape authority.
+
+Indicators assigns every semantic condition to exactly one invariant in this
+precedence order:
+
+| Precedence | Invariant ID | Exclusive acceptance rule |
+| ---: | --- | --- |
+| 1 | `indicators.representation_legal` | All three files satisfy their exact shape, scalar forms, incident identity, Records-envelope equality, type/value/IP rules, hash pair, actor references, and tombstone pairs. Conditions assigned to a more specific invariant below are excluded. |
+| 2 | `indicators.normalization_exact` | Display, normalized value, normalized candidate, hash material, and dedupe key already equal the owner canonicalization and identity result. Import never repairs them. |
+| 3 | `indicators.identity_unique` | Active imported canonical identities are unique under the incident-scoped type-specific identity. Tombstoned history does not silently merge, reuse, or suppress an admitted row. |
+| 4 | `indicators.observation_same_incident` | Every observation source record and optional resolved Indicator belongs to the imported incident and resolves exactly once. A non-record extension resource is not an observation source record. |
+| 5 | `indicators.observation_ordered` | Observation row versions are positive; resolution is not earlier than creation; deletion is not earlier than creation or resolution; export ordering is stable identity ascending. |
+| 6 | `indicators.observation_coherent` | Source field, exact origin, locator, observed text, parse candidate, resolution state and target, attribution, and tombstone fields form one legal Core 02 observation tuple. |
+| 7 | `indicators.interval_same_incident` | Every interval Indicator and supporting record belongs to the imported incident and resolves exactly once. |
+| 8 | `indicators.interval_ordered` | Interval row versions are positive, `valid_to` is null or not earlier than `valid_from`, deletion is not earlier than creation, and export ordering is stable identity ascending. |
+| 9 | `indicators.interval_coherent` | Lifecycle state, confidence, rationale, support references, assessor timestamps, attribution, and tombstone fields form one legal append-only Core 02 interval tuple; observation time is never substituted for lifecycle validity. |
+| 10 | `indicators.repeated_observations_preserved` | Final transaction state contains exactly one observation for each admitted stable observation identity. Distinct active or tombstoned identities remain distinct even when every semantic value is otherwise equal. |
+
+Prepare performs bounded exact decoding, canonical scalar parsing, row-local
+representation checks, owner normalization recomputation, and deterministic
+candidate ordering without database or visible-object mutation. Apply accepts
+only the prepared value bound to the same port, operation, incident, bundle
+version, and source contract major and uses explicit fixed-column parameterized
+SQL with affected-row equality. Validate rechecks transaction state against the
+prepared rows and owns aggregate, cross-row, same-incident, reference,
+uniqueness, chronology, coherence, and repeated-observation invariants. Prepare
+and Validate report only the closed Indicator invariant IDs above.
+
+When several Indicator defects exist, the lowest precedence number wins.
+Within that invariant, the first failure is selected by logical path and valid
+stable owner identity ascending. Only when the stable identity is missing or
+invalid may an internal SHA-256 digest of the bounded raw logical row break the
+tie. The digest is never public and MUST NOT appear in an HTTP response, job
+result, log, telemetry event, readiness result, administrative summary, or
+operator output. Selection MUST NOT depend on archive order, NDJSON row order,
+filesystem order, map iteration, unsorted SQL output, constraint-reporting
+order, PostgreSQL error text, or a descriptor-default invariant.
+
 For Incident Bundle versions `1` and `2`, source family `revisions`, contract
 major `1`, each non-empty row of the three Revisions files MUST be one exact
 JSON object. Every member listed below is required, including members whose

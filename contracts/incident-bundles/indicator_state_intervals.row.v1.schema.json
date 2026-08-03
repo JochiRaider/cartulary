@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.indicator_state_intervals.row.v1",
+  "title": "Indicator state intervals incident bundle row",
+  "description": "Exact append-only Indicator lifecycle interval row shared by Incident Bundle versions 1 and 2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "indicator_state_interval_id",
+    "incident_id",
+    "indicator_record_id",
+    "lifecycle_state",
+    "valid_from",
+    "valid_to",
+    "confidence",
+    "rationale",
+    "support_refs",
+    "assessor",
+    "assessed_at",
+    "row_version",
+    "created_by_user_id",
+    "created_at",
+    "deleted_at",
+    "deleted_by_user_id"
+  ],
+  "properties": {
+    "indicator_state_interval_id": { "$ref": "#/$defs/uuid" },
+    "incident_id": { "$ref": "#/$defs/uuid" },
+    "indicator_record_id": { "$ref": "#/$defs/uuid" },
+    "lifecycle_state": { "$ref": "#/$defs/nonempty_text" },
+    "valid_from": { "$ref": "#/$defs/timestamp" },
+    "valid_to": { "$ref": "#/$defs/nullable_timestamp" },
+    "confidence": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ]
+    },
+    "rationale": { "$ref": "#/$defs/nullable_text" },
+    "support_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uuid" }
+    },
+    "assessor": { "$ref": "#/$defs/nullable_text" },
+    "assessed_at": { "$ref": "#/$defs/timestamp" },
+    "row_version": { "type": "integer", "minimum": 1 },
+    "created_by_user_id": { "$ref": "#/$defs/uuid" },
+    "created_at": { "$ref": "#/$defs/timestamp" },
+    "deleted_at": { "$ref": "#/$defs/nullable_timestamp" },
+    "deleted_by_user_id": { "$ref": "#/$defs/nullable_uuid" }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "deleted_at": { "type": "null" },
+            "deleted_by_user_id": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "deleted_at": { "$ref": "#/$defs/timestamp" },
+            "deleted_by_user_id": { "$ref": "#/$defs/uuid" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "nullable_uuid": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuid" },
+        { "type": "null" }
+      ]
+    },
+    "nonempty_text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000]+$"
+    },
+    "nullable_text": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[^\\u0000]*$" },
+        { "type": "null" }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?\\+00:00$"
+    },
+    "nullable_timestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/timestamp" },
+        { "type": "null" }
+      ]
+    }
+  }
+}
