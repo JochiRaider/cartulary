@@ -173,7 +173,7 @@ Repository/framework mismatch finding: the live production query is already gene
 
 ### 4.1 Observation-origin implementation contract
 
-The following requirements translate the existing Core 02 closed vocabulary into SL-06. The direction is authorized as an intentional implementation-conformance correction. This authorization does not permit a repository change outside a later implementation task.
+The following requirements translate the existing Core 02 closed vocabulary into SL-06. The direction and implementation are authorized as an intentional implementation-conformance correction.
 
 | Requirement ID | Requirement |
 | --- | --- |
@@ -215,6 +215,26 @@ The persisted-data preflight MUST inspect current fixtures, migrations and seed 
 | Non-Core values exist only in disposable test fixtures. | Replace each fixture with the token for its actual producer. | SL-06 may proceed after fixture review. |
 | Persisted `interactive_cell` rows have provable direct-user-entry provenance. | Use an explicit forward migration to `manual_entry` and record the migration evidence. | A separately scoped migration task is required before enablement. |
 | Persisted provenance cannot be proven. | Do not guess or rewrite. Require operator remediation or quarantine/fail-closed handling. | A separately authorized remediation plan is required; SL-06 enablement remains blocked. |
+
+#### IND-015 implementation preflight result
+
+Outcome two applies: repository-controlled non-Core Indicator origins exist only in disposable tests. SL-00 changed direct-entry Indicator fixtures from `interactive_cell` to `manual_entry`; the remaining Indicator-family violation is the Incident Bundle integration fixture using `auto_extract`, which represents extraction and must become `extraction` in SL-06. Uses of `interactive_cell` under Timeline and Entities are different source schemas and remain separate owner follow-up.
+
+No local persistent development deployment was running, and this repository task has no authority or credentials for external deployments. No data rewrite is authorized. The SL-06 migration therefore must fail closed when an upgrade database contains a non-Core value, leaving the operator to classify and remediate provenance before retrying. The read-only deployment query is:
+
+```sql
+SELECT origin_kind, count(*) AS row_count,
+       min(created_at) AS first_seen_at, max(created_at) AS last_seen_at
+  FROM indicator_observations
+ WHERE origin_kind NOT IN (
+       'manual_entry', 'clipboard_paste', 'csv_import', 'xlsx_import',
+       'api_import', 'extraction', 'system'
+ )
+ GROUP BY origin_kind
+ ORDER BY origin_kind;
+```
+
+An empty result permits the constraint migration. Any result blocks that migration; it must not be rewritten automatically.
 
 Known `interactive_cell` fixtures in `indicators_test.go`, `unit_test.go`, and `resolution_integration_test.go` MUST become `manual_entry` unless direct fixture evidence establishes another producer class. The correction MUST preserve source binding, raw observed text or span, deterministic source location, and separate rows for repeated observations.
 
@@ -417,7 +437,7 @@ The commands below were discovered from the live Make task surface and `make tas
 | IND-012 | Move normalization to a shared Reference Data registry | WF-04 | DEFERRED | Later adopted owner specification | Draft Reference Pack NLSpec evidence | An adopted owner explicitly changes current Core ownership. |
 | IND-013 | Update harness accounting for new/moved tests | WF-07 | TODO | IND-006 through IND-009 as implemented; IND-010 only after unblocked and included | SL-08 and authored owner manifests | Focused owner routing covers new evidence and generated topology is clean. |
 | IND-014 | Run final validation and append implementation handoff | WF-08 | TODO | IND-007, IND-008, IND-013, plus authorized corrections if included | Section 8 commands and future run roots | Clean scoped diff and all required results/blockers recorded. |
-| IND-015 | Complete SL-06 persisted-data preflight | WF-06 | TODO | Later implementation task with access to supported deployment and retained-fixture state | `IND-ORIGIN-004`; Section 4.1 decision table | Exactly one preflight outcome is recorded; any migration/remediation dependency has separate authority before SL-06 enablement. |
+| IND-015 | Complete SL-06 persisted-data preflight | WF-06 | DONE | SL-00 fixture characterization and deployment availability inspection | `IND-ORIGIN-004`; Section 4.1 outcome two and fail-closed deployment query | Repository violations are disposable fixtures; no data rewrite is authorized; upgrades with unknown invalid rows fail closed. |
 | IND-016 | Adopt the Indicator portability owner closure | WF-02 | BLOCKED | Later owner-document task for Core 01, Core 04, and traceability inputs | `IND-PORT-001`, `IND-PORT-002`; proposed Section 4.2 tables | Exact rows/order, exclusive invariants, deterministic precedence, phase allocation, and binary acceptance criteria are adopted without using this tracker as authority. |
 | IND-017 | Bootstrap the authorized implementation ledger | WF-00 | DONE | User implementation authorization | Section 1 active execution protocol and baseline run roots | Authorization, starting state, sequence, checkpoint rule, and baseline evidence are explicit. |
 | IND-018 | Complete SL-00 characterization and owner accounting | WF-03 | DONE | IND-017 | Two new focused rows, corrected test origins, generated topology, and recorded run roots | Identity and valid portability surfaces are executable regression locks; focused, broad, and drift gates pass. |
@@ -467,6 +487,7 @@ The commands below were discovered from the live Make task surface and `make tas
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-03T08:32:42-04:00 | Codex / tracker-authoring session | Generic Workbook route re-derives membership/role; Indicator Store enforces incident-open and route idempotency; Revisions appends collaboration intent. | Inspected Core 04 authorization, Workbook routes, Indicator Store, Revisions appender, and generic route scenario inventory; touched only this tracker. | Direct reads and targeted `rg`. | Create/query authorization, CSRF, replay ordering, attribution, and event semantics are in the freeze map. | None for structural planning. | Add focused create auth/replay/event characterization in SL-00. |
 | 2026-08-03T09:28:27-04:00 | Codex / NLSpec tracker-revision session | SL-06 now requires exact pre-write origin rejection and trusted context for `system`; proposed SL-07 requires safe deterministic errors and final-transaction atomicity. | Inspected analysis security/atomicity recommendations and existing owner posture; touched only this tracker. | `sed`, `rg`, `apply_patch`, and `make lint-markdown`; no security or product test ran. | Authorization ownership and public envelopes remain frozen; hostile data and internal details are explicitly excluded from proposed portability errors. | SL-06 needs IND-015; SL-07 needs IND-016 and later authorization. | Prove no partial mutation/publication in the applicable future acceptance matrices. |
+| 2026-08-03T10:16:00-04:00 | Codex / IND-015 preflight | Repository origin fixtures classified; no persistent local development deployment was running and no external deployment was in task scope. | Inspected all non-document origin tokens, migrations, configuration, and local Compose state; updated this tracker only. | `rg`; configuration reads; read-only `docker compose ps`; `make lint-markdown`. | Outcome two selected: only the disposable Incident Bundle fixture remains invalid for the Indicator schema. No data rewrite is authorized; the recorded deployment query and fail-closed migration gate prevent provenance guessing. Markdown passed at `.cartulary/test-results/20260803T141630Z-p3948014`. | None for repository SL-06; an operator must remediate any rows returned in an upgrade deployment. | Commit IND-015, then adopt IND-016 owner and contract changes. |
 
 ### Open risks and next session
 
@@ -479,7 +500,7 @@ The commands below were discovered from the live Make task surface and `make tas
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | SL-06 product direction is authorized; the persisted-data preflight and implementation evidence remain entry and closure gates. | Exact rejection cannot be enabled safely until supported fixtures, bundles, upgrade data, and deployments are classified without guessing provenance. | Complete IND-015 using the Section 4.1 decision table; obtain separate migration/remediation authority if required; then implement `IND-ORIGIN-*` and pass `AC-ORIGIN-*` in a later task. | READY — authorization recorded; preflight and implementation outstanding |
+| RB-001 | SL-06 product direction and implementation are authorized; deployment upgrades must fail closed on any unclassified persisted origin. | Exact rejection must not silently reinterpret historical provenance. | Run the Section 4.1 query before the constraint; remediate any returned rows separately, then pass `AC-ORIGIN-*`. | RESOLVED for repository implementation — outcome two recorded; no rewrite authorized |
 | RB-002 | `BLOCKED: owner definition incomplete` for the Indicator Incident Bundle portable row contract, exclusive invariant partition, precedence, phase allocation, and complete acceptance criteria. | The source port must emit an exact deterministic public `invariant_id`; code or this tracker cannot safely invent missing owner behavior. | Adopt IND-016 in Core 01/Core 04 and traceability inputs, then obtain later SL-07 implementation authorization and pass `AC-PORT-*`. | BLOCKED |
 
 No `BLOCKED: owner contradiction` entry is present because no conflict between adopted owners was found.
@@ -505,7 +526,7 @@ No `BLOCKED: owner contradiction` entry is present because no conflict between a
 
 - [x] SL-00 owner-conformant characterization is complete and does not bless `interactive_cell` or proposed portability language as current behavior.
 - [ ] SL-02 provides one Indicator identity implementation shared by live create, import, Network Flow, rollback, and portability consumers.
-- [ ] IND-015 records exactly one admissible persisted-data outcome and every required migration or remediation has separate authority.
+- [x] IND-015 records outcome two, provides the deployment query, and authorizes no automatic migration or provenance rewrite.
 - [ ] SL-06 is implemented in a later authorized repository-change task and all `AC-ORIGIN-*` cases pass with current harness evidence.
 - [ ] IND-016 is adopted by Core 01/Core 04 and its authored traceability inputs before any SL-07 implementation begins.
 - [ ] SL-07 receives later implementation authorization and all `AC-PORT-*` cases pass with deterministic safe errors, retained v1/v2 compatibility, and final-transaction atomicity.
