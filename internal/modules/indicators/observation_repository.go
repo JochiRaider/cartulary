@@ -9,40 +9,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
-
-type indicatorObservationAggregate struct {
-	FirstObservedAt  *time.Time
-	LastObservedAt   *time.Time
-	ObservationCount int
-}
-
-func (observationRepository) loadAggregateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (indicatorObservationAggregate, error) {
-	var (
-		firstObserved pgtype.Timestamptz
-		lastObserved  pgtype.Timestamptz
-		count         int
-	)
-	if err := tx.QueryRow(ctx, `
-SELECT MIN(created_at), MAX(created_at), COUNT(*)
- FROM indicator_observations
- WHERE resolved_indicator_record_id = $1
-   AND resolution_status = 'resolved'
-   AND deleted_at IS NULL
-`, recordID).Scan(&firstObserved, &lastObserved, &count); err != nil {
-		return indicatorObservationAggregate{}, fmt.Errorf("load indicator observation aggregate: %w", err)
-	}
-	return indicatorObservationAggregate{
-		FirstObservedAt:  timePointerFromPG(firstObserved),
-		LastObservedAt:   timePointerFromPG(lastObserved),
-		ObservationCount: count,
-	}, nil
-}
 
 func (repository observationRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, params IndicatorObservationCreateParams, createdAt time.Time) (IndicatorObservationRecord, error) {
 	if params.IncidentID == uuid.Nil || params.SourceRecordID == uuid.Nil {

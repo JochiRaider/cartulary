@@ -136,8 +136,9 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 
 func inertIndicatorOwner() *indicators.Store {
 	owner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  inertOwnerRegistryDB{},
-		Revisions: &revisions.Appender{},
+		Postgres:    inertOwnerRegistryDB{},
+		Revisions:   &revisions.Appender{},
+		Projections: projections.NewCoordinator(inertOwnerRegistryDB{}, &projections.Catalog{}),
 	})
 	if err != nil {
 		panic(err)

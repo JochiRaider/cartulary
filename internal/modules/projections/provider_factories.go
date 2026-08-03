@@ -28,7 +28,7 @@ func NewIdentityProvider(descriptor ProviderDescriptor) Provider {
 }
 
 func NewIndicatorProvider(descriptor ProviderDescriptor) Provider {
-	return providerWithHandlers(descriptor, nil, (*Store).rebuildIncidentIndicatorsTxCore)
+	return providerWithHandlers(descriptor, (*Store).refreshIndicatorTxCore, (*Store).rebuildIncidentIndicatorsTxCore)
 }
 
 func NewAssessmentProvider(descriptor ProviderDescriptor, source AssessmentSource) Provider {

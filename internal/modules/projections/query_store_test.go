@@ -109,8 +109,9 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	}
 
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  harness.DB,
-		Revisions: appender,
+		Postgres:    harness.DB,
+		Revisions:   appender,
+		Projections: projectionCatalog.Coordinator,
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

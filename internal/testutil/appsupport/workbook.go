@@ -31,8 +31,9 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
 	timelineBundle := timelineassembly.NewBundle(pool, conflictTokens, appender, intents, evidenceAttachments)
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  pool,
-		Revisions: appender,
+		Postgres:    pool,
+		Revisions:   appender,
+		Projections: timelineBundle.ProjectionCoordinator,
 	})
 	if err != nil {
 		panic(err)

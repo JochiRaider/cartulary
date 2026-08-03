@@ -42,11 +42,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	projected, err := refreshIndicatorProjectionTx(ctx, tx, record.RecordID)
+	row, err := s.refreshAndLoadProjectionRowTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	row := BuildIndicatorRow(projected)
 	createdOrReused := "created"
 	resultCode := "created"
 	operation := operationKind

@@ -809,8 +809,9 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 	)
 	runtime.Timeline = timelineBundle
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  postgresHandle,
-		Revisions: revisionRuntime.Appender(),
+		Postgres:    postgresHandle,
+		Revisions:   revisionRuntime.Appender(),
+		Projections: timelineBundle.ProjectionCoordinator,
 	})
 	if err != nil {
 		runtime.Close()

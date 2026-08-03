@@ -199,8 +199,9 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		evidence.NewTimelineAttachmentContribution(storeHarness.DB),
 	)
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  storeHarness.DB,
-		Revisions: appender,
+		Postgres:    storeHarness.DB,
+		Revisions:   appender,
+		Projections: timelineBundle.ProjectionCoordinator,
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

@@ -75,7 +75,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("append lifecycle interval: %v", err)
 	}
-	projection := indicatortest.LookupProjection(t, harness.DB, first.RecordID)
+	projection := lookupIndicatorProjection(t, harness.DB, first.RecordID)
 	if projection.ObservationCount != 2 || projection.FirstObservedAt == nil || projection.LastObservedAt == nil || projection.LifecycleSummary == nil || *projection.LifecycleSummary != "active" {
 		t.Fatalf("observations did not remain distinct in projection: %#v", projection)
 	}

@@ -122,7 +122,11 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
-	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{Postgres: harness.DB, Revisions: appender})
+	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{
+		Postgres:    harness.DB,
+		Revisions:   appender,
+		Projections: timelineBundle.ProjectionCoordinator,
+	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
 	}
@@ -568,8 +572,9 @@ func newCatalogBackedWorkbookStore(
 		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  pool,
-		Revisions: appender,
+		Postgres:    pool,
+		Revisions:   appender,
+		Projections: timelineBundle.ProjectionCoordinator,
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)

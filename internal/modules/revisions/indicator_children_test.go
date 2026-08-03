@@ -23,8 +23,9 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	store, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:  harness.Server.Runtime.Postgres,
-		Revisions: harness.Server.Runtime.Revisions.Appender(),
+		Postgres:    harness.Server.Runtime.Postgres,
+		Revisions:   harness.Server.Runtime.Revisions.Appender(),
+		Projections: harness.Server.Runtime.Timeline.ProjectionCoordinator,
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

@@ -2,7 +2,6 @@ package indicators_test
 
 import (
 	"context"
-	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"testing"
 	"time"
@@ -108,7 +107,7 @@ SELECT count(*)
 		t.Fatalf("lifecycle interval is not distinct from observation timestamps: %#v", interval)
 	}
 
-	projected := indicatortest.LookupProjection(t, harness.DB, created.RecordID)
+	projected := lookupIndicatorProjection(t, harness.DB, created.RecordID)
 	if projected.ObservationCount != 2 {
 		t.Fatalf("expected observation_count=2, got %#v", projected)
 	}

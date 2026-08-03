@@ -174,7 +174,7 @@
       ],
       "capabilities": {
         "query": true,
-        "refresh_row": false,
+        "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
       },

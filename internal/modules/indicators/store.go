@@ -179,7 +179,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MutationResult{}, err
 	}
-	projected, err := refreshIndicatorProjectionTx(ctx, tx, record.RecordID)
+	afterRow, err := s.refreshAndLoadProjectionRowTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -196,7 +196,6 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		return MutationResult{}, err
 	}
 
-	afterRow := BuildIndicatorRow(projected)
 	var beforeVersionID *string
 	if beforeRow != nil {
 		beforeVersion := record.RowVersion
@@ -278,7 +277,7 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 	if err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
-	if _, err := refreshIndicatorProjectionTx(ctx, tx, record.RecordID); err != nil {
+	if err := s.refreshProjectionRowTx(ctx, tx, record.RecordID); err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
 	status := "reused"
@@ -341,7 +340,7 @@ func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.User
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 	if record.ResolvedIndicatorRecordID != nil {
-		if _, err := refreshIndicatorProjectionTx(ctx, tx, *record.ResolvedIndicatorRecordID); err != nil {
+		if err := s.refreshProjectionRowTx(ctx, tx, *record.ResolvedIndicatorRecordID); err != nil {
 			return IndicatorObservationRecord{}, uuid.UUID{}, err
 		}
 	}
@@ -420,7 +419,7 @@ func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.Use
 		projectionIDs = append(projectionIDs, *current.ResolvedIndicatorRecordID)
 	}
 	for _, recordID := range projectionIDs {
-		if _, err := refreshIndicatorProjectionTx(ctx, tx, recordID); err != nil {
+		if err := s.refreshProjectionRowTx(ctx, tx, recordID); err != nil {
 			return IndicatorObservationRecord{}, uuid.UUID{}, err
 		}
 	}
@@ -481,7 +480,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	}); err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
-	if _, err := refreshIndicatorProjectionTx(ctx, tx, params.IndicatorRecordID); err != nil {
+	if err := s.refreshProjectionRowTx(ctx, tx, params.IndicatorRecordID); err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
 
@@ -537,11 +536,10 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 		return record, nil, "create", httpStatusCreated, nil
 	}
 
-	beforeProjected, err := refreshIndicatorProjectionTx(ctx, tx, current.RecordID)
+	beforeRow, err := s.refreshAndLoadProjectionRowTx(ctx, tx, current.RecordID)
 	if err != nil {
 		return IndicatorRecord{}, nil, "", 0, err
 	}
-	beforeRow := BuildIndicatorRow(beforeProjected)
 
 	next := current
 	fieldChanged := false
@@ -599,75 +597,19 @@ func indicatorInputFromCreateCommand(command CreateCommand) (indicatorUpsertInpu
 	return indicatorUpsertInput{}, err
 }
 
-func refreshIndicatorProjectionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IndicatorProjectionRecord, error) {
-	record, err := (sourceRepository{}).loadTx(ctx, tx, recordID)
-	if err != nil {
-		return IndicatorProjectionRecord{}, err
+func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return s.projections.RefreshRowTx(ctx, tx, ViewSchemaID, recordID)
+}
+
+func (s *Store) loadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	return s.projections.LoadRowTx(ctx, tx, ViewSchemaID, recordID)
+}
+
+func (s *Store) refreshAndLoadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	if err := s.refreshProjectionRowTx(ctx, tx, recordID); err != nil {
+		return nil, err
 	}
-	aggregate, err := (observationRepository{}).loadAggregateTx(ctx, tx, record.RecordID)
-	if err != nil {
-		return IndicatorProjectionRecord{}, err
-	}
-	lifecycleSummary, err := (lifecycleRepository{}).loadSummaryTx(ctx, tx, record.RecordID)
-	if err != nil {
-		return IndicatorProjectionRecord{}, err
-	}
-	supportingLinkCount, err := (sourceRepository{}).loadSupportingLinkCountTx(ctx, tx, record.RecordID)
-	if err != nil {
-		return IndicatorProjectionRecord{}, err
-	}
-	projected := IndicatorProjectionRecord{
-		IndicatorRecord:   record,
-		FirstObservedAt:   aggregate.FirstObservedAt,
-		LastObservedAt:    aggregate.LastObservedAt,
-		ObservationCount:  aggregate.ObservationCount,
-		LifecycleSummary:  lifecycleSummary,
-		SupportingLinkCnt: supportingLinkCount,
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO indicator_grid_projection (
-    record_id,
-    incident_id,
-    row_version,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    first_observed_at,
-    last_observed_at,
-    observation_count,
-    lifecycle_summary,
-    supporting_link_count,
-    edited_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
-ON CONFLICT (record_id) DO UPDATE
-SET incident_id = EXCLUDED.incident_id,
-    row_version = EXCLUDED.row_version,
-    indicator_type = EXCLUDED.indicator_type,
-    value_kind = EXCLUDED.value_kind,
-    display_value = EXCLUDED.display_value,
-    normalized_value = EXCLUDED.normalized_value,
-    dedupe_key = EXCLUDED.dedupe_key,
-    defanged_value = EXCLUDED.defanged_value,
-    hash_algorithm = EXCLUDED.hash_algorithm,
-    hash_value = EXCLUDED.hash_value,
-    stix_pattern = EXCLUDED.stix_pattern,
-    first_observed_at = EXCLUDED.first_observed_at,
-    last_observed_at = EXCLUDED.last_observed_at,
-    observation_count = EXCLUDED.observation_count,
-    lifecycle_summary = EXCLUDED.lifecycle_summary,
-    supporting_link_count = EXCLUDED.supporting_link_count,
-    edited_at = EXCLUDED.edited_at
-`, projected.RecordID, projected.IncidentID, projected.RowVersion, projected.IndicatorType, projected.ValueKind, projected.DisplayValue, projected.NormalizedValue, projected.DedupeKey, projected.DefangedValue, projected.HashAlgorithm, projected.HashValue, projected.STIXPattern, projected.FirstObservedAt, projected.LastObservedAt, projected.ObservationCount, projected.LifecycleSummary, projected.SupportingLinkCnt, projected.UpdatedAt.UTC()); err != nil {
-		return IndicatorProjectionRecord{}, fmt.Errorf("upsert indicator projection: %w", err)
-	}
-	return projected, nil
+	return s.loadProjectionRowTx(ctx, tx, recordID)
 }
 
 func normalizeTimePointer(value *time.Time) *time.Time {

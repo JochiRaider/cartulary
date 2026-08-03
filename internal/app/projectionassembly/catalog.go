@@ -128,7 +128,7 @@ func newCatalog(
 			[]string{"indicator"},
 			[]string{"indicators", "links", "records"},
 			[]string{"indicator_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RestoreRebuild: true, IncidentRebuild: true},
+			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
 			indicatorprojection.QuerySurfaces(),
 			[]string{"identity"},
 			[]string{"internal/modules/indicators"},

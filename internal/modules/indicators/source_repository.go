@@ -92,53 +92,6 @@ UPDATE indicators
 	return nil
 }
 
-func (sourceRepository) loadSupportingLinkCountTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int, error) {
-	var count int
-	if err := tx.QueryRow(ctx, `
-SELECT COUNT(*)
-  FROM active_record_links_v1
- WHERE dst_record_id = $1
-`, recordID).Scan(&count); err != nil {
-		return 0, fmt.Errorf("load indicator supporting link count: %w", err)
-	}
-	return count, nil
-}
-
-func (sourceRepository) loadTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IndicatorRecord, error) {
-	record, err := scanIndicatorRecord(tx.QueryRow(ctx, `
-SELECT
-    i.record_id,
-    i.incident_id,
-    i.indicator_type,
-    i.value_kind,
-    i.display_value,
-    i.normalized_value,
-    i.dedupe_key,
-    i.defanged_value,
-    i.hash_algorithm,
-    i.hash_value,
-    i.stix_pattern,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id,
-    r.deleted_at,
-    r.deleted_by_user_id
-  FROM indicators i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.record_id = $1
-`, recordID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return IndicatorRecord{}, ErrIndicatorNotFound
-	}
-	if err != nil {
-		return IndicatorRecord{}, fmt.Errorf("load indicator record: %w", err)
-	}
-	return record, nil
-}
-
 func (sourceRepository) validateIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) error {
 	var exists bool
 	if err := tx.QueryRow(ctx, `

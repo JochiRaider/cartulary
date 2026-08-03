@@ -8,13 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func RebuildIncidentIndicatorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
-		return fmt.Errorf("clear indicator projection rows: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx, `
-INSERT INTO indicator_grid_projection (
+const indicatorProjectionColumns = `
     record_id,
     incident_id,
     row_version,
@@ -32,8 +26,9 @@ INSERT INTO indicator_grid_projection (
     observation_count,
     lifecycle_summary,
     supporting_link_count,
-    edited_at
-)
+    edited_at`
+
+const indicatorProjectionSelect = `
 SELECT
     i.record_id,
     i.incident_id,
@@ -74,8 +69,7 @@ SELECT
             indicator_record_id,
             lifecycle_state AS lifecycle_summary
           FROM indicator_state_intervals
-         WHERE incident_id = $1
-           AND deleted_at IS NULL
+         WHERE deleted_at IS NULL
          ORDER BY indicator_record_id, CASE WHEN valid_to IS NULL THEN 0 ELSE 1 END ASC, valid_from DESC, indicator_state_interval_id DESC
   ) lifecycle
     ON lifecycle.indicator_record_id = i.record_id
@@ -84,10 +78,27 @@ SELECT
           FROM active_record_links_v1
          GROUP BY dst_record_id
   ) links
-    ON links.dst_record_id = i.record_id
+    ON links.dst_record_id = i.record_id`
+
+func RefreshIndicatorTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM indicator_grid_projection WHERE record_id = $1`, recordID); err != nil {
+		return fmt.Errorf("clear indicator projection row: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO indicator_grid_projection (`+indicatorProjectionColumns+`) `+indicatorProjectionSelect+`
+ WHERE i.record_id = $1
+   AND r.deleted_at IS NULL`, recordID); err != nil {
+		return fmt.Errorf("refresh indicator projection row: %w", err)
+	}
+	return nil
+}
+
+func RebuildIncidentIndicatorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
+		return fmt.Errorf("clear indicator projection rows: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO indicator_grid_projection (`+indicatorProjectionColumns+`) `+indicatorProjectionSelect+`
  WHERE i.incident_id = $1
-   AND r.deleted_at IS NULL
-`, incidentID); err != nil {
+   AND r.deleted_at IS NULL`, incidentID); err != nil {
 		return fmt.Errorf("insert indicator projection rows: %w", err)
 	}
 	return nil

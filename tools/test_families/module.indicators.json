@@ -77,6 +77,31 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.indicators.projection.indicator_mutations_delegate_row_refresh_and_loa_026301a7c8",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.projection",
+      "collaborator_ids": [
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorStoreDelegatesProjectionRefreshAndLoad"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.indicators.store.indicator_storage_keeps_source_bound_observation_07c064324e",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.store",

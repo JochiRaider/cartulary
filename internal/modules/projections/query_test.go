@@ -15,22 +15,26 @@ import (
 )
 
 func TestGenericProjectionPageSQLIsKeysetBounded(t *testing.T) {
-	surface := querySurfacesForTest()[assessmentsViewSchemaID]
-	positionID := "00000000-0000-0000-0000-000000000901"
-	sqlText, args, err := buildGenericQueryPageSQL(
-		uuid.MustParse("00000000-0000-0000-0000-000000000900"),
-		surface,
-		viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
-		querypage.Window{Limit: 25, Position: map[string]string{"record_id": `"` + positionID + `"`}},
-	)
-	if err != nil {
-		t.Fatalf("build generic page SQL: %v", err)
-	}
-	if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
-		t.Fatalf("generic page SQL is not bounded keyset retrieval: %s", sqlText)
-	}
-	if got := args[len(args)-1]; got != 26 {
-		t.Fatalf("generic page SQL limit argument = %#v, want 26", got)
+	for _, viewSchemaID := range []string{assessmentsViewSchemaID, indicatorsViewSchemaID} {
+		t.Run(viewSchemaID, func(t *testing.T) {
+			surface := querySurfacesForTest()[viewSchemaID]
+			positionID := "00000000-0000-0000-0000-000000000901"
+			sqlText, args, err := buildGenericQueryPageSQL(
+				uuid.MustParse("00000000-0000-0000-0000-000000000900"),
+				surface,
+				viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
+				querypage.Window{Limit: 25, Position: map[string]string{"record_id": `"` + positionID + `"`}},
+			)
+			if err != nil {
+				t.Fatalf("build generic page SQL: %v", err)
+			}
+			if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+				t.Fatalf("generic page SQL is not bounded keyset retrieval: %s", sqlText)
+			}
+			if got := args[len(args)-1]; got != 26 {
+				t.Fatalf("generic page SQL limit argument = %#v, want 26", got)
+			}
+		})
 	}
 }
 

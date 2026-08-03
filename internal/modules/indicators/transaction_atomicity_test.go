@@ -11,6 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -20,7 +21,11 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	db := postgresHarness.BeginRollbackDBT(t, "indicator-repository-atomicity")
-	owner, err := NewStore(StoreDependencies{Postgres: db, Revisions: &revisions.Appender{}})
+	owner, err := NewStore(StoreDependencies{
+		Postgres:    db,
+		Revisions:   &revisions.Appender{},
+		Projections: transactionTestProjectionPort{},
+	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
@@ -48,6 +53,19 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, failedCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
 
+	owner.projections = failingIndicatorProjectionPort{}
+	projectionFailureCommand := CreateCommand{
+		ClientTxnID:   "txn-indicator-atomicity-projection-failure",
+		IndicatorType: "domain_name",
+		ValueKind:     "atomic",
+		DisplayValue:  "projection-failure.example",
+	}
+	if _, projectionErr := owner.CreateIndicatorRow(ctx, actor, incidentID, projectionFailureCommand, []byte("projection-failure"), "request-projection-failure", now.Add(30*time.Second)); !errors.Is(projectionErr, errInjectedIndicatorProjection) {
+		t.Fatalf("create projection failure = %v", projectionErr)
+	}
+	requireIndicatorAtomicCounts(t, db, incidentID, projectionFailureCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
+	owner.projections = transactionTestProjectionPort{}
+
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		t.Fatalf("begin baseline source transaction: %v", err)
@@ -61,7 +79,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	if err != nil {
 		t.Fatalf("create baseline Indicator: %v", err)
 	}
-	if _, err := refreshIndicatorProjectionTx(ctx, tx, created.RecordID); err != nil {
+	if err := owner.refreshProjectionRowTx(ctx, tx, created.RecordID); err != nil {
 		t.Fatalf("refresh baseline Indicator projection: %v", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -101,6 +119,41 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 }
 
 var errInjectedIndicatorRevision = errors.New("injected Indicator revision failure")
+var errInjectedIndicatorProjection = errors.New("injected Indicator projection failure")
+
+type failingIndicatorProjectionPort struct{}
+
+func (failingIndicatorProjectionPort) RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error {
+	return errInjectedIndicatorProjection
+}
+
+func (failingIndicatorProjectionPort) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
+	panic("LoadRowTx must not follow a failed projection refresh")
+}
+
+type transactionTestProjectionPort struct{}
+
+func (transactionTestProjectionPort) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
+	if viewSchemaID != ViewSchemaID {
+		return errors.New("unexpected projection view")
+	}
+	return indicatorprojection.RefreshIndicatorTx(ctx, tx, recordID)
+}
+
+func (transactionTestProjectionPort) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
+	if viewSchemaID != ViewSchemaID {
+		return nil, errors.New("unexpected projection view")
+	}
+	var rowVersion int64
+	if err := tx.QueryRow(ctx, `SELECT row_version FROM indicator_grid_projection WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"record_id":   recordID.String(),
+		"row_version": rowVersion,
+		"cells":       map[string]any{},
+	}, nil
+}
 
 type failingIndicatorRevisionPort struct {
 	calls  int

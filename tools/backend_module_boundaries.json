@@ -953,6 +953,19 @@
       ]
     },
     {
+      "id": "indicator-projection-storage-access",
+      "table": "indicator_grid_projection",
+      "scan_paths": ["internal/modules/**"],
+      "read_allowed_paths": [
+        "internal/modules/indicators/projectionprovider/provider.go",
+        "internal/modules/indicators/projectionprovider/query_surfaces.go"
+      ],
+      "write_allowed_paths": [
+        "internal/modules/indicators/projectionprovider/provider.go",
+        "internal/modules/projections/delete.go"
+      ]
+    },
+    {
       "id": "records-current-envelope-access",
       "table": "records",
       "scan_paths": ["internal/modules/**"],
@@ -996,11 +1009,9 @@
         "internal/modules/indicators/network_flow_participant.go",
         "internal/modules/indicators/projectionprovider/provider.go",
         "internal/modules/indicators/projectionprovider/query_surfaces.go",
-        "internal/modules/indicators/query.go",
         "internal/modules/indicators/rollbackprovider/children.go",
         "internal/modules/indicators/observation_repository.go",
         "internal/modules/indicators/source_repository.go",
-        "internal/modules/indicators/store.go",
         "internal/modules/links/collection_actions.go",
         "internal/modules/links/field_refs.go",
         "internal/modules/links/incident_bundle_source_port.go",

@@ -101,6 +101,10 @@ func (s *Store) RebuildIncidentIndicatorsTx(ctx context.Context, tx pgx.Tx, inci
 	return s.rebuildProjectionIncidentTx(ctx, tx, indicatorsViewSchemaID, incidentID)
 }
 
+func (s *Store) refreshIndicatorTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return indicatorprojection.RefreshIndicatorTx(ctx, tx, recordID)
+}
+
 func (s *Store) rebuildIncidentIndicatorsTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
 	return indicatorprojection.RebuildIncidentIndicatorsTx(ctx, tx, incidentID)
 }

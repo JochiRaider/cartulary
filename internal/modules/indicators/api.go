@@ -1,6 +1,7 @@
 package indicators
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -37,14 +39,21 @@ type Store struct {
 	incidentAccess incidentLifecycleAccess
 	recordStore    *records.Store
 	revisionsStore revisionAppendPort
+	projections    ProjectionPort
 	sources        sourceRepository
 	observations   observationRepository
 	lifecycles     lifecycleRepository
 }
 
 type StoreDependencies struct {
-	Postgres  postgres.DB
-	Revisions *revisions.Appender
+	Postgres    postgres.DB
+	Revisions   *revisions.Appender
+	Projections ProjectionPort
+}
+
+type ProjectionPort interface {
+	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
+	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
 }
 
 func NewStore(dependencies StoreDependencies) (*Store, error) {
@@ -54,12 +63,16 @@ func NewStore(dependencies StoreDependencies) (*Store, error) {
 	if dependencies.Revisions == nil {
 		return nil, fmt.Errorf("compose Indicators store: Revisions is required")
 	}
+	if dependencies.Projections == nil {
+		return nil, fmt.Errorf("compose Indicators store: Projections is required")
+	}
 	return &Store{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
 		incidentAccess: newIncidentLifecycleAccess(dependencies.Postgres),
 		recordStore:    records.NewStore(),
 		revisionsStore: newRevisionAppendAdapter(dependencies.Revisions),
+		projections:    dependencies.Projections,
 		sources:        sourceRepository{},
 		observations:   observationRepository{},
 		lifecycles:     lifecycleRepository{},
@@ -121,15 +134,6 @@ type IndicatorRecord struct {
 	DeletedByUserID *uuid.UUID
 }
 
-type IndicatorProjectionRecord struct {
-	IndicatorRecord
-	FirstObservedAt   *time.Time
-	LastObservedAt    *time.Time
-	ObservationCount  int
-	LifecycleSummary  *string
-	SupportingLinkCnt int
-}
-
 type MutationResult struct {
 	Payload     map[string]any
 	StatusCode  int
@@ -137,36 +141,6 @@ type MutationResult struct {
 	RecordID    uuid.UUID
 	ChangeSetID uuid.UUID
 	RowVersion  int64
-}
-
-func BuildIndicatorRow(record IndicatorProjectionRecord) map[string]any {
-	row := map[string]any{
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"cells": map[string]any{
-			"indicator.indicator_type":    map[string]any{"value": record.IndicatorType},
-			"indicator.value_kind":        map[string]any{"value": record.ValueKind},
-			"indicator.display_value":     map[string]any{"value": record.DisplayValue},
-			"indicator.normalized_value":  map[string]any{"value": derefString(record.NormalizedValue)},
-			"indicator.defanged_value":    map[string]any{"value": derefString(record.DefangedValue)},
-			"indicator.hash_algorithm":    map[string]any{"value": derefString(record.HashAlgorithm)},
-			"indicator.hash_value":        map[string]any{"value": derefString(record.HashValue)},
-			"indicator.stix_pattern":      map[string]any{"value": derefString(record.STIXPattern)},
-			"indicator.first_observed_at": map[string]any{"value": formatTimestampPointer(record.FirstObservedAt)},
-			"indicator.last_observed_at":  map[string]any{"value": formatTimestampPointer(record.LastObservedAt)},
-			"indicator.observation_count": map[string]any{"value": record.ObservationCount},
-			"indicator.lifecycle_summary": map[string]any{"value": derefString(record.LifecycleSummary)},
-			"indicator.supporting_link_count": map[string]any{
-				"value": record.SupportingLinkCnt,
-			},
-		},
-	}
-	row["group_values"] = map[string]any{
-		"indicator.indicator_type":    record.IndicatorType,
-		"indicator.value_kind":        record.ValueKind,
-		"indicator.lifecycle_summary": derefString(record.LifecycleSummary),
-	}
-	return row
 }
 
 func BuildMutationPayload(changeSetID uuid.UUID, row map[string]any) map[string]any {
