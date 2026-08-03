@@ -93,6 +93,7 @@ services:
     volumes:
       - ./config.toml:/etc/cartulary/config.toml:ro
       - ./bootstrap-admin.json:/etc/cartulary/bootstrap-admin.json:ro
+      - ./revisions-conflict-token-key-ring.json:/etc/cartulary/revisions-conflict-token-key-ring.json:ro
       - cartulary-backups:/var/lib/cartulary/backups
       - cartulary-reference-packs:/var/lib/cartulary/reference-packs
       - cartulary-tmp:/var/lib/cartulary/tmp

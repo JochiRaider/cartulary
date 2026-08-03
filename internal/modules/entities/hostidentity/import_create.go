@@ -25,7 +25,7 @@ func NewImportCreateFacade(
 	if targetViewSchemaID != HostsViewSchemaID && targetViewSchemaID != IdentitiesViewSchemaID {
 		return nil, fmt.Errorf("entity import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(pool, appender)
+	store := NewStore(pool, appender, nil)
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,

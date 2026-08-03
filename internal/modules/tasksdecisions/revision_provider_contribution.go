@@ -8,7 +8,8 @@ import (
 
 func NewRevisionContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
-		SourceOwnerModule: revisions.SourceOwnerTasksDecisions,
+		SourceOwnerModule:     revisions.SourceOwnerTasksDecisions,
+		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
 		Records: []revisions.RecordProviderContribution{
 			{
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,

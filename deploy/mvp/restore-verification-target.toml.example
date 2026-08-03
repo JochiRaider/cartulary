@@ -1,4 +1,4 @@
-config_schema_id = "cartulary.deployment_config.v1"
+config_schema_id = "cartulary.deployment_config.v2"
 deployment_profile = "on_prem"
 
 [application]
@@ -30,3 +30,6 @@ path = "/var/lib/cartulary/restore-verification-target/exports"
 
 [bootstrap]
 first_admin_manifest_path = "/etc/cartulary/restore-verification-bootstrap-admin.json"
+
+[revisions]
+conflict_token_key_ring_manifest_path = "/etc/cartulary/revisions-conflict-token-key-ring.json"

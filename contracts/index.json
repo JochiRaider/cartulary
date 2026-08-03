@@ -179,6 +179,25 @@
       "typescript_runtime_artifact_prefixes": [],
       "activation_dependency_ids": [],
       "description": "Recovery state ownership, backup, restore, verification, target-safety, and private evidence contracts."
+    },
+    {
+      "family_id": "revisions",
+      "contract_root": "contracts/revisions",
+      "generation_status": "active",
+      "go_name": "RevisionsArtifacts",
+      "ts_name": "revisionsArtifacts",
+      "output_order": 9,
+      "generated_outputs": [
+        "internal/gen/contractrevisions/artifacts_gen.go",
+        "packages/protocol-ts/src/generated/artifact.ts",
+        "packages/protocol-ts/src/generated/revisions-artifacts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "typescript_runtime_artifact_prefixes": [
+        "contracts/revisions/"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Revisions-owned deployment and generic capability contracts derived from adopted Core owners."
     }
   ]
 }

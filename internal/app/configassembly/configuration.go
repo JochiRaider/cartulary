@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
@@ -18,6 +19,7 @@ import (
 var (
 	enterpriseAuthenticationConfigurationKey = mustConfigurationKey[enterpriseauth.Configuration]("platform.enterpriseauth.configuration")
 	networkFlowConfigurationKey              = mustConfigurationKey[networkflow.Configuration]("module.networkflow.configuration")
+	revisionsConfigurationKey                = mustConfigurationKey[conflicts.Configuration]("module.revisions.configuration")
 )
 
 // Loaded is a structurally admitted deployment-configuration snapshot.
@@ -95,7 +97,37 @@ func applicationCatalog() (config.Catalog, error) {
 	if err := registerNetworkFlowConfigurationContribution(builder); err != nil {
 		return config.Catalog{}, err
 	}
+	if err := registerRevisionsConfigurationContribution(builder); err != nil {
+		return config.Catalog{}, err
+	}
 	return builder.Build()
+}
+
+func registerRevisionsConfigurationContribution(builder *config.CatalogBuilder) error {
+	return config.Register(builder, config.Definition[conflicts.Configuration]{
+		Key:       revisionsConfigurationKey,
+		Namespace: "revisions",
+		Paths: []string{
+			"revisions.conflict_token_key_ring_manifest_path",
+		},
+		Project: func(source config.Source) (conflicts.Configuration, []config.Diagnostic) {
+			var configuration conflicts.Configuration
+			if err := source.Decode("revisions", &configuration); err != nil {
+				return conflicts.Configuration{}, []config.Diagnostic{{
+					Path:       "revisions",
+					ReasonCode: "revisions_conflict_token_manifest_invalid",
+					Message:    err.Error(),
+				}}
+			}
+			normalized, findings := conflicts.NormalizeAndValidateConfiguration(configuration)
+			diagnostics := make([]config.Diagnostic, len(findings))
+			for index, finding := range findings {
+				diagnostics[index] = config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
+			}
+			return normalized, diagnostics
+		},
+		Clone: func(configuration conflicts.Configuration) conflicts.Configuration { return configuration },
+	})
 }
 
 func registerEnterpriseAuthenticationConfigurationContribution(builder *config.CatalogBuilder) error {
@@ -179,6 +211,10 @@ func mustConfigurationKey[T any](id string) config.Key[T] {
 // Deployment returns a defensive application-composition projection.
 func (loaded Loaded) Deployment() Deployment {
 	return cloneDeployment(loaded.deployment)
+}
+
+func (loaded Loaded) Revisions() (conflicts.Configuration, error) {
+	return config.Value(loaded.snapshot, revisionsConfigurationKey)
 }
 
 // ValidateForStartup performs the root-readiness phase on the retained

@@ -6,7 +6,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -26,10 +26,11 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		panic(err)
 	}
 	appender := revisionRuntime.Appender()
+	conflictFields := revisionRuntime.ConflictFieldResolver()
 	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
 	timelineBundle := timelineassembly.NewBundle(pool, conflictTokens, appender, intents, evidenceAttachments)
-	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents)
-	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender)
+	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents, conflictFields, workbookassembly.NewConflictIdempotencyPort(pool))
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender, conflictFields)
 	if err != nil {
 		panic(err)
 	}
@@ -41,6 +42,7 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		evidenceContribution,
 		taskDecisionMutation,
 		conflictTokens,
+		conflictFields,
 		appender,
 		intents,
 	)

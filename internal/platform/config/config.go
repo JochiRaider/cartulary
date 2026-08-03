@@ -18,7 +18,7 @@ const (
 	ConfigFileEnv               = "CARTULARY_CONFIG_FILE"
 	InvalidDeploymentConfigCode = "invalid_deployment_config"
 	overlayPrefix               = "CARTULARY__"
-	expectedConfigSchemaID      = "cartulary.deployment_config.v1"
+	expectedConfigSchemaID      = "cartulary.deployment_config.v2"
 
 	DefaultObjectBlobMaxDeclaredByteSize         int64 = 536870912
 	DefaultImportMaxCSVSourceBytes               int64 = 33554432
@@ -69,6 +69,7 @@ type document struct {
 	IncidentPortability      ClaimConfig                      `toml:"incident_portability"`
 	NetworkFlowActivity      networkFlowActivityDocument      `toml:"network_flow_activity"`
 	ReferencePack            ClaimConfig                      `toml:"reference_pack"`
+	Revisions                revisionsDocument                `toml:"revisions"`
 	SnapshotReporting        ClaimConfig                      `toml:"snapshot_reporting"`
 	Timeouts                 TimeoutConfig                    `toml:"timeouts"`
 	Intervals                IntervalConfig                   `toml:"intervals"`
@@ -113,6 +114,10 @@ type networkFlowActivityDocument struct {
 
 type ClaimConfig struct {
 	Claimed bool `toml:"claimed"`
+}
+
+type revisionsDocument struct {
+	ConflictTokenKeyRingManifestPath string `toml:"conflict_token_key_ring_manifest_path"`
 }
 
 // BooleanValuesAtPaths projects normalized configuration without teaching

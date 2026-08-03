@@ -6,15 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 var (
@@ -83,7 +80,6 @@ func (e *RecordDeleteBlockedError) Details() map[string]any {
 
 type DeleteRestoreResult struct {
 	Payload      map[string]any
-	StatusCode   int
 	IncidentID   uuid.UUID
 	RecordID     uuid.UUID
 	RowVersion   int64
@@ -94,49 +90,53 @@ type DeleteRestoreResult struct {
 	Replayed     bool
 }
 
-type deleteRestoreRecord = records.Envelope
+type deleteRestoreRecord = RecordEnvelope
 
-func (s *commandStore) SoftDeleteRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
-	return s.applyDeleteRestore(ctx, actor, recordID, request, requestHash, requestID, now.UTC(), deleteRouteKey, true)
+func (s *commandStore) SoftDeleteRecord(ctx context.Context, command DeleteRestoreCommand) (DeleteRestoreResult, error) {
+	return s.applyDeleteRestore(ctx, command, deleteRouteKey, true)
 }
 
-func (s *commandStore) RestoreRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
-	return s.applyDeleteRestore(ctx, actor, recordID, request, requestHash, requestID, now.UTC(), restoreRouteKey, false)
+func (s *commandStore) RestoreRecord(ctx context.Context, command DeleteRestoreCommand) (DeleteRestoreResult, error) {
+	return s.applyDeleteRestore(ctx, command, restoreRouteKey, false)
 }
 
-func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time, routeKey string, deleting bool) (DeleteRestoreResult, error) {
-	authStore := authn.NewStore(s.db)
-	idempotencyKey := authn.RouteIdempotencyKey{
+func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRestoreCommand, routeKey string, deleting bool) (DeleteRestoreResult, error) {
+	actorID := command.Actor.UUID()
+	recordID := command.RecordID
+	request := command.Request
+	requestHash := command.RequestHash
+	requestID := command.RequestID
+	now := command.effectiveAt
+	idempotencyKey := IdempotencyKey{
 		RouteKey:    routeKey,
-		ActorUserID: actor.ID,
+		ActorID:     command.Actor,
 		ScopeKey:    recordID.String(),
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+	if existing, err := s.idempotency.Get(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return DeleteRestoreResult{}, authn.ErrClientTxnConflict
+			return DeleteRestoreResult{}, ErrClientTxnConflict
 		}
 		payload, err := decodeStoredDeleteRestorePayload(existing.ResponseJSON)
 		if err != nil {
 			return DeleteRestoreResult{}, err
 		}
 		result := deleteRestoreResultFromPayload(payload)
-		result.StatusCode = http.StatusOK
 		result.ClientTxnID = request.ClientTxnID
 		result.Replayed = true
 		return result, nil
-	} else if !errors.Is(err, authn.ErrNotFound) {
+	} else if !errors.Is(err, ErrIdempotencyNotFound) {
 		return DeleteRestoreResult{}, fmt.Errorf("query delete restore idempotency: %w", err)
 	}
 
-	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := s.transactions.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return DeleteRestoreResult{}, fmt.Errorf("begin delete restore transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if !deleting {
-		if err := lockDestructiveOperationRecordsNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
+		if err := s.lockDestructiveOperationRecordsNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
@@ -145,7 +145,11 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, record.IncidentID); err != nil {
+	commandKind := CommandSoftDelete
+	if !deleting {
+		commandKind = CommandRestore
+	}
+	if err := s.authorization.AuthorizeCommandTx(ctx, tx, record.IncidentID, command.Actor, commandKind); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	sourceAdapter, ok := s.deleteRestoreSources.Source(record.RecordType)
@@ -175,11 +179,11 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	nextRowVersion, err := s.envelopes.SetDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting)
+	nextRowVersion, err := s.envelopes.SetDeleteStateTx(ctx, tx, record.RecordID, actorID, now, deleting)
 	if err != nil {
 		return DeleteRestoreResult{}, adaptEnvelopeError(err)
 	}
-	if err := sourceAdapter.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting); err != nil {
+	if err := sourceAdapter.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actorID, now, deleting); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
@@ -202,7 +206,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	}
 	changeSetID, err := s.appender.AppendChangeSetTx(ctx, tx, AppendChangeSetParams{
 		IncidentID:  record.IncidentID,
-		ActorUserID: actor.ID,
+		ActorUserID: actorID,
 		Source:      source,
 		Reason:      request.Reason,
 		ClientTxnID: &request.ClientTxnID,
@@ -241,10 +245,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 		return DeleteRestoreResult{}, err
 	}
 	payload := buildDeleteRestorePayload(current, changeSetID, deleted)
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
-		if authn.IsUniqueViolation(err) {
-			return DeleteRestoreResult{}, authn.ErrClientTxnConflict
-		}
+	if err := s.idempotency.PutSuccessTx(ctx, tx, idempotencyKey, requestHash, payload); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -252,7 +253,6 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserR
 	}
 	return DeleteRestoreResult{
 		Payload:      payload,
-		StatusCode:   http.StatusOK,
 		IncidentID:   record.IncidentID,
 		RecordID:     record.RecordID,
 		RowVersion:   nextRowVersion,
@@ -285,13 +285,13 @@ func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, source delete
 	return nil
 }
 
-func lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
-	if err := records.LockDestructiveOperationRecordsNowaitTx(ctx, tx, recordIDs); err != nil {
-		var locked *records.DestructiveOperationRecordLockedError
+func (s *commandStore) lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	if err := s.envelopes.LockDestructiveRecordsNowaitTx(ctx, tx, recordIDs); err != nil {
+		var locked *EnvelopeLockError
 		if errors.As(err, &locked) {
 			return &RecordLockedError{RecordID: locked.RecordID}
 		}
-		if errors.Is(err, records.ErrEnvelopeNotFound) {
+		if errors.Is(err, ErrEnvelopeNotFound) {
 			return ErrRecordNotFound
 		}
 		return err
@@ -300,7 +300,7 @@ func lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, rec
 }
 
 func adaptEnvelopeError(err error) error {
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, ErrEnvelopeNotFound) {
 		return ErrRecordNotFound
 	}
 	return err

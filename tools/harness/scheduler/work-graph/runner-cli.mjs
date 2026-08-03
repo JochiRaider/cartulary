@@ -18,6 +18,7 @@ import {
   semanticJSONDigest,
 } from "../../test-catalog/index.mjs";
 import { WorkGraphCache } from "./cache.mjs";
+import { writeAtomicNDJSON } from "./atomic-ndjson.mjs";
 import {
   captureCapabilitySnapshot,
   resourceCapacities,
@@ -638,9 +639,10 @@ function writeCanonicalArtifacts({
     ],
   };
   validateSchemaSync(runSummary.schema_id, runSummary);
-  writeAtomicText(
+  writeAtomicNDJSON(
     path.join(runRoot, "unit-events.ndjson"),
-    result.events.map((event) => canonicalJSONString(event)).join("\n") + "\n",
+    result.events,
+    canonicalJSONString,
   );
   // The run summary is the terminal completion marker and is published last.
   writeJSON(path.join(runRoot, "run-summary.json"), runSummary);

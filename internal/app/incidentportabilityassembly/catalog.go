@@ -1,6 +1,14 @@
 package incidentportabilityassembly
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
@@ -32,6 +40,13 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	revisionsValidation, err := revisions.NewIncidentBundleValidationCatalog(
+		incidentBundleRecordEnvelopeReader{store: records.NewStore()},
+		revisionassembly.CurrentProviderContributions(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: revisions validation catalog: %w", err)
 	}
 	v2 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
@@ -69,7 +84,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),
 			links.NewIncidentBundleSourcePort(),
-			revisions.NewIncidentBundleSourcePort(),
+			revisions.NewIncidentBundleSourcePort(revisionsValidation),
 			savedviews.NewIncidentBundleSourcePort(),
 		},
 		RequiredPathsByVersion: map[int][]string{1: v1, 2: v2},
@@ -83,6 +98,32 @@ func NewCatalog() (*sourceport.Catalog, error) {
 		},
 		SpecialConsumers: map[int]map[string]string{1: special, 2: special},
 	})
+}
+
+type incidentBundleRecordEnvelopeReader struct {
+	store *records.Store
+}
+
+func (reader incidentBundleRecordEnvelopeReader) RecordTypeTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	recordID uuid.UUID,
+) (string, error) {
+	if reader.store == nil {
+		return "", pgx.ErrNoRows
+	}
+	envelope, err := reader.store.LoadEnvelopeTx(ctx, tx, recordID, false)
+	if err != nil {
+		if errors.Is(err, records.ErrEnvelopeNotFound) {
+			return "", pgx.ErrNoRows
+		}
+		return "", err
+	}
+	if envelope.IncidentID != incidentID {
+		return "", pgx.ErrNoRows
+	}
+	return envelope.RecordType, nil
 }
 
 func replaceTimelinePaths(v2 []string) []string {

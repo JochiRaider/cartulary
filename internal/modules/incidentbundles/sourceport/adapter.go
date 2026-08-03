@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
@@ -109,11 +107,6 @@ func (a *Adapter) ApplyImportTx(ctx context.Context, tx pgx.Tx, prepared Prepare
 	}
 	var verification *incidentportability.VerificationFailure
 	if errors.As(err, &verification) && verification.ReasonCode == "duplicate_source_row" {
-		return a.sourceFailure()
-	}
-	var postgresFailure *pgconn.PgError
-	if errors.As(err, &postgresFailure) &&
-		(strings.HasPrefix(postgresFailure.Code, "22") || strings.HasPrefix(postgresFailure.Code, "23")) {
 		return a.sourceFailure()
 	}
 	return err

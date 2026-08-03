@@ -6,17 +6,18 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
+func NewIncidentBundleSourcePort(validation *IncidentBundleValidationCatalog) sourceport.Port {
 	descriptor := sourceport.Descriptor{
 		FamilyID: "revisions", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.revisions", OwnerRelationIDs: []string{"record-revisions"},
 		Dependencies: []string{"links_tags"},
 		Paths: []sourceport.Path{
-			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"change_set_id"}},
-			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"change_set_id", "sequence_no"}},
-			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"revision_id"}},
+			{LogicalPath: "data/change_sets.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_sets.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"change_set_id"}},
+			{LogicalPath: "data/change_set_mutations.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.change_set_mutations.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"change_set_id", "sequence_no"}},
+			{LogicalPath: "data/record_revisions.ndjson", ContentRole: "source_rows", SchemaID: "cartulary.incident_bundle.record_revisions.row.v1", Versions: []int{1, 2}, StableIdentity: []string{"revision_id"}},
 		},
 		InvariantIDs: []string{
 			"revisions.references_complete", "revisions.actor_references_complete",
@@ -25,35 +26,32 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
-		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
-		},
-		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
-		},
-		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
-			var invalid bool
-			if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM change_sets change_set
-     WHERE change_set.incident_id = $1
-       AND EXISTS (
-           SELECT 1
-             FROM change_set_mutations mutation
-            WHERE mutation.change_set_id = change_set.change_set_id
-            GROUP BY mutation.change_set_id
-           HAVING min(mutation.sequence_no) <> 1
-               OR max(mutation.sequence_no) <> count(*)
-       )
-)`, importContext.IncidentID).Scan(&invalid); err != nil {
-				return err
-			}
-			if invalid {
-				return &sourceport.Failure{FamilyID: "revisions", InvariantID: "revisions.mutation_sequence_contiguous"}
+		Descriptor: descriptor,
+		ValidateContract: func() error {
+			if validation == nil {
+				return ErrMissingHistoryTargetProvider
 			}
 			return nil
+		},
+		Export: func(ctx context.Context, exportContext sourceport.ExportContext) ([]incidentportability.File, error) {
+			return exportIncidentBundleFiles(ctx, exportContext)
+		},
+		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
+			return prepareRevisionsImport(bundle, importContext)
+		},
+		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
+			prepared, ok := value.(preparedRevisionsImport)
+			if !ok {
+				return sourceport.ErrPreparedBinding
+			}
+			return applyPreparedRevisionsImportTx(ctx, tx, prepared, importContext, validation)
+		},
+		Validate: func(ctx context.Context, tx pgx.Tx, value any, _ sourceport.ImportContext) error {
+			prepared, ok := value.(preparedRevisionsImport)
+			if !ok {
+				return sourceport.ErrPreparedBinding
+			}
+			return validatePreparedRevisionsImportTx(ctx, tx, prepared, validation)
 		},
 	})
 }

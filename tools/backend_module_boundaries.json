@@ -45,6 +45,8 @@
         "internal/modules/parties/incident_bundle_source_port.go",
         "internal/modules/records/incident_bundle_source_port.go",
         "internal/modules/records/incident_bundle_source_port_test.go",
+        "internal/modules/revisions/incident_bundle_portability.go",
+        "internal/modules/revisions/incident_bundle_portability_test.go",
         "internal/modules/revisions/incident_bundle_source_port.go",
         "internal/modules/savedviews/incident_bundle_source_port.go",
         "internal/modules/tasksdecisions/incident_bundle_contribution.go",
@@ -661,12 +663,15 @@
         "github.com/JochiRaider/cartulary/internal/modules/entities",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
+        "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/links",
         "github.com/JochiRaider/cartulary/internal/modules/parties",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
         "github.com/JochiRaider/cartulary/internal/platform/postgres",
         "github.com/JochiRaider/cartulary/internal/platform/viewschema"
       ]
@@ -736,8 +741,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/projections",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/savedviews",
         "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
         "github.com/JochiRaider/cartulary/internal/modules/timeline",
@@ -762,7 +766,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/projections",
         "github.com/JochiRaider/cartulary/internal/modules/records",
         "github.com/JochiRaider/cartulary/internal/modules/revisions",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
       ]
     },
@@ -776,7 +780,7 @@
       ],
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
-        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+        "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
       ]
     }
   ],

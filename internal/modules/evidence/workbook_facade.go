@@ -21,10 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictwindows"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -36,10 +33,12 @@ type WorkbookFacade struct {
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
 	projectionRows   *projections.EvidenceRows
-	revisionHistory  historyquery.Reader
+	revisionHistory  conflicttokens.RevisionWindowReader
 	revisionAppender *revisions.Appender
 	store            *Store
 	conflictTokens   conflicttokens.ConflictTokenCodec
+	conflictFields   conflicttokens.FieldResolver
+	keepSaved        conflicttokens.IdempotencyPort
 	collaboration    collaboration.IntentAppender
 	mutations        evidenceMutationCoordinator
 	objects          objectstore.Store
@@ -122,6 +121,8 @@ func NewWorkbookFacade(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
 ) *WorkbookFacade {
 	if intents == nil {
 		panic("compose Evidence workbook facade: Collaboration intent appender is required")
@@ -131,7 +132,7 @@ func NewWorkbookFacade(
 		WithRevisionAppender(appender),
 		WithCollaborationIntents(intents),
 	)
-	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil)
+	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil, conflictFields, keepSaved)
 }
 
 func newWorkbookFacade(
@@ -141,6 +142,8 @@ func newWorkbookFacade(
 	intents collaboration.IntentAppender,
 	store *Store,
 	objects objectstore.Store,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
 ) *WorkbookFacade {
 	recordStore := records.NewStore()
 	projectionRows := projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...)
@@ -151,10 +154,12 @@ func newWorkbookFacade(
 		incidentAccess:   incidentAccess,
 		recordStore:      recordStore,
 		projectionRows:   projectionRows,
-		revisionHistory:  historyquery.NewReader(),
+		revisionHistory:  conflicttokens.NewRevisionWindowReader(),
 		revisionAppender: appender,
 		store:            store,
 		conflictTokens:   conflictTokens,
+		conflictFields:   conflictFields,
+		keepSaved:        keepSaved,
 		collaboration:    intents,
 		objects:          objects,
 		mutations: evidenceMutationCoordinator{
@@ -313,8 +318,11 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
-		fieldDescriptors := evidenceConflictFieldDescriptors(request.ViewSchemaID)
-		window, err := conflictwindows.BuildPatchConflictWindowWithDescriptors(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors)
+		fieldDescriptors, err := f.conflictFields.ResolveViewSchema(request.ViewSchemaID)
+		if err != nil {
+			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
+		}
+		window, err := conflicttokens.BuildPatchConflictWindowWithDescriptors(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors)
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
@@ -609,7 +617,7 @@ func adaptRevisionWindowError(recordID uuid.UUID, baseRowVersion int64, currentR
 	if err == nil {
 		return nil
 	}
-	var windowErr *conflictwindows.RevisionWindowError
+	var windowErr *conflicttokens.RevisionWindowError
 	if errors.As(err, &windowErr) {
 		return &RowVersionConflictError{RecordID: windowErr.RecordID, BaseRowVersion: windowErr.BaseRowVersion, CurrentRowVersion: windowErr.CurrentRowVersion}
 	}
@@ -623,40 +631,44 @@ type evidenceSameFieldConflictParams struct {
 	BaseRowVersion    int64
 	CurrentRowVersion int64
 	RequestHash       []byte
-	Window            conflictwindows.PatchConflictWindow
+	Window            conflicttokens.PatchConflictWindow
 	Change            WorkbookPatchChange
-	Changed           conflictwindows.PatchChangedField
+	Changed           conflicttokens.PatchChangedField
 	CurrentRow        map[string]any
-	FieldDescriptors  conflictwindows.FieldDescriptorSet
+	FieldDescriptors  conflicttokens.FieldDescriptorSet
 	Codec             conflicttokens.ConflictTokenCodec
 }
 
-func overlappingEvidencePatchChange(changes []WorkbookPatchChange, changedFields map[string]conflictwindows.PatchChangedField) (WorkbookPatchChange, conflictwindows.PatchChangedField, bool) {
+func overlappingEvidencePatchChange(changes []WorkbookPatchChange, changedFields map[string]conflicttokens.PatchChangedField) (WorkbookPatchChange, conflicttokens.PatchChangedField, bool) {
 	for _, change := range changes {
 		changed, ok := changedFields[change.FieldKey]
 		if ok {
 			return change, changed, true
 		}
 	}
-	return WorkbookPatchChange{}, conflictwindows.PatchChangedField{}, false
+	return WorkbookPatchChange{}, conflicttokens.PatchChangedField{}, false
 }
 
 func buildEvidenceSameFieldConflict(params evidenceSameFieldConflictParams) (map[string]any, error) {
 	baseValue, ok := rowCellValue(params.Window.BaseRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflictwindows.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return nil, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	serverValue, ok := rowCellValue(params.CurrentRow, params.Change.FieldKey)
 	if !ok {
-		return nil, &conflictwindows.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
+		return nil, &conflicttokens.RevisionWindowError{RecordID: params.RecordID, BaseRowVersion: params.BaseRowVersion, CurrentRowVersion: params.CurrentRowVersion}
 	}
 	clientValue := params.Change.CanonicalValue
 	conflictClass := params.FieldDescriptors.ConflictResolutionClass(params.Change.FieldKey)
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
+	conflictToken, err := evidenceConflictToken(params.RouteKey, params.RecordID, params.ViewSchemaID, params.Change.FieldKey, conflictClass, params.BaseRowVersion, params.CurrentRowVersion, params.RequestHash, params.Codec)
+	if err != nil {
+		return nil, err
+	}
 	conflict := map[string]any{
-		"conflict_token":            evidenceConflictToken(params.RouteKey, params.RecordID, params.ViewSchemaID, params.Change.FieldKey, conflictClass, params.BaseRowVersion, params.CurrentRowVersion, params.RequestHash, params.Codec),
+		"conflict_token":            conflictToken,
 		"record_id":                 params.RecordID.String(),
 		"field_key":                 params.Change.FieldKey,
 		"conflict_resolution_class": conflictClass,
@@ -669,15 +681,11 @@ func buildEvidenceSameFieldConflict(params evidenceSameFieldConflictParams) (map
 		"base_value":                baseValue,
 	}
 	if conflictClass == "text_compare_merge" {
-		if suggested, ok := conflictmerge.SuggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
+		if suggested, ok := conflicttokens.SuggestedTextMergeValue(baseValue, serverValue, clientValue); ok {
 			conflict["suggested_merged_value"] = suggested
 		}
 	}
 	return conflict, nil
-}
-
-func evidenceConflictFieldDescriptors(viewSchemaID string) conflictwindows.FieldDescriptorSet {
-	return conflictwindows.ViewSchemaFieldDescriptors(viewSchemaID)
 }
 
 func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
@@ -690,7 +698,7 @@ func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 	return value, ok
 }
 
-func evidenceConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec conflicttokens.ConflictTokenCodec) string {
+func evidenceConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec conflicttokens.ConflictTokenCodec) (string, error) {
 	return codec.Issue(conflicttokens.ConflictTokenClaims{
 		RouteKey:                routeKey,
 		RecordID:                recordID.String(),

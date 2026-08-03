@@ -8,7 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -39,6 +39,8 @@ func NewOwnerRuntime(
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
 	objects objectstore.Store,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
 	options ...StoreOption,
 ) *OwnerRuntime {
 	if appender == nil {
@@ -52,7 +54,7 @@ func NewOwnerRuntime(
 		WithCollaborationIntents(intents),
 	}, options...)
 	store := NewStore(pool, storeOptions...)
-	workbook := newWorkbookFacade(pool, conflictTokens, appender, intents, store, objects)
+	workbook := newWorkbookFacade(pool, conflictTokens, appender, intents, store, objects, conflictFields, keepSaved)
 	return &OwnerRuntime{
 		routes:      store,
 		workbook:    workbook,

@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
@@ -33,15 +34,17 @@ type Store struct {
 	authStore        *authn.Store
 	incidentAccess   incidents.Access
 	revisionAppender *revisions.Appender
+	keepSaved        conflicts.IdempotencyPort
 	ports            entityStorePorts
 }
 
-func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
+func NewStore(pool postgres.DB, appender *revisions.Appender, keepSaved conflicts.IdempotencyPort) *Store {
 	return &Store{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		revisionAppender: appender,
+		keepSaved:        keepSaved,
 		ports:            newEntityStorePorts(pool, appender),
 	}
 }

@@ -54,7 +54,7 @@ func newAssessmentImportCreateFacade(
 	projectionCatalog *projections.Catalog,
 	appender *revisions.Appender,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	entityStore := hostidentity.NewStore(pool, appender)
+	entityStore := hostidentity.NewStore(pool, appender, nil)
 	return assessments.NewImportCreateFacade(
 		targetViewSchemaID,
 		facadeID,

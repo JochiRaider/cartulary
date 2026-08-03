@@ -48,6 +48,35 @@ func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 	})
 }
 
+func TestRevisionsConfigurationProjection_Unit(t *testing.T) {
+	deployment := validProjectionDeployment(t)
+	deployment.Revisions.ConflictTokenKeyRingManifestPath = ""
+	_, err := Admit(deployment)
+	diagnostics, ok := config.DiagnosticsFromError(err)
+	if !ok || len(diagnostics) != 1 || diagnostics[0].ReasonCode != "revisions_conflict_token_manifest_missing" {
+		t.Fatalf("missing Revisions configuration diagnostics = %#v / %v", diagnostics, err)
+	}
+
+	deployment.Revisions.ConflictTokenKeyRingManifestPath = "/etc//cartulary/revisions-conflict-token-key-ring.json"
+	if _, err := Admit(deployment); err == nil {
+		t.Fatal("unnormalized Revisions key-ring path was admitted")
+	}
+	deployment.Revisions.ConflictTokenKeyRingManifestPath = "/etc/cartulary/revisions-conflict-token-key-ring.json"
+	loaded, err := Admit(deployment)
+	if err != nil {
+		t.Fatalf("admit Revisions configuration: %v", err)
+	}
+	configuration, err := loaded.Revisions()
+	if err != nil || configuration.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
+		t.Fatalf("Revisions configuration projection = %#v / %v", configuration, err)
+	}
+	configuration.ConflictTokenKeyRingManifestPath = "/mutated"
+	again, err := loaded.Revisions()
+	if err != nil || again.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
+		t.Fatalf("Revisions configuration snapshot was mutable: %#v / %v", again, err)
+	}
+}
+
 func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 	t.Run("claimed configuration is owner-validated before preflight", func(t *testing.T) {
 		deployment := validProjectionDeployment(t)

@@ -342,6 +342,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 		harness.DB,
 		partyTestAttributionResolver{},
 		timelineBundle.ProjectionCoordinator,
+		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC) },
 	)
 	if err != nil {
 		t.Fatalf("compose revisions command service: %v", err)
@@ -350,7 +351,13 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 		BaseRowVersion: 1,
 		ClientTxnID:    clientTxnID,
 	}
-	if _, err := store.SoftDeleteRecord(context.Background(), actor, recordID, request, revisions.DeleteRestoreRequestHash(request), "req-"+clientTxnID, time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC)); err != nil {
+	if _, err := store.SoftDeleteRecord(context.Background(), revisions.DeleteRestoreCommand{
+		Actor:       revisions.NewActorID(actor.ID),
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: revisions.DeleteRestoreRequestHash(request),
+		RequestID:   "req-" + clientTxnID,
+	}); err != nil {
 		t.Fatalf("soft-delete party %s: %v", recordID, err)
 	}
 }

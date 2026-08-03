@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
 type revisionsCompositionTestDB struct{}
@@ -146,6 +148,14 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 		want   error
 	}{
 		{
+			name: "missing conflict field provider",
+			mutate: func(values []revisions.ProviderContribution) []revisions.ProviderContribution {
+				values[0].ConflictFieldProvider = nil
+				return values
+			},
+			want: conflicts.ErrMissingFieldResolver,
+		},
+		{
 			name: "missing route",
 			mutate: func(values []revisions.ProviderContribution) []revisions.ProviderContribution {
 				values[0].Records[0].RecordViewRoutes = values[0].Records[0].RecordViewRoutes[1:]
@@ -262,11 +272,37 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 		revisionsCompositionTestDB{},
 		revisionsCompositionTestAttribution{},
 		revisionsCompositionTestProjection{},
+		func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
 	)
 	if err != nil {
 		t.Fatalf("compose Revisions command service: %v", err)
 	}
 	if service == nil || runtime.Appender() == nil {
 		t.Fatal("composition returned a nil service or appender")
+	}
+}
+
+func TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver(t *testing.T) {
+	t.Parallel()
+	runtime, err := Build(
+		Dependencies{
+			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
+			IntentAppender:         collaboration.NewIntentAppender(),
+		},
+		CurrentProviderContributions()...,
+	)
+	if err != nil {
+		t.Fatalf("build Revisions runtime: %v", err)
+	}
+	resolver := runtime.ConflictFieldResolver()
+	field, err := resolver.ResolveWritableField("cartulary.view.notes.v1", "note.body")
+	if err != nil {
+		t.Fatalf("resolve Notes body field: %v", err)
+	}
+	if field.FieldKey != "note.body" || field.ValueKind != "direct_value" || field.ConflictResolutionClass != "text_compare_merge" {
+		t.Fatalf("Notes body field = %#v", field)
+	}
+	if _, err := resolver.ResolveViewSchema("cartulary.view.unknown.v1"); err == nil {
+		t.Fatal("unknown view schema resolved")
 	}
 }

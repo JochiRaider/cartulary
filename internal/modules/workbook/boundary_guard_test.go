@@ -63,7 +63,7 @@ func TestWorkbookBoundaryRulesAreManifestBacked(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/modules/evidence",
 		"github.com/JochiRaider/cartulary/internal/modules/indicators",
 		"github.com/JochiRaider/cartulary/internal/modules/records",
-		"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens",
+		"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
 		"github.com/JochiRaider/cartulary/internal/modules/savedviews",
 		"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions",
 		"github.com/JochiRaider/cartulary/internal/modules/timeline",

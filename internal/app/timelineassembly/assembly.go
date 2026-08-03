@@ -22,7 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
@@ -172,12 +172,12 @@ func compose(
 			Idempotency: idempotencyAdapter{store: authn.NewStore(pool)},
 			Incidents:   incidentAdapter{access: incidents.NewAccess(pool)},
 			Records:     recordsPort,
-			Revisions:   revisionAdapter{appender: appender, reader: revisions.NewReader()},
+			Revisions:   revisionAdapter{appender: appender, reader: conflicttokens.NewRevisionWindowReader()},
 		},
 		Collections: timeline.CollectionCollaborators{
 			Links:    linkAdapter{store: links.NewStore()},
 			Mentions: mentionAdapter{store: mentions.NewStore(nil, appender)},
-			Entities: entityAdapter{store: hostidentity.NewStore(pool, appender)},
+			Entities: entityAdapter{store: hostidentity.NewStore(pool, appender, nil)},
 			Evidence: evidenceAdapter{attachments: evidenceAttachments},
 			Facts:    collectionFacts,
 		},
@@ -381,7 +381,7 @@ func (a recordAdapter) ResolveIncident(ctx context.Context, recordID uuid.UUID) 
 
 type revisionAdapter struct {
 	appender *revisions.Appender
-	reader   revisions.Reader
+	reader   conflicttokens.RevisionWindowReader
 }
 
 func (a revisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params timeline.ChangeSetParams) (uuid.UUID, error) {
@@ -397,7 +397,7 @@ func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, 
 }
 
 func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {
-	entries, err := a.reader.ListRecordRevisionWindowTx(ctx, tx, recordID, firstVersion, lastVersion)
+	entries, err := a.reader.LoadRevisionWindowTx(ctx, tx, recordID, firstVersion, lastVersion)
 	if err != nil {
 		return nil, err
 	}

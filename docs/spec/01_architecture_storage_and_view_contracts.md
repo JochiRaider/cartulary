@@ -1549,8 +1549,20 @@ Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-
 
 **REQ-01-074**
 `DELETE /api/v1/records/{record_id}` MUST require current incident role `editor`, `reviewer`, or `admin`. `POST /api/v1/records/{record_id}/restore` MUST require current incident role `reviewer` or `admin`. A caller who lacks visibility to the target record MUST receive `404`. A caller who can see the record but lacks sufficient role MUST receive `403`.
+
+For both routes, authentication and state-changing cookie CSRF validation MUST
+precede path parsing, record lookup, role evaluation, content-type evaluation,
+and request-body decoding. Path syntax is evaluated next. Caller-visible record
+lookup and the route's role gate MUST then complete before content type or body
+validation. Therefore an unauthenticated malformed request returns
+`session_required`; an authenticated CSRF-invalid malformed request returns
+`csrf_verification_failed`; a malformed, missing, or hidden record returns
+`incident_not_found`; a visible record with insufficient role and a malformed
+body returns `authorization_denied`; and only an authorized caller may receive
+body-specific mutation details. Every rejected case commits no idempotency,
+source, history, projection, or Collaboration effect.
 Profiles: base
-Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
+Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231, AC-528
 
 **REQ-01-075**
 If the current `row_version` differs from `base_row_version`, either route MUST fail with `409` using the common error envelope and `error.code = row_version_conflict`. `error.details` MUST include at least `record_id`, `base_row_version`, and `current_row_version`.
@@ -1771,8 +1783,16 @@ Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
 
 **REQ-01-100**
 A caller who lacks visibility to `record_id` MUST receive `404`. A caller who can see `record_id` but lacks sufficient role MUST receive `403`.
+
+Authentication and state-changing cookie CSRF validation MUST precede path
+parsing, record lookup, role evaluation, content-type evaluation, and rollback
+request decoding. Path syntax is evaluated next. Caller-visible record lookup
+and the `reviewer` or `admin` role gate MUST complete before the request body is
+decoded. An unauthorized caller MUST NOT receive `invalid_rollback_request` or
+any selector-specific detail. Every rejected case commits no idempotency,
+source, history, projection, or Collaboration effect.
 Profiles: base
-Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
+Verified by: AC-215, AC-216, AC-217, AC-218, AC-231, AC-528
 
 **REQ-01-101**
 A caller who targets a currently soft-deleted record MUST receive `409` with `error.code = record_deleted_use_restore`.
@@ -7185,6 +7205,69 @@ The corresponding source-owner invariant meanings are exactly:
 | Revisions | Referenced change sets, mutations, revisions, records, and actors exist; mutation sequence is contiguous; `(record_id, row_version)` is unique; before/after history reconstructs imported current state; sequence repair runs only after validation. |
 | Saved Views | Every bounded logical row has the exact adopted shape and types; UUIDs, incident/schema references, scope/owner tuple, display name, query, layout, version, and timestamps are valid; transaction state equals admitted input; absent optional Reference Packs degrade only admitted overlays. |
 
+For Incident Bundle versions `1` and `2`, source family `revisions`, contract
+major `1`, each non-empty row of the three Revisions files MUST be one exact
+JSON object. Every member listed below is required, including members whose
+value may be JSON `null`. Unknown, missing, duplicate, aliased, wrongly typed,
+noncanonical, blank-line, multivalue, or trailing-content input fails
+admission; Revisions MUST NOT repair, skip, merge, or normalize such input.
+
+| `data/change_sets.ndjson` member | Required form |
+| --- | --- |
+| `change_set_id` | Canonical lowercase hyphenated UUID string, stable and unique in the Revisions family. |
+| `incident_id` | Canonical lowercase hyphenated UUID string equal to the immutable import context and manifest incident. |
+| `actor_user_id` | Canonical UUID resolving exactly once through the admitted actor catalog. |
+| `source` | Non-empty JSON string without NUL; preserved exactly and not treated as executable metadata. |
+| `reason` | JSON `null` or a JSON string without NUL, preserved exactly. |
+| `client_txn_id` | JSON `null` or a JSON string without NUL, preserved exactly. |
+| `request_id` | JSON `null` or a JSON string without NUL, preserved exactly. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits so the value is exactly representable by the authoritative timestamp substrate. |
+
+| `data/change_set_mutations.ndjson` member | Required form |
+| --- | --- |
+| `change_set_id` | Canonical UUID resolving exactly once to an admitted Revisions change set. |
+| `sequence_no` | Canonical positive decimal JSON integer greater than or equal to `1`. |
+| `target_kind` | Non-empty JSON string without NUL, preserved exactly and resolved by the owning mutation-target provider. |
+| `target_id` | Non-empty JSON string without NUL in the target owner's canonical identity form. |
+| `operation_kind` | Non-empty JSON string without NUL in the target owner's admitted vocabulary. |
+| `before_version_id` | JSON `null` or a non-empty JSON string without NUL. |
+| `after_version_id` | JSON `null` or a non-empty JSON string without NUL. |
+| `before_value` | Any admitted JSON value, including JSON `null`; its semantics remain with the mutation-target owner. |
+| `after_value` | Any admitted JSON value, including JSON `null`; its semantics remain with the mutation-target owner. |
+
+| `data/record_revisions.ndjson` member | Required form |
+| --- | --- |
+| `revision_id` | Canonical positive decimal JSON integer greater than or equal to `1`, stable and unique in the Revisions family. |
+| `change_set_id` | Canonical UUID resolving exactly once to an admitted Revisions change set. |
+| `record_id` | Canonical UUID resolving exactly once to an admitted same-incident Records envelope. |
+| `row_version` | Canonical positive decimal JSON integer greater than or equal to `1`. |
+| `before_json` | JSON object or JSON `null`. |
+| `after_json` | JSON object or JSON `null`. |
+| `created_at` | Canonical UTC RFC3339Nano string using `Z`, with at most six fractional digits so the value is exactly representable by the authoritative timestamp substrate. |
+
+Export MUST emit exactly those members and preserve portable actor attribution.
+It sorts change sets by `change_set_id`, mutations by
+`(change_set_id, sequence_no)`, and revisions by `revision_id`. Apply uses only
+fixed parameterized owner SQL and affected-row equality. Revisions assigns each
+semantic defect to exactly one invariant in this precedence order:
+
+| Precedence | Invariant ID | Exclusive acceptance rule |
+| --- | --- | --- |
+| 1 | `revisions.references_complete` | Every change set belongs to the imported incident; every mutation and revision references exactly one admitted change set; every revision references one same-incident record; and every mutation target resolves exactly once through its owner provider. Actor resolution and history-chain defects assigned below are excluded. |
+| 2 | `revisions.actor_references_complete` | Every change-set actor resolves exactly once through the admitted inert actor catalog and imported-attribution mapping. |
+| 3 | `revisions.mutation_sequence_contiguous` | Each change set has exactly the canonical sequence `1..N` with no duplicate, zero, negative, or gap. |
+| 4 | `revisions.record_version_unique` | `revision_id` and `(record_id, row_version)` are each unique; row versions for one record strictly increase. |
+| 5 | `revisions.history_reconstruction` | Before/after snapshots form one exact row-version chain and its terminal state equals the canonical current row returned by an application-composed source-owner reader, never a projection table or visible label. |
+| 6 | `revisions.sequence_repair_after_validation` | Sequence exclusion is acquired without changing the next value before Apply; the real repair executes only after every source-owner validation, advances to at least the larger of the pre-import next value and imported maximum plus one, and rolls back with the final transaction. |
+
+When several defects exist, the lowest precedence number wins. Within that
+invariant, the first failure is selected by logical path and stable row identity
+ascending. Selection MUST NOT depend on archive order, NDJSON row order,
+filesystem order, map iteration, unsorted SQL output, constraint-reporting
+order, or PostgreSQL error text. The current-state reader is a Revisions-owned
+consumer port whose providers are constructed by authoritative source owners
+and whose complete immutable catalog is validated by application composition.
+
 Tasks and Decisions assigns every admitted semantic condition to exactly one
 invariant in this precedence order:
 
@@ -7217,7 +7300,7 @@ The complete closed source-family identifier vocabulary is `incident`,
 `saved_views`, `actors`, `reference_pack_refs`, and `extension_payload`.
 Profiles: incident_portability
 Verified by: AC-488, AC-489, AC-491, AC-496, AC-497, AC-498, AC-499,
- AC-507, AC-508
+ AC-507, AC-508, AC-525, AC-527
 
 **REQ-01-651**
 For source contract major `1`, every nonblank row in
@@ -7300,8 +7383,9 @@ The import coordinator MUST execute this algorithm in order:
 4. invoke source-family and extension `PrepareImport` without visible mutation;
 5. stage evidence and participant bytes under non-visible logical references;
 6. begin the final database transaction;
-7. apply `incident.json`, the inert actor catalog, and source-owner ports in the
-   catalog's recorded FK-safe order;
+7. acquire Revisions sequence exclusion without changing its effective next
+   value, then apply `incident.json`, the inert actor catalog, and source-owner
+   ports in the catalog's recorded FK-safe order;
 8. invoke every applied port's `ValidateImportTx`;
 9. repair revision sequences, flush attribution, rebuild projections, and
    finalize initial administration, audit, publication, and terminal success;
@@ -7310,7 +7394,9 @@ The import coordinator MUST execute this algorithm in order:
 11. on error or cancellation before commit, roll back, abandon or quarantine
     staged bytes, and retain no partial success.
 
-All database application, aggregate validation, revision repair, attribution
+The pre-Apply sequence operation is lock acquisition, not repair: it MUST
+preserve the effective next value and its effect MUST roll back with the final
+transaction. All database application, aggregate validation, revision repair, attribution
 flush, projection rebuild, initial-admin creation, audit and terminal-success
 publication, and incident publication MUST share that one final transaction.
 A port MUST NOT commit, start an independent nested transaction, or publish
@@ -7318,7 +7404,7 @@ visible state. Prepared evidence and participant bytes MUST remain non-visible
 until commit. Cleanup MUST be retry-safe and MUST NOT delete a committed final
 object.
 Profiles: incident_portability
-Verified by: AC-488, AC-495, AC-500, AC-503
+Verified by: AC-488, AC-495, AC-500, AC-503, AC-527
 
 **REQ-01-642**
 Bundle content MUST NOT grant authorization. Import submission, final
@@ -7336,13 +7422,20 @@ can be reported safely. Malformed admitted-version structure MUST use
 `reason_code='malformed_manifest'`. Failure selection MUST be independent of
 archive or row order and map iteration.
 
+Source-family failures MUST be constructed through a closed typed constructor
+that binds the declaring family to one of its descriptor invariant IDs. Public
+details contain no caller-supplied family or invariant string and no raw
+database error. A constraint or driver failure MAY map to an invariant only
+through an owner-authored exact condition or constraint identity; parsing error
+messages or defaulting to the descriptor's first invariant is forbidden.
+
 Public errors, job results, logs, telemetry, readiness, administrative
 summaries, and operator output MUST NOT contain raw imported row values, raw
 evidence or extension bytes, SQL text, relation names, credentials, provider
 subjects, object keys, staging identifiers, host-absolute paths, or
 cryptographic key material.
 Profiles: incident_portability
-Verified by: AC-490, AC-499, AC-502, AC-503, AC-507
+Verified by: AC-490, AC-499, AC-502, AC-503, AC-507, AC-525
 
 **REQ-01-643**
 The adopted compatibility state, closed source catalog, and

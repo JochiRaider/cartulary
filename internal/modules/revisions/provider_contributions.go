@@ -30,9 +30,10 @@ var (
 )
 
 type ProviderContribution struct {
-	SourceOwnerModule SourceOwnerModule
-	Records           []RecordProviderContribution
-	NonRowTargets     []NonRowProviderContribution
+	SourceOwnerModule     SourceOwnerModule
+	ConflictFieldProvider ConflictFieldProvider
+	Records               []RecordProviderContribution
+	NonRowTargets         []NonRowProviderContribution
 }
 
 type LiveRecordChangePolicy string
@@ -54,8 +55,13 @@ type RecordViewRouteContribution struct {
 }
 
 type RecordProviderContribution struct {
-	SourceOwnerModule      SourceOwnerModule
-	RecordType             string
+	SourceOwnerModule SourceOwnerModule
+	RecordType        string
+	// HistoryTargetKinds are source-owner-declared change-set mutation target
+	// kinds that resolve to this record provider. An empty set admits the
+	// record type itself. The generic "record" target remains a Revisions
+	// envelope target and is not repeated by source owners.
+	HistoryTargetKinds     []string
 	DeleteRestoreSource    deleterestorecontract.DeleteRestoreSource
 	RowRollbackProvider    rollbackcontract.RowSourceProvider
 	LiveRecordChangePolicy LiveRecordChangePolicy
@@ -121,6 +127,16 @@ func buildProviderCatalogs(contributions []ProviderContribution) (*DeleteRestore
 			expectedOwner, required := currentRecordProviderOwners[record.RecordType]
 			if !required || expectedOwner != owner {
 				return nil, nil, nil, fmt.Errorf("%w: record type %q owned by %q", ErrUnexpectedProviderContribution, record.RecordType, owner)
+			}
+			seenTargetKinds := map[string]struct{}{}
+			for _, targetKind := range record.HistoryTargetKinds {
+				if targetKind == "" {
+					return nil, nil, nil, fmt.Errorf("%w: record type %q has an empty history target kind", ErrUnexpectedProviderContribution, record.RecordType)
+				}
+				if _, duplicate := seenTargetKinds[targetKind]; duplicate {
+					return nil, nil, nil, fmt.Errorf("%w: record type %q repeats history target kind %q", ErrDuplicateProviderContribution, record.RecordType, targetKind)
+				}
+				seenTargetKinds[targetKind] = struct{}{}
 			}
 			deleteRestore = append(deleteRestore, DeleteRestoreSourceRegistration{RecordType: record.RecordType, Source: record.DeleteRestoreSource})
 			rowRollback = append(rowRollback, RowProviderRegistration{RecordType: record.RecordType, Provider: record.RowRollbackProvider})

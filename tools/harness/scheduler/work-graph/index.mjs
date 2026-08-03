@@ -1,4 +1,5 @@
 export { WorkGraphCompiler } from "./compiler.mjs";
+export { writeAtomicNDJSON } from "./atomic-ndjson.mjs";
 export {
   browserStages,
   browserTargetStage,

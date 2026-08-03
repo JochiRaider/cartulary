@@ -2,6 +2,7 @@ package configassembly
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
@@ -22,6 +23,7 @@ type Deployment struct {
 	IncidentPortability      config.ClaimConfig            `toml:"incident_portability,omitempty"`
 	NetworkFlowActivity      networkflow.Configuration     `toml:"network_flow_activity,omitempty"`
 	ReferencePack            config.ClaimConfig            `toml:"reference_pack,omitempty"`
+	Revisions                conflicts.Configuration       `toml:"revisions,omitempty"`
 	SnapshotReporting        config.ClaimConfig            `toml:"snapshot_reporting,omitempty"`
 	Timeouts                 config.TimeoutConfig          `toml:"timeouts,omitempty"`
 	Intervals                config.IntervalConfig         `toml:"intervals,omitempty"`
@@ -59,6 +61,10 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 		return Deployment{}, err
 	}
 	deployment.NetworkFlowActivity, err = config.Value(snapshot, networkFlowConfigurationKey)
+	if err != nil {
+		return Deployment{}, err
+	}
+	deployment.Revisions, err = config.Value(snapshot, revisionsConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}

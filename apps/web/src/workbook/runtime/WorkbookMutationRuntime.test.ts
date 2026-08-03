@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  errorEnvelope,
   successEnvelope,
   timelineRow,
 } from "../../testing/timelineWorkbookTestSupport";
@@ -219,6 +220,94 @@ describe("WorkbookMutationRuntime", () => {
         {
           field_key: "timeline.activity_synopsis_text",
           value: "Second",
+        },
+      ],
+    });
+  });
+
+  it("preserves the draft and refreshes a rejected legacy conflict token", async () => {
+    const conflict = (token: string, serverValue: string) => ({
+      conflict_token: token,
+      record_id: recordId,
+      field_key: "timeline.activity_synopsis_text",
+      conflict_resolution_class: "text_compare_merge",
+      base_row_version: 1,
+      current_row_version: 2,
+      base_value: "Base",
+      client_value: "Local draft",
+      server_value: serverValue,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        errorEnvelope(
+          "same_field_conflict",
+          409,
+          conflict("cft2.retired-token", "Remote saved"),
+        ),
+      )
+      .mockResolvedValueOnce(errorEnvelope("invalid_mutation_payload", 400))
+      .mockResolvedValueOnce(
+        errorEnvelope(
+          "same_field_conflict",
+          409,
+          conflict("cft3.active.fresh-token", "Remote saved"),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const runtime = new WorkbookMutationRuntime(
+      { clientInstanceId: "client-1", incidentId },
+      transactionIds,
+      createWorkbookPendingMutationAdapter({
+        apiBase: undefined,
+        incidentId,
+      }),
+    );
+
+    runtime.enqueuePatch({
+      baseRowVersion: 1,
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "Local draft",
+        },
+      ],
+      fieldKey: "timeline.activity_synopsis_text",
+      localValue: "Local draft",
+      recordId,
+      rowLabel: "Timeline row",
+      surfaceLabel: "Timeline",
+      viewSchemaId: timelineViewSchemaId,
+    });
+    await vi.waitFor(() =>
+      expect(runtime.getSnapshot().conflicts).toHaveLength(1),
+    );
+    const original = runtime.getSnapshot().conflicts[0];
+    if (original === undefined) throw new Error("missing original conflict");
+    runtime.updateConflictDraft(original.key, "Reviewed merged draft");
+
+    await expect(
+      runtime.resolveConflict({
+        key: original.key,
+        resolutionKind: "merged_value",
+      }),
+    ).resolves.toContain("draft was preserved");
+
+    const refreshed = runtime.getSnapshot().conflicts[0];
+    expect(refreshed?.conflict.conflict_token).toBe("cft3.active.fresh-token");
+    expect(refreshed?.mergedDraft).toBe("Reviewed merged draft");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/conflicts/cft2.retired-token/resolve",
+    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body)),
+    ).toMatchObject({
+      base_row_version: 1,
+      changes: [
+        {
+          field_key: "timeline.activity_synopsis_text",
+          value: "Local draft",
         },
       ],
     });

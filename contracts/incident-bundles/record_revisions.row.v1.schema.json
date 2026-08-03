@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.record_revisions.row.v1",
+  "title": "Revisions record-revision incident bundle row",
+  "description": "Exact portable record-revision row shared by Incident Bundle versions 1 and 2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision_id",
+    "change_set_id",
+    "record_id",
+    "row_version",
+    "before_json",
+    "after_json",
+    "created_at"
+  ],
+  "properties": {
+    "revision_id": { "type": "integer", "minimum": 1 },
+    "change_set_id": { "$ref": "#/$defs/uuid" },
+    "record_id": { "$ref": "#/$defs/uuid" },
+    "row_version": { "type": "integer", "minimum": 1 },
+    "before_json": { "$ref": "#/$defs/nullable_object" },
+    "after_json": { "$ref": "#/$defs/nullable_object" },
+    "created_at": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "nullable_object": {
+      "oneOf": [
+        { "type": "object" },
+        { "type": "null" }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    }
+  }
+}

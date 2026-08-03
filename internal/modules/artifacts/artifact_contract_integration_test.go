@@ -11,12 +11,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/gen/importtargetregistry"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
@@ -48,6 +51,8 @@ func TestArtifactWorkbookMutationContractMatrix(t *testing.T) {
 		harness.DB,
 		conflicttest.NewCodec("artifacts-contract"),
 		revisionsupport.MustAppender(t),
+		mustConflictFieldResolver(t),
+		workbookassembly.NewConflictIdempotencyPort(harness.DB),
 	)
 	now := time.Date(2026, 7, 30, 14, 0, 0, 0, time.UTC)
 
@@ -215,6 +220,8 @@ func TestArtifactCollectionMutationContractMatrix(t *testing.T) {
 		harness.DB,
 		conflicttest.NewCodec("artifacts-collection"),
 		revisionsupport.MustAppender(t),
+		mustConflictFieldResolver(t),
+		workbookassembly.NewConflictIdempotencyPort(harness.DB),
 	)
 
 	wantPolicies := map[string]artifacts.CollectionFamily{
@@ -577,6 +584,8 @@ func TestArtifactConflictSourceRevalidation(t *testing.T) {
 		harness.DB,
 		conflicttest.NewCodec("artifacts-conflict"),
 		revisionsupport.MustAppender(t),
+		mustConflictFieldResolver(t),
+		workbookassembly.NewConflictIdempotencyPort(harness.DB),
 	)
 	now := time.Date(2026, 7, 30, 18, 0, 0, 0, time.UTC)
 	created, err := facade.Create(ctx, artifacts.WorkbookCreateCommand{
@@ -766,4 +775,13 @@ func artifactTextValue(value string) artifacts.FieldValue {
 
 func artifactFieldValuePtr(value artifacts.FieldValue) *artifacts.FieldValue {
 	return &value
+}
+
+func mustConflictFieldResolver(t testing.TB) conflicts.FieldResolver {
+	t.Helper()
+	resolver, err := revisionassembly.CurrentConflictFieldResolver()
+	if err != nil {
+		t.Fatalf("compose conflict field resolver: %v", err)
+	}
+	return resolver
 }

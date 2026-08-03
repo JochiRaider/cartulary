@@ -68,7 +68,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
-	_, err = runtime.NewCommandService(nil, nil, nil)
+	_, err = runtime.NewCommandService(nil, nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}

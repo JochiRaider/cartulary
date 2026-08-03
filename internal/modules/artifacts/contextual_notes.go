@@ -12,7 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -41,7 +41,7 @@ type ContextualNoteFacade struct {
 
 func NewContextualNoteFacade(pool postgres.DB, appender *revisions.Appender) *ContextualNoteFacade {
 	return &ContextualNoteFacade{
-		owner: NewWorkbookFacade(pool, conflicttokens.ConflictTokenCodec{}, appender),
+		owner: NewWorkbookFacade(pool, conflicttokens.ConflictTokenCodec{}, appender, nil, nil),
 	}
 }
 

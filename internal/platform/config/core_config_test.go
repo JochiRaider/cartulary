@@ -97,8 +97,20 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("rejects unsupported config schema identifiers", func(t *testing.T) {
-		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `config_schema_id = "cartulary.deployment_config.v1"`, `config_schema_id = "cartulary.deployment_config.v2"`), nil)
+		err := loadInvalidConfig(t, strings.ReplaceAll(string(fixtures.MustRead("config", "valid.toml")), `config_schema_id = "cartulary.deployment_config.v2"`, `config_schema_id = "cartulary.deployment_config.v1"`), nil)
 		requireDiagnostic(t, err, "config_schema_id", "unsupported_config_schema_id")
+	})
+
+	t.Run("applies the Revisions key-ring path overlay", func(t *testing.T) {
+		cfg, err := loadWithOptions(LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{
+			"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "/run/secrets/revisions-key-ring.json",
+		}})
+		if err != nil {
+			t.Fatalf("load Revisions key-ring overlay: %v", err)
+		}
+		if cfg.Revisions.ConflictTokenKeyRingManifestPath != "/run/secrets/revisions-key-ring.json" {
+			t.Fatalf("Revisions key-ring overlay = %q", cfg.Revisions.ConflictTokenKeyRingManifestPath)
+		}
 	})
 
 	t.Run("rejects invalid deployment profiles", func(t *testing.T) {

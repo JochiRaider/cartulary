@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type commandServiceTestDB struct{}
@@ -50,6 +49,55 @@ func (commandServiceTestHistoricalPolicy) IsSuppressedTx(context.Context, pgx.Tx
 	return false, nil
 }
 
+type commandServiceTestAuthorizer struct{}
+
+func (commandServiceTestAuthorizer) AuthorizeCommandTx(context.Context, pgx.Tx, uuid.UUID, ActorID, CommandKind) error {
+	return nil
+}
+
+type commandServiceTestIdempotency struct{}
+
+func (commandServiceTestIdempotency) Get(context.Context, IdempotencyKey) (IdempotencyRecord, error) {
+	return IdempotencyRecord{}, ErrIdempotencyNotFound
+}
+
+func (commandServiceTestIdempotency) PutSuccessTx(context.Context, pgx.Tx, IdempotencyKey, []byte, map[string]any) error {
+	return nil
+}
+
+type commandServiceTestEnvelopes struct{}
+
+func (commandServiceTestEnvelopes) LoadEnvelope(context.Context, uuid.UUID) (RecordEnvelope, error) {
+	return RecordEnvelope{}, ErrEnvelopeNotFound
+}
+
+func (commandServiceTestEnvelopes) LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (RecordEnvelope, error) {
+	return RecordEnvelope{}, ErrEnvelopeNotFound
+}
+
+func (commandServiceTestEnvelopes) AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (commandServiceTestEnvelopes) SetDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) (int64, error) {
+	return 0, nil
+}
+
+func (commandServiceTestEnvelopes) LockDestructiveRecordsNowaitTx(context.Context, pgx.Tx, []uuid.UUID) error {
+	return nil
+}
+
+type incidentBundleEnvelopeReaderStub struct{}
+
+func (incidentBundleEnvelopeReaderStub) RecordTypeTx(
+	context.Context,
+	pgx.Tx,
+	uuid.UUID,
+	uuid.UUID,
+) (string, error) {
+	return "host", nil
+}
+
 func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 	t.Parallel()
 	dependencies := validCommandServiceDependencies(t)
@@ -61,12 +109,15 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		name   string
 		mutate func(*CommandServiceDependencies)
 	}{
-		{name: "database", mutate: func(value *CommandServiceDependencies) { value.Database = nil }},
+		{name: "transactions", mutate: func(value *CommandServiceDependencies) { value.Transactions = nil }},
+		{name: "authorization", mutate: func(value *CommandServiceDependencies) { value.Authorization = nil }},
+		{name: "idempotency", mutate: func(value *CommandServiceDependencies) { value.Idempotency = nil }},
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
 		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
 		{name: "appender", mutate: func(value *CommandServiceDependencies) { value.Appender = nil }},
-		{name: "envelope store", mutate: func(value *CommandServiceDependencies) { value.EnvelopeStore = nil }},
+		{name: "record envelopes", mutate: func(value *CommandServiceDependencies) { value.RecordEnvelopes = nil }},
+		{name: "clock", mutate: func(value *CommandServiceDependencies) { value.Clock = nil }},
 	}
 	for _, test := range tests {
 		test := test
@@ -85,7 +136,9 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 	t.Helper()
 	database := commandServiceTestDB{}
 	return CommandServiceDependencies{
-		Database:                    database,
+		Transactions:                database,
+		Authorization:               commandServiceTestAuthorizer{},
+		Idempotency:                 commandServiceTestIdempotency{},
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
 		ProviderContributions:       validProviderContributions(),
@@ -93,7 +146,8 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 			recordViews:      &RecordViewCatalog{},
 			historicalPolicy: commandServiceTestHistoricalPolicy{},
 		},
-		EnvelopeStore: records.NewStore(database),
+		RecordEnvelopes: commandServiceTestEnvelopes{},
+		Clock:           func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
 	}
 }
 
@@ -171,5 +225,36 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 				t.Fatalf("provider contribution error = %v, want %v", err, test.want)
 			}
 		})
+	}
+}
+
+func TestIncidentBundleValidationCatalogFailsClosed(t *testing.T) {
+	t.Parallel()
+	contributions := validProviderContributions()
+	catalog, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, contributions)
+	if err != nil {
+		t.Fatalf("build valid incident-bundle validation catalog: %v", err)
+	}
+	if !catalog.resolvesTargetKind("record") ||
+		!catalog.resolvesTargetKind("host") ||
+		!catalog.resolvesTargetKind("record_link") {
+		t.Fatalf("validation target catalog is incomplete: %#v", catalog.targetKinds())
+	}
+	contributions[0].Records[0].RecordType = "mutated-after-build"
+	if catalog.resolvesTargetKind("mutated-after-build") {
+		t.Fatal("caller mutation escaped the immutable validation catalog")
+	}
+
+	duplicate := validProviderContributions()
+	duplicate[0].Records[0].HistoryTargetKinds = []string{"shared_target"}
+	duplicate[1].Records[0].HistoryTargetKinds = []string{"shared_target"}
+	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, duplicate); !errors.Is(err, ErrDuplicateHistoryTargetProvider) {
+		t.Fatalf("duplicate target provider error = %v", err)
+	}
+
+	empty := validProviderContributions()
+	empty[0].Records[0].HistoryTargetKinds = []string{""}
+	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, empty); !errors.Is(err, ErrUnexpectedProviderContribution) {
+		t.Fatalf("empty target provider error = %v", err)
 	}
 }

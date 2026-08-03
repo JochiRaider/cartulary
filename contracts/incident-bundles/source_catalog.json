@@ -137,9 +137,9 @@
       "owner_relation_ids": ["record-revisions"],
       "dependencies": ["links_tags"],
       "paths": [
-        {"logical_path": "data/change_sets.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["change_set_id"]},
-        {"logical_path": "data/change_set_mutations.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["change_set_id", "sequence_no"]},
-        {"logical_path": "data/record_revisions.ndjson", "content_role": "source_rows", "versions": [1, 2], "stable_identity": ["revision_id"]}
+        {"logical_path": "data/change_sets.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_sets.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id"]},
+        {"logical_path": "data/change_set_mutations.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.change_set_mutations.row.v1", "versions": [1, 2], "stable_identity": ["change_set_id", "sequence_no"]},
+        {"logical_path": "data/record_revisions.ndjson", "content_role": "source_rows", "schema_id": "cartulary.incident_bundle.record_revisions.row.v1", "versions": [1, 2], "stable_identity": ["revision_id"]}
       ],
       "invariant_ids": ["revisions.references_complete", "revisions.actor_references_complete", "revisions.mutation_sequence_contiguous", "revisions.record_version_unique", "revisions.history_reconstruction", "revisions.sequence_repair_after_validation"]
     },

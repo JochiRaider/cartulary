@@ -9,7 +9,8 @@ import (
 func RevisionProviderContribution() revisions.ProviderContribution {
 	childProvider := rollbackprovider.NewChildProvider()
 	return revisions.ProviderContribution{
-		SourceOwnerModule: revisions.SourceOwnerIndicators,
+		SourceOwnerModule:     revisions.SourceOwnerIndicators,
+		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerIndicators,
 			RecordType:             "indicator",

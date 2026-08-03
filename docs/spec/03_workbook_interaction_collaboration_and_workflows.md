@@ -592,10 +592,22 @@ The `error.conflict` object MUST include at least:
 - `base_value` for merge-capable fields, or `base_revision_ref` only when a later profile or future `conflict_resolution_class` explicitly allows it.
 
 `conflict_token` is an opaque server-issued value. Clients MUST NOT parse, alter, mint, or depend on token internals. The server MUST verify that the token is valid for the addressed route family, record, field, current conflict window, and submitted resolution payload before accepting an explicit resolution request; unsigned or client-editable conflict claims are not sufficient authority.
-Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 
-Contract ownership: this section owns the public same-field conflict interaction and transport contract. That ownership does not assign generic token, revision-window, or merge mechanics to workbook transport, and it does not assign source-field or collection semantics to workbook transport. An implementation MAY centralize cryptographic token and revision-history mechanics behind one revisions-oriented capability, while each authoritative source owner remains responsible for its writable fields, collection operations, current source state, and conflict revalidation. Any such split MUST preserve token opacity, route-family binding, field binding, request-hash binding, current conflict-window validation, and the public route and envelopes in this section.
+The current base-profile token format is conflict token v3. Its external form
+is `cft3.<key_id>.<sealed_payload>`, is at most `4096` bytes, and carries no
+client-readable claim payload. The sealed canonical claims are exactly token
+version, route key, record ID, view-schema ID, field key, conflict-resolution
+class, base row version, current row version, request hash, `issued_at`, and
+`expires_at`. The fixed TTL is `30` minutes and `expires_at` MUST equal
+`issued_at + 30 minutes`; a verifier MAY admit at most `60` seconds of positive
+issuance clock skew. Malformed, unsupported-version, unknown-key, retired-key,
+tampered, expired, or binding-invalid tokens MUST collapse to the same
+authorized invalid-token response. Conflict token v2 and every unsealed or
+authentication-master-derived format are unsupported after v3 adoption.
+Profiles: base
+Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231, AC-526, AC-529
+
+Contract ownership: this section owns the public same-field conflict interaction and transport contract. Revisions MUST own the generic cryptographic token, revision-window, deterministic plain-text merge, and revisionless `keep_saved` coordination behind one `conflicts` capability. Workbook transport MUST NOT own those mechanics. Each authoritative source owner remains responsible for its writable fields, collection operations, current source state, conflict revalidation, and mutation. Application composition constructs source-owner providers and validates the complete immutable catalog. This split MUST preserve token opacity, route-family binding, field binding, request-hash binding, current conflict-window validation, and the public route and envelopes in this section.
 
 **REQ-03-067**
 When `conflict_resolution_class='text_compare_merge'`, the conflict object MUST include `base_value`; `base_revision_ref` alone is insufficient for the base profile. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each be the raw text scalar for the field or `null`. The conflict object MAY additionally include `suggested_merged_value`, which, when present, MUST also be the raw text scalar for the field or `null`. The presence of `suggested_merged_value` means only that the server found a deterministic clean line merge suggestion and MUST NOT imply that the rejected write has been accepted.
@@ -648,7 +660,7 @@ For a validly routed request, enforcement MUST proceed in this order: authentica
 
 The resulting precedence is fixed: missing, invalid, or inactive session returns `401 session_required`; CSRF failure returns `403 csrf_verification_failed`; a missing record or caller without incident membership returns hidden `404 incident_not_found`; a visible record with role below `editor` returns `403 authorization_denied`; only an authorized caller can receive `400 invalid_mutation_payload` with `details.field='conflict_token'` for a malformed, tampered, unsupported-route, path-mismatched, or cross-record token; invalid body then receives the route-owned `400` validation result; a valid stale token receives `409 same_field_conflict` with a fresh conflict object; and a valid current token uses the existing success contract. Every rejected request MUST leave source state, change sets, revisions, projections, idempotency state, and collaboration publication unchanged.
 Profiles: base
-Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
+Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231, AC-526, AC-528
 
 **REQ-03-076**
 If the same field changes again before the analyst resolves the conflict, the server MUST reject the stale `conflict_token` and return a fresh same-field conflict payload in the same generic error envelope. The client MUST preserve the analyst's unsaved local draft and refresh the compare surface against the newest saved value.

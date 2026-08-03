@@ -299,6 +299,11 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
     incidentId,
     expectedPostEditQueryBody,
   );
+  const postEditQueryResponse = waitForTimelineQueryResponse(
+    page,
+    incidentId,
+    expectedPostEditQueryBody,
+  );
   const betaSummary = page.getByTestId(
     rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
@@ -331,10 +336,9 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
   ).toBe("enriched");
   const postEditQueryRequest = await postEditQuery;
   expect(readPostBody(postEditQueryRequest)).toEqual(expectedPostEditQueryBody);
-  const postEditQueryResponse = await postEditQueryRequest.response();
-  expect(postEditQueryResponse).not.toBeNull();
-  expect(postEditQueryResponse?.ok()).toBeTruthy();
-  expect(await postEditQueryResponse?.finished()).toBeNull();
+  const completedPostEditQueryResponse = await postEditQueryResponse;
+  expect(completedPostEditQueryResponse.ok()).toBeTruthy();
+  expect(await completedPostEditQueryResponse.finished()).toBeNull();
   await expect(
     page.getByText("No rows match the current filters."),
   ).toBeVisible();
@@ -549,6 +553,23 @@ function waitForTimelineQuery(
         ) &&
       (expectedBody === undefined ||
         isDeepStrictEqual(readPostBody(request), expectedBody)),
+  );
+}
+
+function waitForTimelineQueryResponse(
+  page: Page,
+  incidentId: string,
+  expectedBody: Record<string, unknown>,
+) {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+        ) &&
+      isDeepStrictEqual(readPostBody(response.request()), expectedBody),
   );
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -97,6 +98,10 @@ func run() error {
 	if err := os.MkdirAll(sourceRoot, 0o700); err != nil {
 		return fmt.Errorf("create source root: %w", err)
 	}
+	sourceTokenEnv, err := prepareConflictTokenHarness(sourceRoot)
+	if err != nil {
+		return err
+	}
 	sourceName := "cartulary_restore_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	sourceDSN, err := createAndMigrateDB(ctx, baseDSN, sourceName)
 	if err != nil {
@@ -127,7 +132,7 @@ func run() error {
 	sourceRuntime, err := server.NewRuntime(ctx, targetConfig(sourceRoot, ""), server.Options{
 		Postgres:    sourcePool,
 		ObjectStore: sourceObjectStore,
-		Env:         map[string]string{},
+		Env:         sourceTokenEnv,
 	})
 	if err != nil {
 		return fmt.Errorf("start source runtime: %w", err)
@@ -201,6 +206,10 @@ func run() error {
 	if err := os.MkdirAll(targetRoot, 0o700); err != nil {
 		return fmt.Errorf("create target root: %w", err)
 	}
+	targetTokenEnv, err := prepareConflictTokenHarness(targetRoot)
+	if err != nil {
+		return err
+	}
 	targetName := "cartulary_restore_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
 	targetDSN, err := createAndMigrateDB(ctx, baseDSN, targetName)
 	if err != nil {
@@ -255,7 +264,7 @@ func run() error {
 	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Env:         map[string]string{},
+		Env:         targetTokenEnv,
 	})
 	if err != nil {
 		targetPool.Close()
@@ -635,7 +644,7 @@ func targetConfig(root string, origin string) configassembly.Deployment {
 		origin = "http://127.0.0.1"
 	}
 	return configassembly.Deployment{
-		ConfigSchemaID:    "cartulary.deployment_config.v1",
+		ConfigSchemaID:    "cartulary.deployment_config.v2",
 		DeploymentProfile: "disconnected",
 		Application:       config.ApplicationConfig{PublicOrigin: origin},
 		Roots: config.RootBindings{
@@ -647,6 +656,7 @@ func targetConfig(root string, origin string) configassembly.Deployment {
 			ExportOutputs:        config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "export-outputs")},
 		},
 		Bootstrap: config.BootstrapConfig{FirstAdminManifestPath: filepath.Join(root, "bootstrap-admin.json")},
+		Revisions: conflicts.Configuration{ConflictTokenKeyRingManifestPath: filepath.Join(root, "revisions-conflict-token-key-ring.json")},
 		Limits: config.LimitConfig{
 			ObjectBlobs:     config.ObjectBlobLimits{MaxDeclaredByteSize: config.DefaultObjectBlobMaxDeclaredByteSize},
 			Imports:         config.ImportLimits{MaxCSVSourceBytes: config.DefaultImportMaxCSVSourceBytes, MaxXLSXSourceBytes: config.DefaultImportMaxXLSXSourceBytes, MaxRows: config.DefaultImportMaxRows, MaxColumns: config.DefaultImportMaxColumns, MaxCells: config.DefaultImportMaxCells},
@@ -660,6 +670,18 @@ func targetConfig(root string, origin string) configassembly.Deployment {
 			},
 		},
 	}
+}
+
+func prepareConflictTokenHarness(root string) (map[string]string, error) {
+	const secret = "oVmbXT5kH1Q59Lur9tmdNgYUW3L41EGpcjT73_5CgSQ"
+	manifest := []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"restore-browser-fixture","state":"active","secret_ref":{"kind":"env","name":"revisions-conflict-token-fixture-v1"}}]}`)
+	if err := os.WriteFile(filepath.Join(root, "revisions-conflict-token-key-ring.json"), manifest, 0o600); err != nil {
+		return nil, fmt.Errorf("write restore-browser Revisions key ring: %w", err)
+	}
+	return map[string]string{
+		conflicts.ConflictTokenFixtureRuntimeEnvName:           conflicts.ConflictTokenFixtureRuntimeMarker,
+		"CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_FIXTURE_V1": secret,
+	}, nil
 }
 
 func createAndMigrateDB(ctx context.Context, baseDSN string, databaseName string) (string, error) {

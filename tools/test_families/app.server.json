@@ -812,6 +812,7 @@
       "collaborator_ids": [
         "module.auth",
         "module.networkflow",
+        "module.revisions",
         "platform.rootedfs"
       ],
       "verification_ids": [
@@ -823,7 +824,8 @@
         "tests": [
           "TestEnterpriseAuthenticationManifestPreflight_Unit",
           "TestFailClosedStartup_Unit",
-          "TestNetworkFlowManifestPreflight_Unit"
+          "TestNetworkFlowManifestPreflight_Unit",
+          "TestRevisionsConflictTokenManifestPreflight_Unit"
         ]
       },
       "evidence_class": "unit",

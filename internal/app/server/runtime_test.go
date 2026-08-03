@@ -15,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
@@ -103,6 +105,27 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 		if jobsCalls != 0 || postgresCalls != 0 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
 			t.Fatalf("expected fail-closed startup before any dependency wiring, got jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
+		}
+	})
+
+	t.Run("cross-purpose Revisions key reuse stops before listener publication", func(t *testing.T) {
+		cfg := RuntimeConfig(t)
+		t.Setenv(authn.AuthMasterKeyEnv, "pVldGSpD5oEmYa9F85d3/iL2lzBgkyfiWcoJDhsSGpk=")
+		jobsCalls = 0
+		postgresCalls = 0
+		objectStoreCalls = 0
+		wsHubCalls = 0
+		handlerCalls = 0
+
+		_, err := NewRuntime(context.Background(), cfg, Options{})
+		diagnostics, ok := config.DiagnosticsFromError(err)
+		if !ok || len(diagnostics) != 1 ||
+			diagnostics[0].Path != "revisions.conflict_token_key_ring_manifest_path.keys[0].secret_ref" ||
+			diagnostics[0].ReasonCode != "revisions_conflict_token_key_purpose_conflict" {
+			t.Fatalf("cross-purpose secret diagnostics = %#v / %v", diagnostics, err)
+		}
+		if jobsCalls != 0 || postgresCalls != 1 || objectStoreCalls != 0 || wsHubCalls != 0 || handlerCalls != 0 {
+			t.Fatalf("cross-purpose secret reuse crossed the startup preflight boundary: jobs=%d postgres=%d object_store=%d websocket=%d handler=%d", jobsCalls, postgresCalls, objectStoreCalls, wsHubCalls, handlerCalls)
 		}
 	})
 
@@ -501,6 +524,58 @@ func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
 	}
 }
 
+func TestRevisionsConflictTokenManifestPreflight_Unit(t *testing.T) {
+	originalReadSecureFile := readSecureFile
+	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+	readSecureFile = securefile.Read
+
+	root := t.TempDir()
+	malformed := filepath.Join(root, "malformed.json")
+	if err := os.WriteFile(malformed, []byte(`{"schema_id":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oversized := filepath.Join(root, "oversized.json")
+	if err := os.WriteFile(oversized, make([]byte, conflicts.ConflictTokenKeyRingManifestMaximumSize+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	symlink := filepath.Join(root, "manifest-link.json")
+	if err := os.Symlink(malformed, symlink); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{
+		"CARTULARY_SECRET_RUNTIME_TEST_REVISIONS": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY",
+	}
+
+	for name, testCase := range map[string]struct {
+		path       string
+		wantReason string
+	}{
+		"unreadable": {path: filepath.Join(root, "missing.json"), wantReason: "revisions_conflict_token_manifest_missing"},
+		"directory":  {path: root, wantReason: "revisions_conflict_token_manifest_invalid"},
+		"oversized":  {path: oversized, wantReason: "revisions_conflict_token_manifest_invalid"},
+		"symlink":    {path: symlink, wantReason: "revisions_conflict_token_manifest_invalid"},
+		"malformed":  {path: malformed, wantReason: "revisions_conflict_token_manifest_invalid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadRevisionsConflictTokenKeyRing(
+				conflicts.Configuration{ConflictTokenKeyRingManifestPath: testCase.path},
+				env,
+				time.Now().UTC(),
+				secretpurpose.NewRegistry(),
+			)
+			diagnostics, ok := config.DiagnosticsFromError(err)
+			if !ok || len(diagnostics) != 1 ||
+				diagnostics[0].Path != "revisions.conflict_token_key_ring_manifest_path" ||
+				diagnostics[0].ReasonCode != testCase.wantReason {
+				t.Fatalf("manifest diagnostics = %#v / %v", diagnostics, err)
+			}
+			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), testCase.path) {
+				t.Fatalf("manifest error disclosed host path: %v", err)
+			}
+		})
+	}
+}
+
 type CloseTrackingStore struct {
 	objectstore.Store
 	closeCalls int
@@ -526,8 +601,13 @@ func RuntimeConfig(t testing.TB) configassembly.Deployment {
 	); err != nil {
 		t.Fatalf("write database DSN fixture: %v", err)
 	}
+	conflictTokenManifestPath := filepath.Join(base, "revisions-conflict-token-key-ring.json")
+	if err := os.WriteFile(conflictTokenManifestPath, []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"runtime-test","state":"active","secret_ref":{"kind":"env","name":"runtime-test-revisions-conflict"}}]}`), 0o600); err != nil {
+		t.Fatalf("write Revisions conflict-token key-ring fixture: %v", err)
+	}
+	t.Setenv("CARTULARY_SECRET_RUNTIME_TEST_REVISIONS_CONFLICT", "pVldGSpD5oEmYa9F85d3_iL2lzBgkyfiWcoJDhsSGpk")
 	return configassembly.Deployment{
-		ConfigSchemaID:    "cartulary.deployment_config.v1",
+		ConfigSchemaID:    "cartulary.deployment_config.v2",
 		DeploymentProfile: "disconnected",
 		Application: config.ApplicationConfig{
 			PublicOrigin: "http://localhost:5173",
@@ -558,5 +638,6 @@ func RuntimeConfig(t testing.TB) configassembly.Deployment {
 				Path:        filepath.Join(base, "exports"),
 			},
 		},
+		Revisions: conflicts.Configuration{ConflictTokenKeyRingManifestPath: conflictTokenManifestPath},
 	}
 }

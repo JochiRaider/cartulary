@@ -93,6 +93,7 @@ export function useTimelinePendingReplayController({
     rowKey: string,
     focusField: FocusFieldKey,
     surface: TimelineScalarEditorSurface,
+    refresh: () => Promise<WorkbookOperationOutcome<unknown>>,
   ) => boolean;
   readonly latestCommittedTimelineRow: (recordId: string) => WorkbookRow | null;
   readonly loadRowsRef: TimelineMutableRef<
@@ -513,17 +514,75 @@ export function useTimelinePendingReplayController({
       if (settlement.outcome === "same_field_conflict") {
         clearViewportContinuity(meta.viewportContinuityToken);
         const message = result.failure.message;
+        const sameFieldConflict =
+          result.failure.kind === "same_field_conflict"
+            ? result.failure.conflict
+            : null;
         settleCompletionCallbacks(dispatchedUnit.id, {
           kind: "conflict",
           message,
         });
         if (
-          result.failure.kind === "same_field_conflict" &&
+          sameFieldConflict !== null &&
           registerMutationConflict(
-            result.failure.conflict,
+            sameFieldConflict,
             settlement.unit.rowKey,
             meta.focusField,
             meta.surface,
+            async () => {
+              let clientTxnId: string;
+              try {
+                clientTxnId = mutationCommands.createConflictRecoveryId();
+              } catch (error) {
+                return {
+                  kind: "rejected",
+                  failure: {
+                    kind: "validation",
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "A secure request identifier could not be created.",
+                  },
+                };
+              }
+              const identity = settlement.unit.identity;
+              if (identity.kind !== "patch") {
+                return {
+                  kind: "rejected",
+                  failure: {
+                    kind: "validation",
+                    message: "The original conflict mutation is unavailable.",
+                  },
+                };
+              }
+              const refreshedUnit: PendingReplayUnitState = {
+                ...settlement.unit,
+                id: `${clientTxnId}:patch`,
+                clientTxnId,
+                status: "in_flight",
+                identity: { ...identity, client_txn_id: clientTxnId },
+              };
+              trackPendingSocketTxn(clientTxnId);
+              try {
+                const refreshed = await pendingMutationPort.execute({
+                  committedRowVersion: sameFieldConflict.base_row_version,
+                  unit: refreshedUnit,
+                });
+                if (refreshed.kind === "rejected") {
+                  resolvePendingSocketTxn(clientTxnId);
+                }
+                return refreshed;
+              } catch {
+                resolvePendingSocketTxn(clientTxnId);
+                return {
+                  kind: "rejected",
+                  failure: {
+                    kind: "retryable",
+                    message: "The conflict could not be refreshed.",
+                  },
+                };
+              }
+            },
           )
         ) {
           pending.metaByUnitId.delete(settlement.unit.id);

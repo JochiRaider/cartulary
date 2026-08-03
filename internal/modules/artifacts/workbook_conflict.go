@@ -2,11 +2,13 @@ package artifacts
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
+	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -35,10 +37,13 @@ func (f *WorkbookFacade) ResolveConflict(
 			Now:              command.Now,
 		})
 	}
+	if f.keepSaved == nil {
+		return WorkbookMutationResult{}, fmt.Errorf("artifacts: keep-saved idempotency is not configured")
+	}
 	result, err := conflictresolution.KeepSaved(
 		ctx,
 		f.pool,
-		conflictresolution.NewRouteIdempotencyAdapter(f.authStore),
+		f.keepSaved,
 		command.Mechanics,
 		f.loadConflictTarget,
 	)
@@ -47,7 +52,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	}
 	return WorkbookMutationResult{
 		Payload:      result.Payload,
-		StatusCode:   result.StatusCode,
+		StatusCode:   http.StatusOK,
 		Replayed:     result.Replayed,
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,

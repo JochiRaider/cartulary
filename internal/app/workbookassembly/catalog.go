@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -30,6 +30,7 @@ func NewContributionCatalog(
 	evidenceOwner evidence.WorkbookContribution,
 	taskDecisionOwner *tasksdecisions.MutationFacade,
 	conflictTokens conflicttokens.ConflictTokenCodec,
+	conflictFields conflicttokens.FieldResolver,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
 ) (*workbook.WorkbookContributionCatalog, error) {
@@ -51,15 +52,19 @@ func NewContributionCatalog(
 	if intents == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Collaboration intent appender is required")
 	}
+	if conflictFields == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Revisions conflict field resolver is required")
+	}
+	keepSaved := NewConflictIdempotencyPort(pool)
 
-	entityStore := hostidentity.NewStore(pool, appender)
+	entityStore := hostidentity.NewStore(pool, appender, keepSaved)
 	indicatorStore := indicators.NewStore(pool, appender)
 	assessmentFacade, err := newAssessmentFacade(pool, projectionCatalog, entityStore, appender)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
-	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender)
-	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender)
+	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender, conflictFields, keepSaved)
+	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender, conflictFields, keepSaved)
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(

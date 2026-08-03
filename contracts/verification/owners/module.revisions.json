@@ -12,6 +12,27 @@
       ]
     },
     {
+      "verification_id": "module.revisions.verification.conflict_capability_consolidation",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.conflict_field_resolver_catalog",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.conflict_token_v3_lifecycle",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.revisions.verification.delete_restore_source_adapter_matrix",
       "behavior_class": "product",
       "profile": "base",
@@ -26,7 +47,112 @@
       "public_target": "test"
     },
     {
-      "verification_id": "module.revisions.verification.incident_portability",
+      "verification_id": "module.revisions.verification.facade_dependency_closure",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.history_component_decomposition",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.http_application_boundary",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.http_security_precedence",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.portability_allocator",
+      "behavior_class": "security",
+      "profile": "extension.incident_portability",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.portability_atomicity",
+      "behavior_class": "security",
+      "profile": "extension.incident_portability",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.portability_attribution_boundary",
+      "behavior_class": "security",
+      "profile": "extension.incident_portability",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.portability_attribution_registry",
+      "behavior_class": "architecture",
+      "profile": "extension.incident_portability",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.portability_contract_and_attribution",
+      "behavior_class": "product",
+      "profile": "extension.incident_portability",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.provider_catalog_closure",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.revision_window_reader",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.rollback_changed_field_completeness",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.rollback_decomposition",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.rollback_transaction_atomicity",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
+      "verification_id": "module.revisions.verification.test_support_boundary",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.revisions.verification.text_merge_contract",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": ["go_test"],

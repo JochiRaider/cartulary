@@ -92,5 +92,6 @@ func ConfigProcessEnv(t testing.TB, configPath string) map[string]string {
 	for key, value := range tempRoots.Paths {
 		env[key] = value
 	}
+	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
 	return env
 }

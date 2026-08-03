@@ -13,9 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
 func TestMutationContributionRejectsIncompleteDependencies_Unit(t *testing.T) {
@@ -74,6 +72,10 @@ type mutationSupersedeConsumer interface {
 
 func completeMutationDependencies() MutationDependencies {
 	operations := compositionOperations{}
+	fieldResolver, err := conflicttokens.NewFieldResolverCatalog(nil)
+	if err != nil {
+		panic(err)
+	}
 	return MutationDependencies{
 		IncidentState:        operations,
 		MemberReferences:     operations,
@@ -82,6 +84,7 @@ func completeMutationDependencies() MutationDependencies {
 		Links:                links.NewStore(),
 		Projections:          operations,
 		Revisions:            operations,
+		ConflictFields:       fieldResolver,
 		KeepSavedIdempotency: compositionKeepSavedIdempotency{},
 	}
 }
@@ -118,11 +121,11 @@ func (compositionIdempotency) PutTx(context.Context, pgx.Tx, IdempotencyKey, []b
 
 type compositionKeepSavedIdempotency struct{}
 
-func (compositionKeepSavedIdempotency) Get(context.Context, conflictresolution.IdempotencyKey, []byte) (conflictresolution.IdempotencyRecord, error) {
-	return conflictresolution.IdempotencyRecord{}, conflictresolution.ErrIdempotencyNotFound
+func (compositionKeepSavedIdempotency) Get(context.Context, conflicttokens.IdempotencyKey, []byte) (conflicttokens.IdempotencyRecord, error) {
+	return conflicttokens.IdempotencyRecord{}, conflicttokens.ErrIdempotencyNotFound
 }
 
-func (compositionKeepSavedIdempotency) PutTx(context.Context, pgx.Tx, conflictresolution.IdempotencyKey, []byte, conflictresolution.StoredTarget) error {
+func (compositionKeepSavedIdempotency) PutTx(context.Context, pgx.Tx, conflicttokens.IdempotencyKey, []byte, conflicttokens.StoredTarget) error {
 	return nil
 }
 
@@ -164,6 +167,6 @@ func (compositionOperations) AppendRecordRevisionTx(context.Context, pgx.Tx, rev
 	return nil
 }
 
-func (compositionOperations) LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]historyquery.RevisionWindowRow, error) {
+func (compositionOperations) LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicttokens.RevisionWindowRow, error) {
 	return nil, nil
 }

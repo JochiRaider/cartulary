@@ -18,8 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
@@ -954,7 +953,7 @@ func newGenericConflictProvider(
 				}
 			}
 			result, err := resolve(ctx, command, request, patch)
-			if errors.Is(err, conflictresolution.ErrClientTxnConflict) {
+			if errors.Is(err, conflicttokens.ErrClientTxnConflict) {
 				return MutationResult{}, authn.ErrClientTxnConflict
 			}
 			return result, err
@@ -965,8 +964,8 @@ func newGenericConflictProvider(
 func conflictMechanics(
 	command ConflictCommand,
 	clientTxnID string,
-) conflictresolution.Command {
-	return conflictresolution.Command{
+) conflicttokens.Command {
+	return conflicttokens.Command{
 		ActorUserID: command.Actor.ID,
 		RecordID:    command.RecordID,
 		Claims:      command.Claims,

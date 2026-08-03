@@ -12,8 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
 // ErrIdempotencyNotFound is returned when no committed route result exists.
@@ -148,7 +147,7 @@ type RevisionCapability interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
-	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]historyquery.RevisionWindowRow, error)
+	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicts.RevisionWindowRow, error)
 }
 
 // MutationDependencies is assembled at the application composition root. The
@@ -161,7 +160,8 @@ type MutationDependencies struct {
 	Links                LinkCapability
 	Projections          ProjectionCapability
 	Revisions            RevisionCapability
-	KeepSavedIdempotency conflictresolution.IdempotencyPort
+	ConflictFields       conflicts.FieldResolver
+	KeepSavedIdempotency conflicts.IdempotencyPort
 }
 
 func (d MutationDependencies) validate() error {
@@ -176,6 +176,7 @@ func (d MutationDependencies) validate() error {
 		{name: "Links", value: d.Links},
 		{name: "Projections", value: d.Projections},
 		{name: "Revisions/history", value: d.Revisions},
+		{name: "Conflict fields", value: d.ConflictFields},
 		{name: "Keep-saved idempotency", value: d.KeepSavedIdempotency},
 	}
 	for _, dependency := range required {

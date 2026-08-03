@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -887,7 +887,10 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookproje
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
-	token := s.conflictToken(recordID, change.FieldKey, baseRowVersion, current.RowVersion, requestHash)
+	token, err := s.conflictToken(recordID, change.FieldKey, baseRowVersion, current.RowVersion, requestHash)
+	if err != nil {
+		return nil, err
+	}
 	return &SameFieldConflictError{
 		Conflict: map[string]any{
 			"conflict_token":            token,
@@ -905,7 +908,7 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current workbookproje
 	}, nil
 }
 
-func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
+func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) (string, error) {
 	field, _ := viewschema.LookupField(TimelineViewSchemaID, fieldKey)
 	conflictClass := field.ConflictResolutionClass
 	if conflictClass == "" {

@@ -751,6 +751,8 @@ func IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[string]str
 	for key, value := range objectStoreEnv {
 		env[key] = value
 	}
+	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
+	env["CARTULARY_SECRET_RUNTIME_TEST_REVISIONS_CONFLICT"] = "pVldGSpD5oEmYa9F85d3_iL2lzBgkyfiWcoJDhsSGpk"
 	return env
 }
 

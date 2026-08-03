@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -37,7 +38,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	revisionshttpapi "github.com/JochiRaider/cartulary/internal/modules/revisions/httpapi"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -404,6 +406,16 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			return nil, deploymentEnterpriseAuthenticationError(err)
 		}
 	}
+	revisionsConflictTokenKeyRing, err := loadRevisionsConflictTokenKeyRing(
+		normalizedCfg.Revisions,
+		options.Env,
+		now(),
+		secretPurposes,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg.Telemetry, normalizedCfg.DeploymentProfile, options.Env, telemetry.WithResolvedClaimIdentity(telemetry.ResolvedClaimIdentity{
 		ProfileIDs: resolvedClaims.ProfileIDs(),
 		SHA256:     resolvedClaims.SHA256(),
@@ -767,7 +779,14 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		return nil, fmt.Errorf("compose Revisions runtime: %w", err)
 	}
 	runtime.Revisions = revisionRuntime
-	workbookConflictTokens := conflicttokens.NewConflictTokenCodec(keys)
+	workbookConflictTokens, err := conflicttokens.NewConflictTokenCodec(
+		revisionsConflictTokenKeyRing,
+		conflicttokens.WithClock(now),
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Revisions conflict-token codec: %w", err)
+	}
 	timelineProjection := timelineassembly.NewProjectionBundle(postgresHandle)
 	evidenceOwner := evidence.NewOwnerRuntime(
 		postgresHandle,
@@ -775,6 +794,8 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		revisionRuntime.Appender(),
 		intentAppender,
 		runtime.ObjectStore,
+		revisionRuntime.ConflictFieldResolver(),
+		workbookassembly.NewConflictIdempotencyPort(postgresHandle),
 		evidence.WithProjectionPort(timelineProjection.EvidenceProjectionPort()),
 	)
 	runtime.evidenceOwner = evidenceOwner
@@ -791,12 +812,13 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
 		timelineBundle.ProjectionCoordinator,
+		now,
 	)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
-	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
+	revisionRoutes := revisionshttpapi.RegisterRoutes(revisionCommands)
 	importStore := imports.NewStore(
 		runtime.Postgres,
 		revisionRuntime.Appender(),
@@ -972,6 +994,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		postgresHandle,
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
+		revisionRuntime.ConflictFieldResolver(),
 	)
 	if err != nil {
 		runtime.Close()
@@ -985,6 +1008,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 		evidenceOwner.WorkbookContribution(),
 		taskDecisionMutation,
 		workbookConflictTokens,
+		revisionRuntime.ConflictFieldResolver(),
 		revisionRuntime.Appender(),
 		intentAppender,
 	)
@@ -1023,7 +1047,7 @@ func newRuntime(ctx context.Context, loadedConfiguration configassembly.Loaded, 
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
 				TimelineOwner:       timelineFacade,
 				MutationStore:       workbookMutationStore,
-				EntityOwner:         hostidentity.NewStore(postgresHandle, revisionRuntime.Appender()),
+				EntityOwner:         hostidentity.NewStore(postgresHandle, revisionRuntime.Appender(), workbookassembly.NewConflictIdempotencyPort(postgresHandle)),
 				ConflictTokens:      workbookConflictTokens,
 				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,
 			}),
@@ -1174,6 +1198,43 @@ func loadNetworkFlowKeyRings(
 	return rings, nil
 }
 
+func loadRevisionsConflictTokenKeyRing(
+	configuration conflicttokens.Configuration,
+	env map[string]string,
+	now time.Time,
+	registry *secretpurpose.Registry,
+) (*conflicttokens.ConflictTokenKeyRing, error) {
+	document, err := readSecureFile(configuration.ConflictTokenKeyRingManifestPath, conflicttokens.ConflictTokenKeyRingManifestMaximumSize)
+	if err != nil {
+		failure := conflicttokens.ManifestUnreadable
+		var secureError *securefile.Error
+		if errors.As(err, &secureError) {
+			switch secureError.Kind {
+			case securefile.FailureTooLarge:
+				failure = conflicttokens.ManifestTooLarge
+			case securefile.FailureInvalidPath, securefile.FailureUnsafeObject, securefile.FailureChanged:
+				failure = conflicttokens.ManifestUnsafe
+			}
+		}
+		return nil, deploymentRevisionsConflictTokenError(conflicttokens.ConflictTokenKeyRingManifestReadError(failure))
+	}
+	options := conflicttokens.KeyRingParseOptions{
+		AllowFixtureKey: runtimeEnvironmentValue(env, conflicttokens.ConflictTokenFixtureRuntimeEnvName) == conflicttokens.ConflictTokenFixtureRuntimeMarker,
+	}
+	ring, err := conflicttokens.ParseConflictTokenKeyRingWithRegistry(document.Bytes(), env, now, registry, options)
+	if err != nil {
+		return nil, deploymentRevisionsConflictTokenError(err)
+	}
+	return ring, nil
+}
+
+func runtimeEnvironmentValue(env map[string]string, key string) string {
+	if env != nil {
+		return env[key]
+	}
+	return os.Getenv(key)
+}
+
 type enterpriseDocumentReader struct{}
 
 func loadEnterpriseProviderManifest(
@@ -1219,6 +1280,18 @@ func deploymentEnterpriseAuthenticationError(err error) error {
 
 func deploymentNetworkFlowError(err error) error {
 	finding, ok := networkflow.ConfigurationFindingFromError(err)
+	if !ok {
+		return err
+	}
+	return config.NewDiagnosticsError(config.Diagnostic{
+		Path:       finding.Path,
+		ReasonCode: finding.ReasonCode,
+		Message:    finding.Message,
+	})
+}
+
+func deploymentRevisionsConflictTokenError(err error) error {
+	finding, ok := conflicttokens.ConfigurationFindingFromError(err)
 	if !ok {
 		return err
 	}

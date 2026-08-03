@@ -40,6 +40,7 @@ func TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit(t *testing.T) 
 	if !slices.Equal(families, want) {
 		t.Fatalf("catalog order = %#v, want %#v", families, want)
 	}
+	assertRevisionsCatalogProjection(t, catalog.Descriptors())
 	assertSavedViewsCatalogProjection(t, catalog.Descriptors())
 	for version, path := range map[int]string{1: "data/timeline_events.ndjson", 2: "data/timeline_source_provenance.ndjson"} {
 		if consumer, ok := catalog.ConsumerFor(version, path); !ok || consumer != "timeline" {
@@ -134,6 +135,63 @@ type rowSchemaProjection struct {
 	Type                 string   `json:"type"`
 	AdditionalProperties bool     `json:"additionalProperties"`
 	Required             []string `json:"required"`
+}
+
+func assertRevisionsCatalogProjection(t *testing.T, descriptors []sourceport.Descriptor) {
+	t.Helper()
+	var runtime sourceport.Descriptor
+	for _, descriptor := range descriptors {
+		if descriptor.FamilyID == "revisions" {
+			runtime = descriptor
+			break
+		}
+	}
+	if runtime.FamilyID == "" || len(runtime.Paths) != 3 {
+		t.Fatal("runtime source catalog must expose the three Revisions paths")
+	}
+
+	var authored sourceCatalogProjection
+	readContractJSON(t, "source_catalog.json", &authored)
+	var authoredPaths []sourceport.Path
+	for _, family := range authored.Families {
+		if family.FamilyID == "revisions" {
+			authoredPaths = family.Paths
+			break
+		}
+	}
+	if len(authoredPaths) != len(runtime.Paths) {
+		t.Fatalf("authored Revisions paths = %d, runtime = %d", len(authoredPaths), len(runtime.Paths))
+	}
+	slices.SortFunc(authoredPaths, func(left, right sourceport.Path) int {
+		if left.LogicalPath < right.LogicalPath {
+			return -1
+		}
+		if left.LogicalPath > right.LogicalPath {
+			return 1
+		}
+		return 0
+	})
+	for index, authoredPath := range authoredPaths {
+		runtimePath := runtime.Paths[index]
+		if authoredPath.LogicalPath != runtimePath.LogicalPath ||
+			authoredPath.ContentRole != runtimePath.ContentRole ||
+			authoredPath.SchemaID != runtimePath.SchemaID ||
+			!slices.Equal(authoredPath.Versions, runtimePath.Versions) ||
+			!slices.Equal(authoredPath.StableIdentity, runtimePath.StableIdentity) {
+			t.Fatalf("Revisions path projection drift:\nauthored=%#v\nruntime=%#v", authoredPath, runtimePath)
+		}
+		var rowSchema rowSchemaProjection
+		schemaFile := map[string]string{
+			"data/change_sets.ndjson":          "change_sets.row.v1.schema.json",
+			"data/change_set_mutations.ndjson": "change_set_mutations.row.v1.schema.json",
+			"data/record_revisions.ndjson":     "record_revisions.row.v1.schema.json",
+		}[runtimePath.LogicalPath]
+		readContractJSON(t, schemaFile, &rowSchema)
+		if rowSchema.ID != runtimePath.SchemaID || rowSchema.Type != "object" ||
+			rowSchema.AdditionalProperties || len(rowSchema.Required) == 0 {
+			t.Fatalf("Revisions row schema is not a closed runtime projection: %#v", rowSchema)
+		}
+	}
 }
 
 func assertSavedViewsCatalogProjection(t *testing.T, descriptors []sourceport.Descriptor) {

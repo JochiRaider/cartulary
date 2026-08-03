@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -354,7 +355,7 @@ func (i Importer) PrepareImport(ctx context.Context, verified VerifiedBundle, pa
 	for _, port := range i.sourceCatalog.Ports() {
 		prepared, err := port.PrepareImport(ctx, bundle, importContext)
 		if err != nil {
-			return nil, verificationErrorFromPort(err)
+			return nil, verificationErrorFromDeclaredPort(port, err)
 		}
 		sourcePreparations = append(sourcePreparations, preparedSource{port: port, prepared: prepared})
 	}
@@ -386,6 +387,10 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if err := i.historicalIntents.SuppressTx(ctx, tx); err != nil {
 		return uuid.UUID{}, err
 	}
+	revisionSequenceOriginalNext, err := revisions.BeginIncidentBundleImportedRevisionSequenceTx(ctx, tx)
+	if err != nil {
+		return uuid.UUID{}, revisionsSequenceRepairVerificationError()
+	}
 	incidentID := prepared.IncidentID
 	var existing int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID).Scan(&existing); err != nil {
@@ -405,23 +410,27 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	if err := prepared.sourcePreparations[0].port.ApplyImportTx(
 		ctx, tx, prepared.sourcePreparations[0].prepared, importContext,
 	); err != nil {
-		return uuid.UUID{}, verificationErrorFromPort(err)
+		return uuid.UUID{}, verificationErrorFromDeclaredPort(prepared.sourcePreparations[0].port, err)
 	}
 	if err := i.importActors(ctx, tx, prepared.files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, verificationErrorFromPort(err)
 	}
 	for _, source := range prepared.sourcePreparations[1:] {
 		if err := source.port.ApplyImportTx(ctx, tx, source.prepared, importContext); err != nil {
-			return uuid.UUID{}, verificationErrorFromPort(err)
+			return uuid.UUID{}, verificationErrorFromDeclaredPort(source.port, err)
 		}
 	}
 	for _, source := range prepared.sourcePreparations {
 		if err := source.port.ValidateImportTx(ctx, tx, source.prepared, importContext); err != nil {
-			return uuid.UUID{}, verificationErrorFromPort(err)
+			return uuid.UUID{}, verificationErrorFromDeclaredPort(source.port, err)
 		}
 	}
-	if err := revisions.RepairIncidentBundleImportedSequencesTx(ctx, tx); err != nil {
-		return uuid.UUID{}, err
+	if err := revisions.FinishIncidentBundleImportedRevisionSequenceTx(
+		ctx,
+		tx,
+		revisionSequenceOriginalNext,
+	); err != nil {
+		return uuid.UUID{}, revisionsSequenceRepairVerificationError()
 	}
 	if err := attributions.flush(ctx, tx); err != nil {
 		return uuid.UUID{}, err
@@ -451,6 +460,14 @@ func (i Importer) ApplyPreparedImportTx(ctx context.Context, tx pgx.Tx, prepared
 	return incidentID, nil
 }
 
+func revisionsSequenceRepairVerificationError() error {
+	return &VerificationError{
+		ReasonCode:     "source_family_invalid",
+		SourceFamilyID: "revisions",
+		InvariantID:    "revisions.sequence_repair_after_validation",
+	}
+}
+
 func verificationErrorFromPort(err error) error {
 	var malformed *incidentportability.MalformedPayloadError
 	if errors.As(err, &malformed) {
@@ -469,6 +486,26 @@ func verificationErrorFromPort(err error) error {
 		}
 	}
 	return err
+}
+
+func verificationErrorFromDeclaredPort(port sourceport.Port, err error) error {
+	var sourceFailure *sourceport.Failure
+	if !errors.As(err, &sourceFailure) {
+		return verificationErrorFromPort(err)
+	}
+	if port == nil {
+		return errors.New("incident bundle source port returned a failure without a descriptor")
+	}
+	descriptor := port.Descriptor()
+	if sourceFailure.FamilyID != descriptor.FamilyID ||
+		!slices.Contains(descriptor.InvariantIDs, sourceFailure.InvariantID) {
+		return errors.New("incident bundle source port returned an undeclared failure")
+	}
+	return &VerificationError{
+		ReasonCode:     "source_family_invalid",
+		SourceFamilyID: descriptor.FamilyID,
+		InvariantID:    sourceFailure.InvariantID,
+	}
 }
 
 func validateImportedActors(files map[string][]byte, incidentID uuid.UUID) (sourceport.ActorCatalog, error) {

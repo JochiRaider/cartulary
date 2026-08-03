@@ -12,9 +12,25 @@ import (
 )
 
 const testutilImportPathPrefix = repoImportPrefix + "internal/testutil"
+const revisionsSupportImportPath = testutilImportPathPrefix + "/revisionsupport"
 const generatedContractsImportPath = repoImportPrefix + "internal/gen/contract"
 
 func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
+	offenders := runtimeGoImportOffenders(t, testutilImportPathPrefix)
+	if len(offenders) > 0 {
+		t.Fatalf("runtime Go files must not import internal/testutil:\n%s", strings.Join(offenders, "\n"))
+	}
+}
+
+func TestRuntimeGoFilesDoNotImportRevisionsSupport(t *testing.T) {
+	offenders := runtimeGoImportOffenders(t, revisionsSupportImportPath)
+	if len(offenders) > 0 {
+		t.Fatalf("runtime Go files must not import Revisions test support:\n%s", strings.Join(offenders, "\n"))
+	}
+}
+
+func runtimeGoImportOffenders(t *testing.T, importPathPrefix string) []string {
+	t.Helper()
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 
 	var offenders []string
@@ -50,7 +66,7 @@ func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 			isOwnerTestSupportPath(relPath) {
 			return nil
 		}
-		if importsTestutil(t, path) {
+		if importsPathPrefix(t, path, importPathPrefix) {
 			offenders = append(offenders, relPath)
 		}
 		return nil
@@ -58,10 +74,8 @@ func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan repository Go files: %v", err)
 	}
-	if len(offenders) > 0 {
-		sort.Strings(offenders)
-		t.Fatalf("runtime Go files must not import internal/testutil:\n%s", strings.Join(offenders, "\n"))
-	}
+	sort.Strings(offenders)
+	return offenders
 }
 
 func TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts(t *testing.T) {
@@ -118,11 +132,6 @@ func TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts(t *test
 func isOwnerTestSupportPath(relPath string) bool {
 	return strings.HasPrefix(relPath, "internal/modules/") &&
 		strings.Contains(relPath, "/testsupport/")
-}
-
-func importsTestutil(t *testing.T, filePath string) bool {
-	t.Helper()
-	return importsPathPrefix(t, filePath, testutilImportPathPrefix)
 }
 
 func importsPathPrefix(t *testing.T, filePath string, importPathPrefix string) bool {

@@ -7,4 +7,5 @@ export * from "./errors-artifacts.js";
 export * from "./extensions-artifacts.js";
 export * from "./network-flow-artifacts.js";
 export * from "./audit-artifacts.js";
+export * from "./revisions-artifacts.js";
 export * from "./import-target-registry.js";

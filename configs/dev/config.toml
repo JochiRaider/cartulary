@@ -1,4 +1,4 @@
-config_schema_id = "cartulary.deployment_config.v1"
+config_schema_id = "cartulary.deployment_config.v2"
 deployment_profile = "on_prem"
 
 [application]
@@ -42,6 +42,9 @@ claimed = true
 
 [reference_pack]
 claimed = true
+
+[revisions]
+conflict_token_key_ring_manifest_path = "/etc/cartulary/revisions-conflict-token-key-ring.json"
 
 [snapshot_reporting]
 claimed = true

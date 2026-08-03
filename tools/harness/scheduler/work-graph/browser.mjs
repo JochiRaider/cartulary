@@ -4,6 +4,10 @@ import { loadBrowserBatchStages } from "../adapters/browser.mjs";
 import { buildWorkGraph } from "./model.mjs";
 
 const manifestRelativePath = "tools/browser_e2e_batch_manifest.json";
+// One browser stack owns a server pool plus setup/reset clients. Four logical
+// Postgres lanes prevent the scheduler from admitting enough simultaneous
+// stacks to exhaust the shared service's connection limit.
+const browserPostgresLanes = 4;
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -45,7 +49,7 @@ function lifecycleUnit(stage, group, owner) {
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
     needs: [],
-    resource_claims: { browser_stack: 1, io: 1, memory_mb: 128, port_lane: 1, postgres: 2, process: 1 },
+    resource_claims: { browser_stack: 1, io: 1, memory_mb: 128, port_lane: 1, postgres: browserPostgresLanes, process: 1 },
     shared_locks: ["host_activity"],
     exclusive_locks: [],
     affinity_key: key,
@@ -71,7 +75,7 @@ function resetUnit(stage, group, previousID, owner) {
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
     needs: [previousID],
-    resource_claims: { browser_stack: 1, io: 1, memory_mb: 64, postgres: 2, process: 1 },
+    resource_claims: { browser_stack: 1, io: 1, memory_mb: 64, postgres: browserPostgresLanes, process: 1 },
     shared_locks: ["host_activity"],
     exclusive_locks: [`browser_session:${key}`],
     affinity_key: key,
@@ -135,7 +139,7 @@ function groupUnit(stage, group, dependencyID, owner, mode) {
       },
     ),
     needs: [dependencyID],
-    resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, postgres: 2, process: 1 },
+    resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, postgres: browserPostgresLanes, process: 1 },
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,

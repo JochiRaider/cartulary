@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.incident_bundle.change_set_mutations.row.v1",
+  "title": "Revisions mutation incident bundle row",
+  "description": "Exact portable change-set mutation row shared by Incident Bundle versions 1 and 2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "change_set_id",
+    "sequence_no",
+    "target_kind",
+    "target_id",
+    "operation_kind",
+    "before_version_id",
+    "after_version_id",
+    "before_value",
+    "after_value"
+  ],
+  "properties": {
+    "change_set_id": { "$ref": "#/$defs/uuid" },
+    "sequence_no": { "type": "integer", "minimum": 1 },
+    "target_kind": { "$ref": "#/$defs/nonempty_text" },
+    "target_id": { "$ref": "#/$defs/nonempty_text" },
+    "operation_kind": { "$ref": "#/$defs/nonempty_text" },
+    "before_version_id": { "$ref": "#/$defs/nullable_nonempty_text" },
+    "after_version_id": { "$ref": "#/$defs/nullable_nonempty_text" },
+    "before_value": true,
+    "after_value": true
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "nonempty_text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^\\u0000]+$"
+    },
+    "nullable_nonempty_text": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonempty_text" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
@@ -25,6 +26,7 @@ const httpAddrEnv = "CARTULARY_HTTP_ADDR"
 var harnessOnlyServerEnv = []string{
 	"CARTULARY_ENABLE_TEST_ROUTES",
 	"CARTULARY_HTTP_LISTEN_FD",
+	conflicttokens.ConflictTokenFixtureRuntimeEnvName,
 }
 
 type serverProfile interface {

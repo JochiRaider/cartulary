@@ -57,6 +57,7 @@ type PatchBehavior =
       hold: Promise<void>;
       recordId?: string;
       release: () => void;
+      replacementConflictToken: { current: string | null };
       resolveCompletion: (call: PatchCall) => void;
       resolveHit: (call: PatchCall) => void;
       type: "hold";
@@ -299,6 +300,7 @@ export async function driveRealTimelineSummaryConflict({
   baseRowVersion,
   expectConflictMarker = true,
   expectEditedCellMounted = true,
+  conflictTokenOverride,
   localValue,
   page,
   patchController,
@@ -311,6 +313,7 @@ export async function driveRealTimelineSummaryConflict({
   baseRowVersion: number;
   expectConflictMarker?: boolean;
   expectEditedCellMounted?: boolean;
+  conflictTokenOverride?: string;
   localValue: string;
   page: Page;
   patchController: Awaited<ReturnType<typeof installPatchController>>;
@@ -335,6 +338,9 @@ export async function driveRealTimelineSummaryConflict({
     txnPrefix,
   );
 
+  if (conflictTokenOverride !== undefined) {
+    heldPrimaryPatch.replaceConflictToken(conflictTokenOverride);
+  }
   heldPrimaryPatch.release();
   const primaryPatch = await heldPrimaryPatch.waitForCompletion;
   expect(primaryPatch.status).toBe(409);
@@ -775,7 +781,21 @@ export async function installPatchController(page: Page) {
     const response = await route.fetch();
     call.status = response.status();
     calls.push(call);
-    await route.fulfill({ response });
+    if (
+      behavior?.type === "hold" &&
+      behavior.replacementConflictToken.current !== null
+    ) {
+      const envelope = (await response.json()) as {
+        error?: { conflict?: { conflict_token?: string } };
+      };
+      if (envelope.error?.conflict !== undefined) {
+        envelope.error.conflict.conflict_token =
+          behavior.replacementConflictToken.current;
+      }
+      await route.fulfill({ json: envelope, response });
+    } else {
+      await route.fulfill({ response });
+    }
     if (behavior?.type === "hold") {
       behavior.resolveCompletion(call);
     }
@@ -815,9 +835,11 @@ export async function installPatchController(page: Page) {
       const hold = new Promise<void>((resolve) => {
         releaseHold = resolve;
       });
+      const replacementConflictToken = { current: null as string | null };
       const behavior = {
         hold,
         release: releaseHold,
+        replacementConflictToken,
         resolveCompletion,
         resolveHit,
         type: "hold" as const,
@@ -830,6 +852,9 @@ export async function installPatchController(page: Page) {
       behaviors.push(behavior);
       return {
         release: releaseHold,
+        replaceConflictToken: (token: string) => {
+          replacementConflictToken.current = token;
+        },
         waitForCompletion,
         waitForHit,
       };

@@ -11,6 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
@@ -556,8 +557,12 @@ func newCatalogBackedWorkbookStore(
 ) *workbook.Store {
 	t.Helper()
 	conflictTokens := workbookTestConflictTokens()
-	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents)
-	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender)
+	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
+	if err != nil {
+		t.Fatalf("compose conflict field resolver: %v", err)
+	}
+	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents, conflictFields, workbookassembly.NewConflictIdempotencyPort(pool))
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender, conflictFields)
 	if err != nil {
 		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
 	}
@@ -569,6 +574,7 @@ func newCatalogBackedWorkbookStore(
 		evidenceContribution,
 		taskDecisionMutation,
 		conflictTokens,
+		conflictFields,
 		appender,
 		intents,
 	)

@@ -1,0 +1,14 @@
+{
+  "error": {
+    "code": "invalid_deployment_config",
+    "details": {
+      "items": [
+        {
+          "message": "Revisions conflict-token key-ring manifest is unavailable",
+          "path": "revisions.conflict_token_key_ring_manifest_path",
+          "reason_code": "revisions_conflict_token_manifest_missing"
+        }
+      ]
+    }
+  }
+}

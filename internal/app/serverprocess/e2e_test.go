@@ -98,6 +98,14 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 			},
 			goldenFile: "startup_path_not_absolute_database_storage_root.json",
 		},
+		{
+			name:       "missing Revisions conflict token key ring",
+			configText: string(fixtures.MustRead("config", "valid.toml")),
+			env: map[string]string{
+				"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "/does/not/exist/revisions-conflict-token-key-ring.json",
+			},
+			goldenFile: "startup_revisions_conflict_token_manifest_missing.json",
+		},
 	}
 
 	for _, tc := range cases {
@@ -375,6 +383,7 @@ func ServerEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv map[s
 	if bootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath
 	}
+	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
 	return env
 }
 

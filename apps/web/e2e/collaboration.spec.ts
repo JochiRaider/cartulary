@@ -493,6 +493,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     });
     await driveRealTimelineSummaryConflict({
       baseRowVersion: 1,
+      conflictTokenOverride: "cft2.retired-stateful-cutover",
       expectConflictMarker: false,
       expectEditedCellMounted: false,
       localValue: "end-to-end.collaboration local conflict",
@@ -503,6 +504,34 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
       remoteValue: "end-to-end.collaboration remote conflict",
       txnPrefix: "collaboration-conflict",
     });
+    await page
+      .getByTestId(workbookConflictControlTestId("merged-value"))
+      .fill("end-to-end.collaboration preserved cutover draft");
+    const rejectedLegacyResolve = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response
+          .url()
+          .includes(
+            `/api/v1/records/${conflictId}/conflicts/cft2.retired-stateful-cutover/`,
+          ),
+    );
+    const refreshedConflict = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().endsWith(`/api/v1/records/${conflictId}`) &&
+        response.status() === 409,
+    );
+    await page.getByTestId(workbookConflictControlTestId("use-merged")).click();
+    expect((await rejectedLegacyResolve).status()).toBe(400);
+    const refreshedConflictEnvelope = await (await refreshedConflict).json();
+    expect(refreshedConflictEnvelope.error.code).toBe("same_field_conflict");
+    expect(refreshedConflictEnvelope.error.conflict.conflict_token).toMatch(
+      /^cft3\./,
+    );
+    await expect(
+      page.getByTestId(workbookConflictControlTestId("merged-value")),
+    ).toHaveValue("end-to-end.collaboration preserved cutover draft");
     await page
       .getByTestId(workbookConflictControlTestId("use-unsaved"))
       .click();

@@ -2126,8 +2126,15 @@ Verified by: AC-170, AC-231
 
 **REQ-02-204**
 Internal-user, account-profile, account-preference, session, auth-binding, bootstrap-completion, administrative-audit, and incident-membership state MUST remain deployment-local authorization, user, credential, and audit state. Whole-incident portability import MAY map historical actor descriptors to existing local users, but import MUST NOT synthesize login-capable users, account preferences, password hashes, active or pending TOTP state, bootstrap-token lookup state, deployment-admin flags, auth bindings, bootstrap-completion markers, active sessions, deployment-local administrative audit or idempotency state, or active memberships without explicit deployment-local administrative action.
+
+The Revisions bounded context owns incident change sets, mutation entries,
+record revisions, history reconstruction, and rollback coordination. It does
+not own deployment-local administrative audit. Administrative-audit policy,
+retention, authorization, and publication remain in Authentication and
+Administration under Core 04 even when an administrative action also causes an
+incident revision.
 Profiles: base, incident_portability
-Verified by: AC-231, AC-236, AC-409, AC-432, AC-440
+Verified by: AC-231, AC-236, AC-409, AC-432, AC-440, AC-529
 
 **REQ-02-249**
 Whole-incident portability content MUST exclude deployment-local authorization, user, credential, and audit state, including internal-user rows, account profile and account-preference state, local-account credential lifecycle state such as password-hash state, active or pending TOTP state, bootstrap-token lookup state, auth bindings, bootstrap-completion markers, active sessions, active memberships, deployment-admin flags, and deployment-local administrative audit or idempotency state.
@@ -2266,8 +2273,18 @@ Verified by: AC-215, AC-217, AC-231, AC-233, AC-412
 
 **REQ-02-218**
 Projection tables MUST NOT be authoritative history.
+
+Revisions owns generic immutable change-set and revision mechanics, history
+query/materialization coordination, revision-window reads, stable history
+selectors, and generic rollback planning/transaction coordination. Each
+authoritative source owner retains its field and collection vocabulary,
+current-state materialization, mutation-target legality, revalidation, inverse
+application, and source persistence. Revisions MUST consume those semantics
+through immutable application-composed provider catalogs and MUST NOT add a
+central source-type switch, relation-name registry, or projection-derived
+fallback.
 Profiles: base
-Verified by: AC-215, AC-217, AC-231, AC-412
+Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
 
 ### 15.3.1 Retained history and rollback horizon
 

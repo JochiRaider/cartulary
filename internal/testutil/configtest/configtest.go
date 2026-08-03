@@ -7,6 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
@@ -18,6 +19,21 @@ type TempRoots struct {
 	Paths map[string]string
 }
 
+const revisionsConflictTokenFixtureSecret = "oVmbXT5kH1Q59Lur9tmdNgYUW3L41EGpcjT73_5CgSQ"
+
+func EnsureRevisionsConflictTokenTestEnvironment(env map[string]string) {
+	if env == nil {
+		return
+	}
+	if _, exists := env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"]; !exists {
+		env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"] = fixtures.Path("revisions", "conflict-token-key-ring.json")
+	}
+	if _, exists := env["CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_FIXTURE_V1"]; !exists {
+		env["CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_FIXTURE_V1"] = revisionsConflictTokenFixtureSecret
+	}
+	env[conflicts.ConflictTokenFixtureRuntimeEnvName] = conflicts.ConflictTokenFixtureRuntimeMarker
+}
+
 func EffectiveConfigEnv(fixtureParts []string, overlays map[string]string) map[string]string {
 	env := map[string]string{
 		config.ConfigFileEnv: fixtures.Path(fixtureParts...),
@@ -25,11 +41,13 @@ func EffectiveConfigEnv(fixtureParts []string, overlays map[string]string) map[s
 	for key, value := range overlays {
 		env[key] = value
 	}
+	EnsureRevisionsConflictTokenTestEnvironment(env)
 	return env
 }
 
 func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[string]string) configassembly.Deployment {
 	t.Helper()
+	EnsureRevisionsConflictTokenTestEnvironment(overlays)
 
 	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
 	if err != nil {

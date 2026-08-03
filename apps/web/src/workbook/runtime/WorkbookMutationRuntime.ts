@@ -5,6 +5,7 @@ import {
   executeWorkbookConflictResolution,
   type WorkbookResolvedMutation,
 } from "../mutations/workbookConflictResolutionAdapter";
+import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type {
   PendingReplayScope,
@@ -75,6 +76,7 @@ type WorkbookSurfaceConflictFocusRestore = (
 type WorkbookSurfaceBlockedEditDiscard = (
   unitId: string,
 ) => Promise<boolean> | boolean;
+type WorkbookConflictRefresh = () => Promise<WorkbookOperationOutcome<unknown>>;
 
 /**
  * Shell-lifetime authority for Workbook mutation recovery and save state.
@@ -95,6 +97,10 @@ export class WorkbookMutationRuntime {
   >();
   private readonly visibleEdits = new Map<string, unknown>();
   private readonly conflictsByKey = new Map<string, WorkbookConflictEntry>();
+  private readonly conflictRefreshByKey = new Map<
+    string,
+    WorkbookConflictRefresh
+  >();
   private readonly listeners = new Set<WorkbookMutationListener>();
   private readonly drainers = new Set<() => void>();
   private readonly refreshBySurface = new Map<string, WorkbookSurfaceRefresh>();
@@ -392,12 +398,14 @@ export class WorkbookMutationRuntime {
   registerConflict({
     conflict,
     focusKey = null,
+    refresh,
     rowLabel,
     surfaceLabel,
     viewSchemaId,
   }: {
     readonly conflict: Parameters<typeof workbookConflictEntry>[0]["conflict"];
     readonly focusKey?: string | null | undefined;
+    readonly refresh?: WorkbookConflictRefresh | undefined;
     readonly rowLabel: string;
     readonly surfaceLabel: string;
     readonly viewSchemaId: string;
@@ -423,6 +431,8 @@ export class WorkbookMutationRuntime {
                 : entry.mergedDraft,
           },
     );
+    if (refresh !== undefined)
+      this.conflictRefreshByKey.set(entry.key, refresh);
     this.emit();
     return entry;
   }
@@ -439,6 +449,7 @@ export class WorkbookMutationRuntime {
       );
     }
     this.conflictsByKey.delete(key);
+    this.conflictRefreshByKey.delete(key);
     this.conflictPanelDismissed = false;
     this.pendingRuntime.model.clearSameFieldConflict(key);
     this.emit();
@@ -562,6 +573,12 @@ export class WorkbookMutationRuntime {
           });
           this.emit();
           return "The saved value changed again. Review the refreshed conflict.";
+        }
+        if (
+          outcome.failure.kind === "validation" &&
+          outcome.failure.message === "invalid_mutation_payload"
+        ) {
+          return await this.refreshInvalidConflictToken(key, entry);
         }
         return outcome.failure.message;
       }
@@ -703,6 +720,41 @@ export class WorkbookMutationRuntime {
     }
   }
 
+  private async refreshInvalidConflictToken(
+    key: string,
+    entry: WorkbookConflictEntry,
+  ): Promise<string | null> {
+    const refresh = this.conflictRefreshByKey.get(key);
+    if (refresh === undefined) return "invalid_mutation_payload";
+    let outcome: WorkbookOperationOutcome<unknown>;
+    try {
+      outcome = await refresh();
+    } catch {
+      return "The conflict could not be refreshed. Your draft is still available.";
+    }
+    if (outcome.kind === "accepted") {
+      this.clearConflict(key);
+      await this.refreshSurface(entry.origin.viewSchemaId);
+      return null;
+    }
+    if (outcome.failure.kind !== "same_field_conflict") {
+      return `${outcome.failure.message} Your draft is still available.`;
+    }
+    const refreshedEntry = workbookConflictEntry({
+      conflict: outcome.failure.conflict,
+      focusKey: entry.focusKey,
+      rowLabel: entry.origin.rowLabel,
+      surfaceLabel: entry.origin.surfaceLabel,
+      viewSchemaId: entry.origin.viewSchemaId,
+    });
+    this.conflictsByKey.set(key, {
+      ...refreshedEntry,
+      mergedDraft: entry.mergedDraft,
+    });
+    this.emit();
+    return "The conflict token expired. Review the refreshed conflict; your draft was preserved.";
+  }
+
   private async drainManagedPatches(): Promise<void> {
     if (this.conflictsByKey.size > 0) return;
     const pending = this.pendingRuntime;
@@ -761,6 +813,48 @@ export class WorkbookMutationRuntime {
             viewSchemaId: meta.viewSchemaId,
           });
           this.conflictsByKey.set(entry.key, entry);
+          const conflictUnit = settlement.unit;
+          this.conflictRefreshByKey.set(entry.key, async () => {
+            let clientTxnId: string;
+            try {
+              clientTxnId = this.transactionIds.create(
+                "workbook-conflict-refresh",
+              );
+            } catch {
+              return {
+                kind: "rejected",
+                failure: {
+                  kind: "validation",
+                  message: "A secure transaction ID could not be created.",
+                },
+              };
+            }
+            this.rememberClientTxnId(clientTxnId);
+            const identity = conflictUnit.identity;
+            if (identity.kind !== "patch") {
+              return {
+                kind: "rejected",
+                failure: {
+                  kind: "validation",
+                  message: "The original conflict mutation is unavailable.",
+                },
+              };
+            }
+            const refreshedUnit: PendingReplayUnitState = {
+              ...conflictUnit,
+              id: `${clientTxnId}:patch`,
+              clientTxnId,
+              status: "in_flight",
+              identity: {
+                ...identity,
+                client_txn_id: clientTxnId,
+              },
+            };
+            return this.pendingMutationPort.execute({
+              committedRowVersion: conflict.base_row_version,
+              unit: refreshedUnit,
+            });
+          });
         }
         this.managedPatchByUnitId.delete(settlement.unit.id);
       } else if (settlement.outcome === "retryable_failure") {

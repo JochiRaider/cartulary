@@ -6,33 +6,26 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var ErrInvalidCommandServiceDependency = errors.New("revisions: invalid command service dependency")
 
 type CommandServiceDependencies struct {
-	Database                    postgres.DB
+	Transactions                TransactionRunner
+	Authorization               CommandAuthorizer
+	Idempotency                 IdempotencyPort
 	ImportedAttributionResolver ImportedAttributionResolver
 	Projections                 ProjectionServices
 	ProviderContributions       []ProviderContribution
 	Appender                    *Appender
-	EnvelopeStore               *records.Store
+	RecordEnvelopes             RecordEnvelopePort
+	Clock                       func() time.Time
 }
 
 type CommandService struct {
 	commands *commandStore
 	history  *historyStore
-}
-
-type historyStore struct {
-	store *commandStore
+	now      func() time.Time
 }
 
 func NewCommandService(dependencies CommandServiceDependencies) (*CommandService, error) {
@@ -40,11 +33,14 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		name  string
 		value any
 	}{
-		{name: "database", value: dependencies.Database},
+		{name: "transactions", value: dependencies.Transactions},
+		{name: "authorization", value: dependencies.Authorization},
+		{name: "idempotency", value: dependencies.Idempotency},
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
 		{name: "projection services", value: dependencies.Projections},
 		{name: "appender", value: dependencies.Appender},
-		{name: "envelope store", value: dependencies.EnvelopeStore},
+		{name: "record envelopes", value: dependencies.RecordEnvelopes},
+		{name: "clock", value: dependencies.Clock},
 	}
 	for _, check := range checks {
 		if nilDependency(check.value) {
@@ -56,45 +52,48 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		return nil, fmt.Errorf("%w: provider contributions: %w", ErrInvalidCommandServiceDependency, err)
 	}
 	store := &commandStore{
-		db:                          dependencies.Database,
-		appender:                    dependencies.Appender,
-		envelopes:                   dependencies.EnvelopeStore,
-		incidentAccess:              incidents.NewAccess(dependencies.Database),
-		importedAttributionResolver: dependencies.ImportedAttributionResolver,
-		projections:                 dependencies.Projections,
-		deleteRestoreSources:        deleteRestoreSources,
-		rowRollbackProviders:        rowRollbackProviders,
-		nonRowRollbackProviders:     nonRowRollbackProviders,
+		transactions:            dependencies.Transactions,
+		appender:                dependencies.Appender,
+		envelopes:               dependencies.RecordEnvelopes,
+		authorization:           dependencies.Authorization,
+		idempotency:             dependencies.Idempotency,
+		projections:             dependencies.Projections,
+		deleteRestoreSources:    deleteRestoreSources,
+		rowRollbackProviders:    rowRollbackProviders,
+		nonRowRollbackProviders: nonRowRollbackProviders,
 	}
-	return &CommandService{commands: store, history: &historyStore{store: store}}, nil
+	return &CommandService{
+		commands: store,
+		history:  newHistoryStore(dependencies.Transactions, dependencies.RecordEnvelopes, dependencies.ImportedAttributionResolver, store),
+		now:      dependencies.Clock,
+	}, nil
 }
 
-func (s *CommandService) GetHistoryRecord(ctx context.Context, recordID uuid.UUID) (RecordHistoryRecord, error) {
-	return s.history.GetHistoryRecord(ctx, recordID)
+func (s *CommandService) GetHistory(ctx context.Context, query HistoryQuery) (HistoryResult, error) {
+	record, err := s.history.GetHistoryRecord(ctx, query.RecordID)
+	if err != nil {
+		return HistoryResult{}, err
+	}
+	resources, err := s.history.ListRecordHistory(ctx, record)
+	if err != nil {
+		return HistoryResult{}, err
+	}
+	return HistoryResult{Record: record, Resources: resources}, nil
 }
 
-func (s *CommandService) ListRecordHistory(ctx context.Context, record RecordHistoryRecord) ([]map[string]any, error) {
-	return s.history.ListRecordHistory(ctx, record)
+func (s *CommandService) RollbackRecord(ctx context.Context, command RollbackCommand) (RollbackResult, error) {
+	command.effectiveAt = s.now().UTC()
+	return s.commands.RollbackRecord(ctx, command)
 }
 
-func (s *CommandService) RollbackRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request RollbackRequest, requestHash []byte, requestID string, now time.Time) (RollbackResult, error) {
-	return s.commands.RollbackRecord(ctx, actor, recordID, request, requestHash, requestID, now)
+func (s *CommandService) SoftDeleteRecord(ctx context.Context, command DeleteRestoreCommand) (DeleteRestoreResult, error) {
+	command.effectiveAt = s.now().UTC()
+	return s.commands.SoftDeleteRecord(ctx, command)
 }
 
-func (s *CommandService) SoftDeleteRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
-	return s.commands.SoftDeleteRecord(ctx, actor, recordID, request, requestHash, requestID, now)
-}
-
-func (s *CommandService) RestoreRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
-	return s.commands.RestoreRecord(ctx, actor, recordID, request, requestHash, requestID, now)
-}
-
-func (s *historyStore) GetHistoryRecord(ctx context.Context, recordID uuid.UUID) (RecordHistoryRecord, error) {
-	return s.store.GetHistoryRecord(ctx, recordID)
-}
-
-func (s *historyStore) ListRecordHistory(ctx context.Context, record RecordHistoryRecord) ([]map[string]any, error) {
-	return s.store.ListRecordHistory(ctx, record)
+func (s *CommandService) RestoreRecord(ctx context.Context, command DeleteRestoreCommand) (DeleteRestoreResult, error) {
+	command.effectiveAt = s.now().UTC()
+	return s.commands.RestoreRecord(ctx, command)
 }
 
 func nilDependency(value any) bool {

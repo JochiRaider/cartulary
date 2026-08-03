@@ -39,7 +39,7 @@
     {
       "profile_id": "run_setup",
       "policy": "same_run",
-      "targets": ["codegen-toolchain", "go-lint-toolchain", "gosec-toolchain", "govulncheck-toolchain", "shell-lint-toolchain", "toolchain-drift"],
+      "targets": ["codegen-toolchain", "go-lint-toolchain", "goose-toolchain", "gosec-toolchain", "govulncheck-toolchain", "shell-lint-toolchain", "toolchain-drift"],
       "input_roots": ["tools/toolchain_pins.json"],
       "requires_vulnerability_database_revision": false
     },

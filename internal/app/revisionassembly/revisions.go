@@ -3,19 +3,23 @@ package revisionassembly
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -34,6 +38,7 @@ type Dependencies struct {
 type Runtime struct {
 	appender      *revisions.Appender
 	recordViews   *revisions.RecordViewCatalog
+	fieldResolver *conflicts.FieldResolverCatalog
 	contributions []revisions.ProviderContribution
 }
 
@@ -49,6 +54,10 @@ func CurrentProviderContributions() []revisions.ProviderContribution {
 		tasksdecisions.NewRevisionContribution(),
 		timeline.RevisionProviderContribution(),
 	}
+}
+
+func CurrentConflictFieldResolver() (conflicts.FieldResolver, error) {
+	return buildConflictFieldResolver(CurrentProviderContributions())
 }
 
 func Build(dependencies Dependencies, contributions ...revisions.ProviderContribution) (*Runtime, error) {
@@ -92,6 +101,10 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build record/view catalog: %w", err)
 	}
+	fieldResolver, err := buildConflictFieldResolver(copied)
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: build conflict field resolver catalog: %w", err)
+	}
 	appender, err := revisions.NewAppender(recordViews, dependencies.HistoricalIntentPolicy, dependencies.IntentAppender)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build appender: %w", err)
@@ -99,8 +112,16 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	return &Runtime{
 		appender:      appender,
 		recordViews:   recordViews,
+		fieldResolver: fieldResolver,
 		contributions: copied,
 	}, nil
+}
+
+func (r *Runtime) ConflictFieldResolver() conflicts.FieldResolver {
+	if r == nil {
+		return nil
+	}
+	return r.fieldResolver
 }
 
 func (r *Runtime) Appender() *revisions.Appender {
@@ -121,17 +142,21 @@ func (r *Runtime) NewCommandService(
 	db postgres.DB,
 	attributionResolver revisions.ImportedAttributionResolver,
 	projections projectionServices,
+	clock func() time.Time,
 ) (*revisions.CommandService, error) {
 	if r == nil || r.appender == nil || r.recordViews == nil {
 		return nil, errors.New("revision assembly: runtime is required")
 	}
 	return revisions.NewCommandService(revisions.CommandServiceDependencies{
-		Database:                    db,
+		Transactions:                transactionRunnerAdapter{database: db},
+		Authorization:               commandAuthorizerAdapter{access: incidents.NewAccess(db)},
+		Idempotency:                 commandIdempotencyAdapter{store: authn.NewStore(db)},
 		ImportedAttributionResolver: attributionResolver,
 		Projections:                 projections,
 		ProviderContributions:       cloneProviderContributions(r.contributions),
 		Appender:                    r.appender,
-		EnvelopeStore:               records.NewStore(db),
+		RecordEnvelopes:             recordEnvelopeAdapter{store: records.NewStore(db)},
+		Clock:                       clock,
 	})
 }
 
@@ -142,6 +167,10 @@ func cloneProviderContributions(values []revisions.ProviderContribution) []revis
 		cloned[index].Records = make([]revisions.RecordProviderContribution, len(contribution.Records))
 		for recordIndex, record := range contribution.Records {
 			cloned[index].Records[recordIndex] = record
+			cloned[index].Records[recordIndex].HistoryTargetKinds = append(
+				[]string(nil),
+				record.HistoryTargetKinds...,
+			)
 			cloned[index].Records[recordIndex].RecordViewRoutes = make(
 				[]revisions.RecordViewRouteContribution,
 				len(record.RecordViewRoutes),
@@ -162,4 +191,32 @@ func cloneProviderContributions(values []revisions.ProviderContribution) []revis
 		)
 	}
 	return cloned
+}
+
+func buildConflictFieldResolver(contributions []revisions.ProviderContribution) (*conflicts.FieldResolverCatalog, error) {
+	required := make([]string, 0)
+	providers := make([]conflicts.FieldResolverContribution, 0)
+	for _, contribution := range contributions {
+		for _, record := range contribution.Records {
+			for _, route := range record.RecordViewRoutes {
+				for _, viewSchemaID := range route.ViewSchemaIDs {
+					if contribution.ConflictFieldProvider == nil {
+						return nil, fmt.Errorf("%w: source owner %q does not provide conflict fields for view schema %q", conflicts.ErrMissingFieldResolver, contribution.SourceOwnerModule, viewSchemaID)
+					}
+					descriptors, err := contribution.ConflictFieldProvider.ConflictFields(viewSchemaID)
+					if err != nil {
+						return nil, fmt.Errorf("source owner %q provides conflict fields for view schema %q: %w", contribution.SourceOwnerModule, viewSchemaID, err)
+					}
+					required = append(required, viewSchemaID)
+					providers = append(providers, conflicts.FieldResolverContribution{
+						ProviderID:    route.ContributionID + "#" + viewSchemaID,
+						SourceOwnerID: string(record.SourceOwnerModule),
+						ViewSchemaID:  viewSchemaID,
+						Fields:        descriptors,
+					})
+				}
+			}
+		}
+	}
+	return conflicts.NewFieldResolverCatalog(required, providers...)
 }

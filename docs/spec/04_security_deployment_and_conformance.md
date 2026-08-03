@@ -969,6 +969,16 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-01-070, REQ-01-245, REQ-01-328, REQ-02-190, REQ-04-053
 - **AC-524**: New-record Evidence and Timeline file flows retain the provisional draft and selected file only in client-local state until generic row-create success, use slot then upload then one atomic row-create with `evidence.initial_object_blob_id`, retain the same row-create `client_txn_id` for uncertain transport retry, use the ordinary new-ID workflow after a definitive conflict, keep focus and workbook state continuous, and expose accessible pending, retry, blocked, and error feedback. Before row-create success, no draft row appears in query, collaboration, history, projection, export, backup, or portability state.
   - Verifies: REQ-01-328, REQ-03-116..REQ-03-126, REQ-04-021..REQ-04-030
+- **AC-525**: Revisions bundle files for admitted versions `1` and `2` accept only their exact contract-major-`1` row shapes and deterministic export order. Independent fixtures exercise every Revisions invariant, and multi-defect permutations always select the owner-defined first invariant and stable row identity. Failures expose only the closed source family and invariant IDs, leave no visible state, and never derive attribution from PostgreSQL error text or a descriptor-default invariant.
+  - Verifies: REQ-01-639..REQ-01-642, REQ-02-204, REQ-02-217..REQ-02-218
+- **AC-526**: Deployment config v2 requires one secure Revisions conflict-token key-ring manifest before listeners or workers. Exact manifest, path, key, secret, purpose, active/decrypt-only rotation, nonce, TTL, skew, opacity, tamper, expiry, retirement, and uniform-error fixtures pass; v1 configuration and v2 conflict tokens are rejected without an authentication-master or hard-coded fallback; and a client retains its local draft while refreshing an invalidated conflict.
+  - Verifies: REQ-03-066, REQ-03-075..REQ-03-078, REQ-04-069, REQ-04-077..REQ-04-078, REQ-04-111, REQ-04-147..REQ-04-149
+- **AC-527**: A Revisions import acquires transaction-scoped sequence exclusion before row application without changing the effective next value, performs the real repair only after all source-owner validation, blocks concurrent ordinary allocation, advances to at least the larger of the pre-import next value and imported maximum plus one on commit, and restores the original sequence state after a later injected failure. Runtime uses fixed hardened migration-owned functions and no `setval`.
+  - Verifies: REQ-01-640..REQ-01-642
+- **AC-528**: Delete, restore, rollback, and explicit conflict resolution enforce authentication, cookie CSRF, path syntax, hidden visibility, role, token where applicable, and content/body validation in owner-defined order. Unauthorized malformed requests reveal no body- or selector-specific detail and commit no idempotency, source, history, projection, or Collaboration effect; authorized valid requests preserve their public methods, paths, operation IDs, envelopes, and consequences.
+  - Verifies: REQ-01-074, REQ-01-100, REQ-03-075
+- **AC-529**: Revisions owns generic change-set/revision history, revision-window, conflict token/text-merge/`keep_saved`, and rollback coordination behind consumer-owned ports and immutable application-composed provider catalogs. Source owners retain current-state, field, collection, revalidation, and mutation semantics; HTTP/auth/platform concerns terminate at adapters; deployment-local administrative audit remains under Authentication and Administration; and static boundaries reject reverse, global-registry, projection-truth, and source-type-switch dependencies.
+  - Verifies: REQ-02-204, REQ-02-216..REQ-02-218, REQ-03-066
 - **AC-016**: Evidence processing and any implemented background job start without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
   - Verifies: REQ-01-243..REQ-01-247, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-201, REQ-03-121..REQ-03-126
 - **AC-043**: Within the supported large-grid operating envelope, selection change, focus change, and typing acknowledgment remain at or below 100 ms p95, and Timeline blank-row creation with one non-empty user-entered value remains at or below 150 ms p95.
@@ -2303,9 +2313,9 @@ Profiles: base
 Verified by: AC-294
 
 **REQ-04-069**
-The deployment configuration file MUST declare `config_schema_id = "cartulary.deployment_config.v1"`, required `deployment_profile` with one of `disconnected`, `on_prem`, or `cloud`, and required `application.public_origin`. Keys other than those defined by the selected configuration schema version are invalid.
+The deployment configuration file MUST declare `config_schema_id = "cartulary.deployment_config.v2"`, required `deployment_profile` with one of `disconnected`, `on_prem`, or `cloud`, required `application.public_origin`, and required `revisions.conflict_token_key_ring_manifest_path`. Version `1` is unsupported after this adoption and MUST NOT activate a compatibility default or authentication-master-derived conflict-token key. Keys other than those defined by the selected configuration schema version are invalid.
 Profiles: base
-Verified by: AC-294, AC-295, AC-297
+Verified by: AC-294, AC-295, AC-297, AC-526
 
 **REQ-04-070**
 After file load, environment variables prefixed `CARTULARY__` MUST overlay nested keys by splitting segments on `__`, lowercasing each segment, and joining them with dots. Overlay keys that do not map to declared deployment-configuration keys are invalid. `CARTULARY_CONFIG_FILE` is selector-only and MUST NOT participate in that overlay mapping.
@@ -2321,6 +2331,59 @@ Verified by: AC-294
 The stable deployment-configuration key for the browser application origin MUST be `application.public_origin`. It MUST be an absolute `http` or `https` origin and MUST NOT include userinfo, path, query, or fragment. The public WebSocket implementation MUST validate cookie-authenticated browser `Origin` values against this configured origin before joining an incident-scoped stream.
 Profiles: base
 Verified by: AC-131, AC-294, AC-298
+
+#### Revisions conflict-token key ring
+
+**REQ-04-147**
+The stable base-profile configuration key is
+`revisions.conflict_token_key_ring_manifest_path`. It is required and has no
+default. It MUST be an absolute normalized POSIX path to one deployment-local
+regular file of at most `65536` bytes. Every path component is opened without
+following symbolic links, and validation uses one bounded open. The file is
+UTF-8 JSON with exact top-level members `schema_id`, `algorithm`, and `keys`.
+`schema_id` is exactly
+`cartulary.revisions_conflict_token_key_ring.v1`; `algorithm` is exactly
+`aes_256_gcm_v1`; and `keys` contains `1..8` exact key objects.
+
+Each key contains `conflict_token_key_id`, `state`, and `secret_ref`. The key ID
+matches `[A-Za-z0-9][A-Za-z0-9._-]{0,63}` and is unique. `secret_ref` is the
+Core 04 `secret_ref_v1` primitive and resolves to exactly `32` bytes of key
+material. Exactly one key has `state='active'` and omits rotation timestamps.
+Every other key has `state='decrypt_only'`, required canonical UTC
+`deactivated_at`, and required canonical UTC `retire_at` not earlier than
+`deactivated_at + 31 minutes` and later than startup time. Unknown or duplicate
+members, duplicate key IDs, duplicate secret references, zero or multiple
+active keys, invalid state/timestamps, expired decrypt-only keys, unsupported
+key material, or unresolved secrets fail deployment validation.
+Profiles: base
+Verified by: AC-298, AC-526
+
+**REQ-04-148**
+Conflict-token key material has secret purpose
+`revisions_conflict_token`. Raw or derived material MUST NOT be reused for the
+authentication master, Network Flow cursor or safe-digest keys, enterprise-auth
+provider secrets, telemetry headers, storage credentials, recovery keys,
+bootstrap material, or another purpose. New tokens use only the active key.
+A decrypt-only key may validate only a v3 token issued before that key's
+`deactivated_at`, before the token's own expiry, and before `retire_at`.
+Changing material in place, reusing a key ID, extending token TTL to retain an
+old key, accepting v2, falling back to a hard-coded key, or accepting fixture
+material outside a harness-owned runtime is forbidden.
+Profiles: base
+Verified by: AC-526
+
+**REQ-04-149**
+The v3 sealed payload uses AES-256-GCM with a fresh `12`-byte CSPRNG nonce and
+additional authenticated data that binds exactly
+`cartulary.conflict-token.v3` and `conflict_token_key_id`. Raw claims, raw or
+derived key material, secret-reference values, nonce-generation failures, and
+cryptographic failure details MUST NOT appear in public APIs, browser state,
+incident data, workbook rows, logs, diagnostics, readiness, telemetry,
+administrative audit, or operator output. Configuration, key resolution, and
+key-ring admission complete before HTTP/WebSocket listeners or background-job
+runners start. Any failure exits non-zero under `invalid_deployment_config`.
+Profiles: base
+Verified by: AC-298, AC-526
 
 #### Network Flow cursor key ring
 
@@ -2667,20 +2730,29 @@ Deployment-configuration validation failures MUST surface the top-level error co
 - `network_flow_safe_digest_key_purpose_conflict`,
 - `network_flow_safe_digest_rotation_invalid`,
 - `network_flow_fixture_safe_digest_key_forbidden`,
+- `revisions_conflict_token_manifest_missing`,
+- `revisions_conflict_token_manifest_invalid`,
+- `revisions_conflict_token_key_missing`,
+- `revisions_conflict_token_key_invalid`,
+- `revisions_conflict_token_key_id_conflict`,
+- `revisions_conflict_token_secret_missing`,
+- `revisions_conflict_token_key_purpose_conflict`,
+- `revisions_conflict_token_rotation_invalid`,
+- `revisions_conflict_token_fixture_key_forbidden`,
 - `value_below_minimum`,
 - `value_above_maximum`,
 - `invalid_telemetry_config`.
 
 `invalid_telemetry_config` is valid only when an adopted OpenTelemetry NLSpec is active. It MUST be used only for syntactically invalid adopted `telemetry.*` keys, invalid explicit `null`, invalid enum values, invalid cross-key combinations, unsafe telemetry header declarations, invalid endpoint values, and forbidden environment-passthrough attempts. These failures still surface under top-level `error.code='invalid_deployment_config'`.
 Profiles: base
-Verified by: AC-294, AC-295, AC-296, AC-298, AC-320, AC-433, AC-434, AC-435
+Verified by: AC-294, AC-295, AC-296, AC-298, AC-320, AC-433, AC-434, AC-435, AC-526
 
 **REQ-04-078**
 Validation of the effective deployment configuration MUST complete before any HTTP listener, WebSocket listener, or background-job runner starts. Invalid deployment configuration MUST cause non-zero process exit. The implementation MUST NOT partially start and then discover deployment-configuration invalidity later during analyst workflow.
 
 Application liveness and readiness MUST distinguish process health from active dependency readiness. `/healthz` is a process-liveness surface and MUST NOT become unhealthy solely because Postgres or the object store is unreachable after the process is running. `/readyz` is the public readiness surface and MUST emit a structured state with `status` equal to one of `starting_dependency_probe`, `ready`, `degraded_dependency`, or `recovering_dependency` when Postgres or object storage participates in the active deployment. `/readyz` MUST return HTTP `200` only when `status='ready'`; it MUST return HTTP `503` for startup dependency probing, post-ready dependency degradation, and recovery probing until the required probes pass. Readiness diagnostics MUST use redacted reason data and MUST NOT expose raw endpoint hosts, database names, bucket names, access keys, secret keys, object keys, storage refs, DSNs, or backend URLs.
 Profiles: base
-Verified by: AC-298, AC-433, AC-434, AC-435
+Verified by: AC-298, AC-433, AC-434, AC-435, AC-526
 
 ## 13. Coordinated Extensions Subsystem process contracts
 

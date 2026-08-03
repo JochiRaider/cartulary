@@ -130,6 +130,7 @@ func processEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv map[
 	if bootstrapPath != "" {
 		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath
 	}
+	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
 	return env
 }
 

@@ -4,6 +4,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
 import type { WorkbookMutationRuntime } from "../../runtime/WorkbookMutationRuntime";
 import {
   parseSameFieldConflict,
@@ -63,12 +64,14 @@ export function useTimelineConflictProjectionAdapter({
       conflict: SameFieldConflictPayload,
       focusKey: string,
       surface: TimelineScalarEditorSurface,
+      refresh?: (() => Promise<WorkbookOperationOutcome<unknown>>) | undefined,
     ) => {
       const queueKey = workbookConflictQueueKey(conflict);
       const binding = timelineScalarBindingForField(conflict.field_key);
       mutationRuntime.registerConflict({
         conflict,
         focusKey,
+        refresh,
         rowLabel: conflict.record_id,
         surfaceLabel: "Timeline",
         viewSchemaId: "cartulary.view.timeline.v2",

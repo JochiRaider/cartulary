@@ -5,7 +5,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -23,8 +23,10 @@ func NewWorkbookContribution(
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
 ) WorkbookContribution {
-	return NewWorkbookFacade(pool, conflictTokens, appender, intents)
+	return NewWorkbookFacade(pool, conflictTokens, appender, intents, conflictFields, keepSaved)
 }
 
 var _ WorkbookContribution = (*WorkbookFacade)(nil)

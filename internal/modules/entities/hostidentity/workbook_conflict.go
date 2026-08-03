@@ -2,11 +2,13 @@ package hostidentity
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
+	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -35,10 +37,13 @@ func (s *Store) ResolveWorkbookConflict(
 			command.Mechanics.RouteKey,
 		)
 	}
+	if s.keepSaved == nil {
+		return PatchMutationResult{}, fmt.Errorf("entities: keep-saved idempotency is not configured")
+	}
 	result, err := conflictresolution.KeepSaved(
 		ctx,
 		s.pool,
-		conflictresolution.NewRouteIdempotencyAdapter(s.authStore),
+		s.keepSaved,
 		command.Mechanics,
 		s.loadConflictTarget,
 	)
@@ -47,7 +52,7 @@ func (s *Store) ResolveWorkbookConflict(
 	}
 	return PatchMutationResult{
 		Payload:      result.Payload,
-		StatusCode:   result.StatusCode,
+		StatusCode:   http.StatusOK,
 		Replayed:     result.Replayed,
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,

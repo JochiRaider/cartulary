@@ -9,6 +9,7 @@ It is not disconnected-profile conformance. Operational recovery for this packag
 - `Containerfile` builds the app image from Make-built `server`, `migrate`, and `operator` binaries.
 - `docker-compose.yml` starts `app`, `postgres`, `seaweedfs-s3`, one-shot `migrate`, and one-shot `object-store-init`.
 - `config.toml.example` is the deployment config template mounted at `/etc/cartulary/config.toml`.
+- `revisions-conflict-token-key-ring.json.example` is the dedicated sealed conflict-token key-ring template.
 - `.env.example` carries service-binding environment names and placeholder values.
 - `bootstrap-admin.json.example` is the first deployment-admin bootstrap manifest template.
 - `scripts/backup-capture.sh` runs deployment-local backup creation through the package image.
@@ -22,17 +23,18 @@ It is not disconnected-profile conformance. Operational recovery for this packag
 cp deploy/mvp/.env.example deploy/mvp/.env
 cp deploy/mvp/config.toml.example deploy/mvp/config.toml
 cp deploy/mvp/bootstrap-admin.json.example deploy/mvp/bootstrap-admin.json
+cp deploy/mvp/revisions-conflict-token-key-ring.json.example deploy/mvp/revisions-conflict-token-key-ring.json
 cp deploy/mvp/restore-verification-target.toml.example deploy/mvp/restore-verification-target.toml
 ```
 
-Before starting, replace the placeholder passwords, S3 credentials, `CARTULARY_AUTH_MASTER_KEY`, `CARTULARY_RECOVERY_MASTER_KEY`, bootstrap admin password, and restore-verification target values. The two Cartulary master keys must be base64-encoded values that decode to at least 32 bytes.
+Before starting, replace the placeholder passwords, S3 credentials, `CARTULARY_AUTH_MASTER_KEY`, `CARTULARY_RECOVERY_MASTER_KEY`, `CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE`, bootstrap admin password, and restore-verification target values. The two Cartulary master keys must be base64-encoded values that decode to at least 32 bytes. The Revisions conflict-token secret must be unpadded base64url that decodes to exactly 32 bytes and must not reuse authentication, recovery, storage, or another subsystem's material.
 
 The config template uses `deployment_profile = "on_prem"` with managed service refs:
 
 - `roots.database_storage.service_ref = "primary"` selects `CARTULARY_POSTGRES_PRIMARY_DSN`.
 - `roots.object_storage.service_ref = "primary"` selects `CARTULARY_S3_PRIMARY_*`.
 
-The compose file mounts `config.toml` at `/etc/cartulary/config.toml` and sets absolute `CARTULARY_CONFIG_FILE=/etc/cartulary/config.toml`.
+The compose file mounts `config.toml` and the Revisions key-ring manifest under `/etc/cartulary` and sets absolute `CARTULARY_CONFIG_FILE=/etc/cartulary/config.toml`. Conflict-token rotation requires exactly one `active` key and at most seven `decrypt_only` keys. A decrypt-only entry records canonical UTC `deactivated_at` and `retire_at`; `retire_at` must be at least 31 minutes later and remain in the future. Replace active material by adding the old key as decrypt-only with its unchanged key ID and secret reference, adding a new active key, and restarting. Outstanding tokens expire after 30 minutes; v2 tokens are not accepted.
 
 The restore-verification target template uses separate `restore_verify` service refs for Postgres and object storage. Keep `RESTORE_VERIFY_POSTGRES_DB`, `CARTULARY_POSTGRES_RESTORE_VERIFY_DSN`, and `CARTULARY_S3_RESTORE_VERIFY_*` isolated from the source database and source bucket.
 
@@ -212,6 +214,7 @@ It builds and runs the MVP Compose package, creates a backup, inspects latest me
 - If `/readyz` returns a non-200 response, inspect the structured readiness status and the `postgres` and `seaweedfs-s3` service health.
 - If migration fails, inspect `docker compose logs migrate postgres` and verify `CARTULARY_POSTGRES_PRIMARY_DSN` resolves to the package Postgres service.
 - If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
+- If startup reports a `revisions_conflict_token_*` diagnostic, verify the key-ring mount, exact manifest schema, one-active-key rotation state, unique IDs and secret references, and the 32-byte unpadded-base64url secret. Startup intentionally fails before listeners when this credential is unavailable.
 - If backup creation fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.
 - If restore verification fails before mutation, confirm the target config
   differs from the source config, the target database and object-store bucket

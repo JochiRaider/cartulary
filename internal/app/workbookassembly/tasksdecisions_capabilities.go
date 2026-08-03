@@ -16,9 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictresolution"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -233,7 +231,7 @@ func taskDecisionPayloadInt64(payload map[string]any, key string) (int64, error)
 
 type taskDecisionRevisions struct {
 	appender *revisions.Appender
-	history  historyquery.Reader
+	history  conflicttokens.RevisionWindowReader
 }
 
 func (a taskDecisionRevisions) AppendChangeSetTx(
@@ -266,13 +264,14 @@ func (a taskDecisionRevisions) LoadRevisionWindowTx(
 	recordID uuid.UUID,
 	baseVersion int64,
 	currentVersion int64,
-) ([]historyquery.RevisionWindowRow, error) {
+) ([]conflicttokens.RevisionWindowRow, error) {
 	return a.history.LoadRevisionWindowTx(ctx, tx, recordID, baseVersion, currentVersion)
 }
 
 func newTaskDecisionMutationDependencies(
 	pool postgres.DB,
 	appender *revisions.Appender,
+	conflictFields conflicttokens.FieldResolver,
 ) tasksdecisions.MutationDependencies {
 	projectionContribution := tasksdecisions.NewProjectionContribution()
 	authStore := authn.NewStore(pool)
@@ -287,8 +286,9 @@ func newTaskDecisionMutationDependencies(
 			projectionContribution.Source(),
 			projectionContribution.QuerySurfaces()...,
 		),
-		Revisions:            taskDecisionRevisions{appender: appender, history: historyquery.NewReader()},
-		KeepSavedIdempotency: conflictresolution.NewRouteIdempotencyAdapter(authStore),
+		Revisions:            taskDecisionRevisions{appender: appender, history: conflicttokens.NewRevisionWindowReader()},
+		ConflictFields:       conflictFields,
+		KeepSavedIdempotency: NewConflictIdempotencyPort(pool),
 	}
 }
 
@@ -296,6 +296,7 @@ func NewTaskDecisionMutationContribution(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
+	conflictFields conflicttokens.FieldResolver,
 ) (*tasksdecisions.MutationFacade, error) {
 	if appender == nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: Revisions appender is required")
@@ -303,7 +304,7 @@ func NewTaskDecisionMutationContribution(
 	facade, err := tasksdecisions.NewMutationContribution(
 		pool,
 		conflictTokens,
-		newTaskDecisionMutationDependencies(pool, appender),
+		newTaskDecisionMutationDependencies(pool, appender, conflictFields),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("compose Tasks/Decisions mutation contribution: %w", err)

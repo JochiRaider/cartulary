@@ -13,7 +13,8 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		routes = append(routes, recordViewRoute(surface))
 	}
 	return revisions.ProviderContribution{
-		SourceOwnerModule: revisions.SourceOwnerArtifacts,
+		SourceOwnerModule:     revisions.SourceOwnerArtifacts,
+		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerArtifacts,
 			RecordType:             "artifact",

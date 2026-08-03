@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.revisions_conflict_token_key_ring.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "algorithm", "keys"],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.revisions_conflict_token_key_ring.v1"
+    },
+    "algorithm": {
+      "const": "aes_256_gcm_v1"
+    },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/key"
+      }
+    }
+  },
+  "$defs": {
+    "key_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"
+    },
+    "secret_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {
+          "const": "env"
+        },
+        "name": {
+          "$ref": "#/$defs/key_id"
+        }
+      }
+    },
+    "key": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conflict_token_key_id", "state", "secret_ref"],
+          "properties": {
+            "conflict_token_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "active"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conflict_token_key_id", "state", "secret_ref", "deactivated_at", "retire_at"],
+          "properties": {
+            "conflict_token_key_id": {
+              "$ref": "#/$defs/key_id"
+            },
+            "state": {
+              "const": "decrypt_only"
+            },
+            "secret_ref": {
+              "$ref": "#/$defs/secret_ref"
+            },
+            "deactivated_at": {
+              "$ref": "#/$defs/timestamp"
+            },
+            "retire_at": {
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

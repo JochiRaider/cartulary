@@ -863,11 +863,18 @@ function TimelineWorkbookContent({
       editorDraftRegistry.clearSubmittedRow,
     clearViewportContinuity,
     conflictQueueRef,
-    registerMutationConflict: (conflict, rowKey, focusField, surface) => {
+    registerMutationConflict: (
+      conflict,
+      rowKey,
+      focusField,
+      surface,
+      refresh,
+    ) => {
       registerSameFieldConflict(
         conflict,
         inputFocusKey(rowKey, focusField, surface),
         surface,
+        refresh,
       );
       return true;
     },

@@ -356,7 +356,8 @@
           "TestIncidentBundleImportDescriptorIsClosed_Unit",
           "TestSourcePortCatalogCurrentOrderAndExactPathAccounting_Unit",
           "TestSourcePortCatalogRejectsInvalidDescriptors_Unit",
-          "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit"
+          "TestSourcePortDescriptorsAreImmutableAndPreparedValuesAreOperationBound_Unit",
+          "TestSourcePortFailuresRequireDeclaredFamilyAndInvariant"
         ]
       },
       "evidence_class": "unit",

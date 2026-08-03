@@ -220,6 +220,30 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.revisions.conflicts.text_merge",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.conflicts",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.text_merge_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/conflicts",
+        "tests": [
+          "TestSuggestedTextMergeValueRejectsOverlappingOrNonTextEdits",
+          "TestSuggestedTextMergeValueSuggestsCleanNonOverlappingLineEdits"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.revisions.delete_restore.source_adapter_matrix",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.delete_restore",
@@ -269,12 +293,36 @@
         ]
       },
       "evidence_class": "unit",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.facade.construction_guards",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.facade",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.facade_dependency_closure"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestCommandServiceRejectsInvalidProviderContributionSets",
+          "TestCommandServiceRequiresEveryExplicitDependency"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
@@ -397,14 +445,241 @@
       "family_id": "module.revisions.integration",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.revisions.verification.behavior_contract",
-        "module.revisions.verification.incident_portability"
+        "module.revisions.verification.behavior_contract"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
           "TestRetainedHistoryAcrossRestartAndClosure_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.portability.allocator",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_allocator"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleNextIDsDoNotCollide",
+          "TestRevisionsIncidentBundleSequenceFunctionsAreHardened",
+          "TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter",
+          "TestRevisionsIncidentBundleSequenceRepairRollsBackOnLaterFailure",
+          "TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.portability.atomicity",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleFailureIsAtomic"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.portability.attribution_boundary",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.portability_attribution_boundary"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsDoNotJoinIncidentBundleAttributionSidecarsDirectly"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.portability.attribution_registry",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.portability_attribution_registry"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestAttributionResolverRegistryRejectsDuplicateProfile",
+          "TestAttributionResolverRegistryRequiresIncidentPortabilityResolver"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.portability.contract_and_attribution",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.records"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_contract_and_attribution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleInvariantAttribution",
+          "TestRevisionsIncidentBundleInvariantSelectionIsPermutationIndependent",
+          "TestRevisionsIncidentBundleRoundTripIsDeterministic"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.providers.catalog_guards",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.providers",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.provider_catalog_closure"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestIncidentBundleValidationCatalogFailsClosed",
+          "TestNonRowProviderCatalogFailsClosed",
+          "TestRowProviderCatalogRejectsDuplicateAndMissingRegistrations",
+          "TestValidateNonRowApplyResultRequiresExactCanonicalSet"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.rollback.changed_field_completeness",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.rollback",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.rollback_changed_field_completeness"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRollbackChangedFieldKeysIncludeEveryPublicCellDelta"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.rollback.decomposition_8c5e3f2a10",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.rollback",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.rollback_decomposition"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRollbackDecompositionBoundaries_Unit",
+          "TestRollbackPlannerBuildsExplicitDeterministicPlan_Unit",
+          "TestRollbackRecordLockerCanonicalizesOrder_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.rollback.transaction_failure_injection_8c5e3f2a11",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.rollback",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.rollback_transaction_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRollbackTransactionalFailureInjection_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -555,6 +830,55 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.revisions.store.history_query_repository_mapping_7b4d2e9c11",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.history_component_decomposition"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryQueryRepositoryMapsPersistenceRows_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.revisions.store.http_security_precedence_4e7a9c2d13",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [
+        "module.auth",
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.http_security_precedence"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsMutationSecurityPrecedence_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.store",
@@ -578,6 +902,29 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.revisions.store.revision_window_utc_ordering_51f2a6b3c5",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.revision_window_reader"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionWindowReaderOrdersRowsAndNormalizesUTC_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.revisions.support_unit.catalog_record_view_and_shared_runtime_c1d2e3f4a5",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.support_unit",
@@ -586,13 +933,15 @@
         "module.collaboration"
       ],
       "verification_ids": [
-        "module.revisions.verification.behavior_contract"
+        "module.revisions.verification.behavior_contract",
+        "module.revisions.verification.conflict_field_resolver_catalog"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/app/revisionassembly",
         "tests": [
           "TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog",
+          "TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver",
           "TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs",
           "TestRevisionsRuntimeReusesAppenderForCommandService"
         ]
@@ -606,19 +955,70 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.revisions.support_unit.conflict_capability_consolidation_9d6e4f3a12",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.conflict_capability_consolidation"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/conflicts",
+        "tests": [
+          "TestConflictCapabilitiesAreConsolidated_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.support_unit.conflict_field_catalog_guards_51f2a6b3c4",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.conflict_field_resolver_catalog"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/conflicts",
+        "tests": [
+          "TestConflictWindowProductionSourcesDoNotReadGlobalViewSchemaRegistry",
+          "TestFieldResolverCatalogIsImmutableAndFailClosed",
+          "TestFieldResolverCatalogRejectsDuplicateMissingAndInvalidProviders"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.support_unit",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.revisions.verification.behavior_contract"
+        "module.revisions.verification.conflict_token_v3_lifecycle"
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/revisions/conflicttokens",
+        "package": "./internal/modules/revisions/conflicts",
         "tests": [
-          "TestConflictTokenCodecRejectsInvalidClaims",
-          "TestConflictTokenCodecRoundTripsAndRejectsTampering"
+          "TestConflictTokenConfigurationRequiresSecureManifestPath",
+          "TestConflictTokenKeyRingValidationAndSecretIsolation",
+          "TestConflictTokenV3ExpiryRotationAndClockSkew",
+          "TestConflictTokenV3PropagatesEntropyFailure",
+          "TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens"
         ]
       },
       "evidence_class": "unit",
@@ -628,6 +1028,76 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full"
+    },
+    {
+      "row_id": "module.revisions.support_unit.history_materialization_attribution_and_page_7b4d2e9c10",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.history_component_decomposition"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryComponentsMaterializeDecorateAndOrder_Unit",
+          "TestHistoryDecompositionBoundaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.support_unit.http_application_boundary_4e7a9c2d12",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.http_application_boundary"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsApplicationAndHTTPBoundaries_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.support_unit.test_support_production_import_guard_6a4b2c1d9e",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.test_support_boundary"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/codegenboundary",
+        "tests": [
+          "TestRuntimeGoFilesDoNotImportRevisionsSupport"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

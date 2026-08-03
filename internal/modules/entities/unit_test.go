@@ -49,7 +49,7 @@ func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassemb
 
 func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
 	t.Helper()
-	return hostidentity.NewStore(pool, revisionsupport.MustAppender(t))
+	return hostidentity.NewStore(pool, revisionsupport.MustAppender(t), nil)
 }
 
 func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {

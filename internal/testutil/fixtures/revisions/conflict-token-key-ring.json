@@ -1,0 +1,14 @@
+{
+  "schema_id": "cartulary.revisions_conflict_token_key_ring.v1",
+  "algorithm": "aes_256_gcm_v1",
+  "keys": [
+    {
+      "conflict_token_key_id": "fixture-v1",
+      "state": "active",
+      "secret_ref": {
+        "kind": "env",
+        "name": "revisions-conflict-token-fixture-v1"
+      }
+    }
+  ]
+}

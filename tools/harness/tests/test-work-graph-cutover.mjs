@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { FixtureBroker } from "../scheduler/fixture-broker/index.mjs";
@@ -8,6 +10,7 @@ import {
   WorkGraphCompiler,
   buildWorkGraph,
   simulateWorkGraph,
+  writeAtomicNDJSON,
 } from "../scheduler/work-graph/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
@@ -94,6 +97,25 @@ function assertScheduler() {
   assert.equal(result.events.at(-1).event, "completed");
 }
 
+function assertAtomicNDJSON() {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-work-graph-ndjson-"));
+  try {
+    const output = path.join(directory, "unit-events.ndjson");
+    const events = Array.from({ length: 10_000 }, (_, index) => ({
+      event: "test_event",
+      index,
+      detail: `event-${index}`,
+    }));
+    writeAtomicNDJSON(output, events);
+    const lines = readFileSync(output, "utf8").trimEnd().split("\n");
+    assert.equal(lines.length, events.length);
+    assert.deepEqual(JSON.parse(lines.at(0)), events.at(0));
+    assert.deepEqual(JSON.parse(lines.at(-1)), events.at(-1));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 async function assertFixtures() {
   const released = [];
   const providers = {
@@ -128,7 +150,10 @@ async function assertFixtures() {
 
 }
 
-if (["fast", "matrix"].includes(mode)) assertGraphCutover();
+if (["fast", "matrix"].includes(mode)) {
+  assertGraphCutover();
+  assertAtomicNDJSON();
+}
 if (["scheduler-smoke", "scheduler-matrix", "matrix"].includes(mode)) assertScheduler();
 if (["fixture-smoke", "fixture-matrix", "service-backed", "matrix"].includes(mode)) {
   await assertFixtures();

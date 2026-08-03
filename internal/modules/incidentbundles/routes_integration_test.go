@@ -659,6 +659,7 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 		t.Run(tc.name, func(t *testing.T) {
 			targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"))
 			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+			sequenceBefore := snapshotRecordRevisionSequence(t, targetHarness.DB)
 			observerPassword := "ExtensionProfileImportObserverPass!"
 			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "extension_profile-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Enterprise integration Import Observer", observerPassword, false, true, true)
 			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
@@ -680,9 +681,29 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			if sideEffects := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID); sideEffects != (importFinalizationSideEffects{}) {
 				t.Fatalf("initial-admin-unavailable import left finalization side effects: %#v", sideEffects)
 			}
+			if sequenceAfter := snapshotRecordRevisionSequence(t, targetHarness.DB); sequenceAfter != sequenceBefore {
+				t.Fatalf("failed import changed record revision sequence: before=%#v after=%#v", sequenceBefore, sequenceAfter)
+			}
 			assertNoIncidentBundleStaging(t, targetHarness.Server)
 		})
 	}
+}
+
+type recordRevisionSequenceState struct {
+	LastValue int64
+	IsCalled  bool
+}
+
+func snapshotRecordRevisionSequence(t testing.TB, db *sql.DB) recordRevisionSequenceState {
+	t.Helper()
+	var state recordRevisionSequenceState
+	if err := db.QueryRow(`
+SELECT last_value, is_called
+  FROM public.record_revisions_revision_id_seq
+`).Scan(&state.LastValue, &state.IsCalled); err != nil {
+		t.Fatalf("snapshot record revision sequence: %v", err)
+	}
+	return state
 }
 
 type incidentBundleTestDequeueGate struct {

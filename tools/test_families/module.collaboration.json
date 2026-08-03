@@ -226,6 +226,7 @@
       "family_id": "module.collaboration.browser_stateful",
       "collaborator_ids": [
         "harness.browser",
+        "module.revisions",
         "web.collaboration"
       ],
       "verification_ids": [

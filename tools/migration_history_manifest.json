@@ -320,6 +320,12 @@
       "filename": "00053_evidence_blob_association_uniqueness.sql",
       "sha256": "72e81b33a3eb0374ea115fc42327195b5785f2656ac39130f6139e4e97b0b07b",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 54,
+      "filename": "00054_revisions_incident_bundle_sequence_repair.sql",
+      "sha256": "eb81b8b00c86596c8cca0899fc9927d2df75f8666c796bea4759b32e5cd73498",
+      "historical_phase_shaped": false
     }
   ]
 }

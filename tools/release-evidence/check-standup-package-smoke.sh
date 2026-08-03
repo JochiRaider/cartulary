@@ -79,6 +79,7 @@ trap cleanup EXIT
 sed "s#context: ../..#context: ${ROOT_DIR}#g" "$PACKAGE_DIR/docker-compose.yml" >"$compose_file"
 cp "$PACKAGE_DIR/config.toml.example" "$work_dir/config.toml"
 cp "$PACKAGE_DIR/bootstrap-admin.json.example" "$work_dir/bootstrap-admin.json"
+cp "$PACKAGE_DIR/revisions-conflict-token-key-ring.json.example" "$work_dir/revisions-conflict-token-key-ring.json"
 cat >"$work_dir/.env" <<EOF
 CARTULARY_IMAGE=${image}
 CARTULARY_HTTP_PORT=${port}
@@ -90,6 +91,7 @@ POSTGRES_PASSWORD=cartulary-postgres-smoke-password
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 CARTULARY_RECOVERY_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE=cmV2aXNpb25zLXRva2VuLWtleS1tYXRlcmlhbC0wMDE
 
 CARTULARY_S3_PRIMARY_ACCESS_KEY_ID=cartulary-local
 CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY=cartulary-local-secret

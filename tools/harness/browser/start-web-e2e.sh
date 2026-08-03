@@ -60,6 +60,7 @@ RUNTIME_PROFILE_FINGERPRINT=""
 RUNTIME_PROFILE_KEY_RING_MANIFEST=""
 RUNTIME_PROFILE_CURSOR_SECRET=""
 RUNTIME_PROFILE_SAFE_DIGEST_SECRET=""
+REVISIONS_CONFLICT_TOKEN_SECRET=""
 
 usage() {
   echo "usage: start-web-e2e.sh [-- <command...>]" >&2
@@ -1114,6 +1115,7 @@ main() {
 
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e allocate ports" resolve_owned_stack_ports
   CARTULARY_STEP_TIMING_BUCKET=setup run_step_command "browser-e2e prepare test route token" prepare_test_route_token
+	REVISIONS_CONFLICT_TOKEN_SECRET="$(dd if=/dev/urandom bs=32 count=1 status=none | base64 | tr '+/' '-_' | tr -d '=\n')"
   CARTULARY_STEP_TIMING_BUCKET=frontend_startup run_step_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts
 
   CARTULARY_STEP_TIMING_BUCKET=service_wait run_step_command "browser-e2e startup services" browser_start_services
@@ -1145,6 +1147,8 @@ main() {
     CARTULARY_WEB_E2E_API_ORIGIN="${API_ORIGIN}" \
     CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
+    CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
+    CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
     CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}" \
     CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
     CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:?}" \

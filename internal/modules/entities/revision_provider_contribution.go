@@ -10,7 +10,8 @@ import (
 func RevisionProviderContribution() revisions.ProviderContribution {
 	collectionProvider := entityrollback.NewCollectionProvider()
 	return revisions.ProviderContribution{
-		SourceOwnerModule: revisions.SourceOwnerEntities,
+		SourceOwnerModule:     revisions.SourceOwnerEntities,
+		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
 		Records: []revisions.RecordProviderContribution{
 			{
 				SourceOwnerModule:      revisions.SourceOwnerEntities,
