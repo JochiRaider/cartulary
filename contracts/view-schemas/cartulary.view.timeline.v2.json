@@ -383,8 +383,8 @@
         "mutates": true,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "record_patch",
-          "owner": "record_patch_route",
+          "kind": "indicator_observations",
+          "owner": "indicator_observations_route",
           "action_key": "indicator.observations.manage"
         },
         "seed_bindings": [],

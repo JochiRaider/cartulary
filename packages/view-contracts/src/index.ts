@@ -57,6 +57,8 @@ export type InspectorRouteBindingKind =
   | "record_patch"
   | "record_action"
   | "entity_mention_action"
+  | "indicator_observations"
+  | "indicator_lifecycle"
   | "evidence_access"
   | "surface_pivot";
 
@@ -73,6 +75,8 @@ export type InspectorRouteBindingOwner =
   | "record_rollback_route"
   | "record_merge_route"
   | "entity_mention_resolve_route"
+  | "indicator_observations_route"
+  | "indicator_lifecycle_route"
   | "evidence_attach_blob_route"
   | "evidence_preview_handle_route"
   | "evidence_download_handle_route";
@@ -407,6 +411,8 @@ const inspectorRouteBindingKinds = Object.freeze([
   "record_patch",
   "record_action",
   "entity_mention_action",
+  "indicator_observations",
+  "indicator_lifecycle",
   "evidence_access",
   "surface_pivot",
 ] as const);
@@ -424,6 +430,8 @@ const inspectorRouteBindingOwners = Object.freeze([
   "record_rollback_route",
   "record_merge_route",
   "entity_mention_resolve_route",
+  "indicator_observations_route",
+  "indicator_lifecycle_route",
   "evidence_attach_blob_route",
   "evidence_preview_handle_route",
   "evidence_download_handle_route",
@@ -625,6 +633,7 @@ const inspectorFeatureRegistryByViewSchemaId = Object.freeze({
     "history.rollback",
     "indicator.observations.pivot",
     "indicator.lifecycle.read",
+    "indicator.lifecycle.manage",
     "relationships.manage",
     "create_related.task_request",
     "create_related.decision",

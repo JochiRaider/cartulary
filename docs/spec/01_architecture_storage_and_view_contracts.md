@@ -1336,9 +1336,76 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | `POST /api/v1/records/{record_id}/rollback` | Record-history reversal | Required `base_row_version`, `client_txn_id`, and `target` | Keyed by `(actor_user_id, record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with rollback summary for the selected target | `invalid_rollback_request`, `client_txn_conflict`, `row_version_conflict`, `rollback_target_not_found`, `rollback_precondition_failed`, `record_locked` |
 | `POST /api/v1/records/{survivor_record_id}/merge` | Entity merge | Required `loser_record_id`, `survivor_base_row_version`, `loser_base_row_version`, `client_txn_id`; optional `reason` | Keyed by `(actor_user_id, survivor_record_id, loser_record_id, client_txn_id)` and participates in destructive-operation locking | `200 OK` with merge summary and carried-forward identifiers | `invalid_mutation_payload`, `incident_not_found`, `authorization_denied`, `client_txn_conflict`, `row_version_conflict`, `merge_precondition_failed`, `record_locked` |
 | `POST /api/v1/entity-mentions/{entity_mention_id}/resolve` | Single mention action | Required `base_mention_row_version`, `client_txn_id`, `action`; optional `resolved_record_id` and `reason` | Keyed by `(actor_user_id, entity_mention_id, client_txn_id)` | `200 OK` with `entity_mention`, `source_record`, and `change_set_id` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `entity_mention_not_found`, `resolved_record_not_found`, `illegal_transition`, `record_deleted_use_restore` |
+| `GET /api/v1/records/{source_record_id}/indicator-observations` | Source-record observation collection | Optional `limit` and `cursor_token` only | Read route; cursor bound to actor, route, and source record | `200 OK` with active observations newest first and paging metadata | `invalid_pagination_request`, `indicator_source_record_not_found` |
+| `POST /api/v1/records/{source_record_id}/indicator-observations` | Source-bound manual observation create | Required `client_txn_id`, `base_row_version`, `source_field_key`, `span_start_byte`, and `span_end_byte`; optional `parsed_indicator_type` and `resolved_indicator_record_id` | Keyed by `(actor_user_id, source_record_id, client_txn_id)`; exact replay wins before concurrency | First success `201 Created`; replay `200 OK`; returns child mutation result | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `indicator_source_record_not_found`, `resolved_indicator_not_found` |
+| `GET /api/v1/indicators/{indicator_id}/observations` | Indicator-linked observation collection | Optional `limit` and `cursor_token` only | Read route; cursor bound to actor, route, and Indicator | `200 OK` with active observations newest first and paging metadata | `invalid_pagination_request`, `indicator_not_found` |
+| `POST /api/v1/indicator-observations/{observation_id}/resolve` | Observation resolution action | Required `client_txn_id`, `base_row_version`, and `resolved_indicator_record_id` | Keyed by `(actor_user_id, observation_id, action, client_txn_id)`; exact replay wins before concurrency | `200 OK` with child mutation result | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `indicator_observation_not_found`, `resolved_indicator_not_found`, `illegal_transition` |
+| `POST /api/v1/indicator-observations/{observation_id}/dismiss` | Observation dismissal action | Required `client_txn_id` and `base_row_version` | Keyed by `(actor_user_id, observation_id, action, client_txn_id)`; exact replay wins before concurrency | `200 OK` with child mutation result | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `indicator_observation_not_found`, `illegal_transition` |
+| `POST /api/v1/indicator-observations/{observation_id}/restore` | Observation restore action | Required `client_txn_id` and `base_row_version` | Keyed by `(actor_user_id, observation_id, action, client_txn_id)`; exact replay wins before concurrency | `200 OK` with child mutation result | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `indicator_observation_not_found`, `illegal_transition` |
+| `GET /api/v1/indicators/{indicator_id}/state-intervals` | Indicator lifecycle interval collection | Optional `limit` and `cursor_token` only | Read route; cursor bound to actor, route, and Indicator | `200 OK` with active intervals newest first and paging metadata | `invalid_pagination_request`, `indicator_not_found` |
+| `POST /api/v1/indicators/{indicator_id}/state-intervals` | Indicator lifecycle interval append | Required `client_txn_id`, `base_row_version`, `lifecycle_state`, `valid_from`, `valid_to`, `confidence`, `rationale`, `support_refs`, and `assessor` | Keyed by `(actor_user_id, indicator_id, client_txn_id)`; exact replay wins before concurrency | First success `201 Created`; replay `200 OK`; returns child mutation result | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, `indicator_not_found` |
 | `POST /api/v1/records/{record_id}/conflicts/{conflict_token}/resolve` | Same-field conflict resolution | Record-scoped conflict-resolver surface | Request and result payload are owned by Core 03 §3.3 | Ordinary conflict-resolution success refresh through the addressed record | Same-field conflict and stale-token semantics are owned by Core 03 §3.3 |
 
 Clipboard-paste and explicit bulk-mutation record targets MUST be scoped to the path `{incident_id}` before row-version evaluation, conflict-window loading, same-field conflict construction, mutation side effects, change-set persistence, projection refresh, live-event publication, idempotent success persistence, or response row serialization. A missing, foreign-incident, wrong-view, wrong-type, or deleted record target is not a same-field conflict; it MUST abort the whole batch without committing creates, patches, conflicts-only success payloads, change sets, revisions, projections, or live events. Clipboard-paste and explicit bulk-mutation batch results MUST use the common success envelope on valid batch evaluation, including when every target cell becomes a same-field conflict and no row mutation commits. In that conflicts-only case, `rows[]` MUST be empty and `change_set_id` MUST be omitted. Same-field conflict entries in `conflicts[]` MUST use the Core 03 §3.3.4 conflict object. `same_field_conflict` remains the error code for single-record patch conflict responses; clipboard-paste and bulk batch conflicts are batch result members rather than a separate public error family.
+
+**REQ-01-652**
+The Indicator child-route family in Table 3.3.5-A is the complete
+current-profile public route contract for observation and lifecycle access.
+Every mutation body is a closed JSON object. `client_txn_id` is a required
+non-null stable token, and `base_row_version` is a required positive integer.
+For observation create, the base version addresses the source record; for
+lifecycle append, it addresses the Indicator record; for observation actions,
+it addresses the observation child row. Unknown members, omitted required
+members, forbidden provenance members, explicit `null` where not admitted,
+malformed UUIDs, noncanonical timestamps, and invalid spans fail with `400`
+and `error.code='invalid_mutation_payload'` before transaction work.
+
+Exact replay returns the original committed result before fresh concurrency,
+visibility, transition, source-text, or target evaluation. Reusing the same
+route key with a different normalized request fails with
+`client_txn_conflict`. First observation create and lifecycle append return
+`201`; their exact replays return `200`; actions and action replay return
+`200`. A mutation result contains exactly the child resource,
+`change_set_id`, `replayed`, and `affected_records`. Each affected-record row
+contains `record_id` and its committed positive `row_version`, appears once,
+and is sorted by `record_id` ascending.
+Profiles: base
+Verified by: AC-532
+
+**REQ-01-653**
+`records` is the sole authority for every Indicator first-class envelope's
+`row_version`, creation and update timestamps, creation and update actors, and
+deletion tuple. Indicator source persistence MUST NOT retain an authoritative
+or fallback copy of those fields. Portable Indicator rows retain the admitted
+source-major-`1` shape by joining Indicator subtype state to the Records
+envelope; neither storage contraction nor claim rebuild changes valid bundle
+version 1 or 2 bytes.
+
+`indicator_active_identities` is Indicator-owned rebuildable coordination
+state keyed by `(incident_id, indicator_type, dedupe_key)` and maps one active
+canonical identity to one `record_id`. It MUST enforce at most one active
+claim for each key, derive activeness exclusively from the Records deletion
+tuple, and be maintained transactionally by create, delete, restore, rollback,
+and Incident Bundle import. It is not authoritative domain state, is excluded
+from Incident Bundles and portable backup content, and MUST be deterministically
+rebuildable from active Records-authoritative Indicator rows. A duplicate
+active identity, ambiguous envelope drift, or malformed source row blocks
+backfill or rebuild rather than selecting a winner.
+Profiles: base, incident_portability
+Verified by: AC-533
+
+**REQ-01-654**
+Observation collection routes order active rows by `(created_at DESC,
+indicator_observation_id DESC)`. Lifecycle collection routes order active rows
+by `(valid_from DESC, indicator_state_interval_id DESC)`. `limit` defaults to
+100 and accepts 1 through 500. A cursor is opaque and bound to the exact route,
+current actor, addressed record, normalized limit, and continuation tuple; it
+MUST NOT use OFFSET or reveal its payload. Tombstoned child rows are omitted
+from these live collections while history, rollback, and portability retain
+them. Cursor or query mismatch fails with `invalid_pagination_request` and no
+partial page.
+Profiles: base
+Verified by: AC-532
 
 **Table 3.3.5-B. Row-create request members**
 
@@ -3157,6 +3224,10 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `incident_not_found` | `404` | `false` | An incident-scoped route addressed no incident visible to the caller, including a record-scoped route whose malformed, missing, or hidden record identity cannot expose an incident authorization context. | REQ-01-186 | base | AC-187, AC-479 |
 | `entity_mention_not_found` | `404` | `false` | An entity-mention action route targeted no visible current entity-mention row for the supplied `entity_mention_id`. |  |  |  |
 | `resolved_record_not_found` | `404` | `false` | A mention-resolve request supplied `resolved_record_id` that does not identify a visible active target record. |  |  |  |
+| `indicator_source_record_not_found` | `404` | `false` | An Indicator observation route targeted no visible active source record for the supplied `source_record_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
+| `indicator_not_found` | `404` | `false` | An Indicator observation or lifecycle route targeted no visible active Indicator for the supplied `indicator_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
+| `indicator_observation_not_found` | `404` | `false` | An Indicator observation action targeted no visible active observation for the supplied `observation_id`. | REQ-01-652, REQ-04-150 | base | AC-532 |
+| `resolved_indicator_not_found` | `404` | `false` | An Indicator observation request supplied a target that does not identify a visible active same-incident Indicator. | REQ-01-652, REQ-04-150 | base | AC-532 |
 | `rollback_target_not_found` | `404` | `false` | A rollback request targeted no visible history item, `change_set_id`, or row revision that is legal for the addressed `record_id`. |  |  |  |
 | `evidence_record_not_found` | `404` | `false` | A preview-handle or download-handle issuance request targeted no visible current evidence record for the supplied `record_id`. |  |  |  |
 | `handle_not_found_or_revoked` | `404` | `false` | A handle-redeem request targeted no current opaque handle token because the token is unknown, revoked, or no longer available for redeem. |  |  |  |

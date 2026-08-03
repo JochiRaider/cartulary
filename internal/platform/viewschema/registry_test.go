@@ -473,13 +473,15 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 		t.Fatalf("%s inspector feature group bound: got %d", resource.ViewSchemaID, len(config.FeatureGroups))
 	}
 	allowedRoutes := map[string]struct{}{
-		"panel_read":            {},
-		"view_row_create":       {},
-		"record_patch":          {},
-		"record_action":         {},
-		"entity_mention_action": {},
-		"evidence_access":       {},
-		"surface_pivot":         {},
+		"panel_read":             {},
+		"view_row_create":        {},
+		"record_patch":           {},
+		"record_action":          {},
+		"entity_mention_action":  {},
+		"indicator_observations": {},
+		"indicator_lifecycle":    {},
+		"evidence_access":        {},
+		"surface_pivot":          {},
 	}
 	allowedOwners := map[string]struct{}{
 		"current_row_projection":         {},
@@ -494,6 +496,8 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 		"record_rollback_route":          {},
 		"record_merge_route":             {},
 		"entity_mention_resolve_route":   {},
+		"indicator_observations_route":   {},
+		"indicator_lifecycle_route":      {},
 		"evidence_attach_blob_route":     {},
 		"evidence_preview_handle_route":  {},
 		"evidence_download_handle_route": {},
@@ -652,7 +656,7 @@ func expectedInspectorFeatureRegistry() map[string][]string {
 		"cartulary.view.handoff.v1":               {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "handoff.acknowledge", "handoff.open_tasks.review", "handoff.open_decisions.review", "handoff.risks.review", "handoff.next_checks.manage", "create_related.task_request", "create_related.status_review"},
 		"cartulary.view.hosts.v1":                 {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "entity.aliases.read", "entity.relationships.manage", "entity.merge", "surface_pivot.timeline", "surface_pivot.evidence", "surface_pivot.assessments", "create_related.note", "create_related.task_request", "create_related.decision"},
 		"cartulary.view.identities.v1":            {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "entity.aliases.read", "entity.relationships.manage", "entity.merge", "surface_pivot.timeline", "surface_pivot.evidence", "surface_pivot.assessments", "create_related.note", "create_related.task_request", "create_related.decision"},
-		"cartulary.view.indicators.v1":            {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "indicator.observations.pivot", "indicator.lifecycle.read", "relationships.manage", "create_related.task_request", "create_related.decision"},
+		"cartulary.view.indicators.v1":            {"details.read", "relationships.read", "history.read", "record.delete", "record.restore", "history.rollback", "indicator.observations.pivot", "indicator.lifecycle.read", "indicator.lifecycle.manage", "relationships.manage", "create_related.task_request", "create_related.decision"},
 		"cartulary.view.investigative_queries.v1": {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "query.source.link", "query.result.link", "query.evidence_refs.manage", "query.findings.link", "create_related.task_request"},
 		"cartulary.view.lesson.v1":                {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "lesson.followup_tasks.manage", "lesson.evidence_refs.manage", "lesson.owner.manage", "lesson.close_or_reopen", "create_related.task_request"},
 		"cartulary.view.notes.v1":                 {"details.read", "relationships.read", "evidence.read", "history.read", "record.delete", "record.restore", "history.rollback", "artifact.source_links.manage", "artifact.evidence_refs.manage", "artifact.tags.manage", "artifact.related_notes.manage", "surface_pivot.source_records", "create_related.task_request", "create_related.decision"},

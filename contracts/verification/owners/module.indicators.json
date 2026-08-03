@@ -46,6 +46,13 @@
       "public_target": "test"
     },
     {
+      "verification_id": "module.indicators.verification.production_child_workflows",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test", "playwright"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.indicators.verification.projection_delegation",
       "behavior_class": "product",
       "profile": "base",
@@ -62,6 +69,13 @@
     {
       "verification_id": "module.indicators.verification.route_integration",
       "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
+      "verification_id": "module.indicators.verification.storage_contraction",
+      "behavior_class": "architecture",
       "profile": "base",
       "evidence_kinds": ["go_test"],
       "public_target": "test"

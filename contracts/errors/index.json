@@ -209,6 +209,26 @@
       "summary": "The record mutation used a stale base_row_version."
     },
     {
+      "code": "indicator_source_record_not_found",
+      "http_status": 404,
+      "summary": "The requested Indicator observation source record is not visible or active."
+    },
+    {
+      "code": "indicator_not_found",
+      "http_status": 404,
+      "summary": "The requested Indicator is not visible or active."
+    },
+    {
+      "code": "indicator_observation_not_found",
+      "http_status": 404,
+      "summary": "The requested Indicator observation is not visible or active."
+    },
+    {
+      "code": "resolved_indicator_not_found",
+      "http_status": 404,
+      "summary": "The requested resolved Indicator target is not visible, active, and in the source incident."
+    },
+    {
       "code": "saved_view_not_found",
       "http_status": 404,
       "summary": "The requested saved view is not visible to the current authenticated user."

@@ -777,6 +777,56 @@ The protected set for one of these rollback targets MUST contain every first-cla
 Profiles: base, incident_portability
 Verified by: AC-231, AC-474
 
+**REQ-02-263**
+The current-profile Indicator lifecycle vocabulary is closed to exactly:
+
+- `active`: the Indicator is currently relevant to the incident and has not
+  been dispositioned;
+- `benign`: the represented value is legitimate in the incident context;
+- `false_positive`: the Indicator attribution or detection was evaluated and
+  rejected for the incident context;
+- `retired`: the Indicator is intentionally no longer current for incident
+  handling while its prior lifecycle remains retained.
+
+Every new interval MUST use one exact token with no trimming, case folding,
+alias, or fallback. A valid interval uses a canonical `valid_from`, nullable
+canonical `valid_to` not earlier than `valid_from`, nullable integer confidence
+from 0 through 100, nullable rationale, a JSON array of canonical same-incident
+first-class record UUIDs as `support_refs`, nullable assessor text, and
+server-owned actor and creation/assessment time. Repeated support UUIDs are
+invalid rather than silently deduplicated. Appending an interval does not
+overwrite or close an earlier interval implicitly.
+Profiles: base, incident_portability
+Verified by: AC-532, AC-533
+
+**REQ-02-264**
+Manual observation creation is source-bound. The caller supplies one source
+`field_key`, a half-open UTF-8 byte span `[span_start_byte, span_end_byte)`,
+and optionally one exact Indicator type plus one existing resolved Indicator
+target. The server MUST read the transaction-visible source field through its
+owning source-text port, verify the source record is active and same-incident,
+verify the field belongs to the source record's active view contract, verify
+the supplied base Records version, and verify that both byte offsets are UTF-8
+code-point boundaries with `0 <= start < end <= len(source_bytes)`. The server
+derives `observed_text` as the exact selected bytes,
+`origin_locator` from stable source-record, field, and byte-span identity, and
+`origin_kind='manual_entry'`. Callers cannot submit or override any of those
+three provenance members. When a parsed type is supplied, the normalized
+candidate is derived by the canonical Indicator identity service; callers do
+not submit it.
+
+Observation resolution transitions are closed. `resolve` accepts an
+`unresolved` observation or a `resolved` observation whose target differs and
+produces the exact resolved tuple. `dismiss` accepts `unresolved` or `resolved`
+and produces `dismissed` with no target and with server-owned actor, time, and
+method. `restore` accepts only `dismissed` and produces the exact unresolved
+tuple. A same-state action and every other transition fail with `409` and
+`error.code='illegal_transition'`. Transition or concurrency failure leaves
+the child, every affected Records envelope, history, projection, idempotency
+success, and Collaboration publication unchanged.
+Profiles: base
+Verified by: AC-532
+
 **REQ-02-081**
 The system MUST expose a stable indicator system-view and API contract over canonical indicators with fields named:
 

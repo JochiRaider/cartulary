@@ -590,7 +590,7 @@ describe("view-contracts", () => {
           },
         },
         pattern:
-          /route_binding\.kind must be one of panel_read\|view_row_create\|record_patch\|record_action\|entity_mention_action\|evidence_access\|surface_pivot/,
+          /route_binding\.kind must be one of panel_read\|view_row_create\|record_patch\|record_action\|entity_mention_action\|indicator_observations\|indicator_lifecycle\|evidence_access\|surface_pivot/,
       },
       {
         raw: {
@@ -613,7 +613,7 @@ describe("view-contracts", () => {
           },
         },
         pattern:
-          /route_binding\.owner must be one of current_row_projection\|view_query_route\|view_row_create_route\|record_patch_route\|record_mark_reviewed_route\|record_supersede_route\|record_delete_route\|record_restore_route\|record_history_route\|record_rollback_route\|record_merge_route\|entity_mention_resolve_route\|evidence_attach_blob_route\|evidence_preview_handle_route\|evidence_download_handle_route/,
+          /route_binding\.owner must be one of current_row_projection\|view_query_route\|view_row_create_route\|record_patch_route\|record_mark_reviewed_route\|record_supersede_route\|record_delete_route\|record_restore_route\|record_history_route\|record_rollback_route\|record_merge_route\|entity_mention_resolve_route\|indicator_observations_route\|indicator_lifecycle_route\|evidence_attach_blob_route\|evidence_preview_handle_route\|evidence_download_handle_route/,
       },
       {
         raw: {

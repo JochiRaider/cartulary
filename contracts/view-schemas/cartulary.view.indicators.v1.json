@@ -242,8 +242,9 @@
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read",
-          "owner": "current_row_projection"
+          "kind": "indicator_observations",
+          "owner": "indicator_observations_route",
+          "action_key": "indicator.observations.pivot"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -260,8 +261,9 @@
         "mutates": false,
         "requires_confirmation": false,
         "route_binding": {
-          "kind": "panel_read",
-          "owner": "current_row_projection"
+          "kind": "indicator_lifecycle",
+          "owner": "indicator_lifecycle_route",
+          "action_key": "indicator.lifecycle.read"
         },
         "seed_bindings": [],
         "disabled_when": [
@@ -269,6 +271,29 @@
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_preserve_selection"
+      },
+      {
+        "feature_group_key": "indicator.lifecycle.manage",
+        "panel_id": "workflow",
+        "label": "Indicator Lifecycle Manage",
+        "minimum_incident_role": "editor",
+        "mutates": true,
+        "requires_confirmation": false,
+        "route_binding": {
+          "kind": "indicator_lifecycle",
+          "owner": "indicator_lifecycle_route",
+          "action_key": "indicator.lifecycle.manage"
+        },
+        "seed_bindings": [],
+        "disabled_when": [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted"
+        ],
+        "success_result_behavior": "preserve_selected_row",
+        "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
       },
       {
         "feature_group_key": "relationships.manage",

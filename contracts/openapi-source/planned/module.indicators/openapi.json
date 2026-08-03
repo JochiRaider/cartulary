@@ -1,0 +1,591 @@
+{
+  "x-cartulary-activation": "SL-12",
+  "paths": {
+    "/api/v1/records/{source_record_id}/indicator-observations": {
+      "parameters": [
+        {
+          "name": "source_record_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": ["indicators"],
+        "operationId": "listSourceRecordIndicatorObservations",
+        "summary": "List active Indicator observations captured from one source record.",
+        "parameters": [
+          {"$ref": "#/components/parameters/IndicatorListLimit"},
+          {"$ref": "#/components/parameters/IndicatorListCursor"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Source-record Indicator observation page",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationListEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"}
+        },
+        "security": [
+          {"sessionCookie": []},
+          {"bearerSession": []}
+        ]
+      },
+      "post": {
+        "tags": ["indicators"],
+        "operationId": "createManualIndicatorObservation",
+        "summary": "Create one manual Indicator observation from a verified source-field UTF-8 byte span.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/IndicatorObservationCreateRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Indicator observation created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationMutationEnvelope"}
+              }
+            }
+          },
+          "200": {
+            "description": "Exact Indicator observation create replay",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationMutationEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"},
+          "409": {"$ref": "#/components/responses/IndicatorMutationConflict"}
+        },
+        "security": [
+          {"sessionCookie": [], "csrfCookie": [], "csrfHeader": []},
+          {"bearerSession": []}
+        ]
+      }
+    },
+    "/api/v1/indicators/{indicator_id}/observations": {
+      "parameters": [
+        {"$ref": "#/components/parameters/IndicatorIDPath"}
+      ],
+      "get": {
+        "tags": ["indicators"],
+        "operationId": "listIndicatorObservations",
+        "summary": "List active observations currently or historically resolved to one Indicator.",
+        "parameters": [
+          {"$ref": "#/components/parameters/IndicatorListLimit"},
+          {"$ref": "#/components/parameters/IndicatorListCursor"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Indicator observation page",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationListEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"}
+        },
+        "security": [
+          {"sessionCookie": []},
+          {"bearerSession": []}
+        ]
+      }
+    },
+    "/api/v1/indicator-observations/{observation_id}/resolve": {
+      "parameters": [
+        {"$ref": "#/components/parameters/IndicatorObservationIDPath"}
+      ],
+      "post": {
+        "tags": ["indicators"],
+        "operationId": "resolveIndicatorObservation",
+        "summary": "Resolve one Indicator observation to an active same-incident Indicator.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/IndicatorObservationResolveRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved Indicator observation",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationMutationEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"},
+          "409": {"$ref": "#/components/responses/IndicatorMutationConflict"}
+        },
+        "security": [
+          {"sessionCookie": [], "csrfCookie": [], "csrfHeader": []},
+          {"bearerSession": []}
+        ]
+      }
+    },
+    "/api/v1/indicator-observations/{observation_id}/dismiss": {
+      "parameters": [
+        {"$ref": "#/components/parameters/IndicatorObservationIDPath"}
+      ],
+      "post": {
+        "tags": ["indicators"],
+        "operationId": "dismissIndicatorObservation",
+        "summary": "Dismiss one unresolved or resolved Indicator observation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/IndicatorObservationActionRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dismissed Indicator observation",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationMutationEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"},
+          "409": {"$ref": "#/components/responses/IndicatorMutationConflict"}
+        },
+        "security": [
+          {"sessionCookie": [], "csrfCookie": [], "csrfHeader": []},
+          {"bearerSession": []}
+        ]
+      }
+    },
+    "/api/v1/indicator-observations/{observation_id}/restore": {
+      "parameters": [
+        {"$ref": "#/components/parameters/IndicatorObservationIDPath"}
+      ],
+      "post": {
+        "tags": ["indicators"],
+        "operationId": "restoreIndicatorObservation",
+        "summary": "Restore one dismissed Indicator observation to unresolved state.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/IndicatorObservationActionRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restored Indicator observation",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorObservationMutationEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"},
+          "409": {"$ref": "#/components/responses/IndicatorMutationConflict"}
+        },
+        "security": [
+          {"sessionCookie": [], "csrfCookie": [], "csrfHeader": []},
+          {"bearerSession": []}
+        ]
+      }
+    },
+    "/api/v1/indicators/{indicator_id}/state-intervals": {
+      "parameters": [
+        {"$ref": "#/components/parameters/IndicatorIDPath"}
+      ],
+      "get": {
+        "tags": ["indicators"],
+        "operationId": "listIndicatorStateIntervals",
+        "summary": "List active lifecycle intervals for one Indicator.",
+        "parameters": [
+          {"$ref": "#/components/parameters/IndicatorListLimit"},
+          {"$ref": "#/components/parameters/IndicatorListCursor"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Indicator lifecycle interval page",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorLifecycleListEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"}
+        },
+        "security": [
+          {"sessionCookie": []},
+          {"bearerSession": []}
+        ]
+      },
+      "post": {
+        "tags": ["indicators"],
+        "operationId": "appendIndicatorStateInterval",
+        "summary": "Append one lifecycle interval to an active Indicator.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/IndicatorLifecycleAppendRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Indicator lifecycle interval appended",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorLifecycleMutationEnvelope"}
+              }
+            }
+          },
+          "200": {
+            "description": "Exact Indicator lifecycle append replay",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/IndicatorLifecycleMutationEnvelope"}
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/IndicatorInvalidRequest"},
+          "401": {"$ref": "#/components/responses/IndicatorSessionRequired"},
+          "403": {"$ref": "#/components/responses/IndicatorAuthorizationDenied"},
+          "404": {"$ref": "#/components/responses/IndicatorResourceNotFound"},
+          "409": {"$ref": "#/components/responses/IndicatorMutationConflict"}
+        },
+        "security": [
+          {"sessionCookie": [], "csrfCookie": [], "csrfHeader": []},
+          {"bearerSession": []}
+        ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "IndicatorIDPath": {
+        "name": "indicator_id",
+        "in": "path",
+        "required": true,
+        "schema": {"type": "string", "format": "uuid"}
+      },
+      "IndicatorObservationIDPath": {
+        "name": "observation_id",
+        "in": "path",
+        "required": true,
+        "schema": {"type": "string", "format": "uuid"}
+      },
+      "IndicatorListLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 100}
+      },
+      "IndicatorListCursor": {
+        "name": "cursor_token",
+        "in": "query",
+        "required": false,
+        "schema": {"type": "string"}
+      }
+    },
+    "responses": {
+      "IndicatorInvalidRequest": {
+        "description": "Malformed request or pagination contract",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+          }
+        }
+      },
+      "IndicatorSessionRequired": {
+        "description": "Session required",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+          }
+        }
+      },
+      "IndicatorAuthorizationDenied": {
+        "description": "Current incident role is insufficient",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+          }
+        }
+      },
+      "IndicatorResourceNotFound": {
+        "description": "Addressed Indicator resource is not visible",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+          }
+        }
+      },
+      "IndicatorMutationConflict": {
+        "description": "Idempotency, row-version, or lifecycle transition conflict",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+          }
+        }
+      }
+    },
+    "schemas": {
+      "IndicatorAffectedRecordVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {"type": "string", "format": "uuid"},
+          "row_version": {"type": "integer", "minimum": 1}
+        },
+        "required": ["record_id", "row_version"]
+      },
+      "IndicatorObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observation_id": {"type": "string", "format": "uuid"},
+          "incident_id": {"type": "string", "format": "uuid"},
+          "source_record_id": {"type": "string", "format": "uuid"},
+          "source_field_key": {"type": "string"},
+          "origin_kind": {
+            "type": "string",
+            "enum": ["manual_entry", "clipboard_paste", "csv_import", "xlsx_import", "api_import", "extraction", "system"]
+          },
+          "origin_locator": {"type": "string"},
+          "observed_text": {"type": "string"},
+          "parsed_indicator_type": {
+            "type": ["string", "null"],
+            "enum": ["ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text", null]
+          },
+          "normalized_candidate": {"type": ["string", "null"]},
+          "resolution_status": {"type": "string", "enum": ["unresolved", "resolved", "dismissed"]},
+          "resolved_indicator_record_id": {"type": ["string", "null"], "format": "uuid"},
+          "row_version": {"type": "integer", "minimum": 1},
+          "created_by_user_id": {"type": "string", "format": "uuid"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "resolved_by_user_id": {"type": ["string", "null"], "format": "uuid"},
+          "resolved_at": {"type": ["string", "null"], "format": "date-time"},
+          "resolution_method": {"type": ["string", "null"]}
+        },
+        "required": [
+          "observation_id", "incident_id", "source_record_id", "source_field_key", "origin_kind",
+          "origin_locator", "observed_text", "parsed_indicator_type", "normalized_candidate",
+          "resolution_status", "resolved_indicator_record_id", "row_version", "created_by_user_id",
+          "created_at", "resolved_by_user_id", "resolved_at", "resolution_method"
+        ]
+      },
+      "IndicatorStateInterval": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "interval_id": {"type": "string", "format": "uuid"},
+          "incident_id": {"type": "string", "format": "uuid"},
+          "indicator_record_id": {"type": "string", "format": "uuid"},
+          "lifecycle_state": {"type": "string", "enum": ["active", "benign", "false_positive", "retired"]},
+          "valid_from": {"type": "string", "format": "date-time"},
+          "valid_to": {"type": ["string", "null"], "format": "date-time"},
+          "confidence": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+          "rationale": {"type": ["string", "null"]},
+          "support_refs": {
+            "type": "array",
+            "items": {"type": "string", "format": "uuid"},
+            "uniqueItems": true
+          },
+          "assessor": {"type": ["string", "null"]},
+          "assessed_at": {"type": "string", "format": "date-time"},
+          "row_version": {"type": "integer", "minimum": 1},
+          "created_by_user_id": {"type": "string", "format": "uuid"},
+          "created_at": {"type": "string", "format": "date-time"}
+        },
+        "required": [
+          "interval_id", "incident_id", "indicator_record_id", "lifecycle_state", "valid_from",
+          "valid_to", "confidence", "rationale", "support_refs", "assessor", "assessed_at",
+          "row_version", "created_by_user_id", "created_at"
+        ]
+      },
+      "IndicatorObservationCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {"type": "string"},
+          "base_row_version": {"type": "integer", "minimum": 1},
+          "source_field_key": {"type": "string"},
+          "span_start_byte": {"type": "integer", "minimum": 0},
+          "span_end_byte": {"type": "integer", "minimum": 1},
+          "parsed_indicator_type": {
+            "type": "string",
+            "enum": ["ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text"]
+          },
+          "resolved_indicator_record_id": {"type": "string", "format": "uuid"}
+        },
+        "required": ["client_txn_id", "base_row_version", "source_field_key", "span_start_byte", "span_end_byte"]
+      },
+      "IndicatorObservationResolveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {"type": "string"},
+          "base_row_version": {"type": "integer", "minimum": 1},
+          "resolved_indicator_record_id": {"type": "string", "format": "uuid"}
+        },
+        "required": ["client_txn_id", "base_row_version", "resolved_indicator_record_id"]
+      },
+      "IndicatorObservationActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {"type": "string"},
+          "base_row_version": {"type": "integer", "minimum": 1}
+        },
+        "required": ["client_txn_id", "base_row_version"]
+      },
+      "IndicatorLifecycleAppendRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {"type": "string"},
+          "base_row_version": {"type": "integer", "minimum": 1},
+          "lifecycle_state": {"type": "string", "enum": ["active", "benign", "false_positive", "retired"]},
+          "valid_from": {"type": "string", "format": "date-time"},
+          "valid_to": {"type": ["string", "null"], "format": "date-time"},
+          "confidence": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+          "rationale": {"type": ["string", "null"]},
+          "support_refs": {
+            "type": "array",
+            "items": {"type": "string", "format": "uuid"},
+            "uniqueItems": true,
+            "maxItems": 64
+          },
+          "assessor": {"type": ["string", "null"]}
+        },
+        "required": [
+          "client_txn_id", "base_row_version", "lifecycle_state", "valid_from", "valid_to",
+          "confidence", "rationale", "support_refs", "assessor"
+        ]
+      },
+      "IndicatorObservationMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observation": {"$ref": "#/components/schemas/IndicatorObservation"},
+          "change_set_id": {"type": "string", "format": "uuid"},
+          "replayed": {"type": "boolean"},
+          "affected_records": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/IndicatorAffectedRecordVersion"}
+          }
+        },
+        "required": ["observation", "change_set_id", "replayed", "affected_records"]
+      },
+      "IndicatorObservationMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {"$ref": "#/components/schemas/IndicatorObservationMutationData"},
+          "meta": {"$ref": "#/components/schemas/EnvelopeMeta"}
+        },
+        "required": ["data", "meta"]
+      },
+      "IndicatorLifecycleMutationData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "interval": {"$ref": "#/components/schemas/IndicatorStateInterval"},
+          "change_set_id": {"type": "string", "format": "uuid"},
+          "replayed": {"type": "boolean"},
+          "affected_records": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/IndicatorAffectedRecordVersion"}
+          }
+        },
+        "required": ["interval", "change_set_id", "replayed", "affected_records"]
+      },
+      "IndicatorLifecycleMutationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {"$ref": "#/components/schemas/IndicatorLifecycleMutationData"},
+          "meta": {"$ref": "#/components/schemas/EnvelopeMeta"}
+        },
+        "required": ["data", "meta"]
+      },
+      "IndicatorObservationListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/IndicatorObservation"}
+          }
+        },
+        "required": ["observations"]
+      },
+      "IndicatorObservationListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {"$ref": "#/components/schemas/IndicatorObservationListData"},
+          "meta": {"$ref": "#/components/schemas/EnvelopeMeta"}
+        },
+        "required": ["data", "meta"]
+      },
+      "IndicatorLifecycleListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "intervals": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/IndicatorStateInterval"}
+          }
+        },
+        "required": ["intervals"]
+      },
+      "IndicatorLifecycleListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {"$ref": "#/components/schemas/IndicatorLifecycleListData"},
+          "meta": {"$ref": "#/components/schemas/EnvelopeMeta"}
+        },
+        "required": ["data", "meta"]
+      }
+    }
+  }
+}

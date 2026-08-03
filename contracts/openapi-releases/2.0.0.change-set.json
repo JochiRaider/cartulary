@@ -728,6 +728,18 @@
       "classification": "additive",
       "owner_id": "module.evidence",
       "rationale": "Allow Evidence's generic row-create request to carry its optional opaque initial object-blob identifier."
+    },
+    {
+      "fingerprint": "a0aef769311cf393fb809fb3e9a5435ea0905c710398e8f80e4e6f3c721ba961",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Allow Inspector features to bind explicitly to Indicator observation and lifecycle route families."
+    },
+    {
+      "fingerprint": "6c85d3a7ce3bf73ced1f809942b44c62772abaeaac41b4329474f8ad2a274e8c",
+      "classification": "additive",
+      "owner_id": "platform.viewschema",
+      "rationale": "Publish Indicator-owned observation and lifecycle route owners for Inspector bindings."
     }
   ]
 }

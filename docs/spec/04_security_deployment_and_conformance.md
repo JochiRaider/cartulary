@@ -377,6 +377,33 @@ Only `deployment_admin` may call `POST /api/v1/users/{user_id}/auth-bindings`, `
 Profiles: enterprise_authentication
 Verified by: AC-352, AC-427
 
+**REQ-04-150**
+Every Indicator observation or lifecycle read requires a current authenticated
+session and current visibility to the addressed incident. Every create,
+resolve, dismiss, restore, or append requires current incident role `editor` or
+higher, and cookie-authenticated mutation requires the ordinary CSRF proof.
+Deployment administration alone grants no incident visibility or mutation
+authority. Authentication, CSRF, path syntax, hidden-resource visibility, and
+minimum role are evaluated before route-specific body validation, idempotency
+lookup, child lookup, source-field reads, target resolution, or cursor
+continuation. A hidden, foreign-incident, deleted, or wrong-type source,
+Indicator, observation, interval, or support record MUST NOT disclose its
+existence or state.
+
+After current authority succeeds, exact idempotency replay is evaluated before
+fresh optimistic concurrency and semantic transition checks. Ordinary callers
+cannot select `system` or another origin, cannot supply observed source text or
+an origin locator, and cannot supply actor or commit timestamps. Each successful
+mutation advances every affected first-class Records envelope exactly once in
+`record_id` ascending lock order, appends target and row-centric history,
+refreshes affected projections, records the idempotency result, and commits
+ordinary record-change Collaboration intents atomically. It MUST NOT publish a
+child-specific side channel or expose source text, cursor plaintext, SQL,
+constraint names, or hidden identifiers in an error. Any failure leaves all of
+those effects absent.
+Profiles: base
+Verified by: AC-532, AC-533
+
 ### 2.1 Snapshot and Reporting Extension Profile release gate
 
 **REQ-04-031**
@@ -982,6 +1009,10 @@ The timed or fixture-sensitive criteria below define observable implementation o
 - **AC-530**: Indicator observations accept and persist exactly `manual_entry`, `clipboard_paste`, `csv_import`, `xlsx_import`, `api_import`, `extraction`, and trusted-internal `system`. `interactive_cell`, empty, missing, case-folded, whitespace-padded, aliased, unknown, extension-prefixed, and ordinary caller-selected `system` values fail before the first database write. Every live producer emits its assigned token; ordinary HTTP analyst entry emits `manual_entry`. Exact tokens survive history, rollback, and Incident Bundle round trips, and repeated equal-content observations with distinct stable identities remain separate. Every invalid-origin fixture proves no observation, source or Indicator version, change set, revision, projection, Collaboration intent, idempotency success, or publication effect.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-075..REQ-02-080, REQ-02-260
 - **AC-531**: Indicator source-major-`1` files for admitted bundle versions `1` and `2` accept only the three exact REQ-01-640 row schemas, explicit nullable members, canonical scalar forms, and stable-identity export ordering. Independent negative fixtures exercise each of the ten Indicator invariants; three multi-defect fixtures under different archive and row permutations always select the owner-defined lowest-precedence invariant and stable row identity. Valid v2 export/import/export is deterministic, valid retained v1 imports into the current model, active and tombstoned repeated observations remain distinct, and injected failure during apply, validation, or before final commit leaves no visible state. Unsupported, hostile, and malformed values expose only `source_family_id='indicators'` and the selected closed `invariant_id`; they disclose no row value, raw digest, SQL, relation, constraint, storage, path, or internal topology through responses, jobs, logs, telemetry, readiness, administrative summaries, or operator output.
+
+- **AC-532**: The six Indicator observation and lifecycle route families, comprising eight HTTP operations, implement their exact read, create, resolve, dismiss, restore, and append contracts. Independent fixtures cover authenticated hidden-resource ordering, viewer denial, editor success, cookie CSRF, exact and divergent replay, stale base versions, every legal and illegal observation transition, source/view/field validation, ASCII and multibyte UTF-8 spans, mid-code-point and out-of-range spans, server-derived text/locator/manual origin, canonical candidate derivation, same-incident targets/support UUIDs, the four lifecycle tokens, canonical times, affected-record lock/version order, row-centric history, projection refresh, ordinary Collaboration publication, and failure atomicity. Observation and interval pages are stable, actor/record-bound, tombstone-free, newest-first, OFFSET-free, and reject cursor replay under another actor, record, route, or limit. Indicator and Timeline Inspector handlers call the real routes, preserve selection, expose accessible pending/empty/error/retry states, and omit unsupported actions instead of rendering inert controls.
+
+- **AC-533**: A clean install and an upgrade with valid existing Indicator rows create and deterministically backfill exactly one `indicator_active_identities` claim per Records-authoritative active canonical identity. Concurrent create converges on one claim; delete releases it; restore fails atomically on conflict; rollback rekeys it; Incident Bundle import maintains it; recovery rebuild produces the same claims; and claims never appear in portable or backup-domain content. During expand compatibility, every writer maintains claims and mirrors atomically. After the old-writer drain gate, constraint validation and contract migration remove all Indicator envelope mirrors, legacy indexes, and mirror foreign keys; every source read obtains envelope state from Records. Empty install, upgrade, Down reconstruction from Records, subsequent Up, delete/restore, rollback, recovery, and valid bundle v1/v2 round trips all pass. Unknown lifecycle state, envelope drift, malformed child tuple, incompatible idempotency payload, or duplicate Records-active identity blocks the applicable migration without guessing or partial schema change.
   - Verifies: REQ-01-639..REQ-01-642, REQ-02-072..REQ-02-080, REQ-02-260
 - **AC-016**: Evidence processing and any implemented background job start without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
   - Verifies: REQ-01-243..REQ-01-247, REQ-01-355..REQ-01-366, REQ-02-186..REQ-02-201, REQ-03-121..REQ-03-126

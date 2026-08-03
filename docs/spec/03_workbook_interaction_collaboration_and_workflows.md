@@ -1282,6 +1282,27 @@ Direct row creation on the Indicators system view MUST create canonical indicato
 Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-231
 
+**REQ-03-306**
+The Indicator Inspector MUST bind `indicator.observations.pivot` to the real
+Indicator observation collection route and `indicator.lifecycle.read` to the
+real state-interval collection route. It MUST expose
+`indicator.lifecycle.manage` to current incident editors and bind it to the
+state-interval append route. Timeline MUST bind
+`indicator.observations.manage` to the source-record observation collection
+and create route rather than to generic record patch. These changes are
+additive to `cartulary.view.indicators.v1` and
+`cartulary.view.timeline.v2`; they do not change either `view_schema_id`.
+
+The client MUST use the selected row's stable `record_id` and current
+`row_version`, MUST preserve the selected source text and byte-span boundaries,
+and MUST render loading, empty, error, paging, transition, and retry states in
+the same Inspector shell. A feature whose route kind has no registered client
+handler MUST be omitted under the existing `unsupported_feature` behavior; it
+MUST NOT render an inert button. Success refreshes every returned affected
+record by stable ID without changing selection based on row position.
+Profiles: base
+Verified by: AC-532
+
 ## 10. Reviewer history and rollback workflow
 
 ### 10.1 Reviewer lens

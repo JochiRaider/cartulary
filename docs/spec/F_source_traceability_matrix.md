@@ -1453,6 +1453,13 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-04-122 | Core 04 §12.3.4 Enterprise-auth provider manifest binding | enterprise_authentication | AC-352, AC-427, AC-435..AC-436 |
 | REQ-04-109 | Core 04 §4 Trust boundaries | base | AC-413 |
 | REQ-04-110 | Core 04 §12.3 Key registry and binding model | base | AC-131, AC-294, AC-298 |
+| REQ-01-652 | Core 01 §3.3.5 Mutation contract | base | AC-532 |
+| REQ-01-653 | Core 01 §3.3.5 Mutation contract | base, incident_portability | AC-533 |
+| REQ-01-654 | Core 01 §3.3.5 Mutation contract | base | AC-532 |
+| REQ-02-263 | Core 02 §10.2 Indicator contract | base, incident_portability | AC-532..AC-533 |
+| REQ-02-264 | Core 02 §10.2 Indicator contract | base | AC-532 |
+| REQ-03-306 | Core 03 §9.1 Source-bound indicator workflow | base | AC-532 |
+| REQ-04-150 | Core 04 §2 Authorization model | base | AC-532..AC-533 |
 | REQ-05-001 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-002 | Core 05 §1 Scope and separation | claim_publication | PC-006 |
 | REQ-05-003 | Core 05 §1 Scope and separation | claim_publication | PC-001, PC-002, PC-006 |
@@ -1950,6 +1957,10 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-518 | REQ-01-310, REQ-01-335, REQ-03-254 |
 | AC-519 | REQ-01-616..REQ-01-617, REQ-03-254, REQ-03-304..REQ-03-305 |
 | AC-520 | REQ-01-332, REQ-01-334, REQ-03-304..REQ-03-305 |
+| AC-530 | REQ-01-640, REQ-02-056..REQ-02-057 |
+| AC-531 | REQ-01-639..REQ-01-646 |
+| AC-532 | REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150 |
+| AC-533 | REQ-01-653, REQ-02-263, REQ-04-150 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
 | PC-002 | REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013 |
 | PC-003 | REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012 |
