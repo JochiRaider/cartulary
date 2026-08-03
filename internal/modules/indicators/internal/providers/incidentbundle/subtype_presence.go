@@ -1,4 +1,4 @@
-package indicators
+package incidentbundle
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 type incidentBundleSubtypeSource struct{}
 
-func IncidentBundleSubtypeContribution() subtypepresence.Contribution {
+func SubtypeContribution() subtypepresence.Contribution {
 	return subtypepresence.Contribution{
 		FamilyID: "indicators",
 		Source:   incidentBundleSubtypeSource{},

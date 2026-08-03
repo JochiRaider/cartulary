@@ -27,8 +27,16 @@ func NewIdentityProvider(descriptor ProviderDescriptor) Provider {
 	return providerWithHandlers(descriptor, (*Store).refreshIdentityTxCore, (*Store).rebuildIncidentIdentitiesTxCore)
 }
 
-func NewIndicatorProvider(descriptor ProviderDescriptor) Provider {
-	return providerWithHandlers(descriptor, (*Store).refreshIndicatorTxCore, (*Store).rebuildIncidentIndicatorsTxCore)
+func NewIndicatorProvider(descriptor ProviderDescriptor, source IndicatorSource) Provider {
+	return Provider{
+		descriptor: descriptor,
+		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+			return store.refreshIndicatorTxCore(ctx, tx, recordID, source)
+		},
+		rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
+			return store.rebuildIncidentIndicatorsTxCore(ctx, tx, incidentID, source)
+		},
+	}
 }
 
 func NewAssessmentProvider(descriptor ProviderDescriptor, source AssessmentSource) Provider {

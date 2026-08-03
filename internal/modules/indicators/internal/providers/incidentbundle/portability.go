@@ -1,4 +1,4 @@
-package indicators
+package incidentbundle
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 )
 
-func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
+func exportFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID) ([]incidentportability.File, error) {
 	specs := []struct {
 		path  string
 		query string
@@ -29,7 +29,7 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 	return files, nil
 }
 
-func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
+func importFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	specs := []incidentportability.FixedImportSpec{
 		{LogicalBundlePath: "data/indicators.ndjson", AttributionTable: "indicators", StableIdentity: []string{"record_id"}, RequiredColumns: []string{"record_id", "incident_id"}, InsertSQL: `INSERT INTO indicators SELECT * FROM jsonb_populate_record(NULL::indicators, $1::jsonb)`},
 		{LogicalBundlePath: "data/indicator_observations.ndjson", AttributionTable: "indicator_observations", StableIdentity: []string{"indicator_observation_id"}, RequiredColumns: []string{"indicator_observation_id"}, InsertSQL: `INSERT INTO indicator_observations SELECT * FROM jsonb_populate_record(NULL::indicator_observations, $1::jsonb)`},

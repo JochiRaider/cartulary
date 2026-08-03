@@ -28,11 +28,12 @@ import (
 
 func NewCatalog() (*sourceport.Catalog, error) {
 	taskDecisionContribution := tasksdecisions.NewIncidentBundleContribution()
+	indicatorContribution := indicators.NewIncidentBundleContribution()
 	recordSubtypeCatalog, err := subtypepresence.NewCatalog([]subtypepresence.Contribution{
 		timeline.IncidentBundleSubtypeContribution(),
 		entities.IncidentBundleSubtypeContribution(),
 		parties.IncidentBundleSubtypeContribution(),
-		indicators.IncidentBundleSubtypeContribution(),
+		indicatorContribution.SubtypePresence,
 		artifacts.IncidentBundleSubtypeContribution(),
 		taskDecisionContribution.SubtypePresence,
 		evidence.IncidentBundleSubtypeContribution(),
@@ -78,7 +79,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			timeline.NewIncidentBundleSourcePort(),
 			parties.NewIncidentBundleSourcePort(),
 			entities.NewIncidentBundleSourcePort(),
-			indicators.NewIncidentBundleSourcePort(),
+			indicatorContribution.SourcePort,
 			artifacts.NewIncidentBundleSourcePort(),
 			taskDecisionContribution.SourcePort,
 			evidence.NewIncidentBundleSourcePort(),

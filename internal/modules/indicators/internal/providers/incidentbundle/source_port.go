@@ -1,4 +1,4 @@
-package indicators
+package incidentbundle
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
+func NewSourcePort() sourceport.Port {
 	descriptor := sourceport.Descriptor{
 		FamilyID: "indicators", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.indicators", OwnerRelationIDs: []string{"indicator-source"},
@@ -29,12 +29,12 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
+		Descriptor: descriptor, Export: sourceport.QueryExport(exportFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
 			return prepareIndicatorFiles(descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
+			return importFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool

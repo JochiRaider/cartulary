@@ -1,10 +1,12 @@
 package indicators
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 )
 
@@ -19,20 +21,21 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 		t.Fatalf("canonicalize fixture: %v", err)
 	}
 	row := portableIdentityRow("00000000-0000-4000-8000-000000000001", canonical)
-	descriptor := NewIncidentBundleSourcePort().Descriptor()
+	port := NewIncidentBundleContribution().SourcePort
+	importContext := sourceport.ImportContext{BundleVersion: 2, OperationID: "indicator-identity-portability"}
 
-	if _, err := prepareIndicatorFiles(descriptor, portableIdentityBundle(t, row), 2); err != nil {
+	if _, err := port.PrepareImport(context.Background(), portableIdentityBundle(t, row), importContext); err != nil {
 		t.Fatalf("prepare canonical identity: %v", err)
 	}
 
 	noncanonical := cloneAnyMap(row)
 	noncanonical["display_value"] = "EXAMPLE.TEST"
-	_, err = prepareIndicatorFiles(descriptor, portableIdentityBundle(t, noncanonical), 2)
+	_, err = port.PrepareImport(context.Background(), portableIdentityBundle(t, noncanonical), importContext)
 	assertIndicatorInvariantFailure(t, err, "indicators.normalization_exact")
 
 	duplicate := cloneAnyMap(row)
 	duplicate["record_id"] = "00000000-0000-4000-8000-000000000002"
-	_, err = prepareIndicatorFiles(descriptor, portableIdentityBundle(t, row, duplicate), 2)
+	_, err = port.PrepareImport(context.Background(), portableIdentityBundle(t, row, duplicate), importContext)
 	assertIndicatorInvariantFailure(t, err, "indicators.identity_unique")
 }
 

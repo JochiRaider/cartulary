@@ -15,7 +15,7 @@ import (
 )
 
 func TestGenericProjectionPageSQLIsKeysetBounded(t *testing.T) {
-	for _, viewSchemaID := range []string{assessmentsViewSchemaID, indicatorsViewSchemaID} {
+	for _, viewSchemaID := range []string{assessmentsViewSchemaID} {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			surface := querySurfacesForTest()[viewSchemaID]
 			positionID := "00000000-0000-0000-0000-000000000901"
@@ -46,7 +46,6 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 		findingsViewSchemaID:             true,
 		forensicKeywordsViewSchemaID:     true,
 		handoffViewSchemaID:              true,
-		indicatorsViewSchemaID:           true,
 		investigativeQueriesViewSchemaID: true,
 		lessonViewSchemaID:               true,
 		notesViewSchemaID:                true,

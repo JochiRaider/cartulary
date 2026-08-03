@@ -48,7 +48,7 @@ func CurrentProviderContributions() []revisions.ProviderContribution {
 		assessments.RevisionProviderContribution(),
 		entities.RevisionProviderContribution(),
 		evidence.RevisionProviderContribution(),
-		indicators.RevisionProviderContribution(),
+		indicators.NewRevisionContribution(),
 		links.RevisionProviderContribution(),
 		parties.RevisionProviderContribution(),
 		tasksdecisions.NewRevisionContribution(),

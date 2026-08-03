@@ -1,4 +1,4 @@
-package rollbackprovider
+package rollback
 
 import (
 	"reflect"

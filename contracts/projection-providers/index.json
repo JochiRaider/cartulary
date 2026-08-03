@@ -24,6 +24,7 @@
       "internal/modules/evidence/import_projection.go",
       "internal/modules/evidence/store.go",
       "internal/modules/evidence/workbook_facade.go",
+      "internal/modules/indicators/projection_contribution.go",
       "internal/modules/parties/store.go",
       "internal/modules/parties/workbook_facade.go",
       "internal/modules/tasksdecisions/import_projection.go",

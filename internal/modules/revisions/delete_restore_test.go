@@ -33,7 +33,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 		"evidence":       "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore.Source",
 		"host":           "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.HostSource",
 		"identity":       "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore.IdentitySource",
-		"indicator":      "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore.Source",
+		"indicator":      "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore.Source",
 		"party":          "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore.Source",
 		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.TaskRequestSource",
 		"timeline_event": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore.Source",

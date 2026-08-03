@@ -11,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
@@ -81,6 +80,7 @@ func newCatalog(
 	assessmentSource projections.AssessmentSource,
 	taskDecisionContribution tasksdecisions.ProjectionContribution,
 ) (*projections.Catalog, error) {
+	indicatorContribution := indicators.NewProjectionContribution()
 	providers := []projections.Provider{
 		projections.NewTimelineProvider(descriptor(
 			"timeline",
@@ -129,11 +129,11 @@ func newCatalog(
 			[]string{"indicators", "links", "records"},
 			[]string{"indicator_grid_projection"},
 			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			indicatorprojection.QuerySurfaces(),
+			indicatorContribution.QuerySurfaces(),
 			[]string{"identity"},
 			[]string{"internal/modules/indicators"},
 			[]string{"internal/modules/indicators/indicators_test.go"},
-		)),
+		), indicatorContribution.Source()),
 		projections.NewAssessmentProvider(descriptor(
 			"assessment",
 			"assessments",

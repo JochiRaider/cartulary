@@ -1,13 +1,13 @@
 package indicators
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/deleterestore"
+	indicatorrollback "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/rollback"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func RevisionProviderContribution() revisions.ProviderContribution {
-	childProvider := rollbackprovider.NewChildProvider()
+func NewRevisionContribution() revisions.ProviderContribution {
+	childProvider := indicatorrollback.NewChildProvider()
 	return revisions.ProviderContribution{
 		SourceOwnerModule:     revisions.SourceOwnerIndicators,
 		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
@@ -15,7 +15,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			SourceOwnerModule:      revisions.SourceOwnerIndicators,
 			RecordType:             "indicator",
 			DeleteRestoreSource:    deleterestore.NewSource(),
-			RowRollbackProvider:    rollbackprovider.NewProvider(),
+			RowRollbackProvider:    indicatorrollback.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "indicators.indicators",

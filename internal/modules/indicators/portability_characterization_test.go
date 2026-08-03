@@ -8,6 +8,7 @@ import (
 	"time"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
@@ -55,11 +56,12 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		t.Fatalf("append interval: %v", err)
 	}
 
-	first, err := indicators.ExportIncidentBundleFiles(ctx, harness.DB, incident.ID)
+	contribution := indicators.NewIncidentBundleContribution()
+	first, err := contribution.SourcePort.Export(ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
 	if err != nil {
 		t.Fatalf("first export: %v", err)
 	}
-	second, err := indicators.ExportIncidentBundleFiles(ctx, harness.DB, incident.ID)
+	second, err := contribution.SourcePort.Export(ctx, sourceport.ExportContext{Query: harness.DB, IncidentID: incident.ID})
 	if err != nil {
 		t.Fatalf("second export: %v", err)
 	}
@@ -116,7 +118,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		}
 	}
 
-	descriptor := indicators.NewIncidentBundleSourcePort().Descriptor()
+	descriptor := contribution.SourcePort.Descriptor()
 	if len(descriptor.Paths) != 3 {
 		t.Fatalf("source-port paths = %#v", descriptor.Paths)
 	}

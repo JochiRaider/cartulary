@@ -11,7 +11,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/projection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"

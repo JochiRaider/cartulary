@@ -4,7 +4,6 @@ import (
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -16,7 +15,6 @@ func contractQuerySurfacesForTest() map[string]genericSurface {
 	contracts = append(contracts, assessmentprojection.QuerySurfaces()...)
 	contracts = append(contracts, artifactprojection.QuerySurfaces()...)
 	contracts = append(contracts, evidenceprojection.QuerySurfaces()...)
-	contracts = append(contracts, indicatorprojection.QuerySurfaces()...)
 	contracts = append(contracts, partyprojection.QuerySurfaces()...)
 	surfaces := make(map[string]genericSurface, len(contracts))
 	for _, contract := range contracts {

@@ -159,6 +159,7 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
+          "TestIndicatorProviderImplementationsAreInternal",
           "TestIndicatorStoreCompositionAndRepositoryBoundaries"
         ]
       },
