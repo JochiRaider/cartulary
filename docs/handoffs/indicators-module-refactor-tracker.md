@@ -681,7 +681,7 @@ These findings establish the starting classification and are inputs to the exhau
 | Order | Workstream | Tracker finding | Scope | Entry gate | Status | Exit evidence | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | Tracker bootstrap | IND-027 | Append this control plan, baseline, matrices, deployment gates, and completion checklist. | Clean authorized baseline. | COMPLETE | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913`; bootstrap checkpoint SHA resolves in the ledger gate. | Record the checkpoint SHA, then begin SL-09. |
-| 1 | SL-09 reachability locks and migration preflight | IND-028 | Exported-symbol callers, behavior locks, read-only data classification, and removal ledger. | Bootstrap committed. | PENDING | Focused characterization, query/disposition ledger, no unclassified migration condition. | Adopt normative closure only after preflight. |
+| 1 | SL-09 reachability locks and migration preflight | IND-028 | Exported-symbol callers, behavior locks, read-only data classification, and removal ledger. | Bootstrap committed. | IN PROGRESS | Focused characterization, query/disposition ledger, no unclassified migration condition. | Complete preflight before normative closure. |
 | 2 | IND-029 normative production closure | IND-029 | Core owners, OpenAPI owner unit, view contracts, acceptance, and traceability. | SL-09 committed with safe dispositions. | PENDING | Spec, OpenAPI, view, JSON, generation, and Markdown validation. | Begin additive storage only after owner closure. |
 | 3 | SL-10 expand storage and identity claims | IND-030 | Expand migration, backfill, dual writes, Records envelope reads, rebuild/recovery contract. | IND-029 adopted; preflight conditions clear. | PENDING | Upgrade/backfill, concurrency, reuse/conflict, rollback, recovery, and portability evidence. | Commit additive cutover support before facade retirement. |
 | 4 | SL-11 semantic facade and dead API retirement | IND-031 | Internal services, typed outcomes, exported-surface allowlist, narrow consumers, explicit database failures. | SL-10 claim maintenance available. | PENDING | AST boundary and affected owner/application composition tests. | Build child workflows only on the minimized owner surface. |
@@ -712,8 +712,8 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 
 | Workstream | Status | Commit SHA | Validation evidence | Migration and compatibility note | Next action |
 | --- | --- | --- | --- | --- | --- |
-| Tracker bootstrap | COMPLETE | resolved by the following ledger gate | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913` | Documentation/process only; no product or migration change. | Record the checkpoint SHA, then begin SL-09. |
-| SL-09 | PENDING | pending | pending | Read-only preflight; no guessed data rewrites. | Await bootstrap checkpoint. |
+| Tracker bootstrap | COMPLETE | `6b505b4c` | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913` | Documentation/process only; no product or migration change. | SL-09 admitted. |
+| SL-09 | IN PROGRESS | pending | pending | Read-only preflight; no guessed data rewrites. | Classify exported callers and deployed data. |
 | IND-029 | PENDING | pending | pending | Normative closure precedes implementation. | Await SL-09. |
 | SL-10 | PENDING | pending | pending | Additive expand migration; old binaries remain compatible. | Await IND-029. |
 | SL-11 | PENDING | pending | pending | Internal callers move atomically; no Go compatibility shims. | Await SL-10. |
