@@ -2100,6 +2100,32 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.workbook.unit.create_indicator_admission_preserves_wire_and_replay_7ef2ad611c",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.unit",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestIndicatorCreateAdmissionAndHashCompatibility",
+          "TestIndicatorCreateAdmissionRejectsBeforeOwnerExecution"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.workbook.unit.generic_decoder_defers_evidence_policy_to_owner_48d36a71bc",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.unit",

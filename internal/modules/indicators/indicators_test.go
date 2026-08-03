@@ -22,28 +22,25 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	store := NewStore(harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-04-incident", "IR-U904", "Workbook inspector indicator-storage")
+	defangedValue := "203(.)0(.)113(.)88"
+	stixPattern := "[ipv4-addr:value = '203.0.113.88']"
 
-	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-workbook_interaction-u-9-04-indicator-create",
-		Values: map[string]string{
-			"indicator.indicator_type":   "ipv4_addr",
-			"indicator.value_kind":       "atomic",
-			"indicator.display_value":    "203.0.113.88",
-			"indicator.normalized_value": "203.0.113.88",
-			"indicator.defanged_value":   "203(.)0(.)113(.)88",
-		},
+	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateCommand{
+		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-create",
+		IndicatorType: "ipv4_addr",
+		ValueKind:     "atomic",
+		DisplayValue:  "203.0.113.88",
+		DefangedValue: &defangedValue,
 	}, []byte("txn-workbook_interaction-u-9-04-indicator-create"), "req-workbook_interaction-u-9-04-indicator-create", time.Date(2026, 5, 17, 17, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
-	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
-		ClientTxnID: "txn-workbook_interaction-u-9-04-indicator-dedupe",
-		Values: map[string]string{
-			"indicator.indicator_type": "ipv4_addr",
-			"indicator.value_kind":     "atomic",
-			"indicator.display_value":  "203.0.113.88",
-			"indicator.stix_pattern":   "[ipv4-addr:value = '203.0.113.88']",
-		},
+	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateCommand{
+		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-dedupe",
+		IndicatorType: "ipv4_addr",
+		ValueKind:     "atomic",
+		DisplayValue:  "203.0.113.88",
+		STIXPattern:   &stixPattern,
 	}, []byte("txn-workbook_interaction-u-9-04-indicator-dedupe"), "req-workbook_interaction-u-9-04-indicator-dedupe", time.Date(2026, 5, 17, 17, 1, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)

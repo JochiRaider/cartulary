@@ -143,13 +143,11 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	}
 	requireQueriedRow(t, noteRows, note.RecordID)
 
-	indicator, err := indicatorStore.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateRequest{
-		ClientTxnID: "txn-workbook_interaction-i-9-02-indicator",
-		Values: map[string]string{
-			"indicator.indicator_type": "ipv4_addr",
-			"indicator.value_kind":     "atomic",
-			"indicator.display_value":  "203.0.113.45",
-		},
+	indicator, err := indicatorStore.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+		ClientTxnID:   "txn-workbook_interaction-i-9-02-indicator",
+		IndicatorType: "ipv4_addr",
+		ValueKind:     "atomic",
+		DisplayValue:  "203.0.113.45",
 	}, []byte("txn-workbook_interaction-i-9-02-indicator"), "req-workbook_interaction-i-9-02-indicator", time.Date(2026, 5, 17, 16, 5, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)

@@ -42,7 +42,7 @@ func TestIndicatorIdentityCharacterization(t *testing.T) {
 					values["indicator.hash_algorithm"] = "SHA256"
 					values["indicator.hash_value"] = strings.Repeat("B", 64)
 				}
-				got, err := indicatorInputFromCreateRequest(CreateRequest{Values: values})
+				got, err := indicatorInputFromCreateCommand(createCommandFromTestValues(values))
 				if err != nil {
 					t.Fatalf("canonicalize identity: %v", err)
 				}
@@ -59,7 +59,7 @@ func TestIndicatorIdentityCharacterization(t *testing.T) {
 				withoutPresentation := cloneStringMap(values)
 				delete(withoutPresentation, "indicator.defanged_value")
 				delete(withoutPresentation, "indicator.stix_pattern")
-				identityOnly, err := indicatorInputFromCreateRequest(CreateRequest{Values: withoutPresentation})
+				identityOnly, err := indicatorInputFromCreateCommand(createCommandFromTestValues(withoutPresentation))
 				if err != nil {
 					t.Fatalf("canonicalize identity without presentation fields: %v", err)
 				}
@@ -87,7 +87,7 @@ func TestIndicatorIdentityCharacterizationRejectsAliasesAndIncompleteHashes(t *t
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := indicatorInputFromCreateRequest(CreateRequest{Values: test.values})
+			_, err := indicatorInputFromCreateCommand(createCommandFromTestValues(test.values))
 			validation, ok := err.(*IndicatorCreateValidationError)
 			if !ok || validation.Field != test.field || validation.ReasonCode != "invalid_value" {
 				t.Fatalf("validation = %#v, want %s/invalid_value", err, test.field)
@@ -122,4 +122,25 @@ func withIdentityValues(values map[string]string, additions map[string]string) m
 		values[key] = value
 	}
 	return values
+}
+
+func createCommandFromTestValues(values map[string]string) CreateCommand {
+	return CreateCommand{
+		IndicatorType:   values["indicator.indicator_type"],
+		ValueKind:       values["indicator.value_kind"],
+		DisplayValue:    values["indicator.display_value"],
+		NormalizedValue: optionalTestValue(values, "indicator.normalized_value"),
+		DefangedValue:   optionalTestValue(values, "indicator.defanged_value"),
+		HashAlgorithm:   optionalTestValue(values, "indicator.hash_algorithm"),
+		HashValue:       optionalTestValue(values, "indicator.hash_value"),
+		STIXPattern:     optionalTestValue(values, "indicator.stix_pattern"),
+	}
+}
+
+func optionalTestValue(values map[string]string, key string) *string {
+	value, present := values[key]
+	if !present {
+		return nil
+	}
+	return &value
 }

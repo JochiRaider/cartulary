@@ -38,11 +38,8 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
 	}
-	createRequest := CreateRequest{
-		ClientTxnID: request.ClientTxnID,
-		Values:      indicatorImportValuesByField(request.FieldValues),
-	}
-	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, authn.UserRecord{ID: request.ActorUserID}, request.IncidentID, createRequest, command.Now.UTC())
+	createCommand := indicatorImportCreateCommand(request.ClientTxnID, request.FieldValues)
+	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, authn.UserRecord{ID: request.ActorUserID}, request.IncidentID, createCommand, command.Now.UTC())
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
@@ -84,13 +81,31 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	})
 }
 
-func indicatorImportValuesByField(fields []ownerfacade.ImportFieldValue) map[string]string {
-	values := make(map[string]string, len(fields))
+func indicatorImportCreateCommand(clientTxnID string, fields []ownerfacade.ImportFieldValue) CreateCommand {
+	command := CreateCommand{ClientTxnID: clientTxnID}
 	for _, field := range fields {
 		if field.NormalizedValue.Text == nil {
 			continue
 		}
-		values[field.FieldKey] = *field.NormalizedValue.Text
+		value := *field.NormalizedValue.Text
+		switch field.FieldKey {
+		case "indicator.indicator_type":
+			command.IndicatorType = value
+		case "indicator.value_kind":
+			command.ValueKind = value
+		case "indicator.display_value":
+			command.DisplayValue = value
+		case "indicator.normalized_value":
+			command.NormalizedValue = &value
+		case "indicator.defanged_value":
+			command.DefangedValue = &value
+		case "indicator.hash_algorithm":
+			command.HashAlgorithm = &value
+		case "indicator.hash_value":
+			command.HashValue = &value
+		case "indicator.stix_pattern":
+			command.STIXPattern = &value
+		}
 	}
-	return values
+	return command
 }

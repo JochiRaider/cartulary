@@ -90,6 +90,19 @@ func TestIndicatorsDoNotUseEntitiesSourcePrefixes(t *testing.T) {
 	}
 }
 
+func TestIndicatorAdmissionIsTransportNeutral(t *testing.T) {
+	for _, fileName := range []string{"api.go", "store.go"} {
+		for _, importPath := range indicatorsProductionImports(t, fileName) {
+			switch importPath {
+			case "net/http",
+				indicatorsRepoImportPrefix + "internal/platform/httpapi",
+				indicatorsRepoImportPrefix + "internal/platform/viewschema":
+				t.Fatalf("%s imports transport/schema adapter %s", fileName, importPath)
+			}
+		}
+	}
+}
+
 func indicatorsProductionImports(t testing.TB, fileName string) []string {
 	t.Helper()
 	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(fileName), nil, parser.ImportsOnly)

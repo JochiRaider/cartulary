@@ -135,13 +135,13 @@ type IndicatorLifecycleIntervalRecord struct {
 
 type indicatorUpsertInput = identity.Canonical
 
-func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
 		ActorUserID: actor.ID,
 		ScopeKey:    scopeKey,
-		ClientTxnID: request.ClientTxnID,
+		ClientTxnID: command.ClientTxnID,
 	}
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
@@ -176,7 +176,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
-	record, beforeRow, operationKind, statusCode, err := s.upsertIndicatorTx(ctx, tx, actor, incidentID, request, now)
+	record, beforeRow, operationKind, statusCode, err := s.upsertIndicatorTx(ctx, tx, actor, incidentID, command, now)
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -189,7 +189,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      indicatorCreateRouteKey,
-		ClientTxnID: &request.ClientTxnID,
+		ClientTxnID: &command.ClientTxnID,
 		RequestID:   &requestID,
 		CreatedAt:   now.UTC(),
 	})
@@ -270,15 +270,12 @@ func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.T
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
 
-	values := map[string]string{
-		"indicator.indicator_type": command.IndicatorType,
-		"indicator.value_kind":     command.ValueKind,
-		"indicator.display_value":  command.DisplayValue,
-	}
-	if command.NormalizedValue != nil {
-		values["indicator.normalized_value"] = *command.NormalizedValue
-	}
-	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.Actor, command.IncidentID, CreateRequest{Values: values}, command.OperationOccurred.UTC())
+	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.Actor, command.IncidentID, CreateCommand{
+		IndicatorType:   command.IndicatorType,
+		ValueKind:       command.ValueKind,
+		DisplayValue:    command.DisplayValue,
+		NormalizedValue: command.NormalizedValue,
+	}, command.OperationOccurred.UTC())
 	if err != nil {
 		return IndicatorFindOrCreateParticipantResult{}, err
 	}
@@ -509,8 +506,8 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	return record, changeSetID, nil
 }
 
-func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, now time.Time) (IndicatorRecord, map[string]any, string, int, error) {
-	input, err := indicatorInputFromCreateRequest(request)
+func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, command CreateCommand, now time.Time) (IndicatorRecord, map[string]any, string, int, error) {
+	input, err := indicatorInputFromCreateCommand(command)
 	if err != nil {
 		return IndicatorRecord{}, nil, "", 0, err
 	}
@@ -593,16 +590,16 @@ func (s *Store) upsertIndicatorTx(ctx context.Context, tx pgx.Tx, actor authn.Us
 	return next, beforeRow, "patch", httpStatusOK, nil
 }
 
-func indicatorInputFromCreateRequest(request CreateRequest) (indicatorUpsertInput, error) {
+func indicatorInputFromCreateCommand(command CreateCommand) (indicatorUpsertInput, error) {
 	input, err := identity.Canonicalize(identity.Input{
-		IndicatorType:   request.Values["indicator.indicator_type"],
-		ValueKind:       request.Values["indicator.value_kind"],
-		DisplayValue:    request.Values["indicator.display_value"],
-		NormalizedValue: optionalValue(request.Values, "indicator.normalized_value"),
-		DefangedValue:   optionalValue(request.Values, "indicator.defanged_value"),
-		HashAlgorithm:   optionalValue(request.Values, "indicator.hash_algorithm"),
-		HashValue:       optionalValue(request.Values, "indicator.hash_value"),
-		STIXPattern:     optionalValue(request.Values, "indicator.stix_pattern"),
+		IndicatorType:   command.IndicatorType,
+		ValueKind:       command.ValueKind,
+		DisplayValue:    command.DisplayValue,
+		NormalizedValue: command.NormalizedValue,
+		DefangedValue:   command.DefangedValue,
+		HashAlgorithm:   command.HashAlgorithm,
+		HashValue:       command.HashValue,
+		STIXPattern:     command.STIXPattern,
 	})
 	if err == nil {
 		return input, nil

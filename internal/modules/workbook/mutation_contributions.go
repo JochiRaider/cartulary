@@ -235,11 +235,11 @@ func newEntityCreateProvider(viewSchemaID string, create entityCreateFunc) Creat
 func NewIndicatorCreateProvider(owner *indicators.Store) CreateProvider {
 	return createProvider{
 		decode: func(reader io.Reader) (CreateAdmission, *httpapi.APIError) {
-			request, apiErr := indicators.DecodeCreateRequest(reader)
-			return CreateAdmission{ClientTxnID: request.ClientTxnID, normalized: request}, apiErr
+			command, apiErr := decodeIndicatorCreate(reader)
+			return CreateAdmission{ClientTxnID: command.ClientTxnID, normalized: command}, apiErr
 		},
 		create: func(ctx context.Context, command CreateCommand) (MutationResult, error) {
-			request, ok := command.Admission.normalized.(indicators.CreateRequest)
+			indicatorCommand, ok := command.Admission.normalized.(indicators.CreateCommand)
 			if !ok || command.ViewSchemaID != indicators.ViewSchemaID {
 				return MutationResult{}, mutationValidationError("view_schema_id", "invalid_view_schema_id")
 			}
@@ -247,8 +247,8 @@ func NewIndicatorCreateProvider(owner *indicators.Store) CreateProvider {
 				ctx,
 				command.Actor,
 				command.IncidentID,
-				request,
-				requestHash(command.RequestHash, indicators.CreateRequestHash(request)),
+				indicatorCommand,
+				requestHash(command.RequestHash, indicatorCreateCommandHash(indicatorCommand)),
 				command.RequestID,
 				command.Now,
 			)
@@ -267,7 +267,7 @@ func NewIndicatorCreateProvider(owner *indicators.Store) CreateProvider {
 				result.ChangeSetID,
 				result.RowVersion,
 				command.IncidentID,
-				request.ClientTxnID,
+				indicatorCommand.ClientTxnID,
 				indicators.ViewSchemaID,
 			), err
 		},

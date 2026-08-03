@@ -113,7 +113,7 @@ func TestIPLiteralIndicatorCreateValidation(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := indicatorInputFromCreateRequest(CreateRequest{Values: test.values})
+			_, err := indicatorInputFromCreateCommand(createCommandFromTestValues(test.values))
 			if err == nil {
 				t.Fatalf("expected create validation failure")
 			}

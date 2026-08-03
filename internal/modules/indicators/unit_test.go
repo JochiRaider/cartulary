@@ -25,14 +25,11 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 
 	create := func(clientTxnID string) indicators.MutationResult {
 		t.Helper()
-		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateRequest{
-			ClientTxnID: clientTxnID,
-			Values: map[string]string{
-				"indicator.indicator_type":   indicatortest.Examples[0].IndicatorType,
-				"indicator.value_kind":       indicatortest.Examples[0].ValueKind,
-				"indicator.display_value":    indicatortest.Examples[0].DisplayValue,
-				"indicator.normalized_value": indicatortest.Examples[0].NormalizedValue,
-			},
+		result, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
+			ClientTxnID:   clientTxnID,
+			IndicatorType: indicatortest.Examples[0].IndicatorType,
+			ValueKind:     indicatortest.Examples[0].ValueKind,
+			DisplayValue:  indicatortest.Examples[0].DisplayValue,
 		}, []byte(clientTxnID), "req-"+clientTxnID, indicatortest.BaseTime)
 		if err != nil {
 			t.Fatalf("create indicator: %v", err)

@@ -1,13 +1,9 @@
 package indicators
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -17,10 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
@@ -56,9 +49,21 @@ func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
 	}
 }
 
-type CreateRequest struct {
-	ClientTxnID string
-	Values      map[string]string
+type CreateCommand struct {
+	ClientTxnID     string
+	IndicatorType   string
+	ValueKind       string
+	DisplayValue    string
+	NormalizedValue *string
+	DefangedValue   *string
+	HashAlgorithm   *string
+	HashValue       *string
+	STIXPattern     *string
+}
+
+func ValidateCreateCommand(command CreateCommand) error {
+	_, err := indicatorInputFromCreateCommand(command)
+	return err
 }
 
 type IndicatorFindOrCreateParticipantCommand struct {
@@ -117,106 +122,6 @@ type MutationResult struct {
 	RowVersion  int64
 }
 
-func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
-	schema, ok := viewschema.Lookup(ViewSchemaID)
-	if !ok {
-		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
-	}
-
-	raw, apiErr := decodeObject(reader)
-	if apiErr != nil {
-		return CreateRequest{}, apiErr
-	}
-
-	allowed := map[string]struct{}{"client_txn_id": {}}
-	for fieldKey, field := range schema.Fields() {
-		if field.Writable || field.CreateWritable {
-			allowed[fieldKey] = struct{}{}
-		}
-	}
-	for key := range raw {
-		if _, ok := allowed[key]; !ok {
-			return CreateRequest{}, invalidMutationPayload(key, "unknown_field")
-		}
-	}
-
-	var request CreateRequest
-	if value, ok := raw["client_txn_id"]; !ok {
-		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	} else if err := json.Unmarshal(value, &request.ClientTxnID); err != nil || strings.TrimSpace(request.ClientTxnID) == "" {
-		return CreateRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")
-	}
-
-	request.Values = make(map[string]string)
-	for fieldKey, field := range schema.Fields() {
-		value, ok := raw[fieldKey]
-		if !ok {
-			continue
-		}
-		if !field.Writable && !field.CreateWritable {
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "readonly_field")
-		}
-		if string(value) == "null" {
-			if field.Clearable {
-				continue
-			}
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "field_not_nullable")
-		}
-
-		var rawValue string
-		if err := json.Unmarshal(value, &rawValue); err != nil {
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
-		}
-		normalized, ok := fieldnorm.NormalizeLine(rawValue)
-		if !ok {
-			return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
-		}
-		request.Values[fieldKey] = normalized
-	}
-
-	if len(schema.MinimumCreateFieldSets) > 0 && !createMinimumSatisfied(schema.MinimumCreateFieldSets, request.Values) {
-		return CreateRequest{}, invalidMutationPayload("payload", "at_least_one_value_required")
-	}
-	return request, nil
-}
-
-func createMinimumSatisfied(fieldSets [][]string, values map[string]string) bool {
-	for _, fieldSet := range fieldSets {
-		setSatisfied := true
-		for _, fieldKey := range fieldSet {
-			if strings.TrimSpace(values[fieldKey]) == "" {
-				setSatisfied = false
-				break
-			}
-		}
-		if setSatisfied {
-			return true
-		}
-	}
-	return false
-}
-
-func CreateRequestHash(request CreateRequest) []byte {
-	keys := make([]string, 0, len(request.Values))
-	for key := range request.Values {
-		keys = append(keys, key)
-	}
-	slices.Sort(keys)
-
-	payload := map[string]any{
-		"view_schema_id": ViewSchemaID,
-		"client_txn_id":  request.ClientTxnID,
-	}
-	for _, key := range keys {
-		payload[key] = request.Values[key]
-	}
-	data, _ := json.Marshal(payload)
-	sum := sha256.Sum256(data)
-	hash := make([]byte, len(sum))
-	copy(hash, sum[:])
-	return hash
-}
-
 func BuildIndicatorRow(record IndicatorProjectionRecord) map[string]any {
 	row := map[string]any{
 		"record_id":   record.RecordID.String(),
@@ -255,31 +160,6 @@ func BuildMutationPayload(changeSetID uuid.UUID, row map[string]any) map[string]
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{}
-	if field != "" {
-		details["field"] = field
-	}
-	if reasonCode != "" {
-		details["reason_code"] = reasonCode
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusBadRequest,
-		Code:    "invalid_mutation_payload",
-		Message: "invalid mutation payload",
-		Details: details,
-	}
-}
-
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, invalidMutationPayload("", "request_not_object")
-	}
-	return raw, nil
-}
-
 func decodeStoredResponse(data []byte) (map[string]any, error) {
 	var payload map[string]any
 	if err := json.Unmarshal(data, &payload); err != nil {
@@ -310,15 +190,6 @@ func extractUUIDFromPayload(payload map[string]any, path ...string) (uuid.UUID, 
 
 func entityVersionID(prefix string, recordID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("%s:%s:%d", prefix, recordID.String(), rowVersion)
-}
-
-func optionalValue(values map[string]string, key string) *string {
-	value, ok := values[key]
-	if !ok {
-		return nil
-	}
-	cloned := value
-	return &cloned
 }
 
 func formatTimestamp(value time.Time) string {
