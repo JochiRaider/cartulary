@@ -256,6 +256,31 @@
       "minimum_tier": "fast"
     },
     {
+      "row_id": "module.indicators.storage.envelope_contract_migration_down_up",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.storage",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.storage_contraction"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorEnvelopeContractMigration57DownUp_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.indicators.store.indicator_storage_keeps_source_bound_observation_07c064324e",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.store",
@@ -314,6 +339,7 @@
         "package": "./internal/modules/indicators",
         "tests": [
           "TestIndicatorProviderImplementationsAreInternal",
+          "TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors",
           "TestIndicatorStoreCompositionAndRepositoryBoundaries"
         ]
       },

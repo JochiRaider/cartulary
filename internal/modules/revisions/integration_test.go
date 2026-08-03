@@ -279,12 +279,12 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	}
 
 	indicatorDelete := httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, indicatorID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-01-delete-indicator"}), http.StatusOK)["data"].(map[string]any)
-	if countRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE record_id = $1 AND deleted_at IS NOT NULL AND deleted_by_user_id = $2`, indicatorID, actorID) != 1 {
-		t.Fatalf("indicator source tombstone was not set")
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'indicator' AND deleted_at IS NOT NULL AND deleted_by_user_id = $2`, indicatorID, actorID) != 1 {
+		t.Fatalf("Indicator Records tombstone was not set")
 	}
 	httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, indicatorID, map[string]any{"base_row_version": int64(indicatorDelete["row_version"].(float64)), "client_txn_id": "txn-i-7-01-restore-indicator"}), http.StatusOK)
-	if countRows(t, harness.DB, `SELECT COUNT(*) FROM indicators WHERE record_id = $1 AND deleted_at IS NULL AND deleted_by_user_id IS NULL`, indicatorID) != 1 {
-		t.Fatalf("indicator source tombstone was not cleared")
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'indicator' AND deleted_at IS NULL AND deleted_by_user_id IS NULL`, indicatorID) != 1 {
+		t.Fatalf("Indicator Records tombstone was not cleared")
 	}
 }
 

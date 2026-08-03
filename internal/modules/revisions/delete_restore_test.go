@@ -160,7 +160,7 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 			t.Fatalf("%s source delete: %v", recordType, err)
 		}
 	}
-	for _, recordType := range []string{"assessment", "indicator"} {
+	for _, recordType := range []string{"assessment"} {
 		recordID := recordIDs[recordType]
 		table := recordType + "s"
 		var matched bool
@@ -186,7 +186,7 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 			t.Fatalf("%s source restore: %v", recordType, err)
 		}
 	}
-	for _, recordType := range []string{"assessment", "indicator"} {
+	for _, recordType := range []string{"assessment"} {
 		recordID := recordIDs[recordType]
 		table := recordType + "s"
 		var cleared bool
@@ -500,12 +500,10 @@ INSERT INTO indicators (
     value_kind,
     display_value,
     normalized_value,
-    dedupe_key,
-    created_by_user_id,
-    updated_by_user_id
+    dedupe_key
 )
-VALUES ($1, $2, 'ipv4', 'atomic', '192.0.2.77', '192.0.2.77', 'ipv4:192.0.2.77', $3, $3)
-`, recordIDs["indicator"], incidentID, actorID)
+VALUES ($1, $2, 'ipv4_addr', 'atomic', '192.0.2.77', '192.0.2.77', $3)
+`, recordIDs["indicator"], incidentID, indicatortest.CanonicalDedupeKey(t, "ipv4_addr", "atomic", "192.0.2.77"))
 	mustExec(t, db, `
 INSERT INTO parties (record_id, incident_id, display_name, party_kind)
 VALUES ($1, $2, 'Matrix Party', 'person')
@@ -540,12 +538,10 @@ INSERT INTO indicators (
     value_kind,
     display_value,
     normalized_value,
-    dedupe_key,
-    created_by_user_id,
-    updated_by_user_id
+    dedupe_key
 )
-VALUES ($1, $2, 'domain_name', 'atomic', 'history_revision.example.test', 'history_revision.example.test', $3, $4, $4)
-`, recordID, incidentID, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", "history_revision.example.test"), actorUserID); err != nil {
+VALUES ($1, $2, 'domain_name', 'atomic', 'history_revision.example.test', 'history_revision.example.test', $3)
+`, recordID, incidentID, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", "history_revision.example.test")); err != nil {
 		t.Fatalf("seed indicator record: %v", err)
 	}
 	return recordID

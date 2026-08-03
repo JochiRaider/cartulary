@@ -88,11 +88,14 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 
 	requireEntityCount(t, harness, `
 SELECT count(*)
-  FROM indicators
- WHERE incident_id = $1
-   AND indicator_type = 'ipv6_addr'
-   AND dedupe_key = $2
-   AND deleted_at IS NULL
+  FROM indicators AS indicator
+  JOIN records AS envelope
+    ON envelope.incident_id = indicator.incident_id
+   AND envelope.record_id = indicator.record_id
+ WHERE indicator.incident_id = $1
+   AND indicator.indicator_type = 'ipv6_addr'
+   AND indicator.dedupe_key = $2
+   AND envelope.deleted_at IS NULL
 `, incident.ID, first.Indicator.DedupeKey, 1)
 	requireEntityCount(t, harness, `
 SELECT count(*)

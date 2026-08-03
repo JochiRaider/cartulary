@@ -338,6 +338,12 @@
       "filename": "00056_indicator_active_identities_expand.sql",
       "sha256": "74ac40b0edd46e99374bde3dc56dba27bd24a65d89556eb017f60015c87c5e08",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 57,
+      "filename": "00057_indicator_envelope_contract.sql",
+      "sha256": "734a70540c9b94585e8693b6671c864f50c79e01ef3c77fa15720f8b83cd2eaf",
+      "historical_phase_shaped": false
     }
   ]
 }

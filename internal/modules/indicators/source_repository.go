@@ -64,16 +64,11 @@ INSERT INTO indicators (
     defanged_value,
     hash_algorithm,
     hash_value,
-    stix_pattern,
-    row_version,
-    created_at,
-    updated_at,
-    created_by_user_id,
-    updated_by_user_id
+    stix_pattern
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, $14, $14)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING record_id
-`, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.CreatedAt.UTC(), record.CreatedByUser).Scan(&record.RecordID)
+`, record.RecordID, record.IncidentID, record.IndicatorType, record.ValueKind, record.DisplayValue, record.NormalizedValue, record.DedupeKey, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern).Scan(&record.RecordID)
 }
 
 func (sourceRepository) updateTx(ctx context.Context, tx pgx.Tx, record indicatorRecord) error {
@@ -82,12 +77,9 @@ UPDATE indicators
    SET defanged_value = $2,
        hash_algorithm = $3,
        hash_value = $4,
-       stix_pattern = $5,
-       row_version = $6,
-       updated_at = $7,
-       updated_by_user_id = $8
+       stix_pattern = $5
  WHERE record_id = $1
-`, record.RecordID, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
+`, record.RecordID, record.DefangedValue, record.HashAlgorithm, record.HashValue, record.STIXPattern)
 	if err != nil {
 		return fmt.Errorf("update indicator: %w", err)
 	}

@@ -97,8 +97,8 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			recordID uuid.UUID
 			keys     []string
 		}{{firstChange.RecordID, firstChange.ChangedFieldKeys}, {secondChange.RecordID, secondChange.ChangedFieldKeys}} {
-			if change.recordID == sourceID && !slices.Contains(change.keys, "timeline.raw_activity_text") {
-				t.Fatalf("source event changed keys = %v", change.keys)
+			if change.recordID == sourceID && len(change.keys) != 0 {
+				t.Fatalf("source event reported unchanged text fields = %v", change.keys)
 			}
 			if change.recordID == indicatorID && (!slices.Contains(change.keys, "indicator.observation_count") || !slices.Contains(change.keys, "indicator.first_observed_at") || !slices.Contains(change.keys, "indicator.last_observed_at")) {
 				t.Fatalf("Indicator event changed keys = %v", change.keys)
@@ -258,10 +258,10 @@ func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, ac
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
-    dedupe_key, created_by_user_id, updated_by_user_id
+    dedupe_key
 )
-VALUES ($1, $2, 'domain_name', 'atomic', $3, $3, $4, $5, $5)
-`, recordID, incidentID, value, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", value), actorID); err != nil {
+VALUES ($1, $2, 'domain_name', 'atomic', $3, $3, $4)
+`, recordID, incidentID, value, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", value)); err != nil {
 		t.Fatalf("seed indicator child record: %v", err)
 	}
 	return recordID

@@ -113,14 +113,9 @@ UPDATE indicators
        defanged_value = $7,
        hash_algorithm = $8,
        hash_value = $9,
-       stix_pattern = $10,
-       row_version = $11,
-       updated_at = $12,
-       updated_by_user_id = $13,
-       deleted_at = NULL,
-       deleted_by_user_id = NULL
+       stix_pattern = $10
  WHERE record_id = $1
-`, request.RecordID, state.indicatorType, state.valueKind, state.displayValue, state.normalized, state.dedupeKey, state.defanged, state.hashAlgorithm, state.hashValue, state.stixPattern, request.NextRowVersion, request.Now.UTC(), request.ActorUserID)
+`, request.RecordID, state.indicatorType, state.valueKind, state.displayValue, state.normalized, state.dedupeKey, state.defanged, state.hashAlgorithm, state.hashValue, state.stixPattern)
 	if err != nil {
 		return err
 	}

@@ -251,13 +251,11 @@ func seedPortableIndicatorEnvelopeAndRow(
 	if _, err := tx.Exec(context.Background(), `
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value,
-    normalized_value, dedupe_key, row_version, created_at, updated_at,
-    created_by_user_id, updated_by_user_id
+    normalized_value, dedupe_key
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, $8, $9, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `, recordID, incidentID, canonical.IndicatorType, canonical.ValueKind,
-		canonical.DisplayValue, canonical.NormalizedValue, canonical.DedupeKey,
-		timestamp, actorID); err != nil {
+		canonical.DisplayValue, canonical.NormalizedValue, canonical.DedupeKey); err != nil {
 		t.Fatalf("seed foreign indicator: %v", err)
 	}
 }

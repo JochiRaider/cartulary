@@ -1419,16 +1419,14 @@ VALUES ($1, $2, 'indicator', $3, $4, $3, $4)
 	if _, err := harness.DB.Exec(`
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
-    dedupe_key, row_version, created_at, updated_at, created_by_user_id,
-    updated_by_user_id
+    dedupe_key
 )
 VALUES (
     $1, $2, 'domain_name', 'atomic', 'portable.example.test',
     'portable.example.test',
-    'd59be6c0414ce3dbabb81a943e021c0143695ac1151bfefc2d393911d5c9abae',
-    1, $3, $3, $4, $4
+    'd59be6c0414ce3dbabb81a943e021c0143695ac1151bfefc2d393911d5c9abae'
 )
-`, indicatorID, incidentUUID, indicatorTimestamp, actorUUID); err != nil {
+`, indicatorID, incidentUUID); err != nil {
 		t.Fatalf("seed indicator row: %v", err)
 	}
 	if _, err := harness.DB.Exec(`

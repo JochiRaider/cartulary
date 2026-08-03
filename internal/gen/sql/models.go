@@ -1028,24 +1028,17 @@ type IncidentWorkbookPreference struct {
 }
 
 type Indicator struct {
-	RecordID        pgtype.UUID        `json:"record_id"`
-	IncidentID      pgtype.UUID        `json:"incident_id"`
-	IndicatorType   string             `json:"indicator_type"`
-	ValueKind       string             `json:"value_kind"`
-	DisplayValue    string             `json:"display_value"`
-	NormalizedValue pgtype.Text        `json:"normalized_value"`
-	DedupeKey       string             `json:"dedupe_key"`
-	DefangedValue   pgtype.Text        `json:"defanged_value"`
-	HashAlgorithm   pgtype.Text        `json:"hash_algorithm"`
-	HashValue       pgtype.Text        `json:"hash_value"`
-	StixPattern     pgtype.Text        `json:"stix_pattern"`
-	RowVersion      int64              `json:"row_version"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
-	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
-	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
-	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+	RecordID        pgtype.UUID `json:"record_id"`
+	IncidentID      pgtype.UUID `json:"incident_id"`
+	IndicatorType   string      `json:"indicator_type"`
+	ValueKind       string      `json:"value_kind"`
+	DisplayValue    string      `json:"display_value"`
+	NormalizedValue pgtype.Text `json:"normalized_value"`
+	DedupeKey       string      `json:"dedupe_key"`
+	DefangedValue   pgtype.Text `json:"defanged_value"`
+	HashAlgorithm   pgtype.Text `json:"hash_algorithm"`
+	HashValue       pgtype.Text `json:"hash_value"`
+	StixPattern     pgtype.Text `json:"stix_pattern"`
 }
 
 type IndicatorActiveIdentity struct {

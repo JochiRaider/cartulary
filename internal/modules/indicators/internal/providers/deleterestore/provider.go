@@ -2,12 +2,10 @@ package deleterestore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
@@ -30,34 +28,10 @@ SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(i))
 `, recordID))
 }
 
-func (Source) UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) error {
-	var (
-		tag pgconn.CommandTag
-		err error
-	)
-	if deleting {
-		tag, err = tx.Exec(ctx, `
-UPDATE indicators
-   SET deleted_at = $2,
-       deleted_by_user_id = $3,
-       updated_at = $2
- WHERE record_id = $1
-`, recordID, now.UTC(), actorUserID)
-	} else {
-		tag, err = tx.Exec(ctx, `
-UPDATE indicators
-   SET deleted_at = NULL,
-       deleted_by_user_id = NULL,
-       updated_at = $2
- WHERE record_id = $1
-`, recordID, now.UTC())
-	}
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
-		return fmt.Errorf("update indicator delete state affected %d rows", tag.RowsAffected())
-	}
+func (Source) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error {
+	// Records is the sole Indicator envelope and deletion authority. The
+	// Records-owned delete/restore update also maintains the active identity
+	// claim through the Indicator-owned contract trigger.
 	return nil
 }
 

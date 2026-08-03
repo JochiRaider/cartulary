@@ -27,16 +27,13 @@ func applyPreparedIndicatorImportTx(
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value,
     normalized_value, dedupe_key, defanged_value, hash_algorithm, hash_value,
-    stix_pattern, row_version, created_at, updated_at, created_by_user_id,
-    updated_by_user_id, deleted_at, deleted_by_user_id
+    stix_pattern
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `,
 			row.RecordID, row.IncidentID, row.IndicatorType, row.ValueKind,
 			row.DisplayValue, row.NormalizedValue, row.DedupeKey, row.DefangedValue,
-			row.HashAlgorithm, row.HashValue, row.STIXPattern, row.RowVersion,
-			row.CreatedAt, row.UpdatedAt, row.RuntimeCreatedByID,
-			row.RuntimeUpdatedByID, row.DeletedAt, row.RuntimeDeletedByID,
+			row.HashAlgorithm, row.HashValue, row.STIXPattern,
 		)
 		if err != nil || tag.RowsAffected() != 1 {
 			return classifyIndicatorApplyError(err, representationInvariant)

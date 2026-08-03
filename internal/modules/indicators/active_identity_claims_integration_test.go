@@ -52,14 +52,6 @@ UPDATE records
 `, created.RecordID, deletedAt, actor.ID); err != nil {
 		t.Fatalf("delete Records envelope: %v", err)
 	}
-	if _, err := tx.Exec(ctx, `
-UPDATE indicators
-   SET deleted_at = $2, deleted_by_user_id = $3, updated_at = $2,
-       updated_by_user_id = $3, row_version = row_version + 1
- WHERE record_id = $1
-`, created.RecordID, deletedAt, actor.ID); err != nil {
-		t.Fatalf("dual-write legacy Indicator envelope: %v", err)
-	}
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit delete bridge transaction: %v", err)
 	}
@@ -124,8 +116,19 @@ UPDATE records
 	if _, err := recoveryTx.Exec(ctx, `DELETE FROM indicator_active_identities WHERE indicator_record_id = $1`, replacement.RecordID); err != nil {
 		t.Fatalf("clear recovery claim: %v", err)
 	}
-	if _, err := recoveryTx.Exec(ctx, `UPDATE records SET deleted_at = deleted_at WHERE record_id = $1`, replacement.RecordID); err != nil {
-		t.Fatalf("replay Records envelope: %v", err)
+	if _, err := recoveryTx.Exec(ctx, `
+UPDATE records
+   SET deleted_at = $2, deleted_by_user_id = $3
+ WHERE record_id = $1
+`, replacement.RecordID, deletedAt, actor.ID); err != nil {
+		t.Fatalf("replay deleted Records envelope: %v", err)
+	}
+	if _, err := recoveryTx.Exec(ctx, `
+UPDATE records
+   SET deleted_at = NULL, deleted_by_user_id = NULL
+ WHERE record_id = $1
+`, replacement.RecordID); err != nil {
+		t.Fatalf("replay active Records envelope: %v", err)
 	}
 	var recoveryClaimCount int
 	if err := recoveryTx.QueryRow(ctx, `SELECT count(*) FROM indicator_active_identities WHERE indicator_record_id = $1`, replacement.RecordID).Scan(&recoveryClaimCount); err != nil {

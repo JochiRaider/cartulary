@@ -255,7 +255,7 @@
       "profiles": ["base"],
       "object_patterns": [
         { "kind": "any", "name_pattern": "^(indicators|indicator_active_identities|indicator_state_intervals|indicator_observations)$" },
-        { "kind": "any", "name_pattern": "^(idx_indicators|idx_indicator_active_identities|idx_indicator_state_intervals|idx_indicator_observations|indicators_|indicator_active_identities_|indicator_state_intervals_|indicator_observations_|rebuild_indicator_active_identities|sync_indicator_active_identity_from_indicator|sync_indicator_active_identity_from_record).*$" }
+        { "kind": "any", "name_pattern": "^(idx_indicators|idx_indicator_active_identities|idx_indicator_state_intervals|idx_indicator_observations|indicators_|indicator_active_identities_|indicator_state_intervals_|indicator_observations_|indicator_support_refs_are_valid|enforce_indicator_support_ref_incident|rebuild_indicator_active_identities|sync_indicator_active_identity_from_indicator|sync_indicator_active_identity_from_record).*$" }
       ],
       "downstream_surfaces": ["indicator stores", "indicator workbook surface", "observation resolution"],
       "notes": "Indicator and observation source state."

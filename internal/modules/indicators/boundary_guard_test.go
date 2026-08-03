@@ -1,6 +1,7 @@
 package indicators
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -100,6 +101,63 @@ func TestIndicatorAdmissionIsTransportNeutral(t *testing.T) {
 				t.Fatalf("%s imports transport/schema adapter %s", fileName, importPath)
 			}
 		}
+	}
+}
+
+func TestIndicatorSourceSQLDoesNotUseEnvelopeMirrors(t *testing.T) {
+	mirrorColumns := []string{
+		"row_version", "created_at", "updated_at", "created_by_user_id",
+		"updated_by_user_id", "deleted_at", "deleted_by_user_id",
+	}
+	err := filepath.WalkDir(".", func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		parsed, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			literal, ok := node.(*ast.BasicLit)
+			if !ok || literal.Kind != token.STRING {
+				return true
+			}
+			query, err := strconv.Unquote(literal.Value)
+			if err != nil {
+				return true
+			}
+			lower := strings.ToLower(query)
+			for _, qualified := range []string{"i.", "indicator."} {
+				for _, column := range mirrorColumns {
+					if strings.Contains(lower, qualified+column) {
+						t.Fatalf("%s reads removed Indicator envelope mirror %s%s", filepath.ToSlash(path), qualified, column)
+					}
+				}
+			}
+			for _, statement := range []string{"insert into indicators", "update indicators"} {
+				start := strings.Index(lower, statement)
+				if start < 0 {
+					continue
+				}
+				writeClause := lower[start:]
+				if end := strings.Index(writeClause, " where "); end >= 0 {
+					writeClause = writeClause[:end]
+				}
+				for _, column := range mirrorColumns {
+					if strings.Contains(writeClause, column) {
+						t.Fatalf("%s writes removed Indicator envelope mirror %s", filepath.ToSlash(path), column)
+					}
+				}
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk Indicator production SQL: %v", err)
 	}
 }
 

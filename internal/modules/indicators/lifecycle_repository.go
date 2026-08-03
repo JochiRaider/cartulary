@@ -23,7 +23,7 @@ func (lifecycleRepository) insertTx(ctx context.Context, tx pgx.Tx, actorUserID 
 		ValidTo:           normalizeTimePointer(params.ValidTo),
 		Confidence:        cloneIntPointer(params.Confidence),
 		Rationale:         cloneStringPointer(params.Rationale),
-		SupportRefs:       append([]uuid.UUID(nil), params.SupportRefs...),
+		SupportRefs:       append(make([]uuid.UUID, 0, len(params.SupportRefs)), params.SupportRefs...),
 		Assessor:          cloneStringPointer(params.Assessor),
 		AssessedAt:        createdAt,
 		RowVersion:        1,
