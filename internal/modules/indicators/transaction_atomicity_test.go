@@ -203,6 +203,7 @@ func requireIndicatorAtomicCounts(
 	}{
 		{`SELECT count(*) FROM records WHERE incident_id = $1 AND record_type = 'indicator'`, []any{incidentID}, recordsWant},
 		{`SELECT count(*) FROM indicators WHERE incident_id = $1`, []any{incidentID}, sourcesWant},
+		{`SELECT count(*) FROM indicator_active_identities WHERE incident_id = $1`, []any{incidentID}, sourcesWant},
 		{`SELECT count(*) FROM indicator_grid_projection WHERE incident_id = $1`, []any{incidentID}, projectionsWant},
 		{`SELECT count(*) FROM change_sets WHERE incident_id = $1`, []any{incidentID}, changeSetsWant},
 		{`SELECT count(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, []any{incidentID}, mutationsWant},

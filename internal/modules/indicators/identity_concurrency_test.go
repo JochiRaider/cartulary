@@ -96,6 +96,14 @@ SELECT count(*)
 `, incident.ID, first.Indicator.DedupeKey, 1)
 	requireEntityCount(t, harness, `
 SELECT count(*)
+  FROM indicator_active_identities
+ WHERE incident_id = $1
+   AND indicator_type = 'ipv6_addr'
+   AND dedupe_key = $2
+   AND indicator_record_id = $3
+`, incident.ID, first.Indicator.DedupeKey, first.Indicator.RecordID, 1)
+	requireEntityCount(t, harness, `
+SELECT count(*)
   FROM records
  WHERE incident_id = $1
    AND record_type = 'indicator'

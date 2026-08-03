@@ -30,15 +30,17 @@ SELECT
     r.updated_by_user_id,
     r.deleted_at,
     r.deleted_by_user_id
-  FROM indicators i
+  FROM indicator_active_identities active_identity
+  JOIN indicators i
+    ON i.record_id = active_identity.indicator_record_id
   JOIN records r
     ON r.record_id = i.record_id
- WHERE i.incident_id = $1
-   AND i.indicator_type = $2
-   AND i.dedupe_key = $3
+ WHERE active_identity.incident_id = $1
+   AND active_identity.indicator_type = $2
+   AND active_identity.dedupe_key = $3
    AND r.deleted_at IS NULL
  LIMIT 1
- FOR UPDATE OF i, r
+ FOR UPDATE OF active_identity, i, r
 `, incidentID, indicatorType, dedupeKey))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IndicatorRecord{}, false, nil

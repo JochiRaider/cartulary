@@ -1048,6 +1048,13 @@ type Indicator struct {
 	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
+type IndicatorActiveIdentity struct {
+	IncidentID        pgtype.UUID `json:"incident_id"`
+	IndicatorType     string      `json:"indicator_type"`
+	DedupeKey         string      `json:"dedupe_key"`
+	IndicatorRecordID pgtype.UUID `json:"indicator_record_id"`
+}
+
 type IndicatorGridProjection struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`

@@ -332,6 +332,12 @@
       "filename": "00055_indicator_observation_origin_constraint.sql",
       "sha256": "1d5a1b11120d428932f9dcc343877f53e0cf105e6d4b617b8788c17aa2de5f7a",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 56,
+      "filename": "00056_indicator_active_identities_expand.sql",
+      "sha256": "74ac40b0edd46e99374bde3dc56dba27bd24a65d89556eb017f60015c87c5e08",
+      "historical_phase_shaped": false
     }
   ]
 }

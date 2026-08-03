@@ -33,16 +33,6 @@ func exportFiles(
 	if err != nil {
 		return nil, err
 	}
-	envelopes, err := loadPortableRecordEnvelopes(ctx, exportContext.Query, exportContext.IncidentID)
-	if err != nil {
-		return nil, errors.New("indicator portability envelope export query failed")
-	}
-	for _, row := range indicators {
-		envelope, present := envelopes[row.RecordID]
-		if !present || !indicatorEnvelopeEqual(row, envelope) {
-			return nil, errors.New("indicator portability envelope is invalid")
-		}
-	}
 	indicatorPayload, err := encodePortableIndicators(ctx, exportContext, indicators)
 	if err != nil {
 		return nil, err
@@ -67,13 +57,20 @@ func loadPortableIndicators(
 	exportContext sourceport.ExportContext,
 ) ([]portableIndicatorRow, error) {
 	rows, err := exportContext.Query.Query(ctx, `
-SELECT record_id, incident_id, indicator_type, value_kind, display_value,
-       normalized_value, dedupe_key, defanged_value, hash_algorithm, hash_value,
-       stix_pattern, row_version, created_at, updated_at, created_by_user_id,
-       updated_by_user_id, deleted_at, deleted_by_user_id
-  FROM indicators
- WHERE incident_id = $1
- ORDER BY record_id
+SELECT indicator.record_id, indicator.incident_id, indicator.indicator_type,
+       indicator.value_kind, indicator.display_value, indicator.normalized_value,
+       indicator.dedupe_key, indicator.defanged_value, indicator.hash_algorithm,
+       indicator.hash_value, indicator.stix_pattern, envelope.row_version,
+       envelope.created_at, envelope.updated_at, envelope.created_by_user_id,
+       envelope.updated_by_user_id, envelope.deleted_at,
+       envelope.deleted_by_user_id
+  FROM indicators AS indicator
+  JOIN records AS envelope
+    ON envelope.record_id = indicator.record_id
+   AND envelope.incident_id = indicator.incident_id
+   AND envelope.record_type = 'indicator'
+ WHERE indicator.incident_id = $1
+ ORDER BY indicator.record_id
 `, exportContext.IncidentID)
 	if err != nil {
 		return nil, errors.New("indicator portability export query failed")
@@ -241,14 +238,10 @@ func encodePortableIndicators(
 	exportContext sourceport.ExportContext,
 	rows []portableIndicatorRow,
 ) ([]byte, error) {
-	created := portableActorMap(ctx, exportContext, "indicators", "created_by_user_id", indicatorIDs(rows, false))
-	updated := portableActorMap(ctx, exportContext, "indicators", "updated_by_user_id", indicatorIDs(rows, false))
-	deleted := portableActorMap(ctx, exportContext, "indicators", "deleted_by_user_id", indicatorIDs(rows, true))
-	recordCreated := portableActorMap(ctx, exportContext, "records", "created_by_user_id", indicatorIDs(rows, false))
-	recordUpdated := portableActorMap(ctx, exportContext, "records", "updated_by_user_id", indicatorIDs(rows, false))
-	recordDeleted := portableActorMap(ctx, exportContext, "records", "deleted_by_user_id", indicatorIDs(rows, true))
-	if created.err != nil || updated.err != nil || deleted.err != nil ||
-		recordCreated.err != nil || recordUpdated.err != nil || recordDeleted.err != nil {
+	created := portableActorMap(ctx, exportContext, "records", "created_by_user_id", indicatorIDs(rows, false))
+	updated := portableActorMap(ctx, exportContext, "records", "updated_by_user_id", indicatorIDs(rows, false))
+	deleted := portableActorMap(ctx, exportContext, "records", "deleted_by_user_id", indicatorIDs(rows, true))
+	if created.err != nil || updated.err != nil || deleted.err != nil {
 		return nil, errors.New("indicator portability attribution resolution failed")
 	}
 	var payload bytes.Buffer
@@ -262,14 +255,6 @@ func encodePortableIndicators(
 		if err != nil {
 			return nil, err
 		}
-		recordCreatedBy, err := portableActorID(recordCreated.values[rowID], row.RuntimeCreatedByID)
-		if err != nil || recordCreatedBy != createdBy {
-			return nil, errors.New("indicator portability envelope creation attribution differs")
-		}
-		recordUpdatedBy, err := portableActorID(recordUpdated.values[rowID], row.RuntimeUpdatedByID)
-		if err != nil || recordUpdatedBy != updatedBy {
-			return nil, errors.New("indicator portability envelope update attribution differs")
-		}
 		var deletedAt any
 		var deletedBy any
 		if row.DeletedAt != nil {
@@ -280,10 +265,6 @@ func encodePortableIndicators(
 			deletedBy, err = portableActorID(deleted.values[rowID], *row.RuntimeDeletedByID)
 			if err != nil {
 				return nil, err
-			}
-			recordDeletedBy, recordErr := portableActorID(recordDeleted.values[rowID], *row.RuntimeDeletedByID)
-			if recordErr != nil || recordDeletedBy != deletedBy {
-				return nil, errors.New("indicator portability envelope deletion attribution differs")
 			}
 		}
 		if err := appendPortableRow(&payload, map[string]any{
