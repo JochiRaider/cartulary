@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -31,7 +31,7 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 	}
 	defer func() { _ = secondTx.Rollback(ctx) }()
 
-	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, firstTx, IndicatorFindOrCreateParticipantCommand{
+	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, firstTx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
 		Actor:             actor,
 		IndicatorType:     "ipv6_addr",
@@ -48,12 +48,12 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 	}
 
 	type outcome struct {
-		result IndicatorFindOrCreateParticipantResult
+		result indicators.IndicatorFindOrCreateParticipantResult
 		err    error
 	}
 	secondOutcome := make(chan outcome, 1)
 	go func() {
-		result, callErr := store.FindOrCreateIndicatorParticipantTx(ctx, secondTx, IndicatorFindOrCreateParticipantCommand{
+		result, callErr := store.FindOrCreateIndicatorParticipantTx(ctx, secondTx, indicators.IndicatorFindOrCreateParticipantCommand{
 			IncidentID:        incident.ID,
 			Actor:             actor,
 			IndicatorType:     "ipv6_addr",

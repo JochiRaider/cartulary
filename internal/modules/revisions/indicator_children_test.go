@@ -12,7 +12,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
-	envelopetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -253,17 +252,8 @@ func indicatorChildLifecycleParams(incidentID uuid.UUID, indicatorID uuid.UUID, 
 func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
 	value := "history_revision-" + suffix + ".example.test"
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO indicators (
-    record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
-    dedupe_key
-)
-VALUES ($1, $2, 'domain_name', 'atomic', $3, $3, $4)
-`, recordID, incidentID, value, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", value)); err != nil {
-		t.Fatalf("seed indicator child record: %v", err)
-	}
+	indicatortest.SeedRecord(t, db, incidentID, actorID, recordID, "domain_name", "atomic", value)
 	return recordID
 }
 

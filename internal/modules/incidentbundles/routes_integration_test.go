@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
 	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
@@ -1416,19 +1417,7 @@ VALUES ($1, $2, 'indicator', $3, $4, $3, $4)
 `, indicatorID, incidentUUID, indicatorTimestamp, actorUUID); err != nil {
 		t.Fatalf("seed indicator envelope: %v", err)
 	}
-	if _, err := harness.DB.Exec(`
-INSERT INTO indicators (
-    record_id, incident_id, indicator_type, value_kind, display_value, normalized_value,
-    dedupe_key
-)
-VALUES (
-    $1, $2, 'domain_name', 'atomic', 'portable.example.test',
-    'portable.example.test',
-    'd59be6c0414ce3dbabb81a943e021c0143695ac1151bfefc2d393911d5c9abae'
-)
-`, indicatorID, incidentUUID); err != nil {
-		t.Fatalf("seed indicator row: %v", err)
-	}
+	indicatortest.SeedSubtype(t, harness.DB, incidentUUID, indicatorID, "domain_name", "atomic", "portable.example.test")
 	if _, err := harness.DB.Exec(`
 INSERT INTO indicator_observations (
     incident_id, source_record_id, source_field_key, origin_kind, origin_locator,

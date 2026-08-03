@@ -10,6 +10,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
@@ -37,7 +38,8 @@ func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *tes
 	if err != nil {
 		t.Fatalf("create Indicator: %v", err)
 	}
-	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", "claims.example", created.RecordID)
+	dedupeKey := indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", "claims.example")
+	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", dedupeKey, created.RecordID)
 
 	deletedAt := now.Add(time.Minute)
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -69,7 +71,7 @@ UPDATE records
 	if replacement.RecordID == created.RecordID {
 		t.Fatal("identity reuse returned the deleted record")
 	}
-	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", "claims.example", replacement.RecordID)
+	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", dedupeKey, replacement.RecordID)
 
 	conflictTx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -84,7 +86,7 @@ UPDATE records
 	if conflictErr == nil {
 		t.Fatal("restoring a duplicate active identity unexpectedly succeeded")
 	}
-	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", "claims.example", replacement.RecordID)
+	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", dedupeKey, replacement.RecordID)
 
 	if _, err := harness.DB.Exec(ctx, `DELETE FROM indicator_active_identities WHERE indicator_record_id = $1`, replacement.RecordID); err != nil {
 		t.Fatalf("remove rebuildable claim: %v", err)
@@ -102,7 +104,7 @@ UPDATE records
 	if !identityClaimsValid(t, harness) {
 		t.Fatal("claim validation rejected deterministic rebuild")
 	}
-	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", "claims.example", replacement.RecordID)
+	requireActiveIdentityClaim(t, harness, incident.ID, "domain_name", dedupeKey, replacement.RecordID)
 
 	// Recovery disables ordinary triggers. ENABLE ALWAYS must still reconstruct a
 	// claim as the Records envelope arrives after its subtype row.

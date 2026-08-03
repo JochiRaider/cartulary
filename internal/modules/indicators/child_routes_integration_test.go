@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func verifyIndicatorProductionChildRoutes(t *testing.T) {
+func TestIndicatorProductionChildRoutes_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "indicator-production-child-routes")
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{

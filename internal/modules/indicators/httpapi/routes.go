@@ -63,7 +63,7 @@ func RegisterRoutes(owner ownerApplication) platformhttpapi.RouteRegistrar {
 
 func newService(deps platformhttpapi.DependencySet, owner ownerApplication) (*Service, error) {
 	if owner == nil {
-		return nil, errors.New("Indicator routes: owner is required")
+		return nil, errors.New("indicator routes: owner is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {

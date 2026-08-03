@@ -474,7 +474,6 @@ func seedDeleteRestoreAdapterRecords(
 		"artifact",
 		"decision",
 		"evidence",
-		"indicator",
 		"party",
 		"task_request",
 	} {
@@ -492,18 +491,7 @@ VALUES ($1, $2, 'Matrix decision')
 INSERT INTO evidence (record_id, incident_id, title)
 VALUES ($1, $2, 'Matrix evidence')
 `, recordIDs["evidence"], incidentID)
-	mustExec(t, db, `
-INSERT INTO indicators (
-    record_id,
-    incident_id,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key
-)
-VALUES ($1, $2, 'ipv4_addr', 'atomic', '192.0.2.77', '192.0.2.77', $3)
-`, recordIDs["indicator"], incidentID, indicatortest.CanonicalDedupeKey(t, "ipv4_addr", "atomic", "192.0.2.77"))
+	indicatortest.SeedRecord(t, db, incidentID, actorID, recordIDs["indicator"], "ipv4_addr", "atomic", "192.0.2.77")
 	mustExec(t, db, `
 INSERT INTO parties (record_id, incident_id, display_name, party_kind)
 VALUES ($1, $2, 'Matrix Party', 'person')
@@ -529,21 +517,7 @@ VALUES ($1, $2, 'note', 'History Note', 'Patch-after-delete note body', $3)
 func seedIndicatorRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "indicator")
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO indicators (
-    record_id,
-    incident_id,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key
-)
-VALUES ($1, $2, 'domain_name', 'atomic', 'history_revision.example.test', 'history_revision.example.test', $3)
-`, recordID, incidentID, indicatortest.CanonicalDedupeKey(t, "domain_name", "atomic", "history_revision.example.test")); err != nil {
-		t.Fatalf("seed indicator record: %v", err)
-	}
+	indicatortest.SeedRecord(t, db, incidentID, actorUserID, recordID, "domain_name", "atomic", "history_revision.example.test")
 	return recordID
 }
 

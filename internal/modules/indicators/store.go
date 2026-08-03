@@ -209,14 +209,6 @@ func normalizeTimePointer(value *time.Time) *time.Time {
 	return &utc
 }
 
-func normalizeIndicatorValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {
-	return identity.NormalizeValue(indicatorType, rawDisplay, rawNormalized)
-}
-
-func buildIndicatorDedupeKey(input indicatorUpsertInput) string {
-	return identity.DedupeKey(input)
-}
-
 func buildIndicatorObservationValue(record IndicatorObservationRecord) map[string]any {
 	return map[string]any{
 		"indicator_observation_id":     record.ObservationID.String(),

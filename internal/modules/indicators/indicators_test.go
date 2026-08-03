@@ -2,21 +2,21 @@ package indicators_test
 
 import (
 	"context"
-	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/jackc/pgx/v5"
 
-	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
-func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
+func TestIndicatorsCanonicalObservationLifecycle_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-04-indicators")
 	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
@@ -24,7 +24,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	defangedValue := "203(.)0(.)113(.)88"
 	stixPattern := "[ipv4-addr:value = '203.0.113.88']"
 
-	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateCommand{
+	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-create",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -34,7 +34,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create canonical indicator: %v", err)
 	}
-	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateCommand{
+	replayed, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateCommand{
 		ClientTxnID:   "txn-workbook_interaction-u-9-04-indicator-dedupe",
 		IndicatorType: "ipv4_addr",
 		ValueKind:     "atomic",
@@ -44,7 +44,7 @@ func TestIndicatorsCanonicalObservationLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dedupe canonical indicator: %v", err)
 	}
-	if replayed.RecordID != created.RecordID || replayed.Outcome != CreateOutcomeUpdated {
+	if replayed.RecordID != created.RecordID || replayed.Outcome != indicators.CreateOutcomeUpdated {
 		t.Fatalf("expected same canonical indicator identity on duplicate create, got first=%#v replay=%#v", created, replayed)
 	}
 	requireEntityCount(t, harness, `
@@ -122,7 +122,7 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	normalized := "2001:0db8:0:0:0:0:0:1"
-	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, IndicatorFindOrCreateParticipantCommand{
+	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
 		Actor:             actor,
 		IndicatorType:     "ipv6_addr",
@@ -135,14 +135,14 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	if err != nil {
 		t.Fatalf("first participant create: %v", err)
 	}
-	if first.SchemaID != IndicatorFindOrCreateParticipantV1 || first.Status != "created" {
+	if first.SchemaID != indicators.IndicatorFindOrCreateParticipantV1 || first.Status != "created" {
 		t.Fatalf("unexpected first participant result: %#v", first)
 	}
 	if first.Indicator.DisplayValue != "2001:db8::1" || first.Indicator.NormalizedValue == nil || *first.Indicator.NormalizedValue != "2001:db8::1" {
 		t.Fatalf("participant did not return canonical IPv6 identity: %#v", first.Indicator)
 	}
 
-	second, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, IndicatorFindOrCreateParticipantCommand{
+	second, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, indicators.IndicatorFindOrCreateParticipantCommand{
 		IncidentID:        incident.ID,
 		Actor:             actor,
 		IndicatorType:     "ipv6_addr",

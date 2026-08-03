@@ -18,8 +18,6 @@ import (
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestIndicatorsRoute_Integration(t *testing.T) {
-	t.Run("production child workflows", verifyIndicatorProductionChildRoutes)
-
 	harness := appsupport.StartServer(t, "entity_linking-i-4-07-indicators")
 	adminLogin, adminUserID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, adminLogin, map[string]any{

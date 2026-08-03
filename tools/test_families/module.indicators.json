@@ -3,22 +3,99 @@
   "owner_id": "module.indicators",
   "rows": [
     {
-      "row_id": "module.indicators.identity.indicator_identity_normalization_and_dedupe_are_50da60e4b0",
+      "row_id": "module.indicators.frontend.source_span_and_transition_requests",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.production_child_workflows",
+        "module.indicators.verification.source_span_provenance"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/mutations/createIndicatorWorkflowPort.test.ts",
+        "titles": [
+          "binds observation transition actions to the child row version",
+          "uses the source-span route without exposing provenance fields"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.indicators.identity.active_identity_claims_follow_records_and_rebuild",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.identity",
+      "collaborator_ids": [
+        "module.records",
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.active_identity_claims"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.indicators.identity.create_command_projects_identity_validation",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.identity",
       "collaborator_ids": [],
       "verification_ids": [
         "module.indicators.verification.behavior_contract",
-        "module.indicators.verification.characterization",
         "module.indicators.verification.identity_parity_and_concurrency"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorIdentityCharacterization",
-          "TestIndicatorIdentityCharacterizationRejectsAliasesAndIncompleteHashes",
+          "TestCreateCommandProjectsIdentityValidation",
           "TestIndicatorPortablePreparationUsesCanonicalIdentity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.indicators.identity.indicator_identity_normalization_and_dedupe_are_50da60e4b0",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.identity",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract",
+        "module.indicators.verification.identity_parity_and_concurrency"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators/internal/identity",
+        "tests": [
+          "TestCanonicalizeRegistryAndDedupe",
+          "TestCanonicalizeRejectsAliasesAndMalformedRepresentations",
+          "TestIPCanonicalizationAndDedupe"
         ]
       },
       "evidence_class": "unit",
@@ -77,6 +154,105 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.indicators.integration.production_observation_and_lifecycle_routes",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.integration",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.timeline",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.lifecycle_vocabulary",
+        "module.indicators.verification.production_child_workflows",
+        "module.indicators.verification.source_span_provenance",
+        "module.indicators.verification.transition_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorProductionChildRoutes_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.indicators.lifecycle.exact_production_vocabulary",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.lifecycle",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.lifecycle_vocabulary"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorLifecycleVocabulary"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.indicators.observation.closed_transition_state_machine",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.observation",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.transition_atomicity"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorObservationTransitionStateMachine"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.indicators.observation.source_span_utf8_admission",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.observation",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.source_span_provenance"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorSourceSpanAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.indicators.origin.observation_origin_registry_and_producer_context_40d43e15e1",
@@ -160,7 +336,8 @@
       ],
       "verification_ids": [
         "module.indicators.verification.characterization",
-        "module.indicators.verification.incident_portability"
+        "module.indicators.verification.incident_portability",
+        "module.indicators.verification.retained_portability"
       ],
       "runner": "go",
       "selector": {
@@ -263,6 +440,7 @@
         "platform.postgres"
       ],
       "verification_ids": [
+        "module.indicators.verification.contract_migration",
         "module.indicators.verification.storage_contraction"
       ],
       "runner": "go",
@@ -292,7 +470,7 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorObservationSeparation_Unit"
+          "TestIndicatorObservationSeparation_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -315,7 +493,7 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestIndicatorsCanonicalObservationLifecycle_Unit"
+          "TestIndicatorsCanonicalObservationLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -357,7 +535,7 @@
       "family_id": "module.indicators.surface",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.characterization"
+        "module.indicators.verification.exported_surface_minimization"
       ],
       "runner": "go",
       "selector": {
@@ -380,7 +558,8 @@
       "family_id": "module.indicators.transaction",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.transaction_atomicity"
+        "module.indicators.verification.transaction_atomicity",
+        "module.indicators.verification.transition_atomicity"
       ],
       "runner": "go",
       "selector": {

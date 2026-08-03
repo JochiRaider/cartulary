@@ -16,7 +16,7 @@ import (
 )
 
 // indicator-storage / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
-func TestIndicatorObservationSeparation_Unit(t *testing.T) {
+func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-07-indicators")
 	store := newIndicatorTestStore(t, harness.DB, revisionsupport.MustAppender(t))
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)

@@ -155,18 +155,6 @@ func sourceOriginLocator(recordID uuid.UUID, fieldKey string, start int, end int
 	return fmt.Sprintf("record:%s:field:%s:bytes:%d-%d", recordID, fieldKey, start, end)
 }
 
-func (s *Store) loadIndicatorRowsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) (map[uuid.UUID]map[string]any, error) {
-	rows := make(map[uuid.UUID]map[string]any, len(recordIDs))
-	for _, recordID := range recordIDs {
-		row, err := s.refreshAndLoadProjectionRowTx(ctx, tx, recordID)
-		if err != nil {
-			return nil, err
-		}
-		rows[recordID] = row
-	}
-	return rows, nil
-}
-
 func (s *Store) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID uuid.UUID, now time.Time, recordIDs []uuid.UUID) ([]AffectedRecordVersion, error) {
 	result := make([]AffectedRecordVersion, 0, len(recordIDs))
 	for _, recordID := range recordIDs {

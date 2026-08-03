@@ -47,10 +47,6 @@ func TestObservationOriginRegistryAndProducerMapping(t *testing.T) {
 
 func TestObservationProducerSurfaceHasNoSystemConstructor(t *testing.T) {
 	t.Parallel()
-	parsed, err := parser.ParseDir(token.NewFileSet(), ".", nil, 0)
-	if err != nil {
-		t.Fatalf("parse Indicator owner surface: %v", err)
-	}
 	forbidden := []string{
 		"ObservationOrigin",
 		"ObservationProducerContext",
@@ -62,12 +58,10 @@ func TestObservationProducerSurfaceHasNoSystemConstructor(t *testing.T) {
 		"APIImportObservationProducer",
 		"ExtractionObservationProducer",
 	}
-	for _, file := range parsed["indicators"].Files {
-		for _, declaration := range file.Decls {
-			name := exportedDeclarationName(declaration)
-			if slices.Contains(forbidden, name) {
-				t.Fatalf("retired observation producer surface %s remains exported", name)
-			}
+	actual := exportedRootDeclarations(t)
+	for _, name := range forbidden {
+		if _, exists := actual[name]; exists {
+			t.Fatalf("retired observation producer surface %s remains exported", name)
 		}
 	}
 }
@@ -101,29 +95,4 @@ func TestInvalidObservationProducerFailsBeforeTransaction(t *testing.T) {
 		}
 	}
 	t.Fatal("IndicatorObservationCreateParams declaration not found")
-}
-
-func exportedDeclarationName(declaration ast.Decl) string {
-	switch typed := declaration.(type) {
-	case *ast.FuncDecl:
-		if typed.Name.IsExported() {
-			return typed.Name.Name
-		}
-	case *ast.GenDecl:
-		for _, specification := range typed.Specs {
-			switch spec := specification.(type) {
-			case *ast.TypeSpec:
-				if spec.Name.IsExported() {
-					return spec.Name.Name
-				}
-			case *ast.ValueSpec:
-				for _, name := range spec.Names {
-					if name.IsExported() {
-						return name.Name
-					}
-				}
-			}
-		}
-	}
-	return ""
 }
