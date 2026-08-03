@@ -19,7 +19,7 @@
 - Mark a workstream `BLOCKED` when an entry or exit gate cannot be met, and do not begin dependent work.
 - Update authored inputs and invoke Make-owned generators; never hand-edit generated roots or lockfiles.
 
-Checkpoint commits completed before SL-01 entry are `23f756f1` (tracker bootstrap), `4aee70a2` (SL-00), `b32ee3c6` (IND-015), `f894d9ca` (IND-016), and `c3e54385` (SL-02). A slice records its own SHA in the next ledger-only gate update because a commit cannot contain its final self-referential SHA.
+Checkpoint commits completed before SL-03 entry are `23f756f1` (tracker bootstrap), `4aee70a2` (SL-00), `b32ee3c6` (IND-015), `f894d9ca` (IND-016), `c3e54385` (SL-02), and `ce06fb35` (SL-01). A slice records its own SHA in the next ledger-only gate update because a commit cannot contain its final self-referential SHA.
 
 ### Implementation baseline
 
