@@ -6,7 +6,7 @@
 - **Target label:** `indicators` (validated lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters)
 - **Output path:** `docs/handoffs/indicators-module-refactor-tracker.md`
 - **Repository baseline:** branch `main`, commit `67d2ce2c98ce9f124c87ca6d980ec9321b4d2ef7`, observed at `2026-08-03T08:32:42-04:00`
-- **Status:** implementation complete; final checkpoint ledger pending
+- **Status:** implementation and final checkpoint ledger complete
 - **Allowed change:** the specification, authored contracts, implementation, tests, migrations, harness inputs, generated projections, and handoff evidence required by SL-00 through SL-08
 - **Non-goals:** unrelated frontend timestamp inference, draft Reference Pack ownership changes, and the historically Timeline-named runtime projection bundle
 - **Implementation authorization:** the user authorized the complete remediation plan on `2026-08-03`, including IND-016 owner closure and SL-00 through SL-08
@@ -19,7 +19,7 @@
 - Mark a workstream `BLOCKED` when an entry or exit gate cannot be met, and do not begin dependent work.
 - Update authored inputs and invoke Make-owned generators; never hand-edit generated roots or lockfiles.
 
-Checkpoint commits completed before SL-08 entry are `23f756f1` (tracker bootstrap), `4aee70a2` (SL-00), `b32ee3c6` (IND-015), `f894d9ca` (IND-016), `c3e54385` (SL-02), `ce06fb35` (SL-01), `ed529695` (SL-03), `4f46b8ff` (SL-04), `7090083b` (SL-05), `c1facd10` (SL-06), and `d0b71fbe` (SL-07), with the SL-07 SHA ledger closed at `ea6b251d`. A slice records its own SHA in the next ledger-only gate update because a commit cannot contain its final self-referential SHA.
+Checkpoint commits are `23f756f1` (tracker bootstrap), `4aee70a2` (SL-00), `b32ee3c6` (IND-015), `f894d9ca` (IND-016), `c3e54385` (SL-02), `ce06fb35` (SL-01), `ed529695` (SL-03), `4f46b8ff` (SL-04), `7090083b` (SL-05), `c1facd10` (SL-06), `d0b71fbe` (SL-07), and `eae355dc` (SL-08 validation and handoff). The SL-07 SHA ledger closed at `ea6b251d`; this final ledger-only commit records the SL-08 SHA because a content commit cannot contain its final self-referential SHA.
 
 ### Implementation baseline
 
@@ -573,6 +573,7 @@ The commands below were discovered from the live Make task surface and `make tas
 | 2026-08-03T13:07:59-04:00 | Codex / SL-07 implementation | Strict schema-bound portability is implementation-complete and ready for its checkpoint commit. | Owner-internal provider, tests, Incident Bundle fixture, authored/generated verification inputs, boundary policy, and this tracker. | Narrow-to-broad SL-07 validation recorded above. | No unclassified SL-07 finding. No database migration is required; valid bundle v1/v2 support remains, while malformed or semantically inconsistent archives now fail closed. | No product blocker. The retained broad Revision browser-fixture failure is unrelated and its exact affected rows pass. | Commit SL-07, record its SHA in a ledger-only gate, then begin SL-08 final verification and handoff. |
 | 2026-08-03T13:15:00-04:00 | Codex / SL-07 ledger gate | The strict portability checkpoint is committed as `d0b71fbe`; no SL-08 work began before this ledger update. | Updated this tracker only. | `git commit`; `make lint-markdown`; Git status inspection. | The SL-07 commit contains the full implementation, tests, authored/generated inputs, validation evidence, and tracker checkpoint. | None. | Commit this ledger-only gate, then begin SL-08 verification accounting and completion. |
 | 2026-08-03T13:32:39-04:00 | Codex / SL-08 completion | The Indicators remediation is complete with no unclassified finding or product blocker. | Final verification contract/test family, concurrency evidence, generated topology, and this tracker. | All final commands and roots recorded in the six rows above. | No runtime migration beyond reversible 00055; no data rewrite; valid bundle v1/v2 remains supported. Residual owner handoffs are: Workbook/View Contracts raw timestamp inference, a future adopted Reference Pack normalization decision, the Timeline-named runtime projection catalog, and Timeline/Entities `interactive_cell` vocabulary. | None. Retained-run maintenance was skipped because `RESULTS_DIR` was unset. | Commit SL-08, record the checkpoint SHA in the final ledger-only commit, and hand off. |
+| 2026-08-03T13:35:30-04:00 | Codex / SL-08 ledger gate | The final validation and handoff checkpoint is committed as `eae355dc`; the worktree was clean before this ledger-only update. | Updated this tracker only. | `git status --short`; `git rev-parse --short HEAD`; `make lint-markdown`. | All implementation slices and the final verification/handoff content are committed. The ledger commit itself is resolved from Git because it cannot self-record its own SHA. | None. | No Indicators remediation work remains; use the four explicitly named owner handoffs for future scope. |
 
 ## 11. Open Questions and Blockers
 
