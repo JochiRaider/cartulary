@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	viewtest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 // indicator-resolution / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
@@ -47,6 +48,33 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if row["record_id"] == "" || row["row_version"] == nil {
 		t.Fatalf("indicator create row is incomplete: %#v", row)
 	}
+	replayResponse := appsupport.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
+		payload,
+		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	replayData := appsupport.RequireSuccessData(t, replayResponse, http.StatusOK)
+	if !reflect.DeepEqual(replayData, data) {
+		t.Fatalf("exact Indicator replay changed its committed result: first=%#v replay=%#v", data, replayData)
+	}
+	divergentPayload := map[string]any{}
+	for key, value := range payload {
+		divergentPayload[key] = value
+	}
+	divergentPayload["indicator.display_value"] = "203.0.113.89"
+	divergentPayload["indicator.normalized_value"] = "203.0.113.89"
+	divergentResponse := appsupport.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewtest.IndicatorsViewSchemaID+"/rows",
+		divergentPayload,
+		appsupport.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, divergentResponse, http.StatusConflict, "client_txn_conflict")
 	changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), data["change_set_id"].(string))
 	if changeSet.ActorUserID != adminUserID.String() || changeSet.Source != "indicators.rows.create" {
 		t.Fatalf("indicator mutation attribution mismatch: %#v", changeSet)

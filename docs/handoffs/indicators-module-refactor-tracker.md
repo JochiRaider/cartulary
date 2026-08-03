@@ -623,7 +623,7 @@ No `BLOCKED: owner contradiction` entry is present because no conflict between a
 - **Authorization:** the user authorized the complete Indicators Production-Readiness and Legacy Retirement Iteration on `2026-08-03`.
 - **Starting branch and HEAD:** clean `main` at `15fb90cc48c6877dda5d84239927ec2136087822`.
 - **Baseline observed:** `2026-08-03T14:07:08-04:00` with no tracked or untracked worktree changes.
-- **Iteration status:** `IN PROGRESS — SL-09 is next`.
+- **Iteration status:** `IN PROGRESS — IND-029 is next`.
 - **Execution order:** `tracker bootstrap -> SL-09 -> IND-029 -> SL-10 -> SL-11 -> SL-12 -> SL-13 -> SL-14`.
 - **Checkpoint gate:** every named workstream is one separately reviewable commit. Its validation evidence, migration notes, run roots, commit SHA, and next action must be recorded here before dependent work begins.
 - **Blocker rule:** unknown lifecycle values, duplicate active identities, owner-contract drift, unsafe migration data, or a failed owner acceptance gate blocks dependent work. No compatibility alias or guessed data rewrite may clear a blocker.
@@ -681,7 +681,7 @@ These findings establish the starting classification and are inputs to the exhau
 | Order | Workstream | Tracker finding | Scope | Entry gate | Status | Exit evidence | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | Tracker bootstrap | IND-027 | Append this control plan, baseline, matrices, deployment gates, and completion checklist. | Clean authorized baseline. | COMPLETE | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913`; bootstrap checkpoint SHA resolves in the ledger gate. | Record the checkpoint SHA, then begin SL-09. |
-| 1 | SL-09 reachability locks and migration preflight | IND-028 | Exported-symbol callers, behavior locks, read-only data classification, and removal ledger. | Bootstrap committed. | IN PROGRESS | Focused characterization, query/disposition ledger, no unclassified migration condition. | Complete preflight before normative closure. |
+| 1 | SL-09 reachability locks and migration preflight | IND-028 | Exported-symbol callers, behavior locks, read-only data classification, and removal ledger. | Bootstrap committed. | COMPLETE | All 58 exports classified; local preflight has no unsafe row; focused route, replay, portability, and v1 evidence plus fast/drift gates pass. | Record the checkpoint SHA, then adopt IND-029. |
 | 2 | IND-029 normative production closure | IND-029 | Core owners, OpenAPI owner unit, view contracts, acceptance, and traceability. | SL-09 committed with safe dispositions. | PENDING | Spec, OpenAPI, view, JSON, generation, and Markdown validation. | Begin additive storage only after owner closure. |
 | 3 | SL-10 expand storage and identity claims | IND-030 | Expand migration, backfill, dual writes, Records envelope reads, rebuild/recovery contract. | IND-029 adopted; preflight conditions clear. | PENDING | Upgrade/backfill, concurrency, reuse/conflict, rollback, recovery, and portability evidence. | Commit additive cutover support before facade retirement. |
 | 4 | SL-11 semantic facade and dead API retirement | IND-031 | Internal services, typed outcomes, exported-surface allowlist, narrow consumers, explicit database failures. | SL-10 claim maintenance available. | PENDING | AST boundary and affected owner/application composition tests. | Build child workflows only on the minimized owner surface. |
@@ -713,7 +713,7 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 | Workstream | Status | Commit SHA | Validation evidence | Migration and compatibility note | Next action |
 | --- | --- | --- | --- | --- | --- |
 | Tracker bootstrap | COMPLETE | `6b505b4c` | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913` | Documentation/process only; no product or migration change. | SL-09 admitted. |
-| SL-09 | IN PROGRESS | pending | pending | Read-only preflight; no guessed data rewrites. | Classify exported callers and deployed data. |
+| SL-09 | COMPLETE | resolved by the following ledger gate | Surface `.cartulary/test-results/20260803T181434Z-p993931`; Indicator service `.cartulary/test-results/20260803T181441Z-p994313`; v1 `.cartulary/test-results/20260803T181457Z-p996057`; fast `.cartulary/test-results/20260803T181657Z-p1002795`; final drift/policy/shape/Markdown roots in Section 13.9. | Local database returned zero unsafe rows; every deployment must rerun the recorded queries; no rewrite or migration occurred. | Record SHA, then begin IND-029. |
 | IND-029 | PENDING | pending | pending | Normative closure precedes implementation. | Await SL-09. |
 | SL-10 | PENDING | pending | pending | Additive expand migration; old binaries remain compatible. | Await IND-029. |
 | SL-11 | PENDING | pending | pending | Internal callers move atomically; no Go compatibility shims. | Await SL-10. |
@@ -735,7 +735,7 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 ### 13.8 Iteration 2 completion checklist
 
 - [ ] Tracker bootstrap is committed from the exact clean baseline and records passing Markdown validation.
-- [ ] SL-09 classifies every exported symbol and every migration preflight condition without guessed repair.
+- [x] SL-09 classifies every exported symbol and every migration preflight condition without guessed repair.
 - [ ] IND-029 adopts storage authority, identity claims, lifecycle vocabulary, provenance, transition, route, cursor, replay, authorization, error, and response contracts.
 - [ ] SL-10 establishes transactional active identity claims, Records-based envelope reads, and deterministic recovery rebuild while preserving old-writer compatibility.
 - [ ] SL-11 removes the approved dead/broad API surface, retains a semantic owner facade, and passes its exported allowlist.
@@ -744,3 +744,199 @@ For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>`
 - [ ] SL-14 removes redundant historical tests, publishes explicit current-contract verification rows, and closes every finding.
 - [ ] Backend and frontend boundary, migration, generation, artifact policy, JSON shape, Markdown, fast, focused service, frontend, browser, finalize, and full-check gates pass with recorded roots.
 - [ ] The final tracker records all slice SHAs, deployment and rollback instructions, residual risks, next-owner handoffs, final HEAD, and no unclassified finding.
+
+### 13.9 SL-09 reachability and migration preflight
+
+#### Exported-symbol caller ledger
+
+`internal/modules/indicators/exported_surface_test.go` is the executable exhaustive ledger. It parses every non-test Go file in the root package, includes public methods on exported receiver types, and fails if a symbol is unclassified or a stale classification remains. The following caller ledger covers every symbol in that test; symbols with identical reachability and disposition are grouped without omitting them.
+
+| Exported symbol or exact group | Production callers at the SL-09 baseline | Test callers at the SL-09 baseline | Disposition |
+| --- | --- | --- | --- |
+| `ViewSchemaID` | Projection, Revision, Workbook, and Import application assembly plus owner providers. | Indicator composition, projection, route, and atomicity tests. | Retained contract. |
+| `IndicatorFindOrCreateParticipantV1` | Indicator participant result construction. | Indicator participant and concurrency tests. | Retained narrow participant schema ID. |
+| `ErrInvalidCreateRequest` | Workbook admission/error projection and Indicator repositories. | Workbook and Indicator validation tests. | Retained validation contract. |
+| `Store`, `StoreDependencies`, `ProjectionPort`, `NewStore` | Server, Workbook, and Import composition; Projections is injected through the narrow port. | Indicator plus affected cross-owner composition/service tests. | Retained owner facade and typed composition. |
+| `CreateCommand`, `ValidateCreateCommand` | Workbook maps decoded input to the semantic command and validates before owner transaction work. | Indicator identity/atomicity and Workbook admission tests. | Retained domain admission contract. |
+| `IndicatorFindOrCreateParticipantCommand`, `IndicatorFindOrCreateParticipantResult`, `Store.FindOrCreateIndicatorParticipantTx` | Network Flow participant port and transaction coordinator. | Indicator convergence/rollback and Network Flow tests. | Retained narrow transaction participant; result is narrowed in SL-11. |
+| `Store.GetActiveIndicatorParticipant`, `Store.GetActiveIndicatorParticipantTx`, `ErrIndicatorNotFound` | Network Flow binding lookup and transaction participant. | Network Flow store tests. | Retained participant lookup; return type is narrowed in SL-11. |
+| `IndicatorRecord` | Indicator source persistence plus Network Flow ports/binding. | Indicator and Network Flow tests. | Remove broad export; replace cross-owner use with the immutable minimal reference. |
+| `MutationResult` | Indicator create and Workbook mutation adapter. | Indicator, Workbook, Projection, and composition tests. | Remove transport-shaped result; replace with semantic create outcome. |
+| `BuildMutationPayload` | Indicator create only. | Workbook adapter tests indirectly cover the payload. | Remove; Workbook owns HTTP/view mutation envelopes. |
+| `ImportCreateCommand`, `Store.CreateImportRowTx` | Only the Indicator import facade method value and its owner-internal implementation. | Cross-owner import/projection tests exercise the registered facade. | Remove public alias and method; retain no compatibility wrapper. |
+| `NewImportCreateFacade` | Import application assembly. | Import owner-registry tests. | Retained owner contribution factory with internal apply function. |
+| `ErrIndicatorObservationNotFound` | Indicator observation repository and workflow only. | Revisions child workflow tests. | Required production-path error for SL-12. |
+| `IndicatorCreateValidationError`, `IndicatorCreateValidationError.Error` | Workbook and Network Flow error projection. | Identity/admission tests. | Retained typed domain validation. |
+| `IndicatorObservationCreateParams`, `IndicatorObservationResolveParams`, `IndicatorObservationRecord` | No non-Indicator production caller. | Indicator and Revisions child tests. | Required production path; replace caller-controlled fields with route-safe commands in SL-11/SL-12. |
+| `Store.CreateIndicatorObservation`, `Store.ResolveIndicatorObservation` | No non-Indicator production caller. | Indicator and Revisions child tests. | Required production path; wire secure routes in SL-12. |
+| `IndicatorLifecycleAppendParams`, `IndicatorLifecycleIntervalRecord`, `Store.AppendIndicatorLifecycleInterval` | No non-Indicator production caller. | Indicator and Revisions child tests. | Required production path; adopt enum/route policy before wiring in SL-12. |
+| `ObservationOrigin`, `ErrInvalidObservationOrigin`, `ParseObservationOrigin` | Root owner validation/repository only; portability uses the owner-internal registry directly. | Origin registry and repository tests. | Move completely behind the owner boundary in SL-11. |
+| `ManualEntryObservationOrigin`, `ClipboardPasteObservationOrigin`, `CSVImportObservationOrigin`, `XLSXImportObservationOrigin`, `APIImportObservationOrigin`, `ExtractionObservationOrigin`, `SystemObservationOrigin` | No external production caller. | Only `manual_entry` has domain-fixture callers; the others are origin-surface tests. | Remove all public token constants; storage parsing remains internal. |
+| `ObservationProducerContext` | Root owner method parameter only. | Indicator origin/child tests. | Internal-only candidate; route command derives manual provenance. |
+| `ManualEntryObservationProducer` | No live production caller. | Indicator and Revisions child fixtures. | Carry forward only as the temporary manual ingress until SL-12 replaces it with verified source-span admission. |
+| `ClipboardPasteObservationProducer`, `CSVImportObservationProducer`, `XLSXImportObservationProducer`, `APIImportObservationProducer`, `ExtractionObservationProducer` | No production caller. | Origin-surface tests only. | Remove speculative APIs in SL-11. |
+| `ProjectionContribution`, `NewProjectionContribution`, `ProjectionContribution.Source`, `ProjectionContribution.QuerySurfaces` | Projection application assembly and generic provider catalogs. | Provider encapsulation and query-surface tests. | Retained owner contribution. |
+| `NewRevisionContribution` | Revision application assembly. | Provider encapsulation and rollback tests. | Retained owner contribution. |
+| `RecoveryStateContribution` | Recovery application catalog. | Recovery catalog and restore tests. | Retained owner contribution; claims are added as rebuildable state in SL-10. |
+| `IncidentBundleContribution`, `NewIncidentBundleContribution` | Incident portability application assembly. | Indicator portability and Incident Bundle tests. | Retained owner contribution and valid v1/v2 support. |
+
+The executable classification contains 58 exact symbol entries: 27 retained contracts, 10 required production-path entries, 4 internal-only candidates, and 17 removable dead-surface entries. The focused row passed at `.cartulary/test-results/20260803T181434Z-p993931`.
+
+#### Behavior locks
+
+- The Indicator public create/query route test now asserts `201` for first create, `200` with the byte-equivalent committed data projection for exact replay, and `409 client_txn_conflict` for a divergent request using the same transaction identity.
+- The same route test retains projection readback and rebuild parity.
+- The portable-row characterization retains exact fields, explicit nulls, ordering, timestamps, deterministic bytes, and descriptor support for bundle versions 1 and 2.
+- The focused Indicator route and portability rows passed together at `.cartulary/test-results/20260803T181441Z-p994313`.
+- The retained Incident Bundle v1 lossless translation/import row passed at `.cartulary/test-results/20260803T181457Z-p996057`.
+
+#### Read-only preflight queries and disposition
+
+Environment: the local development PostgreSQL service from `docker-compose.dev.yml`, database `cartulary`, observed healthy on `2026-08-03`. It contained no Indicator, observation, lifecycle, or Indicator route-idempotency rows. The following queries are the exact reusable deployment gates; operators must execute them against every target database before SL-10 backfill and again before SL-13 contraction.
+
+Lifecycle vocabulary:
+
+```sql
+SELECT lifecycle_state, count(*) AS row_count
+FROM indicator_state_intervals
+GROUP BY lifecycle_state
+ORDER BY lifecycle_state;
+```
+
+Records/subtype envelope drift:
+
+```sql
+SELECT
+  count(*) AS indicator_rows,
+  count(*) FILTER (WHERE r.record_id IS NULL) AS missing_envelopes,
+  count(*) FILTER (WHERE r.record_type IS DISTINCT FROM 'indicator') AS wrong_record_type,
+  count(*) FILTER (WHERE i.incident_id IS DISTINCT FROM r.incident_id) AS incident_drift,
+  count(*) FILTER (WHERE i.row_version IS DISTINCT FROM r.row_version) AS version_drift,
+  count(*) FILTER (
+    WHERE i.created_at IS DISTINCT FROM r.created_at
+       OR i.updated_at IS DISTINCT FROM r.updated_at
+  ) AS timestamp_drift,
+  count(*) FILTER (
+    WHERE i.created_by_user_id IS DISTINCT FROM r.created_by_user_id
+       OR i.updated_by_user_id IS DISTINCT FROM r.updated_by_user_id
+  ) AS actor_drift,
+  count(*) FILTER (
+    WHERE i.deleted_at IS DISTINCT FROM r.deleted_at
+       OR i.deleted_by_user_id IS DISTINCT FROM r.deleted_by_user_id
+  ) AS deletion_drift
+FROM indicators i
+LEFT JOIN records r ON r.record_id = i.record_id;
+```
+
+Records-authoritative active identity duplicates:
+
+```sql
+SELECT incident_id, indicator_type, dedupe_key, count(*) AS active_count
+FROM indicators i
+JOIN records r ON r.record_id = i.record_id
+WHERE r.deleted_at IS NULL
+GROUP BY incident_id, indicator_type, dedupe_key
+HAVING count(*) > 1
+ORDER BY incident_id, indicator_type, dedupe_key;
+```
+
+Observation tuple, origin, and reference classification:
+
+```sql
+SELECT
+  resolution_status,
+  resolved_indicator_record_id IS NOT NULL AS has_target,
+  resolved_by_user_id IS NOT NULL AS has_actor,
+  resolved_at IS NOT NULL AS has_time,
+  resolution_method IS NOT NULL AS has_method,
+  count(*) AS row_count
+FROM indicator_observations
+GROUP BY resolution_status, has_target, has_actor, has_time, has_method
+ORDER BY resolution_status, has_target, has_actor, has_time, has_method;
+
+SELECT origin_kind, count(*) AS row_count
+FROM indicator_observations
+GROUP BY origin_kind
+ORDER BY origin_kind;
+
+SELECT
+  count(*) FILTER (
+    WHERE o.row_version <= 0
+       OR o.source_field_key = ''
+       OR o.origin_locator = ''
+       OR o.observed_text = ''
+  ) AS malformed_observations,
+  count(*) FILTER (
+    WHERE source_record.record_id IS NULL
+       OR (
+         o.resolved_indicator_record_id IS NOT NULL
+         AND (
+           resolved_record.record_id IS NULL
+           OR resolved_record.incident_id IS DISTINCT FROM o.incident_id
+         )
+       )
+  ) AS cross_incident_or_missing_refs
+FROM indicator_observations o
+LEFT JOIN records source_record
+  ON source_record.record_id = o.source_record_id
+ AND source_record.incident_id = o.incident_id
+LEFT JOIN records resolved_record
+  ON resolved_record.record_id = o.resolved_indicator_record_id;
+```
+
+Lifecycle interval classification:
+
+```sql
+SELECT count(*) AS malformed_intervals
+FROM indicator_state_intervals interval
+LEFT JOIN records indicator_record
+  ON indicator_record.record_id = interval.indicator_record_id
+WHERE interval.row_version <= 0
+   OR interval.valid_to < interval.valid_from
+   OR interval.confidence < 0
+   OR interval.confidence > 100
+   OR jsonb_typeof(interval.support_refs) IS DISTINCT FROM 'array'
+   OR indicator_record.record_id IS NULL
+   OR indicator_record.incident_id IS DISTINCT FROM interval.incident_id;
+```
+
+Indicator create idempotency payload classification:
+
+```sql
+SELECT
+  count(*) AS indicator_idempotency_rows,
+  count(*) FILTER (
+    WHERE jsonb_typeof(response_json) IS DISTINCT FROM 'object'
+       OR response_json->>'view_schema_id'
+          IS DISTINCT FROM 'cartulary.view.indicators.v1'
+       OR jsonb_typeof(response_json->'row') IS DISTINCT FROM 'object'
+       OR coalesce(response_json->'row'->>'record_id', '') = ''
+       OR coalesce(response_json->>'change_set_id', '') = ''
+       OR status_code NOT IN (200, 201)
+  ) AS malformed_payloads
+FROM route_idempotency
+WHERE route_key = 'indicators.rows.create';
+```
+
+All returned counts were zero and both vocabulary classifications returned no rows. PostgreSQL text cannot store NUL bytes, so NUL input remains an admission/portable-decoding concern rather than a persisted-data classification. No disposable fixture required correction in this slice. No production database was in task scope, so the identical operator query gate remains mandatory for deployment and is not represented as already passed.
+
+Disposition rules are fail closed:
+
+- only `active`, `benign`, `false_positive`, and `retired` may proceed to contraction; any other lifecycle value requires an explicit operator-authored mapping;
+- Records wins every envelope disagreement, but any disagreement must be reported before a repair writes data;
+- any Records-authoritative duplicate active identity blocks claim backfill until an operator resolves which record remains active;
+- malformed observation/lifecycle tuples and idempotency payloads block their dependent migration or replay cutover; no alias, field synthesis, conflict-ignore, or guessed rewrite is authorized.
+
+#### SL-09 validation checkpoint
+
+- `make generate` passed at `.cartulary/test-results/20260803T181321Z-p987028` after adding the authored verification row; only the Make-generated topology projection changed.
+- The exported-surface row passed at `.cartulary/test-results/20260803T181434Z-p993931`.
+- Indicator route/replay and portable-row service evidence passed at `.cartulary/test-results/20260803T181441Z-p994313`.
+- Retained bundle v1 translation/import passed at `.cartulary/test-results/20260803T181457Z-p996057`.
+- `make generate-drift` passed at `.cartulary/test-results/20260803T181637Z-p997824`.
+- `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260803T181643Z-p1000344`.
+- `make json-shape-check` passed at `.cartulary/test-results/20260803T181644Z-p1000742`.
+- Final `make lint-markdown` passed at `.cartulary/test-results/20260803T181924Z-p1051148`.
+- `make test-fast` passed 346 of 346 units at `.cartulary/test-results/20260803T181657Z-p1002795`.
+- No migration ran and no data changed. The sole local preflight query error was the first diagnostic attempt to construct a PostgreSQL NUL character; PostgreSQL rejected the character before scanning data, the corrected NUL-free read-only query set ran successfully, and text storage itself cannot contain NUL.
+- SL-09 has no unclassified repository or local-data condition. Production deployment remains guarded by the exact recorded operator queries rather than an unsupported passing claim.
