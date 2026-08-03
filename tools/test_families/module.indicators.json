@@ -3,6 +3,30 @@
   "owner_id": "module.indicators",
   "rows": [
     {
+      "row_id": "module.indicators.identity.indicator_identity_normalization_and_dedupe_are_50da60e4b0",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.identity",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.indicators.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorIdentityCharacterization",
+          "TestIndicatorIdentityCharacterizationRejectsAliasesAndIncompleteHashes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.integration",
@@ -24,6 +48,31 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.indicators.portability.indicator_source_rows_are_deterministic_complete_68b42b02f6",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.portability",
+      "collaborator_ids": [
+        "module.incidentbundles"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestIndicatorPortableRowsCharacterization_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard"
     },
     {

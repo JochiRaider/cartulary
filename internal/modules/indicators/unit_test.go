@@ -59,7 +59,7 @@ func TestIndicatorObservationSeparation_Unit(t *testing.T) {
 			IncidentID:                incident.ID,
 			SourceRecordID:            sourceRecordID.id,
 			SourceFieldKey:            sourceRecordID.field,
-			OriginKind:                "interactive_cell",
+			OriginKind:                "manual_entry",
 			OriginLocator:             "entity_linking-u-4-07-observation-" + string(rune('1'+index)),
 			ObservedText:              indicatortest.Examples[0].DefangedValue,
 			ResolvedIndicatorRecordID: &first.RecordID,
