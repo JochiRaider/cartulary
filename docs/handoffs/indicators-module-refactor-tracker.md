@@ -6,7 +6,7 @@
 - **Target label:** `indicators` (validated lowercase kebab case; no spaces, path separators, shell metacharacters, or unsafe filename characters)
 - **Output path:** `docs/handoffs/indicators-module-refactor-tracker.md`
 - **Repository baseline:** branch `main`, commit `67d2ce2c98ce9f124c87ca6d980ec9321b4d2ef7`, observed at `2026-08-03T08:32:42-04:00`
-- **Status:** implementation and final checkpoint ledger complete
+- **Status:** Iteration 1 complete; Iteration 2 planned
 - **Allowed change:** the specification, authored contracts, implementation, tests, migrations, harness inputs, generated projections, and handoff evidence required by SL-00 through SL-08
 - **Non-goals:** unrelated frontend timestamp inference, draft Reference Pack ownership changes, and the historically Timeline-named runtime projection bundle
 - **Implementation authorization:** the user authorized the complete remediation plan on `2026-08-03`, including IND-016 owner closure and SL-00 through SL-08
@@ -615,3 +615,132 @@ No `BLOCKED: owner contradiction` entry is present because no conflict between a
 - [x] SL-07 is implemented and all `AC-PORT-*` cases pass with deterministic safe errors, retained v1/v2 compatibility, and final-transaction atomicity.
 - [x] Every affected authored contract or harness input is regenerated through Make; generated roots contain no hand edits and all required drift gates pass.
 - [x] The applicable focused, boundary, broad, finalize, and full checks pass and their run roots are recorded in the final implementation handoff.
+
+## 13. Iteration 2 — Production Readiness and Legacy Retirement
+
+### 13.1 Authorization, baseline, and execution protocol
+
+- **Authorization:** the user authorized the complete Indicators Production-Readiness and Legacy Retirement Iteration on `2026-08-03`.
+- **Starting branch and HEAD:** clean `main` at `15fb90cc48c6877dda5d84239927ec2136087822`.
+- **Baseline observed:** `2026-08-03T14:07:08-04:00` with no tracked or untracked worktree changes.
+- **Iteration status:** `IN PROGRESS — SL-09 is next`.
+- **Execution order:** `tracker bootstrap -> SL-09 -> IND-029 -> SL-10 -> SL-11 -> SL-12 -> SL-13 -> SL-14`.
+- **Checkpoint gate:** every named workstream is one separately reviewable commit. Its validation evidence, migration notes, run roots, commit SHA, and next action must be recorded here before dependent work begins.
+- **Blocker rule:** unknown lifecycle values, duplicate active identities, owner-contract drift, unsafe migration data, or a failed owner acceptance gate blocks dependent work. No compatibility alias or guessed data rewrite may clear a blocker.
+- **Generation rule:** authored contracts and harness inputs are changed first; Make-owned generators produce derived artifacts. Generated roots and lockfiles are never hand-edited.
+- **Retained-run rule:** retained-run maintenance is recorded only when a successful `RESULTS_DIR` is supplied; otherwise SL-14 records that it was skipped.
+
+Sections 1 through 12 are the immutable Iteration 1 evidence ledger. Iteration 2 adds the work below without reclassifying completed findings, acceptance, or checkpoint history.
+
+### 13.2 Target state and deliberate compatibility posture
+
+The target architecture for this iteration is:
+
+- `records` is the sole authority for Indicator envelope version, timestamps, attribution, and deletion state.
+- `indicator_active_identities` is Indicator-owned, transactional, rebuildable coordination state keyed by incident, type, and dedupe key. It is not portable domain state and does not mirror deletion state.
+- Indicator subtype storage contains only Indicator-owned fields after the expand, cutover, and contract sequence.
+- Portable Indicator source-major-1 rows retain their current schemas and bytes by joining subtype data to the authoritative Records envelope.
+- The exact lifecycle vocabulary is `active`, `benign`, `false_positive`, and `retired`; unknown deployed values block contraction rather than receiving aliases.
+- Observation provenance is derived from a verified source field and UTF-8 byte span. Ordinary callers cannot select provenance or the reserved `system` origin.
+- The retained `Store` is a thin owner facade over focused create, observation, lifecycle, and coordination services.
+- Cross-owner consumers receive an immutable Indicator reference containing only record ID, incident ID, type, value kind, display value, normalized value, and dedupe key.
+
+Compatibility retained because it has continuing value:
+
+- existing public Indicator create/query routes, replay behavior, authorization, errors, and valid portable bundle v1/v2 behavior;
+- Incident Bundle v1 until its adopted retirement gates are satisfied;
+- canonical observations and lifecycle intervals as current-profile domain state;
+- `Store`, `StoreDependencies`, `NewStore`, `CreateCommand`, `ValidateCreateCommand`, owner contributions, and the narrow Network Flow transaction participant.
+
+Compatibility deliberately rejected because it adds burden without future value:
+
+- duplicated Indicator envelope state and deletion-dependent identity enforcement;
+- speculative producer constructors and caller-selectable audit provenance;
+- transport-shaped domain results and mutation payload helpers;
+- broad exported consumer DTOs and internal Go compatibility shims;
+- redundant characterization wrappers, misleading service-backed test names, and cross-owner physical SQL fixtures;
+- Inspector affordances without a registered production handler.
+
+### 13.3 Bootstrap reachability findings
+
+These findings establish the starting classification and are inputs to the exhaustive SL-09 ledger; they do not replace SL-09 call-site and data preflight evidence.
+
+| Finding | Starting evidence | Classification | Iteration action |
+| --- | --- | --- | --- |
+| `Store` owner facade and typed construction | Workbook, Imports, Network Flow, Revisions, and application assembly use the constructed owner. | Retained contract | Keep one public facade and split internal services in SL-11. |
+| Observation and lifecycle write methods | No non-test production caller was found at bootstrap, while adopted Core behavior requires the child domain state. | Required production path | Add secure production routes and real Inspector handlers in SL-12. |
+| Public observation origin parser, token constants, and producer constructors | Repository production callers do not require the broad public surface; fixtures and tests dominate use. | Internal-only or removable | Retain only manual ingress and owner-internal stored-data parsing in SL-11. |
+| `BuildMutationPayload`, `ImportCreateCommand`, and `CreateImportRowTx` | These expose transport or redundant import shapes rather than an independent owner contract. | Removable dead surface | Move response construction to Workbook and migrate repository callers atomically in SL-11. |
+| `IndicatorRecord` | Network Flow consumes a narrow immutable subset while the exported type exposes unrelated source state. | Over-broad retained need | Replace it with the minimal reference in SL-11. |
+| Indicator envelope columns | The subtype table mirrors Records version, timestamps, actors, and deletion state; active uniqueness uses the mirrored deletion column. | Duplicated authoritative state | Expand claims in SL-10 and remove mirrors only after the SL-13 writer-drain gate. |
+| Incident Bundle v1 and child rows | Adopted contracts and current portable schemas still require valid v1/v2 archives, observations, and intervals. | Retained contract | Lock in SL-09 and preserve through both migrations. |
+| Inspector observation and lifecycle metadata | Current bindings point at generic projection/patch surfaces and may render without a real handler. | Inert or misbound UI surface | Bind to production child routes and omit unavailable actions in SL-12. |
+
+### 13.4 Workstream control table
+
+| Order | Workstream | Tracker finding | Scope | Entry gate | Status | Exit evidence | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | Tracker bootstrap | IND-027 | Append this control plan, baseline, matrices, deployment gates, and completion checklist. | Clean authorized baseline. | COMPLETE | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913`; bootstrap checkpoint SHA resolves in the ledger gate. | Record the checkpoint SHA, then begin SL-09. |
+| 1 | SL-09 reachability locks and migration preflight | IND-028 | Exported-symbol callers, behavior locks, read-only data classification, and removal ledger. | Bootstrap committed. | PENDING | Focused characterization, query/disposition ledger, no unclassified migration condition. | Adopt normative closure only after preflight. |
+| 2 | IND-029 normative production closure | IND-029 | Core owners, OpenAPI owner unit, view contracts, acceptance, and traceability. | SL-09 committed with safe dispositions. | PENDING | Spec, OpenAPI, view, JSON, generation, and Markdown validation. | Begin additive storage only after owner closure. |
+| 3 | SL-10 expand storage and identity claims | IND-030 | Expand migration, backfill, dual writes, Records envelope reads, rebuild/recovery contract. | IND-029 adopted; preflight conditions clear. | PENDING | Upgrade/backfill, concurrency, reuse/conflict, rollback, recovery, and portability evidence. | Commit additive cutover support before facade retirement. |
+| 4 | SL-11 semantic facade and dead API retirement | IND-031 | Internal services, typed outcomes, exported-surface allowlist, narrow consumers, explicit database failures. | SL-10 claim maintenance available. | PENDING | AST boundary and affected owner/application composition tests. | Build child workflows only on the minimized owner surface. |
+| 5 | SL-12 production observation and lifecycle workflows | IND-032 | Seven routes, source-span verification, closed transitions, keyset reads, Inspector handlers. | IND-029 and SL-11 committed. | PENDING | Backend, frontend, browser, authorization, replay, history, projection, and collaboration evidence. | Drain incompatible writers after the new binary is deployable. |
+| 6 | SL-13 contract migration and physical dead-state removal | IND-033 | Constraint validation, mirror-column removal, fixed Records joins, reversible reconstruction. | SL-10 through SL-12 deployed; old-writer drain confirmed. | PENDING | Empty/upgrade/Down/Up, migration, recovery, rollback, delete/restore, import, and portability evidence. | Retire obsolete tests and complete accounting. |
+| 7 | SL-14 test retirement, verification, and handoff | IND-034 | Focused current-contract suite, explicit verification rows, final gates, deployment handoff. | All prior slices committed. | PENDING | Final HEAD, run roots, residual risks, complete classification, and full check. | Hand off production-ready module. |
+
+### 13.5 Validation and ownership matrix
+
+For every affected owner, run `make task-guide ROLE=module-author OWNER=<owner>` before choosing focused rows. Commands recorded below are requirements, not passing claims, until a checkpoint ledger row supplies an actual successful run root.
+
+| Concern | Primary owner or gate | Required validation |
+| --- | --- | --- |
+| Indicator identity, child workflows, facade, and exported surface | `module.indicators` | Focused unit and service-backed rows for the changed contract. |
+| HTTP admission, replay projection, and mutation envelopes | Workbook | Focused Workbook owner rows plus route integration. |
+| Derived row refresh/load/query | Projections | Focused Projection owner rows and storage boundary check. |
+| History, rollback, collaboration, and affected record versions | Revisions | Focused rollback/history rows and transaction atomicity. |
+| Narrow Indicator consumer reference | Network Flow | Participant contract and service-backed convergence rows. |
+| Valid bundle v1/v2 and nonportable claims | Incident Bundles | Focused source-port, round-trip, and atomic import rows. |
+| Rebuildable claim state and restore | Recovery | Recovery catalog, rebuild, restore, and validation rows. |
+| Inspector bindings and feature discovery | View Schemas | Authored contract validation, frontend unit, and browser handler coverage. |
+| Seven new routes and public schemas | OpenAPI | Owner-unit assembly, generated API artifacts, route conformance, and JSON shape. |
+| Database expand/contract safety | Migration system | Empty install, upgrade, Down/Up reconstruction, `make migration-drift`. |
+| Module ownership and dead API prevention | Boundary policy | Backend/frontend import boundaries and AST exported allowlist. |
+| Final repository state | Repository harness | Drift/policy/shape, fast tests, affected service slices, frontend checks, `make agent-finalize`, then `make check`. |
+
+### 13.6 Checkpoint ledger
+
+| Workstream | Status | Commit SHA | Validation evidence | Migration and compatibility note | Next action |
+| --- | --- | --- | --- | --- | --- |
+| Tracker bootstrap | COMPLETE | resolved by the following ledger gate | Final `make lint-markdown` passed at `.cartulary/test-results/20260803T180851Z-p977913` | Documentation/process only; no product or migration change. | Record the checkpoint SHA, then begin SL-09. |
+| SL-09 | PENDING | pending | pending | Read-only preflight; no guessed data rewrites. | Await bootstrap checkpoint. |
+| IND-029 | PENDING | pending | pending | Normative closure precedes implementation. | Await SL-09. |
+| SL-10 | PENDING | pending | pending | Additive expand migration; old binaries remain compatible. | Await IND-029. |
+| SL-11 | PENDING | pending | pending | Internal callers move atomically; no Go compatibility shims. | Await SL-10. |
+| SL-12 | PENDING | pending | pending | Additive routes; no origin aliases or caller-selected `system`. | Await SL-11. |
+| SL-13 | PENDING | pending | pending | Contract migration requires confirmed old-writer drain. | Await SL-12 and deployment gate. |
+| SL-14 | PENDING | pending | pending | Runtime-neutral retirement and final accounting. | Await SL-13. |
+
+### 13.7 Deployment, migration, and rollback gates
+
+1. SL-09 runs read-only preflight against every target environment and records exact counts and dispositions.
+2. Unknown lifecycle values, malformed child tuples, ambiguous envelope drift, duplicate active identities, or incompatible idempotency payloads block the expand or contract step that depends on them.
+3. SL-10 is an additive expand migration. It backfills and validates claims before the application treats them as ordinary identity coordination state.
+4. During the compatibility window, the new binary maintains claims and legacy mirrors transactionally so a rollback to the prior binary remains possible.
+5. Recovery rebuilds claims deterministically from Records-authoritative active Indicator identities; backup and Incident Bundle data never treat claims as domain state.
+6. SL-13 is a contract migration, not an ordinary rolling upgrade. Operators drain incompatible old writers, confirm the new binary is ready, apply the migration, and start only compatible writers.
+7. The SL-13 Down path reconstructs mirror columns from Records before an old binary is restored. Forward repair remains preferred after contract deployment.
+8. Valid Indicator portable source-major-1 and bundle v1/v2 bytes remain unchanged across expand, cutover, contract, rebuild, and rollback validation.
+
+### 13.8 Iteration 2 completion checklist
+
+- [ ] Tracker bootstrap is committed from the exact clean baseline and records passing Markdown validation.
+- [ ] SL-09 classifies every exported symbol and every migration preflight condition without guessed repair.
+- [ ] IND-029 adopts storage authority, identity claims, lifecycle vocabulary, provenance, transition, route, cursor, replay, authorization, error, and response contracts.
+- [ ] SL-10 establishes transactional active identity claims, Records-based envelope reads, and deterministic recovery rebuild while preserving old-writer compatibility.
+- [ ] SL-11 removes the approved dead/broad API surface, retains a semantic owner facade, and passes its exported allowlist.
+- [ ] SL-12 exposes secure production observation and lifecycle workflows with real Inspector handlers and no inert feature controls.
+- [ ] SL-13 removes physical envelope mirrors only after the writer-drain gate and proves its reversible reconstruction path.
+- [ ] SL-14 removes redundant historical tests, publishes explicit current-contract verification rows, and closes every finding.
+- [ ] Backend and frontend boundary, migration, generation, artifact policy, JSON shape, Markdown, fast, focused service, frontend, browser, finalize, and full-check gates pass with recorded roots.
+- [ ] The final tracker records all slice SHAs, deployment and rollback instructions, residual risks, next-owner handoffs, final HEAD, and no unclassified finding.
