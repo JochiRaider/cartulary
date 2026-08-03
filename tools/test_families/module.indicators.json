@@ -8,7 +8,9 @@
       "family_id": "module.indicators.identity",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract"
+        "module.indicators.verification.behavior_contract",
+        "module.indicators.verification.characterization",
+        "module.indicators.verification.identity_parity_and_concurrency"
       ],
       "runner": "go",
       "selector": {
@@ -28,13 +30,38 @@
       "minimum_tier": "fast"
     },
     {
+      "row_id": "module.indicators.identity.z_concurrent_find_or_create_convergence",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.identity",
+      "collaborator_ids": [
+        "module.networkflow"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.identity_parity_and_concurrency"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/indicators",
+        "tests": [
+          "TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.integration",
       "collaborator_ids": [],
       "verification_ids": [
         "module.indicators.verification.behavior_contract",
-        "module.indicators.verification.incident_portability"
+        "module.indicators.verification.route_integration"
       ],
       "runner": "go",
       "selector": {
@@ -132,6 +159,7 @@
         "module.incidentbundles"
       ],
       "verification_ids": [
+        "module.indicators.verification.characterization",
         "module.indicators.verification.incident_portability"
       ],
       "runner": "go",
@@ -210,7 +238,7 @@
         "module.projections"
       ],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract"
+        "module.indicators.verification.projection_delegation"
       ],
       "runner": "go",
       "selector": {
@@ -279,7 +307,7 @@
       "family_id": "module.indicators.structure",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract"
+        "module.indicators.verification.provider_boundaries"
       ],
       "runner": "go",
       "selector": {
@@ -303,7 +331,7 @@
       "family_id": "module.indicators.transaction",
       "collaborator_ids": [],
       "verification_ids": [
-        "module.indicators.verification.behavior_contract"
+        "module.indicators.verification.transaction_atomicity"
       ],
       "runner": "go",
       "selector": {

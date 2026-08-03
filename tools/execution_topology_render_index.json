@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:fe8bd50fba61afea85fdf834687a1791cb30ce91d00bf8991be99beec8f45c0a",
+  "input_digest": "sha256:4e2ffa816d7f9a815e262227224bf482ba338e8a7751dd12ee08bb3eba03bc66",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -112,7 +112,7 @@
     {
       "path": "contracts/verification/owners/module.indicators.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:af779f3c39d39c141c01acc3d0ffb8e0247919d2fa1f5a900b99aff855e06dea"
+      "hash": "sha256:e419026b76279a856e2106d736009dad48d2aaa27d9a23f6e9aabb5831fb6523"
     },
     {
       "path": "contracts/verification/owners/module.jobapi.json",
@@ -872,7 +872,7 @@
     {
       "path": "tools/test_families/module.indicators.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e71771930e7f65d9940d284703a0305b4a94f3093f9071f1de443e155c02f75f"
+      "hash": "sha256:9e005ce6534b71628937131399a9eba71aa31e7d33025ef54b76a44300be6f3b"
     },
     {
       "path": "tools/test_families/module.jobapi.json",
