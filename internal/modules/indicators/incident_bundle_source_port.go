@@ -6,6 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
+	"github.com/JochiRaider/cartulary/internal/modules/incidentportability"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 )
 
 func NewIncidentBundleSourcePort() sourceport.Port {
@@ -29,7 +31,7 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
 		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
-			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
+			return prepareIndicatorFiles(descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
 			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
@@ -51,4 +53,78 @@ SELECT EXISTS (
 			return nil
 		},
 	})
+}
+
+func prepareIndicatorFiles(descriptor sourceport.Descriptor, bundle sourceport.Bundle, bundleVersion int) (sourceport.PreparedFiles, error) {
+	prepared, err := sourceport.PrepareFiles(descriptor, bundle, bundleVersion)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := incidentportability.DecodeNDJSON(prepared["data/indicators.ndjson"])
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		canonical, err := identity.Canonicalize(identity.Input{
+			IndicatorType:   portableRequiredString(row, "indicator_type"),
+			ValueKind:       portableRequiredString(row, "value_kind"),
+			DisplayValue:    portableRequiredString(row, "display_value"),
+			NormalizedValue: portableNullableString(row, "normalized_value"),
+			DefangedValue:   portableNullableString(row, "defanged_value"),
+			HashAlgorithm:   portableNullableString(row, "hash_algorithm"),
+			HashValue:       portableNullableString(row, "hash_value"),
+			STIXPattern:     portableNullableString(row, "stix_pattern"),
+		})
+		if err != nil {
+			return nil, indicatorSourceFailure("indicators.representation_legal")
+		}
+		if !portableIdentityIsCanonical(row, canonical) {
+			return nil, indicatorSourceFailure("indicators.normalization_exact")
+		}
+		key := canonical.IndicatorType + "\x00" + canonical.DedupeKey
+		if _, duplicate := seen[key]; duplicate {
+			return nil, indicatorSourceFailure("indicators.identity_unique")
+		}
+		seen[key] = struct{}{}
+	}
+	return prepared, nil
+}
+
+func portableIdentityIsCanonical(row map[string]any, canonical identity.Canonical) bool {
+	return portableRequiredString(row, "indicator_type") == canonical.IndicatorType &&
+		portableRequiredString(row, "value_kind") == canonical.ValueKind &&
+		portableRequiredString(row, "display_value") == canonical.DisplayValue &&
+		portableStringPointersEqual(portableNullableString(row, "normalized_value"), canonical.NormalizedValue) &&
+		portableStringPointersEqual(portableNullableString(row, "hash_algorithm"), canonical.HashAlgorithm) &&
+		portableStringPointersEqual(portableNullableString(row, "hash_value"), canonical.HashValue) &&
+		portableRequiredString(row, "dedupe_key") == canonical.DedupeKey
+}
+
+func portableRequiredString(row map[string]any, key string) string {
+	value, _ := row[key].(string)
+	return value
+}
+
+func portableNullableString(row map[string]any, key string) *string {
+	raw, present := row[key]
+	if !present || raw == nil {
+		return nil
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return nil
+	}
+	return &value
+}
+
+func indicatorSourceFailure(invariantID string) error {
+	return &sourceport.Failure{FamilyID: "indicators", InvariantID: invariantID}
+}
+
+func portableStringPointersEqual(left *string, right *string) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return *left == *right
 }

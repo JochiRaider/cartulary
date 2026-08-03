@@ -15,7 +15,8 @@
         "package": "./internal/modules/indicators",
         "tests": [
           "TestIndicatorIdentityCharacterization",
-          "TestIndicatorIdentityCharacterizationRejectsAliasesAndIncompleteHashes"
+          "TestIndicatorIdentityCharacterizationRejectsAliasesAndIncompleteHashes",
+          "TestIndicatorPortablePreparationUsesCanonicalIdentity"
         ]
       },
       "evidence_class": "unit",

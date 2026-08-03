@@ -21,11 +21,3 @@ func TestSourceForRollbackValueExcludesDerivedChildEffects(t *testing.T) {
 		t.Fatalf("indicator source = %#v, want %#v", got, want)
 	}
 }
-
-func TestBuildDedupeKeyIsStable(t *testing.T) {
-	t.Parallel()
-	state := rowState{indicatorType: "ipv4_addr", valueKind: "atomic", displayValue: "192.0.2.10"}
-	if got, want := buildDedupeKey(state), "1144f8a3e5afba287cacdf6c895c89cc67c4769522a28f1cadd8f7e2959f5ca2"; got != want {
-		t.Fatalf("dedupe key = %q, want %q", got, want)
-	}
-}

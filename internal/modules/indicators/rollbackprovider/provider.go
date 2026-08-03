@@ -2,13 +2,12 @@ package rollbackprovider
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -31,11 +30,15 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 			}
 		}
 	}
-	if raw, present := source["indicator_type"]; present && !validIndicatorType(raw.(string)) {
-		return rollbackcontract.ErrTargetNotReversible
+	if raw, present := source["indicator_type"]; present {
+		if _, err := identity.NormalizeIndicatorType(raw.(string)); err != nil {
+			return rollbackcontract.ErrTargetNotReversible
+		}
 	}
-	if raw, present := source["value_kind"]; present && !validValueKind(raw.(string)) {
-		return rollbackcontract.ErrTargetNotReversible
+	if raw, present := source["value_kind"]; present {
+		if _, err := identity.NormalizeValueKind(raw.(string)); err != nil {
+			return rollbackcontract.ErrTargetNotReversible
+		}
 	}
 	return nil
 }
@@ -83,18 +86,24 @@ SELECT indicator_type, value_kind, display_value, normalized_value, dedupe_key,
 	applyNullableText(source, "hash_algorithm", &state.hashAlgorithm)
 	applyNullableText(source, "hash_value", &state.hashValue)
 	applyNullableText(source, "stix_pattern", &state.stixPattern)
-	if raw, present := source["dedupe_key"]; present {
-		state.dedupeKey = raw.(string)
-	} else if indicatorIdentityRepresented(source) {
-		state.dedupeKey = buildDedupeKey(state)
-	}
-	if !validIndicatorType(state.indicatorType) || !validValueKind(state.valueKind) || strings.TrimSpace(state.displayValue) == "" || strings.TrimSpace(state.dedupeKey) == "" {
+	canonical, err := identity.Canonicalize(identity.Input{
+		IndicatorType:   state.indicatorType,
+		ValueKind:       state.valueKind,
+		DisplayValue:    state.displayValue,
+		NormalizedValue: state.normalized,
+		DefangedValue:   state.defanged,
+		HashAlgorithm:   state.hashAlgorithm,
+		HashValue:       state.hashValue,
+		STIXPattern:     state.stixPattern,
+	})
+	if err != nil || !identityMatchesCanonical(state, canonical) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	if (state.hashAlgorithm == nil) != (state.hashValue == nil) {
+	if raw, present := source["dedupe_key"]; present && raw.(string) != canonical.DedupeKey {
 		return rollbackcontract.ErrTargetNotReversible
 	}
-	_, err := tx.Exec(ctx, `
+	state.dedupeKey = canonical.DedupeKey
+	_, err = tx.Exec(ctx, `
 UPDATE indicators
    SET indicator_type = $2,
        value_kind = $3,
@@ -179,49 +188,11 @@ func applyNullableText(source map[string]any, key string, destination **string) 
 	*destination = &text
 }
 
-func indicatorIdentityRepresented(source map[string]any) bool {
-	for _, key := range []string{"indicator_type", "value_kind", "display_value", "normalized_value", "hash_algorithm", "hash_value"} {
-		if _, present := source[key]; present {
-			return true
-		}
-	}
-	return false
-}
-
-func buildDedupeKey(state rowState) string {
-	parts := []string{
-		state.indicatorType,
-		state.valueKind,
-		state.displayValue,
-		derefString(state.normalized),
-		derefString(state.hashAlgorithm),
-		derefString(state.hashValue),
-	}
-	sum := sha256.Sum256([]byte(strings.Join(parts, "\x1f")))
-	return hex.EncodeToString(sum[:])
-}
-
-func derefString(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func validIndicatorType(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
-		return true
-	default:
-		return false
-	}
-}
-
-func validValueKind(value string) bool {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "atomic", "pattern", "reference":
-		return true
-	default:
-		return false
-	}
+func identityMatchesCanonical(state rowState, canonical identity.Canonical) bool {
+	return state.indicatorType == canonical.IndicatorType &&
+		state.valueKind == canonical.ValueKind &&
+		state.displayValue == canonical.DisplayValue &&
+		equalStringPointers(state.normalized, canonical.NormalizedValue) &&
+		equalStringPointers(state.hashAlgorithm, canonical.HashAlgorithm) &&
+		equalStringPointers(state.hashValue, canonical.HashValue)
 }
