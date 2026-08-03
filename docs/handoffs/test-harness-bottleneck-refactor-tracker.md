@@ -6,12 +6,21 @@
 | --- | --- |
 | Primary seam | Public test target to workload selection, scheduling, resource and fixture lifecycle, execution, and evidence publication |
 | Output path | `docs/handoffs/test-harness-bottleneck-refactor-tracker.md` |
-| Mode | Tracker-gated implementation; WF-01 complete and WF-02 is the next authorized workstream |
+| Mode | Tracker-gated implementation complete; WF-00 through WF-09 and CP-00 through CP-12 are `DONE`; clean-source multi-window performance publication was explicitly `DROPPED` by user direction and no performance claim or v3 reference was published |
 | Allowed change in this phase | The active workstream's adopted harness owner, authored machine inputs, implementation, focused tests, generated projections through Make, and this tracker |
 | Future implementation scope | Authored harness owner documents and machine inputs, harness tests and runtime helpers, test-only fixture support, schemas, and generated projections refreshed through Make |
 | Non-goals | No product behavior, production API, assertion weakening, dependency upgrade, generated-file hand edit, or performance claim based only on a smaller workload |
 | Planning baseline | `244f639d19d2e307748b1a8f17b62aa711d5f64d` on `main`, one commit ahead of `origin/main`, with a clean worktree before this tracker was added |
 | Implementation start | `9af2e005e75bb636a9114b3ff90cbe5cc8061d76` on `main`; the planning baseline remains historical provenance rather than the implementation HEAD |
+| WF-02 restart baseline | `f4b0176f877f3edb0fe003ee35e5bb0234c77bea` on `main`, equal to `origin/main`, with a clean worktree before the WF-02 tracker gate |
+| WF-03 restart state | Same HEAD `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; dirty only with the complete WF-02 review unit; 146/98 target and 1,019-row disposition revalidated; WF-02 final lint passed at `.cartulary/test-results/20260802T174829Z-p4057900` |
+| WF-04 restart state | Same HEAD; dirty only with completed WF-02/WF-03 review units; disposition check and `harness.test_catalog` task guide passed; WF-03 final lint `.cartulary/test-results/20260802T180850Z-p4093309` |
+| WF-05 restart state | Same HEAD; dirty only with completed WF-02 through WF-04 review units; disposition check and `harness.browser` task guide passed; WF-04 final lint `.cartulary/test-results/20260802T182102Z-p4111949` |
+| WF-06 restart state | Same HEAD; cumulative WF-02 through WF-05 review unit only; disposition check and `harness.command_surface` task guide passed; WF-05 final lint `.cartulary/test-results/20260802T183206Z-p4132437` |
+| WF-07 restart state | Same HEAD; cumulative WF-02 through WF-06 review unit only; disposition check and `harness.generated_artifacts` task guide passed; WF-06 final lint `.cartulary/test-results/20260802T185222Z-p4159921` |
+| WF-08 restart state | Same HEAD; cumulative WF-02 through WF-07 review unit only; 146 target records, 98 active public targets, and 1,019 active rows revalidated; command-surface task guide passed; WF-07 final lint `.cartulary/test-results/20260802T191222Z-p15121` |
+| WF-09 restart state | Same HEAD; cumulative WF-02 through WF-08 review unit only; 143 task records, 98 active public targets, 47 canonical measured bindings, and 1,019 active rows revalidated; WF-08 final lint `.cartulary/test-results/20260803T005038Z-p1884498`; v2 baseline remains archival and CP-12 starts without accepted v3 performance evidence |
+| WF-09 completion state | Same HEAD; cumulative WF-02 through WF-09 review unit remains uncommitted; 143 task records, 98 active public targets, 47 canonical measured bindings, and 1,019 active rows close; all functional and structural gates pass at source digest `sha256:6df8593b8b23f64a71d2521f0118ba747fbd31a8f13753308a2335b94b183068`; performance publication was explicitly skipped and the v2 reference remains archival |
 | Analysis posture | `temp/analysis-notes.md` is diagnostic evidence. Its inconsistent checked-in baseline and single-sample observations are not publishable performance proof. |
 | Compatibility decision | Selective hard cutover: retain useful public Make vocabulary and roles; permit coordinated command, schema, artifact, lifecycle, topology, and redundant-target changes without compatibility aliases |
 | Coverage decision | Tier by purpose: fast feedback may be narrower, while full, CI, and release entry points preserve the complete correctness and release-evidence union |
@@ -93,14 +102,18 @@ Adjacent helpers under `tools/harness/**`, owner manifests under
 be inspected directly before their workstream edits them; a search hit is not an
 edit source.
 
-## 2. Current-State Repository Inventory
+## 2. Planning-Baseline Repository Inventory
+
+This section preserves the execution-control inventory used to authorize the
+refactor. It is historical after the WF-08 cutover; the current post-cutover
+inventory and source posture are recorded below and in the WF-08 handoff.
 
 ### Execution-control inventory
 
 | Area | Current owner or implementation | Current responsibility | Principal finding | Target disposition |
 | --- | --- | --- | --- | --- |
-| Public task surface | `tools/task_surface_owner.json` | 145 target records, command IDs, inputs, output policies, inclusion sets, observability policy | The performance roster requires 47 targets, while the checked-in baseline does not close over it. | Retain as the authored public owner; revise target roles, inputs, IDs, and observability projection. |
-| Test selection | `tools/test_catalog_owner.json`, `tools/test_families/**` | Owner routing, runner selectors, evidence classes, runtime/resource/fixture profiles, default-check selection | The planning analysis counted 1,018 active rows; tier intent is distributed and `default_check` cannot express the new entry-point roles. | Add one minimum execution tier per active row and generate target membership. |
+| Public task surface | `tools/task_surface_owner.json` | 146 target records, including 98 active public targets, plus command IDs, inputs, output policies, inclusion sets, and observability policy | The performance roster requires 47 targets, while the checked-in baseline does not close over it. | Retain as the authored public owner; revise target roles, inputs, IDs, and observability projection. |
+| Test selection | `tools/test_catalog_owner.json`, `tools/test_families/**` | Owner routing for 1,019 active rows, runner selectors, evidence classes, runtime/resource/fixture profiles, and default-check selection | Tier intent is distributed and `default_check` cannot express the new entry-point roles. | Add one minimum execution tier per active row and generate target membership. |
 | Execution topology | `tools/execution_topology_manifest.json` | Runtime, resource, fixture profiles; sequence and service-backed schedules | `test-fast` and `test` have explicit one-job local-to-service barriers; CI and release work wait on whole `check`. | Replace phase schedules with authored graph composition and capability declarations. |
 | Scheduler resources | `tools/scheduler_resource_registry.json` | Logical capacity names and automatic policies | Capacity is primarily CPU-derived; the measured host resolved clone capacity to eight and browser work still serialized. | Replace family-specific capacity logic with one run capability snapshot and unit-sized claims. |
 | Generated schedule | `tools/scheduler_manifest.json` | Projected check and service-backed work units | Direct and aggregate paths project different units and scheduling behavior. | Generate one graph representation used by every selector. Never hand-edit. |
@@ -109,7 +122,7 @@ edit source.
 | Browser runtime | `tools/harness/browser/**` | Stack ownership, stage scheduling, resets, Playwright invocation, leaf finalization | A generated stage resource is forced to capacity one and `run-browser-e2e-batch.sh` serializes groups within a session. | Use scheduler-owned stack leases and group commands; retain only lifecycle adapters and semantic reset actions. |
 | PostgreSQL fixtures | `internal/testutil/pgtest/pgtest.go` | Suite template, row/package/group databases, transactions, resets, migration scratch | The default template-clone path creates substantial clone pressure; group reuse is narrow and migration replay is repeated. | Introduce explicit lease capabilities, asynchronous pool replenishment, and owner-reviewed fixture migrations. |
 | Finalization | `tools/harness/finalization/**` | Schema, duration, scheduler, generation, and drift actions with action caching | No-results finalization spends about 16.8 seconds running generation and drift as separate render passes; broad cache inputs repeatedly miss. | Render once into scratch, validate and compare once, publish atomically when selected, and delete ineffective special caching. |
-| Harness contracts | `tools/harness/tests/test-harness-contracts.mjs` | Most harness contract fixtures in a 6,528-line, 104-test file | Two Node test files expose little file-level parallelism and repeatedly load or derive shared indexes. | Partition by semantic harness owner and share one immutable per-run index artifact. |
+| Harness contracts | `tools/harness/tests/test-harness-contracts.mjs` | Most harness contract fixtures in a 6,557-line, 104-test file | Two Node test files expose little file-level parallelism and repeatedly load or derive shared indexes. | Partition by semantic harness owner and share one immutable per-run index artifact. |
 | Observability | `tools/harness/observability/**`, duration-accounting helpers and schemas | Target spans, scheduler events, baselines, hotspot and pressure summaries | Browser leaf baselines measure dispatch rather than work; wrappers are unattributed; portfolio cardinality and sums disagree. | Make unit events the timing source and derive all target, critical-path, and resource summaries from them. |
 
 Generated files listed by `tools/generated_artifact_policy.json`, generated Make
@@ -131,6 +144,30 @@ public Make target
 This shape hides runnable work below scheduler units, creates whole-target
 barriers, duplicates planning/finalization, and makes target timing depend on
 which wrapper happened to emit a span.
+
+### WF-08 post-cutover inventory
+
+The current generated task surface contains 143 records: 98 active public
+targets, ten check-internal targets, and 35 internal helpers. All 47 measured
+public targets route through the canonical graph and event projections. The
+active catalog remains exactly 1,019 rows. The three-record reduction from the
+146-record WF-02 baseline is the intended retirement of obsolete internal
+phase helpers; no public Make name was removed.
+
+The live execution shape is now:
+
+```text
+public Make target
+  -> canonical selector and work-graph compiler
+    -> one resource-fitting scheduler and run-scoped fixture broker
+      -> canonical work units and unit events
+        -> run, target, hotspot, pressure, and performance projections
+```
+
+Static negative fixtures retain removed IDs and schema names only to prove
+that they are rejected. The archival v2 public duration baseline retains its
+historical `release-browser-readiness` row as bytes; no current command reads
+or translates it.
 
 ### Measured bottleneck baseline
 
@@ -376,10 +413,11 @@ aggregate browser selectors use the same graph and lifecycle adapter.
 Aggregate targets compile a union graph rather than invoke child targets.
 `test-local`, `test-fast-service-backed`, `test-service-backed`, and
 `check-service-backed` are transitional internal phase wrappers and have no
-continuing value after graph cutover. `release-browser-readiness` may remain as
-an internal/direct selector only if the WF-02 caller inventory finds a real
-consumer; otherwise its work is selected directly by `release-check` and its
-target is removed.
+continuing value after graph cutover. The WF-02 restart inventory found no
+direct consumer or distinct public diagnostic role for
+`release-browser-readiness`; its work is selected directly by `release-check`
+and the internal target is removed at cutover. `browser-e2e-support` remains as
+distinct release-support work.
 
 Identical readiness, build, scanner, test, and finalizer units are deduplicated
 within one graph. License, SBOM, service readiness, static checks, builds,
@@ -483,14 +521,14 @@ unchanged unless a workstream adds an explicit row before editing them.
 | --- | --- | --- | --- | --- | --- |
 | WF-00 | Source, scope, and authority bootstrap | root | none | `DONE (planning)` | Inspected inventory, clean baseline, non-goals, decisions, and clause disposition are recorded. Revalidate at implementation start. |
 | WF-01 | Measurement truth repair | chain | WF-00 | `DONE` | The 47-target roster closes exactly in the v3 writer; internal targets are separate; browser and wrapper work is attributed; Go overhead is corrected; validation closes through the versioned affected-test ledger below. |
-| WF-02 | Public contract and tier freeze | chain | WF-01 | `TODO` | Every target/input/ID/schema/artifact/row has a disposition; four monotonic row tiers and five aggregate entry-point policies are machine-projectable. |
-| WF-03 | Unified graph and scheduler | chain | WF-02 | `TODO` | Direct and aggregate selectors share graph IDs/digests; scheduling is deterministic, resource-fit, fair, cancellable, and deadlock checked. |
-| WF-04 | Service and backend fixture plane | parallel | WF-03 | `TODO` | One broker, explicit leases, pooled replenishment, compatible Go grouping, and owner-specific hotspot fixture repairs are complete. |
-| WF-05 | Browser decomposition and stack pooling | chain | WF-03, WF-04 | `TODO` | Browser groups schedule independently; stateful affinity, resets, snapshot writes, measurement quietness, and lane cleanup are explicit. |
-| WF-06 | Aggregate composition, deduplication, and cache | chain | WF-03, WF-04, WF-05 | `TODO` | Public roots union/deduplicate units, use actual dependencies, and safely reuse only validated hermetic work. |
-| WF-07 | Finalization and tool overhead | parallel | WF-01, WF-03 | `TODO` | Single-pass finalization, partitioned harness contracts, and once-per-graph/freshness-keyed vulnerability scans are complete. |
-| WF-08 | Owner-first hard cutover and cleanup | chain | WF-03, WF-04, WF-05, WF-06, WF-07 | `TODO` | Owners and authored inputs change first; projections regenerate; public targets switch atomically; obsolete paths and schemas are removed. |
-| WF-09 | Accumulated validation and handoff | chain | WF-08 | `TODO` | Functional, lifecycle, artifact, performance, generation, and public-entry-point gates pass at one source state. |
+| WF-02 | Public contract and tier freeze | chain | WF-01 | `DONE` | Every target/input/ID/schema/artifact/row has a disposition; four monotonic row tiers and five aggregate entry-point policies are machine-projectable. |
+| WF-03 | Unified graph and scheduler | chain | WF-02 | `DONE` | Direct and aggregate selectors share graph IDs/digests; scheduling is deterministic, resource-fit, fair, cancellable, and deadlock checked. |
+| WF-04 | Service and backend fixture plane | parallel | WF-03 | `DONE` | One broker, explicit leases, pooled replenishment, compatible Go grouping, and owner-specific hotspot fixture repairs are complete. |
+| WF-05 | Browser decomposition and stack pooling | chain | WF-03, WF-04 | `DONE` | Browser groups schedule independently; stateful affinity, resets, snapshot writes, measurement quietness, and lane cleanup are explicit. |
+| WF-06 | Aggregate composition, deduplication, and cache | chain | WF-03, WF-04, WF-05 | `DONE` | Public roots union/deduplicate units, use actual dependencies, and safely reuse only validated hermetic work. |
+| WF-07 | Finalization and tool overhead | chain | WF-06 | `DONE` | Single-pass finalization, partitioned harness contracts, and once-per-graph/freshness-keyed vulnerability scans are complete. |
+| WF-08 | Owner-first hard cutover and cleanup | chain | WF-03, WF-04, WF-05, WF-06, WF-07 | `DONE` | Owners and authored inputs changed first; projections regenerated; public targets switched atomically; obsolete paths and schemas were removed. |
+| WF-09 | Accumulated validation and handoff | chain | WF-08 | `DONE` | Functional, lifecycle, artifact, generation, and public-entry-point gates pass at one source state; performance publication is explicitly dropped without a performance claim or baseline mutation. |
 
 ### WF-01 — Measurement truth repair
 
@@ -623,14 +661,15 @@ recorded failure.
 1. Amend the Testing Harness NLSpec with the retained contracts, tier table,
    work-unit shape, resource/fixture capabilities, caching rules, artifact
    model, and hard-cutover policy in this tracker.
-2. Produce a complete machine-generated disposition report for all 145 current
+2. Produce a complete machine-generated disposition report for all 146 current
    target records and a complete minimum-tier report for every active test row.
 3. Inventory every declared Make variable, inherited environment input,
    command ID, schema ID, artifact path, and public caller. Keep only inputs
    that provide current value; removed inputs fail as undeclared after cutover.
-4. Decide `release-browser-readiness` mechanically: retain it only if a direct
-   caller outside `release-check` or a distinct human diagnostic role exists;
-   otherwise remove it and project its units directly into `release-check`.
+4. Remove `release-browser-readiness`: the restart inventory found no direct
+   caller outside `release-check` and no distinct human diagnostic role. Project
+   its release-support units directly into `release-check`; retain
+   `browser-e2e-support` as the distinct release-support work selector.
 5. Version all materially changed command and schema IDs once. Do not introduce
    aliases, old-shape readers, or dual output.
 
@@ -749,7 +788,10 @@ old artifact reader remains; generated drift and boundary checks pass.
 Run the validation ladder in Section 8 at one source state. Record every command,
 run root, target semantic digest, system profile, cold/warm/cache posture, and
 failure classification. Rebaseline only after functional and performance gates
-pass. Complete the trackers, risks, cleanup ledger, and restart record.
+pass. Complete the trackers, risks, cleanup ledger, and restart record. For this
+execution, the user explicitly skipped clean-source multi-window performance
+publication. The functional and structural ladder still closes; no v3 baseline
+is written and no executor-improvement or non-regression claim is made.
 
 ## 7. Implementation Checkpoint Plan
 
@@ -774,10 +816,16 @@ failures, infrastructure failures, and unrelated repository failures are
 recorded separately. A failed checkpoint returns to its named rollback state;
 it does not update duration references or proceed to public cutover.
 
-Checkpoint status at this handoff: `CP-00`, `CP-01`, and `CP-02` are `DONE`
-through the WF-01 implementation and accumulated validation ledger. `CP-03` is
-the next checkpoint and MUST NOT begin until the final WF-01 tracker Markdown
-lint recorded in Section 10 passes.
+Checkpoint status at final handoff: `CP-00` through `CP-12` are `DONE`. CP-12's
+clean-source multi-window performance-publication subgate is `DROPPED` by
+explicit user direction; this is an accepted scope removal, not passing
+performance evidence. Public Make bindings use the canonical graph, scheduler,
+broker, cache, and event projections. The comparison runner, phase
+orchestrators, serial browser batch loop, duplicate finalizer, superseded
+schemas, and live legacy artifact readers are removed. Static rejection
+fixtures and the archival v2 duration baseline are the only retained references
+to retired IDs. The current 143-record task surface preserves all 98 public
+names, and all 1,019 active rows retain complete tier and evidence reachability.
 
 ## 8. Validation and Performance Acceptance
 
@@ -905,8 +953,8 @@ affected gates are selected through the incremental validation protocol above.
 | T-005 | Plan boundary guardrails | architecture | `DONE` | T-003 | harness command surface | Sections 3, 8 | Graph, ownership, generated, cache, artifact, and compatibility guardrails are binary. |
 | T-006 | Plan behavior-preserving moves | implementation | `DONE` | T-004, T-005 | workstream owners | Sections 6–7 | Ordered checkpoints, dependencies, rollback points, and hotspot tasks are defined. |
 | T-007 | Plan validation loop | validation | `DONE` | T-006 | harness evidence accounting | Section 8 | Focused, aggregate, lifecycle, artifact, and performance gates are named. |
-| T-008 | Update docs/contracts if required | docs | `DONE (WF-01 slice)` | T-003 | Testing Harness owner | WF-01 owner amendments; WF-02 and WF-08 remain | WF-01 owner changes preceded implementation; later owner slices remain workstream-gated. |
-| T-009 | Execute or hand off | handoff | `DONE (WF-01 handoff)` | T-006, T-007 | implementation actor | Section 10 | WF-01 is closed and WF-02 can begin without rediscovery. |
+| T-008 | Update docs/contracts if required | docs | `DONE` | T-003 | Testing Harness owner | Testing Harness v3, active guides, generated projections, and WF-02 through WF-09 handoffs | Owner changes preceded implementation; active projections and guides agree after the hard cutover. |
+| T-009 | Execute or hand off | handoff | `DONE` | T-006, T-007, T-008 | implementation actor | Section 10 WF-09 handoff | WF-00 through WF-09 are closed, the performance-publication omission is explicit, and review can begin without rediscovery. |
 
 Implementation status values are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`,
 `DEFERRED`, and `DROPPED`. A future actor MUST update both the workstream table
@@ -965,28 +1013,177 @@ schema/contract gates were rerun instead. Retained-run finalizer maintenance was
 not rerun because this closure did not select a new successful full warm
 `check` root.
 
-### Future handoff record template
-
-Append one record before ending every implementation session.
+### WF-02 implementation handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | TODO |
-| Branch/commit | TODO |
-| Worktree state and intentional pre-existing changes | TODO |
-| Current workflow/checkpoint | TODO |
-| Completed workflows/checkpoints | TODO |
-| Changed authored files | TODO |
-| Regenerated files and owning generator | TODO |
-| Commands run | TODO |
-| Passing validation and run roots | TODO |
-| Failing validation and classification | TODO |
-| Performance source/system/semantic digests | TODO |
-| Decisions and deviations | TODO |
-| Open risks or blockers | TODO |
-| Rollback state | TODO |
-| Next workflow/checkpoint | TODO |
-| Safe restart command | TODO |
+| Date/time | 2026-08-02 17:47 EDT |
+| Branch/commit | `main` at the unchanged WF-02 baseline `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; implementation remains an uncommitted review unit |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative WF-02 owner, policy, schema, disposition, contract-test, generated-index, and tracker changes; the worktree was clean at the recorded WF-02 start gate; `docs/domain.md` is unchanged |
+| Current workflow/checkpoint | WF-02 and CP-03 `DONE`; WF-03 / CP-04 remains `TODO` until this handoff lints |
+| Completed workflows/checkpoints | Adopted Testing Harness v3 execution-control contract; froze all 146 target records, 98 retained public names, 82 declared input uses, 1,019 active rows, four tiers, five entry-point policies, five internal removals, schema successors, and canonical v3 artifact paths |
+| Changed authored files | `docs/testing-harness-nlspec.md`; `tools/harness_contract_cutover_policy.json`; 11 successor schemas under `tools/schemas/**`; `tools/harness_schema_attachments.json`; `tools/harness/contract/cutover-disposition.mjs`; `tools/harness/tests/test-harness-contracts.mjs`; this tracker |
+| Regenerated files and owning generator | `tools/execution_topology_render_index.json` refreshed only by `make generate`; `tools/harness_contract_cutover_disposition.json` rendered by its checked contract compiler from the task surface, catalog, and cutover policy |
+| Commands run | `make task-guide ROLE=module-author OWNER=harness.command_surface`; `node tools/harness/contract/cutover-disposition.mjs --write`; `node tools/harness/contract/cutover-disposition.mjs --check`; `make generate`; `make json-shape-check`; `make harness-command-surface-contract`; `make harness-contract`; `make agent-finalize`; `make lint-markdown`; read-only Git, `rg`, `jq`, `sed`, `wc`, and retained-run inspection |
+| Passing validation and run roots | Final generated refresh `.cartulary/test-results/20260802T174725Z-p4046160`; final JSON shape `.cartulary/test-results/20260802T174733Z-p4048373`; command-surface slice `.cartulary/test-results/20260802T174130Z-p4031323`; full harness contract `.cartulary/test-results/20260802T174153Z-p4031816`; finalizer `.cartulary/test-results/20260802T174740Z-p4049466`; tracker lint `.cartulary/test-results/20260802T174805Z-p4056174` |
+| Failing validation and classification | Expected fail-closed JSON-shape attempt `.cartulary/test-results/20260802T174052Z-p4027336` reported the newly tracked compiler absent from generated topology provenance; `make generate` refreshed the owning projection and the later JSON-shape gate passed. The failed artifact remains recorded and is not relabeled. |
+| Performance source/system/semantic digests | No performance window was selected in WF-02. Task-surface semantic digest `sha256:4924a76e19c9ec8fa9b03e2e6cf9028a31313f7b2ee23ce7f917c6b62c42b825`; catalog semantic digest `sha256:137f27154b7b24fb26e8ff977007e4c4c9d0e1921c0c55ac81af6808a4a21f30`; cache posture was ordinary except finalizer actions, which reported zero hits and no `RESULTS_DIR`. |
+| Decisions and deviations | `release-browser-readiness` and the other four phase-shaped internal targets are removal candidates at hard cutover; `browser-e2e-support` remains. Discovery, cleanup, and local-development command IDs retain their versions; 80 materially affected declared IDs are marked for one cutover bump, one removed ID is deleted, and 40 private records have no ID. The fixed warm-check budget and balance inputs are removed; all other declared inputs remain. |
+| Open risks or blockers | No WF-02 blocker. Runtime manifests remain on their v2 families by design until the owner-first atomic cutover; the v3 disposition is the migration ledger, not a dual live reader. The checked v2 timing baseline remains archival. |
+| Rollback state | CP-02 baseline `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; deleting the new owner projections and restoring the generated index returns to it without data cleanup. No external or product state changed. |
+| Next workflow/checkpoint | WF-03 — unified graph and scheduler / CP-04 and CP-05 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.command_surface` |
+
+### WF-03 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 18:08 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; WF-02 and WF-03 remain one uncommitted review unit |
+| Worktree state and intentional pre-existing changes | Dirty with the cumulative WF-02 review unit plus the WF-03 graph owner, schemas, scheduler-owned work-graph facade, tests, generated topology index, and this tracker; no unrelated user changes were present at either start gate |
+| Current workflow/checkpoint | WF-03, CP-04, and CP-05 `DONE`; WF-04 / CP-06 remains `TODO` until this handoff lints |
+| Completed workflows/checkpoints | Catalog-driven compiler for target, aggregate, owner, and exact-row selectors; canonical deduplication, unit and graph digests; private graph CLI; immutable multidimensional capability snapshot and validated override; critical-path rank, non-reserving fit/backfill, monotonic aging, stable ties, failure propagation, cancellation, event emission, owned process-group termination, and unconditional cleanup |
+| Changed authored files | `tools/harness_work_graph_owner.json`; `tools/schemas/cartulary.harness_work_graph_owner.v1.schema.json`; `tools/schemas/cartulary.harness_capacity_override.v1.schema.json`; schema/helper ownership registries; `tools/harness/test-catalog/index.mjs`; scheduler facade under `tools/harness/scheduler/work-graph/**`; graph/scheduler contract fixtures in `tools/harness/tests/test-harness-contracts.mjs`; this tracker |
+| Regenerated files and owning generator | `tools/execution_topology_render_index.json` refreshed only through `make generate` after each tracked helper change; no generated schedule or public binding changed |
+| Commands run | Private comparison CLI for `backend-unit`; `make generate`; `make json-shape-check`; `make harness-contract`; `make agent-finalize`; read-only artifact, source, task-surface, scheduler-manifest, Git, `rg`, `jq`, and `sed` inspection |
+| Passing validation and run roots | Final generation `.cartulary/test-results/20260802T180632Z-p4082125`; final JSON shape `.cartulary/test-results/20260802T180639Z-p4084316`; final harness contract `.cartulary/test-results/20260802T180642Z-p4084900`; finalizer `.cartulary/test-results/20260802T180730Z-p4086334`; the private `backend-unit` graph contained 219 canonical units and digest `sha256:d8c1eb81e915a89b2c96776580f49026565b45bebff002f09bf1d8153771750f` |
+| Failing validation and classification | `.cartulary/test-results/20260802T175745Z-p4066173` failed because the initial new top-level `graph` directory violated semantic owner boundaries and one assertion matched the wrong schema-error wording; the code moved under the scheduler owner. `.cartulary/test-results/20260802T180538Z-p4080652` then failed only because the exact helper-facade inventory still expected 34 entries; registration of the new facade raised the reviewed count to 35. Both failed artifacts remain retained. |
+| Performance source/system/semantic digests | No performance sample or baseline mutation was selected. Graph semantic digests are source-derived and selector-independent; capability override fixtures record override sources. Finalizer used ordinary cache posture with zero hits and no `RESULTS_DIR`. |
+| Decisions and deviations | The graph implementation is a scheduler-owner facade rather than a new top-level harness owner, preserving the repository's cohesion boundary. Current public runners remain bound to v2 while the private compiler proves identity; there is no alias or live legacy reader in the new facade. |
+| Open risks or blockers | No WF-03 blocker. The compiler currently translates v2 fixture profiles through the authored graph owner; WF-04 must replace that migration translation with explicit per-row capabilities before public cutover. Aggregate policy-only units and cache closure remain WF-06. |
+| Rollback state | CP-03 WF-02 state; removing the scheduler work-graph facade, two WF-03 schemas, graph owner, facade registry row, tests, and generated index delta returns to it. No service, database, browser, or product state changed. |
+| Next workflow/checkpoint | WF-04 — service and backend fixture plane / CP-06 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.test_catalog` |
+
+### WF-04 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 18:20 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; cumulative WF-02 through WF-04 changes remain uncommitted |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative refactor review unit and Make-generated topology index; no product source, dependencies, `docs/domain.md`, or external state changed |
+| Current workflow/checkpoint | WF-04 and CP-06 `DONE`; WF-05 / CP-07 remains `TODO` until this handoff lints |
+| Completed workflows/checkpoints | Explicit capability ledger for all 1,019 rows; 437 service/runtime-backed capabilities split into 147 browser stacks, eight managed processes, 200 dedicated databases, two groups, 11 migration databases, and 69 transactions; run-scoped lease broker; shared affinity leases; borrowed-resource protection; reverse/idempotent cleanup; quarantine; asynchronous dedicated replenishment; digest-keyed migrated pools; capacity-derived Go LPT planning with twice-lane target and exact compatibility closure |
+| Changed authored files | Cutover disposition schema/compiler/report; v3 test-family schema; fixture broker facade under `tools/harness/scheduler/fixture-broker/**`; Go LPT planner and schema; graph compiler/runtime broker integration; helper/schema ownership registries; harness contract fixtures; this tracker |
+| Regenerated files and owning generator | `tools/execution_topology_render_index.json` refreshed only through `make generate`; cutover disposition regenerated by its checked compiler after adding per-row capabilities |
+| Commands run | Cutover report write/check; `make task-guide ROLE=module-author OWNER=harness.test_catalog`; `make generate`; `make json-shape-check`; `make harness-contract`; `make test-slice OWNER=harness.test_catalog`; `make agent-finalize`; read-only catalog, profile, scheduler, source, and artifact inspection |
+| Passing validation and run roots | Generation `.cartulary/test-results/20260802T181804Z-p4099380`; JSON shape `.cartulary/test-results/20260802T181812Z-p4101586`; harness contract `.cartulary/test-results/20260802T181816Z-p4102189`; catalog owner slice `.cartulary/test-results/20260802T181853Z-p4103534`; finalizer `.cartulary/test-results/20260802T181936Z-p4104930` |
+| Failing validation and classification | No WF-04 validation failure. Earlier WF-03 failures remain immutable and are not counted in this slice. |
+| Performance source/system/semantic digests | No accepted performance window or baseline mutation was selected. The Go LPT plan digest closes lane count, exact compatibility, item IDs, weights, and isolation. Finalizer reported zero cache hits and no `RESULTS_DIR`. |
+| Decisions and deviations | Runtime-only rows with no old fixture profile receive `managed_process`, avoiding an implicit `none` fallback. Existing clone-intent rows remain `postgres_dedicated` until owner tests prove transaction/group safety; pressure reduction comes from reusable replenished leases rather than unsafe automated isolation weakening. The old profile-to-capability map was removed from the graph owner after the row ledger became explicit. |
+| Open risks or blockers | No WF-04 blocker. The current public v2 runner still owns legacy fixture acquisition until atomic cutover; v3 manifests will carry `fixture_capability` and omit `fixture_profile_id`. Live service pressure and hotspot timing are final-source WF-09 measurements, not inferred from pure lifecycle tests. |
+| Rollback state | CP-05 state; remove the fixture broker, Go LPT planner/schema, explicit capability fields, facade rows, tests, and generated index delta. No database or service cleanup is required because all broker lifecycle tests used in-memory providers. |
+| Next workflow/checkpoint | WF-05 — browser decomposition and pooling / CP-07 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.browser` |
+
+### WF-05 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 18:32 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; cumulative WF-02 through WF-05 changes remain uncommitted |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative harness refactor review unit and the Make-generated topology index; no product source, dependencies, `docs/domain.md`, or external browser/service state changed |
+| Current workflow/checkpoint | WF-05 and CP-07 `DONE`; WF-06 / CP-08 remains `TODO` until this handoff lints |
+| Completed workflows/checkpoints | Browser-stage graph projection for 98 authored semantic group records; independent stateless lifecycle identities; exact stateful affinities and 28 authored reset actions; single-group commands; evidence and target-summary finalizers; scheduler shared/exclusive locks for quiet measurement and snapshot publication; fixture environment injection; run-scoped healthy stack retention, replacement after quarantine, and idempotent final cleanup |
+| Changed authored files | Browser graph compiler under `tools/harness/scheduler/work-graph/**`; work-graph schema/model/scheduler/executor; fixture broker; browser manifest adapter facade and single-group attachment validation; harness contract fixtures; this tracker |
+| Regenerated files and owning generator | `tools/execution_topology_render_index.json` refreshed only through `make generate`; no public browser projection or generated Make binding changed before the hard cutover |
+| Commands run | `make task-guide ROLE=module-author OWNER=harness.browser`; `make harness-contract` twice after one fail-closed repair; `make generate`; `make json-shape-check`; `make test-slice OWNER=harness.browser`; `make agent-finalize`; read-only manifest, lifecycle, import-boundary, artifact, and scheduler inspection |
+| Passing validation and run roots | Harness contract `.cartulary/test-results/20260802T182910Z-p4119141` (117/117); generation `.cartulary/test-results/20260802T182958Z-p4120563`; JSON shape `.cartulary/test-results/20260802T183006Z-p4122761`; browser owner slice `.cartulary/test-results/20260802T183012Z-p4123342`; finalizer `.cartulary/test-results/20260802T183050Z-p4125401`; final tracker lint `.cartulary/test-results/20260802T183206Z-p4132437` |
+| Failing validation and classification | Initial harness run `.cartulary/test-results/20260802T182819Z-p4117560` failed because the new graph imported the browser owner directly instead of its scheduler adapter and one assertion compared a full runner path as a bare argument. Both were harness-contract defects in the new private path; the retained failure is not relabeled. |
+| Performance source/system/semantic digests | No accepted browser performance window or baseline mutation was selected. Graph digests cover exact groups, commands, lifecycle dependencies, affinities, locks, and evidence paths. Finalizer ran without `RESULTS_DIR`; retained-run maintenance was skipped and its ordinary special-action cache reported no accepted performance evidence. |
+| Decisions and deviations | The old manifest `browser_session_group` is retained as a compatibility contract, not a physical lease identity. Stateless groups receive unique lease identities while stateful partitions share one affinity key. The public v2 batch path remains comparison-only until the atomic cutover; running its direct target would not execute this private graph, so the focused browser owner slice plus graph/lifecycle contracts are the meaningful CP-07 gate. |
+| Open risks or blockers | No WF-05 blocker. A production browser-stack provider and public artifact projection are intentionally bound in WF-08 after WF-06 aggregate composition and WF-07 tool work. Live port/database/object isolation and critical-path improvement require the final-source public browser ladder in WF-09. |
+| Rollback state | CP-06 state; remove the browser graph module, lock/affinity fields, browser lease-retention behavior, attachment-contract fallback, tests, and generated index delta. No live stack was started, so no external cleanup is required. |
+| Next workflow/checkpoint | WF-06 — aggregate composition, deduplication, and cache / CP-08 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.command_surface` |
+
+### WF-06 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 18:52 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; cumulative WF-02 through WF-06 changes remain uncommitted |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative harness refactor review unit and Make-generated topology index; no product source, dependency, domain-owner, service, or external state changed |
+| Current workflow/checkpoint | WF-06 and CP-08 `DONE`; WF-07 / CP-09 remains `TODO` until this handoff lints |
+| Completed workflows/checkpoints | Five aggregate union plans; inherited policy roots with exact producer edges; canonical browser target selection with 50 group units covering all 147 browser rows once; same-run unit deduplication; dependency-closed target projections; one vulnerability scanner unit in `check`, `ci`, and `release-check`; cache registry and runtime for normal/cold/off modes, same-run/content-addressed policies, artifact publication, corruption/missing-output rejection, source/tool/helper mutation, and vulnerability freshness |
+| Changed authored files | Work-graph owner/schema and compiler; cache registry, cache record/registry/event schemas, work-graph cache/runtime integration; static shell tier disposition compiler/report/schema; schema attachments; harness aggregate/cache fixtures; this tracker |
+| Regenerated files and owning generator | `tools/execution_topology_render_index.json` refreshed only through `make generate`; `tools/harness_contract_cutover_disposition.json` refreshed through its checked compiler after the tier correction; public scheduler and Make projections remain unchanged until hard cutover |
+| Commands run | Disposition write/check; private graph compilation for `check` and `release-check`; `make harness-contract` three times across retained repair attempts; `make generate`; `make json-shape-check`; `make test-slice OWNER=harness.command_surface`; `make harness-command-surface-contract`; `make agent-finalize`; read-only task, topology, schema, artifact, and graph inspection |
+| Passing validation and run roots | Final harness contract `.cartulary/test-results/20260802T184850Z-p4146417` (120/120); command-surface owner slice `.cartulary/test-results/20260802T184935Z-p4147848`; command-surface contract `.cartulary/test-results/20260802T184941Z-p4148780`; final generation `.cartulary/test-results/20260802T185024Z-p4149971`; JSON shape `.cartulary/test-results/20260802T185031Z-p4152168`; finalizer `.cartulary/test-results/20260802T185035Z-p4152696`; final tracker lint `.cartulary/test-results/20260802T185222Z-p4159921`; final `check` graph has 821 units and digest `sha256:31ed6643b602351659feb0bd6e5410f97e7b7f8c19c0788ce726eb9c422219b2`; final release graph has 1,022 units and digest `sha256:9f34899ec29bad4bd8cda4ff9e7214d16561a138d84ef9a371d9341c2cfd32fd` |
+| Failing validation and classification | Harness run `.cartulary/test-results/20260802T184612Z-p4140344` failed because the WF-04 capability assertion treated new browser-group runner IDs as row IDs; the assertion was repaired to close the 147 browser evidence paths. Finalizer `.cartulary/test-results/20260802T184955Z-p4149115` then failed closed because scheduler source changed after the prior generated index; `make generate` refreshed the owner projection and the retained later run passed. Neither failure is relabeled. |
+| Performance source/system/semantic digests | No accepted performance window or baseline mutation was selected. Aggregate graph digests close exact rows, policy units, dependencies, cache posture, browser groups, and evidence outputs. Cache fixtures use content-derived input/output digests and current-run events. Finalizer had no `RESULTS_DIR`, so retained-run maintenance was skipped. |
+| Decisions and deviations | Seven static shell-contract rows moved from `full_explicit` to `standard_static_contract`; this removes accidental full-tier sibling execution while preserving the standard check policy, yielding 477/315/220/7 tiers and 477/792/1,012/1,012/1,019 entry-point row closures. Leaf Make commands remain private comparison executors in CP-08; phase-target and nested-scheduler commands are absent, and leaf bindings are replaced atomically at CP-10 rather than through wrappers. |
+| Open risks or blockers | No WF-06 blocker. Cache entries are not yet enabled on public commands. Vulnerability reuse remains fail-safe without a database revision; WF-07 supplies the direct scanner parity/freshness adapter. Failure-derived target summary rendering and canonical event intervals close in WF-09. |
+| Rollback state | CP-07 state; remove aggregate policy declarations/compiler projection, cache registry/runtime/schemas/tests, revert the seven tier dispositions, and refresh the generated index. Cache tests used repo-local temporary directories and removed them. |
+| Next workflow/checkpoint | WF-07 — finalization and tool overhead / CP-09 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.generated_artifacts` |
+
+### WF-07 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 19:11 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`; cumulative WF-02 through WF-07 changes remain uncommitted |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative harness refactor review unit and Make-generated projections; no product source, dependency, domain vocabulary, service, or external state changed |
+| Current workflow/checkpoint | WF-07 and CP-09 `DONE`; WF-08 / CP-10 and CP-11 remain `TODO` until this handoff lints |
+| Completed workflows/checkpoints | One-render generated transaction with compare-once and atomic refresh publication; isolated parallel-safe contract fixtures; five disjoint semantic harness contract suites retaining the 104-case baseline and 17 named additions; freshness-keyed vulnerability resolution and exact artifact/finding/exit parity; once-per-aggregate scanner identity; generated cutover disposition integrated into the Make-owned generation transaction |
+| Changed authored files | Generated transaction helper and drift script; generation scratch-input owner and generator; vulnerability adapter; harness contract suite registry/schema and five suite entry files; task-surface owner bindings for contract suites; network-flow shape-check fixture-root handling; harness contracts, schema/helper attachments, and this tracker |
+| Regenerated files and owning generator | `tools/harness_contract_cutover_disposition.json` now generated by `make generate`; `tools/task_surface.generated.mk`, `tools/task_surface_manifest.json`, and `tools/execution_topology_render_index.json` refreshed only through `make generate` |
+| Commands run | `make task-guide ROLE=module-author OWNER=harness.generated_artifacts`; `make generate`; `make harness-contract`; the three public harness contract entry points; `make json-shape-check`; `make generated-artifact-policy-check`; `make go-vulncheck`; `make lint-scripts`; `make generate-drift`; `make test-slice OWNER=harness.generated_artifacts`; `make agent-finalize`; read-only artifact, task, source, Git, `rg`, `jq`, and retained-log inspection |
+| Passing validation and run roots | Generation `.cartulary/test-results/20260802T190938Z-p4190757`; partitioned harness contract `.cartulary/test-results/20260802T190625Z-p4174918` (122/122 including observability); independent contract entries rooted at `.cartulary/test-results/20260802T190714Z-p4176919`, `.cartulary/test-results/20260802T190714Z-p4176917`, and `.cartulary/test-results/20260802T190714Z-p4176906`; JSON shape `.cartulary/test-results/20260802T190805Z-p4179249`; generated policy `.cartulary/test-results/20260802T190805Z-p4179220`; direct scanner `.cartulary/test-results/20260802T190805Z-p4179595`; generate drift `.cartulary/test-results/20260802T190950Z-p4193127`; generated-artifacts owner slice `.cartulary/test-results/20260802T191006Z-p3293`; finalizer `.cartulary/test-results/20260802T191032Z-p7684` |
+| Failing validation and classification | Partition run `.cartulary/test-results/20260802T190149Z-p4169647` retained two harness failures: stale cutover disposition and a live-repository network-flow fixture race; both sources changed before the 122/122 pass. Concurrent focused runs `.cartulary/test-results/20260802T190840Z-p4181301` and `.cartulary/test-results/20260802T190840Z-p4181373` retained the same fail-closed scratch-input omission: the cutover policy was absent from the generated-drift scratch declaration. The declaration changed before the later drift and owner-slice passes; no failure was relabeled or overwritten. |
+| Performance source/system/semantic digests | No accepted performance window or baseline mutation was selected. Partitioned harness wall time was 15.69 seconds versus the prior retained roughly 30-second private suite run. Direct `go-vulncheck` took 18.87 seconds and executed because no proven reusable database revision existed. Finalizer remained on the v2 comparison binding for CP-10, took 25.08 seconds, used no `RESULTS_DIR`, and accepted no performance evidence. |
+| Decisions and deviations | Contract cases remain authored in one case source but are registered through disjoint semantic suite files, giving file-level parallelism without duplicating setup or case bodies. The public finalizer and its special action-cache records intentionally remain comparison-only until the atomic WF-08 binding; the one-render path is private and fully characterized, so no transitional dual writer exists. The cutover disposition is derived state and is now owned by the normal Make generation transaction rather than an out-of-band writer. |
+| Open risks or blockers | No WF-07 blocker. CP-10 must switch the public finalizer, scanner, aggregates, browser commands, service-backed commands, owner slices, artifacts, and versioned command/schema families together, then CP-11 must delete the comparison paths and special finalizer caches. Final performance and canonical event interval closure remain WF-09 gates. |
+| Rollback state | CP-08 state; remove the transaction/scanner adapters, suite registry and entries, generator integration, isolated fixture-root change, tests, and generated projection deltas. All scratch, cache, and fixture tests used repo-local recoverable paths and completed cleanup. |
+| Next workflow/checkpoint | WF-08 — owner-first hard cutover and cleanup / CP-10 and CP-11 |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.command_surface` |
+
+### WF-08 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 20:48 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`, equal to `origin/main`; cumulative WF-02 through WF-08 changes remain uncommitted |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative harness refactor review unit, owner-first specification and guide changes, deleted obsolete harness paths, focused test-support repairs, and Make-generated projections; no product behavior, production API, dependency, domain vocabulary, or external service state changed |
+| Current workflow/checkpoint | WF-08, CP-10, and CP-11 `DONE`; WF-09 / CP-12 is `IN_PROGRESS` after the handoff lint gate |
+| Completed workflows/checkpoints | Atomic public graph cutover for all 98 public Make names; 47 canonical measured-target bindings; v3 test families, v2 task owner, v6 topology, v5 resources, v8 browser model, and v3 scheduler projection; canonical capacity, cache, fixture lease, manifest, unit-event, run-summary, and target-summary contracts; explicit fixture capability environment; group-level browser scheduling; aggregate union/deduplication; canonical artifact assertions; single-render finalizer; nested OTel owner-slice execution replaced by exact graph dependencies; old orchestration, batch, duration-accounting, schema, finalizer-cache, and compatibility-reader paths removed |
+| Current inventory | 143 task-surface records: 98 public, ten check-internal, and 35 internal-helper records; all 47 measured public targets use scheduler orchestration and canonical evidence; exactly 1,019 active catalog rows |
+| Changed authored files | Testing Harness v3 NLSpec; task-surface, catalog/test-family, topology, browser, scheduler-resource, work-graph, cache, helper-ownership, schema-attachment, finalization, observability, and extension-contract owners; canonical compiler/scheduler/executor/broker/cache/evidence modules; PostgreSQL and process-lifecycle test support; active developer/testing guides; contract, generated-artifact, readiness, release-surface, browser, fixture, cache, observability, and real-target smoke tests; this tracker |
+| Regenerated files and owning generator | `tools/task_surface.generated.mk`, `tools/task_surface_manifest.json`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, generated topology schedules, and `internal/gen/contractextensions/artifacts_gen.go` refreshed only through `make generate` and their registered generators; generated roots were not hand-edited |
+| Commands run | `make task-guide ROLE=module-author OWNER=harness.command_surface`; repeated focused `make harness-contract`, task-surface, command-surface, JSON-shape, generation, generated-policy, drift, import-boundary, shell/script lint, backend unit/integration, exact owner-row, OTel conformance, fixture lifecycle, and smoke gates; direct cache-off graph probes; `make check`; `make agent-finalize`; read-only Git, source/ID/path/environment, task/catalog count, run-manifest, and retained-artifact inspections |
+| Passing validation and run roots | Accumulated harness smoke `.cartulary/test-results/wf08-smoke-full-final-pass`; backend unit `.cartulary/test-results/wf08-backend-unit-off` (52/52); backend integration `.cartulary/test-results/wf08-backend-integration-off2` (181/181); transaction fixture `.cartulary/test-results/wf08-fixture-transaction` (3/3 with one released borrowed transaction lease); migration audit `.cartulary/test-results/wf08-platform-audit-migration-row`; direct OTel `.cartulary/test-results/wf08-otel-no-nested` (10/10); aggregate `check` `.cartulary/test-results/wf08-check-no-nested` (688/688); final source shell lint `.cartulary/test-results/20260803T004557Z-p1873861`; generation `.cartulary/test-results/20260803T004612Z-p1874721`; generated policy `.cartulary/test-results/20260803T004628Z-p1877032`; drift `.cartulary/test-results/20260803T004628Z-p1877034`; JSON shape `.cartulary/test-results/20260803T004628Z-p1877066`; finalizer `.cartulary/test-results/20260803T004654Z-p1880854`; final WF-08 tracker lint `.cartulary/test-results/20260803T005038Z-p1884498` |
+| Failing validation and classification | Generator defects remained visible at `.cartulary/test-results/20260802T225028Z-p572358`, `.cartulary/test-results/20260802T225114Z-p577923`, `.cartulary/test-results/20260802T225200Z-p586941`, `.cartulary/test-results/20260802T231025Z-p778421`, `.cartulary/test-results/20260802T232447Z-p783468`, `wf08-generate-drift`, and `wf08-generate-drift-2`; their generator-version, cache-path, lifecycle/evidence, pending-baseline, JavaScript-syntax, and stale-projection sources changed before the final generation/drift passes. `wf08-check-repro` was intentionally cancelled. `wf08-smoke-full-final`, `wf08-smoke-full-fix`, `wf08-smoke-extended-fix` through `wf08-smoke-extended-fix4`, `wf08-smoke-full-pass`, and `wf08-smoke-full-pass2` retained successive stale-fixture, canonical-artifact, lifecycle, PostgreSQL-capability, release-surface, and hidden nested-OTel failures; affected sources changed before `wf08-smoke-extended-fix5` and the final accumulated smoke passed. `.cartulary/test-results/20260803T004628Z-p1877120` failed closed because a nonexistent `RESULTS_DIR` was supplied to `agent-finalize`; the valid no-`RESULTS_DIR` invocation is separately recorded and does not erase that configuration failure. |
+| Performance source/system/semantic digests | No accepted performance window or baseline mutation was selected. Final direct `check` evidence at `wf08-check-no-nested` used source `sha256:b1ed9a70f7670d4f7fb8f24e6bc4769de10d5e19e89af6771cc91e4ad77d9a9e`, system `sha256:24000a47102254c54328907385158903bc14cd0446e69c3a277895d52b6a3be2`, graph `sha256:03e78caefff3408127ecd8ed23d1f7f8de4705379e271bdd9b9b3ab351c5a4a7`, normal cache mode, and 62,990 ms. Finalizer source `sha256:7c417f1767e35a4005991be28260d6a89094926b325a38eb913b871170f4f9cf`, same system digest, graph `sha256:58e60baf7949d988196a6dce93337b27b8a9830d469b47c46d2e61f898adf457`, and normal cache mode. The checked v2 duration baseline remains archival and unchanged. |
+| Decisions and deviations | The public vocabulary remains 98 names, but obsolete internal phase records are removed, reducing the full task-surface inventory from 146 to 143. Policy targets may declare exact owner-slice graph dependencies; this replaced the hidden OTel nested scheduler without reintroducing target-shaped phase barriers. Migration-capable Go rows explicitly request migration leases while current-head isolated database helpers map that capability to a dedicated migrated template; no implicit clone fallback was restored. Static negative fixtures retain retired identifiers solely to prove rejection. |
+| Source/ID/path audit | No live consumer of the five removed internal phase targets, retired batch/scheduler commands, or superseded schema IDs remains. Search hits are limited to rejection tests, human prose, one unrelated frontend fixture label containing `test-local`, and the archival v2 duration baseline. `git diff --check` passes. |
+| Open risks or blockers | No WF-08 blocker. WF-09 must close the final functional ladder, canonical interval/projection ledger, cold/warm performance protocol, non-regression roster, accepted v3 baseline publication, final retained-run maintenance, and restartable handoff. Performance improvement is not inferred from the passing functional roots. |
+| Rollback state | CP-09 private-parity state. Rollback requires restoring the complete old binding/schema/orchestrator set as one unit; partial aliases, dual writers, and mixed readers are prohibited. No rollback or external cleanup is currently required. |
+| Next workflow/checkpoint | WF-09 — accumulated validation and handoff / CP-12 is now open |
+| Safe restart command | `make task-guide ROLE=module-author OWNER=harness.command_surface` |
+
+### WF-09 implementation handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | 2026-08-02 23:50 EDT |
+| Branch/commit | `main` at `f4b0176f877f3edb0fe003ee35e5bb0234c77bea`, equal to `origin/main`; cumulative WF-02 through WF-09 changes remain uncommitted for review |
+| Worktree state and intentional pre-existing changes | Dirty only with the cumulative harness-refactor review unit: adopted owner and active-guide changes, authored machine contracts and schemas, canonical graph/scheduler/broker/cache/evidence implementation, obsolete-path deletions, focused test-support repairs, and Make-generated projections. No product API, production behavior, dependency version, domain vocabulary, or external service state was changed. The unrelated retained WF-01 SeaweedFS listener was inspected but not stopped or modified. |
+| Current workflow/checkpoint | WF-09 and CP-12 `DONE`; the clean-source multi-window performance-publication subgate is `DROPPED` by explicit user direction, so no performance claim or v3 reference publication is part of completion |
+| Completed workflows/checkpoints | WF-00 through WF-09 and CP-00 through CP-12. Functional acceptance closes tier selection, graph identity, deterministic scheduling, explicit fixture leases, browser affinity and cleanup, aggregate deduplication, cache/security fail-safe behavior, canonical evidence, single-pass finalization, once-per-graph scanning, hard-cutover cleanup, and the restartable handoff. |
+| Current inventory | 143 task-surface records: 98 public, ten check-internal, and 35 internal-helper records; 47 canonical measured-target bindings; 61 catalog owners and exactly 1,019 active rows |
+| Changed authored files | Testing Harness v3 NLSpec; task-surface, test-family/catalog, topology, browser, scheduler-resource, work-graph, cache, helper-ownership, schema-attachment, finalization, observability, release-evidence, and extension-contract owners and implementation; PostgreSQL, browser, process, row-runner, generated-transaction, canonical-performance, and contract-suite tests; the two active harness guides; this tracker. `docs/domain.md` remains unchanged. |
+| Regenerated files and owning generator | `tools/task_surface.generated.mk`, `tools/task_surface.runtime.generated.mk`, `tools/task_surface_manifest.json`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, generated topology/browser projections, and `internal/gen/contractextensions/artifacts_gen.go` were refreshed only through `make generate` and registered Make-owned generators; generated roots were not hand-edited. |
+| Commands run | Focused owner guidance/slices; repeated `make harness-contract`; direct browser, backend, scanner, finalizer, object-store compatibility, release-evidence, generated-artifact, JSON-shape, import-boundary, task-surface, and baseline-coverage gates; `make generate`; `make test-fast`; `make check`; `make test`; `make ci`; `make release-check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260803T032316Z-p90370`; read-only inventory, artifact, digest, source/ID/path/environment, and Git audits. `make harness-performance-check EVIDENCE_ROOTS_FILE=.cartulary/t012-performance-comparison-roots.v2.json` was also run as an expected negative old-schema probe. |
+| Passing validation and run roots | Focused catalog slice `.cartulary/test-results/20260803T020115Z-p2468924`; harness contract `.cartulary/test-results/20260803T032241Z-p89490`; object-store compatibility `.cartulary/test-results/20260803T022708Z-p3011918`; same-run release gate `.cartulary/test-results/20260803T023756Z-p3203785`; browser support `.cartulary/test-results/20260803T025332Z-p3557055`; direct browser `.cartulary/test-results/20260803T031816Z-p51014`; direct scanner `.cartulary/test-results/20260803T031750Z-p50225`; JSON shape `.cartulary/test-results/20260803T031625Z-p4172271`; drift `.cartulary/test-results/20260803T031627Z-p4172659`; generated policy `.cartulary/test-results/20260803T031634Z-p4175191`; generation `.cartulary/test-results/20260803T032234Z-p87265`; frontend import boundary `.cartulary/test-results/20260803T032812Z-p167048`; baseline closure `.cartulary/test-results/20260803T032736Z-p165793`; final-source `test-fast` `.cartulary/test-results/20260803T032822Z-p167493` (339/339), `check` `.cartulary/test-results/20260803T032316Z-p90370` (688/688), `test` `.cartulary/test-results/20260803T032842Z-p168009` (822/822), `ci` `.cartulary/test-results/20260803T033328Z-p252871` (850/850), `release-check` `.cartulary/test-results/20260803T033833Z-p401790` (857/857), and retained-run finalizer `.cartulary/test-results/20260803T032431Z-p162280` (1/1). Tracker Markdown gates `.cartulary/test-results/wf09-tracker-lint-draft`, `.cartulary/test-results/wf09-final-markdown-lint`, and `.cartulary/test-results/wf09-final-markdown-lint-recorded` pass in sequence. All canonical timing summaries report zero or rounding-only one/two-millisecond unattributed wall time. |
+| Failing validation and classification | `.cartulary/test-results/20260803T013420Z-p2143055` and `.cartulary/test-results/20260803T014225Z-p2303007` retained fail-closed profile/fixture contract defects; their authored inputs changed before later contract passes. `.cartulary/test-results/20260803T014322Z-p2306357` is the intentional failure-taxonomy probe. `.cartulary/test-results/20260803T014431Z-p2307505` exposed zero-reference browser stacks retaining PostgreSQL clients after claims released; broker ownership, terminal release edges, and resource claims changed before the final 822/822 tests. `.cartulary/test-results/20260803T021506Z-p2825424` exposed release coupling to a fixed local-development object-store port; the release graph moved to an owned run-scoped lease without modifying the unrelated listener. `.cartulary/test-results/20260803T022455Z-p3007307` exposed missing CORS behavior at the raw object-store endpoint; the owned ephemeral proxy changed before compatibility passed. `.cartulary/test-results/20260803T022749Z-p3013570`, `.cartulary/test-results/20260803T023457Z-p3192981`, and `.cartulary/test-results/20260803T023648Z-p3198495` exposed stale/pre-final-projection release-evidence reads; live atomic unit results changed before the gate and release aggregate passed. `.cartulary/test-results/20260803T024557Z-p3451532` exposed a browser request/response-generation race; exact request identity and completion synchronization changed before direct and aggregate passes. `.cartulary/test-results/20260803T032051Z-p84178` exposed missing `RESULTS_DIR` child forwarding; the declared input contract changed before finalizer and all final aggregates passed. The archival v2 performance manifest was deliberately rejected by the v3 schema; it was not translated, relabeled, or used as current evidence. |
+| Performance source/system/semantic digests | Final functional roots share dirty reviewed source digest `sha256:6df8593b8b23f64a71d2521f0118ba747fbd31a8f13753308a2335b94b183068`, system digest `sha256:a0ed26bbd5d2dbd5c14ad15cb957bff29b110da73fbca87edbe02750cc6a1a1a`, and normal cache mode. Graph digests are `test-fast` `sha256:f02a279e84df40d151279d2bcb309f1953a4f79c0d6ac49fb767ed7d544f7607`, `check` `sha256:03e78caefff3408127ecd8ed23d1f7f8de4705379e271bdd9b9b3ab351c5a4a7`, `test` `sha256:7524412c2351e7019cc59bfa1e975e8076c3e480310602f42f1adad9d20a230c`, `ci` `sha256:796c711e99c100cfe03c17688421986024019a5acaf30df07e3566c99bd149f2`, `release-check` `sha256:e9ea3b5a1f99fcc49b43163b9ff4632f57787ca24d95f507071d0936a8ef0307`, and `agent-finalize` `sha256:58e60baf7949d988196a6dce93337b27b8a9830d469b47c46d2e61f898adf457`. These are functional observations, not accepted performance windows. The user explicitly skipped clean-source multi-window publication; the v2 baseline remains archival and no v3 baseline exists. |
+| Decisions and deviations | Clean-source performance sampling/publication was removed from completion by explicit user direction on 2026-08-02. The implementation retains the v3 fail-closed schemas, exact 47-target writer, cold/warm protocol, and rejection of old inputs for future use, but this handoff makes no material-improvement or non-regression claim. The public 98-name vocabulary remains; retired internal phases, live compatibility readers, dual writers, and forwarding aliases remain deleted. |
+| Source/ID/path audit | Live authored/generated sources contain no consumer of the five removed internal phase targets, retired batch/scheduler commands, superseded live schema IDs, or old artifact readers. Remaining hits are static rejection fixtures, explicit negative assertions, one unrelated frontend label containing `test-local`, and the archival v2 duration baseline. `make task-surface-report` closes 98/10/35, and `git diff --check` passes. |
+| Open risks or blockers | No implementation blocker. Accepted residual risk: executor improvement and public-target non-regression were not statistically established because publication was explicitly skipped. No future baseline may treat these functional observations as accepted performance evidence; a later performance effort must start with clean committed reference/candidate windows. |
+| Rollback state | Final hard-cutover review unit at CP-12. Rollback must restore the pre-cutover owner/schema/orchestrator set atomically from CP-09; partial aliases, dual schemas, dual writers, or mixed readers remain prohibited. No owned service/process/port/database cleanup remains, and borrowed/external resources were preserved. |
+| Next workflow/checkpoint | None in this plan. Review and commit/publish are intentionally left to the user; a future optional performance-only effort starts from a reviewed clean commit. |
+| Safe restart command | `git diff --check && make task-surface-report && make harness-contract` |
 
 Do not claim a command passed unless it ran in that session or an exact retained
 artifact is named. Do not claim parity, preservation, cleanup, or improvement
@@ -1008,6 +1205,23 @@ without the corresponding artifact. Missing evidence is `TODO`, not inference.
 | RB-010 | Unrelated repository failure obscures final validation. | Medium | Reproduce and classify at CP-00; record exact failing target and source state. | Failure is fixed separately or retained as explicit unrelated evidence. |
 | RB-011 | Temporary comparison runner becomes permanent duplicate architecture. | Medium | Private-only binding and mandatory deletion in CP-11. | No comparison runner is reachable after cutover except retained static fixtures. |
 | RB-012 | Incremental carry-forward hides a changed test or erases a historical failure. | High | TH-HARNESS-REQ-675 deterministic impact closure, exact source provenance, same-version retry prohibition, immutable failures, and exact combined roster closure. | AC-081 fixtures and the final ledger prove every current requirement resolves to the newest applicable pass exactly once. |
+
+Final disposition:
+
+| Risk | Final status | Evidence or accepted posture |
+| --- | --- | --- |
+| RB-001 | `ACCEPTED RESIDUAL` | Canonical unit-derived accounting and the 47-target writer pass, but the user explicitly skipped the clean-source publication window. No performance conclusion or reference mutation was made. |
+| RB-002 | `RESOLVED` | All 1,019 active rows have one tier and the focused/aggregate catalog, tier, and evidence-union gates pass. |
+| RB-003 | `RESOLVED` | Explicit fixture claims, broker lifecycle tests, final full aggregates, and released lease evidence pass at the selected capacity. |
+| RB-004 | `RESOLVED` | Browser affinity, reset, isolation, failure, cancellation, quarantine, and final direct/aggregate cleanup gates pass. |
+| RB-005 | `RESOLVED` | Rank, fit, backfill, aging, contention, simultaneous-completion, and starvation simulations pass. |
+| RB-006 | `RESOLVED` | Registered closure mutation tests, corrupt/missing output tests, cold/off modes, and vulnerability-freshness fail-safe behavior pass. |
+| RB-007 | `RESOLVED` | All registered consumers migrated atomically; source/ID/path audits find no live compatibility reader or forwarding alias. |
+| RB-008 | `ACCEPTED RESIDUAL` | Tier and executor effects remain structurally distinct, and this handoff makes no acceleration claim because performance publication was skipped. |
+| RB-009 | `DROPPED` | The user removed multi-window performance publication from this effort. The v2 baseline remains archival, and any future performance claim requires new clean matched windows. |
+| RB-010 | `RESOLVED` | Every final-source focused and aggregate gate passes; all earlier failures retain their classifications and superseding source changes in the WF-09 handoff. |
+| RB-011 | `RESOLVED` | The comparison runner and obsolete scheduler families are absent from the live surface; only static rejection fixtures remain. |
+| RB-012 | `RESOLVED` | The accumulated ledger retains failed roots, relevant source changes, newest applicable passes, and final aggregate closure without relabeling retries. |
 
 ## 12. Binary Completion Criteria
 
@@ -1047,19 +1261,24 @@ without the corresponding artifact. Missing evidence is `TODO`, not inference.
 | THBR-AC-015 | Every named bottleneck target materially improves under the variability-derived protocol; every other retained public verification target is non-regressing; baselines refresh only afterward. |
 | THBR-AC-016 | The final tracker records changed/authored/generated files, commands, run roots, semantic/system digests, failures, cleanup, decisions, residual risks, and safe restart state. |
 
+Final criterion disposition: THBR-AC-001 through THBR-AC-014 and THBR-AC-016
+are satisfied. THBR-AC-015 is `DROPPED` by explicit user direction: no
+clean-source multi-window performance publication was run, no v3 reference was
+written, and no material-improvement or non-regression assertion is made.
+
 ### Final checklist
 
 - [x] WF-01 corrected measurement truth and its accumulated validation ledger are retained before optimization.
-- [ ] Every active row and public input has a target-state disposition.
-- [ ] Owner changes precede schemas, authored projections, generation, and code.
-- [ ] Direct and aggregate work use one graph and scheduler.
-- [ ] Fixture and browser concurrency preserves explicit isolation.
-- [ ] No phase wrapper, serial browser loop, duplicate finalizer, or nested runner remains.
-- [ ] Cache closure and security freshness fail safe.
-- [ ] Artifact roster, timing, critical path, and totals close exactly.
-- [ ] Executor improvement is separated from tier inventory reduction.
-- [ ] Focused and accumulated validation close through exact affected-test provenance.
-- [ ] Generated output was refreshed only through Make.
-- [ ] Obsolete compatibility paths and schema readers are removed.
-- [ ] Performance references were refreshed only after acceptance.
-- [ ] The final implementation handoff is complete and restartable.
+- [x] Every active row and public input has a target-state disposition.
+- [x] Owner changes precede schemas, authored projections, generation, and code.
+- [x] Direct and aggregate work use one graph and scheduler.
+- [x] Fixture and browser concurrency preserves explicit isolation.
+- [x] No phase wrapper, serial browser loop, duplicate finalizer, or nested runner remains.
+- [x] Cache closure and security freshness fail safe.
+- [x] Artifact roster, timing, critical path, and totals close exactly.
+- [x] Executor improvement is separated from tier inventory reduction; no improvement claim is made because performance publication was skipped.
+- [x] Focused and accumulated validation close through exact affected-test provenance.
+- [x] Generated output was refreshed only through Make.
+- [x] Obsolete compatibility paths and schema readers are removed.
+- [x] Performance references were not refreshed; publication was explicitly dropped before any acceptance claim.
+- [x] The final implementation handoff is complete and restartable.

@@ -1,10 +1,8 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
 import { resolveSummaryGroups } from "../../execution/summary-topology.mjs";
 import { readJSON, repoRoot } from "./model.mjs";
 const validGateSmokeRoles = new Set([
-  "public_make_wrapper", "check_scheduler_semantic", "service_backed_scheduler_semantic",
+  "public_make_wrapper", "work_graph_scheduler_semantic", "fixture_broker_semantic",
 ]);
 const compactHelpMaxEntries = 12;
 const helpTargetColumnWidth = 30;
@@ -13,12 +11,11 @@ const helpDescriptionIndent = " ".repeat(
 );
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
-const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v1$/;
+const commandIDPattern = /^cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v[1-9][0-9]*$/;
 const ownerSectionPattern = /^Section (?:[1-9]|1[0-9])(?:\.[0-9]+)?$/;
 const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
-const repoJSONPathPattern = /^[A-Za-z0-9_./-]+\.json$/;
 const ownerCommandTargets = new Set([
   "explain-test-owner",
   "service-backed-test-slice",
@@ -33,12 +30,7 @@ const makeRecipeValidators = Object.freeze({
   readiness_projection: validateReadinessProjectionRecipe,
   cleanup: validateCleanupRecipe,
   print_help: validatePrintHelpRecipe,
-  sequence: validateSequenceRecipe,
-  check_schedule: validateCheckScheduleRecipe,
-  go_target: validateGoTargetRecipe,
-  service_backed_target: validateServiceBackedTargetRecipe,
-  service_backed_schedule: validateServiceBackedScheduleRecipe,
-  browser_batch: validateBrowserBatchRecipe,
+  work_graph: validateWorkGraphRecipe,
   step_command: validateStepCommandRecipe,
   owner_command: validateOwnerCommandRecipe,
   summary_target: validateSummaryTargetRecipe,
@@ -53,12 +45,11 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
     return false;
   }
   if (artifactPolicy === "run_and_target_summaries") {
-    return recipe.type === "sequence";
+    return recipe.type === "work_graph" || recipe.graph_entry === true;
   }
   if (artifactPolicy === "scheduler_and_tool_run_summaries") {
     return (
-      recipe.type === "check_schedule" ||
-      recipe.type === "service_backed_schedule" ||
+      recipe.type === "work_graph" ||
       (recipe.type === "owner_command" &&
         ["test-slice", "service-backed-test-slice"].includes(target))
     );
@@ -68,9 +59,7 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
       recipe.type === "artifact_binding" ||
       recipe.type === "aggregate" ||
       recipe.type === "node_tool" ||
-      recipe.type === "go_target" ||
-      recipe.type === "service_backed_target" ||
-      recipe.type === "browser_batch" ||
+      recipe.type === "work_graph" ||
       recipe.type === "summary_target" ||
       recipe.type === "owner_command" ||
       recipe.type === "step_command"
@@ -160,6 +149,17 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
       typeof recipe.success_summary !== "boolean"
     ) {
       errors.push(`${label}.success_summary must be a boolean`);
+    }
+    if (recipe.graph_entry !== undefined) {
+      if (recipe.graph_entry !== true) {
+        errors.push(`${label}.graph_entry must be true when present`);
+      }
+      if (targets.get(target)?.target_class !== "public") {
+        errors.push(`${label}.graph_entry is limited to public targets`);
+      }
+      if (recipe.type === "work_graph") {
+        errors.push(`${label}.graph_entry is redundant for work_graph recipes`);
+      }
     }
     validateMakeExports(errors, recipe.exports, `${label}.exports`);
     if (recipe.exports?.CARTULARY_TEST_TARGET !== undefined) {
@@ -256,14 +256,10 @@ function validateReadinessProjectionRecipe({ errors, target, recipe, label, targ
 function recipeRequiresNodeRuntime(recipe) {
   if (
     [
-      "browser_batch",
-      "check_schedule",
-      "go_target",
       "make_node_tool",
       "owner_command",
-      "service_backed_schedule",
-      "service_backed_target",
       "summary_target",
+      "work_graph",
     ].includes(recipe.type)
   ) {
     return true;
@@ -277,6 +273,24 @@ function recipeRequiresNodeRuntime(recipe) {
   return (recipe.command ?? []).includes("$(NODE_BIN)");
 }
 
+function validateWorkGraphRecipe({ errors, target, recipe, label }) {
+  if (!new Set(["target", "aggregate", "owner"]).has(recipe.selection)) {
+    errors.push(`${label}.selection must be target, aggregate, or owner`);
+  }
+  if (recipe.selection === "aggregate" && !new Set(["test-fast", "check", "test", "ci", "release-check"]).has(target)) {
+    errors.push(`${label}.selection=aggregate is limited to aggregate roots`);
+  }
+  if (recipe.selection === "owner" && !new Set(["test-slice", "service-backed-test-slice"]).has(target)) {
+    errors.push(`${label}.selection=owner is limited to owner slice targets`);
+  }
+  if (recipe.service_backed_only !== undefined && typeof recipe.service_backed_only !== "boolean") {
+    errors.push(`${label}.service_backed_only must be a boolean`);
+  }
+  if (recipe.service_backed_only === true && target !== "service-backed-test-slice") {
+    errors.push(`${label}.service_backed_only is limited to service-backed-test-slice`);
+  }
+}
+
 function validateCleanupRecipe({ errors, recipe, label }) {
   if (!["clean", "distclean"].includes(recipe.scope)) {
     errors.push(`${label}.scope must be clean or distclean`);
@@ -286,112 +300,6 @@ function validateCleanupRecipe({ errors, recipe, label }) {
 function validatePrintHelpRecipe({ errors, recipe, label }) {
   if (!["compact", "all"].includes(recipe.scope)) {
     errors.push(`${label}.scope must be compact or all`);
-  }
-}
-
-function validateSequenceRecipe({ errors, recipe, label, sequences }) {
-  if (typeof recipe.sequence !== "string" || !sequences?.[recipe.sequence]) {
-    errors.push(
-      `${label}.sequence references unknown sequence ${JSON.stringify(recipe.sequence)}`,
-    );
-  }
-}
-
-function validateCheckScheduleRecipe({
-  errors,
-  recipe,
-  label,
-  targets,
-  repoRoot,
-  readJSON,
-}) {
-  if (typeof recipe.target !== "string" || !targets.has(recipe.target)) {
-    errors.push(
-      `${label}.target references unknown schedule target ${JSON.stringify(recipe.target)}`,
-    );
-  }
-  if (recipe.summary_profile !== undefined) {
-    errors.push(
-      `${label}.summary_profile is obsolete; summary targets derive from the check schedule`,
-    );
-  }
-  if (
-    typeof recipe.manifest_variable !== "string" ||
-    !makeVariablePattern.test(recipe.manifest_variable)
-  ) {
-    errors.push(`${label}.manifest_variable must be a safe Make variable name`);
-  }
-  if (
-    typeof recipe.schedule_manifest !== "string" ||
-    !repoJSONPathPattern.test(recipe.schedule_manifest) ||
-    recipe.schedule_manifest.includes("..")
-  ) {
-    errors.push(`${label}.schedule_manifest must be a safe repo-local JSON path`);
-  } else {
-    const scheduleManifestPath = path.join(repoRoot, recipe.schedule_manifest);
-    if (!existsSync(scheduleManifestPath)) {
-      if (recipe.schedule_manifest !== "tools/scheduler_manifest.json") {
-        errors.push(
-          `${label}.schedule_manifest missing: ${recipe.schedule_manifest}`,
-        );
-      }
-    } else {
-      const scheduleManifest = readJSON(recipe.schedule_manifest);
-      const scheduleTargets = new Set(
-        (scheduleManifest.schedules ?? []).map((schedule) => schedule.target),
-      );
-      if (!scheduleTargets.has(recipe.target)) {
-        errors.push(
-          `${label}.target ${recipe.target} is missing from ${recipe.schedule_manifest}`,
-        );
-      }
-    }
-  }
-  if (recipe.resource_limits !== undefined) {
-    errors.push(
-      `${label}.resource_limits is obsolete; scheduler capacity overrides come from the resource registry`,
-    );
-  }
-}
-
-function validateGoTargetRecipe({ errors, recipe, label, helpers }) {
-  helpers.validateEnvEntries(errors, recipe.env, `${label}.env`);
-}
-
-function validateServiceBackedTargetRecipe({ errors, recipe, label, helpers }) {
-  helpers.validateEnvEntries(errors, recipe.env, `${label}.env`);
-}
-
-function validateServiceBackedScheduleRecipe({ errors, recipe, label }) {
-  if (
-    typeof recipe.step_label !== "string" ||
-    recipe.step_label.trim() === ""
-  ) {
-    errors.push(`${label}.step_label must be a non-empty string`);
-  }
-  if (!["test-services"].includes(recipe.service_wrapper)) {
-    errors.push(`${label}.service_wrapper must be test-services`);
-  }
-}
-
-function validateBrowserBatchRecipe({ errors, recipe, label }) {
-  if (
-    typeof recipe.stage !== "string" ||
-    !makeTargetPattern.test(recipe.stage)
-  ) {
-    errors.push(`${label}.stage must be a safe browser stage name`);
-  }
-  if (
-    typeof recipe.workers !== "string" ||
-    !makeValuePattern.test(recipe.workers)
-  ) {
-    errors.push(`${label}.workers must be a safe Make value`);
-  }
-  if (recipe.service_resolution !== "runtime-profile") {
-    errors.push(`${label}.service_resolution must be runtime-profile`);
-  }
-  if (recipe.service_wrapper !== undefined) {
-    errors.push(`${label}.service_wrapper is obsolete for browser batches`);
   }
 }
 

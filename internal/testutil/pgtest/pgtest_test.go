@@ -436,28 +436,26 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 		TestName:      "TestOther/subcase",
 		CallerPackage: "internal/modules/timeline",
 	})
-	if policy != postgresFixturePolicyTemplateClone {
-		t.Fatalf("expected no-env fallback to use template clone, got %q", policy)
+	if policy != "" {
+		t.Fatalf("expected no implicit fixture policy, got %q", policy)
 	}
 }
 
 func TestValidateSelectedPostgresFixturePolicy(t *testing.T) {
-	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyTemplateClone, postgresFixturePolicyTemplateClone, true); err != nil {
+	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyTemplateClone, postgresFixturePolicyTemplateClone); err != nil {
 		t.Fatalf("matching explicit policy failed: %v", err)
 	}
-	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyTemplateClone, false); err != nil {
-		t.Fatalf("optional implementation-support policy failed: %v", err)
+	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyTemplateClone); err == nil {
+		t.Fatal("expected every fixture helper to require an explicit policy")
 	}
-	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyPackageReset, true); err == nil {
-		t.Fatal("expected package reset to require an explicit policy")
-	}
-	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyGroupClone, postgresFixturePolicyTemplateClone, true); err == nil {
+	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyGroupClone, postgresFixturePolicyTemplateClone); err == nil {
 		t.Fatal("expected call-site and target policy mismatch to fail")
 	}
 }
 
 func TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
+	t.Setenv(postgresFixturePolicyTestsEnv, "TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup=group_clone")
 
 	oldCreate := createDatabaseFn
 	oldDrop := dropDatabaseFn

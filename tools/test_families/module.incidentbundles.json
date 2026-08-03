@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "module.incidentbundles",
   "rows": [
     {
@@ -22,11 +22,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.extension_portability_matrix_and_atomic_import_1b27fc2d91",
@@ -51,11 +51,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_descriptor_reads_reject_singleto_ea18aa4fe5",
@@ -74,11 +74,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_export_and_import_preserve_an_ac_02b4ecb4b8",
@@ -97,11 +97,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_export_jobs_use_the_incident_sco_d94a8de941",
@@ -120,11 +120,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_export_uses_the_common_job_resou_a1e51b82d7",
@@ -143,11 +143,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_import_final_publication_recheck_b7b07b3e93",
@@ -166,11 +166,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_import_reuses_the_shared_upload_698c072755",
@@ -207,11 +207,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_import_upload_envelope_failures_bf5449e3d4",
@@ -230,11 +230,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_missing_source_blobs_malformed_o_a3d619b413",
@@ -253,11 +253,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_storage_reference_cutover_is_cle_7e4d8743ff",
@@ -279,11 +279,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_io_heavy",
-      "fixture_profile_id": "postgres_migration_scratch",
-      "default_check": true,
+      "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.incident_bundle_v1_translation_lossless_29db97f48c",
@@ -305,11 +305,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.integration.network_flow_retained_state_blocks_bundle_export_7dcd6f85c2",
@@ -331,11 +331,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.incidentbundles.unit.cross_owner_import_descriptor_is_closed_9f6d848f63",
@@ -361,11 +361,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_archive_construction_emits_deter_d848a55dc0",
@@ -387,11 +387,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_contract_registries_use_exactly_1233d2b3f3",
@@ -412,11 +412,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_export_requests_canonicalize_sel_b7c820b069",
@@ -435,11 +435,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_logical_refs_are_root_free_228bd44f05",
@@ -458,11 +458,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_route_registration_remains_exten_943ad7d722",
@@ -483,11 +483,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_storage_is_atomic_and_contained_2bfb18f3a9",
@@ -510,11 +510,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_verification_accepts_safe_zip_an_892d158923",
@@ -533,11 +533,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.incident_bundle_worker_terminal_success_transiti_66f6ace21e",
@@ -556,11 +556,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.named_job_runner_is_required_for_worker_dispatch_09c1f60805",
@@ -579,11 +579,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.incidentbundles.unit.open_api_and_error_registries_expose_incident_bu_25db0a5cae",
@@ -602,11 +602,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

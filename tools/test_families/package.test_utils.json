@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "package.test_utils",
   "rows": [
     {
@@ -45,10 +45,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     }
   ]
 }

@@ -56,6 +56,23 @@ function groupArtifactRoot(target, groupName) {
   return path.join(runRoot(), target, "browser-groups", safeName);
 }
 
+function writeRowResults(rowResults, runner, startedAt, finishedAt, wallDurationMs) {
+  const rowsRoot = path.join(runRoot(), "rows");
+  secureMkdir(rowsRoot);
+  for (const row of rowResults) {
+    const payload = {
+      schema_id: "cartulary.harness_row_result.v1",
+      ...row,
+      runner,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      wall_duration_ms: wallDurationMs,
+    };
+    validateSchemaSync(payload.schema_id, payload);
+    secureWriteFile(path.join(rowsRoot, `${row.row_id}.json`), `${JSON.stringify(payload, null, 2)}\n`);
+  }
+}
+
 function sessionArtifacts() {
   const stackPath = process.env.CARTULARY_WEB_E2E_STACK_JSON_FILE;
   const stackDigest = process.env.CARTULARY_WEB_E2E_STACK_SHA256;
@@ -203,9 +220,12 @@ function main() {
   validateCurrentSessionAttachment();
   const attachedSessionID =
     process.env.CARTULARY_BROWSER_SESSION_GROUP?.trim() ?? "";
+  const declaredSessionContract =
+    process.env.CARTULARY_BROWSER_SESSION_CONTRACT?.trim() ?? attachedSessionID;
   if (
     process.env.CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED !== "1" ||
-    attachedSessionID !== group.browserSessionGroup ||
+    !attachedSessionID ||
+    declaredSessionContract !== group.browserSessionGroup ||
     process.env.CARTULARY_BROWSER_RUNTIME_PROFILE_ID !==
       group.runtimeProfileID ||
     process.env.CARTULARY_BROWSER_SERVICE_REQUIREMENT !==
@@ -253,20 +273,27 @@ function main() {
   }
   const rowResults = adaptPlaywrightReport(rows, report, child.status ?? 11);
   const exitCode = exitCodeForRows(rowResults, child);
+  const finishedAt = new Date().toISOString();
+  const wallDurationMs = Date.now() - started;
+  writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v2",
+    schema_id: "cartulary.browser_group_result.v3",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,
-    browser_session_id: group.browserSessionGroup,
+    // Report the concrete run-scoped lease identity, not the authored logical
+    // session contract. Non-stateful groups may intentionally declare the same
+    // logical contract while using independent stacks; target projections must
+    // never collapse those distinct resources into one session.
+    browser_session_id: attachedSessionID,
     runtime_profile_id: group.runtimeProfileID,
     service_requirement: group.serviceRequirement,
-    fixture_profile_ids: [...new Set(rows.map((row) => row.fixture_profile_id))].sort(),
+    fixture_capabilities: [...new Set(rows.map((row) => row.fixture_capability))].sort(),
     resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
     selected_rows: rows.map((row) => row.row_id).sort(),
     started_at: startedAt,
-    finished_at: new Date().toISOString(),
-    duration_ms: Date.now() - started,
+    finished_at: finishedAt,
+    duration_ms: wallDurationMs,
     status: exitCode === 0 ? "pass" : "fail",
     exit_code: exitCode,
     row_results: rowResults,

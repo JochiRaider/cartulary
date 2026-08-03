@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "module.networkflow",
   "rows": [
     {
@@ -28,11 +28,11 @@
       },
       "evidence_class": "accessibility",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "informative",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_alias_suggestions_u_891ee3e619",
@@ -59,11 +59,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_default_graph_mode_fc65f0ecfd",
@@ -90,11 +90,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_importing_nf_fix_00_094b0f779b",
@@ -121,11 +121,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_e_346ec21519",
@@ -152,11 +152,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_selecting_a_graph_v_171429ad9e",
@@ -183,11 +183,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_soft_deleting_a_tab_537fbd618e",
@@ -214,11 +214,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_the_filter_selector_12b0cf1448",
@@ -245,11 +245,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_when_the_extension_4ce49e0d6f",
@@ -276,11 +276,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee",
@@ -307,11 +307,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": true,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser.verify_claimed_network_analysis_discovery_import_f977242343",
@@ -338,11 +338,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
@@ -369,11 +369,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.frontend_integration.verify_production_network_flow_grids_read_only_b_f662be335e",
@@ -395,10 +395,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2",
@@ -420,10 +420,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.integration.resource_change_intent_replay_and_privacy_f1a2b3c4d5",
@@ -445,11 +445,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.networkflow.integration.resource_intent_failure_rolls_back_source_mutation_8a4c3d2e1f",
@@ -470,11 +470,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
@@ -501,11 +501,11 @@
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "informative",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57",
@@ -532,11 +532,11 @@
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "informative",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232",
@@ -555,11 +555,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_audit_assertion_route_disabled_by_d_611b731957",
@@ -583,11 +583,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_auth_transition_route_disabled_by_d_07779f71d9",
@@ -611,11 +611,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_fault_route_disabled_by_default_8b0741837f",
@@ -639,11 +639,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.support_integration.network_flow_randomness_route_disabled_by_defaul_a63c6ef32a",
@@ -669,11 +669,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.networkflow.unit.configuration_claim_and_manifest_admission",
@@ -697,11 +697,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.import_owner_error_translation_rs08_3d3f02e050",
@@ -722,11 +722,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_a_deployment_admin_af7fc1917b",
@@ -745,11 +745,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_a_table_query_uses_6caf43b23c",
@@ -768,11 +768,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_cidr_filtering_reje_b5a9752753",
@@ -791,11 +791,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_cisco_sna_required_66f0e756eb",
@@ -814,11 +814,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_cisco_sna_v1_permit_a2c32abbbf",
@@ -837,11 +837,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_csv_preview_consume_66f3f08c99",
@@ -860,11 +860,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_cursor_continuation_0f6e2c662c",
@@ -883,11 +883,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_diagnostic_discover_6f2d284ad8",
@@ -906,11 +906,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_duplicate_csv_heade_61bc2b1f54",
@@ -929,11 +929,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_effective_limits_ar_2cc8742d08",
@@ -952,11 +952,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_empty_csv_forbidden_421ddebc7c",
@@ -975,11 +975,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_every_fixture_row_h_0f0889c847",
@@ -998,11 +998,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_every_network_flow_13fc533c41",
@@ -1021,11 +1021,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_every_network_flow_43bd8f4992",
@@ -1044,11 +1044,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_every_route_local_e_5288e318ae",
@@ -1067,11 +1067,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_import_apply_replay_8b8c7de503",
@@ -1090,11 +1090,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_import_facade_previ_2371e1f671",
@@ -1113,11 +1113,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_interface_fields_st_6333a351b3",
@@ -1136,11 +1136,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_ipv6_outputs_follow_e1193869aa",
@@ -1159,11 +1159,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_linking_an_endpoint_cfa3b46c37",
@@ -1182,11 +1182,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_logs_telemetry_audi_61f27d1e10",
@@ -1205,11 +1205,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_no_network_flow_imp_8e4a194dd0",
@@ -1228,11 +1228,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_reserved_source_pro_527d462af8",
@@ -1251,11 +1251,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_selecting_multiple_861eb26e58",
@@ -1274,11 +1274,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_source_filename_dis_208f945599",
@@ -1297,11 +1297,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_source_row_digest_v_c4ff94923a",
@@ -1320,11 +1320,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_the_created_table_t_27dec58147",
@@ -1343,11 +1343,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_the_table_lifecycle_2abb92e0a0",
@@ -1366,11 +1366,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_timestamp_profile_p_bdf924da13",
@@ -1389,11 +1389,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_trim_ascii_space_v1_3a1dbda5f2",
@@ -1412,11 +1412,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_uint64_decimal_stri_bb2238c22e",
@@ -1435,11 +1435,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.unit.network_flow_selector_covers_unmapped_raw_values_ad3df69663",
@@ -1458,11 +1458,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.networkflow.visual.capture_deterministic_claimed_network_analysis_a_47b1c2cce6",
@@ -1491,11 +1491,11 @@
       },
       "evidence_class": "visual",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "informative",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     }
   ]
 }

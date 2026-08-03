@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_work_graph_owner.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "capacity_override_input",
+    "tier_order",
+    "aggregate_tiers",
+    "aggregate_policy_inherits",
+    "aggregate_policy_roots",
+    "target_members",
+    "policy_units",
+    "runner_resource_claims",
+    "evidence_estimates_ms",
+    "default_timeout_ms",
+    "aging_quantum_ms"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_work_graph_owner.v1"
+    },
+    "capacity_override_input": {
+      "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
+    },
+    "tier_order": {
+      "const": ["fast", "standard", "full", "release"]
+    },
+    "aggregate_tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test-fast", "check", "test", "ci", "release-check"],
+      "properties": {
+        "test-fast": { "const": "fast" },
+        "check": { "const": "standard" },
+        "test": { "const": "full" },
+        "ci": { "const": "full" },
+        "release-check": { "const": "release" }
+      }
+    },
+    "aggregate_policy_inherits": { "$ref": "#/$defs/aggregate_target_lists" },
+    "aggregate_policy_roots": { "$ref": "#/$defs/aggregate_target_lists" },
+    "target_members": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/target" },
+      "additionalProperties": { "$ref": "#/$defs/target_list" }
+    },
+    "policy_units": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/target" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["needs", "cache_policy", "estimated_work_ms"],
+        "properties": {
+          "needs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/target" } },
+          "owner_slices": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" }
+          },
+          "fixture_lease": {
+            "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]
+          },
+          "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
+          "estimated_work_ms": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "runner_resource_claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["go", "playwright", "shell", "vitest"],
+      "properties": {
+        "go": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
+        "playwright": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
+        "shell": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
+        "vitest": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" }
+      }
+    },
+    "evidence_estimates_ms": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "default_timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000
+    },
+    "aging_quantum_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000
+    }
+  },
+  "$defs": {
+    "target": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "aggregate_target_lists": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test-fast", "check", "test", "ci", "release-check"],
+      "properties": {
+        "test-fast": { "$ref": "#/$defs/target_list" },
+        "check": { "$ref": "#/$defs/target_list" },
+        "test": { "$ref": "#/$defs/target_list" },
+        "ci": { "$ref": "#/$defs/target_list" },
+        "release-check": { "$ref": "#/$defs/target_list" }
+      }
+    },
+    "target_list": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/target" } }
+  }
+}

@@ -2,52 +2,18 @@
   "schema_id": "cartulary.harness_helper_ownership.v1",
   "facades": [
     {
-      "key": "backend_duration_accounting",
+      "key": "backend_go_lpt_shards",
       "boundary_group": "backend",
       "paths": [
-        "tools/harness/backend/backend-duration-accounting.mjs"
+        "tools/harness/backend/go-lpt-shards.mjs"
       ],
       "allowed_consumers": []
-    },
-    {
-      "key": "backend_shard_plan",
-      "boundary_group": "backend",
-      "paths": [
-        "tools/harness/backend/backend-shard-plan.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "backend_target_execution",
-      "boundary_group": "backend",
-      "paths": [
-        "tools/harness/backend/backend-target-execution.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "backend_target_plan",
-      "boundary_group": "backend",
-      "paths": [
-        "tools/harness/backend/backend-target-plan.mjs"
-      ],
-      "allowed_consumers": [
-        "tools/harness/owner-slice/execution.mjs"
-      ]
     },
     {
       "key": "browser_batch_manifest",
       "boundary_group": "browser",
       "paths": [
         "tools/harness/browser/browser-batch-manifest.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "browser_duration_accounting",
-      "boundary_group": "browser",
-      "paths": [
-        "tools/harness/browser/browser-duration-accounting.mjs"
       ],
       "allowed_consumers": []
     },
@@ -82,26 +48,9 @@
         "tools/harness/scheduler/adapters/browser.mjs"
       ],
       "allowed_consumers": [
-        "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
         "tools/harness/output/test-output/playwright-artifacts.mjs",
         "tools/harness/scheduler/adapters/browser.mjs"
       ]
-    },
-    {
-      "key": "browser_target_execution",
-      "boundary_group": "browser",
-      "paths": [
-        "tools/harness/browser/run-browser-e2e-target.sh"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "browser_visual_update_helper",
-      "boundary_group": "browser",
-      "paths": [
-        "tools/harness/browser/run-browser-e2e-visual-update.sh"
-      ],
-      "allowed_consumers": []
     },
     {
       "key": "command_surface_node_tool_dispatch",
@@ -128,14 +77,6 @@
       "allowed_consumers": []
     },
     {
-      "key": "evidence_accounting",
-      "boundary_group": "evidence_accounting",
-      "paths": [
-        "tools/harness/evidence-accounting/index.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "font_asset_validation",
       "boundary_group": "static_analysis",
       "paths": [
@@ -155,7 +96,6 @@
       "key": "frontend_toolchain_readiness",
       "boundary_group": "readiness",
       "paths": [
-        "tools/harness/readiness/cache-policy.sh",
         "tools/harness/readiness/frontend-install.sh",
         "tools/harness/readiness/frontend-toolchain.sh"
       ],
@@ -189,19 +129,8 @@
       "key": "scheduler_contract_helpers",
       "boundary_group": "scheduler",
       "paths": [
-        "tools/harness/scheduler/scheduler-family-contract.mjs",
         "tools/harness/scheduler/scheduler-manifest.mjs",
-        "tools/harness/scheduler/scheduler-reporting.mjs",
-        "tools/harness/scheduler/scheduler-resource-policy.mjs",
         "tools/harness/scheduler/scheduler-resources.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "scheduler_duration_accounting",
-      "boundary_group": "duration_accounting",
-      "paths": [
-        "tools/harness/duration-accounting/index.mjs"
       ],
       "allowed_consumers": []
     },
@@ -215,28 +144,18 @@
       "allowed_consumers": []
     },
     {
-      "key": "scheduler_execution_core",
+      "key": "scheduler_fixture_broker",
       "boundary_group": "scheduler",
       "paths": [
-        "tools/harness/scheduler/scheduler-runner.mjs",
-        "tools/harness/scheduler/scheduler-runtime.mjs"
+        "tools/harness/scheduler/fixture-broker/index.mjs"
       ],
       "allowed_consumers": []
     },
     {
-      "key": "scheduler_process_execution",
+      "key": "scheduler_work_graph",
       "boundary_group": "scheduler",
       "paths": [
-        "tools/harness/scheduler/process-executor.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "service_backed_schedule_planning",
-      "boundary_group": "service_backed_execution",
-      "paths": [
-        "tools/harness/execution/service-backed/index.mjs",
-        "tools/harness/execution/service-backed/schedule-planning.mjs"
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "allowed_consumers": []
     },
@@ -261,14 +180,6 @@
       "boundary_group": "test_catalog",
       "paths": [
         "tools/harness/test-catalog/index.mjs"
-      ],
-      "allowed_consumers": []
-    },
-    {
-      "key": "test_slice_planning",
-      "boundary_group": "scheduler",
-      "paths": [
-        "tools/harness/owner-slice/index.mjs"
       ],
       "allowed_consumers": []
     },

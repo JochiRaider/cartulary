@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "module.tasksdecisions",
   "rows": [
     {
@@ -27,11 +27,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": true,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4",
@@ -56,10 +56,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746",
@@ -80,11 +80,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0",
@@ -107,10 +107,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.tasksdecisions.idempotency_adapter.application_workbook_idempotency_adapter_boundar_90a3399bf6",
@@ -131,11 +131,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.tasksdecisions.import_create.owner_reference_contract_and_atomicity",
@@ -158,11 +158,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.tasksdecisions.incident_portability.source_port_invariants_and_atomicity",
@@ -190,11 +190,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.tasksdecisions.rollback_provider.source_policy_null_and_owner_validation",
@@ -215,10 +215,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.tasksdecisions.source_workbook.task_requests_and_decisions_persist_as_workbook_887d6b579e",
@@ -242,11 +242,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     }
   ]
 }

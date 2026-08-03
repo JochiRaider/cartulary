@@ -83,7 +83,7 @@ export function adaptVitestInvocation(invocation, result) {
       row_id: row.row_id,
       terminal_state: terminalState,
       duration_ms: 0,
-      exit_code: terminalState === "passed" ? 0 : result.status,
+      exit_code: terminalState === "passed" ? 0 : terminalState === "failed" ? 10 : 3,
       failure_reason: missing
         ? "missing_selector_result"
         : skipped

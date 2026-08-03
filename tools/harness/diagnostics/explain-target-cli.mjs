@@ -49,9 +49,9 @@ function renderSchedulerPathLines(guidance) {
   }
   const lines = ["scheduler paths:"];
   for (const unit of units) {
-    const stage = unit.stage ? ` stage=${unit.stage}` : "";
-    const detail = unit.detail ? ` detail=${unit.detail}` : "";
-    lines.push(`  - ${unit.label}${stage}${detail}`);
+    lines.push(
+      `  - ${unit.label} kind=${unit.kind} owner=${unit.owner_id} fixture=${unit.fixture_capability} cache=${unit.cache_policy}`,
+    );
   }
   return lines;
 }
@@ -107,26 +107,6 @@ function renderInputLines(guidance) {
   return lines;
 }
 
-function renderSequenceLines(guidance) {
-  const sequence = guidance.sequence;
-  if (!sequence) {
-    return [];
-  }
-  const lines = ["sequence_steps:"];
-  for (const [index, step] of (sequence.steps ?? []).entries()) {
-    const target = step.target ?? "";
-    const produces = (step.produces_summary_targets ?? []).join(",") || "none";
-    lines.push(`  - ${index + 1}. ${target} produces=${produces}`);
-  }
-  lines.push("sequence_summary_groups:");
-  for (const group of sequence.summary_groups ?? []) {
-    const semantics = group.name?.startsWith("warning") ? "warning-only" : "blocking";
-    const targets = (group.summary_targets ?? []).join(",") || "source";
-    lines.push(`  - ${group.name}: ${semantics} targets=${targets}`);
-  }
-  return lines;
-}
-
 function renderSummary(guidance) {
   return [
     `Cartulary target guidance: ${guidance.target}`,
@@ -137,7 +117,7 @@ function renderSummary(guidance) {
     `services: ${formatRequirements(guidance.service_requirements)}`,
     ...renderInputLines(guidance),
     `execution: ${guidance.execution_summary || "none"}`,
-    ...renderSequenceLines(guidance),
+    `graph_digest: ${guidance.graph_digest}`,
     ...renderSchedulerPathLines(guidance),
     `latest_artifact: ${guidance.artifact.latest?.path ?? "none"}`,
     ...renderExpectedArtifactLines(guidance),
@@ -153,15 +133,8 @@ function renderRows(guidance) {
     return lines;
   }
   for (const row of rows) {
-    const step = row.manifest_step ?? row.step ?? "raw";
-    const coverage = row.coverage ?? "raw";
-    const section = row.section ?? "";
-    const dependency = row.execution_dependency || "none";
-    const runner = row.runner_family ?? row.runner ?? "";
-    const packages = row.packages?.join(",") || row.package || "";
-    const file = row.file ? ` file=${row.file}` : "";
     lines.push(
-      `  - ${row.id}: ${step} ${section} ${coverage} dependency=${dependency} runner=${runner} packages=${packages}${file}`,
+      `  - ${row.row_id}: owner=${row.owner_id} runner=${row.runner} evidence=${row.evidence_class} tier=${row.minimum_tier} fixture=${row.fixture_capability}`,
     );
   }
   return lines;

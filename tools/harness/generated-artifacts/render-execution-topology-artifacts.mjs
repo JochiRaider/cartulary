@@ -15,7 +15,6 @@ import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
-  renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
 import {
@@ -24,20 +23,11 @@ import {
   renderTaskSurfaceMakeRuntime,
   collectTaskSurfaceMakeDensityErrors,
 } from "./task-surface/index.mjs";
-import {
-  expandServiceBackedSchedule,
-  expandServiceBackedScheduleForCheck,
-} from "../execution/service-backed/index.mjs";
-import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const renderIndexSchemaID = "cartulary.execution_topology_render_index.v1";
-const renderCacheSchemaID = "cartulary.execution_topology_render_cache.v1";
 const generatorVersion = 2;
-const cacheDir = process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR
-  ? path.resolve(process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_CACHE_DIR)
-  : path.join(repoRoot, ".cache", "cartulary", "execution-topology-render");
 const renderedOutputKeys = [
   "task_surface_manifest",
   "browser_e2e_batch_manifest",
@@ -216,10 +206,7 @@ function collectRendererSourceInputs(inputs, seen) {
     "tools/harness/test-catalog",
     "scripts/lib",
   ];
-  const legacySourceNames = new Set([
-    "browser-duration-accounting.mjs",
-    "task-surface-report-cli.mjs",
-  ]);
+  const legacySourceNames = new Set(["task-surface-report-cli.mjs"]);
   const isProductionModule = (candidate) =>
     candidate.endsWith(".mjs") &&
     !candidate.split(path.sep).includes("tests") &&
@@ -230,25 +217,6 @@ function collectRendererSourceInputs(inputs, seen) {
     }
   }
   addRequiredRepoInput(inputs, seen, "renderer_source", "tools/harness/runtime-binary-registry.mjs");
-}
-
-function collectDurationBaselineInputs(inputs, seen, topologyRaw, topologyPath) {
-  for (const file of [
-    "tools/browser_e2e_duration_baselines.json",
-    "tools/go_test_duration_baselines.json",
-    "tools/harness_smoke_duration_baselines.json",
-    "tools/service_backed_make_target_duration_baselines.json",
-  ]) {
-    addRequiredRepoInput(inputs, seen, "duration_baseline", file);
-  }
-  const configuredServiceBaseline =
-    topologyRaw?.service_backed_schedules?.defaults?.make_target_duration_baseline;
-  if (typeof configuredServiceBaseline === "string" && configuredServiceBaseline.trim() !== "") {
-    const baselinePath = path.isAbsolute(configuredServiceBaseline)
-      ? configuredServiceBaseline
-      : path.join(path.dirname(topologyPath), configuredServiceBaseline);
-    addFileInput(inputs, seen, "duration_baseline", baselinePath);
-  }
 }
 
 export function collectRenderInputs(options = {}) {
@@ -268,7 +236,6 @@ export function collectRenderInputs(options = {}) {
   addRequiredRepoInput(inputs, seen, "task_surface_owner", taskSurfaceOwner);
   addRequiredRepoInput(inputs, seen, "scheduler_resource_registry", "tools/scheduler_resource_registry.json");
   collectCatalogInputs(inputs, seen, path.resolve(options.catalogRoot ?? repoRoot));
-  collectDurationBaselineInputs(inputs, seen, topologyRaw, topologyPath);
   collectRendererSourceInputs(inputs, seen);
   inputs.sort((left, right) => left.path.localeCompare(right.path) || left.role.localeCompare(right.role));
   return {
@@ -395,17 +362,10 @@ function renderArtifacts(options) {
   const topology = loadExecutionTopology({ manifestPath: options.topology });
   const taskSurfaceManifest = renderTaskSurfaceManifest(topology);
   const browserBatchManifest = renderBrowserBatchManifest(topology);
-  const serviceBackedScheduleManifest = renderServiceBackedScheduleManifest({
-    topology: options.topology,
-    topologyObject: topology,
-  });
-  const schedulerManifest = renderSchedulerManifest({
-    topology,
-    serviceBackedScheduleManifest,
-  });
+  const schedulerManifest = renderSchedulerManifest({ topology });
   const taskSurfaceErrors = collectTaskSurfaceManifestErrors(taskSurfaceManifest, {
     browserBatchManifest,
-    serviceBackedScheduleManifest,
+    serviceBackedScheduleManifest: { schedules: [] },
   });
   if (taskSurfaceErrors.length > 0) {
     throw new Error(
@@ -436,103 +396,16 @@ function renderArtifacts(options) {
   ];
 }
 
-function renderSchedulerManifest({ topology, serviceBackedScheduleManifest }) {
-  const checkManifest = renderCheckScheduleManifest(topology, {
-    serviceBackedScheduleManifest,
-    expandServiceBackedScheduleForCheck,
-  });
-  const serviceSchedules = serviceBackedScheduleManifest.schedules.map((schedule) => ({
-    target: schedule.target,
-    scheduler_kind: schedule.scheduler_kind,
-    capacity_profile: schedule.capacity_profile,
-    resource_limits: schedule.resource_limits,
-    stop_on_first_failure: false,
-    progress_tick_seconds: 30,
-    validate_timing: true,
-    summary_groups: [],
-    work_units: expandServiceBackedSchedule({ repoRoot, serviceSchedule: schedule }),
-    finalizers: [],
-  }));
-  const checkSchedules = checkManifest.schedules.map((schedule) => ({
-    ...schedule,
-    stop_on_first_failure: true,
-    progress_tick_seconds: 30,
-    validate_timing: true,
-    finalizers: [],
-  }));
+function renderSchedulerManifest({ topology }) {
   return {
-    schema_id: "cartulary.scheduler_manifest.v2",
+    schema_id: "cartulary.scheduler_manifest.v3",
     generated: {
       generator: "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
       topology: repoDisplayPath(topology.manifestPath),
-      source_authoring: {
-        check_schedules: "tools/execution_topology_manifest.json",
-        service_backed_schedules: "tools/execution_topology_manifest.json",
-      },
+      source_authoring: { work_graph: "tools/harness_work_graph_owner.json" },
     },
-    schedules: [...checkSchedules, ...serviceSchedules],
+    schedules: [],
   };
-}
-
-function cachePath(inputDigest) {
-  return path.join(cacheDir, `${inputDigest.replace(/^sha256:/, "")}.json`);
-}
-
-function readCachedArtifacts(inputDigest) {
-  if (process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_DISABLE_CACHE === "1") {
-    return null;
-  }
-  const file = cachePath(inputDigest);
-  if (!existsSync(file)) {
-    return null;
-  }
-  const cache = readJSON(file);
-  if (
-    cache?.schema_id !== renderCacheSchemaID ||
-    cache.generator !== "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs" ||
-    cache.generator_version !== generatorVersion ||
-    cache.node_version !== process.version ||
-    cache.input_digest !== inputDigest ||
-    !Array.isArray(cache.artifacts)
-  ) {
-    return null;
-  }
-  const artifacts = [];
-  for (const artifact of cache.artifacts) {
-    if (
-      !artifact ||
-      typeof artifact.file !== "string" ||
-      typeof artifact.content !== "string" ||
-      hashContent(artifact.content) !== artifact.hash
-    ) {
-      return null;
-    }
-    artifacts.push(outputEntry(artifact.file, artifact.content));
-  }
-  return artifacts;
-}
-
-function writeCache(inputDigest, artifacts) {
-  if (process.env.CARTULARY_EXECUTION_TOPOLOGY_RENDER_DISABLE_CACHE === "1") {
-    return;
-  }
-  mkdirSync(cacheDir, { recursive: true });
-  writeFileSync(
-    cachePath(inputDigest),
-    serializeJSON({
-      schema_id: renderCacheSchemaID,
-      generator: "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
-      generator_version: generatorVersion,
-      node_version: process.version,
-      input_digest: inputDigest,
-      artifacts: artifacts.map((artifact) => ({
-        file: artifact.file,
-        hash: hashContent(artifact.content),
-        content: artifact.content,
-      })),
-      written_at: new Date().toISOString(),
-    }),
-  );
 }
 
 function compareArtifacts(artifacts) {
@@ -581,17 +454,7 @@ function main() {
     return;
   }
   const inputInfo = collectRenderInputs(options);
-  let artifacts = null;
-  if (options.fullCheck) {
-    artifacts = renderArtifacts(options);
-    writeCache(inputInfo.input_digest, artifacts);
-  } else {
-    artifacts = readCachedArtifacts(inputInfo.input_digest);
-    if (!artifacts) {
-      artifacts = renderArtifacts(options);
-      writeCache(inputInfo.input_digest, artifacts);
-    }
-  }
+  const artifacts = renderArtifacts(options);
   const index = buildRenderIndex({ inputInfo, artifacts });
   const allArtifacts = [
     ...artifacts,

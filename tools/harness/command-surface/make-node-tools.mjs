@@ -97,37 +97,6 @@ export class UsageError extends Error {
   }
 }
 
-const ownerSliceRuntimeEnv = [
-  "MAKE",
-  "GO",
-  "PNPM",
-  "TEST_SERVICES_BIN",
-  "CARTULARY_TEST_RESULTS_DIR",
-  "CARTULARY_TEST_RUN_ID",
-];
-
-function ownerSliceTool(target) {
-  return {
-    inputs: ["OWNER", "ROWS", "VITEST_MAX_WORKERS", "PLAYWRIGHT_WORKERS", "JSON"],
-    runtimeEnv: ownerSliceRuntimeEnv,
-    script: "./tools/harness/owner-slice/owner-slice-cli.mjs",
-    usage: `usage: make ${target} OWNER=<owner-id> [ROWS=<row-id,...>] [VITEST_MAX_WORKERS=<1..16>] [PLAYWRIGHT_WORKERS=<1..16>] [JSON=1]`,
-    buildArgs(env, metadata) {
-      const args = ["--target", target, "--owner", value(env, "OWNER")];
-      if (inputWasProvided(metadata, "ROWS")) args.push("--rows", value(env, "ROWS"));
-      args.push(
-        "--vitest-workers",
-        value(env, "VITEST_MAX_WORKERS") || "4",
-        "--playwright-workers",
-        value(env, "PLAYWRIGHT_WORKERS") || "3",
-      );
-      if (value(env, "JSON") === "1") args.push("--json");
-      else if (value(env, "JSON") !== "") args.push("--json-value", value(env, "JSON"));
-      return args;
-    },
-  };
-}
-
 function ownerDiagnosticTool(mode, target) {
   return {
     inputs: mode === "task-guide" ? ["ROLE", "OWNER", "JSON"] : ["OWNER", "JSON"],
@@ -162,14 +131,12 @@ export const makeNodeTools = {
       ];
     },
   },
-  "test-slice": ownerSliceTool("test-slice"),
-  "service-backed-test-slice": ownerSliceTool("service-backed-test-slice"),
   "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),
   "task-guide": ownerDiagnosticTool("task-guide", "task-guide"),
   "test-evidence-audit": {
     inputs: ["OWNER", "EVIDENCE_ROOTS_FILE"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
-    script: "./tools/harness/evidence-accounting/evidence-audit-cli.mjs",
+    script: "./tools/harness/observability/canonical-evidence-audit-cli.mjs",
     usage: "usage: make test-evidence-audit OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path>",
     buildArgs(env) {
       return [
@@ -265,18 +232,18 @@ export const makeNodeTools = {
   },
   "harness-performance-check": {
     inputs: ["EVIDENCE_ROOTS_FILE"],
-    script: "./tools/harness/observability/performance-check-cli.mjs",
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
     usage: "usage: make harness-performance-check EVIDENCE_ROOTS_FILE=<manifest>",
     buildArgs(env) {
-      return ["--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
+      return ["check", "--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
     },
   },
   "harness-public-target-duration-baselines": {
     inputs: ["EVIDENCE_ROOTS_FILE"],
-    script: "./tools/harness/observability/public-target-baselines-cli.mjs",
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
     usage: "usage: make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=<baseline-window>",
     buildArgs(env) {
-      return ["--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
+      return ["publish", "--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
     },
   },
   "explain-target": {
@@ -311,125 +278,87 @@ export const makeNodeTools = {
     },
   },
   "go-test-duration-baselines": {
-    inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "GO_TEST_DURATION_BASELINE"],
-    script: "./tools/harness/backend/go-test-duration-baselines-cli.mjs",
-    resultDir: { mode: "required", positional: true },
-    usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]",
-    buildArgs(env) {
-      const args = [];
-      if (value(env, "PRUNE_OBSERVED_PACKAGES") === "1") {
-        args.push("--prune-observed-packages");
-      }
-      if (value(env, "ALLOW_COMMAND_OVERHEAD_DECREASE") === "1") {
-        args.push("--allow-command-overhead-decrease");
-      }
-      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
-      return args;
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
+    usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful canonical results dir>",
+    buildArgs() {
+      return ["observe", "--view", "backend_go"];
     },
   },
   "go-test-duration-baseline-coverage": {
-    inputs: ["GO_TEST_DURATION_BASELINE"],
+    inputs: [],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
-    script: "./tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs",
-    usage: "usage: make go-test-duration-baseline-coverage [GO_TEST_DURATION_BASELINE=<path>]",
-    buildArgs(env) {
-      const args = [];
-      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
-      return args;
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    usage: "usage: make go-test-duration-baseline-coverage",
+    buildArgs() {
+      return ["coverage"];
     },
   },
   "go-test-duration-baseline-drift": {
-    inputs: ["GO_TEST_DURATION_BASELINE"],
-    script: "./tools/harness/backend/go-test-duration-baseline-drift-cli.mjs",
-    resultDir: { mode: "currentRunDefault", positional: true },
-    usage:
-      "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>] [GO_TEST_DURATION_BASELINE=<path>]",
-    buildArgs(env) {
-      const args = [];
-      optionalFlag(args, env, "GO_TEST_DURATION_BASELINE", "--baseline-file");
-      return args;
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
+    usage: "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>]",
+    buildArgs() {
+      return ["observe", "--view", "backend_go"];
     },
   },
   "browser-e2e-duration-baselines": {
-    inputs: ["BROWSER_E2E_DURATION_BASELINE"],
-    script: "./tools/harness/browser/browser-shard-plan.mjs",
-    resultDir: { mode: "required", positional: true },
-    usage: "usage: make browser-e2e-duration-baselines RESULTS_DIR=<successful browser results dir>",
-    buildArgs(env) {
-      const args = ["update-baselines"];
-      optionalFlag(args, env, "BROWSER_E2E_DURATION_BASELINE", "--baseline-file");
-      return args;
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
+    usage: "usage: make browser-e2e-duration-baselines RESULTS_DIR=<successful canonical results dir>",
+    buildArgs() {
+      return ["observe", "--view", "browser"];
     },
   },
   "browser-e2e-duration-baseline-drift": {
-    inputs: ["BROWSER_E2E_DURATION_BASELINE"],
-    script: "./tools/harness/browser/browser-shard-plan.mjs",
-    resultDir: { mode: "currentRunDefault", positional: true },
-    usage:
-      "usage: make browser-e2e-duration-baseline-drift [RESULTS_DIR=<dir>] [BROWSER_E2E_DURATION_BASELINE=<path>]",
-    buildArgs(env) {
-      const args = ["check-baseline-drift"];
-      optionalFlag(args, env, "BROWSER_E2E_DURATION_BASELINE", "--baseline-file");
-      return args;
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
+    usage: "usage: make browser-e2e-duration-baseline-drift [RESULTS_DIR=<dir>]",
+    buildArgs() {
+      return ["observe", "--view", "browser"];
     },
   },
   "service-backed-make-target-duration-baselines": {
-    inputs: ["SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE"],
-    script: "./tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs",
-    resultDir: { mode: "required", positional: true },
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
     usage:
       "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful scheduler results dir>",
-    buildArgs(env) {
-      const args = ["update"];
-      optionalFlag(
-        args,
-        env,
-        "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-        "--baseline-file",
-      );
-      return args;
+    buildArgs() {
+      return ["observe", "--view", "service_backed"];
     },
   },
   "service-backed-make-target-duration-baseline-drift": {
-    inputs: [
-      "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-    ],
-    script: "./tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs",
-    resultDir: { mode: "currentRunDefault", positional: true },
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
     usage:
       "usage: make service-backed-make-target-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs(env) {
-      const args = ["check-drift"];
-      optionalFlag(
-        args,
-        env,
-        "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
-        "--baseline-file",
-      );
-      return args;
+    buildArgs() {
+      return ["observe", "--view", "service_backed"];
     },
   },
   "harness-smoke-duration-baselines": {
-    inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./tools/harness/duration-accounting/harness-smoke-durations-cli.mjs",
-    resultDir: { mode: "required", positional: true },
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "required", flag: "--results-dir" },
     usage:
       "usage: make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>",
-    buildArgs(env) {
-      const args = ["update"];
-      optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
-      return args;
+    buildArgs() {
+      return ["observe", "--view", "harness"];
     },
   },
   "harness-smoke-duration-baseline-drift": {
-    inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./tools/harness/duration-accounting/harness-smoke-durations-cli.mjs",
-    resultDir: { mode: "currentRunDefault", positional: true },
+    inputs: [],
+    script: "./tools/harness/observability/canonical-performance-cli.mjs",
+    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
     usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs(env) {
-      const args = ["check-drift"];
-      optionalFlag(args, env, "HARNESS_SMOKE_DURATION_BASELINE", "--baseline-file");
-      return args;
+    buildArgs() {
+      return ["observe", "--view", "harness"];
     },
   },
   "scheduler-event-order-drift": {
@@ -444,16 +373,13 @@ export const makeNodeTools = {
     },
   },
   "scheduler-summary-timing-drift": {
-    inputs: ["TARGET", "SCHEDULER_WARM_CHECK_BUDGET_MS", "SCHEDULER_WARM_CHECK_BALANCE_RATIO"],
+    inputs: ["TARGET"],
     script: "./tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
-    usage:
-      "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>] [SCHEDULER_WARM_CHECK_BUDGET_MS=<ms>] [SCHEDULER_WARM_CHECK_BALANCE_RATIO=<ratio>]",
+    usage: "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
     buildArgs(env) {
       const args = [];
       optionalFlag(args, env, "TARGET", "--target");
-      optionalFlag(args, env, "SCHEDULER_WARM_CHECK_BUDGET_MS", "--warm-check-budget-ms");
-      optionalFlag(args, env, "SCHEDULER_WARM_CHECK_BALANCE_RATIO", "--warm-check-balance-ratio");
       return args;
     },
   },

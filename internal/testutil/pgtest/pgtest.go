@@ -588,7 +588,7 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone, false)
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
 	testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
@@ -670,7 +670,7 @@ func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *Tes
 	// closed reset surface. Ordinary integration tests use isolated clones,
 	// grouped committed-state tests use PrepareGroupDatabaseT, and store tests
 	// use BeginRollbackDBT.
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyPackageReset, true)
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyPackageReset)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyPackageReset
 	attribution.PostgresResetTables = resolvePostgresResetTables(attribution)
@@ -703,7 +703,7 @@ func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *Tes
 
 func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	t.Helper()
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction, false)
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction)
 
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
@@ -753,7 +753,7 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 
 func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey string) *TestDatabase {
 	t.Helper()
-	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyGroupClone, false)
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyGroupClone)
 
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
@@ -1470,7 +1470,7 @@ func resolvePostgresFixturePolicy(attribution fixtureAttribution) string {
 	if policy := normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv)); policy != "" {
 		return policy
 	}
-	return postgresFixturePolicyTemplateClone
+	return ""
 }
 
 // ExplicitPostgresFixturePolicyT returns the scheduler-assigned fixture policy
@@ -1489,21 +1489,18 @@ func ExplicitPostgresFixturePolicyT(t testing.TB) string {
 	return normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv))
 }
 
-func requireSelectedPostgresFixturePolicyT(t testing.TB, want string, requireExplicit bool) {
+func requireSelectedPostgresFixturePolicyT(t testing.TB, want string) {
 	t.Helper()
 
 	got := ExplicitPostgresFixturePolicyT(t)
-	if err := validateSelectedPostgresFixturePolicy(got, want, requireExplicit); err != nil {
+	if err := validateSelectedPostgresFixturePolicy(got, want); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func validateSelectedPostgresFixturePolicy(got string, want string, requireExplicit bool) error {
+func validateSelectedPostgresFixturePolicy(got string, want string) error {
 	if got == "" {
-		if requireExplicit {
-			return fmt.Errorf("postgres fixture policy %q must be explicitly assigned", want)
-		}
-		return nil
+		return fmt.Errorf("postgres fixture policy %q must be explicitly assigned", want)
 	}
 	if got != want {
 		return fmt.Errorf("postgres fixture policy mismatch: call site selected %q, target selected %q", want, got)

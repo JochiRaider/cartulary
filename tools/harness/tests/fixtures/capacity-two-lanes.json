@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.harness_capacity_override.v1",
+  "cpu_tokens": 2,
+  "memory_bytes": 1073741824,
+  "process_slots": 4,
+  "io_tokens": 2,
+  "port_lanes": 2,
+  "writable_volume": true
+}

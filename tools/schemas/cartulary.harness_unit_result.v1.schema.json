@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_unit_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "unit_id", "semantic_digest", "status", "exit_code", "signal", "failure_class", "failure_reason", "evidence_outputs", "missing_outputs"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_unit_result.v1" },
+    "unit_id": { "$ref": "cartulary.harness_work_graph.v1#/$defs/id" },
+    "semantic_digest": { "$ref": "cartulary.harness_work_graph.v1#/$defs/digest" },
+    "status": { "enum": ["passed", "failed", "skipped", "cancelled"] },
+    "exit_code": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
+    "signal": { "type": ["string", "null"], "minLength": 1, "maxLength": 32 },
+    "failure_class": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "failure_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "evidence_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+    },
+    "missing_outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+    }
+  }
+}

@@ -108,23 +108,6 @@ assert_no_ambient_summary() {
   assert_file_absent "$summary_path" "ambient $target summary"
 }
 
-assert_probe_artifact_contains() {
-  local probe_label="$1"
-  local target="$2"
-  local step_label="$3"
-  local needle="$4"
-  local assertion_label="$5"
-
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/test-support/harness-artifact-assert.mjs" \
-    --repo-root "$ROOT_DIR" \
-    --results-root "$probe_results_root" \
-    --run-id "$(probe_run_id "$probe_label")" \
-    --target "$target" \
-    --step-label "$step_label" \
-    --needle "$needle" \
-    --label "$assertion_label"
-}
-
 run_isolated_make_probe() {
   local label="$1"
   shift
@@ -132,6 +115,7 @@ run_isolated_make_probe() {
   local run_id
   run_id="$(probe_run_id "$label")"
   env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
+    CARTULARY_OUTPUT_MODE=verbose \
     CARTULARY_TEST_RESULTS_DIR="$probe_results_root" \
     CARTULARY_TEST_RUN_ID="$run_id" \
     make --no-print-directory "$@"
@@ -179,7 +163,7 @@ release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY
 for public_target in test-fast release-check release-readiness-evidence license-report sbom; do
   assert_contains "$makefile_content" "$public_target:" "release task surface target $public_target"
 done
-assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
+assert_contains "$release_check_block" 'work-graph/runner-cli.mjs --selection aggregate --target' "release-check graph runner"
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
@@ -196,8 +180,6 @@ assert_contains "$release_check_explain" "browser-e2e-support" "release-check ex
 assert_contains "$release_check_explain" "browser-e2e-visual" "release-check explains visual readiness child"
 assert_contains "$release_check_explain" "browser-e2e-a11y" "release-check explains accessibility readiness child"
 assert_contains "$release_check_explain" "release-readiness-evidence" "release-check explains release readiness aggregation child"
-assert_contains "$release_check_explain" "frontend-readiness" "release-check explains frontend readiness group"
-assert_contains "$release_check_explain" "release-readiness" "release-check explains release readiness group"
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/release-task-surface.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
@@ -225,15 +207,15 @@ release_probe_prereqs=(
 )
 
 touch "$empty_license"
-assert_make_fails "empty license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$empty_license" license-report >/dev/null
-assert_probe_artifact_contains "empty license report" "license-report" "license-report" "license report artifact is empty" "empty license report failure"
+empty_license_output="$(assert_make_fails "empty license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
+assert_contains "$empty_license_output" "license report artifact is empty" "empty license report failure"
 
 printf '%s\n' '{"licenses":[]}' >"$valid_license"
 assert_make_passes "valid license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
 
 touch "$empty_sbom"
-assert_make_fails "empty SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$empty_sbom" sbom >/dev/null
-assert_probe_artifact_contains "empty SBOM" "sbom" "sbom" "SBOM artifact is empty" "empty SBOM failure"
+empty_sbom_output="$(assert_make_fails "empty SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$empty_sbom" sbom)"
+assert_contains "$empty_sbom_output" "SBOM artifact is empty" "empty SBOM failure"
 
 printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
 assert_make_passes "valid SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_capacity_override.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_capacity_override.v1" },
+    "cpu_tokens": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "memory_bytes": { "type": "integer", "minimum": 1048576 },
+    "process_slots": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "io_tokens": { "type": "integer", "minimum": 1, "maximum": 4096 },
+    "postgres_lanes": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "object_store_lanes": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "port_lanes": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "writable_volume": { "type": "boolean" },
+    "services": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}

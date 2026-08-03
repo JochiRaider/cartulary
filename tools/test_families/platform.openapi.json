@@ -1,12 +1,14 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "platform.openapi",
   "rows": [
     {
       "row_id": "platform.openapi.unit.contract_integrity",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
       "verification_ids": [
         "platform.openapi.verification.contract_integrity"
       ],
@@ -20,17 +22,19 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "platform.openapi.unit.deterministic_assembly_742e38b57c",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
       "verification_ids": [
         "platform.openapi.verification.deterministic_assembly"
       ],
@@ -48,17 +52,19 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full"
     },
     {
       "row_id": "platform.openapi.unit.release_compatibility",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
       "verification_ids": [
         "platform.openapi.verification.release_compatibility"
       ],
@@ -74,11 +80,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "platform.openapi.unit.runtime_contract_parity_4fc98c2b71",
@@ -108,21 +114,25 @@
       "runner": "go",
       "selector": {
         "package": "./internal/app/server",
-        "tests": ["TestGeneratedRuntimeOpenAPIContractParity"]
+        "tests": [
+          "TestGeneratedRuntimeOpenAPIContractParity"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "platform.openapi.unit.runtime_profile_catalog",
       "owner_id": "platform.openapi",
       "family_id": "platform.openapi.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
       "verification_ids": [
         "platform.openapi.verification.runtime_profile_parity"
       ],
@@ -137,11 +147,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

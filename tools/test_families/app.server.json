@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "app.server",
   "rows": [
     {
@@ -29,11 +29,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
@@ -52,11 +52,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec",
@@ -75,11 +75,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.extension_application_process_lease_43130392c4",
@@ -101,11 +101,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.extension_discovery_session_sliding_7f6ad80724",
@@ -127,11 +127,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.extension_state_logical_store_adapter_7f6ad80724",
@@ -155,11 +155,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.replicated_model_fencing_6a57fb3221",
@@ -183,11 +183,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
@@ -206,11 +206,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098",
@@ -232,11 +232,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.integration.successful_bootstrap_commits_exactly_one_active_9859f7c12b",
@@ -255,11 +255,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a",
@@ -278,11 +278,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.a_real_process_requiring_bootstrap_becomes_ready_41afb1f3e5",
@@ -301,11 +301,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.a_running_server_exposes_no_public_http_or_web_s_2934cde8e0",
@@ -324,11 +324,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.effective_deployment_configuration_fails_the_rea_c17cbafdfc",
@@ -347,11 +347,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.invalid_config_exits_non_zero_emits_structured_s_6c0922ea28",
@@ -370,11 +370,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1",
@@ -398,11 +398,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f",
@@ -428,11 +428,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.process.required_bootstrap_failures_on_the_real_process_9dbfe1d620",
@@ -451,11 +451,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.restoring_the_latest_successful_retained_backup_6456371896",
@@ -474,11 +474,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
@@ -497,11 +497,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.the_packaged_standalone_server_serves_its_embedd_9d0f816da3",
@@ -520,11 +520,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.process.the_standalone_server_composes_the_network_flow_3d2a5564ba",
@@ -543,11 +543,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.process.the_standalone_server_keeps_harness_routes_disab_4dc8b1f7d9",
@@ -568,11 +568,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308",
@@ -591,11 +591,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_postgres_advisory_lock_exclusive",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd",
@@ -621,11 +621,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": false,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full"
     },
     {
       "row_id": "app.server.unit.evidence_owner_runtime_has_no_store_exposure_a36f2c981d",
@@ -647,11 +647,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.extension_discovery_transport_7f6ad80724",
@@ -677,11 +677,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.extension_policy_catalog_7f6ad80724",
@@ -707,11 +707,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.extension_process_lifecycle_f9457096a3",
@@ -736,11 +736,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.extension_publication_epoch_characterization_7f6ad80724",
@@ -774,11 +774,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.extension_readiness_admission_gate_05faff0b60",
@@ -799,11 +799,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",
@@ -828,11 +828,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

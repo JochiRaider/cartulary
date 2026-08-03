@@ -1,26 +1,24 @@
-import {
-  collectTargetPlanRows,
-  findTargetDescriptor,
-} from "../../backend/backend-target-plan.mjs";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { loadTestCatalog, targetForCatalogRow } from "../../test-catalog/index.mjs";
 
 export function targetStartStats(root, target, children = []) {
-  const childSet = new Set(children);
-  const rows = collectTargetPlanRows(root).filter((row) => {
-    if (childSet.size > 0) {
-      return childSet.has(row.target);
-    }
-    return row.target === target;
-  });
-  const descriptor = findTargetDescriptor(target, root);
-  const serviceBacked =
-    descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
-  const owners = new Set(
-    rows.map((row) => row.owner_id).filter(Boolean),
+  const taskSurface = JSON.parse(
+    readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"),
   );
-  const unownedRows = rows.filter((row) => row.owner_id === "").length;
+  const commandTargetByID = new Map(
+    taskSurface.targets
+      .filter((entry) => entry.command_id)
+      .map((entry) => [entry.command_id, entry.name]),
+  );
+  const selectedTargets = new Set(children.length > 0 ? children : [target]);
+  const rows = loadTestCatalog(root).rows.filter((row) =>
+    selectedTargets.has(targetForCatalogRow(row, { commandTargetByID })),
+  );
   return {
-    serviceBacked,
-    expectedSteps: owners.size + unownedRows,
+    serviceBacked: rows.some((row) => row.fixture_capability !== "none"),
+    expectedSteps: new Set(rows.map((row) => row.owner_id)).size,
     expectedTests: rows.length,
   };
 }

@@ -39,7 +39,6 @@ import {
   validStepCountingModes,
 } from "../../contract/test-output-context.mjs";
 import { loadGovulncheckFindingsFile } from "./security-diagnostics.mjs";
-import { targetOwnerEvidenceArtifactPaths } from "../../evidence-accounting/index.mjs";
 import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 
 const resultsRoot = resolveResultsRoot();
@@ -449,11 +448,6 @@ export function writeStepArtifacts(context, details) {
       fileArtifactRef(
         "step_summary",
         relToRepo(path.join(context.stepDir, "step-summary.json")),
-      ),
-      ...targetOwnerEvidenceArtifactPaths(targetRunRoot, context.target, {
-        runID: runId,
-      }).map((artifact) =>
-        fileArtifactRef(artifact.role, relToRepo(artifact.path)),
       ),
       details.manifestSummary
         ? fileArtifactRef(

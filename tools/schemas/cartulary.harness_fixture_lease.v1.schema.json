@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_fixture_lease.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "lease_id", "capability", "ownership", "state", "resource_ids", "created_at"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_fixture_lease.v1" }, "lease_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "capability": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+    "ownership": { "enum": ["owned", "borrowed"] }, "state": { "enum": ["created", "ready", "leased", "quarantined", "released", "destroyed", "failed"] },
+    "resource_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 255 } },
+    "affinity_key": { "type": "string", "minLength": 1, "maxLength": 255 }, "created_at": { "type": "string", "format": "date-time" }
+  }
+}

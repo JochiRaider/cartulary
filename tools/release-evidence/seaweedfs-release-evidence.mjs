@@ -35,7 +35,7 @@ const defaultReleaseArtifactDir = ".cartulary/release-artifacts";
 const releaseArtifactSubdir = "seaweedfs";
 const seaweedfsCompatibilityTarget = "seaweedfs-compatibility";
 const seaweedfsCompatibilityReportName = "object-store-compatibility-report.json";
-const targetSummaryName = "tool-run-summary.json";
+const compatibilityUnitResultName = "target-seaweedfs-compatibility.json";
 const releaseGateRows = Object.freeze([
   "SWFS-AC-001",
   "SWFS-AC-002",
@@ -803,6 +803,13 @@ function expectedCurrentCompatibilityReportPath({ currentResultsDir, currentRunI
   );
 }
 
+function expectedCurrentUnitResultPath({ currentResultsDir, currentRunId }) {
+  if (!currentResultsDir || !currentRunId) {
+    return null;
+  }
+  return path.join(currentResultsDir, currentRunId, "unit-results", compatibilityUnitResultName);
+}
+
 function sameResolvedPath(left, right) {
   if (!left || !right) {
     return false;
@@ -810,31 +817,31 @@ function sameResolvedPath(left, right) {
   return path.resolve(inputPath(left)) === path.resolve(inputPath(right));
 }
 
-function parseTargetSummary({ summaryPath, findings }) {
-  if (!summaryPath) {
+function parseUnitResult({ resultPath, findings }) {
+  if (!resultPath) {
     findings.push({
-      check_id: "compatibility-target-summary-path",
+      check_id: "compatibility-unit-result-path",
       severity: "blocking",
-      message: "compatibility target summary path is required",
+      message: "compatibility unit result path is required",
     });
     return null;
   }
-  if (!existsSync(inputPath(summaryPath))) {
+  if (!existsSync(inputPath(resultPath))) {
     findings.push({
-      check_id: "compatibility-target-summary-present",
+      check_id: "compatibility-unit-result-present",
       severity: "blocking",
-      path: displayPath(summaryPath),
-      message: "current seaweedfs-compatibility tool-run summary is missing",
+      path: displayPath(resultPath),
+      message: "current canonical seaweedfs-compatibility unit result is missing",
     });
     return null;
   }
   try {
-    return JSON.parse(readFileSync(inputPath(summaryPath), "utf8"));
+    return JSON.parse(readFileSync(inputPath(resultPath), "utf8"));
   } catch (error) {
     findings.push({
-      check_id: "compatibility-target-summary-parse",
+      check_id: "compatibility-unit-result-parse",
       severity: "blocking",
-      path: displayPath(summaryPath),
+      path: displayPath(resultPath),
       message: error instanceof Error ? error.message : String(error),
     });
     return null;
@@ -843,16 +850,16 @@ function parseTargetSummary({ summaryPath, findings }) {
 
 function currentRunPrerequisitesSkipped() {
   return (
-    process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1" &&
-    process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED !== "1"
+    process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES === "1" &&
+    process.env.CARTULARY_HARNESS_GRAPH_CHILD !== "1"
   );
 }
 
 function validateCurrentCompatibilitySource({
   findings,
   reportPath,
-  targetSummary = null,
-  targetSummaryPath = null,
+  unitResult = null,
+  unitResultPath = null,
   currentResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? null,
   currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
   prerequisitesSkipped = currentRunPrerequisitesSkipped(),
@@ -905,35 +912,35 @@ function validateCurrentCompatibilitySource({
     });
   }
 
-  const summaryPath =
-    targetSummaryPath ??
-    (reportPath ? path.join(path.dirname(inputPath(reportPath)), targetSummaryName) : null);
-  const summary =
-    targetSummary ??
-    parseTargetSummary({
-      summaryPath,
+  const resultPath =
+    unitResultPath ??
+    expectedCurrentUnitResultPath({ currentResultsDir, currentRunId });
+  const result =
+    unitResult ??
+    parseUnitResult({
+      resultPath,
       findings,
     });
-  if (!summary) {
+  if (!result) {
     return;
   }
-  if (summary.target !== seaweedfsCompatibilityTarget) {
+  if (result.unit_id !== `target:${seaweedfsCompatibilityTarget}`) {
     findings.push({
-      check_id: "compatibility-target-summary-identity",
+      check_id: "compatibility-unit-result-identity",
       severity: "blocking",
-      path: summaryPath ? displayPath(summaryPath) : null,
-      message: "current compatibility tool-run summary has the wrong target",
-      actual: summary.target ?? null,
-      expected: seaweedfsCompatibilityTarget,
+      path: resultPath ? displayPath(resultPath) : null,
+      message: "current canonical compatibility unit result has the wrong unit",
+      actual: result.unit_id ?? null,
+      expected: `target:${seaweedfsCompatibilityTarget}`,
     });
   }
-  if (summary.status !== "pass") {
+  if (result.status !== "passed") {
     findings.push({
-      check_id: "compatibility-target-summary-status",
+      check_id: "compatibility-unit-result-status",
       severity: "blocking",
-      path: summaryPath ? displayPath(summaryPath) : null,
-      message: "current seaweedfs-compatibility tool-run summary is not pass",
-      actual: summary.status ?? null,
+      path: resultPath ? displayPath(resultPath) : null,
+      message: "current canonical seaweedfs-compatibility unit result is not passed",
+      actual: result.status ?? null,
     });
   }
 }
@@ -946,8 +953,8 @@ function buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun = false,
   currentResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? null,
   currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
-  targetSummary = null,
-  targetSummaryPath = null,
+  unitResult = null,
+  unitResultPath = null,
   prerequisitesSkipped = currentRunPrerequisitesSkipped(),
 } = {}) {
   const findings = [];
@@ -1027,8 +1034,8 @@ function buildSeaweedFSCompatibilityEvidence({
     validateCurrentCompatibilitySource({
       findings,
       reportPath,
-      targetSummary,
-      targetSummaryPath,
+      unitResult,
+      unitResultPath,
       currentResultsDir,
       currentRunId,
       prerequisitesSkipped,

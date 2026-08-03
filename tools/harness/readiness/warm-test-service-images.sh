@@ -79,7 +79,7 @@ if [[ -f "$stamp" ]] && ! images_present; then
 fi
 
 "$ROOT_DIR/tools/harness/readiness/cache-artifact.sh" \
-  --schema-id cartulary.cache.readiness.v1 \
+  \
   --scope readiness \
   --profile test-service-images \
   --cache-dir "$cache_dir" \

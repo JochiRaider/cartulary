@@ -17,7 +17,7 @@ import {
 } from "./semantic-json.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v2";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v3";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
@@ -57,25 +57,10 @@ const expectedRunnerDefinitions = Object.freeze({
 const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
-    "browser_exclusive",
-    "go_balanced",
-    "go_clone_heavy",
-    "go_cpu_heavy",
-    "go_io_heavy",
-    "go_postgres_advisory_lock_exclusive",
-    "go_reset_heavy",
-    "go_transaction_heavy",
+    "browser_isolated",
+    "io_heavy",
     "none",
-  ],
-  fixture_profiles: [
-    "none",
-    "object_store_isolated",
-    "postgres_group_clone",
-    "postgres_migration_scratch",
-    "postgres_package_reset",
-    "postgres_template_clone",
-    "postgres_transaction",
-    "service_stack",
+    "standard",
   ],
 });
 const expectedProfileDefinitions = Object.freeze({
@@ -85,15 +70,10 @@ const expectedProfileDefinitions = Object.freeze({
     { id: "none", managed_service_ids: [], browser_capable: false, startup_contract: "no_managed_runtime" },
   ],
   resource_profiles: [
-    { id: "browser_exclusive", resource_claims: { browser_stack: 1, postgres_cluster_advisory_lock: 1, process: 1 } },
-    { id: "go_balanced", resource_claims: { go_cpu: 1, go_io: 1, process: 1 } },
-    { id: "go_clone_heavy", resource_claims: { go_cpu: 1, go_io: 1, postgres: 1, postgres_clone: 1, process: 1 } },
-    { id: "go_cpu_heavy", resource_claims: { go_cpu: 2, go_io: 1, process: 1 } },
-    { id: "go_io_heavy", resource_claims: { go_cpu: 1, go_io: 2, process: 1 } },
-    { id: "go_postgres_advisory_lock_exclusive", resource_claims: { go_cpu: 1, go_io: 1, postgres: 1, postgres_clone: 1, postgres_cluster_advisory_lock: 1, process: 1 } },
-    { id: "go_reset_heavy", resource_claims: { go_cpu: 1, go_io: 1, postgres: 1, postgres_reset: 1, process: 1 } },
-    { id: "go_transaction_heavy", resource_claims: { go_cpu: 1, go_io: 1, postgres: 1, process: 1 } },
+    { id: "browser_isolated", resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, process: 1 } },
+    { id: "io_heavy", resource_claims: { cpu: 1, io: 2, memory_mb: 256, process: 1 } },
     { id: "none", resource_claims: {} },
+    { id: "standard", resource_claims: { cpu: 1, io: 1, memory_mb: 256, process: 1 } },
   ],
   fixture_profiles: [
     { id: "none", fixture_kind: "none", isolation_scope: "none", postgres_policy: "none", budget: {} },
@@ -163,10 +143,7 @@ function loadTopologyProfiles(root) {
     }
   }
   const resources = readStrictJSON(path.join(root, "tools/scheduler_resource_registry.json"));
-  const knownResources = new Set([
-    ...resources.resources.map((entry) => entry.name),
-    ...resources.templates.map((entry) => entry.prefix),
-  ]);
+  const knownResources = new Set(resources.resources.map((entry) => entry.name));
   for (const profile of topology.resource_profiles) {
     const claims = Object.keys(profile.resource_claims);
     assertSortedUnique(claims, `${topologyPath}.resource_profiles.${profile.id}.resource_claims`);
@@ -179,11 +156,9 @@ function loadTopologyProfiles(root) {
   return {
     runtimeIDs: new Set(topology.runtime_profiles.map((entry) => entry.id)),
     resourceIDs: new Set(topology.resource_profiles.map((entry) => entry.id)),
-    fixtureIDs: new Set(topology.fixture_profiles.map((entry) => entry.id)),
     semantic: {
       runtime_profiles: topology.runtime_profiles,
       resource_profiles: topology.resource_profiles,
-      fixture_profiles: topology.fixture_profiles,
     },
   };
 }
@@ -276,8 +251,12 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
       throw new Error(`${label} cannot use claim publication for implementation evidence`);
     }
   }
-  if (row.evidence_class === "measurement" && row.claim_posture === "informative" && row.default_check) {
-    throw new Error(`${label} informative measurement must set default_check=false`);
+  if (
+    row.evidence_class === "measurement" &&
+    row.claim_posture === "informative" &&
+    new Set(["fast", "standard"]).has(row.minimum_tier)
+  ) {
+    throw new Error(`${label} informative measurement must not enter fast or standard tiers`);
   }
   if (!runners.byID.has(row.runner)) {
     throw new Error(`${label}.runner is unsupported`);
@@ -288,23 +267,23 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
   if (!profiles.resourceIDs.has(row.resource_profile_id)) {
     throw new Error(`${label}.resource_profile_id is unresolved`);
   }
-  if (!profiles.fixtureIDs.has(row.fixture_profile_id)) {
-    throw new Error(`${label}.fixture_profile_id is unresolved`);
-  }
   const runtimeProfile = profiles.semantic.runtime_profiles.find(
     (entry) => entry.id === row.runtime_profile_id,
-  );
-  const fixtureProfile = profiles.semantic.fixture_profiles.find(
-    (entry) => entry.id === row.fixture_profile_id,
   );
   const resourceProfile = profiles.semantic.resource_profiles.find(
     (entry) => entry.id === row.resource_profile_id,
   );
   if (
-    fixtureProfile.fixture_kind === "postgres" &&
+    row.fixture_capability.startsWith("postgres_") &&
     !runtimeProfile.managed_service_ids.includes("postgres")
   ) {
-    throw new Error(`${label}.fixture_profile_id requires a postgres runtime profile`);
+    throw new Error(`${label}.fixture_capability requires a postgres runtime profile`);
+  }
+  if (row.runner === "playwright" && row.fixture_capability !== "browser_stack") {
+    throw new Error(`${label}.fixture_capability must be browser_stack for Playwright`);
+  }
+  if (row.fixture_capability === "managed_process" && row.runtime_profile_id === "none") {
+    throw new Error(`${label}.fixture_capability managed_process requires a runtime profile`);
   }
   if (
     Object.keys(resourceProfile.resource_claims).some((claim) => claim.startsWith("postgres")) &&

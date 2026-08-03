@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "module.graphprojection",
   "rows": [
     {
@@ -40,11 +40,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.graphprojection.fixtures.fixture_verifier",
@@ -65,11 +65,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.graphprojection.storage.lifecycle",
@@ -95,11 +95,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.graphprojection.storage.migration_reset",
@@ -121,11 +121,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_io_heavy",
-      "fixture_profile_id": "postgres_migration_scratch",
-      "default_check": true,
+      "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.graphprojection.storage.transaction_binding",
@@ -144,11 +144,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_transaction_heavy",
-      "fixture_profile_id": "postgres_transaction",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
     }
   ]
 }

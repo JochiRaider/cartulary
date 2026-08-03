@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -12,15 +12,15 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_evidence_contract.v1"
+        "command_id": "cartulary.harness.command.harness_evidence_contract.v2"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": false,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     }
   ]
 }

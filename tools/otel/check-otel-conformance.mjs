@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -412,6 +411,14 @@ function sha256Text(text) {
 function fileExists(relativePath) {
   try {
     return statSync(repoPath(relativePath)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function absoluteFileExists(file) {
+  try {
+    return statSync(file).isFile();
   } catch {
     return false;
   }
@@ -1928,34 +1935,28 @@ function validateHarnessTelemetryBoundary(checks) {
 }
 
 function validateRuntimeBehavior(checks) {
-  const makeCommand = process.env.MAKE || "make";
-  const childEnvironment = {
-    ...process.env,
-    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-    CARTULARY_TEST_TARGET: "test-slice",
-  };
-  const result = spawnSync(
-    makeCommand,
-    [
-      "--silent",
-      "--no-print-directory",
-      "test-slice",
-      "OWNER=platform.telemetry",
-    ],
-    {
-      cwd: repoRoot,
-      env: childEnvironment,
-      encoding: "utf8",
-      maxBuffer: 16 * 1024 * 1024,
-    },
-  );
-  const detail = [result.error?.message, result.stderr, result.stdout]
-    .filter((value) => typeof value === "string" && value.trim() !== "")
-    .join("\n")
-    .trim();
+  const resultsRoot = process.env.CARTULARY_TEST_RESULTS_DIR;
+  const runID = process.env.CARTULARY_TEST_RUN_ID;
+  const manifest = readJSON("tools/test_families/platform.telemetry.json");
+  const activeRows = manifest.rows.filter((row) => row.status === "active");
+  const runRoot = resultsRoot && runID
+    ? path.resolve(repoRoot, resultsRoot, runID)
+    : "";
+  const failures = [];
+  for (const row of activeRows) {
+    const resultFile = path.join(runRoot, "rows", `${row.row_id}.json`);
+    if (!runRoot || !absoluteFileExists(resultFile)) {
+      failures.push(`${row.row_id}:missing`);
+      continue;
+    }
+    const result = JSON.parse(readFileSync(resultFile, "utf8"));
+    if (result.schema_id !== "cartulary.harness_row_result.v1" || result.terminal_state !== "passed") {
+      failures.push(`${row.row_id}:${result.terminal_state ?? "invalid"}`);
+    }
+  }
   assert(
-    result.status === 0,
-    `current platform.telemetry runtime, privacy, exporter-failure, retry, queue, and shutdown tests pass${detail === "" ? "" : `; ${detail.slice(0, 2_000)}`}`,
+    activeRows.length > 0 && failures.length === 0,
+    `current platform.telemetry runtime, privacy, exporter-failure, retry, queue, and shutdown canonical row evidence passes${failures.length === 0 ? "" : `; ${failures.join(", ")}`}`,
     checks,
     "runtime.current_behavior",
   );

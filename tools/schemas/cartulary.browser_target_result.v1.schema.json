@@ -51,7 +51,7 @@
             "type": "array",
             "minItems": 2,
             "maxItems": 2,
-            "items": { "$ref": "cartulary.browser_group_result.v2#/$defs/artifact" }
+            "items": { "$ref": "cartulary.browser_group_result.v3#/$defs/artifact" }
           }
         }
       }

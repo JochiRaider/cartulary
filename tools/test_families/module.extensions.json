@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "module.extensions",
   "rows": [
     {
@@ -28,11 +28,11 @@
       },
       "evidence_class": "browser",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_exclusive",
-      "fixture_profile_id": "service_stack",
-      "default_check": false,
+      "resource_profile_id": "browser_isolated",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
     },
     {
       "row_id": "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
@@ -53,11 +53,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
@@ -79,11 +79,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.clean_job_cutover_migration_4917a0cdef",
@@ -105,11 +105,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_io_heavy",
-      "fixture_profile_id": "postgres_migration_scratch",
-      "default_check": true,
+      "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45",
@@ -130,11 +130,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2",
@@ -157,11 +157,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6",
@@ -184,11 +184,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.named_portability_job_recovery_f7c496c10b",
@@ -212,11 +212,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
@@ -258,11 +258,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_clone_heavy",
-      "fixture_profile_id": "postgres_template_clone",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d",
@@ -284,11 +284,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.process.bc017_component_loss_755919c8d7",
@@ -309,11 +309,11 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.static.bc004_dependency_declarations_7dd570e1e4",
@@ -332,11 +332,11 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.static.behavior_routing_e80c9e3dc7",
@@ -355,11 +355,11 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "managed_process",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "module.extensions.unit.bc001_empty_state_7ca75ba0bc",
@@ -380,11 +380,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.bc002_validation_precedence_af944dca6e",
@@ -405,11 +405,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.bc005_descriptor_projection_1e0ea91df8",
@@ -428,11 +428,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.bc006_validation_inventory_6e85895643",
@@ -453,11 +453,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.bc016_capabilities_disabled_77bb995602",
@@ -478,11 +478,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.coordinator_binding_admission_c2d8beffdb",
@@ -501,11 +501,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.coordinator_claim_resolution_6cfce6db24",
@@ -524,11 +524,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.coordinator_collision_admission_590bd27481",
@@ -547,11 +547,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.coordinator_publication_plan_05ae1ed79d",
@@ -572,11 +572,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.coordinator_registry_1dce9a539a",
@@ -597,11 +597,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.inactive_configuration_catalog",
@@ -622,11 +622,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.job_admission_and_terminal_contracts_64d299b374",
@@ -648,11 +648,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.extensions.unit.job_inactive_reconciliation_49b5990495",
@@ -674,11 +674,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

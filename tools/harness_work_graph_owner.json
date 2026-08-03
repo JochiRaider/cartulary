@@ -1,0 +1,508 @@
+{
+  "schema_id": "cartulary.harness_work_graph_owner.v1",
+  "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
+  "tier_order": [
+    "fast",
+    "standard",
+    "full",
+    "release"
+  ],
+  "aggregate_tiers": {
+    "test-fast": "fast",
+    "check": "standard",
+    "test": "full",
+    "ci": "full",
+    "release-check": "release"
+  },
+  "aggregate_policy_inherits": {
+    "test-fast": [],
+    "check": [],
+    "test": [],
+    "ci": [
+      "check"
+    ],
+    "release-check": [
+      "ci"
+    ]
+  },
+  "aggregate_policy_roots": {
+    "test-fast": [],
+    "check": [
+      "backend-module-boundary-check",
+      "build-migrate",
+      "build-operator",
+      "build-server",
+      "build-server-harness",
+      "check-harness-smoke",
+      "frontend-import-boundary-check",
+      "frontend-typecheck",
+      "generate-drift",
+      "generated-artifact-policy-check",
+      "go-gosec-targeted",
+      "go-test-duration-baseline-coverage",
+      "go-vulncheck",
+      "json-shape-check",
+      "lint-biome",
+      "lint-go",
+      "lint-scripts",
+      "lint-shell",
+      "migration-input-drift",
+      "otel-conformance",
+      "semantic-identity-check",
+      "test-catalog-check"
+    ],
+    "test": [],
+    "ci": [
+      "deployable-shape",
+      "go-gosec-audit",
+      "harness-contract"
+    ],
+    "release-check": [
+      "browser-e2e-support",
+      "build",
+      "license-report",
+      "release-readiness-evidence",
+      "sbom",
+      "seaweedfs-compatibility",
+      "seaweedfs-release-gate"
+    ]
+  },
+  "target_members": {
+    "build": [
+      "build-migrate",
+      "build-operator",
+      "build-server",
+      "build-web"
+    ],
+    "format": [
+      "format-frontend",
+      "format-go"
+    ],
+    "lint": [
+      "backend-module-boundary-check",
+      "frontend-import-boundary-check",
+      "frontend-typecheck",
+      "lint-biome",
+      "lint-go",
+      "lint-scripts",
+      "lint-shell"
+    ]
+  },
+  "policy_units": {
+    "backend-module-boundary-check": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "browser-e2e-support": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 12000
+    },
+    "build-migrate": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "build-operator": {
+      "needs": [
+        "embedded-web-assets"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "build-server": {
+      "needs": [
+        "embedded-web-assets"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "build-server-harness": {
+      "needs": [
+        "embedded-web-assets"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "build-web": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "check-harness-smoke": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "codegen-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "deployable-shape": {
+      "needs": [
+        "build"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "embedded-web-assets": {
+      "needs": [
+        "build-web"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000
+    },
+    "frontend-fallow-static": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "frontend-import-boundary-check": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "frontend-install": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "frontend-typecheck": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 3000
+    },
+    "generate-drift": {
+      "needs": [
+        "codegen-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "generated-artifact-policy-check": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "go-gosec-audit": {
+      "needs": [
+        "gosec-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 8000
+    },
+    "go-gosec-targeted": {
+      "needs": [
+        "gosec-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 8000
+    },
+    "go-lint-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "go-test-duration-baseline-coverage": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "go-vulncheck": {
+      "needs": [
+        "govulncheck-toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 8000
+    },
+    "goose-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "gosec-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "govulncheck-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "harness-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000
+    },
+    "json-shape-check": {
+      "needs": [
+        "frontend-install",
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "license-report": {
+      "needs": [
+        "release-inventory-artifacts"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "lint-biome": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "lint-go": {
+      "needs": [
+        "go-lint-toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 3000
+    },
+    "lint-scripts": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "lint-shell": {
+      "needs": [
+        "shell-lint-toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 1500
+    },
+    "migration-drift": {
+      "needs": [
+        "build-migrate",
+        "goose-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "migration-input-drift": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "object-store-init": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "openapi-compatibility-check": {
+      "needs": [
+        "codegen-toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "otel-conformance": {
+      "needs": [
+        "build-web",
+        "toolchain-drift"
+      ],
+      "owner_slices": [
+        "platform.telemetry"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "playwright-install": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "release-inventory-artifacts": {
+      "needs": [
+        "frontend-install",
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000
+    },
+    "release-readiness-evidence": {
+      "needs": [
+        "browser-e2e-support",
+        "deployable-shape",
+        "go-gosec-audit",
+        "harness-contract",
+        "license-report",
+        "sbom",
+        "seaweedfs-release-gate"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "sbom": {
+      "needs": [
+        "release-inventory-artifacts"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "seaweedfs-compatibility": {
+      "needs": [
+        "test-service-images"
+      ],
+      "fixture_lease": "object_store_namespace",
+      "cache_policy": "none",
+      "estimated_work_ms": 10000
+    },
+    "seaweedfs-release-evidence": {
+      "needs": [
+        "license-report",
+        "sbom",
+        "seaweedfs-compatibility"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "seaweedfs-release-gate": {
+      "needs": [
+        "license-report",
+        "sbom",
+        "seaweedfs-compatibility"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "semantic-identity-check": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "shell-lint-toolchain": {
+      "needs": [
+        "toolchain-drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000
+    },
+    "standup-operational-recovery-smoke": {
+      "needs": [
+        "deployable-shape"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 15000
+    },
+    "standup-package-smoke": {
+      "needs": [
+        "deployable-shape"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 15000
+    },
+    "test-catalog-check": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500
+    },
+    "test-service-images": {
+      "needs": [
+        "testservices-build"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000
+    },
+    "testservices-build": {
+      "needs": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 3000
+    },
+    "toolchain-drift": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1500
+    }
+  },
+  "runner_resource_claims": {
+    "go": {
+      "cpu": 1,
+      "io": 1,
+      "memory_mb": 256,
+      "process": 1
+    },
+    "playwright": {
+      "browser_stack": 1,
+      "cpu": 1,
+      "io": 1,
+      "memory_mb": 512,
+      "port_lane": 1,
+      "process": 1
+    },
+    "shell": {
+      "cpu": 1,
+      "io": 1,
+      "memory_mb": 128,
+      "process": 1
+    },
+    "vitest": {
+      "cpu": 1,
+      "io": 1,
+      "memory_mb": 256,
+      "process": 1
+    }
+  },
+  "evidence_estimates_ms": {
+    "accessibility": 15000,
+    "browser": 12000,
+    "integration": 5000,
+    "measurement": 20000,
+    "release": 10000,
+    "security": 8000,
+    "static": 1500,
+    "unit": 1000,
+    "visual": 15000
+  },
+  "default_timeout_ms": 600000,
+  "aging_quantum_ms": 1000
+}

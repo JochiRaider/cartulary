@@ -146,7 +146,6 @@ trap 'rm -f "$file_list"' EXIT
 printf '%s\0' "${shell_files[@]}" >"$file_list"
 
 cache_args=(
-  --schema-id cartulary.cache.static_analysis.v1
   --scope static-analysis
   --profile lint-shell
   --cache-dir "$CACHE_DIR"
@@ -156,7 +155,6 @@ cache_args=(
   --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck-runner.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
-  --input "$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-policy.sh"
   --output "$CACHE_STAMP"
   --key "shellcheck_bin=$shellcheck_bin"
   --key "shellcheck_version=$shellcheck_version"

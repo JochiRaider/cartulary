@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_run_manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "command_id", "target", "declared_inputs", "source_commit", "source_state", "source_digest", "toolchain_digest", "system_digest", "capability_snapshot", "graph_digest", "cache_mode", "started_at"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_run_manifest.v1" }, "run_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" }, "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "declared_inputs": { "type": "object", "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" }, "additionalProperties": { "type": "string", "maxLength": 4096 } },
+    "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" }, "source_state": { "enum": ["clean", "dirty"] },
+    "source_digest": { "$ref": "#/$defs/digest" }, "toolchain_digest": { "$ref": "#/$defs/digest" }, "system_digest": { "$ref": "#/$defs/digest" },
+    "capability_snapshot": { "$ref": "cartulary.harness_capability_snapshot.v1" }, "graph_digest": { "$ref": "#/$defs/digest" },
+    "cache_mode": { "enum": ["normal", "cold", "off"] }, "started_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": { "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" } }
+}

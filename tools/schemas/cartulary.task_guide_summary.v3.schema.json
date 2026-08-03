@@ -26,13 +26,13 @@
       "const": "module-author"
     },
     "owner_id": {
-      "$ref": "cartulary.test_family_manifest.v2#/$defs/owner_id"
+      "$ref": "cartulary.test_family_manifest.v3#/$defs/owner_id"
     },
     "test_catalog_digest": {
-      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+      "$ref": "#/$defs/digest"
     },
     "verification_routing_digest": {
-      "$ref": "cartulary.test_slice_plan.v3#/$defs/digest"
+      "$ref": "#/$defs/digest"
     },
     "focused_commands": {
       "type": "array",
@@ -61,6 +61,10 @@
     }
   },
   "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
     "commands": {
       "type": "array",
       "uniqueItems": true,

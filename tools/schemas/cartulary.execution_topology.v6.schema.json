@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.execution_topology.v6",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "runtime_profiles",
+    "resource_profiles",
+    "generated_outputs",
+    "runtime_binaries",
+    "execution_dependencies",
+    "go_targets",
+    "browser_e2e_batch",
+    "task_surface_owner"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.execution_topology.v6" },
+    "runtime_profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
+    "resource_profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
+    "generated_outputs": { "type": "object", "minProperties": 1 },
+    "runtime_binaries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
+    "execution_dependencies": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
+    "go_targets": { "type": "object", "minProperties": 1 },
+    "browser_e2e_batch": { "type": "object", "minProperties": 1 },
+    "task_surface_owner": { "type": "string", "const": "tools/task_surface_owner.json" }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "required": ["id"],
+      "properties": { "id": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

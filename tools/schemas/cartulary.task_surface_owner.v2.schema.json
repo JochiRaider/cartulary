@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.task_surface_owner.v2",
+  "title": "Cartulary authored graph-backed task-surface owner",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "observability_policy", "compact_help", "help_tiers", "sequences", "make_recipes", "targets", "harness_tiers", "harness_checks"],
+  "properties": {
+    "schema_id": { "const": "cartulary.task_surface_owner.v2" },
+    "observability_policy": { "type": "object" },
+    "compact_help": { "type": "object" },
+    "help_tiers": { "type": "array" },
+    "sequences": { "type": "object" },
+    "make_recipes": { "type": "object" },
+    "targets": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+    "harness_tiers": { "type": "object" },
+    "harness_checks": { "type": "array" }
+  }
+}

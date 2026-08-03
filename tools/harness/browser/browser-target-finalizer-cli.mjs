@@ -2,7 +2,6 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -50,7 +49,7 @@ function groupResult(base, groupID, target) {
   if (!existsSync(file)) return null;
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v2", result);
+  validateSchemaSync("cartulary.browser_group_result.v3", result);
   return {
     file,
     bytes,
@@ -126,14 +125,10 @@ const groups = options.groups
   .filter((group) => group !== null);
 const complete = groups.length === options.groups.length;
 const targetResult = complete ? writeTargetResult(base, options, groups) : null;
-const requested = complete && targetResult.status === "pass" ? "pass" : "fail";
-const helper = process.env.TEST_OUTPUT_SCRIPT || path.join(root, "tools", "harness", "output", "test-output.mjs");
-const node = process.env.NODE_BIN || process.execPath;
-const args = [helper, "target-summary", options.target, requested];
-if (options.children.length > 0) args.push("--children", options.children.join(","));
-const child = spawnSync(helper.endsWith(".mjs") ? node : helper, helper.endsWith(".mjs") ? args : args.slice(1), {
-  cwd: root,
-  env: process.env,
-  stdio: "inherit",
-});
-process.exitCode = child.status ?? 11;
+if (!complete) {
+  process.stderr.write(`browser target ${options.target} is missing group results\n`);
+  process.exitCode = 11;
+} else if (targetResult.status !== "pass") {
+  process.stderr.write(`browser target ${options.target} contains failed groups\n`);
+  process.exitCode = 10;
+}

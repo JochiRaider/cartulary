@@ -46,12 +46,6 @@ export function createRunnerContext(options = {}) {
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/execution/cartulary-runner-cli.mjs", repoRoot),
     runStepScript: envPath("RUN_STEP_SCRIPT", "tools/harness/execution/run-step.sh", repoRoot),
-    runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "tools/harness/backend/go-target-runner.mjs", repoRoot),
-    serviceBackedScheduleScript: envPath(
-      "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
-      "tools/harness/scheduler/service-backed-schedule-cli.mjs",
-      repoRoot,
-    ),
     schedulerManifest: envPath(
       "SCHEDULER_MANIFEST",
       "tools/scheduler_manifest.json",
@@ -84,7 +78,6 @@ export function runnerEnv(context, extra = {}) {
     GO_MOD_CACHE_DIR: context.goModCacheDir,
     TEST_OUTPUT_SCRIPT: context.testOutputScript,
     TASK_SURFACE_MANIFEST: context.taskSurfaceManifest,
-    SCHEDULER_MANIFEST: context.schedulerManifest,
     CARTULARY_RUNNER_SCRIPT: context.runnerScript,
     ...extra,
   };

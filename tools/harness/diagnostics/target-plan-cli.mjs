@@ -1,213 +1,84 @@
 #!/usr/bin/env node
-import {
-  collectHarnessTargetPlanRows,
-  collectTargetNames,
-} from "./target-plan-rows.mjs";
 
-process.stdout.on("error", (error) => {
-  if (error.code === "EPIPE") {
-    process.exit(0);
-  }
-  throw error;
-});
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { validateSchemaSync } from "../contract/index.mjs";
+import { WorkGraphCompiler } from "../scheduler/work-graph/index.mjs";
+
+const root = path.resolve(import.meta.dirname, "../../..");
+const aggregateTargets = new Set(["test-fast", "test", "check", "ci", "release-check"]);
 
 function usage() {
-  process.stderr.write("usage: print-target-plan.mjs [--json] [--detail] [--target <target>]\n");
-  process.exit(2);
+  throw new Error("usage: target-plan-cli.mjs [--json] [--detail] [--target <target>]");
 }
 
 function parseArgs(argv) {
-  const options = {
-    detail: false,
-    json: false,
-    target: "",
-  };
+  const options = { detail: false, json: false, target: "check" };
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--json") {
-      options.json = true;
-      continue;
-    }
-    if (arg === "--detail") {
-      options.detail = true;
-      continue;
-    }
-    if (arg === "--target") {
-      const target = argv[index + 1];
-      if (!target) {
-        usage();
-      }
-      options.target = target;
-      index += 1;
-      continue;
-    }
-    usage();
+    if (argv[index] === "--json") options.json = true;
+    else if (argv[index] === "--detail") options.detail = true;
+    else if (argv[index] === "--target") options.target = argv[++index] ?? "";
+    else usage();
   }
+  if (!options.target) usage();
   return options;
 }
 
-function describeSafety(row) {
-  const values = [];
-  if (row.check_heavy_safe) {
-    values.push("backend-unit");
+function planFor(target) {
+  const taskSurface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
+  if (!taskSurface.targets.some((entry) => entry.name === target)) {
+    throw new Error(`unknown target ${target}`);
   }
-  if (row.check_service_backed_safe) {
-    values.push("check-service-backed");
-  }
-  if (row.check_isolated_safe) {
-    values.push("check-isolated");
-  }
-  return values.length === 0 ? "direct-only" : values.join(", ");
+  const compiler = new WorkGraphCompiler(root);
+  const compiled = aggregateTargets.has(target)
+    ? compiler.compileAggregatePlan(target)
+    : { graph: compiler.compile({ kind: "target", target }), projections: null };
+  const projections = compiled.projections ?? {
+    [target]: compiled.graph.units.map((unit) => unit.unit_id),
+  };
+  const plan = {
+    schema_id: "cartulary.harness_target_plan.v1",
+    target,
+    graph_digest: compiled.graph.graph_digest,
+    projections,
+    units: compiled.graph.units.map((unit) => ({
+      unit_id: unit.unit_id,
+      owner_id: unit.owner_id,
+      kind: unit.kind,
+      needs: unit.needs,
+      resource_claims: unit.resource_claims,
+      fixture_capability: unit.fixture_lease,
+      cache_policy: unit.cache_policy,
+      estimated_work_ms: unit.estimated_work_ms,
+      semantic_digest: unit.semantic_digest,
+      evidence_outputs: unit.evidence_outputs,
+    })),
+  };
+  validateSchemaSync(plan.schema_id, plan);
+  return plan;
 }
 
-function describeRow(row) {
-  const owner = row.owner_id || "raw_diagnostic";
-  const base = `${owner} ${row.section} ${row.coverage}`;
-  const dependency =
-    row.execution_dependency === "" ? "no manifest dependency" : row.execution_dependency;
-  const selector = row.support_only
-    ? ` support=${row.support_selector}`
-    : row.raw_selector
-      ? ` selector=${row.raw_selector}`
-      : "";
+function human(plan, detail) {
+  if (!detail) {
+    const cached = plan.units.filter((unit) => unit.cache_policy !== "none").length;
+    const fixtures = plan.units.filter((unit) => unit.fixture_capability !== "none").length;
+    return `target=${plan.target} units=${plan.units.length} cached=${cached} fixtures=${fixtures} digest=${plan.graph_digest}`;
+  }
   return [
-    `  - ${row.id}: ${base}; dependency=${dependency}; family=${row.execution_family}; safety=${describeSafety(row)}${selector}`,
-    `    packages: ${row.packages.join(", ")}`,
-  ];
-}
-
-function renderHuman(rows, target) {
-  const rowTargets = [...new Set(rows.map((row) => row.target))];
-  const targetNames = target && rowTargets.includes(target) ? [target] : rowTargets;
-  const lines = [];
-  for (const name of targetNames) {
-    const targetRows = rows.filter((row) => row.target === name);
-    if (targetRows.length === 0) {
-      continue;
-    }
-    const serviceBacked = targetRows.some((row) => row.service_backed) ? "yes" : "no";
-    lines.push(`${name}`);
-    lines.push(`  service-backed: ${serviceBacked}`);
-    for (const row of targetRows) {
-      lines.push(...describeRow(row));
-    }
-    lines.push("");
-  }
-  return lines.join("\n").trimEnd();
-}
-
-function aggregateTargetRows(rows) {
-  const byTarget = new Map();
-  for (const row of rows) {
-    if (!byTarget.has(row.target)) {
-      byTarget.set(row.target, {
-        target: row.target,
-        service_backed: false,
-        rows: 0,
-        authoritative: 0,
-        support: 0,
-        raw: 0,
-        owners: new Set(),
-        execution_families: new Set(),
-        safety: new Set(),
-      });
-    }
-    const aggregate = byTarget.get(row.target);
-    aggregate.service_backed = aggregate.service_backed || row.service_backed;
-    aggregate.rows += 1;
-    if (row.coverage === "authoritative") {
-      aggregate.authoritative += 1;
-    } else if (row.coverage === "support") {
-      aggregate.support += 1;
-    } else if (row.coverage === "raw") {
-      aggregate.raw += 1;
-    }
-    if (row.owner_id) {
-      aggregate.owners.add(row.owner_id);
-    }
-    if (row.execution_family) {
-      aggregate.execution_families.add(row.execution_family);
-    }
-    if (row.check_heavy_safe) {
-      aggregate.safety.add("backend-unit");
-    }
-    if (row.check_service_backed_safe) {
-      aggregate.safety.add("check-service-backed");
-    }
-    if (row.check_isolated_safe) {
-      aggregate.safety.add("check-isolated");
-    }
-  }
-  return Array.from(byTarget.values()).sort((left, right) => left.target.localeCompare(right.target));
-}
-
-function renderCompact(rows, target) {
-  const aggregates = aggregateTargetRows(rows);
-  const aggregateNames = aggregates.map((aggregate) => aggregate.target);
-  const targetNames = target && aggregateNames.includes(target) ? [target] : aggregateNames;
-  const lines = [];
-  for (const name of targetNames) {
-    const aggregate = aggregates.find((candidate) => candidate.target === name);
-    if (!aggregate) {
-      continue;
-    }
-    const safety = aggregate.safety.size === 0 ? "direct-only" : Array.from(aggregate.safety).sort().join(",");
-    lines.push(
-      `${aggregate.target} service_backed=${aggregate.service_backed ? 1 : 0} owners=${aggregate.owners.size} rows=${aggregate.rows} authoritative=${aggregate.authoritative} support=${aggregate.support} raw=${aggregate.raw} safety=${safety} execution_families=${aggregate.execution_families.size}`,
-    );
-  }
-  return lines.join("\n");
-}
-
-function rowSelectedByCheck(row) {
-  return row.default_check_required === true || row.scheduled_by_default_check === true;
-}
-
-function rowSelectedByCheckServiceBacked(row) {
-  if (row.scheduled_by_default_check === true && row.default_check_schedule === "check-service-backed") {
-    return true;
-  }
-  return row.service_backed === true && row.default_check_required === true;
-}
-
-function filterRowsForTarget(rows, target) {
-  if (!target) {
-    return rows;
-  }
-  if (target === "check") {
-    return rows.filter(rowSelectedByCheck);
-  }
-  if (target === "check-service-backed") {
-    return rows.filter(rowSelectedByCheckServiceBacked);
-  }
-  return rows.filter((row) => row.target === target);
-}
-
-function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const knownTargets = collectTargetNames();
-  if (options.target && !knownTargets.includes(options.target)) {
-    throw new Error(
-      `unknown target ${options.target}; expected one of: ${knownTargets.join(", ")}; for public Make target guidance, run make explain-target TARGET=${options.target}`,
-    );
-  }
-
-  let rows = collectHarnessTargetPlanRows(process.cwd());
-  rows = filterRowsForTarget(rows, options.target);
-
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);
-    return;
-  }
-
-  const rendered = options.detail ? renderHuman(rows, options.target) : renderCompact(rows, options.target);
-  process.stdout.write(`${rendered}\n`);
+    `target ${plan.target}`,
+    `graph ${plan.graph_digest}`,
+    ...plan.units.map((unit) =>
+      `${unit.unit_id} kind=${unit.kind} owner=${unit.owner_id} needs=${unit.needs.join(",") || "-"} fixture=${unit.fixture_capability} cache=${unit.cache_policy} work_ms=${unit.estimated_work_ms}`,
+    ),
+  ].join("\n");
 }
 
 try {
-  main();
+  const options = parseArgs(process.argv.slice(2));
+  const plan = planFor(options.target);
+  process.stdout.write(options.json ? `${JSON.stringify(plan, null, 2)}\n` : `${human(plan, options.detail)}\n`);
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exit(1);
+  process.stderr.write(`${error.message}\n`);
+  process.exitCode = 2;
 }

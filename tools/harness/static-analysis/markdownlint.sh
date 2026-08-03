@@ -21,14 +21,12 @@ markdown_inputs=(
   "$ROOT_DIR/tools/harness/static-analysis/markdownlint.sh"
   "$ROOT_DIR/tools/harness/static-analysis/markdownlint-runner.sh"
   "$ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
-  "$ROOT_DIR/tools/harness/readiness/cache-policy.sh"
 )
 while IFS= read -r -d '' rel; do
   markdown_inputs+=("$ROOT_DIR/$rel")
 done < <(git -C "$ROOT_DIR" ls-files -z --cached --others --exclude-standard -- '*.md' '*.markdown')
 
 cache_args=(
-  --schema-id cartulary.cache.static_analysis.v1
   --scope static-analysis
   --profile lint-markdown
   --cache-dir "$CACHE_DIR"

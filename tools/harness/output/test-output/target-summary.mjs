@@ -32,10 +32,6 @@ import {
   loadSummaryTopologyContext,
   summaryProjectionChildren,
 } from "../../execution/summary-topology.mjs";
-import {
-  finalizeTargetOwnerEvidence,
-  targetOwnerEvidenceArtifactPaths,
-} from "../../evidence-accounting/index.mjs";
 import { defaultTaskSurfaceManifestPath } from "../../generated-artifacts/task-surface/model.mjs";
 import { finalizeObservabilitySafely, observabilityRequiredTarget } from "../../observability/observability.mjs";
 import {
@@ -1357,14 +1353,6 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
             browserArtifacts.startupDiagnostics,
           )
         : null,
-      browserArtifacts.ownerIndex
-        ? fileArtifactRef("browser_owner_index", browserArtifacts.ownerIndex)
-        : null,
-      ...targetOwnerEvidenceArtifactPaths(
-        targetArtifactRoot,
-        targetSummary.target,
-        { runID: runId },
-      ).map((artifact) => fileArtifactRef(artifact.role, artifact.path)),
       ownsRunArtifacts
         ? fileArtifactRef("run_summary", relToRepo(runSummaryFile))
         : null,
@@ -1483,30 +1471,15 @@ function serviceSharedSummaryArtifacts(runRunRoot) {
     });
 }
 
-function validatedBrowserOwnerIndex(targetDir, target = "") {
-  const file = path.join(targetDir, "browser-owner-index.json");
-  if (!existsSync(file)) return null;
-  const value = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync("cartulary.browser_owner_index.v2", value);
-  if (target && value.target_id !== target) {
-    throw new Error(`browser owner index target ${value.target_id} does not match ${target}`);
-  }
-  return value;
-}
-
-function browserOwnedStackArtifacts(targetDir, target = "") {
+function browserOwnedStackArtifacts(targetDir) {
   const ownedStackDir = path.join(targetDir, "owned-stack");
   const stackMetadata = path.join(ownedStackDir, "stack.json");
   const startupDiagnostics = path.join(ownedStackDir, "startup-diagnostics.json");
-  const ownerIndex = validatedBrowserOwnerIndex(targetDir, target)
-    ? path.join(targetDir, "browser-owner-index.json")
-    : "";
   return {
     stackMetadata: existsSync(stackMetadata) ? relToRepo(stackMetadata) : "",
     startupDiagnostics: existsSync(startupDiagnostics)
       ? relToRepo(startupDiagnostics)
       : "",
-    ownerIndex: ownerIndex ? relToRepo(ownerIndex) : "",
   };
 }
 
@@ -1775,30 +1748,6 @@ export function handleTargetSummary(args) {
     suppressMachineOutput,
     preserveExistingToolSummary,
   } = parseTargetSummaryArgs(args);
-  if (process.env.CARTULARY_TARGET_EVIDENCE_FINALIZE === "1") {
-    let evidence;
-    try {
-      evidence = finalizeTargetOwnerEvidence(repoRoot, {
-        targetID: target,
-        requestedStatus,
-        resultsDir: resultsRoot,
-        runID: runId,
-        env: process.env,
-      });
-    } catch (error) {
-      const artifactError = new Error(
-        error instanceof Error ? error.message : String(error),
-        { cause: error },
-      );
-      artifactError.publicExitCode = 11;
-      throw artifactError;
-    }
-    if (evidence.status === "fail") {
-      const artifactError = new Error(`target owner evidence failed for ${target}`);
-      artifactError.publicExitCode = 11;
-      throw artifactError;
-    }
-  }
   const summary = summarizeTargetDir(target);
   const securityRollup = govulncheckRollupFromStepSummaries(
     target,
@@ -2094,8 +2043,7 @@ export function handleTargetSummary(args) {
       reportCollationEndTime,
     ...durationFieldsForJSON(totalsSection),
   };
-  validatedBrowserOwnerIndex(summary.targetDir, target);
-  const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir, target);
+  const browserArtifacts = browserOwnedStackArtifacts(summary.targetDir);
   if (browserArtifacts.stackMetadata) {
     ownSection.artifacts.browser_stack = browserArtifacts.stackMetadata;
     if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
@@ -2108,26 +2056,6 @@ export function handleTargetSummary(args) {
     if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
       totalsSection.artifacts.browser_startup_diagnostics =
         browserArtifacts.startupDiagnostics;
-    }
-  }
-  if (browserArtifacts.ownerIndex) {
-    ownSection.artifacts.browser_owner_index = browserArtifacts.ownerIndex;
-    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
-      totalsSection.artifacts.browser_owner_index = browserArtifacts.ownerIndex;
-    }
-  }
-  const releaseReadinessEvidencePath = path.join(
-    summary.targetDir,
-    "release-readiness-evidence.json",
-  );
-  if (existsSync(releaseReadinessEvidencePath)) {
-    ownSection.artifacts.release_readiness_evidence = relToRepo(
-      releaseReadinessEvidencePath,
-    );
-    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
-      totalsSection.artifacts.release_readiness_evidence = relToRepo(
-        releaseReadinessEvidencePath,
-      );
     }
   }
   const testAccountingFailures =
@@ -2194,33 +2122,6 @@ export function handleTargetSummary(args) {
       readFileSync(targetToolSummaryFile, "utf8"),
     );
     validateSchemaSync("cartulary.tool_run_summary.v5", existingToolSummary);
-    const existingArtifacts = existingToolSummary.summary_artifacts ?? [];
-    const existingArtifactKeys = new Set(
-      existingArtifacts.map(
-        (artifact) => `${artifact.role}\u0000${artifact.path_kind}\u0000${artifact.path}`,
-      ),
-    );
-    const ownerArtifacts = targetOwnerEvidenceArtifactPaths(
-      summary.targetDir,
-      targetSummary.target,
-      { runID: runId },
-    )
-      .map((artifact) =>
-        fileArtifactRef(artifact.role, relToRepo(artifact.path)),
-      )
-      .filter(
-        (artifact) =>
-          !existingArtifactKeys.has(
-            `${artifact.role}\u0000${artifact.path_kind}\u0000${artifact.path}`,
-          ),
-      );
-    if (ownerArtifacts.length > 0) {
-      existingToolSummary.summary_artifacts = [
-        ...existingArtifacts,
-        ...ownerArtifacts,
-      ];
-      writeToolSummary(targetToolSummaryFile, existingToolSummary);
-    }
   }
   const shouldSuppressMachineOutput =
     suppressMachineOutput || suppressChildSuccess();

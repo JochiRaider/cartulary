@@ -1,8 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { evidenceTargetForCatalogRow } from "../evidence-accounting/index.mjs";
-import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
 import { parseStrictJSON } from "../test-catalog/semantic-json.mjs";
 
 const ownerIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u;
@@ -43,7 +42,7 @@ function ownerProjection(root, ownerID) {
   const targetByCommand = commandTargetMap(root);
   const targetRows = rows.map((row) => ({
     row,
-    target: evidenceTargetForCatalogRow(row, { commandTargetByID: targetByCommand }),
+    target: targetForCatalogRow(row, { commandTargetByID: targetByCommand }),
   }));
   const serviceRows = rows.filter((row) => {
     const profile = catalog.profiles.semantic.runtime_profiles.find((entry) => entry.id === row.runtime_profile_id);
@@ -56,7 +55,7 @@ export function explainTestOwner(root, ownerID) {
   const projection = ownerProjection(root, ownerID);
   const familyIDs = [...new Set(projection.rows.map((row) => row.family_id))].sort(asciiCompare);
   return {
-    schema_id: "cartulary.test_owner_explanation.v2",
+    schema_id: "cartulary.test_owner_explanation.v3",
     evidence_epoch: projection.catalog.summary.evidence_epoch,
     owner_id: projection.owner.owner_id,
     manifest_path: projection.owner.manifest_path,
@@ -72,12 +71,9 @@ export function explainTestOwner(root, ownerID) {
     evidence_counts: sortedCounts(projection.rows.map((row) => row.evidence_class)),
     runtime_profile_counts: sortedCounts(projection.rows.map((row) => row.runtime_profile_id)),
     resource_profile_counts: sortedCounts(projection.rows.map((row) => row.resource_profile_id)),
-    fixture_profile_counts: sortedCounts(projection.rows.map((row) => row.fixture_profile_id)),
+    fixture_capability_counts: sortedCounts(projection.rows.map((row) => row.fixture_capability)),
     target_counts: sortedCounts(projection.targetRows.map((entry) => entry.target)),
-    default_check: {
-      included: projection.rows.filter((row) => row.default_check).length,
-      excluded: projection.rows.filter((row) => !row.default_check).length,
-    },
+    minimum_tier_counts: sortedCounts(projection.rows.map((row) => row.minimum_tier)),
     commands: {
       full_owner: `make test-slice OWNER=${projection.owner.owner_id}`,
       service_backed: projection.serviceRows.length > 0

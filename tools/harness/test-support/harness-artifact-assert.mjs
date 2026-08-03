@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 function usage() {
@@ -65,76 +65,52 @@ function resolvePath(repoRoot, file) {
   return path.isAbsolute(file) ? file : path.join(repoRoot, file);
 }
 
-function collectStepSummaries(targetDir) {
-  const summaries = [];
-  if (!existsSync(targetDir)) {
-    return summaries;
-  }
-  const stack = [targetDir];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name === "step-summary.json") {
-        summaries.push(next);
-      }
-    }
-  }
-  summaries.sort();
-  return summaries;
-}
-
-function readSummary(file) {
+function readTargetSummary(file) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
   } catch (error) {
     throw new Error(
-      `failed to read step summary ${file}: ${error instanceof Error ? error.message : String(error)}`,
+      `failed to read canonical target summary ${file}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
 
-function logPathsForSummary(repoRoot, summary) {
-  return ["stderr_log", "stdout_log"]
-    .map((key) => resolvePath(repoRoot, summary.artifacts?.[key] ?? ""))
-    .filter((file) => file && existsSync(file) && statSync(file).isFile());
+function safeUnitID(unitID) {
+  return unitID.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
+}
+
+function logPathsForUnit(runRoot, unitID) {
+  const logRoot = path.join(runRoot, "unit-logs", safeUnitID(unitID));
+  return ["stderr.log", "stdout.log"]
+    .map((file) => path.join(logRoot, file))
+    .filter((file) => existsSync(file) && statSync(file).isFile());
 }
 
 function assertArtifactContains(options) {
   const repoRoot = path.resolve(options.repoRoot);
   const resultsRoot = resolvePath(repoRoot, options.resultsRoot);
-  const targetDir = path.join(resultsRoot, options.runId, options.target);
-  const summaryFiles = collectStepSummaries(targetDir);
-  if (summaryFiles.length === 0) {
+  const runRoot = path.join(resultsRoot, options.runId);
+  const summaryFile = path.join(runRoot, "target-summaries", `${options.target}.json`);
+  if (!existsSync(summaryFile)) {
     throw new Error(
-      `${options.label}: no step summaries found for target ${options.target} under ${targetDir}`,
+      `${options.label}: canonical target summary is missing for ${options.target} at ${summaryFile}`,
     );
   }
 
-  const summaries = summaryFiles.map((file) => ({
-    file,
-    summary: readSummary(file),
-  }));
-  const matchingSummaries = options.stepLabel
-    ? summaries.filter(({ summary }) => summary.label === options.stepLabel)
-    : summaries;
-  if (matchingSummaries.length === 0) {
-    const available = summaries
-      .map(({ summary }) => summary.label)
-      .filter(Boolean)
-      .join(", ");
+  const summary = readTargetSummary(summaryFile);
+  const unitIDs = Array.isArray(summary.unit_ids) ? summary.unit_ids : [];
+  const matchingUnitIDs = options.stepLabel
+    ? unitIDs.filter((unitID) => unitID === options.stepLabel || unitID.endsWith(`:${options.stepLabel}`))
+    : unitIDs;
+  if (matchingUnitIDs.length === 0) {
     throw new Error(
-      `${options.label}: no step summary matched step label ${JSON.stringify(options.stepLabel)}; available labels: ${available || "(none)"}`,
+      `${options.label}: no canonical unit matched step label ${JSON.stringify(options.stepLabel)}; available unit IDs: ${unitIDs.join(", ") || "(none)"}`,
     );
   }
 
   const searchedLogs = [];
-  for (const { summary } of matchingSummaries) {
-    for (const logPath of logPathsForSummary(repoRoot, summary)) {
+  for (const unitID of matchingUnitIDs) {
+    for (const logPath of logPathsForUnit(runRoot, unitID)) {
       searchedLogs.push(logPath);
       if (readFileSync(logPath, "utf8").includes(options.needle)) {
         return;
@@ -143,7 +119,7 @@ function assertArtifactContains(options) {
   }
 
   throw new Error(
-    `${options.label}: expected target ${options.target} artifact logs to contain [${options.needle}]; searched ${searchedLogs.length > 0 ? searchedLogs.join(", ") : "(no declared logs)"}`,
+    `${options.label}: expected target ${options.target} canonical unit logs to contain [${options.needle}]; searched ${searchedLogs.length > 0 ? searchedLogs.join(", ") : "(no unit logs)"}`,
   );
 }
 

@@ -9,13 +9,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.agent_finalize_action_cache_record.v1",
-      "path": "tools/schemas/cartulary.agent_finalize_action_cache_record.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "agent finalizer",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.agent_finalize_summary.v3",
       "path": "tools/schemas/cartulary.agent_finalize_summary.v3.schema.json",
       "classification": "public_contract",
@@ -30,24 +23,17 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v1",
-      "path": "tools/schemas/cartulary.browser_group_result.v1.schema.json",
+      "schema_id": "cartulary.browser_e2e_batch_manifest.v8",
+      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v8.schema.json",
       "classification": "public_contract",
-      "producer": "browser evidence adapter",
+      "producer": "execution topology generator",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v2",
-      "path": "tools/schemas/cartulary.browser_group_result.v2.schema.json",
+      "schema_id": "cartulary.browser_group_result.v3",
+      "path": "tools/schemas/cartulary.browser_group_result.v3.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.browser_owner_index.v2",
-      "path": "tools/schemas/cartulary.browser_owner_index.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "browser evidence finalizer",
       "validation": "json-shape-check"
     },
     {
@@ -79,34 +65,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.cache.build_artifact.v1",
-      "path": "tools/schemas/cartulary.cache.build_artifact.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "build cache",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.cache.readiness.v1",
-      "path": "tools/schemas/cartulary.cache.readiness.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "readiness cache",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.cache.static_analysis.v1",
-      "path": "tools/schemas/cartulary.cache.static_analysis.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "static-analysis cache",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.check_scheduler_summary.v10",
-      "path": "tools/schemas/cartulary.check_scheduler_summary.v10.schema.json",
-      "classification": "public_contract",
-      "producer": "check scheduler",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.contract_family_registry.v3",
       "path": "tools/schemas/cartulary.contract_family_registry.v3.schema.json",
       "classification": "owner_input",
@@ -128,10 +86,10 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.execution_topology_render_cache.v1",
-      "path": "tools/schemas/cartulary.execution_topology_render_cache.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "topology renderer",
+      "schema_id": "cartulary.execution_topology.v6",
+      "path": "tools/schemas/cartulary.execution_topology.v6.schema.json",
+      "classification": "owner_input",
+      "producer": "execution topology owner",
       "validation": "json-shape-check"
     },
     {
@@ -184,20 +142,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.go_test_duration_baselines.v5",
-      "path": "tools/schemas/cartulary.go_test_duration_baselines.v5.schema.json",
-      "classification": "owner_input",
-      "producer": "backend duration accounting",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.go_test_duration_baselines.v6",
-      "path": "tools/schemas/cartulary.go_test_duration_baselines.v6.schema.json",
-      "classification": "owner_input",
-      "producer": "backend duration accounting",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.govulncheck_findings.v1",
       "path": "tools/schemas/cartulary.govulncheck_findings.v1.schema.json",
       "classification": "public_contract",
@@ -226,17 +170,66 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_execution_context.v1",
-      "path": "tools/schemas/cartulary.harness_execution_context.v1.schema.json",
+      "schema_id": "cartulary.harness_cache_record.v1",
+      "path": "tools/schemas/cartulary.harness_cache_record.v1.schema.json",
       "classification": "public_contract",
-      "producer": "top-level harness wrapper",
+      "producer": "unified harness cache",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_execution_context.v2",
-      "path": "tools/schemas/cartulary.harness_execution_context.v2.schema.json",
+      "schema_id": "cartulary.harness_cache_registry.v1",
+      "path": "tools/schemas/cartulary.harness_cache_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness cache registry",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_capability_snapshot.v1",
+      "path": "tools/schemas/cartulary.harness_capability_snapshot.v1.schema.json",
       "classification": "public_contract",
-      "producer": "top-level harness wrapper",
+      "producer": "unified harness scheduler",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_capacity_override.v1",
+      "path": "tools/schemas/cartulary.harness_capacity_override.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "unified harness capability resolver",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_contract_case_ledger.v1",
+      "path": "tools/schemas/cartulary.harness_contract_case_ledger.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness contract case ledger",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_contract_suite_registry.v1",
+      "path": "tools/schemas/cartulary.harness_contract_suite_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness contract suite registry",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_evidence_root_manifest.v1",
+      "path": "tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "canonical evidence audit",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_fixture_lease.v1",
+      "path": "tools/schemas/cartulary.harness_fixture_lease.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness fixture broker",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_go_lpt_plan.v1",
+      "path": "tools/schemas/cartulary.harness_go_lpt_plan.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "backend Go LPT planner",
       "validation": "json-shape-check"
     },
     {
@@ -247,59 +240,10 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_hotspot_summary.v1",
-      "path": "tools/schemas/cartulary.harness_hotspot_summary.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "harness observability finalizer",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_invocation_start.v1",
-      "path": "tools/schemas/cartulary.harness_invocation_start.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "top-level harness preflight",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_observability_index.v1",
-      "path": "tools/schemas/cartulary.harness_observability_index.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "harness observability finalizer",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_performance_evidence_roots.v1",
-      "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "harness performance acceptance",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_performance_evidence_roots.v2",
-      "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v2.schema.json",
-      "classification": "owner_input",
-      "producer": "harness performance acceptance",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.harness_performance_evidence_roots.v3",
       "path": "tools/schemas/cartulary.harness_performance_evidence_roots.v3.schema.json",
       "classification": "owner_input",
-      "producer": "harness performance acceptance",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_public_target_duration_baselines.v1",
-      "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v1.schema.json",
-      "classification": "owner_input",
-      "producer": "harness performance baseliner",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.harness_public_target_duration_baselines.v2",
-      "path": "tools/schemas/cartulary.harness_public_target_duration_baselines.v2.schema.json",
-      "classification": "owner_input",
-      "producer": "harness performance baseliner",
+      "producer": "canonical harness performance acceptance",
       "validation": "json-shape-check"
     },
     {
@@ -310,6 +254,27 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.harness_row_result.v1",
+      "path": "tools/schemas/cartulary.harness_row_result.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "canonical row runner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_run_manifest.v1",
+      "path": "tools/schemas/cartulary.harness_run_manifest.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "unified harness runner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_run_summary.v1",
+      "path": "tools/schemas/cartulary.harness_run_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "unified harness projector",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.harness_schema_attachments.v1",
       "path": "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json",
       "classification": "owner_input",
@@ -317,17 +282,45 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_sequence_event.v1",
-      "path": "tools/schemas/cartulary.harness_sequence_event.v1.schema.json",
+      "schema_id": "cartulary.harness_target_plan.v1",
+      "path": "tools/schemas/cartulary.harness_target_plan.v1.schema.json",
       "classification": "public_contract",
-      "producer": "harness sequence runner",
+      "producer": "work graph target plan",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_trace_bundle.v1",
-      "path": "tools/schemas/cartulary.harness_trace_bundle.v1.schema.json",
+      "schema_id": "cartulary.harness_target_summary.v1",
+      "path": "tools/schemas/cartulary.harness_target_summary.v1.schema.json",
       "classification": "public_contract",
-      "producer": "harness observability finalizer",
+      "producer": "unified harness projector",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_unit_event.v1",
+      "path": "tools/schemas/cartulary.harness_unit_event.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "unified harness scheduler",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_unit_result.v1",
+      "path": "tools/schemas/cartulary.harness_unit_result.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "unified harness runner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_work_graph.v1",
+      "path": "tools/schemas/cartulary.harness_work_graph.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness graph compiler",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.harness_work_graph_owner.v1",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness graph owner",
       "validation": "json-shape-check"
     },
     {
@@ -485,13 +478,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.release_readiness_evidence.v2",
-      "path": "tools/schemas/cartulary.release_readiness_evidence.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "release readiness",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.same_run_helper_artifact_ref.v2",
       "path": "tools/schemas/cartulary.same_run_helper_artifact_ref.v2.schema.json",
       "classification": "public_contract",
@@ -499,31 +485,17 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.scheduler_event.v7",
-      "path": "tools/schemas/cartulary.scheduler_event.v7.schema.json",
-      "classification": "public_contract",
-      "producer": "scheduler",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.scheduler_manifest.v2",
-      "path": "tools/schemas/cartulary.scheduler_manifest.v2.schema.json",
+      "schema_id": "cartulary.scheduler_manifest.v3",
+      "path": "tools/schemas/cartulary.scheduler_manifest.v3.schema.json",
       "classification": "public_contract",
       "producer": "schedule renderer",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.scheduler_pressure_summary.v4",
-      "path": "tools/schemas/cartulary.scheduler_pressure_summary.v4.schema.json",
-      "classification": "public_contract",
-      "producer": "scheduler reporter",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.scheduler_summary.common.v10",
-      "path": "tools/schemas/cartulary.scheduler_summary.common.v10.schema.json",
-      "classification": "shared_component",
-      "producer": "scheduler contract",
+      "schema_id": "cartulary.scheduler_resource_registry.v5",
+      "path": "tools/schemas/cartulary.scheduler_resource_registry.v5.schema.json",
+      "classification": "owner_input",
+      "producer": "canonical scheduler resource owner",
       "validation": "json-shape-check"
     },
     {
@@ -534,20 +506,6 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.sequence_scheduler_summary.v1",
-      "path": "tools/schemas/cartulary.sequence_scheduler_summary.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "sequence scheduler",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.service_backed_scheduler_summary.v10",
-      "path": "tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json",
-      "classification": "public_contract",
-      "producer": "service-backed scheduler",
-      "validation": "json-shape-check"
-    },
-    {
       "schema_id": "cartulary.task_guide_summary.v3",
       "path": "tools/schemas/cartulary.task_guide_summary.v3.schema.json",
       "classification": "public_contract",
@@ -555,8 +513,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.task_surface_owner.v1",
-      "path": "tools/schemas/cartulary.task_surface_owner.v1.schema.json",
+      "schema_id": "cartulary.task_surface_owner.v2",
+      "path": "tools/schemas/cartulary.task_surface_owner.v2.schema.json",
       "classification": "owner_input",
       "producer": "task surface owner",
       "validation": "json-shape-check"
@@ -625,36 +583,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_evidence_accounting.v2",
-      "path": "tools/schemas/cartulary.test_evidence_accounting.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "owner evidence accounting",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_evidence_audit_summary.v2",
-      "path": "tools/schemas/cartulary.test_evidence_audit_summary.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "owner evidence audit",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_evidence_root_manifest.v1",
-      "path": "tools/schemas/cartulary.test_evidence_root_manifest.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "evidence audit caller",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_family_manifest.v2",
-      "path": "tools/schemas/cartulary.test_family_manifest.v2.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v3",
+      "path": "tools/schemas/cartulary.test_family_manifest.v3.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_owner_explanation.v2",
-      "path": "tools/schemas/cartulary.test_owner_explanation.v2.schema.json",
+      "schema_id": "cartulary.test_owner_explanation.v3",
+      "path": "tools/schemas/cartulary.test_owner_explanation.v3.schema.json",
       "classification": "public_contract",
       "producer": "owner diagnostics",
       "validation": "json-shape-check"
@@ -664,13 +601,6 @@
       "path": "tools/schemas/cartulary.test_owner_registry.v1.schema.json",
       "classification": "owner_input",
       "producer": "test owner registry",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_owner_summary.v2",
-      "path": "tools/schemas/cartulary.test_owner_summary.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "owner evidence accounting",
       "validation": "json-shape-check"
     },
     {
@@ -706,20 +636,6 @@
       "path": "tools/schemas/cartulary.test_services.scope.v1.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_slice_plan.v3",
-      "path": "tools/schemas/cartulary.test_slice_plan.v3.schema.json",
-      "classification": "public_contract",
-      "producer": "owner-slice planner",
-      "validation": "json-shape-check"
-    },
-    {
-      "schema_id": "cartulary.test_slice_scheduler_summary.v2",
-      "path": "tools/schemas/cartulary.test_slice_scheduler_summary.v2.schema.json",
-      "classification": "public_contract",
-      "producer": "owner-slice scheduler",
       "validation": "json-shape-check"
     },
     {

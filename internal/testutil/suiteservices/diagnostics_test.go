@@ -12,7 +12,7 @@ func TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency(t *testing.T) 
 	resultsRoot := t.TempDir()
 	env := map[string]string{
 		SuiteIDEnv:        "suite-atomic-summary",
-		TargetEnv:         "check-service-backed",
+		TargetEnv:         "check",
 		testResultsDirEnv: resultsRoot,
 		testRunIDEnv:      "run-atomic-summary",
 	}
@@ -72,7 +72,7 @@ func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 			Kind:      PostgresPreparationTemplate,
 			Details: map[string]any{
 				"preparation_strategy": PostgresPreparationTemplate,
-				"target":               "test-fast-service-backed",
+				"target":               "test-fast",
 			},
 		},
 		{
@@ -83,7 +83,7 @@ func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 			Kind:      PostgresPreparationTemplate,
 			Details: map[string]any{
 				"preparation_strategy": PostgresPreparationTemplate,
-				"target":               "test-fast-service-backed",
+				"target":               "test-fast",
 			},
 		},
 		{
@@ -158,7 +158,7 @@ func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 	assertPreparation(t, preparations[2], PostgresDatabasePreparation{
 		Name:      "ct_template",
 		Strategy:  PostgresPreparationTemplate,
-		Target:    "test-fast-service-backed",
+		Target:    "test-fast",
 		PID:       101,
 		Timestamp: "2026-04-25T12:00:00Z",
 	})
@@ -167,7 +167,7 @@ func TestSummarizeReportsPostgresDatabasePreparations(t *testing.T) {
 func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "0123456789abcdef01234567",
-		TargetEnv:         "check-service-backed",
+		TargetEnv:         "check",
 		testResultsDirEnv: t.TempDir(),
 		testRunIDEnv:      "run-lifecycle",
 		LifecycleModeEnv:  "owned",
@@ -226,7 +226,7 @@ func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *te
 func TestRecordLifecycleFailureEventWritesFailureFields(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "abcdef0123456789abcdef01",
-		TargetEnv:         "check-service-backed",
+		TargetEnv:         "check",
 		testResultsDirEnv: t.TempDir(),
 		testRunIDEnv:      "run-lifecycle-failure",
 		LifecycleModeEnv:  "owned",
@@ -261,7 +261,7 @@ func TestRecordLifecycleFailureEventWritesFailureFields(t *testing.T) {
 func TestRecordLifecycleEventRejectsDuplicateChildAndTerminalMutation(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "abcdef0123456789abcdef01",
-		TargetEnv:         "check-service-backed",
+		TargetEnv:         "check",
 		testResultsDirEnv: t.TempDir(),
 		testRunIDEnv:      "run-lifecycle-terminal",
 		LifecycleModeEnv:  "owned",

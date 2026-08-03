@@ -13,11 +13,6 @@ export {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
-  renderCheckScheduleManifest,
-  renderServiceBackedScheduleProfile,
   renderTaskSurfaceManifest,
   serviceRequirementForRuntimeProfile,
 } from "./execution-topology.mjs";
-export {
-  renderServiceBackedScheduleManifest,
-} from "./render-service-backed-schedule-manifest.mjs";

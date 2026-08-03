@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_target_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "target", "command_id", "status", "failure_class", "failure_reason", "workload_digest", "unit_ids", "inclusive_wall_ms", "exclusive_wall_ms", "actual_dependency_critical_path_ms", "timing_accounting", "children", "evidence_refs"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_target_summary.v1" }, "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" }, "status": { "enum": ["pass", "fail", "cancelled", "skipped"] },
+    "failure_class": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "failure_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "workload_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "unit_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 255 } },
+    "inclusive_wall_ms": { "type": "integer", "minimum": 0 }, "exclusive_wall_ms": { "type": "integer", "minimum": 0 },
+    "actual_dependency_critical_path_ms": { "type": "integer", "minimum": 0 },
+    "timing_accounting": { "$ref": "cartulary.harness_run_summary.v1#/$defs/timing_accounting" },
+    "children": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" } },
+    "evidence_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
+  }
+}

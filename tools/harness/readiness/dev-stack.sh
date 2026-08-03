@@ -190,16 +190,6 @@ wait_for_http() {
   return 1
 }
 
-wait_for_process_status() {
-  local group_id="$1"
-
-  if wait "${group_id}"; then
-    return 0
-  else
-    return $?
-  fi
-}
-
 resolve_backend_command() {
   local outvar="$1"
   local -n backend_command_ref="$outvar"
@@ -256,8 +246,6 @@ dev_wait_frontend_ready() {
 }
 
 supervise_dev_stack() {
-  local server_status=0
-  local vite_status=0
   local shutdown_status=0
 
   while true; do
@@ -269,23 +257,16 @@ supervise_dev_stack() {
     fi
 
     if ! process_group_running "${SERVER_PGID}"; then
-      if wait_for_process_status "${SERVER_PGID}"; then
-        server_status=0
-      else
-        server_status=$?
-      fi
-      echo "backend exited during dev stack supervision (status=${server_status})" >&2
+      # process_group_running reaps an exited group leader. Waiting for the
+      # same PID again is both unnecessary and racy when a short-lived child
+      # exits while several harness cases are completing concurrently.
+      echo "backend exited during dev stack supervision" >&2
       cat "${SERVER_LOG}" >&2 || true
       return 1
     fi
 
     if ! process_group_running "${VITE_PGID}"; then
-      if wait_for_process_status "${VITE_PGID}"; then
-        vite_status=0
-      else
-        vite_status=$?
-      fi
-      echo "frontend exited during dev stack supervision (status=${vite_status})" >&2
+      echo "frontend exited during dev stack supervision" >&2
       cat "${WEB_LOG}" >&2 || true
       return 1
     fi

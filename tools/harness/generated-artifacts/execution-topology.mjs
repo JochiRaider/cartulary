@@ -1,1380 +1,232 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  assertKnownResource,
-  normalizeResourceClaims,
-  normalizeResourceLimits,
-  resolveResourceForwardingProfile,
-  resourceOverrideEnvVariablesForScheduler,
-  resourceLimitsForCapacityProfile,
-} from "../scheduler/scheduler-resources.mjs";
-import { normalizeReadinessAttribution } from "../scheduler/scheduler-manifest.mjs";
-import {
-  normalizeRuntimeBinaryEntries,
-  runtimeBinaryRecordKeys,
-} from "../runtime-binary-registry.mjs";
+import { normalizeRuntimeBinaryEntries } from "../runtime-binary-registry.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v5";
-export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v1";
+export const executionTopologySchemaID = "cartulary.execution_topology.v6";
+export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v8";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
   "execution_topology_manifest.json",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
-export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
-export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v2";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v7";
-export const makeTargetBaselineSchemaID =
-  "cartulary.scheduler_work_unit_duration_baselines.v2";
-const defaultCheckWorkUnitWeightMs = 10_000;
 
-const validDependencyCategories = new Set(["backend", "frontend", "browser"]);
-const validShardModes = new Set(["none", "go_shards"]);
-const validParallelismModes = new Set(["none", "package", "process"]);
-const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
-const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "object_store", "browser_stack"]);
-const runtimeBinaryKeys = new Set(runtimeBinaryRecordKeys);
-const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
-const checkScheduleMakePrerequisitePolicies = new Set(["run", "skip"]);
-const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
-const checkScheduleOwnedEnvNames = new Set([
-  "CARTULARY_TEST_TARGET",
-  "MAKEFLAGS",
-  "MFLAGS",
-  ...resourceOverrideEnvVariablesForScheduler("check"),
-  ...resourceOverrideEnvVariablesForScheduler("service_backed"),
-]);
-const checkScheduleTargetKeys = new Set([
-  "schedules",
-  "profile",
-  "needs",
-  "expanded_needs",
-  "priority_band",
-  "order",
-  "produces_summary_targets",
-  "make_prerequisite_policy",
-  "service_backed_schedule",
-  "env",
-  "readiness_attribution",
-]);
-const browserStageGeneratedNeedsPolicyKeys = new Set(["selected_peer_stages", "reason"]);
-const browserTopologyProfileKeys = new Set(["id", "kind", "key_ring_manifest_path"]);
-const browserTopologyStageKeys = new Set([
-  "name",
-  "target",
-  "schedule_tags",
-  "scheduler_needs",
-  "summary_children",
-  "groups",
-]);
-const browserTopologyGroupKeys = new Set([
-  "name",
-  "target",
-  "kind",
-  "coverage",
-  "execution_dependency",
-  "workers",
-  "reset_before",
-  "runtime_profile_id",
-  "browser_session_group",
-  "browser_session_isolation_reason",
-]);
-
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function asciiCompare(left, right) {
+function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function resolveRepoPath(root, value) {
-  return path.isAbsolute(value) ? value : path.join(root, value);
+function clone(value) {
+  return structuredClone(value);
 }
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function requireObject(value, label) {
+function resolveRepoPath(root, value) {
+  return path.isAbsolute(value) ? value : path.join(root, value);
+}
+
+function requireSchema(value, schemaID, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
   }
-  return value;
-}
-
-function requireArray(value, label) {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array`);
-  }
-  return value;
-}
-
-function requireNonEmptyArray(value, label) {
-  const array = requireArray(value, label);
-  if (array.length === 0) {
-    throw new Error(`${label} must not be empty`);
-  }
-  return array;
-}
-
-function requireString(value, label) {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(`${label} must be a non-empty string`);
-  }
-  return value.trim();
-}
-
-function requireBoolean(value, label) {
-  if (typeof value !== "boolean") {
-    throw new Error(`${label} must be a boolean`);
-  }
-  return value;
-}
-
-function requireStringArray(value, label, { required = true } = {}) {
-  if (value === undefined && !required) {
-    return [];
-  }
-  const result = [];
-  const seen = new Set();
-  for (const [index, item] of requireArray(value, label).entries()) {
-    const normalized = requireString(item, `${label}[${index + 1}]`);
-    if (seen.has(normalized)) {
-      throw new Error(`${label} contains duplicate ${normalized}`);
-    }
-    seen.add(normalized);
-    result.push(normalized);
-  }
-  return result;
-}
-
-function requireNonNegativeInteger(value, label) {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${label} must be a non-negative integer`);
-  }
-  return value;
-}
-
-function requirePositiveInteger(value, label) {
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${label} must be a positive integer`);
-  }
-  return value;
-}
-
-function requireSchema(manifest, schemaID, label) {
-  if (manifest.schema_id !== schemaID) {
+  if (value.schema_id !== schemaID) {
     throw new Error(`${label} must declare schema_id ${schemaID}`);
   }
 }
 
-function validateAllowedKeys(value, allowed, label) {
-  for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) {
-      throw new Error(`${label} has unknown key ${key}`);
-    }
-  }
+function assertArray(value, label) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  return value;
 }
 
-function objectFromEntries(entries) {
-  return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
-}
-
-function loadCatalogRowsForGeneratedTopology(root) {
-  const registry = readJSON(path.join(root, "tools", "test_catalog_owner.json"));
-  return requireNonEmptyArray(registry.owners, "test_catalog_owner.owners")
-    .flatMap((owner, index) => {
-      const manifestPath = requireString(
-        owner.manifest_path,
-        `test_catalog_owner.owners[${index + 1}].manifest_path`,
-      );
-      const manifest = readJSON(resolveRepoPath(root, manifestPath));
-      return requireNonEmptyArray(manifest.rows, `${manifestPath}.rows`);
-    });
-}
-
-export function browserStageGeneratedNeedsPolicyForStage(
-  profile,
-  stageName,
-  label = "service_backed_schedules.defaults.browser_stage_generated_needs",
-) {
-  const defaults = requireObject(profile.defaults, "service_backed_schedules.defaults");
-  const raw = defaults.browser_stage_generated_needs ?? {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error(`${label} must be an object when present`);
-  }
-  const stagePolicy = raw[stageName];
-  if (stagePolicy === undefined) {
-    return { selectedPeerStages: [], reason: "" };
-  }
-  const stageLabel = `${label}.${stageName}`;
-  validateAllowedKeys(requireObject(stagePolicy, stageLabel), browserStageGeneratedNeedsPolicyKeys, stageLabel);
-  const selectedPeerStages = requireStringArray(
-    stagePolicy.selected_peer_stages,
-    `${stageLabel}.selected_peer_stages`,
-  );
-  if (selectedPeerStages.length === 0) {
-    throw new Error(`${stageLabel}.selected_peer_stages must not be empty`);
-  }
-  return {
-    selectedPeerStages,
-    reason: requireString(stagePolicy.reason, `${stageLabel}.reason`),
-  };
-}
-
-function validateBrowserStageGeneratedNeedsPolicies(defaults) {
-  const raw = defaults.browser_stage_generated_needs ?? {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("service_backed_schedules.defaults.browser_stage_generated_needs must be an object when present");
-  }
-  for (const stageName of Object.keys(raw)) {
-    browserStageGeneratedNeedsPolicyForStage(
-      { defaults },
-      stageName,
-      "service_backed_schedules.defaults.browser_stage_generated_needs",
-    );
-  }
-}
-
-function validateOutputPaths(root, outputs) {
-  requireObject(outputs, "generated_outputs");
-  for (const key of [
-    "task_surface_manifest",
-    "task_surface_make",
-    "task_surface_runtime_make",
-    "scheduler_manifest",
-    "browser_e2e_batch_manifest",
-    "execution_topology_render_index",
-  ]) {
-    const output = requireString(outputs[key], `generated_outputs.${key}`);
-    if (output.includes("..") || path.isAbsolute(output)) {
-      throw new Error(`generated_outputs.${key} must be a repo-local path`);
-    }
-    const resolved = resolveRepoPath(root, output);
-    if (!resolved.startsWith(root + path.sep)) {
-      throw new Error(`generated_outputs.${key} must stay under the repository root`);
-    }
-  }
-}
-
-function normalizeExecutionDependencies(topology) {
-  const dependencies = [];
+function uniqueByID(values, label) {
   const byID = new Map();
-  const orders = new Set();
-  for (const [index, entry] of requireNonEmptyArray(
-    topology.execution_dependencies,
-    "execution_dependencies",
-  ).entries()) {
-    const label = `execution_dependencies[${index + 1}]`;
-    const dependency = {
-      id: requireString(entry?.id, `${label}.id`),
-      target: requireString(entry.target, `${label}.target`),
-      category: requireString(entry.category, `${label}.category`),
-      order: entry.order,
-      service_backed: requireBoolean(entry.service_backed, `${label}.service_backed`),
-      support_target: entry.support_target === true,
-    };
-    if (!/^[a-z][a-z0-9_]*$/.test(dependency.id)) {
-      throw new Error(`${label}.id must be a snake_case identifier`);
+  for (const value of assertArray(values, label)) {
+    if (!value || typeof value.id !== "string" || value.id === "") {
+      throw new Error(`${label} entries must declare id`);
     }
-    if (!validDependencyCategories.has(dependency.category)) {
-      throw new Error(`${label}.category must be backend|frontend|browser`);
-    }
-    if (!Number.isInteger(dependency.order) || dependency.order < 0) {
-      throw new Error(`${label}.order must be a non-negative integer`);
-    }
-    if (byID.has(dependency.id)) {
-      throw new Error(`duplicate execution dependency ${dependency.id}`);
-    }
-    if (orders.has(dependency.order)) {
-      throw new Error(`duplicate execution dependency order ${dependency.order}`);
-    }
-    byID.set(dependency.id, dependency);
-    orders.add(dependency.order);
-    dependencies.push(dependency);
+    if (byID.has(value.id)) throw new Error(`${label} contains duplicate id ${value.id}`);
+    byID.set(value.id, value);
   }
-  return { dependencies, byID };
+  return byID;
 }
 
-function normalizeRuntimeBinaries(topology, taskTargets) {
-  if (topology.runtime_binaries === undefined) {
-    return [];
+function normalizeExecutionDependencies(raw, targets) {
+  const dependencies = assertArray(raw.execution_dependencies, "execution_dependencies")
+    .map((entry) => ({
+      id: String(entry.id ?? ""),
+      target: String(entry.target ?? ""),
+      category: String(entry.category ?? ""),
+      order: Number(entry.order),
+      serviceBacked: entry.service_backed === true,
+      supportTarget: entry.support_target === true,
+    }))
+    .sort((left, right) => left.order - right.order || compareASCII(left.id, right.id));
+  const ids = new Set();
+  for (const entry of dependencies) {
+    if (!/^[a-z][a-z0-9_]*$/u.test(entry.id) || ids.has(entry.id)) {
+      throw new Error(`execution_dependencies contains invalid or duplicate id ${entry.id}`);
+    }
+    ids.add(entry.id);
+    if (!targets.has(entry.target)) throw new Error(`execution dependency ${entry.id} has unknown target ${entry.target}`);
+    if (!new Set(["backend", "frontend", "browser"]).has(entry.category)) {
+      throw new Error(`execution dependency ${entry.id} has unknown category ${entry.category}`);
+    }
+    if (!Number.isInteger(entry.order) || entry.order < 0) {
+      throw new Error(`execution dependency ${entry.id} order must be non-negative`);
+    }
   }
-  for (const [index, raw] of requireArray(topology.runtime_binaries, "runtime_binaries").entries()) {
-    const label = `runtime_binaries[${index + 1}]`;
-    validateAllowedKeys(requireObject(raw, label), runtimeBinaryKeys, label);
-  }
-  return normalizeRuntimeBinaryEntries(topology.runtime_binaries, {
-    taskTargets,
-    label: "runtime_binaries",
-  });
+  return dependencies;
 }
 
-function normalizeGoTargets(topology, dependencyByID, runtimeBinaries) {
-  const raw = requireObject(topology.go_targets, "go_targets");
-  const targets = [];
-  const byName = new Map();
-  const dependencyTargets = new Map();
-  const supportTargets = new Map();
-  for (const [index, entry] of requireNonEmptyArray(raw.targets, "go_targets.targets").entries()) {
-    const label = `go_targets.targets[${index + 1}]`;
-    const descriptor = {
-      name: requireString(entry?.name, `${label}.name`),
-      serviceBacked: requireBoolean(entry.service_backed, `${label}.service_backed`),
-      checkHeavySafe: requireBoolean(entry.check_heavy_safe, `${label}.check_heavy_safe`),
-      checkServiceBackedSafe: requireBoolean(
-        entry.check_service_backed_safe,
-        `${label}.check_service_backed_safe`,
-      ),
-      checkIsolatedSafe: requireBoolean(entry.check_isolated_safe, `${label}.check_isolated_safe`),
-      canonicalAuthoritative: requireBoolean(
-        entry.canonical_authoritative,
-        `${label}.canonical_authoritative`,
-      ),
-      sharding: requireString(entry.sharding, `${label}.sharding`),
-      goTestParallelism: requireString(entry.go_test_parallelism, `${label}.go_test_parallelism`),
-      executionDependencies: requireStringArray(
-        entry.execution_dependencies ?? [],
-        `${label}.execution_dependencies`,
-      ),
-      supportTargets: requireStringArray(entry.support_targets ?? [], `${label}.support_targets`),
-    };
-    if (!validShardModes.has(descriptor.sharding)) {
-      throw new Error(`${label}.sharding must be none|go_shards`);
-    }
-    if (!validParallelismModes.has(descriptor.goTestParallelism)) {
-      throw new Error(`${label}.go_test_parallelism must be none|package|process`);
-    }
-    if (byName.has(descriptor.name)) {
-      throw new Error(`duplicate Go execution target ${descriptor.name}`);
-    }
-    byName.set(descriptor.name, descriptor);
-    targets.push(descriptor);
-    for (const dependency of descriptor.executionDependencies) {
-      const metadata = dependencyByID.get(dependency);
-      if (!metadata) {
-        throw new Error(`${label}.execution_dependencies references unknown ${dependency}`);
-      }
-      if (metadata.category !== "backend") {
-        throw new Error(`${label}.execution_dependencies ${dependency} is not a backend dependency`);
-      }
-      if (dependencyTargets.has(dependency)) {
-        throw new Error(`execution dependency ${dependency} maps to more than one Go target`);
-      }
-      dependencyTargets.set(dependency, descriptor);
-    }
-    for (const supportTarget of descriptor.supportTargets) {
-      const metadata = dependencyByID.get(supportTarget);
-      if (!metadata) {
-        throw new Error(`${label}.support_targets references unknown ${supportTarget}`);
-      }
-      if (!metadata.support_target) {
-        throw new Error(`${label}.support_targets ${supportTarget} is not marked support_target`);
-      }
-      if (supportTargets.has(supportTarget)) {
-        throw new Error(`support target ${supportTarget} maps to more than one Go target`);
-      }
-      supportTargets.set(supportTarget, descriptor);
-    }
-  }
-
-  const runtimeBinaryIDs = new Set(runtimeBinaries.map((entry) => entry.id));
+function normalizeGoTargets(raw, runtimeBinaries) {
+  const binaryByID = new Map(runtimeBinaries.map((entry) => [entry.id, entry]));
+  const targets = assertArray(raw.go_targets?.targets, "go_targets.targets").map((entry) => ({
+    name: entry.name,
+    serviceBacked: entry.service_backed === true,
+    checkHeavySafe: entry.check_heavy_safe === true,
+    checkServiceBackedSafe: entry.check_service_backed_safe === true,
+    checkIsolatedSafe: entry.check_isolated_safe === true,
+    canonicalAuthoritative: entry.canonical_authoritative === true,
+    sharding: entry.sharding,
+    goTestParallelism: entry.go_test_parallelism,
+    executionDependencies: [...(entry.execution_dependencies ?? [])],
+    supportTargets: [...(entry.support_targets ?? [])],
+  }));
+  const byName = new Map(targets.map((entry) => [entry.name, entry]));
+  if (byName.size !== targets.length) throw new Error("go_targets.targets contains duplicate names");
   const runtimeBinariesByFamily = new Map();
-  let previousFamilyID = "";
-  for (const [index, entry] of (raw.family_runtime_binaries ?? []).entries()) {
-    const label = `go_targets.family_runtime_binaries[${index + 1}]`;
-    const familyID = requireString(entry?.family_id, `${label}.family_id`);
-    if (!/^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}\.[a-z][a-z0-9_]{0,62}$/u.test(familyID)) {
-      throw new Error(`${label}.family_id must be an owner-qualified family ID`);
-    }
-    if (previousFamilyID && previousFamilyID.localeCompare(familyID) >= 0) {
-      throw new Error("go_targets.family_runtime_binaries must be sorted by unique family_id");
-    }
-    previousFamilyID = familyID;
-    const binaryIDs = requireStringArray(
-      entry.runtime_binary_ids,
-      `${label}.runtime_binary_ids`,
+  for (const entry of raw.go_targets?.family_runtime_binaries ?? []) {
+    runtimeBinariesByFamily.set(
+      entry.family_id,
+      entry.runtime_binary_ids.map((id) => {
+        const binary = binaryByID.get(id);
+        if (!binary) throw new Error(`unknown runtime binary ${id}`);
+        return binary;
+      }),
     );
-    for (const binaryID of binaryIDs) {
-      if (!runtimeBinaryIDs.has(binaryID)) {
-        throw new Error(`${label}.runtime_binary_ids references unknown ${binaryID}`);
-      }
-    }
-    runtimeBinariesByFamily.set(familyID, binaryIDs);
   }
-
-  const rawAggregates = [];
-  for (const [index, aggregate] of (raw.raw_go_aggregates ?? []).entries()) {
-    const label = `go_targets.raw_go_aggregates[${index + 1}]`;
-    const target = requireString(aggregate.target, `${label}.target`);
-    if (!byName.has(target)) {
-      throw new Error(`${label}.target references unknown Go target ${target}`);
+  const rawAggregates = (raw.go_targets?.raw_go_aggregates ?? []).map((entry) => ({
+    id: entry.id,
+    target: entry.target,
+    section: entry.section,
+    packages: [...entry.packages],
+    selectionPattern: entry.selection_pattern,
+    executionFamily: entry.execution_family,
+    executionLabel: entry.execution_label,
+    fixtureCapability: entry.fixture_capability,
+    estimatedWorkMs: entry.estimated_work_ms,
+  }));
+  for (const entry of rawAggregates) {
+    if (!new Set(["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]).has(entry.fixtureCapability)) {
+      throw new Error(`raw Go aggregate ${entry.id} has invalid fixture capability`);
     }
-    rawAggregates.push({
-      id: requireString(aggregate.id, `${label}.id`),
-      target,
-      section: requireString(aggregate.section, `${label}.section`),
-      packages: requireNonEmptyArray(aggregate.packages, `${label}.packages`).map((item, itemIndex) =>
-        requireString(item, `${label}.packages[${itemIndex + 1}]`),
-      ),
-      selectionPattern: requireString(aggregate.selection_pattern, `${label}.selection_pattern`),
-      executionFamily: requireString(aggregate.execution_family, `${label}.execution_family`),
-      executionLabel: requireString(aggregate.execution_label, `${label}.execution_label`),
-      fixturePolicy: clone(aggregate.fixture_policy ?? {}),
-      fixtureBudget: clone(aggregate.fixture_budget ?? {}),
-    });
+    if (!Number.isInteger(entry.estimatedWorkMs) || entry.estimatedWorkMs < 1) {
+      throw new Error(`raw Go aggregate ${entry.id} has invalid estimated work`);
+    }
   }
-
-  return {
-    targets,
-    byName,
-    dependencyTargets,
-    supportTargets,
-    runtimeBinariesByFamily,
-    rawAggregates,
-  };
+  return { targets, byName, runtimeBinariesByFamily, rawAggregates };
 }
 
-function targetNamesFromTaskSurface(taskSurface) {
-  const targets = new Set();
-  for (const entry of requireNonEmptyArray(taskSurface?.targets, "task_surface_owner.targets")) {
-    targets.add(requireString(entry?.name, "task_surface_owner.targets[].name"));
+function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
+  const profileIDs = uniqueByID(raw.browser_e2e_batch?.runtime_profiles, "browser_e2e_batch.runtime_profiles");
+  for (const id of profileIDs.keys()) {
+    if (!runtimeProfileIDs.has(id)) throw new Error(`browser runtime profile ${id} is unknown`);
   }
-  return targets;
-}
-
-function targetEntriesFromTaskSurface(taskSurface) {
-  const targets = new Map();
-  for (const entry of requireNonEmptyArray(taskSurface?.targets, "task_surface_owner.targets")) {
-    targets.set(requireString(entry?.name, "task_surface_owner.targets[].name"), entry);
-  }
-  return targets;
-}
-
-function validateExecutionDependencyTargets(dependencies, taskTargets) {
-  for (const dependency of dependencies) {
-    if (!taskTargets.has(dependency.target)) {
-      throw new Error(`execution dependency ${dependency.id} target ${dependency.target} is missing from task_surface.targets`);
-    }
-  }
-}
-
-function validateBrowserBatch(topology, dependencyByID, taskTargets) {
-  const batch = requireObject(topology.browser_e2e_batch, "browser_e2e_batch");
-  const runtimeProfiles = requireNonEmptyArray(
-    batch.runtime_profiles,
-    "browser_e2e_batch.runtime_profiles",
-  );
-  const runtimeProfileIDs = new Set();
-  for (const [index, profile] of runtimeProfiles.entries()) {
-    const profileLabel = `browser_e2e_batch.runtime_profiles[${index + 1}]`;
-    validateAllowedKeys(requireObject(profile, profileLabel), browserTopologyProfileKeys, profileLabel);
-    const profileID = requireString(profile?.id, `${profileLabel}.id`);
-    requireString(profile?.kind, `${profileLabel}.kind`);
-    if (!/^[a-z][a-z0-9_]*$/u.test(profileID)) {
-      throw new Error(`${profileLabel}.id must be a snake_case token`);
-    }
-    if (runtimeProfileIDs.has(profileID)) {
-      throw new Error(`duplicate browser runtime profile ${profileID}`);
-    }
-    runtimeProfileIDs.add(profileID);
-  }
-  if (!runtimeProfileIDs.has("default")) {
-    throw new Error("browser_e2e_batch.runtime_profiles must declare default");
-  }
-  const stages = requireNonEmptyArray(batch.stages, "browser_e2e_batch.stages");
-  const seenStages = new Set();
-  for (const [index, stage] of stages.entries()) {
-    const label = `browser_e2e_batch.stages[${index + 1}]`;
-    validateAllowedKeys(requireObject(stage, label), browserTopologyStageKeys, label);
-    const name = requireString(stage?.name, `${label}.name`);
-    const target = requireString(stage.target, `${label}.target`);
-    if (seenStages.has(name)) {
-      throw new Error(`duplicate browser stage ${name}`);
-    }
-    seenStages.add(name);
-    if (!taskTargets.has(target)) {
-      throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
-    }
-    if (stage.scheduler_dependency_policy !== undefined) {
-      throw new Error(`${label}.scheduler_dependency_policy is obsolete; use scheduler_needs[]`);
-    }
-    if (stage.scheduler_needs !== undefined) {
-      const seenNeeds = new Set();
-      for (const [needIndex, need] of requireArray(stage.scheduler_needs, `${label}.scheduler_needs`).entries()) {
-        const targetNeed = requireString(need, `${label}.scheduler_needs[${needIndex + 1}]`);
-        if (seenNeeds.has(targetNeed)) {
-          throw new Error(`${label}.scheduler_needs contains duplicate ${targetNeed}`);
-        }
-        seenNeeds.add(targetNeed);
-        if (!taskTargets.has(targetNeed)) {
-          throw new Error(`${label}.scheduler_needs target ${targetNeed} is missing from task_surface.targets`);
-        }
+  const stageNames = new Set();
+  for (const stage of assertArray(raw.browser_e2e_batch?.stages, "browser_e2e_batch.stages")) {
+    if (stageNames.has(stage.name)) throw new Error(`duplicate browser stage ${stage.name}`);
+    stageNames.add(stage.name);
+    if (!targets.has(stage.target)) throw new Error(`browser stage ${stage.name} has unknown target ${stage.target}`);
+    const groups = new Set();
+    for (const group of assertArray(stage.groups, `browser stage ${stage.name} groups`)) {
+      if (groups.has(group.name)) throw new Error(`browser stage ${stage.name} has duplicate group ${group.name}`);
+      groups.add(group.name);
+      if (!targets.has(group.target)) throw new Error(`browser group ${group.name} has unknown target ${group.target}`);
+      if (!dependencyIDs.has(group.execution_dependency)) {
+        throw new Error(`browser group ${group.name} has unknown execution dependency ${group.execution_dependency}`);
       }
-    }
-    for (const group of requireNonEmptyArray(stage.groups, `${label}.groups`)) {
-      const groupLabel = `${label}.groups.${group?.name ?? "(missing)"}`;
-      validateAllowedKeys(requireObject(group, groupLabel), browserTopologyGroupKeys, groupLabel);
-      const groupTarget = requireString(group.target, `${groupLabel}.target`);
-      if (!taskTargets.has(groupTarget)) {
-        throw new Error(`${groupLabel}.target ${groupTarget} is missing from task_surface.targets`);
-      }
-      const coverage = group.coverage === undefined ? "" : requireString(group.coverage, `${groupLabel}.coverage`);
-      if (coverage && !validBrowserCoverage.has(coverage)) {
-        throw new Error(`${groupLabel}.coverage must be authoritative|supplemental|raw`);
-      }
-      const dependency = group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim();
-      if (dependency !== "") {
-        const metadata = dependencyByID.get(dependency);
-        if (!metadata) {
-          throw new Error(`${groupLabel}.execution_dependency references unknown ${dependency}`);
-        }
-        if (metadata.category !== "browser") {
-          throw new Error(`${groupLabel}.execution_dependency ${dependency} is not a browser dependency`);
-        }
+      if (group.selected_row_ids !== undefined || group.specs !== undefined) {
+        throw new Error(`browser group ${group.name} must derive selectors from the catalog`);
       }
     }
   }
 }
 
 export function serviceRequirementForRuntimeProfile(profile) {
-  const managedServiceIDs = requireArray(
-    profile?.managed_service_ids,
-    "runtime profile managed_service_ids",
+  return (profile.managed_service_ids ?? []).length > 0 ? "test-services" : "none";
+}
+
+export function loadExecutionTopology(options = {}) {
+  const root = path.resolve(options.root ?? repoRoot);
+  const manifestPath = resolveRepoPath(
+    root,
+    options.manifestPath ?? process.env.CARTULARY_EXECUTION_TOPOLOGY_MANIFEST ?? defaultExecutionTopologyManifestPath,
   );
-  return managedServiceIDs.length === 0 ? "none" : "test-services";
-}
-
-function runtimeProfileByID(topology) {
-  return new Map(
-    requireNonEmptyArray(topology.runtime_profiles, "runtime_profiles").map(
-      (profile, index) => {
-        const label = `runtime_profiles[${index + 1}]`;
-        const id = requireString(profile?.id, `${label}.id`);
-        const managedServiceIDs = requireArray(
-          profile.managed_service_ids,
-          `${label}.managed_service_ids`,
-        ).map((serviceID, serviceIndex) =>
-          requireString(
-            serviceID,
-            `${label}.managed_service_ids[${serviceIndex + 1}]`,
-          ),
-        );
-        return [
-          id,
-          {
-            browserCapable: profile.browser_capable === true,
-            managedServiceIDs,
-            serviceRequirement: serviceRequirementForRuntimeProfile(profile),
-          },
-        ];
-      },
-    ),
-  );
-}
-
-function browserStageForRecipe(topology, recipe, label) {
-  const stageName =
-    recipe.type === "browser_batch" ? recipe.stage : recipe.browser_stage;
-  if (typeof stageName !== "string" || stageName.trim() === "") {
-    throw new Error(`${label} must declare its browser stage`);
-  }
-  const stage = topology.browserBatch.stages.find(
-    (candidate) => candidate.name === stageName,
-  );
-  if (!stage) {
-    throw new Error(`${label} references unknown browser stage ${stageName}`);
-  }
-  return stage;
-}
-
-function enrichProfileResolvedBrowserRecipes(taskSurface, topology) {
-  const profiles = runtimeProfileByID(topology.raw);
-  for (const [target, recipe] of Object.entries(taskSurface.make_recipes)) {
-    if (recipe?.service_resolution !== "runtime-profile") {
-      continue;
-    }
-    const label = `make_recipes.${target}`;
-    const stage = browserStageForRecipe(topology, recipe, label);
-    let requiresManagedServices = false;
-    for (const group of stage.groups) {
-      const profileID = group.runtime_profile_id ?? "default";
-      const profile = profiles.get(profileID);
-      if (!profile) {
-        throw new Error(`${label} references unknown runtime profile ${profileID}`);
-      }
-      if (!profile.browserCapable) {
-        throw new Error(
-          `${label} references runtime profile ${profileID}, which is not browser-capable`,
-        );
-      }
-      requiresManagedServices ||= profile.serviceRequirement === "test-services";
-    }
-    const prerequisites = (recipe.prerequisites ?? []).filter(
-      (prerequisite) =>
-        prerequisite !== "$(TEST_SERVICES_BIN)" &&
-        prerequisite !== "test-service-images",
-    );
-    if (requiresManagedServices) {
-      prerequisites.push("$(TEST_SERVICES_BIN)", "test-service-images");
-    }
-    recipe.prerequisites = prerequisites;
-  }
-}
-
-function serviceRequirementsForTaskEntry(entry) {
-  if (!Array.isArray(entry?.service_requirements)) {
-    return [];
-  }
-  return entry.service_requirements.map((value) => String(value).trim()).filter(Boolean);
-}
-
-function requiresCheckServiceStack(entry) {
-  return serviceRequirementsForTaskEntry(entry).some((requirement) =>
-    serviceRequirementsRequiringCheckServiceStack.has(requirement),
-  );
-}
-
-function normalizeCheckScheduleRoot(topology, taskTargets) {
-  if (Array.isArray(topology.check_schedules)) {
-    throw new Error(
-      "check_schedules must be a profile object; flat check_schedules[] work_units are no longer supported",
-    );
-  }
-  const root = requireObject(topology.check_schedules, "check_schedules");
-  const defaults = requireObject(root.defaults, "check_schedules.defaults");
-  const rawProfiles = requireObject(
-    defaults.resource_profiles,
-    "check_schedules.defaults.resource_profiles",
-  );
-  const rawPriorityBands = requireObject(
-    defaults.priority_bands,
-    "check_schedules.defaults.priority_bands",
-  );
-  const schedules = requireNonEmptyArray(root.schedules, "check_schedules.schedules");
-  if (Object.keys(rawProfiles).length === 0) {
-    throw new Error("check_schedules.defaults.resource_profiles must not be empty");
-  }
-  if (Object.keys(rawPriorityBands).length === 0) {
-    throw new Error("check_schedules.defaults.priority_bands must not be empty");
-  }
-
-  const resourceProfiles = new Map();
-  for (const [name, value] of Object.entries(rawProfiles)) {
-    const profileName = requireString(name, "check_schedules.defaults.resource_profiles key");
-    const label = `check_schedules.defaults.resource_profiles.${profileName}`;
-    const profile = requireObject(value, label);
-    validateAllowedKeys(profile, checkScheduleProfileKeys, label);
-    resourceProfiles.set(profileName, {
-      name: profileName,
-      resourceClaims: clone(requireObject(profile.resource_claims, `${label}.resource_claims`)),
-      makeJobs: profile.make_jobs,
-    });
-    if (profile.make_jobs === undefined) {
-      throw new Error(`${label}.make_jobs must be declared by the reusable profile`);
-    }
-  }
-
-  const priorityBands = new Map();
-  for (const [name, priority] of Object.entries(rawPriorityBands)) {
-    const bandName = requireString(name, "check_schedules.defaults.priority_bands key");
-    priorityBands.set(
-      bandName,
-      requirePositiveInteger(priority, `check_schedules.defaults.priority_bands.${bandName}`),
-    );
-  }
-
-  const normalizedSchedules = [];
-  const seenScheduleTargets = new Set();
-  for (const [index, schedule] of schedules.entries()) {
-    const label = `check_schedules.schedules[${index + 1}]`;
-    const target = requireString(schedule?.target, `${label}.target`);
-    if (seenScheduleTargets.has(target)) {
-      throw new Error(`check_schedules.schedules contains duplicate schedule ${target}`);
-    }
-    seenScheduleTargets.add(target);
-    if (!taskTargets.has(target)) {
-      throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
-    }
-    if (schedule.work_units !== undefined) {
-      throw new Error(`${label}.work_units is obsolete; add per-target check_schedule metadata`);
-    }
-    if (schedule.resource_limits !== undefined) {
-      throw new Error(`${label}.resource_limits is obsolete; use capacity_profile`);
-    }
-    const capacityProfile = requireString(schedule.capacity_profile, `${label}.capacity_profile`);
-    const profileLimits = resourceLimitsForCapacityProfile(capacityProfile, label, {
-      scheduler: "check",
-      allowAuto: true,
-    });
-    normalizedSchedules.push({
-      target,
-      capacityProfile,
-      resourceLimits: Object.fromEntries(profileLimits.limits.entries()),
-      summaryGroups: clone(schedule.summary_groups ?? []),
-    });
-  }
-
-  return {
-    resourceProfiles,
-    priorityBands,
-    schedules: normalizedSchedules,
-    scheduleTargets: seenScheduleTargets,
-  };
-}
-
-function normalizeCheckScheduleMetadata(entry, profile, label, scheduleTargets) {
-  const ownerTarget = requireString(entry.name, `${label}.name`);
-  const raw = requireObject(profile, label);
-  validateAllowedKeys(raw, checkScheduleTargetKeys, label);
-  const schedules = requireStringArray(raw.schedules, `${label}.schedules`);
-  if (schedules.length === 0) {
-    throw new Error(`${label}.schedules must not be empty`);
-  }
-  for (const schedule of schedules) {
-    if (!scheduleTargets.has(schedule)) {
-      throw new Error(`${label}.schedules references unknown check schedule ${schedule}`);
-    }
-    if (
-      !Array.isArray(entry.default_inclusion_sets) ||
-      !entry.default_inclusion_sets.includes(schedule)
-    ) {
-      throw new Error(
-        `${label} includes ${schedule} but target is not default_inclusion_sets ${schedule}`,
-      );
-    }
-  }
-  const producesSummaryTargets = requireStringArray(
-    raw.produces_summary_targets ?? [],
-    `${label}.produces_summary_targets`,
-  );
-  if (producesSummaryTargets.length > 0 && !producesSummaryTargets.includes(ownerTarget)) {
-    throw new Error(
-      `${label}.produces_summary_targets must include owning target ${ownerTarget}`,
-    );
-  }
-  const makePrerequisitePolicy = requireString(
-    raw.make_prerequisite_policy,
-    `${label}.make_prerequisite_policy`,
-  );
-  if (!checkScheduleMakePrerequisitePolicies.has(makePrerequisitePolicy)) {
-    throw new Error(`${label}.make_prerequisite_policy must be one of run, skip`);
-  }
-  return {
-    schedules,
-    profile: requireString(raw.profile, `${label}.profile`),
-    needs: requireStringArray(raw.needs ?? [], `${label}.needs`),
-    expandedNeeds: requireStringArray(raw.expanded_needs ?? [], `${label}.expanded_needs`),
-    priorityBand: requireString(raw.priority_band, `${label}.priority_band`),
-    order: requireNonNegativeInteger(raw.order, `${label}.order`),
-    producesSummaryTargets,
-    makePrerequisitePolicy,
-    serviceBackedSchedule: raw.service_backed_schedule === undefined
-      ? null
-      : requireString(raw.service_backed_schedule, `${label}.service_backed_schedule`),
-    env: normalizeCheckScheduleEnv(raw.env, `${label}.env`),
-    readinessAttribution: normalizeReadinessAttribution(
-      raw.readiness_attribution,
-      label,
-    ),
-  };
-}
-
-function normalizeCheckScheduleEnv(value, label) {
-  if (value === undefined) {
-    return {};
-  }
-  const env = requireObject(value, label);
-  const entries = [];
-  for (const [name, rawValue] of Object.entries(env)) {
-    const envName = requireString(name, `${label} key`);
-    if (!checkScheduleEnvNamePattern.test(envName)) {
-      throw new Error(`${label}.${envName} must be a safe environment variable name`);
-    }
-    if (checkScheduleOwnedEnvNames.has(envName)) {
-      throw new Error(`${label}.${envName} is scheduler-owned and cannot be overridden`);
-    }
-    if (typeof rawValue !== "string") {
-      throw new Error(`${label}.${envName} must be a string`);
-    }
-    if (rawValue.includes("\0") || rawValue.includes("\n") || rawValue.includes("\r")) {
-      throw new Error(`${label}.${envName} must be a single-line string`);
-    }
-    entries.push([envName, rawValue]);
-  }
-  return objectFromEntries(entries);
-}
-
-function normalizeCheckMakeJobs(value, label, claims) {
-  if (typeof value === "string") {
-    const resource = assertKnownResource(value, `${label}.make_jobs`, { scheduler: "check" });
-    if (!claims.has(resource)) {
-      throw new Error(`${label}.make_jobs resource ${resource} must be claimed by the profile`);
-    }
-    return resource;
-  }
-  return requirePositiveInteger(value, `${label}.make_jobs`);
-}
-
-function claimsCheckServiceBoundaryResource(claims) {
-  return claims.has("suite_service_stack") || claims.has("migration_scratch_postgres");
-}
-
-function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntries) {
-  const root = normalizeCheckScheduleRoot(topology, taskTargets);
-  const targetMetadata = [];
-  const profiles = requireObject(
-    topology.check_schedules.target_profiles,
-    "check_schedules.target_profiles",
-  );
-  for (const target of Object.keys(profiles)) {
-    if (!taskTargetEntries.has(target)) {
-      throw new Error(`check_schedules.target_profiles references unknown target ${target}`);
-    }
-  }
-  for (const [target, profile] of Object.entries(profiles)) {
-    const entry = taskTargetEntries.get(target);
-    const metadata = normalizeCheckScheduleMetadata(
-      entry,
-      profile,
-      `check_schedules.target_profiles.${target}`,
-      root.scheduleTargets,
-    );
-    if (metadata) {
-      targetMetadata.push({ target, entry, metadata });
-    }
-  }
-
-  return root.schedules.map((schedule) => {
-    const label = `check_schedules.schedules.${schedule.target}`;
-    const resourceLimits = normalizeResourceLimits(schedule.resourceLimits, label, {
-      scheduler: "check",
-      capacityProfile: schedule.capacityProfile,
-      allowAuto: true,
-    }).limits;
-    const usedTargets = new Set();
-    const usedOrders = new Map();
-    const units = [];
-    for (const { target, entry, metadata } of targetMetadata) {
-      if (!metadata.schedules.includes(schedule.target)) {
-        continue;
-      }
-      if (usedTargets.has(target)) {
-        throw new Error(`${label} contains duplicate generated work unit ${target}`);
-      }
-      usedTargets.add(target);
-      const profile = root.resourceProfiles.get(metadata.profile);
-      const targetLabel = `check_schedules.target_profiles.${target}`;
-      if (!profile) {
-        throw new Error(`${targetLabel}.profile references unknown profile ${metadata.profile}`);
-      }
-      const priorityBase = root.priorityBands.get(metadata.priorityBand);
-      if (priorityBase === undefined) {
-        throw new Error(
-          `${targetLabel}.priority_band references unknown priority band ${metadata.priorityBand}`,
-        );
-      }
-      const orderKey = `${metadata.priorityBand}:${metadata.order}`;
-      if (usedOrders.has(orderKey)) {
-        throw new Error(
-          `${label} has duplicate priority order ${orderKey} for ${usedOrders.get(orderKey)} and ${target}`,
-        );
-      }
-      usedOrders.set(orderKey, target);
-      const priority = priorityBase - metadata.order;
-      if (priority < 1) {
-        throw new Error(`${targetLabel} order ${metadata.order} exhausts ${metadata.priorityBand} priority`);
-      }
-      const claims = normalizeResourceClaims(profile.resourceClaims, `${targetLabel} profile ${profile.name}`, resourceLimits, {
-        scheduler: "check",
-        allowBounded: true,
-      });
-      if (
-        requiresCheckServiceStack(entry) &&
-        !claimsCheckServiceBoundaryResource(claims) &&
-        !metadata.serviceBackedSchedule
-      ) {
-        throw new Error(
-          `${targetLabel} target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
-        );
-      }
-      const unit = {
-        target,
-        priority,
-        weight_ms: defaultCheckWorkUnitWeightMs,
-        needs: clone(metadata.needs),
-        ...(metadata.expandedNeeds.length > 0 ? { expanded_needs: clone(metadata.expandedNeeds) } : {}),
-        ...(metadata.producesSummaryTargets.length > 0
-          ? { produces_summary_targets: clone(metadata.producesSummaryTargets) }
-          : {}),
-        make_prerequisite_policy: metadata.makePrerequisitePolicy,
-        resource_claims: clone(profile.resourceClaims),
-        make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${targetLabel} profile ${profile.name}`, claims),
-        command: { type: "make_target", target },
-        ...(metadata.readinessAttribution
-          ? { readiness_attribution: clone(metadata.readinessAttribution) }
-          : {}),
-        ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
-        ...(metadata.serviceBackedSchedule ? { service_backed_schedule: metadata.serviceBackedSchedule } : {}),
-      };
-      units.push({ ...unit, order: metadata.order });
-    }
-    if (units.length === 0) {
-      throw new Error(`${label} must produce at least one work unit`);
-    }
-    assertAcyclicUnits(schedule.target, units);
-    units.sort(
-      (left, right) =>
-        right.priority - left.priority ||
-        right.weight_ms - left.weight_ms ||
-        left.order - right.order ||
-        left.target.localeCompare(right.target),
-    );
-    return {
-      target: schedule.target,
-      scheduler_kind: "check",
-      capacity_profile: schedule.capacityProfile,
-      resource_limits: clone(schedule.resourceLimits),
-      summary_groups: clone(schedule.summaryGroups),
-      work_units: units.map(({ order: _order, ...unit }) => unit),
-    };
-  });
-}
-
-function assertAcyclicUnits(scheduleTarget, units) {
-  const byTarget = new Map(units.map((unit) => [unit.target, unit]));
-  const visiting = new Set();
-  const visited = new Set();
-  const visit = (target) => {
-    if (visited.has(target)) {
-      return;
-    }
-    if (visiting.has(target)) {
-      throw new Error(`check schedule ${scheduleTarget} has a dependency cycle at ${target}`);
-    }
-    const unit = byTarget.get(target);
-    if (!unit) {
-      throw new Error(`check schedule ${scheduleTarget} references unknown dependency ${target}`);
-    }
-    visiting.add(target);
-    for (const need of unit.needs ?? []) {
-      if (!byTarget.has(need)) {
-        throw new Error(`check schedule ${scheduleTarget} work unit ${target} depends on unknown ${need}`);
-      }
-      visit(need);
-    }
-    visiting.delete(target);
-    visited.add(target);
-  };
-  for (const unit of units) {
-    visit(unit.target);
-  }
-}
-
-function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
-  const service = requireObject(topology.service_backed_schedules, "service_backed_schedules");
-  const defaults = requireObject(service.defaults, "service_backed_schedules.defaults");
-  validateBrowserStageGeneratedNeedsPolicies(defaults);
-  const baselinePath = requireString(
-    defaults.make_target_duration_baseline,
-    "service_backed_schedules.defaults.make_target_duration_baseline",
-  );
-  const resolvedBaseline = path.isAbsolute(baselinePath)
-    ? baselinePath
-    : path.join(path.dirname(manifestPath), baselinePath);
-  if (!existsSync(resolvedBaseline)) {
-    throw new Error(`scheduler work-unit duration baseline is missing: ${baselinePath}`);
-  }
-  requireSchema(readJSON(resolvedBaseline), makeTargetBaselineSchemaID, baselinePath);
-
-  for (const [scheduleIndex, schedule] of requireNonEmptyArray(
-    service.schedules,
-    "service_backed_schedules.schedules",
-  ).entries()) {
-    const label = `service_backed_schedules.schedules[${scheduleIndex + 1}]`;
-    const target = requireString(schedule?.target, `${label}.target`);
-    if (!taskTargets.has(target)) {
-      throw new Error(`${label}.target ${target} is missing from task_surface.targets`);
-    }
-    normalizeResourceLimits(schedule.resource_limits, label, {
-      scheduler: "service_backed",
-      capacityProfile: requireString(schedule.capacity_profile, `${label}.capacity_profile`),
-      allowAuto: true,
-    });
-  }
-}
-
-function normalizeSequenceResourceProfiles(topology) {
-  if (topology.sequence_resource_profiles === undefined) {
-    return new Map();
-  }
-  const rawProfiles = requireObject(
-    topology.sequence_resource_profiles,
-    "sequence_resource_profiles",
-  );
-  const profiles = new Map();
-  for (const [name, rawProfile] of Object.entries(rawProfiles)) {
-    const label = `sequence_resource_profiles.${name}`;
-    if (!/^[a-z][a-z0-9_]*$/u.test(name)) {
-      throw new Error(`${label} has an invalid profile name`);
-    }
-    validateAllowedKeys(
-      requireObject(rawProfile, label),
-      new Set(["resource_claims", "make_jobs", "forwarding"]),
-      label,
-    );
-    const claims = requireObject(rawProfile.resource_claims, `${label}.resource_claims`);
-    const normalizedClaims = {};
-    for (const [resource, amount] of Object.entries(claims)) {
-      const normalizedResource = assertKnownResource(
-        resource,
-        `${label}.resource_claims.${resource}`,
-        { scheduler: "sequence" },
-      );
-      if (amount !== "limit") {
-        requirePositiveInteger(amount, `${label}.resource_claims.${resource}`);
-      }
-      normalizedClaims[normalizedResource] = amount;
-    }
-    if (!Object.hasOwn(normalizedClaims, "process")) {
-      throw new Error(`${label}.resource_claims must claim process`);
-    }
-    const makeJobs = rawProfile.make_jobs;
-    if (typeof makeJobs === "string") {
-      if (!Object.hasOwn(normalizedClaims, makeJobs)) {
-        throw new Error(`${label}.make_jobs must reference a claimed resource`);
-      }
-    } else {
-      requirePositiveInteger(makeJobs, `${label}.make_jobs`);
-    }
-    const forwarding = rawProfile.forwarding === undefined
-      ? ""
-      : requireString(rawProfile.forwarding, `${label}.forwarding`);
-    if (forwarding !== "") {
-      resolveResourceForwardingProfile(
-        forwarding,
-        new Map(
-          Object.entries(normalizedClaims).map(([resource, amount]) => [
-            resource,
-            amount === "limit" ? 1 : amount,
-          ]),
-        ),
-        label,
-      );
-    }
-    profiles.set(name, {
-      name,
-      resource_claims: objectFromEntries(Object.entries(normalizedClaims)),
-      make_jobs: makeJobs,
-      forwarding,
-    });
-  }
-  if (profiles.size === 0) throw new Error("sequence_resource_profiles must not be empty");
-  return profiles;
-}
-
-function normalizeSequenceSchedules(
-  topology,
-  taskSurfaceOwner,
-  taskTargets,
-  sequenceResourceProfiles,
-) {
-  const ownerSequences = requireObject(taskSurfaceOwner.sequences, "task_surface_owner.sequences");
-  const schedules = [];
-  const seenSchedules = new Set();
-  for (const [index, rawSchedule] of requireArray(
-    topology.sequence_schedules,
-    "sequence_schedules",
-  ).entries()) {
-    const label = `sequence_schedules[${index + 1}]`;
-    validateAllowedKeys(
-      requireObject(rawSchedule, label),
-      new Set([
-        "target",
-        "execution_mode",
-        "max_jobs",
-        "capacity_profile",
-        "resource_limits",
-        "steps",
-      ]),
-      label,
-    );
-    const target = requireString(rawSchedule.target, `${label}.target`);
-    if (seenSchedules.has(target)) {
-      throw new Error(`${label}.target duplicates sequence schedule ${target}`);
-    }
-    seenSchedules.add(target);
-    const ownerSequence = ownerSequences[target];
-    if (!ownerSequence) {
-      throw new Error(`${label}.target ${target} has no task-surface sequence`);
-    }
-    if (!taskTargets.has(target)) {
-      throw new Error(`${label}.target ${target} is not a task-surface target`);
-    }
-    const executionMode = requireString(rawSchedule.execution_mode, `${label}.execution_mode`);
-    if (!new Set(["serial", "dag"]).has(executionMode)) {
-      throw new Error(`${label}.execution_mode must be serial or dag`);
-    }
-    const maxJobs = requirePositiveInteger(rawSchedule.max_jobs, `${label}.max_jobs`);
-    if (maxJobs > 16 || (executionMode === "serial" && maxJobs !== 1)) {
-      throw new Error(`${label}.max_jobs must be 1 for serial or at most 16 for dag`);
-    }
-    const capacityProfile = rawSchedule.capacity_profile === undefined
-      ? ""
-      : requireString(rawSchedule.capacity_profile, `${label}.capacity_profile`);
-    if ((capacityProfile === "") === (rawSchedule.resource_limits === undefined)) {
-      throw new Error(`${label} must declare exactly one of capacity_profile or resource_limits`);
-    }
-    let resourceLimits;
-    if (capacityProfile !== "") {
-      const profileLimits = resourceLimitsForCapacityProfile(
-        capacityProfile,
-        label,
-        { scheduler: "sequence", allowAuto: true },
-      );
-      resourceLimits = objectFromEntries(profileLimits.limits.entries());
-    } else {
-      resourceLimits = requireObject(rawSchedule.resource_limits, `${label}.resource_limits`);
-      for (const [resource, limit] of Object.entries(resourceLimits)) {
-        assertKnownResource(resource, `${label}.resource_limits.${resource}`, {
-          scheduler: "sequence",
-        });
-        requirePositiveInteger(limit, `${label}.resource_limits.${resource}`);
-      }
-    }
-    const ownerSteps = requireNonEmptyArray(ownerSequence.steps, `task_surface_owner.sequences.${target}.steps`);
-    const rawSteps = requireNonEmptyArray(rawSchedule.steps, `${label}.steps`);
-    if (rawSteps.length !== ownerSteps.length) {
-      throw new Error(`${label}.steps must bind every task-surface step exactly once`);
-    }
-    const stepTargets = new Set();
-    const steps = rawSteps.map((rawStep, stepIndex) => {
-      const stepLabel = `${label}.steps[${stepIndex + 1}]`;
-      validateAllowedKeys(
-        requireObject(rawStep, stepLabel),
-        new Set(["target", "needs", "profile", "resource_claims", "priority"]),
-        stepLabel,
-      );
-      const stepTarget = requireString(rawStep.target, `${stepLabel}.target`);
-      if (stepTargets.has(stepTarget)) {
-        throw new Error(`${stepLabel}.target duplicates ${stepTarget}; occurrence aliases are unsupported`);
-      }
-      stepTargets.add(stepTarget);
-      if (ownerSteps[stepIndex]?.target !== stepTarget) {
-        throw new Error(`${stepLabel}.target must bind task-surface step ${ownerSteps[stepIndex]?.target}`);
-      }
-      const needs = requireStringArray(rawStep.needs, `${stepLabel}.needs`);
-      const profileName = rawStep.profile === undefined
-        ? ""
-        : requireString(rawStep.profile, `${stepLabel}.profile`);
-      if ((profileName === "") === (rawStep.resource_claims === undefined)) {
-        throw new Error(`${stepLabel} must declare exactly one of profile or resource_claims`);
-      }
-      const profile = profileName === "" ? null : sequenceResourceProfiles.get(profileName);
-      if (profileName !== "" && !profile) {
-        throw new Error(`${stepLabel}.profile references unknown profile ${profileName}`);
-      }
-      const resourceClaims = profile?.resource_claims ?? requireObject(
-        rawStep.resource_claims,
-        `${stepLabel}.resource_claims`,
-      );
-      for (const [resource, claim] of Object.entries(resourceClaims)) {
-        assertKnownResource(resource, `${stepLabel}.resource_claims.${resource}`, {
-          scheduler: "sequence",
-        });
-        if (claim !== "limit") {
-          requirePositiveInteger(claim, `${stepLabel}.resource_claims.${resource}`);
-        }
-        if (
-          !Object.hasOwn(resourceLimits, resource) ||
-          (Number.isInteger(resourceLimits[resource]) && claim !== "limit" && claim > resourceLimits[resource])
-        ) {
-          throw new Error(`${stepLabel}.resource_claims.${resource} exceeds the declared limit`);
-        }
-      }
-      if (!Object.hasOwn(resourceClaims, "process")) {
-        throw new Error(`${stepLabel}.resource_claims must claim process`);
-      }
-      if (!Number.isInteger(rawStep.priority)) {
-        throw new Error(`${stepLabel}.priority must be an integer`);
-      }
-      return {
-        target: stepTarget,
-        needs,
-        resource_profile: profileName,
-        resource_claims: objectFromEntries(Object.entries(resourceClaims)),
-        make_jobs: profile?.make_jobs ?? null,
-        forwarding: profile?.forwarding ?? "",
-        priority: rawStep.priority,
-      };
-    });
-    for (const [stepIndex, step] of steps.entries()) {
-      for (const dependency of step.needs) {
-        if (!stepTargets.has(dependency)) {
-          throw new Error(`${label}.steps[${stepIndex + 1}].needs references unknown step ${dependency}`);
-        }
-      }
-      if (executionMode === "serial") {
-        const expected = stepIndex === 0 ? [] : [steps[stepIndex - 1].target];
-        if (JSON.stringify(step.needs) !== JSON.stringify(expected)) {
-          throw new Error(`${label}.steps[${stepIndex + 1}].needs must encode serial predecessor order`);
-        }
-      }
-    }
-    const visiting = new Set();
-    const visited = new Set();
-    const byTarget = new Map(steps.map((step) => [step.target, step]));
-    const visit = (stepTarget) => {
-      if (visiting.has(stepTarget)) {
-        throw new Error(`${label} contains a dependency cycle at ${stepTarget}`);
-      }
-      if (visited.has(stepTarget)) return;
-      visiting.add(stepTarget);
-      for (const dependency of byTarget.get(stepTarget).needs) visit(dependency);
-      visiting.delete(stepTarget);
-      visited.add(stepTarget);
-    };
-    for (const stepTarget of byTarget.keys()) visit(stepTarget);
-    schedules.push({
-      target,
-      execution_mode: executionMode,
-      max_jobs: maxJobs,
-      ...(capacityProfile === "" ? {} : { capacity_profile: capacityProfile }),
-      resource_limits: objectFromEntries(Object.entries(resourceLimits)),
-      steps,
-    });
-  }
-  for (const target of Object.keys(ownerSequences)) {
-    if (!seenSchedules.has(target)) {
-      throw new Error(`sequence_schedules omits task-surface sequence ${target}`);
-    }
-  }
-  return schedules;
-}
-
-function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfaceOwnerPath) {
+  const raw = readJSON(manifestPath);
   requireSchema(raw, executionTopologySchemaID, manifestPath);
-  requireSchema(taskSurfaceOwner, taskSurfaceOwnerSchemaID, taskSurfaceOwnerPath);
-  validateOutputPaths(root, raw.generated_outputs);
-  if (raw.task_surface !== undefined) {
-    throw new Error("task_surface is obsolete; use the authored task_surface_owner input");
+  const allowedKeys = new Set([
+    "schema_id", "runtime_profiles", "resource_profiles", "generated_outputs",
+    "runtime_binaries", "execution_dependencies", "go_targets", "browser_e2e_batch",
+    "task_surface_owner",
+  ]);
+  for (const key of Object.keys(raw)) {
+    if (!allowedKeys.has(key)) throw new Error(`${manifestPath} contains unsupported key ${key}`);
   }
-  const taskTargets = targetNamesFromTaskSurface(taskSurfaceOwner);
-  const taskTargetEntries = targetEntriesFromTaskSurface(taskSurfaceOwner);
-  const { dependencies, byID: dependencyByID } = normalizeExecutionDependencies(raw);
-  validateExecutionDependencyTargets(dependencies, taskTargets);
-  const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
-  const goTargets = normalizeGoTargets(raw, dependencyByID, runtimeBinaries);
-  const sequenceResourceProfiles = normalizeSequenceResourceProfiles(raw);
-  const sequenceSchedules = normalizeSequenceSchedules(
-    raw,
-    taskSurfaceOwner,
-    taskTargets,
-    sequenceResourceProfiles,
-  );
-  validateBrowserBatch(raw, dependencyByID, taskTargets);
-  const checkSchedules = renderCheckSchedulesFromTopology(raw, taskTargets, taskTargetEntries);
-  validateServiceBackedSchedules(manifestPath, raw, taskTargets);
+  if (typeof raw.task_surface_owner !== "string" || raw.task_surface_owner.includes(".generated.")) {
+    throw new Error("task_surface_owner must reference an authored owner input");
+  }
+  const taskSurfaceOwnerPath = resolveRepoPath(root, raw.task_surface_owner);
+  const taskSurface = readJSON(taskSurfaceOwnerPath);
+  requireSchema(taskSurface, taskSurfaceOwnerSchemaID, taskSurfaceOwnerPath);
+  const targets = new Set(taskSurface.targets.map((entry) => entry.name));
+  const runtimeProfiles = uniqueByID(raw.runtime_profiles, "runtime_profiles");
+  uniqueByID(raw.resource_profiles, "resource_profiles");
+  const executionDependencies = normalizeExecutionDependencies(raw, targets);
+  const executionDependencyByID = new Map(executionDependencies.map((entry) => [entry.id, entry]));
+  const runtimeBinaries = normalizeRuntimeBinaryEntries(raw.runtime_binaries, { taskTargets: targets });
+  validateBrowserOwner(raw, new Set(executionDependencyByID.keys()), targets, new Set(runtimeProfiles.keys()));
   return {
     root,
     manifestPath,
     raw: clone(raw),
     generatedOutputs: clone(raw.generated_outputs),
-    executionDependencies: dependencies,
-    executionDependencyByID: dependencyByID,
+    executionDependencies,
+    executionDependencyByID,
     runtimeBinaries,
-    goTargets,
-    sequenceResourceProfiles,
-    sequenceSchedules,
-    taskSurface: clone(taskSurfaceOwner),
+    goTargets: normalizeGoTargets(raw, runtimeBinaries),
+    taskSurface: clone(taskSurface),
     taskSurfaceOwnerPath,
-    checkScheduleProfile: clone(raw.check_schedules),
-    checkSchedules,
-    serviceBackedSchedules: clone(raw.service_backed_schedules),
     browserBatch: clone(raw.browser_e2e_batch),
   };
 }
 
-export function loadExecutionTopology(options = {}) {
-  const root = path.resolve(options.root ?? repoRoot);
-  const configured =
-    options.manifestPath ??
-    process.env.CARTULARY_EXECUTION_TOPOLOGY_MANIFEST ??
-    defaultExecutionTopologyManifestPath;
-  const manifestPath = resolveRepoPath(root, configured);
-  const raw = readJSON(manifestPath);
-  const ownerReference = requireString(
-    raw.task_surface_owner,
-    "task_surface_owner",
-  );
-  if (
-    ownerReference === raw.generated_outputs?.task_surface_manifest ||
-    ownerReference.includes(".generated.")
-  ) {
-    throw new Error(
-      `task_surface_owner must reference an authored owner input, not generated file ${ownerReference}`,
-    );
-  }
-  const taskSurfaceOwnerPath = resolveRepoPath(root, ownerReference);
-  return normalizeTopology(
-    raw,
-    readJSON(taskSurfaceOwnerPath),
-    root,
-    manifestPath,
-    taskSurfaceOwnerPath,
-  );
-}
-
 export function renderTaskSurfaceManifest(topology) {
   const taskSurface = clone(topology.taskSurface);
-  const sequenceSchedules = new Map(
-    topology.sequenceSchedules.map((schedule) => [schedule.target, schedule]),
-  );
-  for (const [target, sequence] of Object.entries(taskSurface.sequences)) {
-    const schedule = sequenceSchedules.get(target);
-    if (!schedule) {
-      throw new Error(`sequence ${target} has no execution-topology schedule`);
-    }
-    sequence.execution_mode = schedule.execution_mode;
-    sequence.max_jobs = schedule.max_jobs;
-    if (schedule.capacity_profile !== undefined) {
-      sequence.capacity_profile = schedule.capacity_profile;
-    }
-    sequence.resource_limits = clone(schedule.resource_limits);
-    sequence.steps = sequence.steps.map((step, index) => ({
-      ...step,
-      needs: [...schedule.steps[index].needs],
-      ...(schedule.steps[index].resource_profile === ""
-        ? {}
-        : { resource_profile: schedule.steps[index].resource_profile }),
-      resource_claims: clone(schedule.steps[index].resource_claims),
-      ...(schedule.steps[index].make_jobs === null
-        ? {}
-        : { make_jobs: schedule.steps[index].make_jobs }),
-      ...(schedule.steps[index].forwarding === ""
-        ? {}
-        : { forwarding: schedule.steps[index].forwarding }),
-      priority: schedule.steps[index].priority,
-    }));
-  }
-  enrichProfileResolvedBrowserRecipes(taskSurface, topology);
   delete taskSurface.schema_id;
-  return {
-    schema_id: taskSurfaceSchemaID,
-    ...taskSurface,
-  };
+  return { schema_id: taskSurfaceSchemaID, ...taskSurface };
+}
+
+function runtimeProfileByID(raw) {
+  return new Map(raw.runtime_profiles.map((entry) => [entry.id, {
+    ...entry,
+    browserCapable: entry.browser_capable === true,
+    serviceRequirement: serviceRequirementForRuntimeProfile(entry),
+  }]));
 }
 
 export function renderBrowserBatchManifest(topology) {
   const globalRuntimeProfiles = runtimeProfileByID(topology.raw);
-  const catalogRows = loadCatalogRowsForGeneratedTopology(topology.root);
+  const catalogRows = loadTestCatalog(topology.root).rows;
   const selectorStageByKind = new Map([
     ["webserver-backed", "webserver_backed"],
     ["duration_balanced_specs", "webserver_backed"],
@@ -1386,38 +238,24 @@ export function renderBrowserBatchManifest(topology) {
     ["a11y", "accessibility"],
     ["visual", "visual"],
   ]);
-
   const stages = topology.browserBatch.stages.map((stage) => ({
     ...clone(stage),
     groups: stage.groups.flatMap((policyGroup) => {
       const selectorStage = selectorStageByKind.get(policyGroup.kind);
-      if (!selectorStage) {
-        throw new Error(`browser group ${policyGroup.name} has no catalog selector-stage mapping`);
-      }
+      if (!selectorStage) throw new Error(`browser group ${policyGroup.name} has no selector-stage mapping`);
       const runtimeProfileID = policyGroup.runtime_profile_id ?? "default";
       const runtimeProfile = globalRuntimeProfiles.get(runtimeProfileID);
-      if (!runtimeProfile) {
-        throw new Error(
-          `browser group ${policyGroup.name} references unknown runtime profile ${runtimeProfileID}`,
-        );
-      }
-      if (!runtimeProfile.browserCapable) {
-        throw new Error(
-          `browser group ${policyGroup.name} references non-browser-capable runtime profile ${runtimeProfileID}`,
-        );
+      if (!runtimeProfile?.browserCapable) {
+        throw new Error(`browser group ${policyGroup.name} has non-browser runtime ${runtimeProfileID}`);
       }
       const rows = catalogRows
-        .filter(
-          (row) => row.runner === "playwright" &&
-            row.selector.stage === selectorStage &&
-            row.runtime_profile_id === runtimeProfileID,
+        .filter((row) =>
+          row.runner === "playwright" &&
+          row.selector.stage === selectorStage &&
+          row.runtime_profile_id === runtimeProfileID,
         )
-        .sort((left, right) => asciiCompare(left.row_id, right.row_id));
-      if (rows.length === 0) {
-        throw new Error(
-          `browser group ${policyGroup.name} selects no catalog rows for ${selectorStage}/${runtimeProfileID}`,
-        );
-      }
+        .sort((left, right) => compareASCII(left.row_id, right.row_id));
+      if (rows.length === 0) throw new Error(`browser group ${policyGroup.name} selects no catalog rows`);
       const byFile = new Map();
       for (const row of rows) {
         const fileRows = byFile.get(row.selector.file) ?? [];
@@ -1425,7 +263,7 @@ export function renderBrowserBatchManifest(topology) {
         byFile.set(row.selector.file, fileRows);
       }
       return [...byFile.entries()]
-        .sort(([left], [right]) => asciiCompare(left, right))
+        .sort(([left], [right]) => compareASCII(left, right))
         .map(([file, fileRows], fileIndex) => {
           const fileIdentity = file
             .replace(/^apps\/web\/e2e\//u, "")
@@ -1452,110 +290,11 @@ export function renderBrowserBatchManifest(topology) {
   }));
   return {
     schema_id: browserBatchManifestSchemaID,
-    runtime_profiles: topology.browserBatch.runtime_profiles.map((profile) => {
-      const globalProfile = globalRuntimeProfiles.get(profile.id);
-      if (!globalProfile) {
-        throw new Error(
-          `browser runtime profile ${profile.id} is missing from runtime_profiles`,
-        );
-      }
-      return {
-        ...clone(profile),
-        service_requirement: globalProfile.serviceRequirement,
-      };
-    }),
+    runtime_profiles: topology.browserBatch.runtime_profiles.map((profile) => ({
+      ...clone(profile),
+      service_requirement: globalRuntimeProfiles.get(profile.id).serviceRequirement,
+    })),
     stages,
-  };
-}
-
-function serviceBackedScheduleByTarget(manifest) {
-  return new Map((manifest?.schedules ?? []).map((schedule) => [schedule.target, schedule]));
-}
-
-function serviceBackedCheckResourceLimits(serviceSchedule) {
-  const limits = {};
-  for (const [resource, limit] of Object.entries(serviceSchedule.resource_limits ?? {})) {
-    if (resource === "go_cpu" || resource === "go_io") {
-      continue;
-    }
-    limits[resource] = limit;
-  }
-  return limits;
-}
-
-function expandCheckScheduleServiceBackedUnits(schedule, serviceBackedManifest, expandServiceBackedScheduleForCheck) {
-  const schedulesByTarget = serviceBackedScheduleByTarget(serviceBackedManifest);
-  const workUnits = [];
-  let resourceLimits = clone(schedule.resource_limits);
-  for (const unit of schedule.work_units) {
-    if (!unit.service_backed_schedule) {
-      const { expanded_needs: expandedNeeds = [], ...rest } = unit;
-      workUnits.push({
-        ...rest,
-        needs: [...(unit.needs ?? []), ...expandedNeeds],
-      });
-      continue;
-    }
-    const serviceSchedule = schedulesByTarget.get(unit.service_backed_schedule);
-    if (!serviceSchedule) {
-      throw new Error(
-        `check schedule ${schedule.target} references missing service-backed schedule ${unit.service_backed_schedule}`,
-      );
-    }
-    resourceLimits = {
-      ...resourceLimits,
-      ...serviceBackedCheckResourceLimits(serviceSchedule),
-    };
-    workUnits.push(
-      ...expandServiceBackedScheduleForCheck({
-        repoRoot,
-        serviceSchedule,
-        parentUnit: unit,
-      }),
-    );
-  }
-  return {
-    ...schedule,
-    resource_limits: resourceLimits,
-    work_units: workUnits,
-  };
-}
-
-export function renderCheckScheduleManifest(topology, options = {}) {
-  const serviceBackedManifest = options.serviceBackedScheduleManifest ?? null;
-  const expandServiceBackedScheduleForCheck = options.expandServiceBackedScheduleForCheck ?? null;
-  if (serviceBackedManifest && typeof expandServiceBackedScheduleForCheck !== "function") {
-    throw new Error("renderCheckScheduleManifest requires expandServiceBackedScheduleForCheck with serviceBackedScheduleManifest");
-  }
-  const schedules = serviceBackedManifest
-    ? topology.checkSchedules.map((schedule) =>
-        expandCheckScheduleServiceBackedUnits(
-          schedule,
-          serviceBackedManifest,
-          expandServiceBackedScheduleForCheck,
-        ),
-      )
-    : topology.checkSchedules;
-  return {
-    schema_id: checkScheduleSchemaID,
-    schedules: clone(schedules),
-  };
-}
-
-export function renderServiceBackedScheduleProfile(topology) {
-  const readinessAttributionByTarget = Object.fromEntries(
-    Object.entries(topology.checkScheduleProfile.target_profiles ?? {})
-      .filter(([, profile]) => profile.readiness_attribution !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([target, profile]) => [
-        target,
-        clone(profile.readiness_attribution),
-      ]),
-  );
-  return {
-    ...clone(topology.serviceBackedSchedules),
-    runtime_binaries: clone(topology.runtimeBinaries ?? []),
-    readiness_attribution_by_target: readinessAttributionByTarget,
   };
 }
 
@@ -1565,21 +304,15 @@ export function executionDependencyMetadata(root = repoRoot) {
 }
 
 export function serviceBackedGoExecutionDependencies(root = repoRoot) {
-  const topology = loadExecutionTopology({ root });
-  return new Set(
-    topology.executionDependencies
-      .filter((entry) => entry.category === "backend" && entry.service_backed && !entry.support_target)
-      .map((entry) => entry.id),
-  );
+  return new Set(loadExecutionTopology({ root }).executionDependencies
+    .filter((entry) => entry.category === "backend" && entry.serviceBacked && !entry.supportTarget)
+    .map((entry) => entry.id));
 }
 
 export function serviceBackedSupportTargets(root = repoRoot) {
-  const topology = loadExecutionTopology({ root });
-  return new Set(
-    topology.executionDependencies
-      .filter((entry) => entry.support_target && entry.service_backed)
-      .map((entry) => entry.id),
-  );
+  return new Set(loadExecutionTopology({ root }).executionDependencies
+    .filter((entry) => entry.serviceBacked && entry.supportTarget)
+    .map((entry) => entry.target));
 }
 
 export function validExecutionDependencyIDs(root = repoRoot) {
@@ -1587,34 +320,19 @@ export function validExecutionDependencyIDs(root = repoRoot) {
 }
 
 export function validSupportTargetIDs(root = repoRoot) {
-  const topology = loadExecutionTopology({ root });
-  return new Set(
-    topology.executionDependencies.filter((entry) => entry.support_target).map((entry) => entry.id),
-  );
+  return serviceBackedSupportTargets(root);
 }
 
 export function compareExecutionDependencyIDs(left, right, root = repoRoot) {
   const metadata = executionDependencyMetadata(root);
-  const leftInfo = metadata.get(left);
-  const rightInfo = metadata.get(right);
-  return (
-    (leftInfo?.order ?? Number.MAX_SAFE_INTEGER) -
-      (rightInfo?.order ?? Number.MAX_SAFE_INTEGER) ||
-    String(left).localeCompare(String(right))
-  );
+  return (metadata.get(left)?.order ?? Number.MAX_SAFE_INTEGER) -
+    (metadata.get(right)?.order ?? Number.MAX_SAFE_INTEGER) || compareASCII(left, right);
 }
 
 export function targetForExecutionDependencyID(id, label = "execution_dependency", root = repoRoot) {
-  if (id === "") {
-    return "";
-  }
+  if (id === "") return "";
   const info = executionDependencyMetadata(root).get(id);
-  if (!info) {
-    throw new Error(`${label} has no execution dependency metadata for ${id}`);
-  }
-  if (!info.target) {
-    throw new Error(`${label} ${id} has no Make target mapping`);
-  }
+  if (!info) throw new Error(`${label} has no execution dependency metadata for ${id}`);
   return info.target;
 }
 
@@ -1625,10 +343,7 @@ export function topologySummary(topology) {
     go_targets: topology.goTargets.targets.length,
     raw_go_aggregates: topology.goTargets.rawAggregates.length,
     task_targets: topology.taskSurface.targets.length,
-    sequence_schedules: topology.sequenceSchedules.length,
-    check_schedules: topology.checkSchedules.length,
-    service_backed_schedules: topology.serviceBackedSchedules.schedules.length,
     browser_stages: topology.browserBatch.stages.length,
-    generated_outputs: objectFromEntries(Object.entries(topology.generatedOutputs)),
+    generated_outputs: clone(topology.generatedOutputs),
   };
 }

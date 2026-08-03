@@ -1,249 +1,60 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v4",
+  "schema_id": "cartulary.scheduler_resource_registry.v5",
+  "capacity_override_schema": "cartulary.harness_capacity_override.v1",
   "resources": [
     {
-      "name": "host_cpu",
-      "display_name": "host CPU",
-      "schedulers": ["check", "sequence"],
-      "display_order": 10,
-      "capacity": {
-        "auto_policy": "host_cpu",
-        "override_env": "CHECK_HOST_CPU_JOBS",
-        "max_limit": 256
-      }
-    },
-    {
-      "name": "host_io",
-      "display_name": "host IO",
-      "schedulers": ["check", "sequence"],
-      "display_order": 20,
-      "capacity": {
-        "auto_policy": "host_io",
-        "override_env": "CHECK_HOST_IO_JOBS",
-        "max_limit": 256
-      }
-    },
-    {
-      "name": "suite_service_stack",
-      "display_name": "suite service stack",
-      "schedulers": ["check"],
-      "display_order": 30,
-      "capacity": {
-        "default_limit": 1,
-        "max_limit": 256
-      }
-    },
-    {
-      "name": "migration_scratch_postgres",
-      "display_name": "migration scratch Postgres",
-      "schedulers": ["check"],
-      "display_order": 40,
-      "capacity": {
-        "default_limit": 1,
-        "max_limit": 256
-      }
-    },
-    {
-      "name": "go_cpu",
-      "display_name": "Go CPU",
-      "schedulers": ["service_backed", "test_slice"],
-      "display_order": 110,
-      "capacity": {
-        "auto_policy": "service_backed_go_cpu",
-        "override_env": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
-        "max_limit": 256
-      }
-    },
-    {
-      "name": "go_io",
-      "display_name": "Go IO",
-      "schedulers": ["service_backed", "test_slice"],
-      "display_order": 120,
-      "capacity": {
-        "auto_policy": "service_backed_go_io",
-        "override_env": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT",
-        "max_limit": 256
-      }
-    },
-    {
       "name": "browser_stack",
-      "display_name": "browser stack",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 130,
-      "capacity": {
-        "auto_policy": "service_backed_browser_stack",
-        "override_env": "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
-        "max_limit": 256
-      }
+      "snapshot_field": "port_lanes",
+      "unit": "lease"
     },
     {
-      "name": "process",
-      "display_name": "process slots",
-      "schedulers": ["check", "sequence", "service_backed", "test_slice"],
-      "display_order": 160,
-      "capacity": {
-        "auto_policy": "host_process_slots",
-        "max_limit": 256
-      }
+      "name": "cpu",
+      "snapshot_field": "cpu_tokens",
+      "unit": "token"
     },
     {
-      "name": "postgres",
-      "display_name": "Postgres",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 150,
-      "capacity": {
-        "default_limit": 32,
-        "max_limit": 256
-      }
+      "name": "io",
+      "snapshot_field": "io_tokens",
+      "unit": "token"
+    },
+    {
+      "name": "memory_mb",
+      "snapshot_field": "memory_bytes",
+      "unit": "mebibyte"
     },
     {
       "name": "object_store",
-      "display_name": "object store",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 140,
-      "capacity": {
-        "default_limit": 32,
-        "max_limit": 256
-      }
+      "snapshot_field": "object_store_lanes",
+      "unit": "capability"
     },
     {
-      "name": "seaweedfs_fixture",
-      "display_name": "SeaweedFS fixture",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 145,
-      "capacity": {
-        "default_limit": 2,
-        "max_limit": 8
-      }
+      "name": "port_lane",
+      "snapshot_field": "port_lanes",
+      "unit": "lane"
     },
     {
-      "name": "postgres_reset",
-      "display_name": "Postgres reset",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 170,
-      "capacity": {
-        "auto_policy": "service_backed_postgres_reset",
-        "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT",
-        "max_limit": 8
-      }
+      "name": "postgres",
+      "snapshot_field": "postgres_lanes",
+      "unit": "capability"
     },
     {
-      "name": "postgres_clone",
-      "display_name": "Postgres clone",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 175,
-      "capacity": {
-        "auto_policy": "service_backed_postgres_clone",
-        "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
-        "max_limit": 8
-      }
+      "name": "process",
+      "snapshot_field": "process_slots",
+      "unit": "slot"
     },
     {
-      "name": "postgres_cluster_advisory_lock",
-      "display_name": "Postgres cluster advisory lock",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 180,
-      "capacity": {
-        "default_limit": 1,
-        "max_limit": 1
-      }
+      "name": "service_stack",
+      "snapshot_field": "services.service_stack",
+      "unit": "capability"
+    },
+    {
+      "name": "volume",
+      "snapshot_field": "writable_volume",
+      "unit": "capability"
     }
   ],
-  "templates": [
-    {
-      "name": "browser_stage",
-      "prefix": "browser_stage_",
-      "display_name": "browser stage",
-      "schedulers": ["check", "service_backed", "test_slice"],
-      "display_order": 135,
-      "max_limit": 8
-    }
-  ],
-  "capacity_profiles": [
-    {
-      "name": "check_default",
-      "scheduler": "check",
-      "resources": [
-        "host_cpu",
-        "host_io",
-        "suite_service_stack",
-        "migration_scratch_postgres",
-        "postgres_cluster_advisory_lock"
-      ]
-    },
-    {
-      "name": "service_backed_full",
-      "scheduler": "service_backed",
-      "resources": [
-        "postgres",
-        "object_store",
-        "go_cpu",
-        "go_io",
-        "postgres_reset",
-        "postgres_clone",
-        "postgres_cluster_advisory_lock",
-        "process",
-        "seaweedfs_fixture",
-        "browser_stack"
-      ]
-    },
-    {
-      "name": "service_backed_backend",
-      "scheduler": "service_backed",
-      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "postgres_cluster_advisory_lock", "process", "seaweedfs_fixture"]
-    },
-    {
-      "name": "test_slice_default",
-      "scheduler": "test_slice",
-      "resources": [
-        "postgres",
-        "object_store",
-        "go_cpu",
-        "go_io",
-        "postgres_reset",
-        "postgres_clone",
-        "postgres_cluster_advisory_lock",
-        "process",
-        "seaweedfs_fixture",
-        "browser_stack"
-      ]
-    },
-    {
-      "name": "sequence_adaptive",
-      "scheduler": "sequence",
-      "resources": ["host_cpu", "host_io", "process"]
-    }
-  ],
-  "forwarding_profiles": [
-    {
-      "name": "sequence_to_check",
-      "mappings": [
-        {
-          "source_resource": "host_cpu",
-          "target_resource": "host_cpu",
-          "env_variable": "CHECK_HOST_CPU_JOBS"
-        },
-        {
-          "source_resource": "host_io",
-          "target_resource": "host_io",
-          "env_variable": "CHECK_HOST_IO_JOBS"
-        }
-      ]
-    },
-    {
-      "name": "sequence_to_service_backed",
-      "mappings": [
-        {
-          "source_resource": "host_cpu",
-          "target_resource": "go_cpu",
-          "env_variable": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT"
-        },
-        {
-          "source_resource": "host_io",
-          "target_resource": "go_io",
-          "env_variable": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT"
-        }
-      ]
-    }
+  "runner_worker_inputs": [
+    "PLAYWRIGHT_WORKERS",
+    "VITEST_MAX_WORKERS"
   ]
 }

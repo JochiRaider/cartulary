@@ -10,21 +10,17 @@
   },
   "harness_entrypoints": {
     "files": [
-      "tools/harness/backend/backend-duration-accounting.mjs",
-      "tools/harness/backend/go-shard-plan-cli.mjs",
-      "tools/harness/backend/go-target-plan-coverage-cli.mjs",
-      "tools/harness/backend/postgres-fixture-budget-cli.mjs",
-      "tools/harness/browser/browser-evidence-finalize-cli.mjs",
+      "tools/harness/backend/go-lpt-shards.mjs",
       "tools/harness/browser/browser-runtime-profile.mjs",
       "tools/harness/browser/browser-session-evidence.mjs",
       "tools/harness/browser/browser-target-finalizer-cli.mjs",
       "tools/harness/contract/harness-contract-cli.mjs",
       "tools/harness/diagnostics/vitest-failure-details.mjs",
-      "tools/harness/duration-accounting/index.mjs",
+      "tools/harness/observability/canonical-evidence.mjs",
+      "tools/harness/observability/canonical-performance-cli.mjs",
       "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",
       "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
-      "tools/harness/owner-slice/owner-slice-finalizer-cli.mjs",
-      "tools/harness/owner-slice/owner-unit-runner-cli.mjs",
+      "tools/harness/scheduler/work-graph/runner-cli.mjs",
       "tools/harness/output/test-output.mjs",
       "tools/harness/readiness/diagnose-inotify.mjs",
       "tools/harness/static-analysis/font-bundle-check-cli.mjs",
@@ -33,48 +29,7 @@
       "tools/harness/test-support/json-test-helper.mjs"
     ]
   },
-  "harness_dynamic_exports": [
-    {
-      "file": "tools/harness/backend/backend-target-execution.mjs",
-      "exports": [
-        "acquireSharedReportLock",
-        "assignExecutionFamily",
-        "captureGoReport",
-        "captureNamedSharedReportsParallel",
-        "createAggregateReport",
-        "prepareSharedArtifactDir",
-        "releaseSharedReportLock"
-      ],
-      "owner": "Backend target execution smoke tests",
-      "evidence": "Shell-embedded ESM imports in tools/harness/backend/tests/test-run-go-target.sh exercise shared report capture, locking, reuse, aggregate report accounting, and execution-family assignment.",
-      "removal_trigger": "Remove when test-run-go-target.sh stops importing these helpers or the shell-embedded checks move to static JavaScript entry files modeled by Fallow."
-    },
-    {
-      "file": "tools/harness/backend/target-execution/capture.mjs",
-      "exports": [
-        "acquireSharedReportLock",
-        "captureGoReport",
-        "releaseSharedReportLock"
-      ],
-      "owner": "Backend target execution smoke tests",
-      "evidence": "The backend-target-execution facade re-exports these capture helpers for shell-embedded ESM smoke tests in tools/harness/backend/tests/test-run-go-target.sh.",
-      "removal_trigger": "Remove when the facade no longer exposes these helpers to the shell smoke tests or the tests move to static JavaScript entry files modeled by Fallow."
-    },
-    {
-      "file": "tools/harness/execution/service-backed/schedule-manifest.mjs",
-      "exports": ["validateServiceBackedScheduleManifestShape"],
-      "owner": "Generated execution-topology smoke tests",
-      "evidence": "Shell-embedded ESM imports in tools/harness/generated-artifacts/tests/test-execution-topology.sh validate rendered and malformed service-backed schedule manifests.",
-      "removal_trigger": "Remove when test-execution-topology.sh no longer imports this validator or the check moves to a static JavaScript entry file modeled by Fallow."
-    },
-    {
-      "file": "tools/harness/execution/service-backed/schedule-planning.mjs",
-      "exports": ["validateServiceBackedScheduleManifestShape"],
-      "owner": "Generated execution-topology smoke tests",
-      "evidence": "The schedule-planning facade re-exports the validator for shell-embedded ESM checks in tools/harness/generated-artifacts/tests/test-execution-topology.sh.",
-      "removal_trigger": "Remove when the facade no longer exposes this validator to the generated-artifact smoke test or the check moves to a static JavaScript entry file modeled by Fallow."
-    }
-  ],
+  "harness_dynamic_exports": [],
   "vitest": {
     "config_file": "apps/web/vite.config.ts",
     "setup_files": [

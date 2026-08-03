@@ -69,8 +69,6 @@ const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v3";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
-const serviceBackedMakeTargetBaselineSchemaID =
-  "cartulary.scheduler_work_unit_duration_baselines.v2";
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 const fallowReachabilityOwnerSchemaID =
   "cartulary.fallow_reachability_owner.v1";
@@ -97,8 +95,6 @@ const frontendVisualDesignContractIDs = Object.freeze(
     (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
   ),
 );
-const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
-const schedulerSummaryCommonSchemaIDs = new Set([schedulerSummaryCommonSchemaID]);
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
@@ -110,16 +106,11 @@ const topologyTopLevelKeys = new Set([
   "schema_id",
   "runtime_profiles",
   "resource_profiles",
-  "fixture_profiles",
   "generated_outputs",
   "runtime_binaries",
   "execution_dependencies",
   "go_targets",
   "task_surface_owner",
-  "check_schedules",
-  "service_backed_schedules",
-  "sequence_resource_profiles",
-  "sequence_schedules",
   "browser_e2e_batch",
 ]);
 const generatedArtifactPolicyKeys = new Set([
@@ -1072,7 +1063,7 @@ function assertExactIDSet(actualIDs, expectedIDs, label) {
   }
 }
 
-function validateNetworkFlowContractIndexShape(file) {
+function validateNetworkFlowContractIndexShape(file, root = repoRoot) {
   const contractIndex = readShapeFile(file, file);
   validateSchemaSync(networkFlowContractIndexSchemaID, contractIndex);
   assertObjectKeys(contractIndex, networkFlowContractIndexKeys, file);
@@ -1144,7 +1135,7 @@ function validateNetworkFlowContractIndexShape(file) {
     `${file}.contract_files.presentation`,
   );
   for (const referencedPath of [routeFile, schemaFile, errorFile, importFacadeBindingFile, importOwnerErrorFile, timezoneFile, keyRingsFile, mappingRegistryFile, presentationFile]) {
-    if (!existsSync(repoFile(repoRoot, referencedPath))) {
+    if (!existsSync(repoFile(root, referencedPath))) {
       throw new Error(`${file} references missing Network Flow contract file ${referencedPath}`);
     }
   }
@@ -1164,14 +1155,14 @@ function validateNetworkFlowContractIndexShape(file) {
   ]) {
     requireExact(closurePolicy[key], expected, `${file}.closure_policy.${key}`);
   }
-  validateNetworkFlowRouteContractsShape(repoFile(repoRoot, routeFile), publicSchemaIDs);
-  const errorCodes = validateNetworkFlowErrorContractsShape(repoFile(repoRoot, errorFile));
-  validateNetworkFlowPublicSchemaBundle(repoFile(repoRoot, schemaFile), publicSchemaIDs);
-  validateNetworkFlowTimezoneRulesetProvenanceShape(repoFile(repoRoot, timezoneFile));
-  validateNetworkFlowMappingRegistryShape(repoFile(repoRoot, mappingRegistryFile));
-  validateNetworkFlowPresentationShape(repoFile(repoRoot, presentationFile));
+  validateNetworkFlowRouteContractsShape(repoFile(root, routeFile), publicSchemaIDs);
+  const errorCodes = validateNetworkFlowErrorContractsShape(repoFile(root, errorFile));
+  validateNetworkFlowPublicSchemaBundle(repoFile(root, schemaFile), publicSchemaIDs);
+  validateNetworkFlowTimezoneRulesetProvenanceShape(repoFile(root, timezoneFile));
+  validateNetworkFlowMappingRegistryShape(repoFile(root, mappingRegistryFile));
+  validateNetworkFlowPresentationShape(repoFile(root, presentationFile));
 
-  const routes = readShapeFile(repoFile(repoRoot, routeFile), routeFile);
+  const routes = readShapeFile(repoFile(root, routeFile), routeFile);
   for (const route of routes.routes) {
     for (const code of route.primary_errors) {
       if (!errorCodes.has(code)) {
@@ -2030,46 +2021,6 @@ function validateBootstrapAdminShape(file) {
   });
   requireString(manifest.display_name, `${file}.display_name`);
   requireString(manifest.initial_password, `${file}.initial_password`);
-}
-
-function validateDurationBaselineShape(file) {
-  const baseline = readShapeFile(file, file);
-  requireSchemaID(baseline, serviceBackedMakeTargetBaselineSchemaID, file);
-  requirePositiveInteger(
-    baseline.default_work_unit_weight_ms,
-    `${file}.default_work_unit_weight_ms`,
-  );
-  const workUnits = requireObject(baseline.work_units, `${file}.work_units`);
-  for (const [key, entry] of Object.entries(workUnits)) {
-    requireObject(entry, `${file}.work_units.${key}`);
-    const expectedKey = [
-      requireString(
-        entry.scheduler_kind,
-        `${file}.work_units.${key}.scheduler_kind`,
-      ),
-      requireString(
-        entry.schedule_target,
-        `${file}.work_units.${key}.schedule_target`,
-      ),
-      requireString(
-        entry.work_unit_id,
-        `${file}.work_units.${key}.work_unit_id`,
-      ),
-      requireString(
-        entry.aggregate_target,
-        `${file}.work_units.${key}.aggregate_target`,
-      ),
-    ].join("|");
-    if (key !== expectedKey) {
-      throw new Error(
-        `${file}.work_units.${key} must match scheduler context key ${expectedKey}`,
-      );
-    }
-    requirePositiveInteger(
-      entry.weight_ms,
-      `${file}.work_units.${key}.weight_ms`,
-    );
-  }
 }
 
 function artifactStableKey(artifact) {
@@ -3326,9 +3277,6 @@ function validateKind(kind, file, root = repoRoot) {
     case "scheduler-resource-registry":
       validateSchedulerResourceRegistryShape(file);
       return;
-    case "service-backed-make-target-baseline":
-      validateDurationBaselineShape(file);
-      return;
     case "bootstrap-admin":
       validateBootstrapAdminShape(file);
       return;
@@ -3363,7 +3311,7 @@ function validateKind(kind, file, root = repoRoot) {
       validateNetworkFlowFixtureManifestShape(file);
       return;
     case "network-flow-contract-index":
-      validateNetworkFlowContractIndexShape(file);
+      validateNetworkFlowContractIndexShape(file, root);
       return;
     case "network-flow-timezone-provenance":
       validateNetworkFlowTimezoneRulesetProvenanceShape(file);
@@ -3471,13 +3419,6 @@ function validateAll(root) {
   loadSchedulerResourceRegistry(
     repoFile(root, "tools/scheduler_resource_registry.json"),
   );
-  validateDurationBaselineShape(
-    repoFile(root, "tools/service_backed_make_target_duration_baselines.json"),
-  );
-  validateSchemaSync(
-    "cartulary.harness_public_target_duration_baselines.v2",
-    readShapeFile(repoFile(root, "tools/harness_public_target_duration_baselines.json")),
-  );
   validateBootstrapAdminShape(
     repoFile(root, "configs/dev/bootstrap-admin.json"),
   );
@@ -3491,6 +3432,7 @@ function validateAll(root) {
   validateGraphProjectionFixtureManifests(root);
   validateNetworkFlowContractIndexShape(
     repoFile(root, "contracts/network-flow/index.json"),
+    root,
   );
   validateNetworkFlowFixtureManifests(root);
   validateNetworkFlowTimezoneRulesetProvenanceShape(

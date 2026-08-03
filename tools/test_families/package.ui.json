@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "package.ui",
   "rows": [
     {
@@ -20,10 +20,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.ui.boundary_support.design_tokens_exposes_the_adopted_default_theme_4f6994fbc4",
@@ -43,10 +43,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.ui.boundary_support.design_tokens_renders_css_variables_without_unre_7aba7b88a9",
@@ -66,10 +66,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.ui.frontend_unit.application_selector_contracts_675995f2ab",
@@ -92,10 +92,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.ui.frontend_unit.network_flow_selector_contracts_b95d925bdf",
@@ -118,10 +118,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.ui.frontend_unit.selector_core_contracts_375732dc80",
@@ -146,10 +146,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.ui.frontend_unit.workbook_interaction_contracts_dcad48388a",
@@ -176,10 +176,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.ui.frontend_unit.workbook_shell_grid_contracts_07bd0aad94",
@@ -208,10 +208,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

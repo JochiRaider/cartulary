@@ -29,8 +29,6 @@ const knownHarnessOwnerRoots = new Set([
   "command-surface",
   "contract",
   "diagnostics",
-  "duration-accounting",
-  "evidence-accounting",
   "execution",
   "finalization",
   "generated-artifacts",
@@ -54,8 +52,6 @@ const executionSubsystems = new Set(["backend", "browser", "frontend", "schedule
 const backendOwnerFacadePaths = new Set(ownerFacadePaths.backend ?? []);
 const frontendOwnerFacadePaths = new Set(ownerFacadePaths.frontend ?? []);
 const browserOwnerFacadePaths = new Set(ownerFacadePaths.browser ?? []);
-const durationAccountingOwnerFacadePaths = new Set(ownerFacadePaths.duration_accounting ?? []);
-const evidenceAccountingOwnerFacadePaths = new Set(ownerFacadePaths.evidence_accounting ?? []);
 const serviceBackedExecutionOwnerFacadePaths = new Set(
   ownerFacadePaths.service_backed_execution ?? [],
 );

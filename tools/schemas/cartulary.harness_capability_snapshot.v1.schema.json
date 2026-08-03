@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_capability_snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "cpu_tokens", "memory_bytes", "process_slots", "io_tokens", "postgres_lanes", "object_store_lanes", "writable_volume", "port_lanes", "services", "sources", "snapshot_digest"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_capability_snapshot.v1" },
+    "cpu_tokens": { "type": "integer", "minimum": 1 }, "memory_bytes": { "type": "integer", "minimum": 1 },
+    "process_slots": { "type": "integer", "minimum": 1 }, "io_tokens": { "type": "integer", "minimum": 1 },
+    "postgres_lanes": { "type": "integer", "minimum": 1 }, "object_store_lanes": { "type": "integer", "minimum": 1 },
+    "writable_volume": { "type": "boolean" }, "port_lanes": { "type": "integer", "minimum": 1 },
+    "services": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }, "additionalProperties": { "type": "boolean" } },
+    "sources": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }, "additionalProperties": { "enum": ["host", "cgroup", "override", "fallback"] } },
+    "snapshot_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

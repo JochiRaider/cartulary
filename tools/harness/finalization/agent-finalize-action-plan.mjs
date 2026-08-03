@@ -26,30 +26,6 @@ function baseSubstep(definition) {
   };
 }
 
-function baseActionCache(definition, selected) {
-  const cache = definition.cache ?? null;
-  return {
-    enabled: false,
-    state: selected
-      ? cache?.eligible
-        ? "bypass"
-        : "ineligible"
-      : "bypass",
-    cache_schema_id: "cartulary.agent_finalize_action_cache_record.v1",
-    action_contract_version: cache?.actionContractVersion ?? null,
-    key_sha256: null,
-    input_profile_id: cache?.inputProfileID ?? null,
-    input_digest_sha256: null,
-    output_digest_sha256: null,
-    record_path: null,
-    reason_code: selected
-      ? cache?.eligible
-        ? "not_evaluated"
-        : "action_ineligible"
-      : "action_not_selected",
-  };
-}
-
 function substepsForAction(definition, includePreflight) {
   const substeps = includePreflight
     ? [preflightSubstep, ...definition.substeps]
@@ -77,7 +53,6 @@ function baseAction(definition, includePreflight, resultsDirInput) {
     completed_at: null,
     duration_ms: null,
     skipped_reason: selected ? null : "results-dir-not-provided",
-    cache: baseActionCache(definition, selected),
     substeps,
   };
 }
@@ -90,17 +65,15 @@ export function selectedActionDefinitions(actionRegistry, resultsDirInput) {
     ? [
       "scheduler_drift_validation",
       "schema_shape_validation",
-      "duration_baseline_coverage",
-      "duration_baseline_refresh",
+      "tier_coverage_validation",
       "generated_structure_refresh",
-      "duration_baseline_drift_validation",
+      "canonical_evidence_validation",
     ]
     : [
       "schema_shape_validation",
-      "duration_baseline_coverage",
+      "tier_coverage_validation",
       "generated_structure_refresh",
-      "duration_baseline_refresh",
-      "duration_baseline_drift_validation",
+      "canonical_evidence_validation",
       "scheduler_drift_validation",
     ];
   const selected = order.map((actionID) => actionByID.get(actionID));

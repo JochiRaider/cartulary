@@ -412,7 +412,7 @@ function writeStack() {
         requiredEnv("CARTULARY_PGTEST_SCHEMA_HASH"),
         "PostgreSQL schema hash",
       ),
-      fixture_profile_id: "web_e2e",
+      fixture_capability: "postgres_dedicated",
     },
     object_store_identity: {
       endpoint_origin: endpointOrigin(
@@ -445,7 +445,7 @@ function writeStack() {
       ready_at: requiredEnv("CARTULARY_WEB_E2E_FRONTEND_READY_AT"),
     },
     fixture_identity: {
-      fixture_profile_id: "web_e2e",
+      fixture_capability: "browser_stack",
       fixture_id: sha256File(metadataFile),
       scenario_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     },

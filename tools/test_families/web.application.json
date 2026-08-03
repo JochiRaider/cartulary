@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "web.application",
   "rows": [
     {
@@ -20,10 +20,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_badbytes_fixture_03561b325d",
@@ -43,10 +43,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_badhash_fixture_c2828b74a4",
@@ -66,10 +66,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_deadfontvariable_fixture_d471c1cde8",
@@ -89,10 +89,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_localsource_fixture_f0fb62c775",
@@ -112,10 +112,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_missingactivationmetadata_fix_a3dc6be288",
@@ -135,10 +135,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_missingcssfontreference_fixtu_626ad10c4f",
@@ -158,10 +158,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_missinglicense_fixture_4238ff678c",
@@ -181,10 +181,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_remotefont_fixture_d7ff3e8bb9",
@@ -204,10 +204,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_rejects_undocumentedstagedfamily_fixt_90a16a1129",
@@ -227,10 +227,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontbundle_validates_the_checked_in_manifest_che_678e7b75c8",
@@ -250,10 +250,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontroles_activates_the_internal_hyperlegible_re_c7a714e67d",
@@ -273,10 +273,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.fontroles_marks_compact_workbook_metadata_for_th_09d32fe3de",
@@ -296,10 +296,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.boundary_support.otelboundary_keeps_browser_state_from_creating_t_f4f164609b",
@@ -319,10 +319,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "web.application.regression.app_keeps_deployment_admin_target_actions_disabl_fe7a9b4dad",
@@ -342,10 +342,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_aborts_an_in_flight_refresh_when_ent_edd84babb6",
@@ -365,10 +365,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_cancels_an_in_flight_shell_refresh_w_fe9dfe2c0f",
@@ -388,10 +388,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_enables_deployment_user_panel_target_6c817cd44b",
@@ -411,10 +411,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_gates_reference_pack_deployment_admi_7458db98a0",
@@ -434,10 +434,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_keeps_explicit_incident_directory_na_c4fd880324",
@@ -457,10 +457,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_keeps_reference_pack_deployment_admi_b4a4a26ac5",
@@ -480,10 +480,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_keeps_reference_pack_deployment_admi_bceb75097a",
@@ -503,10 +503,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_loads_additional_visible_incident_ro_2fa528a47a",
@@ -526,10 +526,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_loads_administrative_audit_directly_05f95750af",
@@ -550,10 +550,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_loads_deployment_administration_as_a_da43cd0d07",
@@ -573,10 +573,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_loads_more_incidents_against_the_acc_b90340dbf9",
@@ -596,10 +596,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_loads_the_debug_harness_directly_wit_c28623539a",
@@ -619,10 +619,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_opens_account_settings_from_the_acco_12ecd21c1b",
@@ -642,10 +642,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_opens_an_imported_incident_from_term_9c4fade7a5",
@@ -665,10 +665,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_opens_the_workbook_automatically_whe_140b142d0d",
@@ -688,10 +688,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_passes_workbook_incident_controls_th_f0ff8ac3c4",
@@ -711,10 +711,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_preserves_incident_route_and_manual_f0a9a82316",
@@ -734,10 +734,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_renders_one_or_many_visible_incident_051ab11a17",
@@ -757,10 +757,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_renders_the_workbook_directly_from_a_01556a05ba",
@@ -780,10 +780,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_renders_workbook_role_incidents_and_1cbdc6683c",
@@ -803,10 +803,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_returns_non_admin_direct_deployment_864cb3c9ed",
@@ -826,10 +826,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_returns_to_the_landing_screen_when_w_2ee7e4975a",
@@ -849,10 +849,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_searches_visible_incidents_through_t_ad3cb27e31",
@@ -872,10 +872,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_sends_only_declared_optional_metadat_b495ab9b03",
@@ -895,10 +895,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_shows_the_zero_incident_landing_stat_a8e598f1a9",
@@ -918,10 +918,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.app_landing_updates_the_open_workbook_density_af_106cb2cb56",
@@ -941,10 +941,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.browserapi_suite_96242311a1",
@@ -974,10 +974,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.importcoordinator_suite_fd42b7df92",
@@ -999,10 +999,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.incidentadminpanel_keeps_incident_summary_visibl_d7a6f59072",
@@ -1022,10 +1022,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.incidentadminpanel_keeps_readiness_on_the_curren_35921ed917",
@@ -1045,10 +1045,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.incidentadminpanel_patches_required_incident_met_bd946d6caa",
@@ -1068,10 +1068,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.incidentadminpanel_renders_null_and_view_schema_b2a93c36b5",
@@ -1091,10 +1091,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.incidentadminpanel_renders_saved_view_workbook_p_8cc7f20d33",
@@ -1114,10 +1114,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",
@@ -1137,10 +1137,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.routestate_suite_375a237e22",
@@ -1165,10 +1165,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.shared_public_error_normalization_and_sanitizati_80bdbb4daf",
@@ -1189,10 +1189,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.workbookevidence_accepts_only_public_evidence_ha_4ba022c249",
@@ -1212,10 +1212,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "web.application.regression.workbookevidence_keeps_raw_storage_details_out_o_68c8061c4e",
@@ -1235,10 +1235,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

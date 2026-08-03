@@ -280,8 +280,25 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
-  const postEditQuery = waitForTimelineQuery(page, incidentId);
-  const postEditQueryResponse = waitForTimelineQueryResponse(page, incidentId);
+  const expectedPostEditQueryBody = {
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+    ],
+  };
+  const postEditQuery = waitForTimelineQuery(
+    page,
+    incidentId,
+    expectedPostEditQueryBody,
+  );
   const betaSummary = page.getByTestId(
     rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
   );
@@ -312,21 +329,12 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
   expect(
     summaryPatchPayload.data.row.cells["timeline.capture_state"]?.value,
   ).toBe("enriched");
-  expect(readPostBody(await postEditQuery)).toEqual({
-    filters: [
-      {
-        arg: { value: "reviewed" },
-        field_key: "timeline.capture_state",
-        op: "eq",
-      },
-    ],
-    group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
-  });
-  expect((await postEditQueryResponse).ok()).toBeTruthy();
+  const postEditQueryRequest = await postEditQuery;
+  expect(readPostBody(postEditQueryRequest)).toEqual(expectedPostEditQueryBody);
+  const postEditQueryResponse = await postEditQueryRequest.response();
+  expect(postEditQueryResponse).not.toBeNull();
+  expect(postEditQueryResponse?.ok()).toBeTruthy();
+  expect(await postEditQueryResponse?.finished()).toBeNull();
   await expect(
     page.getByText("No rows match the current filters."),
   ).toBeVisible();
@@ -541,18 +549,6 @@ function waitForTimelineQuery(
         ) &&
       (expectedBody === undefined ||
         isDeepStrictEqual(readPostBody(request), expectedBody)),
-  );
-}
-
-function waitForTimelineQueryResponse(page: Page, incidentId: string) {
-  return page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" &&
-      response
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
-        ),
   );
 }
 

@@ -74,6 +74,7 @@ const validArtifactPolicies = new Set([
 ]);
 const validSummarySchemas = new Set([
   "cartulary.tool_run_summary.v5",
+  "cartulary.harness_run_summary.v1",
   "cartulary.otel_conformance_summary.v1",
 ]);
 const validRawStreamPolicies = new Set([
@@ -133,8 +134,8 @@ const sideEffectRequiredFields = Object.freeze({
 });
 const validGateSmokeRoles = new Set([
   "public_make_wrapper",
-  "check_scheduler_semantic",
-  "service_backed_scheduler_semantic",
+  "work_graph_scheduler_semantic",
+  "fixture_broker_semantic",
 ]);
 const standardSuccessBudgetKeys = new Set([
   "stdout_lines",
@@ -238,7 +239,6 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         );
       }
     }
-    validateCheckProjection(errors, entry);
     if (!validLifecycleStates.has(entry.lifecycle_state)) {
       errors.push(
         `${entry.name} has invalid lifecycle_state ${JSON.stringify(entry.lifecycle_state)}`,
@@ -338,6 +338,10 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         if (!target || target.target_class !== "public") errors.push(`${label} must name a public target`);
         if (requiredObservabilityTargets.has(targetName)) errors.push(`observability_policy contains duplicate required target ${targetName}`);
         requiredObservabilityTargets.add(targetName);
+        const recipe = manifest.make_recipes?.[targetName];
+        if (recipe?.type !== "work_graph" && recipe?.graph_entry !== true) {
+          errors.push(`observability_policy required target ${targetName} must enter through the work graph`);
+        }
       }
     }
     const dispositions = new Map(
@@ -453,7 +457,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       }
     }
     for (const target of measurementTargets) {
-      if (!requiredObservabilityTargets.has(target) && target !== "release-browser-readiness") {
+      if (!requiredObservabilityTargets.has(target)) {
         errors.push(`observability_policy measurement target ${target} is not required`);
       }
     }
@@ -733,83 +737,6 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
   validateOutputPolicyRouting(errors, targets, manifest.make_recipes);
 
   return errors;
-}
-
-function validateCheckProjection(errors, entry) {
-  if (entry.check_projection === undefined) {
-    return;
-  }
-  if (
-    !entry.check_projection ||
-    typeof entry.check_projection !== "object" ||
-    Array.isArray(entry.check_projection)
-  ) {
-    errors.push(`${entry.name}.check_projection must be an object`);
-    return;
-  }
-  const allowed = new Set([
-    "mode",
-    "schedule",
-    "stage",
-    "evidence",
-    "evidence_class",
-    "reason_code",
-    "full_target",
-    "full_target_equivalent",
-  ]);
-  for (const key of Object.keys(entry.check_projection)) {
-    if (!allowed.has(key)) {
-      errors.push(`${entry.name}.check_projection has unknown key ${key}`);
-    }
-  }
-  const projection = entry.check_projection;
-  if (!["direct", "projection"].includes(projection.mode)) {
-    errors.push(`${entry.name}.check_projection.mode must be direct or projection`);
-  }
-  for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
-    if (
-      projection[key] !== undefined &&
-      (typeof projection[key] !== "string" || projection[key].trim() === "")
-    ) {
-      errors.push(`${entry.name}.check_projection.${key} must be a non-empty string`);
-    }
-  }
-  if (projection.full_target_equivalent !== undefined && typeof projection.full_target_equivalent !== "boolean") {
-    errors.push(`${entry.name}.check_projection.full_target_equivalent must be a boolean`);
-  }
-  if (
-    projection.mode === "projection" &&
-    projection.full_target_equivalent !== false
-  ) {
-    errors.push(`${entry.name}.check_projection projection mode must declare full_target_equivalent=false`);
-  }
-  if (projection.mode === "projection") {
-    for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
-      if (typeof projection[key] !== "string" || projection[key].trim() === "") {
-        errors.push(`${entry.name}.check_projection projection mode must declare ${key}`);
-      }
-    }
-    if (entry.default_inclusion_sets?.includes("check")) {
-      errors.push(
-        `${entry.name}.check_projection projection mode must not advertise direct default_inclusion_sets check membership`,
-      );
-    }
-  }
-  if (projection.mode === "direct") {
-    for (const key of ["schedule", "stage", "evidence", "evidence_class", "reason_code", "full_target"]) {
-      if (typeof projection[key] !== "string" || projection[key].trim() === "") {
-        errors.push(`${entry.name}.check_projection direct mode must declare ${key}`);
-      }
-    }
-    if (projection.full_target_equivalent !== true) {
-      errors.push(`${entry.name}.check_projection direct mode must declare full_target_equivalent=true`);
-    }
-    if (!entry.default_inclusion_sets?.includes("check")) {
-      errors.push(
-        `${entry.name}.check_projection direct mode must advertise direct default_inclusion_sets check membership`,
-      );
-    }
-  }
 }
 
 function validatePublicCommandIdentity(errors, entry, commandIDs) {

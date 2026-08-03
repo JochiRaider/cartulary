@@ -3,68 +3,37 @@
   "$id": "cartulary.harness_public_target_duration_baselines.v3",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "status", "qualification", "targets", "internal_diagnostics", "source_windows", "public_entrypoint_portfolio", "rejected_roots"],
+  "required": ["schema_id", "status", "timing_authority", "sample_rule", "targets", "internal_diagnostics", "source_windows", "public_entrypoint_portfolio", "rejected_roots"],
   "properties": {
     "schema_id": { "const": "cartulary.harness_public_target_duration_baselines.v3" },
     "status": { "const": "qualified" },
-    "qualification": { "const": "strict_current" },
-    "targets": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/target" }
-    },
-    "internal_diagnostics": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/internal_diagnostic" }
-    },
-    "source_windows": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/source_window" }
-    },
+    "timing_authority": { "const": "canonical_unit_events" },
+    "sample_rule": { "const": "one_cold_one_discarded_warmup_five_warm_sixth_only_if_unstable" },
+    "targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/target" } },
+    "internal_diagnostics": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/diagnostic" } },
+    "source_windows": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/source_window" } },
     "public_entrypoint_portfolio": {
       "type": "object",
       "additionalProperties": false,
       "required": ["target_count", "targets", "total_p50_ms"],
       "properties": {
         "target_count": { "type": "integer", "minimum": 1 },
-        "targets": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
-        },
-        "total_p50_ms": { "type": "number", "exclusiveMinimum": 0 }
+        "targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/target_name" } },
+        "total_p50_ms": { "type": "number", "minimum": 0 }
       }
     },
-    "rejected_roots": {
-      "type": "array",
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/rejected_root" }
-    }
+    "rejected_roots": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/rejected_root" } }
   },
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "target_name": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
     "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
-    "timing_source": {
-      "enum": [
-        "public_invocation_envelope",
-        "canonical_unit_interval_union",
-        "canonical_timing_bucket_union",
-        "backend_report_collation_union"
-      ]
-    },
+    "timing_source": { "enum": ["public_invocation_envelope", "canonical_unit_interval_union", "canonical_timing_bucket_union"] },
     "timing_accounting": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "critical_path_p50_ms", "resource_blocking_p50_ms", "setup_p50_ms",
-        "fixture_p50_ms", "execution_p50_ms", "collation_p50_ms",
-        "wrapper_p50_ms", "process_count_p50", "unattributed_p50_ms"
-      ],
+      "required": ["critical_path_p50_ms", "resource_blocking_p50_ms", "setup_p50_ms", "fixture_p50_ms", "execution_p50_ms", "collation_p50_ms", "wrapper_p50_ms", "unattributed_p50_ms", "process_count_p50"],
       "properties": {
         "critical_path_p50_ms": { "type": "number", "minimum": 0 },
         "resource_blocking_p50_ms": { "type": "number", "minimum": 0 },
@@ -73,79 +42,52 @@
         "execution_p50_ms": { "type": "number", "minimum": 0 },
         "collation_p50_ms": { "type": "number", "minimum": 0 },
         "wrapper_p50_ms": { "type": "number", "minimum": 0 },
-        "process_count_p50": { "type": "number", "minimum": 0 },
-        "unattributed_p50_ms": { "type": "number", "minimum": 0 }
+        "unattributed_p50_ms": { "type": "number", "minimum": 0 },
+        "process_count_p50": { "type": "number", "minimum": 0 }
       }
     },
     "target_base": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "target", "gate", "command_id", "measurement_profile_id", "canonical_inputs",
-        "timing_source", "source_commit", "source_snapshot_sha256", "host_profile_sha256",
-        "capacity_profile_sha256", "toolchain_profile_sha256", "workload_evidence_profile_sha256",
-        "execution_policy", "execution_policy_sha256", "sample_provider_target", "cold_root",
-        "cold_ms", "warmup_root", "sample_roots", "sample_count", "samples_ms", "p50_ms",
-        "p90_ms", "mad_ms", "timing_accounting"
-      ],
+      "required": ["target", "gate", "command_id", "measurement_profile_id", "canonical_inputs", "timing_source", "source_commit", "source_snapshot_sha256", "system_profile_sha256", "toolchain_profile_sha256", "workload_evidence_profile_sha256", "execution_policy", "execution_policy_sha256", "sample_provider_target", "cold_root", "cold_ms", "warmup_root", "sample_roots", "sample_count", "samples_ms", "p50_ms", "p90_ms", "mad_ms", "timing_accounting"],
       "properties": {
-        "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "target": { "$ref": "#/$defs/target_name" },
         "gate": { "enum": ["no_regression", "required_improvement", "diagnostic_only"] },
         "command_id": { "type": "string", "pattern": "^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$" },
         "measurement_profile_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-        "canonical_inputs": {
-          "type": "object",
-          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
-          "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 256 }
-        },
+        "canonical_inputs": { "type": "object", "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" }, "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 4096 } },
         "timing_source": { "$ref": "#/$defs/timing_source" },
-        "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+        "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
         "source_snapshot_sha256": { "$ref": "#/$defs/sha256" },
-        "host_profile_sha256": { "$ref": "#/$defs/sha256" },
-        "capacity_profile_sha256": { "$ref": "#/$defs/sha256" },
+        "system_profile_sha256": { "$ref": "#/$defs/sha256" },
         "toolchain_profile_sha256": { "$ref": "#/$defs/sha256" },
         "workload_evidence_profile_sha256": { "$ref": "#/$defs/sha256" },
         "execution_policy": { "type": "object" },
         "execution_policy_sha256": { "$ref": "#/$defs/sha256" },
         "allowed_policy_transition": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-        "sample_provider_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "sample_provider_target": { "$ref": "#/$defs/target_name" },
         "cold_root": { "$ref": "#/$defs/root" },
-        "cold_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "cold_ms": { "type": "number", "minimum": 0 },
         "warmup_root": { "$ref": "#/$defs/root" },
         "sample_roots": { "type": "array", "minItems": 5, "maxItems": 6, "uniqueItems": true, "items": { "$ref": "#/$defs/root" } },
         "sample_count": { "type": "integer", "minimum": 5, "maximum": 6 },
-        "samples_ms": { "type": "array", "minItems": 5, "maxItems": 6, "items": { "type": "number", "exclusiveMinimum": 0 } },
-        "p50_ms": { "type": "number", "exclusiveMinimum": 0 },
-        "p90_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "samples_ms": { "type": "array", "minItems": 5, "maxItems": 6, "items": { "type": "number", "minimum": 0 } },
+        "p50_ms": { "type": "number", "minimum": 0 },
+        "p90_ms": { "type": "number", "minimum": 0 },
         "mad_ms": { "type": "number", "minimum": 0 },
         "timing_accounting": { "$ref": "#/$defs/timing_accounting" }
       }
     },
-    "target": {
-      "allOf": [
-        { "$ref": "#/$defs/target_base" },
-        { "properties": { "gate": { "enum": ["no_regression", "required_improvement"] } } }
-      ]
-    },
-    "internal_diagnostic": {
-      "allOf": [
-        { "$ref": "#/$defs/target_base" },
-        { "properties": { "gate": { "const": "diagnostic_only" } } }
-      ]
-    },
+    "target": { "allOf": [{ "$ref": "#/$defs/target_base" }, { "properties": { "gate": { "enum": ["no_regression", "required_improvement"] } } }] },
+    "diagnostic": { "allOf": [{ "$ref": "#/$defs/target_base" }, { "properties": { "gate": { "const": "diagnostic_only" } } }] },
     "source_window": {
       "type": "object",
       "additionalProperties": false,
       "required": ["source_commit", "source_snapshot_sha256", "targets"],
       "properties": {
-        "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+        "source_commit": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
         "source_snapshot_sha256": { "$ref": "#/$defs/sha256" },
-        "targets": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
-        }
+        "targets": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/target_name" } }
       }
     },
     "rejected_root": {
@@ -154,12 +96,7 @@
       "required": ["root", "reasons"],
       "properties": {
         "root": { "$ref": "#/$defs/root" },
-        "reasons": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
-        }
+        "reasons": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" } }
       }
     }
   }

@@ -46,7 +46,7 @@ Every active frontend row declares:
 - nonempty active `verification_ids`;
 - one exact Vitest, Playwright, or registered shell selector;
 - one evidence class and claim posture;
-- runtime, resource, and fixture profiles;
+- runtime and resource profiles plus explicit fixture capabilities;
 - whether default `make check` selects the row.
 
 ## 3. Runner contracts
@@ -97,7 +97,7 @@ make service-backed-test-slice OWNER=web.workbook
 
 Omitted `ROWS` selects every active row owned by the requested owner. On the
 service-backed command it selects every owned row whose runtime profile requires
-managed services. `default_check` does not narrow either selection. Invalid,
+managed services. Aggregate `minimum_tier` policy does not narrow either selection. Invalid,
 duplicate, blank, unknown, cross-owner, and zero-row selections fail before setup.
 
 Useful broad frontend gates remain:

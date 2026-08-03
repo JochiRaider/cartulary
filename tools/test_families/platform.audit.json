@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "platform.audit",
   "rows": [
     {
@@ -25,17 +25,19 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "go_io_heavy",
-      "fixture_profile_id": "postgres_migration_scratch",
-      "default_check": false,
+      "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "full"
     },
     {
       "row_id": "platform.audit.unit.contract_and_safe_projection",
       "owner_id": "platform.audit",
       "family_id": "platform.audit.unit",
-      "collaborator_ids": ["harness.generated_artifacts"],
+      "collaborator_ids": [
+        "harness.generated_artifacts"
+      ],
       "verification_ids": [
         "platform.audit.verification.contract_and_safe_projection"
       ],
@@ -52,11 +54,11 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "go_balanced",
-      "fixture_profile_id": "none",
-      "default_check": true,
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

@@ -238,10 +238,10 @@ function compatibilityReport(statusByCase = {}) {
 const currentResultsDir = ".cartulary/test-results";
 const currentRunID = "unit-current-run";
 const currentCompatibilityReportPath = `${currentResultsDir}/${currentRunID}/seaweedfs-compatibility/object-store-compatibility-report.json`;
-const passingCompatibilitySummary = {
-  schema_id: "cartulary.tool_run_summary.v5",
-  target: "seaweedfs-compatibility",
-  status: "pass",
+const passingCompatibilityUnitResult = {
+  schema_id: "cartulary.harness_unit_result.v1",
+  unit_id: "target:seaweedfs-compatibility",
+  status: "passed",
 };
 const compatibility = buildSeaweedFSCompatibilityEvidence({
   repoCommitValue: "abc123",
@@ -251,7 +251,7 @@ const compatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: passingCompatibilitySummary,
+  unitResult: passingCompatibilityUnitResult,
 });
 assert.equal(compatibility.result, "pass");
 
@@ -263,7 +263,7 @@ const partialCompatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: passingCompatibilitySummary,
+  unitResult: passingCompatibilityUnitResult,
 });
 assert.equal(partialCompatibility.result, "fail");
 assert.equal(
@@ -279,7 +279,7 @@ const stableCompatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: passingCompatibilitySummary,
+  unitResult: passingCompatibilityUnitResult,
 });
 assert.equal(stableCompatibility.result, "fail");
 assert.equal(
@@ -296,7 +296,7 @@ const servicesUpCompatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: passingCompatibilitySummary,
+  unitResult: passingCompatibilityUnitResult,
 });
 assert.equal(servicesUpCompatibility.result, "fail");
 assert.equal(
@@ -317,7 +317,7 @@ const missingSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
 assert.equal(missingSummaryCompatibility.result, "fail");
 assert.equal(
   missingSummaryCompatibility.findings.some(
-    (finding) => finding.check_id === "compatibility-target-summary-present",
+    (finding) => finding.check_id === "compatibility-unit-result-present",
   ),
   true,
 );
@@ -330,16 +330,16 @@ const failedSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: {
-    schema_id: "cartulary.tool_run_summary.v5",
-    target: "seaweedfs-compatibility",
-    status: "fail",
+  unitResult: {
+    schema_id: "cartulary.harness_unit_result.v1",
+    unit_id: "target:seaweedfs-compatibility",
+    status: "failed",
   },
 });
 assert.equal(failedSummaryCompatibility.result, "fail");
 assert.equal(
   failedSummaryCompatibility.findings.some(
-    (finding) => finding.check_id === "compatibility-target-summary-status",
+    (finding) => finding.check_id === "compatibility-unit-result-status",
   ),
   true,
 );
@@ -352,7 +352,7 @@ const skippedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
   requireCurrentRun: true,
   currentResultsDir,
   currentRunId: currentRunID,
-  targetSummary: passingCompatibilitySummary,
+  unitResult: passingCompatibilityUnitResult,
   prerequisitesSkipped: true,
 });
 assert.equal(skippedPrerequisiteCompatibility.result, "fail");
@@ -363,12 +363,12 @@ assert.equal(
   true,
 );
 
-const previousSkipPrerequisites = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
-const previousSequencePrerequisites = process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED;
+const previousSkipPrerequisites = process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
+const previousGraphChild = process.env.CARTULARY_HARNESS_GRAPH_CHILD;
 try {
-  process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = "1";
-  process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED = "1";
-  const sequenceOwnedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
+  process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = "1";
+  process.env.CARTULARY_HARNESS_GRAPH_CHILD = "1";
+  const graphOwnedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
     repoCommitValue: "abc123",
     generatedAt: "2026-06-04T00:00:00.000Z",
     reportPath: currentCompatibilityReportPath,
@@ -376,19 +376,19 @@ try {
     requireCurrentRun: true,
     currentResultsDir,
     currentRunId: currentRunID,
-    targetSummary: passingCompatibilitySummary,
+    unitResult: passingCompatibilityUnitResult,
   });
-  assert.equal(sequenceOwnedPrerequisiteCompatibility.result, "pass");
+  assert.equal(graphOwnedPrerequisiteCompatibility.result, "pass");
 } finally {
   if (previousSkipPrerequisites === undefined) {
-    delete process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
+    delete process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES;
   } else {
-    process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = previousSkipPrerequisites;
+    process.env.CARTULARY_HARNESS_SKIP_PREREQUISITES = previousSkipPrerequisites;
   }
-  if (previousSequencePrerequisites === undefined) {
-    delete process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED;
+  if (previousGraphChild === undefined) {
+    delete process.env.CARTULARY_HARNESS_GRAPH_CHILD;
   } else {
-    process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED = previousSequencePrerequisites;
+    process.env.CARTULARY_HARNESS_GRAPH_CHILD = previousGraphChild;
   }
 }
 

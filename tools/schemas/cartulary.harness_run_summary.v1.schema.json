@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_run_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "target", "status", "failure_class", "failure_reason", "unit_counts", "wall_duration_ms", "critical_path", "actual_dependency_critical_path_ms", "timing_accounting", "resource_pressure", "cache", "artifact_refs"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_run_summary.v1" }, "run_id": { "type": "string", "minLength": 1, "maxLength": 128 }, "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+    "status": { "enum": ["pass", "fail", "cancelled"] }, "failure_class": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "failure_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+    "unit_counts": { "$ref": "#/$defs/counts" }, "wall_duration_ms": { "type": "integer", "minimum": 0 },
+    "critical_path": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 255 } },
+    "actual_dependency_critical_path_ms": { "type": "integer", "minimum": 0 },
+    "timing_accounting": { "$ref": "#/$defs/timing_accounting" },
+    "resource_pressure": { "type": "object" }, "cache": { "type": "object" },
+    "artifact_refs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
+  },
+  "$defs": {
+    "counts": { "type": "object", "additionalProperties": false, "required": ["total", "passed", "failed", "skipped", "cancelled"], "properties": { "total": { "type": "integer", "minimum": 0 }, "passed": { "type": "integer", "minimum": 0 }, "failed": { "type": "integer", "minimum": 0 }, "skipped": { "type": "integer", "minimum": 0 }, "cancelled": { "type": "integer", "minimum": 0 } } },
+    "timing_accounting": {
+      "type": "object", "additionalProperties": false,
+      "required": ["setup_ms", "fixture_ms", "execution_ms", "collation_ms", "wrapper_ms", "unattributed_ms", "resource_blocking_ms", "process_count"],
+      "properties": {
+        "setup_ms": { "type": "integer", "minimum": 0 }, "fixture_ms": { "type": "integer", "minimum": 0 },
+        "execution_ms": { "type": "integer", "minimum": 0 }, "collation_ms": { "type": "integer", "minimum": 0 },
+        "wrapper_ms": { "type": "integer", "minimum": 0 }, "unattributed_ms": { "type": "integer", "minimum": 0 },
+        "resource_blocking_ms": { "type": "integer", "minimum": 0 }, "process_count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

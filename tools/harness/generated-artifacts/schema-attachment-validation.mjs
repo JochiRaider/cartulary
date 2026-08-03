@@ -7,7 +7,6 @@ const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
 const supportSchemaIDs = new Set([
   "cartulary.harness.defs.v1",
   "cartulary.harness_artifact_ref.v1",
-  "cartulary.scheduler_summary.common.v10",
 ]);
 
 function readJSON(file) {
@@ -59,12 +58,7 @@ function schemaRequiresSchemaID(schema) {
 }
 
 function schemaIsClosed(schema) {
-  return (
-    schema?.additionalProperties === false ||
-    (schema?.allOf ?? []).some(
-      (entry) => entry?.$ref === "cartulary.scheduler_summary.common.v10",
-    )
-  );
+  return schema?.additionalProperties === false;
 }
 
 function schemaIsAliasOnly(schema) {

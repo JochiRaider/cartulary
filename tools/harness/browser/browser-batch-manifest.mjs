@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v7";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v8";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);

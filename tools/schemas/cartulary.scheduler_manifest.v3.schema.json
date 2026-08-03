@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.scheduler_manifest.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "generated", "schedules"],
+  "properties": {
+    "schema_id": { "const": "cartulary.scheduler_manifest.v3" },
+    "generated": { "type": "object" },
+    "schedules": { "type": "array", "maxItems": 0 }
+  }
+}

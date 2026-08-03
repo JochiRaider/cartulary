@@ -3,6 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 SCRATCH_INPUT_MANIFEST="${GENERATE_DRIFT_SCRATCH_INPUT_MANIFEST:-tools/generate_drift_scratch_inputs.json}"
+mode="check"
+if [[ "${CARTULARY_GENERATE_DRIFT_REFRESH:-}" == "1" ]]; then
+  mode="refresh"
+fi
+if [[ "${1:-}" == "--refresh" ]]; then
+  mode="refresh"
+  shift
+fi
+if [[ "$#" -ne 0 ]]; then
+  echo "usage: check-generate-drift.sh [--refresh]" >&2
+  exit 2
+fi
 
 cd "$ROOT_DIR"
 
@@ -165,7 +177,6 @@ copy_required_make_includes() {
 copy_path "$SCRATCH_INPUT_MANIFEST"
 
 mapfile -t scratch_copy_paths < <(manifest_values copy_paths)
-mapfile -t generated_paths < <(manifest_values generated_paths)
 mapfile -t scratch_placeholder_dirs < <(manifest_values placeholder_dirs)
 
 for input in "${scratch_copy_paths[@]}"; do
@@ -198,23 +209,9 @@ make -C "$scratch" --no-print-directory generate-artifacts \
 	NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
 	PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
 
-drift=0
-for generated_path in "${generated_paths[@]}"; do
-  if ! diff -ruN "$ROOT_DIR/$generated_path" "$scratch/$generated_path" >/dev/null; then
-    drift=1
-    break
-  fi
-done
-
-if [[ "$drift" -ne 0 ]]; then
-  echo "generated artifact drift detected after make generate-artifacts" >&2
-  echo "diff excerpt (first 200 lines):" >&2
-  for generated_path in "${generated_paths[@]}"; do
-    diff -ruN \
-      --label "$generated_path" \
-      --label "regenerated $generated_path" \
-      "$ROOT_DIR/$generated_path" \
-      "$scratch/$generated_path" || true
-  done | sed -n '1,200p' >&2
-  exit 1
-fi
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+  "$ROOT_DIR/tools/harness/generated-artifacts/generated-transaction.mjs" \
+  --repo "$ROOT_DIR" \
+  --rendered "$scratch" \
+  --manifest "$ROOT_DIR/$SCRATCH_INPUT_MANIFEST" \
+  --mode "$mode"

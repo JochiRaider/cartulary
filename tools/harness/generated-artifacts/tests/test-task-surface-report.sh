@@ -159,7 +159,7 @@ assert.deepEqual(
 assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
 assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
 assert.equal(manifest.make_recipes["frontend-install"].type, "artifact_binding", "frontend-install must be an artifact binding");
-assert.equal(manifest.make_recipes.lint.type, "sequence", "lint must be a semantic sequence target");
+assert.equal(manifest.make_recipes.lint.type, "work_graph", "lint must be a graph-backed semantic target");
 assert.equal(
   manifest.make_recipes["frontend-install"].test_target,
   "self",
@@ -185,9 +185,9 @@ assert.deepEqual(
   },
   {
     prerequisites: ["$(SERVER_BIN)", "$(MIGRATE_BIN)", "$(OPERATOR_BIN)"],
-    jobs: 3,
+    jobs: undefined,
   },
-  "deployable shape must use one bounded shared artifact graph",
+  "deployable shape must let the unified graph own admission",
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
 for (const target of manifest.targets.filter((entry) =>
@@ -226,30 +226,14 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
-  "test_target self must render target-specific export and centralized prerequisite prelude",
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  "test_target self must render target-specific export and graph-owned artifact prerequisite admission",
 );
 assert.match(
   renderedMake,
   /migration-drift:[\s\S]*?\$\(MAKE\) --silent --no-print-directory --jobs=2 \$\(MIGRATE_BIN\) \$\(GOOSE_BIN\); fi/,
   "migration drift must render a bounded parallel prerequisite graph",
 );
-assert.match(
-  renderedMake,
-  /deployable-shape:[\s\S]*?\$\(MAKE\) --silent --no-print-directory --jobs=3 \$\(SERVER_BIN\) \$\(MIGRATE_BIN\) \$\(OPERATOR_BIN\); fi/,
-  "deployable shape must render a bounded parallel prerequisite graph",
-);
-for (const [value, expected] of [
-  [1, "must be an integer from 2 through 8"],
-  [4, "must not exceed its non-Node prerequisite count"],
-]) {
-  const invalid = structuredClone(manifest);
-  invalid.make_recipes["deployable-shape"].prerequisite_jobs = value;
-  assert.ok(
-    collectTaskSurfaceManifestErrors(invalid).some((error) => error.includes(expected)),
-    `invalid prerequisite jobs ${value} must fail closed: ${expected}`,
-  );
-}
 assert.match(
   renderedMake,
   /frontend-typecheck/,

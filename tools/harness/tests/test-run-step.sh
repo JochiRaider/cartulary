@@ -869,7 +869,7 @@ set +e
 missing_target_output="$(
   CARTULARY_TEST_RESULTS_DIR="$missing_target_results" \
   CARTULARY_TEST_RUN_ID="missing-target" \
-    "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary "missing target" fail 0 1 - test-fast-service-backed \
+    "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary "missing target" fail 0 1 - missing-child-target \
     2>&1
 )"
 missing_target_status=$?
@@ -878,7 +878,7 @@ assert_equals "$missing_target_status" "$ARTIFACT_ERROR_EXIT" "missing target ru
 assert_contains "$missing_target_output" "[FAIL] target=missing target" "missing target run summary output"
 assert_contains "$missing_target_output" "failure_class=artifact" "missing target run summary failure class"
 assert_contains "$missing_target_output" "reason=artifact_error" "missing target run summary failure reason"
-assert_contains "$missing_target_output" "artifact failure: missing target summary: test-fast-service-backed" "missing target run summary headline"
+assert_contains "$missing_target_output" "artifact failure: missing target summary: missing-child-target" "missing target run summary headline"
 missing_target_summary="$missing_target_results/missing-target/run-summary.json"
 assert_equals "$(json_field "$missing_target_summary" "counts.failed")" "1" "missing target failed count"
 assert_equals "$(json_field "$missing_target_summary" "counts.non_test")" "1" "missing target non-test count"
@@ -886,7 +886,7 @@ assert_equals "$(json_field "$missing_target_summary" "counts.non_test_failed")"
 assert_equals "$(json_field "$missing_target_summary" "failure_class")" "artifact" "missing target failure class"
 assert_equals "$(json_field "$missing_target_summary" "failure_reason")" "artifact_error" "missing target failure reason"
 assert_equals "$(json_field "$missing_target_summary" "failure_classes.artifact")" "1" "missing target artifact count"
-assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0")" "test-fast-service-backed" "missing target summary list"
+assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0")" "missing-child-target" "missing target summary list"
 
 infra_timing_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-infra-timing.XXXXXX")"
 cleanup_paths+=("$infra_timing_results")

@@ -79,19 +79,21 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/browser_e2e_batch_manifest.json" "${dest}/tools/browser_e2e_batch_manifest.json"
   cp "${ROOT_DIR}/tools/execution_topology_manifest.json" "${dest}/tools/execution_topology_manifest.json"
   cp "${ROOT_DIR}/tools/task_surface_owner.json" "${dest}/tools/task_surface_owner.json"
+  cp "${ROOT_DIR}/tools/executable_input_policy.json" "${dest}/tools/executable_input_policy.json"
+  cp "${ROOT_DIR}/tools/harness_cache_registry.json" "${dest}/tools/harness_cache_registry.json"
+  cp "${ROOT_DIR}/tools/harness_helper_ownership.json" "${dest}/tools/harness_helper_ownership.json"
+  cp "${ROOT_DIR}/tools/harness_work_graph_owner.json" "${dest}/tools/harness_work_graph_owner.json"
   cp "${ROOT_DIR}/tools/harness_redaction_manifest.json" "${dest}/tools/harness_redaction_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
   cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
   cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
-  cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/tools/harness/readiness/list-build-inputs.sh" "${dest}/tools/harness/readiness/list-build-inputs.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-node-runtime.sh" "${dest}/tools/harness/readiness/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh" "${dest}/tools/harness/readiness/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs" "${dest}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/execution/cartulary-runner-cli.mjs" "${dest}/tools/harness/execution/cartulary-runner-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" "${dest}/tools/harness/contract/harness-contract-cli.mjs"
-  cp "${ROOT_DIR}/tools/harness/scheduler/check-schedule-cli.mjs" "${dest}/tools/harness/scheduler/check-schedule-cli.mjs"
   mkdir -p \
     "${dest}/apps/web" \
     "${dest}/cmd/migrate" \
@@ -127,6 +129,8 @@ copy_minimal_repo() {
     tools/testservices; do
     printf 'placeholder\n' >"${dest}/${root}/placeholder.txt"
   done
+  git -C "${dest}" init --quiet
+  git -C "${dest}" add --all
 }
 
 replace_text() {
@@ -311,13 +315,21 @@ cleanup_paths+=("${preflight_dir}")
 cleanup_paths+=("${preflight_results_root}")
 copy_minimal_repo "${preflight_dir}"
 replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"node": "'"$node_version_alt"'"'
+"$NODE_BIN" - "${preflight_dir}/tools/harness_work_graph_owner.json" <<'EOF'
+const fs = require("node:fs");
+const [file] = process.argv.slice(2);
+const owner = JSON.parse(fs.readFileSync(file, "utf8"));
+owner.policy_units["toolchain-drift"].needs = [];
+fs.writeFileSync(file, `${JSON.stringify(owner, null, 2)}\n`);
+EOF
+git -C "${preflight_dir}" add --all
 preflight_log="${preflight_dir}/toolchain-drift-preflight.log"
 
 set +e
 env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
   CARTULARY_TEST_RESULTS_DIR="${preflight_results_root}" \
   CARTULARY_TEST_RUN_ID="${preflight_run_id}" \
-  CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 \
+  CARTULARY_HARNESS_SKIP_PREREQUISITES=1 \
   NODE_BIN="${NODE_BIN}" \
   make --no-print-directory -C "${preflight_dir}" \
   toolchain-drift \
@@ -333,6 +345,5 @@ fi
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \
   --target "toolchain-drift" \
-  --step-label "toolchain-drift" \
   --needle "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
   --label "Make toolchain-drift diagnostic"

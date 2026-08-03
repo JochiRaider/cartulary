@@ -8,16 +8,9 @@ import {
   publicExitCodeForSummary,
   runnerEnv,
 } from "../contract/index.mjs";
-import {
-  loadSummaryTopologyContext,
-  serviceBackedScheduleChildren,
-} from "./summary-topology.mjs";
-
 function usage() {
   process.stderr.write(`usage:
-  cartulary-runner.mjs service-backed-target --target <target> --step-label <label> --service-wrapper <test-services|none>
   cartulary-runner.mjs summary-target --target <target> --child-target <target> --status <pass|fail> [--step-label <label>] [--projection <target>]
-  cartulary-runner.mjs go-target <target-or-command> [...]
   cartulary-runner.mjs target-summary <target> [pass|fail] [...]
 `);
   process.exit(2);
@@ -82,86 +75,6 @@ function targetPublicExitCode(context, target, fallbackStatus) {
   }
 }
 
-function serviceBackedTarget(context, argv) {
-  const options = parseFlagArgs(argv);
-  const target = options.target || "";
-  const stepLabel = options.step_label || "";
-  const serviceWrapper = options.service_wrapper || "";
-  if (
-    !target ||
-    !stepLabel ||
-    !serviceWrapper ||
-    options.projection !== undefined
-  ) {
-    usage();
-  }
-
-  const serviceBackedEnv = {
-    CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-  };
-  if (process.env.CARTULARY_TEST_GO_TARGET_RUNNER) {
-    serviceBackedEnv.CARTULARY_TEST_GO_TARGET_RUNNER =
-      process.env.CARTULARY_TEST_GO_TARGET_RUNNER;
-  }
-  const env = runnerEnv(context, serviceBackedEnv);
-  const schedulerArgs = [
-    context.runStepScript,
-    stepLabel,
-    "--",
-    context.nodeBin,
-    context.serviceBackedScheduleScript,
-    "--target",
-    target,
-    "--manifest",
-    context.schedulerManifest,
-    "--defer-summary",
-  ];
-
-  let status = 0;
-  if (serviceWrapper === "test-services") {
-    if (!context.testServicesBin) {
-      process.stderr.write(
-        "TEST_SERVICES_BIN is required for --service-wrapper test-services\n",
-      );
-      return 2;
-    }
-    status = runWithContext(
-      context,
-      context.testServicesBin,
-      ["run", "--", ...schedulerArgs],
-      {
-        env,
-      },
-    );
-  } else if (serviceWrapper === "none") {
-    status = runWithContext(context, schedulerArgs[0], schedulerArgs.slice(1), {
-      env,
-    });
-  } else {
-    usage();
-  }
-
-  const requested = status === 0 ? "pass" : "fail";
-  const topologyContext = loadSummaryTopologyContext({
-    schedulerManifestPath: context.schedulerManifest,
-  });
-  const children = serviceBackedScheduleChildren(topologyContext, target);
-  if (children.length === 0) {
-    process.stderr.write(
-      `service-backed schedule ${target} has no derived summary children\n`,
-    );
-    return 2;
-  }
-  const summaryArgs = [target, requested, "--children", children.join(",")];
-  if (process.env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1") {
-    summaryArgs.push("--quiet-success");
-  }
-  const summaryStatus = runTargetSummary(context, summaryArgs);
-  return summaryStatus === 0
-    ? targetPublicExitCode(context, target, status)
-    : targetPublicExitCode(context, target, summaryStatus);
-}
-
 function summaryTarget(context, argv) {
   const options = parseFlagArgs(argv);
   const target = options.target || "";
@@ -189,6 +102,9 @@ function summaryTarget(context, argv) {
       }),
     },
   );
+  if (process.env.CARTULARY_HARNESS_GRAPH_CHILD === "1") {
+    return childStatus;
+  }
   const summaryArgs = [target, childStatus === 0 ? requestedStatus : "fail"];
   if (projection) {
     summaryArgs.push("--projection", projection);
@@ -200,35 +116,15 @@ function summaryTarget(context, argv) {
     : targetPublicExitCode(context, target, summaryStatus);
 }
 
-function goTarget(context, argv) {
-  if (argv.length === 0) {
-    usage();
-  }
-  const command = context.runGoTargetScript.endsWith(".mjs")
-    ? context.nodeBin
-    : context.runGoTargetScript;
-  const args = context.runGoTargetScript.endsWith(".mjs")
-    ? [context.runGoTargetScript, ...argv]
-    : argv;
-  return runWithContext(context, command, args, {
-    env: runnerEnv(context),
-  });
-}
-
 function main() {
   const [command, ...rest] = process.argv.slice(2);
   const context = createRunnerContext();
   switch (command) {
-    case "service-backed-target":
-      process.exit(serviceBackedTarget(context, rest));
-      break;
     case "summary-target":
       process.exit(summaryTarget(context, rest));
       break;
-    case "go-target":
-      process.exit(goTarget(context, rest));
-      break;
     case "target-summary":
+      if (process.env.CARTULARY_HARNESS_GRAPH_CHILD === "1") process.exit(0);
       process.exit(runTargetSummary(context, rest));
       break;
     default:

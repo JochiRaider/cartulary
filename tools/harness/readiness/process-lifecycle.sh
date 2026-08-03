@@ -74,6 +74,29 @@ start_process_group() {
   fi
 
   group_id="$!"
+  # The background child exists before setsid(1) has necessarily established
+  # its new process group. Do not publish the group ID until group-directed
+  # signals are valid; otherwise an immediate supervisor poll can mistake a
+  # healthy child for an exited group.
+  local group_ready=0
+  for _ in $(seq 1 100); do
+    if kill -0 -- "-${group_id}" >/dev/null 2>&1; then
+      group_ready=1
+      break
+    fi
+    if ! kill -0 "${group_id}" >/dev/null 2>&1; then
+      wait "${group_id}" >/dev/null 2>&1 || true
+      echo "process group ${group_id} exited before session setup" >&2
+      return 1
+    fi
+    sleep 0.01
+  done
+  if [[ "${group_ready}" -ne 1 ]]; then
+    kill -TERM "${group_id}" >/dev/null 2>&1 || true
+    wait "${group_id}" >/dev/null 2>&1 || true
+    echo "process group ${group_id} did not establish a session" >&2
+    return 1
+  fi
   # shellcheck disable=SC2016
   setsid bash -c '
     parent_pid="$1"
@@ -106,7 +129,17 @@ start_process_group() {
 process_group_running() {
   local group_id="${1:-}"
 
-  [[ -n "${group_id}" ]] && kill -0 -- "-${group_id}" >/dev/null 2>&1
+  if [[ -z "${group_id}" ]] || ! kill -0 -- "-${group_id}" >/dev/null 2>&1; then
+    return 1
+  fi
+  if ! ps -eo pgid=,stat= | awk -v group_id="${group_id}" '
+    $1 == group_id && $2 !~ /^Z/ { live = 1 }
+    END { exit(live ? 0 : 1) }
+  '; then
+    wait "${group_id}" >/dev/null 2>&1 || true
+    return 1
+  fi
+  return 0
 }
 
 wait_for_process_group_exit() {
@@ -119,6 +152,12 @@ wait_for_process_group_exit() {
   fi
 
   for _ in $(seq 1 "${attempts}"); do
+    # A terminated group leader remains visible to kill(2) until its owning
+    # shell reaps it. Reap that child before treating the group as live; this
+    # avoids spending the complete grace window on a zombie for every lease.
+    if [[ "$(ps -o stat= -p "${group_id}" 2>/dev/null | tr -d '[:space:]')" == Z* ]]; then
+      wait "${group_id}" >/dev/null 2>&1 || true
+    fi
     if ! process_group_running "${group_id}"; then
       return 0
     fi

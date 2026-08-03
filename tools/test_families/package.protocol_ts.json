@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "package.protocol_ts",
   "rows": [
     {
@@ -20,10 +20,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.protocol_ts.boundary_support.index_decodes_exact_network_flow_contracts_witho_8fee657f09",
@@ -43,10 +43,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.protocol_ts.boundary_support.index_decodes_the_core_extension_discovery_envel_395cae3896",
@@ -66,10 +66,10 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.generated_http_operation_bindings",
@@ -89,10 +89,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.verify_generated_protocol_exports_and_frontend_c_f780588cd1",
@@ -117,10 +117,10 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": true,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

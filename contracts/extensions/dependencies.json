@@ -82,14 +82,15 @@
     {
       "dependency_id": "testing_harness",
       "imported_schema_ids": [
-        "cartulary.test_evidence_accounting.v2",
-        "cartulary.test_evidence_audit_summary.v2",
-        "cartulary.test_evidence_root_manifest.v1",
-        "cartulary.test_family_manifest.v2",
+        "cartulary.harness_evidence_root_manifest.v1",
+        "cartulary.harness_row_result.v1",
+        "cartulary.harness_run_manifest.v1",
+        "cartulary.harness_run_summary.v1",
+        "cartulary.harness_target_summary.v1",
+        "cartulary.test_family_manifest.v3",
         "cartulary.test_owner_registry.v1",
-        "cartulary.test_owner_summary.v2",
+        "cartulary.test_owner_explanation.v3",
         "cartulary.test_runner_registry.v1",
-        "cartulary.test_slice_plan.v3",
         "cartulary.verification_contract.v3",
         "cartulary.verification_registry.v3"
       ],

@@ -1127,7 +1127,7 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-concurrent-service-cleanup"
-	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
+	activeEnv[suiteservices.TargetEnv] = "check"
 
 	postgresStarted := make(chan struct{})
 	objectStoreStarted := make(chan struct{})
@@ -1204,7 +1204,7 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	activeEnv := cloneEnv(deps.env)
 	activeEnv[suiteservices.ActiveEnv] = "1"
 	activeEnv[suiteservices.SuiteIDEnv] = "suite-active-browser-fixtures"
-	activeEnv[suiteservices.TargetEnv] = "check-service-backed"
+	activeEnv[suiteservices.TargetEnv] = "check"
 
 	var (
 		cleanedMu sync.Mutex

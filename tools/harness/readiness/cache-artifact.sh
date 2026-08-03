@@ -2,10 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
-# shellcheck source=tools/harness/readiness/cache-policy.sh
-source "$ROOT_DIR/tools/harness/readiness/cache-policy.sh"
 
-schema_id=""
+schema_id="cartulary.harness_cache_record.v1"
 scope=""
 profile_id=""
 cache_dir=""
@@ -55,20 +53,6 @@ sanitize() {
 
 json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
-json_string_array() {
-  local first=1
-  local value
-  printf '['
-  for value in "$@"; do
-    if [[ "$first" -eq 0 ]]; then
-      printf ','
-    fi
-    first=0
-    printf '"%s"' "$(json_escape "$value")"
-  done
-  printf ']'
 }
 
 append_file_digest() {
@@ -130,64 +114,63 @@ outputs_missing() {
   return 1
 }
 
+artifact_digest() {
+  local path_value="$1"
+  local material
+  if [[ -f "$path_value" ]]; then
+    printf 'sha256:%s\n' "$(sha256_file "$path_value")"
+    return
+  fi
+  material="$(mktemp)"
+  append_dir_digest "$material" "artifact" "$path_value"
+  printf 'sha256:%s\n' "$(sha256_text_file "$material")"
+  rm -f "$material"
+}
+
+write_artifacts_json() {
+  local first=1
+  local entry
+  printf '['
+  for entry in "${outputs[@]}" "${output_dirs[@]}"; do
+    if [[ "$first" -eq 0 ]]; then
+      printf ','
+    fi
+    first=0
+    printf '{"path":"%s","digest":"%s"}' \
+      "$(json_escape "$(repo_rel "$entry")")" \
+      "$(artifact_digest "$entry")"
+  done
+  printf ']'
+}
+
 write_cache_json() {
   local file="$1"
-  local state="$2"
-  local reason="$3"
-  local output_digest_value="$4"
+  local output_digest_value="$2"
   local created_at
-  local output_entries=()
-  local non_cacheable=()
-  local entry
+  local tmp_file
   created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  mapfile -t non_cacheable < <(cartulary_cache_non_cacheable_side_effects)
-  for entry in "${outputs[@]}"; do
-    output_entries+=("$(repo_rel "$entry")")
-  done
-  for entry in "${output_dirs[@]}"; do
-    output_entries+=("$(repo_rel "$entry")")
-  done
   mkdir -p "$(dirname "$file")"
+  tmp_file="${file}.tmp.$$"
   {
     printf '{\n'
     printf '  "schema_id": "%s",\n' "$(json_escape "$schema_id")"
-    printf '  "cache_scope": "%s",\n' "$(json_escape "$scope")"
     printf '  "profile_id": "%s",\n' "$(json_escape "$profile_id")"
-    printf '  "state": "%s",\n' "$(json_escape "$state")"
-    printf '  "reason_code": "%s",\n' "$(json_escape "$reason")"
-    printf '  "key_sha256": "sha256:%s",\n' "$key_hash"
-    printf '  "input_digest_sha256": "sha256:%s",\n' "$input_hash"
-    printf '  "output_digest_sha256": "%s",\n' "$(json_escape "$output_digest_value")"
-    printf '  "record_path": "%s",\n' "$(json_escape "$(repo_rel "$record_file")")"
-    printf '  "cacheable_outputs": '
-    json_string_array "${output_entries[@]}"
-    printf ',\n'
-    printf '  "non_cacheable_side_effects": '
-    json_string_array "${non_cacheable[@]}"
+    printf '  "policy": "content_addressed",\n'
+    printf '  "unit_id": "tool-cache:%s:%s",\n' "$(json_escape "$scope")" "$(json_escape "$profile_id")"
+    printf '  "unit_digest": "sha256:%s",\n' "$key_hash"
+    printf '  "input_digest": "sha256:%s",\n' "$input_hash"
+    printf '  "output_digest": "%s",\n' "$(json_escape "$output_digest_value")"
+    printf '  "artifacts": '
+    write_artifacts_json
     printf ',\n'
     printf '  "created_at": "%s"\n' "$created_at"
     printf '}\n'
-  } >"$file"
-}
-
-write_run_artifact() {
-  local state="$1"
-  local reason="$2"
-  local output_digest_value="$3"
-  local target="${CARTULARY_TEST_TARGET:-}"
-  local run_root=""
-  local artifact_file
-  if [[ -z "${CARTULARY_TEST_RESULTS_DIR:-}" || -z "${CARTULARY_TEST_RUN_ID:-}" || -z "$target" ]]; then
-    return
-  fi
-  run_root="${CARTULARY_TEST_RESULTS_DIR%/}/${CARTULARY_TEST_RUN_ID}"
-  artifact_file="$run_root/$target/$(sanitize "$scope")-cache-$(sanitize "$profile_id").json"
-  write_cache_json "$artifact_file" "$state" "$reason" "$output_digest_value"
+  } >"$tmp_file"
+  mv -f "$tmp_file" "$file"
 }
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --schema-id) schema_id="${2:-}"; shift 2 ;;
     --scope) scope="${2:-}"; shift 2 ;;
     --profile) profile_id="${2:-}"; shift 2 ;;
     --cache-dir) cache_dir="${2:-}"; shift 2 ;;
@@ -203,7 +186,6 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-[[ -n "$schema_id" ]] || fail "--schema-id is required"
 [[ -n "$scope" ]] || fail "--scope is required"
 [[ -n "$profile_id" ]] || fail "--profile is required"
 [[ "${#outputs[@]}" -gt 0 || "${#output_dirs[@]}" -gt 0 ]] || fail "at least one --output or --output-dir is required"
@@ -247,25 +229,12 @@ current_output_digest="$(output_digest)"
 if [[ "$disabled" -eq 0 && "$forced" -eq 0 && -f "$record_file" ]] && ! outputs_missing; then
   if grep -Fq "\"schema_id\": \"$schema_id\"" "$record_file" &&
     grep -Fq "\"profile_id\": \"$profile_id\"" "$record_file" &&
-    grep -Fq "\"key_sha256\": \"sha256:$key_hash\"" "$record_file" &&
-    grep -Fq "\"output_digest_sha256\": \"$current_output_digest\"" "$record_file"; then
-    write_run_artifact "hit" "cache_hit" "$current_output_digest"
+    grep -Fq "\"unit_digest\": \"sha256:$key_hash\"" "$record_file" &&
+    grep -Fq "\"input_digest\": \"sha256:$input_hash\"" "$record_file" &&
+    grep -Fq "\"output_digest\": \"$current_output_digest\"" "$record_file"; then
     rm -f "$key_material"
     exit 0
   fi
-  reason="cache_record_invalid"
-else
-  reason="cache_record_missing"
-fi
-
-if [[ "$disabled" -eq 1 ]]; then
-  reason="env_disabled"
-elif [[ "$forced" -eq 1 ]]; then
-  reason="force_rebuild"
-elif outputs_missing; then
-  reason="output_missing"
-elif [[ -f "$record_file" ]]; then
-  reason="cache_record_invalid"
 fi
 
 if [[ "${#command[@]}" -eq 0 ]]; then
@@ -281,7 +250,6 @@ fi
 
 new_output_digest="$(output_digest)"
 if [[ "$disabled" -eq 0 ]]; then
-  write_cache_json "$record_file" "stored" "$reason" "$new_output_digest"
+  write_cache_json "$record_file" "$new_output_digest"
 fi
-write_run_artifact "$([[ "$disabled" -eq 1 ]] && printf 'disabled' || printf 'miss')" "$reason" "$new_output_digest"
 rm -f "$key_material"

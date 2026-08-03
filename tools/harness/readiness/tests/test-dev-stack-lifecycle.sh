@@ -61,14 +61,20 @@ assert_process_stopped() {
 wait_for_path() {
   local path="$1"
   local label="$2"
+  local case_dir=""
 
-  for _ in $(seq 1 100); do
+  for _ in $(seq 1 300); do
     if [[ -e "$path" ]]; then
       return 0
     fi
     sleep 0.1
   done
 
+  case_dir="$(dirname "$path")"
+  if [[ -s "$case_dir/stderr" ]]; then
+    echo "$label: dev-stack stderr follows" >&2
+    sed -n '1,120p' "$case_dir/stderr" >&2
+  fi
   fail "$label: expected path $path to appear"
 }
 
@@ -100,13 +106,15 @@ make_command() {
   local mode="${4:-loop}"
   local exit_after_seconds="${5:-0.1}"
   local exit_status="${6:-0}"
+  local wait_path="${7:-}"
 
-  printf 'PID_FILE=%q TERM_FILE=%q MODE=%q EXIT_AFTER_SECONDS=%q EXIT_STATUS=%q %q' \
+  printf 'PID_FILE=%q TERM_FILE=%q MODE=%q EXIT_AFTER_SECONDS=%q EXIT_STATUS=%q WAIT_PATH=%q %q' \
     "$pid_file" \
     "$term_file" \
     "$mode" \
     "$exit_after_seconds" \
     "$exit_status" \
+    "$wait_path" \
     "$recorder"
 }
 
@@ -124,6 +132,7 @@ term_file="${TERM_FILE:?}"
 mode="${MODE:-loop}"
 exit_after_seconds="${EXIT_AFTER_SECONDS:-0.1}"
 exit_status="${EXIT_STATUS:-0}"
+wait_path="${WAIT_PATH:-}"
 env_file="${ENV_FILE:-}"
 
 printf '%s\n' "$$" >"$pid_file"
@@ -148,6 +157,15 @@ case "$mode" in
   exit_after)
     sleep "$exit_after_seconds"
     exit "$exit_status"
+    ;;
+  exit_after_path)
+    for _ in $(seq 1 300); do
+      if [[ -e "$wait_path" ]]; then
+        exit "$exit_status"
+      fi
+      sleep 0.05
+    done
+    exit 124
     ;;
   *)
     echo "unsupported mode $mode" >&2
@@ -204,7 +222,7 @@ assert_contains "$(cat "$term_dir/stdout")" "frontend log: $term_dir/runtime/web
 
 backend_exit_dir="$tmp_dir/backend-exits"
 mkdir -p "$backend_exit_dir"
-backend_command="$(make_command "$signal_recorder" "$backend_exit_dir/backend.pid" "$backend_exit_dir/backend.term" exit_after 0.2 0)"
+backend_command="$(make_command "$signal_recorder" "$backend_exit_dir/backend.pid" "$backend_exit_dir/backend.term" exit_after_path 0.2 0 "$backend_exit_dir/frontend.pid")"
 frontend_command="$(make_command "$signal_recorder" "$backend_exit_dir/frontend.pid" "$backend_exit_dir/frontend.term")"
 if CARTULARY_DEV_STACK_BACKEND_COMMAND="$backend_command" \
   CARTULARY_DEV_STACK_FRONTEND_COMMAND="$frontend_command" \

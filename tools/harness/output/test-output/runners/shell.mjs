@@ -206,19 +206,11 @@ function finalizeShellStep(context, stdoutLog, stderrLog, details) {
   removeEmptyArtifact(stdoutLog);
   removeEmptyArtifact(stderrLog);
 
-  const releaseReadinessEvidence = path.join(
-    path.dirname(context.stepDir),
-    "release-readiness-evidence.json",
-  );
-
   writeStepArtifacts(context, {
     ...details,
     artifacts: {
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
-      release_readiness_evidence: existsSync(releaseReadinessEvidence)
-        ? releaseReadinessEvidence
-        : "",
     },
   });
 

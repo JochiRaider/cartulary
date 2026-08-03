@@ -17,10 +17,6 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import {
-  evaluateActionCache,
-  writeActionCacheRecord,
-} from "./agent-finalize-action-cache.mjs";
-import {
   collectChildArtifacts,
   flattenSubsteps,
   preflightSubstep,
@@ -38,9 +34,6 @@ const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
 const allowOlderResultsDir =
   (process.env.ALLOW_OLDER_RESULTS_DIR || "").trim() === "1";
-const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "155000";
-const warmBalanceRatio =
-  process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
 
 const deniedTargets = new Set([
   "format",
@@ -78,25 +71,14 @@ const actionRegistry = [
       "Refresh catalog-derived task-surface, scheduler, browser, and topology artifacts, then verify no unsupported drift remains.",
     requiresResultsDir: false,
     mutating: true,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.generated_structure_refresh.v3",
-      actionContractVersion: "v3",
-    },
     substeps: [
       {
-        id: "generate",
-        target: "generate",
-        commandKind: "make_target",
-        requiresResultsDir: false,
-        mutatesRepo: true,
-      },
-      {
-        id: "generate-drift",
+        id: "generated-transaction",
         target: "generate-drift",
         commandKind: "make_target",
         requiresResultsDir: false,
-        mutatesRepo: false,
+        mutatesRepo: true,
+        env: { CARTULARY_GENERATE_DRIFT_REFRESH: "1" },
       },
     ],
   },
@@ -106,11 +88,6 @@ const actionRegistry = [
       "Validate harness-owned JSON shape and schema attachments needed by the finalizer path.",
     requiresResultsDir: false,
     mutating: false,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.schema_shape_validation.v2",
-      actionContractVersion: "v2",
-    },
     substeps: [
       {
         id: "json-shape-check",
@@ -129,62 +106,15 @@ const actionRegistry = [
     ],
   },
   {
-    actionID: "duration_baseline_refresh",
+    actionID: "tier_coverage_validation",
     description:
-      "Refresh advisory harness duration-baseline artifacts from compatible successful owner evidence.",
-    requiresResultsDir: true,
-    mutating: true,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_refresh.v4",
-      actionContractVersion: "v4",
-    },
-    substeps: [
-      {
-        id: "go-test-duration-baselines",
-        target: "go-test-duration-baselines",
-        commandKind: "make_target",
-        requiresResultsDir: true,
-        mutatesRepo: true,
-      },
-      {
-        id: "browser-e2e-duration-baselines",
-        target: "browser-e2e-duration-baselines",
-        commandKind: "make_target",
-        requiresResultsDir: true,
-        mutatesRepo: true,
-      },
-      {
-        id: "service-backed-make-target-duration-baselines",
-        target: "service-backed-make-target-duration-baselines",
-        commandKind: "make_target",
-        requiresResultsDir: true,
-        mutatesRepo: true,
-      },
-      {
-        id: "harness-smoke-duration-baselines",
-        target: "harness-smoke-duration-baselines",
-        commandKind: "make_target",
-        requiresResultsDir: true,
-        mutatesRepo: true,
-      },
-    ],
-  },
-  {
-    actionID: "duration_baseline_coverage",
-    description:
-      "Verify that required advisory duration-baseline entries exist or are explicitly defaulted.",
+      "Verify that every active catalog row has a valid tier and executable owner projection.",
     requiresResultsDir: false,
     mutating: false,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_coverage.v2",
-      actionContractVersion: "v2",
-    },
     substeps: [
       {
-        id: "go-test-duration-baseline-coverage",
-        target: "go-test-duration-baseline-coverage",
+        id: "catalog-tier-coverage",
+        target: "test-catalog-check",
         commandKind: "make_target",
         requiresResultsDir: false,
         mutatesRepo: false,
@@ -192,20 +122,15 @@ const actionRegistry = [
     ],
   },
   {
-    actionID: "duration_baseline_drift_validation",
+    actionID: "canonical_evidence_validation",
     description:
-      "Validate advisory duration-baseline freshness against the retained run.",
+      "Validate canonical manifest, event, run-summary, and target-projection closure against the retained run.",
     requiresResultsDir: true,
     mutating: false,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.duration_baseline_drift_validation.v3",
-      actionContractVersion: "v3",
-    },
     substeps: [
       {
-        id: "duration-baseline-drift-suite",
-        target: "duration-baseline-drift-suite",
+        id: "canonical-evidence-drift-suite",
+        target: "canonical-evidence-drift-suite",
         commandKind: "make_target",
         requiresResultsDir: true,
         mutatesRepo: false,
@@ -218,11 +143,6 @@ const actionRegistry = [
       "Validate scheduler event ordering and warm-check timing health against the retained run.",
     requiresResultsDir: true,
     mutating: false,
-    cache: {
-      eligible: true,
-      inputProfileID: "agent_finalize.scheduler_drift_validation.v2",
-      actionContractVersion: "v2",
-    },
     substeps: [
       {
         id: "scheduler-event-order-drift",
@@ -237,11 +157,7 @@ const actionRegistry = [
         commandKind: "make_target",
         requiresResultsDir: true,
         mutatesRepo: false,
-        makeVars: {
-          TARGET: "check",
-          SCHEDULER_WARM_CHECK_BUDGET_MS: warmBudgetMs,
-          SCHEDULER_WARM_CHECK_BALANCE_RATIO: warmBalanceRatio,
-        },
+        makeVars: { TARGET: "check" },
       },
     ],
   },
@@ -539,16 +455,12 @@ function writeSummary({
   resultsDirStatus,
   retainedRunSelection,
 }) {
-  const refreshed = actionPassed(actions, "duration_baseline_refresh");
-  const durationChecked = actionPassed(
+  const evidenceChecked = actionPassed(
     actions,
-    "duration_baseline_drift_validation",
+    "canonical_evidence_validation",
   );
   const runChecked = actionPassed(actions, "scheduler_drift_validation");
-  const failedDuration = actionFailed(actions, [
-    "duration_baseline_refresh",
-    "duration_baseline_drift_validation",
-  ]);
+  const failedEvidence = actionFailed(actions, ["canonical_evidence_validation"]);
   const failedRunCheck = actionFailed(actions, ["scheduler_drift_validation"]);
   const completedAt = now();
   const summary = {
@@ -572,14 +484,13 @@ function writeSummary({
       updated_file_count: updatedFiles.length,
     },
     mutation_rollback: mutationRollback,
-    duration: {
+    performance_evidence: {
       status: resultsDirInput
-        ? failedDuration || !refreshed
+        ? failedEvidence || !evidenceChecked
           ? "failed"
-          : "refreshed"
+          : "validated"
         : "skipped",
-      refreshed,
-      checked: durationChecked,
+      checked: evidenceChecked,
     },
     run_checks: {
       status: resultsDirInput
@@ -791,7 +702,6 @@ function main() {
 
     action.started_at = now();
     const actionStartedMs = Date.now();
-    let cacheEvaluation = null;
     let substepStartIndex = 0;
 
     if (action.substeps[0]?.id === preflightSubstep.id) {
@@ -809,22 +719,6 @@ function main() {
     }
 
     if (!failed) {
-      cacheEvaluation = evaluateActionCache({
-        actionDefinition: definition,
-        repoRoot,
-        makeBin,
-        retainedRunRoot: resultsDirInput ? path.resolve(resultsDirInput) : null,
-      });
-      action.cache = cacheEvaluation.summary;
-      if (cacheEvaluation.reusable) {
-        action.status = "pass";
-        action.execution_state = "reused";
-        for (const substep of action.substeps.slice(substepStartIndex)) {
-          markSubstepSkipped(substep, "action-cache-hit");
-        }
-        finalizeActionStatus(action, actionStartedMs);
-        continue;
-      }
       action.execution_state = "executed";
     }
 
@@ -850,9 +744,6 @@ function main() {
     }
 
     finalizeActionStatus(action, actionStartedMs);
-    if (action.status === "pass" && action.execution_state === "executed") {
-      writeActionCacheRecord({ actionDefinition: definition, evaluation: cacheEvaluation });
-    }
   }
 
   if (failed) {

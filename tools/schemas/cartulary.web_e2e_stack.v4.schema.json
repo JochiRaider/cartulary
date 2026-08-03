@@ -35,12 +35,12 @@
     "postgres_identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["database_name", "template_database", "schema_hash", "fixture_profile_id"],
+      "required": ["database_name", "template_database", "schema_hash", "fixture_capability"],
       "properties": {
         "database_name": { "type": "string", "minLength": 1 },
         "template_database": { "type": "string", "minLength": 1 },
         "schema_hash": { "$ref": "#/$defs/digest" },
-        "fixture_profile_id": { "const": "web_e2e" }
+        "fixture_capability": { "const": "postgres_dedicated" }
       }
     },
     "object_store_identity": {
@@ -101,9 +101,9 @@
     "fixture_identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fixture_profile_id", "fixture_id", "scenario_id"],
+      "required": ["fixture_capability", "fixture_id", "scenario_id"],
       "properties": {
-        "fixture_profile_id": { "const": "web_e2e" },
+        "fixture_capability": { "const": "browser_stack" },
         "fixture_id": { "$ref": "#/$defs/digest" },
         "scenario_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" }
       }

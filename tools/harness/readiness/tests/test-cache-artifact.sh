@@ -68,7 +68,7 @@ run_cache() {
   OUTPUT_FILE="$output_file" \
   COMMAND_LOG="$command_log" \
     "$SCRIPT" \
-      --schema-id cartulary.cache.build_artifact.v1 \
+      \
       --scope build-artifact \
       --profile fixture-build \
       --cache-dir "$cache_dir" \
@@ -81,54 +81,44 @@ run_cache() {
       -- "$command_script"
 }
 
-artifact_file="$results_dir/$run_id/$target/build-artifact-cache-fixture-build.json"
-
 run_cache
 assert_equals "$(cat "$command_log")" "run" "first miss executes command once"
-assert_equals "$(json_field "$artifact_file" 'value.state')" "miss" "first run records miss"
-record_path="$ROOT_DIR/$(json_field "$artifact_file" 'value.record_path')"
+record_path="$(find "$cache_dir/fixture-build" -type f -name '*.json' -print -quit)"
+[[ -n "$record_path" ]] || fail "first miss did not publish a cache record"
 "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
-  validate-schema cartulary.cache.build_artifact.v1 "$record_path" >/dev/null
+  validate-schema cartulary.harness_cache_record.v1 "$record_path" >/dev/null
+assert_equals \
+  "$(json_field "$record_path" 'value.policy')" \
+  "content_addressed" \
+  "record uses the canonical cache policy"
+assert_equals \
+  "$(json_field "$record_path" 'value.artifacts[0].path')" \
+  "${output_file#"$ROOT_DIR"/}" \
+  "record identifies the cached output"
 
 run_cache
 assert_equals "$(cat "$command_log")" "run" "cache hit skips command"
-assert_equals "$(json_field "$artifact_file" 'value.state')" "hit" "second run records hit"
-assert_equals \
-  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("public_target_summary")')" \
-  "true" \
-  "cache record declares public summaries non-cacheable"
-assert_equals \
-  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("failure_classification")')" \
-  "true" \
-  "cache record declares failure classification non-cacheable"
-assert_equals \
-  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("drift_security_service_cleanup_verdicts")')" \
-  "true" \
-  "cache record declares drift/security/service cleanup verdicts non-cacheable"
 
 printf 'value-two\n' >"$input_file"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "2" "input change executes command"
-assert_equals "$(json_field "$artifact_file" 'value.state')" "miss" "input change records miss"
-record_path="$ROOT_DIR/$(json_field "$artifact_file" 'value.record_path')"
+record_path="$(find "$cache_dir/fixture-build" -type f -name '*.json' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
 
 printf '{not valid json\n' >"$record_path"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "3" "corrupt record executes command"
-assert_equals "$(json_field "$artifact_file" 'value.reason_code')" "cache_record_invalid" "corrupt record reason"
+"$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
+  validate-schema cartulary.harness_cache_record.v1 "$record_path" >/dev/null
 
 CARTULARY_BUILD_CACHE_DISABLE=1 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "4" "disabled cache executes command"
-assert_equals "$(json_field "$artifact_file" 'value.state')" "disabled" "disabled cache state"
 
 CARTULARY_FORCE_REBUILD=1 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "5" "force rebuild executes command"
-assert_equals "$(json_field "$artifact_file" 'value.reason_code')" "force_rebuild" "force rebuild reason"
 
 rm -f "$output_file"
 run_cache
 assert_equals "$(grep -c '^run$' "$command_log")" "6" "missing output executes command"
-assert_equals "$(json_field "$artifact_file" 'value.reason_code')" "output_missing" "missing output reason"
 
 bash "$ROOT_DIR/tools/harness/backend/tests/test-build-go-artifact.sh"
 

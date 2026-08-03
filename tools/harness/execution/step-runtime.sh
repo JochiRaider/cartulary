@@ -668,6 +668,14 @@ run_step_command() {
   local status
   local helper_status
 
+  # The graph runner already owns stdout/stderr capture, event timing, failure
+  # classification, and the canonical unit result. Avoid emitting the legacy
+  # step and target artifact families for the same child interval.
+  if [[ "${CARTULARY_HARNESS_GRAPH_CHILD:-0}" == "1" ]]; then
+    "$@"
+    return $?
+  fi
+
   ensure_harness_artifact_identity
   output_mode="$(resolve_output_mode)"
   step_dir="$(prepare_step_artifact_dir "$step")"

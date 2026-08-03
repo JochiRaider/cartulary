@@ -12,7 +12,6 @@
     "reference_internal_windows": { "$ref": "#/$defs/windows" },
     "reference_internal_bindings": { "$ref": "#/$defs/bindings" },
     "reference_rejected_roots": { "$ref": "#/$defs/rejected_roots" },
-    "reference_audit": { "$ref": "#/$defs/audit" },
     "candidate_windows": { "$ref": "#/$defs/windows" },
     "candidate_bindings": { "$ref": "#/$defs/bindings" },
     "candidate_internal_windows": { "$ref": "#/$defs/windows" },
@@ -59,11 +58,10 @@
     "window": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["window_id", "provider_target", "evidence_kind", "cold_root", "warmup_root", "measured_roots"],
+      "required": ["window_id", "provider_target", "cold_root", "warmup_root", "measured_roots"],
       "properties": {
         "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
         "provider_target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
-        "evidence_kind": { "const": "strict_current" },
         "cold_root": { "$ref": "#/$defs/root" },
         "warmup_root": { "$ref": "#/$defs/root" },
         "measured_roots": {
@@ -99,12 +97,7 @@
         "target": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
         "window_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
         "timing_source": {
-          "enum": [
-            "public_invocation_envelope",
-            "canonical_unit_interval_union",
-            "canonical_timing_bucket_union",
-            "backend_report_collation_union"
-          ]
+          "enum": ["public_invocation_envelope", "canonical_unit_interval_union", "canonical_timing_bucket_union"]
         }
       }
     },
@@ -132,18 +125,6 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/rejected_root" }
-    },
-    "audit": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["window_started_at", "window_ended_at", "inspected_contexts", "accepted_contexts", "rejected_contexts"],
-      "properties": {
-        "window_started_at": { "type": "string", "format": "date-time" },
-        "window_ended_at": { "type": "string", "format": "date-time" },
-        "inspected_contexts": { "type": "integer", "minimum": 0 },
-        "accepted_contexts": { "type": "integer", "minimum": 0 },
-        "rejected_contexts": { "type": "integer", "minimum": 0 }
-      }
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v2",
+  "schema_id": "cartulary.test_family_manifest.v3",
   "owner_id": "harness.generated_artifacts",
   "rows": [
     {
@@ -12,15 +12,15 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1"
+        "command_id": "cartulary.harness.command.generated_artifact_policy_check.v2"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": false,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     },
     {
       "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
@@ -34,15 +34,15 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.generate_drift.v1"
+        "command_id": "cartulary.harness.command.generate_drift.v2"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "none",
-      "fixture_profile_id": "none",
-      "default_check": false,
       "claim_posture": "implementation",
-      "status": "active"
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     }
   ]
 }
