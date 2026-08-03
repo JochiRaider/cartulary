@@ -6,8 +6,17 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators/internal/identity"
+)
+
+const (
+	portableIncidentID = "00000000-0000-4000-8000-000000000100"
+	portableActorID    = "00000000-0000-4000-8000-000000000101"
+	portableSourceID   = "00000000-0000-4000-8000-000000000102"
+	portableTimestamp  = "2025-01-02T03:04:05.000001+00:00"
 )
 
 func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
@@ -22,7 +31,7 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	}
 	row := portableIdentityRow("00000000-0000-4000-8000-000000000001", canonical)
 	port := NewIncidentBundleContribution().SourcePort
-	importContext := sourceport.ImportContext{BundleVersion: 2, OperationID: "indicator-identity-portability"}
+	importContext := portableImportContext(t, "indicator-identity-portability")
 
 	if _, err := port.PrepareImport(context.Background(), portableIdentityBundle(t, row), importContext); err != nil {
 		t.Fatalf("prepare canonical identity: %v", err)
@@ -39,26 +48,65 @@ func TestIndicatorPortablePreparationUsesCanonicalIdentity(t *testing.T) {
 	assertIndicatorInvariantFailure(t, err, "indicators.identity_unique")
 
 	invalidOriginBundle := portableIdentityBundle(t, row)
-	invalidOriginBundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{{
-		"indicator_observation_id": "00000000-0000-4000-8000-000000000010",
-		"origin_kind":              "auto_extract",
-	}})
+	invalidObservation := portableObservationRow()
+	invalidObservation["origin_kind"] = "auto_extract"
+	invalidOriginBundle["data/indicator_observations.ndjson"] = marshalNDJSONRows(t, []map[string]any{invalidObservation})
 	_, err = port.PrepareImport(context.Background(), invalidOriginBundle, importContext)
-	assertIndicatorInvariantFailure(t, err, "indicators.representation_legal")
+	assertIndicatorInvariantFailure(t, err, "indicators.observation_coherent")
 }
 
 func portableIdentityRow(recordID string, canonical identity.Canonical) map[string]any {
 	return map[string]any{
-		"record_id":        recordID,
-		"indicator_type":   canonical.IndicatorType,
-		"value_kind":       canonical.ValueKind,
-		"display_value":    canonical.DisplayValue,
-		"normalized_value": canonical.NormalizedValue,
-		"dedupe_key":       canonical.DedupeKey,
-		"defanged_value":   nil,
-		"hash_algorithm":   nil,
-		"hash_value":       nil,
-		"stix_pattern":     nil,
+		"record_id": recordID, "incident_id": portableIncidentID,
+		"indicator_type": canonical.IndicatorType, "value_kind": canonical.ValueKind,
+		"display_value": canonical.DisplayValue, "normalized_value": canonical.NormalizedValue,
+		"dedupe_key": canonical.DedupeKey, "defanged_value": nil,
+		"hash_algorithm": canonical.HashAlgorithm, "hash_value": canonical.HashValue,
+		"stix_pattern": nil, "row_version": 1,
+		"created_at": portableTimestamp, "updated_at": portableTimestamp,
+		"created_by_user_id": portableActorID, "updated_by_user_id": portableActorID,
+		"deleted_at": nil, "deleted_by_user_id": nil,
+	}
+}
+
+func portableObservationRow() map[string]any {
+	return map[string]any{
+		"indicator_observation_id": "00000000-0000-4000-8000-000000000010",
+		"incident_id":              portableIncidentID, "source_record_id": portableSourceID,
+		"source_field_key": "source_text", "origin_kind": "manual_entry",
+		"origin_locator": "portable-fixture", "observed_text": "not parsed",
+		"parsed_indicator_type": nil, "normalized_candidate": nil,
+		"resolution_status": "unresolved", "resolved_indicator_record_id": nil,
+		"row_version": 1, "created_by_user_id": portableActorID,
+		"created_at": portableTimestamp, "resolved_by_user_id": nil,
+		"resolved_at": nil, "resolution_method": nil,
+		"deleted_at": nil, "deleted_by_user_id": nil,
+	}
+}
+
+func portableIntervalRow() map[string]any {
+	return map[string]any{
+		"indicator_state_interval_id": "00000000-0000-4000-8000-000000000020",
+		"incident_id":                 portableIncidentID,
+		"indicator_record_id":         "00000000-0000-4000-8000-000000000001",
+		"lifecycle_state":             "active", "valid_from": portableTimestamp,
+		"valid_to": nil, "confidence": nil, "rationale": nil,
+		"support_refs": []any{}, "assessor": nil, "assessed_at": portableTimestamp,
+		"row_version": 1, "created_by_user_id": portableActorID,
+		"created_at": portableTimestamp, "deleted_at": nil, "deleted_by_user_id": nil,
+	}
+}
+
+func portableImportContext(t testing.TB, operationID string) sourceport.ImportContext {
+	t.Helper()
+	actorID := uuid.MustParse(portableActorID)
+	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{SourceActorID: actorID.String()}})
+	if err != nil {
+		t.Fatalf("actor catalog: %v", err)
+	}
+	return sourceport.ImportContext{
+		IncidentID: uuid.MustParse(portableIncidentID), ActorUserID: actorID,
+		BundleVersion: 2, OperationID: operationID, Actors: actors,
 	}
 }
 
@@ -82,8 +130,8 @@ func portableIdentityBundle(t testing.TB, indicatorRows ...map[string]any) indic
 	t.Helper()
 	return indicatorTestBundle{
 		"data/indicators.ndjson":                marshalNDJSONRows(t, indicatorRows),
-		"data/indicator_observations.ndjson":    marshalNDJSONRows(t, []map[string]any{{"indicator_observation_id": "00000000-0000-4000-8000-000000000010", "origin_kind": "manual_entry"}}),
-		"data/indicator_state_intervals.ndjson": marshalNDJSONRows(t, []map[string]any{{"indicator_state_interval_id": "00000000-0000-4000-8000-000000000020"}}),
+		"data/indicator_observations.ndjson":    marshalNDJSONRows(t, []map[string]any{portableObservationRow()}),
+		"data/indicator_state_intervals.ndjson": marshalNDJSONRows(t, []map[string]any{portableIntervalRow()}),
 	}
 }
 

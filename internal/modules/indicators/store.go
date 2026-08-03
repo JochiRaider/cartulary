@@ -823,10 +823,3 @@ func jsonEqual(left map[string]any, right map[string]any) bool {
 	rightJSON, _ := json.Marshal(right)
 	return bytes.Equal(leftJSON, rightJSON)
 }
-
-func derefStringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}

@@ -108,14 +108,14 @@ type IndicatorSource interface {
 
 func (s *Store) refreshIndicatorTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, source IndicatorSource) error {
 	if source == nil {
-		return errors.New("Indicator projection source is required")
+		return errors.New("indicator projection source is required")
 	}
 	return source.RefreshIndicatorTx(ctx, tx, recordID)
 }
 
 func (s *Store) rebuildIncidentIndicatorsTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, source IndicatorSource) error {
 	if source == nil {
-		return errors.New("Indicator projection source is required")
+		return errors.New("indicator projection source is required")
 	}
 	return source.RebuildIncidentIndicatorsTx(ctx, tx, incidentID)
 }

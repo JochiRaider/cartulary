@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,7 +93,7 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		},
 	}
 	for _, file := range first {
-		rows, err := incidentportability.DecodeNDJSON(file.Payload)
+		rows, err := incidentportability.DecodeStrictNDJSONObjects(file.Payload, file.Path)
 		if err != nil || len(rows) != 1 {
 			t.Fatalf("decode %s: rows=%d err=%v payload=%s", file.Path, len(rows), err, file.Payload)
 		}
@@ -118,6 +119,9 @@ func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 		}
 		if _, err := time.Parse(time.RFC3339Nano, createdAt); err != nil {
 			t.Fatalf("%s created_at is not RFC3339: %q: %v", file.Path, createdAt, err)
+		}
+		if !strings.HasSuffix(createdAt, "+00:00") {
+			t.Fatalf("%s created_at = %q, want canonical +00:00", file.Path, createdAt)
 		}
 	}
 
