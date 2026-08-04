@@ -1016,6 +1016,13 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       remotePage,
       socketMonitor,
     });
+    await assertMarkerAnchoredToGridTarget({
+      anchorKind: "row-gutter",
+      markerTestId: rowPresenceMarkerTestId(alphaId),
+      page,
+      surface: timelineViewSchemaId,
+      targetTestId: gridRowGutterTestId(timelineViewSchemaId, alphaId),
+    });
 
     await driveRealTimelineSummaryConflict({
       baseRowVersion: 1,
@@ -1029,13 +1036,6 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       txnPrefix: "e604-alpha-remote-conflict",
     });
     await scrollGridToOffset(page, timelineViewSchemaId, 0);
-    await assertMarkerAnchoredToGridTarget({
-      anchorKind: "row-gutter",
-      markerTestId: rowPresenceMarkerTestId(alphaId),
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: gridRowGutterTestId(timelineViewSchemaId, alphaId),
-    });
     await expect(
       page.getByTestId(
         timelineScalarEditorTestId({

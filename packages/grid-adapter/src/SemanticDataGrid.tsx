@@ -1704,14 +1704,6 @@ function GroupedSemanticDataGrid<Row>({
               ? undefined
               : grouping.getTestId?.(grouping.fieldKey, group.value, label)
           }
-          ref={(node) => {
-            const semanticRow = node?.closest<HTMLElement>('[role="row"]');
-            if (semanticRow !== undefined && semanticRow !== null) {
-              semanticRow.classList.add("cartulary-grid-group-row");
-              semanticRow.dataset.gridRowKind = "group";
-              semanticRow.dataset.gridPrimaryState = "group";
-            }
-          }}
           type="button"
           onClick={toggleGroup}
         >

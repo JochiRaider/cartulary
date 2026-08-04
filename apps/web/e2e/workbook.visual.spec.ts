@@ -2365,14 +2365,6 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           ...(index === 0 ? { actorText: remoteActor.actorText } : {}),
         });
       }
-      await scrollGridTargetIntoView({
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          presenceRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
-      });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",
         markerTestId: rowPresenceMarkerTestId(presenceRow.record_id),
@@ -3020,14 +3012,6 @@ test.describe("workbook visual evidence", () => {
         recordId: timelineRow.record_id,
         remotePage,
         socketMonitor: primarySocket,
-      });
-      await scrollGridTargetIntoView({
-        page,
-        surface: timelineViewSchemaId,
-        targetTestId: rowCellTestId(
-          timelineRow.record_id,
-          "timeline.activity_synopsis_text",
-        ),
       });
       await assertMarkerAnchoredToGridTarget({
         anchorKind: "row-gutter",

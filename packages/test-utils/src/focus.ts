@@ -1,9 +1,9 @@
 import { type BrowserPageLike, delay, requireEvaluate } from "./browser";
+import { readGridScroll } from "./grid-diagnostics";
 import {
-  readGridScroll,
   readTestIdGridViewportState,
   viewportVisibilityTolerancePx,
-} from "./scrolling";
+} from "./grid-observers";
 
 /**
  * Base continuity requires the focused control to remain focused and fully

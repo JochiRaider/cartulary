@@ -2161,7 +2161,7 @@ Verified by: AC-024, AC-025, AC-026, AC-231
 ### 14.5 Group-header behavior
 
 **REQ-03-231**
-A grouped workbook surface whose active `view_schema` declares `grouping_fields` MUST expose exactly one derived group-header level. For the latest applicable query result rendered in one workbook surface, each visible grouping bucket derived from committed rows MUST have at most one visible group header.
+A grouped workbook surface whose active `view_schema` declares `grouping_fields` MUST expose exactly one derived group-header level. When grouping is active, the grid MUST expose `role="treegrid"`. Every visible derived group header MUST be a parent `role="row"` with `aria-level="1"` and row-level `aria-expanded="true"` or `aria-expanded="false"` matching the client-local expansion state. For the latest applicable query result rendered in one workbook surface, each visible grouping bucket derived from committed rows MUST have at most one visible group header.
 Profiles: base
 Verified by: AC-025, AC-026, AC-231, AC-364
 
@@ -2174,6 +2174,8 @@ Group headers are derived UI rows only. They MUST be derived solely from committ
 - MUST NOT appear in exports,
 - MUST NOT appear in revision history,
 - MUST NOT become mutation targets.
+
+Every visible group header MUST preserve its bucket label for accessible-name computation and MUST expose exactly one visible keyboard-operable expand/collapse toggle. Record rows, draft rows, loading rows, summary rows, and other non-parent rows MUST NOT acquire `aria-expanded` solely because grouping is active.
 Profiles: base
 Verified by: AC-025, AC-026, AC-231, AC-364
 

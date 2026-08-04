@@ -88,36 +88,63 @@ catalog_selector_inputs() {
   "$node_bin" - "$ROOT_DIR" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 const [repoRoot] = process.argv.slice(2);
-const ownerRegistry = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, "tools/test_catalog_owner.json"), "utf8"),
-);
-const inputs = new Set();
-for (const owner of ownerRegistry.owners ?? []) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(repoRoot, owner.manifest_path), "utf8"),
+(async () => {
+  const ownerRegistry = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "tools/test_catalog_owner.json"), "utf8"),
   );
-  for (const row of manifest.rows ?? []) {
-    for (const candidate of [row.selector?.file, row.selector?.package]) {
-      if (typeof candidate !== "string" || candidate.trim() === "") continue;
-      const normalized = candidate.trim().replace(/^\.\//u, "");
-      if (
-        path.isAbsolute(normalized) ||
-        normalized === ".." ||
-        normalized.startsWith("../") ||
-        normalized.includes("/../")
-      ) {
-        console.error(`unsafe catalog selector input ${candidate}`);
-        process.exit(11);
+  const inputs = new Set();
+  const selectorFiles = new Set();
+  for (const owner of ownerRegistry.owners ?? []) {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, owner.manifest_path), "utf8"),
+    );
+    for (const row of manifest.rows ?? []) {
+      for (const candidate of [row.selector?.file, row.selector?.package]) {
+        if (typeof candidate !== "string" || candidate.trim() === "") continue;
+        const normalized = candidate.trim().replace(/^\.\//u, "");
+        if (
+          path.isAbsolute(normalized) ||
+          normalized === ".." ||
+          normalized.startsWith("../") ||
+          normalized.includes("/../")
+        ) {
+          throw new Error(`unsafe catalog selector input ${candidate}`);
+        }
+        inputs.add(normalized);
+        if (candidate === row.selector?.file) selectorFiles.add(normalized);
       }
-      inputs.add(normalized);
     }
   }
-}
-for (const input of [...inputs].sort((left, right) => left.localeCompare(right))) {
-  console.log(input);
-}
+  const selectorResolutionURL = pathToFileURL(
+    path.join(
+      repoRoot,
+      "tools/harness/test-catalog/selector-resolution.mjs",
+    ),
+  ).href;
+  const { registrationSuiteFiles } = await import(selectorResolutionURL);
+  const pending = [...selectorFiles];
+  while (pending.length > 0) {
+    const selectorFile = pending.pop();
+    const source = fs.readFileSync(path.join(repoRoot, selectorFile), "utf8");
+    for (const suiteFile of registrationSuiteFiles(
+      repoRoot,
+      selectorFile,
+      source,
+    )) {
+      if (!inputs.has(suiteFile)) pending.push(suiteFile);
+      inputs.add(suiteFile);
+    }
+  }
+  for (const input of [...inputs].sort((left, right) => left.localeCompare(right))) {
+    console.log(input);
+  }
+})().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(11);
+});
 NODE
 }
 

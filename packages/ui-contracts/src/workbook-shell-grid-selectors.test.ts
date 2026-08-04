@@ -11,6 +11,7 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  gridGroupRowSelector,
   gridGroupRowsSelector,
   gridGroupRowTestId,
   gridRowGutterTestId,
@@ -41,6 +42,21 @@ import {
 } from "./index";
 
 describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
+  it("builds owner-backed group row selectors for both expansion states", () => {
+    expect(gridGroupRowSelector()).toBe(
+      '[role="row"][aria-level="1"][aria-expanded]',
+    );
+    expect(gridGroupRowSelector(undefined)).toBe(
+      '[role="row"][aria-level="1"][aria-expanded]',
+    );
+    expect(gridGroupRowSelector(true)).toBe(
+      '[role="row"][aria-level="1"][aria-expanded="true"]',
+    );
+    expect(gridGroupRowSelector(false)).toBe(
+      '[role="row"][aria-level="1"][aria-expanded="false"]',
+    );
+  });
+
   it("builds stable System views switcher selectors from closed groups and view_schema_id", () => {
     const originalSurface = {
       title: "Indicators",

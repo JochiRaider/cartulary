@@ -199,6 +199,67 @@ function calleeName(expression, ts) {
   return "";
 }
 
+function registrationSuiteSources(root, file, sourceFile, ts) {
+  const suiteSources = [];
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.moduleSpecifier.text.startsWith(".") ||
+      !statement.importClause ||
+      !statement.importClause.namedBindings ||
+      !ts.isNamedImports(statement.importClause.namedBindings) ||
+      !statement.importClause.namedBindings.elements.some((element) =>
+        /^register[A-Za-z0-9]+Suite$/u.test(element.name.text),
+      )
+    ) {
+      continue;
+    }
+    const importerDirectory = path.posix.dirname(file);
+    const importBase = path.posix.normalize(
+      path.posix.join(importerDirectory, statement.moduleSpecifier.text),
+    );
+    if (!importBase.startsWith(`${importerDirectory}/`)) {
+      throw new Error(
+        `${file}.registration_suite ${statement.moduleSpecifier.text} must remain beneath the selector directory`,
+      );
+    }
+    const candidates = /\.[cm]?[jt]sx?$/u.test(importBase)
+      ? [importBase]
+      : [`${importBase}.ts`, `${importBase}.tsx`];
+    const candidate = candidates.find((entry) => existsSync(path.resolve(root, entry)));
+    if (candidate === undefined) {
+      throw new Error(
+        `${file}.registration_suite ${statement.moduleSpecifier.text} does not resolve to TypeScript source`,
+      );
+    }
+    const contained = containedFile(
+      root,
+      candidate,
+      [importerDirectory],
+      `${file}.registration_suite`,
+    );
+    suiteSources.push({ file: candidate, source: contained.source });
+  }
+  return suiteSources;
+}
+
+export function registrationSuiteFiles(root, file, source) {
+  const requireFromWeb = createRequire(path.join(root, "apps", "web", "package.json"));
+  const ts = requireFromWeb("typescript");
+  const scriptKind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind,
+  );
+  return registrationSuiteSources(root, file, sourceFile, ts).map(
+    (suite) => suite.file,
+  );
+}
+
 function testTitles(root, file, source) {
   const cacheKey = `${root}\0${file}\0${source}`;
   if (sourceTitleCache.has(cacheKey)) {
@@ -268,6 +329,11 @@ function testTitles(root, file, source) {
   const counts = new Map(
     [...matches].map(([candidate, identities]) => [candidate, identities.size]),
   );
+  for (const suite of registrationSuiteSources(root, file, sourceFile, ts)) {
+    for (const [title, count] of testTitles(root, suite.file, suite.source)) {
+      counts.set(title, (counts.get(title) ?? 0) + count);
+    }
+  }
   sourceTitleCache.set(cacheKey, counts);
   return counts;
 }

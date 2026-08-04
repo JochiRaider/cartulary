@@ -109,6 +109,19 @@ export function gridGroupRowsSelector(
   return dataTestIdPrefixSelector(gridGroupRowPrefix(viewSchemaId, fieldKey));
 }
 
+/**
+ * Scope this selector through an owner grid shell. Group rows are semantic
+ * treegrid parents; bucket-specific identity remains with the existing
+ * owner-built test ID or an accessible locator.
+ */
+export function gridGroupRowSelector(expanded?: boolean): string {
+  const expansionSelector =
+    expanded === undefined
+      ? "[aria-expanded]"
+      : `[aria-expanded="${String(expanded)}"]`;
+  return `[role="row"][aria-level="1"]${expansionSelector}`;
+}
+
 export function gridRowTestId(viewSchemaId: string, recordId: string): string {
   return `${viewScopedTestId("grid-row", viewSchemaId)}-${requireRecordId(recordId)}`;
 }

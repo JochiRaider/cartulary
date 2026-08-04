@@ -1,4 +1,7 @@
-import { gridScrollportClassName } from "@cartulary/ui-contracts";
+import {
+  gridGroupRowSelector,
+  gridScrollportClassName,
+} from "@cartulary/ui-contracts";
 import {
   cleanup,
   fireEvent,
@@ -1274,13 +1277,24 @@ describe("grid-adapter", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("group-state-open")).toBeTruthy();
     expect(screen.getByTestId("group-state-reviewed")).toBeTruthy();
+    expect(gridShell.querySelectorAll(gridGroupRowSelector())).toHaveLength(2);
+    expect(
+      gridShell.querySelectorAll("[data-grid-record-id][aria-expanded]"),
+    ).toHaveLength(0);
     const openGroupToggle = screen.getByTestId("group-state-open");
+    expect(screen.getByRole("button", { name: "open" })).toBe(openGroupToggle);
     const openGroupRow = openGroupToggle.closest('[role="row"]');
     expect(openGroupRow).toBeTruthy();
     if (openGroupRow === null) {
       throw new Error("Expected open group toggle to have row ancestor");
     }
     expect(openGroupRow.getAttribute("data-grid-record-id")).toBeNull();
+    expect(openGroupRow.matches(gridGroupRowSelector(true))).toBe(true);
+    expect(openGroupRow.getAttribute("data-grid-row-kind")).toBeNull();
+    expect(openGroupRow.getAttribute("data-grid-primary-state")).toBeNull();
+    expect(openGroupRow.classList.contains("cartulary-grid-group-row")).toBe(
+      false,
+    );
     expect(
       openGroupRow.querySelectorAll("input, textarea, select"),
     ).toHaveLength(0);
@@ -1288,6 +1302,7 @@ describe("grid-adapter", () => {
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(openGroupToggle);
     expect(openGroupToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(openGroupRow.matches(gridGroupRowSelector(false))).toBe(true);
     expect(screen.queryByTestId("row-record-1")).toBeNull();
     expect(
       groupedHandle.current?.focusAnchor(gridAnchor("record-1", "label")),

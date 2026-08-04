@@ -209,7 +209,7 @@
   opacity: 1;
 }
 
-.cartulary-grid-group-row {
+.cartulary-grid [role="row"][aria-level="1"][aria-expanded] {
   background: var(--ct-colors-surface-3);
   border-block-end: var(--ct-border-hairline);
   font-weight: 700;

@@ -208,6 +208,30 @@ Grid evidence uses the following ownership split:
 | Accessibility and visual behavior | Their dedicated live browser evidence classes and owner rows. |
 | DOM bounds or timing measurements | The measurement class only; results remain informative unless Core 05 separately authorizes publication. |
 
+`@cartulary/test-utils` is implementation support, not behavioral authority.
+It has no root export; its exact supported subpaths are `./grid` for structural
+browser capabilities and reusable grid choreography, `./accessibility` for the
+focus-continuity and marker-anchor observers, and `./visual` for grid setup plus
+the marker-anchor observer. Product keyboard, accessible-name, ARIA, contrast,
+and state assertions remain direct owner evidence unless every condition below
+is proven.
+
+| Shared-helper admission condition | Required binary evidence |
+| --- | --- |
+| A named owner-backed postcondition exists. | Identify the adopted owner requirement and active verification row. |
+| Reuse or protocol complexity justifies sharing. | Show equivalent choreography in two independent owner rows, or one demonstrably unsafe complex protocol. |
+| The helper is route-free and payload-neutral. | Pass route/payload architecture-policy and import-boundary scans. |
+| No controller, app registry, authentication state, control token, or vendor import enters the package. | Pass the package import-boundary evidence with no exception. |
+| Required browser capabilities and omission behavior are explicit. | Define the structural capabilities and pass negative missing-capability tests. |
+| Public placement is authorized. | Name one of the three exact supported subpaths and verify the package export map. |
+| Package semantics are characterized. | Pass exact facade-shape and focused `package.test_utils` evidence. |
+| Product behavior remains live-owner evidence. | Retain an active product or adapter row assigned to its behavioral owner. |
+
+If any admission condition is false or unproven, keep the assertion in the
+owner test or an owner-specific support module. Shared choreography consumes
+owner-defined selectors and postconditions; it does not replace their
+conformance evidence.
+
 Production virtualization is an immutable root-component binding. Runtime code,
 application tests, shared setup files, the root facade, and `./test-support` must not
 import or expose the package-private DOM-unit binding. There is no mutable diagnostic

@@ -1,12 +1,16 @@
 import { gridShellTestId } from "@cartulary/ui-contracts";
 
-import { type BrowserPageLike, requireEvaluate } from "./browser";
 import {
-  isTestIdVisibleWithinGridViewport,
-  scrollGridTargetIntoView,
-} from "./scrolling";
+  type BrowserPageLike,
+  delay,
+  isLocatorVisible,
+  requireEvaluate,
+} from "./browser";
+import { isTestIdVisibleWithinGridViewport } from "./grid-observers";
 
 const anchorTolerancePx = 2;
+const markerObservationIntervalMs = 50;
+const markerObservationTimeoutMs = 3_000;
 
 type GridRectSnapshot = {
   readonly bottom: number;
@@ -35,79 +39,105 @@ export async function assertMarkerAnchoredToGridTarget(options: {
   targetTestId: string;
 }) {
   const { anchorKind, markerTestId, page, surface, targetTestId } = options;
-  await scrollGridTargetIntoView({ page, surface, targetTestId });
-  const targetVisible = await isTestIdVisibleWithinGridViewport(
-    page,
-    surface,
-    targetTestId,
+  const capabilityMessage = `assertMarkerAnchoredToGridTarget(${surface}, ${markerTestId}, ${targetTestId}) requires locator.evaluate() support`;
+  requireEvaluate(
+    page.getByTestId(gridShellTestId(surface)),
+    capabilityMessage,
   );
-  if (!targetVisible) {
-    throw new Error(
-      `Expected target ${targetTestId} to be visible in the ${surface} grid viewport`,
-    );
+  const deadline = Date.now() + markerObservationTimeoutMs;
+  let lastFailure = new Error(
+    `Expected marker ${markerTestId} to become observable for target ${targetTestId} in the ${surface} grid viewport`,
+  );
+
+  for (;;) {
+    try {
+      if (!(await isLocatorVisible(page.getByTestId(markerTestId)))) {
+        throw new Error(
+          `Expected marker ${markerTestId} to be visible in the ${surface} grid viewport`,
+        );
+      }
+      if (
+        !(await isTestIdVisibleWithinGridViewport(page, surface, targetTestId))
+      ) {
+        throw new Error(
+          `Expected target ${targetTestId} to be visible in the ${surface} grid viewport`,
+        );
+      }
+      const state = await readMarkerAnchorState({
+        capabilityMessage,
+        markerTestId,
+        page,
+        surface,
+        targetTestId,
+      });
+      const failure = markerAnchorFailure({
+        anchorKind,
+        markerTestId,
+        state,
+        targetTestId,
+      });
+      if (failure === null) return;
+      lastFailure = new Error(failure);
+    } catch (error) {
+      lastFailure =
+        error instanceof Error ? error : new Error(String(error ?? "unknown"));
+    }
+    if (Date.now() >= deadline) throw lastFailure;
+    await delay(markerObservationIntervalMs);
   }
-  const state = await readMarkerAnchorState({
-    markerTestId,
-    page,
-    surface,
-    targetTestId,
-  });
+}
+
+function markerAnchorFailure(options: {
+  anchorKind: "cell" | "row-gutter";
+  markerTestId: string;
+  state: MarkerAnchorState;
+  targetTestId: string;
+}) {
+  const { anchorKind, markerTestId, state, targetTestId } = options;
   if (state.markerRowRecordId !== state.targetRowRecordId) {
-    throw new Error(
-      `Expected marker ${markerTestId} to share row record_id ${state.targetRowRecordId} with target ${targetTestId}, received ${state.markerRowRecordId}`,
-    );
+    return `Expected marker ${markerTestId} to share row record_id ${state.targetRowRecordId} with target ${targetTestId}, received ${state.markerRowRecordId}`;
   }
   if (anchorKind === "cell") {
     if (state.markerCellFieldKey !== state.targetCellFieldKey) {
-      throw new Error(
-        `Expected marker ${markerTestId} to share cell field_key ${state.targetCellFieldKey} with target ${targetTestId}, received ${state.markerCellFieldKey}`,
-      );
+      return `Expected marker ${markerTestId} to share cell field_key ${state.targetCellFieldKey} with target ${targetTestId}, received ${state.markerCellFieldKey}`;
     }
     if (
       !containsRect(state.targetCellRect, state.markerRect, anchorTolerancePx)
     ) {
-      throw new Error(
-        `Expected marker ${markerTestId} to be geometrically inside target cell ${targetTestId} (marker=${formatRect(state.markerRect)} targetCell=${formatRect(state.targetCellRect)})`,
-      );
+      return `Expected marker ${markerTestId} to be geometrically inside target cell ${targetTestId} (marker=${formatRect(state.markerRect)} targetCell=${formatRect(state.targetCellRect)})`;
     }
-    return;
+    return null;
   }
 
   if (state.markerCellFieldKey !== state.targetCellFieldKey) {
-    throw new Error(
-      `Expected row-gutter marker ${markerTestId} to be inside target gutter field_key ${state.targetCellFieldKey}, received ${state.markerCellFieldKey}`,
-    );
+    return `Expected row-gutter marker ${markerTestId} to be inside target gutter field_key ${state.targetCellFieldKey}, received ${state.markerCellFieldKey}`;
   }
   const markerCenterY = (state.markerRect.top + state.markerRect.bottom) / 2;
   if (
     markerCenterY < state.targetRowRect.top - anchorTolerancePx ||
     markerCenterY > state.targetRowRect.bottom + anchorTolerancePx
   ) {
-    throw new Error(
-      `Expected row-gutter marker ${markerTestId} to be vertically anchored to row ${state.targetRowRecordId} (marker=${formatRect(state.markerRect)} targetRow=${formatRect(state.targetRowRect)})`,
-    );
+    return `Expected row-gutter marker ${markerTestId} to be vertically anchored to row ${state.targetRowRecordId} (marker=${formatRect(state.markerRect)} targetRow=${formatRect(state.targetRowRect)})`;
   }
   if (
     !containsRect(state.targetCellRect, state.markerRect, anchorTolerancePx)
   ) {
-    throw new Error(
-      `Expected row-gutter marker ${markerTestId} to be geometrically inside target gutter cell ${targetTestId} (marker=${formatRect(state.markerRect)} targetCell=${formatRect(state.targetCellRect)})`,
-    );
+    return `Expected row-gutter marker ${markerTestId} to be geometrically inside target gutter cell ${targetTestId} (marker=${formatRect(state.markerRect)} targetCell=${formatRect(state.targetCellRect)})`;
   }
+  return null;
 }
 
 async function readMarkerAnchorState(options: {
+  capabilityMessage: string;
   markerTestId: string;
   page: BrowserPageLike;
   surface: string;
   targetTestId: string;
 }) {
-  const { markerTestId, page, surface, targetTestId } = options;
+  const { capabilityMessage, markerTestId, page, surface, targetTestId } =
+    options;
   const grid = page.getByTestId(gridShellTestId(surface));
-  const evaluate = requireEvaluate(
-    grid,
-    `assertMarkerAnchoredToGridTarget(${surface}, ${markerTestId}, ${targetTestId}) requires locator.evaluate() support`,
-  );
+  const evaluate = requireEvaluate(grid, capabilityMessage);
   return (await evaluate(readMarkerAnchorStateInGrid, {
     markerTestId,
     surface,

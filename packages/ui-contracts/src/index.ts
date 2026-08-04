@@ -107,6 +107,7 @@ export {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
+  gridGroupRowSelector,
   gridGroupRowsSelector,
   gridGroupRowTestId,
   gridRowGutterTestId,

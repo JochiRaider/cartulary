@@ -18,9 +18,10 @@ import {
   requireDispatchEvent,
   requireEvaluate,
   requirePress,
+  requireSelectOption,
 } from "./browser";
+import { scrollGridCellIntoView, scrollGridTargetIntoView } from "./grid-setup";
 import { pasteMatrixText } from "./matrix";
-import { scrollGridCellIntoView, scrollGridTargetIntoView } from "./scrolling";
 
 export type GridAnchorCommandScenario = {
   commit: (context: {
@@ -62,27 +63,6 @@ export function gridAnchorCommandScenarios(
       name: "single-cell-paste",
     },
   ];
-}
-
-export async function resizeGridColumn(options: {
-  deltaPx: number;
-  fieldKey: string;
-  page: BrowserPageLike;
-  surface: string;
-}) {
-  void options.deltaPx;
-  const headerTestId = gridSortHeaderTestId(options.surface, options.fieldKey);
-  await scrollGridTargetIntoView({
-    page: options.page,
-    surface: options.surface,
-    targetTestId: headerTestId,
-  });
-  const header = options.page.getByTestId(headerTestId);
-  const evaluate = requireEvaluate(
-    header,
-    `resizeGridColumn(${options.surface}) requires locator.evaluate() support`,
-  );
-  return evaluate((element) => element.getBoundingClientRect().width);
 }
 
 export async function assertActiveFilterChipVisible(
@@ -153,15 +133,22 @@ export async function applyFilterChip(
   fieldKey: string,
   value: string,
 ) {
+  const fieldControl = page.getByTestId(gridFilterFieldTestId(surface));
+  const selectField = requireSelectOption(
+    fieldControl,
+    `applyFilterChip(${surface}) requires filter field locator.selectOption() support`,
+  );
   await page.getByTestId(workbookFilterPopoverTriggerTestId(surface)).click();
-  await page
-    .getByTestId(gridFilterFieldTestId(surface))
-    .selectOption?.(fieldKey);
+  await selectField(fieldKey);
   const valueControl = page.getByTestId(gridFilterValueTestId(surface));
-  try {
-    await valueControl.selectOption?.(value);
-  } catch {
+  if (valueControl.selectOption === undefined) {
     await valueControl.fill(value);
+  } else {
+    try {
+      await valueControl.selectOption(value);
+    } catch {
+      await valueControl.fill(value);
+    }
   }
   await page.getByTestId(gridFilterApplyTestId(surface)).click();
 }
@@ -179,11 +166,49 @@ export async function changeGrouping(
   surface: string,
   fieldKey: string,
 ) {
-  await page
-    .getByTestId(gridGroupingSelectTestId(surface))
-    .selectOption?.(fieldKey);
+  const groupingControl = page.getByTestId(gridGroupingSelectTestId(surface));
+  const selectGrouping = requireSelectOption(
+    groupingControl,
+    `changeGrouping(${surface}) requires locator.selectOption() support`,
+  );
+  await selectGrouping(fieldKey);
 }
 
-export function assertAnchorTestId(recordId: string, fieldKey: string): string {
-  return rowCellTestId(recordId, fieldKey);
+export async function setGridGroupExpanded(options: {
+  expanded: boolean;
+  groupTestId: string;
+  page: BrowserPageLike;
+  surface: string;
+}) {
+  const group = options.page.getByTestId(options.groupTestId);
+  const evaluate = requireEvaluate(
+    group,
+    `setGridGroupExpanded(${options.surface}) requires locator.evaluate() support`,
+  );
+  const current = await evaluate((element) =>
+    element.getAttribute("aria-expanded"),
+  );
+  if (current !== String(options.expanded)) {
+    await group.click();
+  }
+  const next = await evaluate((element) =>
+    element.getAttribute("aria-expanded"),
+  );
+  if (next !== String(options.expanded)) {
+    throw new Error(
+      `Expected group ${options.groupTestId} on ${options.surface} to have aria-expanded=${String(options.expanded)}, received ${String(next)}`,
+    );
+  }
+}
+
+export function collapseGridGroup(
+  options: Omit<Parameters<typeof setGridGroupExpanded>[0], "expanded">,
+) {
+  return setGridGroupExpanded({ ...options, expanded: false });
+}
+
+export function expandGridGroup(
+  options: Omit<Parameters<typeof setGridGroupExpanded>[0], "expanded">,
+) {
+  return setGridGroupExpanded({ ...options, expanded: true });
 }

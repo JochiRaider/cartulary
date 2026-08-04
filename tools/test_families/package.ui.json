@@ -194,6 +194,7 @@
         "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.test.ts",
         "titles": [
           "@cartulary/ui-contracts workbook shell and grid selectors builds exact filter selectors and rejects invalid filter identity",
+          "@cartulary/ui-contracts workbook shell and grid selectors builds owner-backed group row selectors for both expansion states",
           "@cartulary/ui-contracts workbook shell and grid selectors builds stable System views switcher selectors from closed groups and view_schema_id",
           "@cartulary/ui-contracts workbook shell and grid selectors derives inspector field ids from the stable row cell id",
           "@cartulary/ui-contracts workbook shell and grid selectors derives row and row-action selectors from record_id",

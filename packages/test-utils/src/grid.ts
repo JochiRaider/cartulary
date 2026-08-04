@@ -12,27 +12,27 @@ export {
   supportsVisibilityCheck,
 } from "./browser";
 export { assertGridFocusContinuity } from "./focus";
-export type { GridAnchorCommandScenario } from "./grid-editing";
+export type { GridAnchorCommandScenario } from "./grid-actions";
 export {
   applyFilterChip,
   assertActiveFilterChipVisible,
   changeGrouping,
+  collapseGridGroup,
+  expandGridGroup,
   gridAnchorCommandScenarios,
   pasteGridMatrix,
   removeFilterChip,
   sortByHeader,
-} from "./grid-editing";
+} from "./grid-actions";
 export {
   assertGroupRowPresentationOnly,
-  collapseGridGroup,
-  expandGridGroup,
-} from "./grouping";
-export { assertMarkerAnchoredToGridTarget } from "./marker";
-export {
   assertMountedGridRowCountAtMost,
   isTestIdVisibleWithinGridViewport,
+} from "./grid-observers";
+export {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
   scrollGridToBottom,
   scrollGridToOffset,
-} from "./scrolling";
+} from "./grid-setup";
+export { assertMarkerAnchoredToGridTarget } from "./marker";
