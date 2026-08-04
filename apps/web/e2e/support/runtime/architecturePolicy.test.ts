@@ -85,6 +85,10 @@ describe("web E2E semantic support policy", () => {
           source.includes('from "@cartulary/test-utils"')
             ? "root test-utils export"
             : null,
+          source.includes('from "@cartulary/test-utils/accessibility"') ||
+          source.includes('from "@cartulary/test-utils/visual"')
+            ? "removed test-utils alias"
+            : null,
           source.includes("react-data-grid") ? "grid vendor" : null,
           source.includes("/src/generated/")
             ? "protected generated root"

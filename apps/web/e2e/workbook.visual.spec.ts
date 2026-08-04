@@ -5,10 +5,10 @@ import path from "node:path";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
+  assertMarkerAnchoredToGridTarget,
   changeGrouping,
   scrollGridTargetIntoView,
 } from "@cartulary/test-utils/grid";
-import { assertMarkerAnchoredToGridTarget } from "@cartulary/test-utils/visual";
 import {
   authTestId,
   cartularyDefaultThemeId,

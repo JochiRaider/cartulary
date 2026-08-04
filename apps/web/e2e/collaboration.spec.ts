@@ -5,7 +5,6 @@ import {
   assertMarkerAnchoredToGridTarget,
   assertMountedGridRowCountAtMost,
   changeGrouping,
-  gridAnchorCommandScenarios,
   scrollGridCellIntoView,
   scrollGridToOffset,
   sortByHeader,
@@ -14,6 +13,7 @@ import {
   cellPresenceMarkerTestId,
   currentIncidentRoleTestId,
   gridRowGutterTestId,
+  gridShellTestId,
   pendingQueueCountTestId,
   pendingQueueNoticeTestId,
   rowCellTestId,
@@ -63,6 +63,37 @@ import { installIncidentSocketMonitor } from "./support/transport/incidentSocket
 import { assertRecordFieldMutationAnchor } from "./support/workbook/mutationAnchors";
 
 const presenceInteractionThresholdMs = 1000;
+
+type GridAnchorCommandScenario = {
+  commit: (context: {
+    input: Locator;
+    page: Page;
+    surface: string;
+  }) => Promise<void>;
+  name: string;
+};
+
+const gridAnchorCommandScenarios: readonly GridAnchorCommandScenario[] = [
+  {
+    commit: async ({ input }) => input.press("Enter"),
+    name: "enter",
+  },
+  {
+    commit: async ({ input }) => input.press("Tab"),
+    name: "tab",
+  },
+  {
+    commit: async ({ input, page, surface }) => {
+      await input.blur();
+      await page.getByTestId(gridShellTestId(surface)).click();
+    },
+    name: "blur",
+  },
+  {
+    commit: async ({ input }) => input.dispatchEvent("paste"),
+    name: "single-cell-paste",
+  },
+];
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
@@ -864,7 +895,7 @@ test("keeps live updates conflict markers and presence markers anchored to recor
     );
   }
   const commandRows = [];
-  for (const scenario of gridAnchorCommandScenarios(timelineViewSchemaId)) {
+  for (const scenario of gridAnchorCommandScenarios) {
     const sortLabel = String.fromCharCode(65 + commandRows.length);
     commandRows.push({
       baseSummary: `collaboration-conflict ${sortLabel} ${scenario.name} command base`,

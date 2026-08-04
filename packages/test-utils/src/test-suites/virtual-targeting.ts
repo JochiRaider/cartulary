@@ -12,10 +12,10 @@ import {
 } from "../grid";
 import {
   createBrowserPage,
-  installGridTargetFixture,
-  installMarkerAnchorFixture,
   testTimelineViewSchemaId,
-} from "./fixtures";
+} from "./browser-fixtures";
+import { installMarkerAnchorFixture } from "./marker-fixtures";
+import { installGridTargetFixture } from "./targeting-fixtures";
 
 export function registerVirtualTargetingSuite() {
   describe("@cartulary/test-utils virtualized grid targeting", () => {

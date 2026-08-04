@@ -88,6 +88,21 @@ write_config() {
     "packages/protocol-ts/src/generated/**",
     "packages/ui-contracts/src/generated/**"
   ],
+  "acyclic_import_graphs": [
+    {
+      "id": "frontend-test-utils-production-acyclic-import-graph",
+      "level": "error",
+      "message": "Production test-utils imports, type imports, re-exports, and dynamic imports must form an enumerable acyclic graph.",
+      "applies_to": {
+        "include": ["packages/test-utils/src/**"],
+        "exclude": [
+          "packages/test-utils/src/*.test.ts",
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts",
+          "packages/test-utils/src/test-suites/**"
+        ]
+      }
+    }
+  ],
   "singleton_imports": [
     {
       "id": "frontend-rdg-stylesheet-singleton",
@@ -408,12 +423,63 @@ write_config() {
       ]
     },
     {
+      "id": "frontend-test-utils-runtime-dependency-boundary",
+      "level": "error",
+      "message": "Production test-utils code must remain Playwright- and Node-independent.",
+      "applies_to": {
+        "include": ["packages/test-utils/src/**"],
+        "exclude": [
+          "packages/test-utils/src/*.test.ts",
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts",
+          "packages/test-utils/src/test-suites/**"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@playwright/test",
+          "include_subpaths": true
+        },
+        {
+          "kind": "node_builtin",
+          "names": ["*"]
+        }
+      ]
+    },
+    {
+      "id": "frontend-test-utils-observer-direction",
+      "level": "error",
+      "message": "Test-utils observers must not depend on setup or action modules.",
+      "applies_to": {
+        "include": [
+          "packages/test-utils/src/focus.ts",
+          "packages/test-utils/src/grid-observers.ts",
+          "packages/test-utils/src/marker.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/test-utils/src/grid-actions"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/test-utils/src/grid-setup"
+        }
+      ]
+    },
+    {
       "id": "frontend-workspace-package-facade-boundary",
       "level": "error",
       "message": "Import workspace packages only through package names and declared package.json exports.",
       "applies_to": {
         "include": ["**"],
-        "exclude": []
+        "exclude": [
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts"
+        ]
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -497,7 +563,7 @@ write_config() {
     {
       "id": "web-e2e-test-utils-subpath-boundary",
       "level": "error",
-      "message": "Import @cartulary/test-utils through its semantic grid, accessibility, or visual subpaths.",
+      "message": "Import @cartulary/test-utils only through its semantic grid subpath.",
       "applies_to": {
         "include": ["apps/web/e2e/**"],
         "exclude": []
@@ -635,7 +701,6 @@ JSON
 {
   "name": "@cartulary/test-utils",
   "exports": {
-    ".": "./src/index.ts",
     "./grid": "./src/grid.ts"
   }
 }
@@ -938,6 +1003,50 @@ node_runtime_output="$(assert_fails "node builtin runtime error" run_checker "$n
 assert_contains "$node_runtime_output" "frontend-runtime-node-boundary" "node builtin runtime rule"
 assert_contains "$node_runtime_output" "node:path" "node builtin runtime specifier"
 
+test_utils_dependency_root="$(prepare_case_root test-utils-runtime-dependency)"
+cat >"$test_utils_dependency_root/packages/test-utils/src/grid.ts" <<'TS'
+import type { Page } from "@playwright/test";
+import path from "node:path";
+
+export const leaked = { path, page: undefined as Page | undefined };
+TS
+test_utils_dependency_output="$(assert_fails "test-utils runtime dependency error" run_checker "$test_utils_dependency_root")"
+assert_contains "$test_utils_dependency_output" "frontend-test-utils-runtime-dependency-boundary" "test-utils runtime dependency rule"
+assert_contains "$test_utils_dependency_output" "@playwright/test" "test-utils Playwright dependency specifier"
+assert_contains "$test_utils_dependency_output" "node:path" "test-utils Node dependency specifier"
+
+test_utils_cycle_root="$(prepare_case_root test-utils-cycle)"
+cat >"$test_utils_cycle_root/packages/test-utils/src/grid.ts" <<'TS'
+import { action } from "./grid-actions";
+
+export const grid = action;
+TS
+cat >"$test_utils_cycle_root/packages/test-utils/src/grid-actions.ts" <<'TS'
+import { grid } from "./grid";
+
+export const action = grid;
+TS
+test_utils_cycle_output="$(assert_fails "test-utils production cycle" run_checker "$test_utils_cycle_root")"
+assert_contains "$test_utils_cycle_output" "frontend-test-utils-production-acyclic-import-graph" "test-utils cycle rule"
+
+test_utils_observer_root="$(prepare_case_root test-utils-observer-direction)"
+cat >"$test_utils_observer_root/packages/test-utils/src/grid-actions.ts" <<'TS'
+export const mutateGrid = true;
+TS
+cat >"$test_utils_observer_root/packages/test-utils/src/grid-setup.ts" <<'TS'
+export const prepareGrid = true;
+TS
+cat >"$test_utils_observer_root/packages/test-utils/src/marker.ts" <<'TS'
+import { mutateGrid } from "./grid-actions";
+import { prepareGrid } from "./grid-setup";
+
+export const observer = { mutateGrid, prepareGrid };
+TS
+test_utils_observer_output="$(assert_fails "test-utils observer direction" run_checker "$test_utils_observer_root")"
+assert_contains "$test_utils_observer_output" "frontend-test-utils-observer-direction" "test-utils observer direction rule"
+assert_contains "$test_utils_observer_output" "./grid-actions" "test-utils observer action dependency"
+assert_contains "$test_utils_observer_output" "./grid-setup" "test-utils observer setup dependency"
+
 node_e2e_root="$(prepare_case_root node-e2e)"
 cat >"$node_e2e_root/apps/web/e2e/nodeHarness.ts" <<'TS'
 import path from "node:path";
@@ -1001,7 +1110,7 @@ done
 
 test_helper_allowed_root="$(prepare_case_root test-helper-allowed)"
 cat >"$test_helper_allowed_root/apps/web/src/runtimeHelperAllowed.test.tsx" <<'TS'
-import { helper } from "@cartulary/test-utils";
+import { helper } from "@cartulary/test-utils/grid";
 import { render } from "@testing-library/react";
 import { describe } from "vitest";
 
@@ -1034,6 +1143,24 @@ export const leaked = helper;
 TS
 e2e_root_test_utils_output="$(assert_fails "root E2E test-utils import" run_checker "$e2e_root_test_utils_root")"
 assert_contains "$e2e_root_test_utils_output" "web-e2e-test-utils-subpath-boundary" "root E2E test-utils rule"
+
+e2e_removed_test_utils_alias_root="$(prepare_case_root e2e-removed-test-utils-alias)"
+cat >"$e2e_removed_test_utils_alias_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { helper } from "@cartulary/test-utils/visual";
+
+export const leaked = helper;
+TS
+e2e_removed_test_utils_alias_output="$(assert_fails "removed E2E test-utils alias" run_checker "$e2e_removed_test_utils_alias_root")"
+assert_contains "$e2e_removed_test_utils_alias_output" "frontend-workspace-package-facade-boundary" "removed E2E test-utils alias rule"
+
+e2e_private_test_utils_path_root="$(prepare_case_root e2e-private-test-utils-path)"
+cat >"$e2e_private_test_utils_path_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import { helper } from "@cartulary/test-utils/browser";
+
+export const leaked = helper;
+TS
+e2e_private_test_utils_path_output="$(assert_fails "private E2E test-utils path" run_checker "$e2e_private_test_utils_path_root")"
+assert_contains "$e2e_private_test_utils_path_output" "frontend-workspace-package-facade-boundary" "private E2E test-utils path rule"
 
 e2e_app_registry_root="$(prepare_case_root e2e-app-registry)"
 mkdir -p "$e2e_app_registry_root/apps/web/src/workbook/models"

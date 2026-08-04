@@ -10,65 +10,22 @@ import {
   rowCellTestId,
   workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import * as accessibilityApi from "../accessibility";
 import * as gridApi from "../grid";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
-  assertGroupRowPresentationOnly,
   changeGrouping,
-  collapseGridGroup,
-  expandGridGroup,
+  pasteGridMatrix,
   removeFilterChip,
   sortByHeader,
 } from "../grid";
-import { pasteMatrixText } from "../matrix";
-import * as visualApi from "../visual";
-import { installGridTargetFixture, testTimelineViewSchemaId } from "./fixtures";
+import { testTimelineViewSchemaId } from "./browser-fixtures";
+import { installGridTargetFixture } from "./targeting-fixtures";
 
-export function registerSelectorGroupingSuite() {
+export function registerActionSuite() {
   describe("@cartulary/test-utils selector choreography", () => {
-    it("exposes exact public facade runtime shapes", () => {
-      expect(Object.keys(accessibilityApi).sort()).toEqual([
-        "assertGridFocusContinuity",
-        "assertMarkerAnchoredToGridTarget",
-      ]);
-      expect(Object.keys(gridApi).sort()).toEqual([
-        "applyFilterChip",
-        "assertActiveFilterChipVisible",
-        "assertGridFocusContinuity",
-        "assertGroupRowPresentationOnly",
-        "assertMarkerAnchoredToGridTarget",
-        "assertMountedGridRowCountAtMost",
-        "changeGrouping",
-        "collapseGridGroup",
-        "delay",
-        "expandGridGroup",
-        "gridAnchorCommandScenarios",
-        "isLocatorVisible",
-        "isTestIdVisibleWithinGridViewport",
-        "pasteGridMatrix",
-        "removeFilterChip",
-        "requireEvaluate",
-        "requireSelectOption",
-        "scrollGridCellIntoView",
-        "scrollGridTargetIntoView",
-        "scrollGridToBottom",
-        "scrollGridToOffset",
-        "sortByHeader",
-        "supportsVisibilityCheck",
-      ]);
-      expect(Object.keys(visualApi).sort()).toEqual([
-        "assertMarkerAnchoredToGridTarget",
-        "scrollGridCellIntoView",
-        "scrollGridTargetIntoView",
-        "scrollGridToBottom",
-        "scrollGridToOffset",
-      ]);
-    });
-
     it("returns row-cell anchors from the shared selector builder", async () => {
       const recordId = "record-1";
       const fieldKey = "timeline.activity_synopsis_text";
@@ -303,113 +260,58 @@ export function registerSelectorGroupingSuite() {
       );
     });
 
-    it("formats paste matrix text", () => {
-      expect(
-        pasteMatrixText([
+    it("formats paste matrix text", async () => {
+      class TestDataTransfer {
+        readonly #values = new Map<string, string>();
+
+        getData(type: string) {
+          return this.#values.get(type) ?? "";
+        }
+
+        setData(type: string, value: string) {
+          this.#values.set(type, value);
+        }
+      }
+      class TestClipboardEvent extends Event {
+        readonly clipboardData: TestDataTransfer;
+
+        constructor(
+          type: string,
+          options: EventInit & { clipboardData: TestDataTransfer },
+        ) {
+          super(type, options);
+          this.clipboardData = options.clipboardData;
+        }
+      }
+      vi.stubGlobal("DataTransfer", TestDataTransfer);
+      vi.stubGlobal("ClipboardEvent", TestClipboardEvent);
+
+      const fieldKey = "timeline.activity_synopsis_text";
+      const recordId = "record-1";
+      const targetTestId = rowCellTestId(recordId, fieldKey);
+      const { page, scrollIntoViewCalls, target } = installGridTargetFixture({
+        targetTestId,
+      });
+      let clipboardText = "";
+      target?.addEventListener("paste", (event) => {
+        clipboardText =
+          (event as ClipboardEvent).clipboardData?.getData("text/plain") ?? "";
+      });
+
+      await pasteGridMatrix({
+        fieldKey,
+        matrix: [
           ["a", "b"],
           ["c", "d"],
-        ]),
-      ).toBe("a\tb\nc\td");
-    });
-
-    it("toggles group outline expansion by aria state", async () => {
-      let ariaExpanded = "true";
-      let clickCount = 0;
-      const element = {
-        getAttribute(name: string) {
-          return name === "aria-expanded" ? ariaExpanded : null;
-        },
-      } as Element;
-      const page = {
-        getByTestId(value: string) {
-          expect(value).toBe("group-row");
-          return {
-            click: async () => {
-              clickCount += 1;
-              ariaExpanded = ariaExpanded === "true" ? "false" : "true";
-            },
-            evaluate: async (
-              pageFunction: (element: Element, arg?: unknown) => unknown,
-              arg?: unknown,
-            ) => pageFunction(element, arg),
-            fill: async () => undefined,
-          };
-        },
-      };
-
-      await collapseGridGroup({
-        groupTestId: "group-row",
+        ],
         page,
+        recordId,
         surface: testTimelineViewSchemaId,
       });
-      expect(ariaExpanded).toBe("false");
-      expect(clickCount).toBe(1);
 
-      await collapseGridGroup({
-        groupTestId: "group-row",
-        page,
-        surface: testTimelineViewSchemaId,
-      });
-      expect(clickCount).toBe(1);
-
-      await expandGridGroup({
-        groupTestId: "group-row",
-        page,
-        surface: testTimelineViewSchemaId,
-      });
-      expect(ariaExpanded).toBe("true");
-      expect(clickCount).toBe(2);
-    });
-
-    it("asserts group rows remain presentation-only", async () => {
-      const page = {
-        getByTestId(value: string) {
-          const element = Array.from(
-            document.querySelectorAll<HTMLElement>("[data-testid]"),
-          ).find((candidate) => candidate.dataset.testid === value);
-          if (element === undefined) {
-            throw new Error(`Missing test id ${value}`);
-          }
-          return {
-            click: async () => undefined,
-            evaluate: async (
-              pageFunction: (element: Element, arg?: unknown) => unknown,
-              arg?: unknown,
-            ) => pageFunction(element, arg),
-            fill: async () => undefined,
-          };
-        },
-      };
-
-      document.body.innerHTML = `
-        <div role="row" aria-level="1" aria-expanded="true">
-          <div role="gridcell">
-            <button aria-expanded="true" data-testid="group-row" type="button">reviewed</button>
-          </div>
-        </div>
-      `;
-      await expect(
-        assertGroupRowPresentationOnly({
-          groupTestId: "group-row",
-          page,
-          surface: testTimelineViewSchemaId,
-        }),
-      ).resolves.toBeUndefined();
-
-      document.body.innerHTML = `
-        <div role="row" aria-level="1" aria-expanded="true" data-grid-record-id="record-1">
-          <div role="gridcell">
-            <button aria-expanded="true" data-testid="group-row" type="button">reviewed</button>
-          </div>
-        </div>
-      `;
-      await expect(
-        assertGroupRowPresentationOnly({
-          groupTestId: "group-row",
-          page,
-          surface: testTimelineViewSchemaId,
-        }),
-      ).rejects.toThrow(/omit data-grid-record-id/);
+      expect(clipboardText).toBe("a\tb\nc\td");
+      expect(document.activeElement).toBe(target);
+      expect(scrollIntoViewCalls).toEqual([targetTestId]);
     });
   });
 }

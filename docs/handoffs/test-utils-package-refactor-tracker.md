@@ -529,3 +529,150 @@ Tracker completeness and implementation completion are distinct. Every
 | IA-007 | Guide describes exact package API and binary helper admission without inventing API. | S-07 guide diff and Markdown evidence recorded in Section 10. | DONE |
 | IA-008 | Required selection fails closed and value entry follows exactly one successful select-or-fill path. | S-08 negative ordering, branch, rejection, package, and five-stage live evidence recorded in Section 10. | DONE |
 | IA-009 | Final generated drift, scope, owner evidence, and broad verification are clean or truthfully blocked. | S-09 retained results and implementation handoff. | DONE |
+
+## 13. Iteration 2: Semantic Surface Hardening
+
+Sections 1 through 12 are the completed Iteration 1 record and MUST remain
+historical evidence. This section controls the authorized Iteration 2 execution.
+
+### 13.1 Source posture and decisions
+
+| Field | Iteration 2 value |
+| --- | --- |
+| Source fingerprint | Clean `main` at `12d57ef50bf7205c2572566dcfad20529f235e25` on 2026-08-04 |
+| Execution authority | The 2026-08-04 implementation request authorizes S-10 through S-15 in serial order |
+| Target state | Private, source-exported, version `0.0.0`; production-ready means a minimal enforceable internal contract, not a publishable artifact |
+| Package identity | Keep `@cartulary/test-utils`; keep no root export and add no rename or compatibility package |
+| Public subpaths | Remove `./accessibility` and `./visual` without shims; retain only `./grid` |
+| Public API posture | Expose semantic grid choreography only; browser, network, locator, page, diagnostic, and scenario types or primitives remain private |
+| Test posture | Preserve the sole discovered `index.test.ts` entry and all 40 exact active titles |
+| Exclusions | No product specification, domain, route, payload, authentication, persistence, dependency, lockfile, generated contract, or visual-golden change |
+
+The refreshed consumer scan found no `./accessibility` importer, one
+`./visual` importer, one external consumer of the low-level browser/network
+exports, and one consumer of `gridAnchorCommandScenarios`. The low-level
+consumer is saved-view-owned support, while the scenario consumer is a single
+Collaboration row. Neither creates continuing package-level compatibility
+value.
+
+### 13.2 Final public contract
+
+The only supported package specifier after S-13 is
+`@cartulary/test-utils/grid`. It has no public type exports and exactly these 17
+runtime exports:
+
+| Public runtime export | Responsibility |
+| --- | --- |
+| `applyFilterChip` | Apply one owner-backed grid filter through explicit field and value controls. |
+| `assertActiveFilterChipVisible` | Observe the active filter chip. |
+| `assertGridFocusContinuity` | Observe focus and viewport continuity. |
+| `assertGroupRowPresentationOnly` | Observe the owner-backed presentation-only group-row contract. |
+| `assertMarkerAnchoredToGridTarget` | Observe marker identity and geometry without mutation. |
+| `assertMountedGridRowCountAtMost` | Observe the mounted saved-row bound. |
+| `changeGrouping` | Select an owner-backed grouping field. |
+| `collapseGridGroup` | Collapse one semantic group row. |
+| `expandGridGroup` | Expand one semantic group row. |
+| `isTestIdVisibleWithinGridViewport` | Observe target visibility within the owned grid scrollport. |
+| `pasteGridMatrix` | Prepare one cell and dispatch exact TSV clipboard input. |
+| `removeFilterChip` | Remove one active filter chip. |
+| `scrollGridCellIntoView` | Prepare a record/field cell target. |
+| `scrollGridTargetIntoView` | Prepare a stable test-ID target. |
+| `scrollGridToBottom` | Scroll the owned grid scrollport to its bottom. |
+| `scrollGridToOffset` | Scroll the owned grid scrollport to a vertical offset. |
+| `sortByHeader` | Activate one owner-backed sort header. |
+
+Signatures, timeout defaults, geometry tolerances, selector ownership, error
+ordering, and Playwright-independent implementation remain unchanged except
+where the slices below explicitly remove unsupported API or redundant
+mechanics.
+
+### 13.3 Serial slice plan
+
+| Slice | Depends on | Remediation and ownership | Compatibility and migration | Risk if unresolved | Validation and exit criteria | Rollback posture |
+| --- | --- | --- | --- | --- | --- | --- |
+| S-10 | Tracker activation | Remove the duplicate `./accessibility` and `./visual` exports and facade files; migrate the sole visual importer to `./grid`; update guide and import-policy language plus exact facade characterization. Package, application E2E, guides, tests, and harness policy are in scope. | Intentional private-workspace API contraction. No accessibility consumer exists; the sole visual consumer migrates atomically. No shim or deprecation window. | Parallel import styles remain permanent compatibility burden and obscure the one cohesive package responsibility. | Zero alias imports; exact package facade, typecheck, frontend unit, import-boundary, architecture-policy, and Markdown gates pass. | Restore both aliases, facade files, consumer import, guide text, and policy wording together. |
+| S-11 | S-10 | Replace saved-view imports of test-utils browser/network primitives with private saved-view structural types and owner-local guards. Then remove page evaluation, request, response, and interception capabilities from test-utils structural types. | Saved-view helper behavior, fake-driven signatures, request/response matching, error ordering, and visibility behavior remain unchanged. | Route/payload-capable types keep leaking into a route-free grid package and invite further app-support coupling. | Exact saved-view support row, `module.savedviews`, typecheck, frontend unit, import-boundary, architecture-policy, and Markdown gates pass. | Restore the imported primitives and structural members as one change; no product or wire rollback. |
+| S-12 | S-11 | Move the Enter, Tab, blur, and single-cell-paste scenario table into its sole Collaboration consumer, typed with Playwright `Page` and `Locator`; remove the package scenario type/factory, unused `surface` parameter, and generic press/blur/dispatch guards. | Preserve scenario names, order, commands, and cataloged live behavior. Private fakes or deep imports receive no compatibility support. | A one-owner scenario and unused argument remain misleading reusable API and force unrelated capability members into the package. | Exact Collaboration service-backed row plus package, typecheck, boundary, architecture, and Markdown gates pass. | Restore scenario factory and consumer import atomically. |
+| S-13 | S-12 | Remove all low-level runtime and type exports from `./grid`; prune unused structural members; remove the redundant paste `scrollIntoViewIfNeeded`; inline exact TSV formatting into the paste action and delete `matrix.ts`; characterize clipboard bytes through the public action. | The 17 semantic helpers remain supported. Exact TSV, focus-with-`preventScroll`, paste event, scrolling, defaults, and errors remain stable. Unsupported primitive consumers have been migrated in S-11/S-12. | The public API remains broader than its semantic purpose and redundant mutation can hide setup defects. | Runtime shape is exactly 17 symbols with no public types; zero external primitive imports; package, affected owner, type, unit, boundary, architecture, and Markdown gates pass. | Restore facade exports, structural members, formatter module, and paste call together. |
+| S-14 | S-13 | Add negative compile evidence for root, removed aliases, private paths, and removed named exports; enforce the single subpath, Playwright/Node independence, acyclic runtime imports, and observer direction. Split registration and fixture support by facade, action, grouping, continuity, targeting, and marker seams while keeping one discovered entry. | No runtime or title compatibility impact. The same 40 titles remain assigned to the same row. Unsupported paths become explicitly enforced failures. | Accidental re-export or dependency reversal can silently recreate the removed legacy surface. Oversized test support will remain costly to extend. | All 40 titles resolve exactly once; generic dependency discovery handles every registration/fixture input; generation, JSON/drift/policy, package, type, frontend unit, script lint, import-boundary, architecture-policy, and Markdown gates pass. | Restore test modules and policy inputs together, then regenerate through Make. |
+| S-15 | S-14 | Reconcile titles, generated topology, scope, and retained results; run cumulative validation and append final handoff. | No new behavior. Any failure is assigned to its originating slice; no golden update may hide drift. | Locally green slices can leave stale catalogs, generated topology, or an incomplete handoff. | Every command in Section 13.6 passes or has a truthful related failure record; final scope and tracker are clean. | Roll back only the responsible slice in reverse dependency order. |
+
+### 13.4 Slice execution status
+
+| Slice | Status | Latest evidence | Next gate |
+| --- | --- | --- | --- |
+| S-10 | DONE | Only `./grid` remains; zero supported alias consumers and all package, frontend, boundary, architecture, script, and tracker gates pass. | S-11 |
+| S-11 | DONE | Saved-view support owns its structural browser/network seam; test-utils has no route, payload, request, response, or interception capability and all focused evidence passes. | S-12 |
+| S-12 | DONE | Collaboration owns its four exact command scenarios; the package scenario factory, unused argument, and generic command guards are removed and all focused/live evidence passes. | S-13 |
+| S-13 | DONE | `./grid` exposes exactly 17 semantic runtime helpers and no public types; paste uses one preparation path with exact TSV and residual primitive/formatter mechanics are removed. | S-14 |
+| S-14 | DONE | Unsupported entrypoints and low-level exports fail at compile time; production imports are acyclic and Playwright/Node-independent; observer direction is enforced; one entry still registers 40 unique titles through cohesive support modules. | S-15 |
+| S-15 | DONE | All generated, focused-owner, browser, lint, build, broad-check, scope, and handoff gates pass; no forbidden migration or golden drift occurred. | Iteration complete |
+
+After each slice, this tracker MUST record files changed, behavior,
+compatibility, commands, result roots, failures, and rollback posture. The
+slice and corresponding task/acceptance rows become `DONE` or truthfully
+`BLOCKED`, and `make lint-markdown` MUST pass before the next slice begins.
+
+### 13.5 Iteration 2 task and acceptance tracker
+
+| ID | Work item | Status | Depends on | Exit condition |
+| --- | --- | --- | --- | --- |
+| T-016 | Remove duplicate public subpaths and migrate all consumers | DONE | S-09 | S-10 exit criteria pass. |
+| T-017 | Return saved-view browser/network support to its owner | DONE | T-016 | S-11 exit criteria pass. |
+| T-018 | Return Collaboration command scenarios to their owner | DONE | T-017 | S-12 exit criteria pass. |
+| T-019 | Contract the semantic grid facade and remove residual mechanics | DONE | T-018 | S-13 exit criteria pass. |
+| T-020 | Enforce architectural boundaries and split characterization support | DONE | T-019 | S-14 exit criteria pass. |
+| T-021 | Run cumulative validation and complete the handoff | DONE | T-020 | S-15 exit criteria and final tracker validation pass. |
+
+| Acceptance ID | Binary criterion | Current state |
+| --- | --- | --- |
+| IA-010 | Only `./grid` remains and every alias consumer, guide, test, and policy reference is migrated without a shim. | DONE |
+| IA-011 | Saved-view behavior owns its browser/network structural support and test-utils is route/payload incapable. | DONE |
+| IA-012 | Collaboration owns its command scenarios and test-utils has no unused command capability layer. | DONE |
+| IA-013 | `./grid` exposes exactly 17 semantic runtime helpers, no public types, and paste uses one preparation path with exact TSV. | DONE |
+| IA-014 | Negative entrypoint, acyclic graph, Playwright/Node independence, observer direction, one-entry discovery, and 40-title accounting all pass. | DONE |
+| IA-015 | Generated, focused-owner, browser, build, broad check, scope, and final tracker evidence pass. | DONE |
+
+### 13.6 Validation and handoff requirements
+
+The narrow gates named by each slice precede broader validation. S-15 runs:
+
+- `make agent-finalize`
+- `make generate`
+- `make json-shape-check`
+- `make generate-drift`
+- `make generated-artifact-policy-check`
+- `make frontend-typecheck`
+- `make frontend-unit`
+- `make frontend-import-boundary-check`
+- `make test-slice OWNER=package.test_utils`
+- `make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.savedviews_suite_79e8036a1a,harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131`
+- `make service-backed-test-slice OWNER=module.collaboration ROWS=module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d`
+- focused `module.savedviews` evidence selected from the active owner catalog
+- `make browser-e2e`
+- `make browser-e2e-webserver-backed`
+- `make browser-e2e-stateful`
+- `make browser-e2e-a11y`
+- `make browser-e2e-visual`
+- `make lint-biome`
+- `make lint-scripts`
+- `make build-web`
+- `make check`
+- `make lint-markdown`
+
+Measurement is excluded because no measurement consumer behavior or Core 05
+claim changes. Generated files are changed only through Make. `make
+agent-finalize` receives `RESULTS_DIR` only when a successful full warm-check
+root exists; otherwise the retained-run maintenance skip is recorded.
+
+### 13.7 Iteration 2 handoff log
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Compatibility and rollback | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-04T17:24:28-04:00 | Codex / Iteration 2 activation | S-10 through S-15 are authorized serial workstreams; private-package, immediate alias removal, and semantic-only facade decisions are closed. | Refreshed package, consumers, guides, policies, owner catalogs, completed tracker history, branch, commit, and worktree; touched only this tracker. | `git status`; `git branch --show-current`; `git rev-parse HEAD`; repository `rg`/source inspection; owner explanations; `make lint-markdown` | Source is clean `main` at `12d57ef50bf7205c2572566dcfad20529f235e25`; live consumer counts and exact owner rows are recorded above; tracker activation passes at `.cartulary/test-results/20260804T212611Z-p3608106`. | No compatibility action yet. Remove no alias or primitive until its named slice migrates supported consumers. Roll back this activation by removing Section 13 only. | Validate the evidence-bearing tracker update, then begin S-10. |
+| 2026-08-04T17:29:46-04:00 | Codex / S-10 duplicate-alias removal | `@cartulary/test-utils` now exposes only `./grid`; the zero-consumer accessibility alias and one-consumer visual alias are deleted without shims. | Changed the package export map, deleted both facade files, migrated the visual consumer, narrowed both guides, updated facade characterization, import-policy wording/fixture, and architecture-policy alias rejection. | Zero-consumer `rg` scans; `make format`; `make test-slice OWNER=package.test_utils`; `make frontend-typecheck`; `make frontend-unit`; `make frontend-import-boundary-check`; exact architecture-policy slice; `make lint-scripts`; `git diff --check` | Format `.cartulary/test-results/20260804T212743Z-p3611754`, package `.cartulary/test-results/20260804T212754Z-p3615089`, typecheck `.cartulary/test-results/20260804T212754Z-p3615331`, 359-unit `.cartulary/test-results/20260804T212754Z-p3615379`, import `.cartulary/test-results/20260804T212754Z-p3615414`, architecture `.cartulary/test-results/20260804T212754Z-p3615208`, and script-lint `.cartulary/test-results/20260804T212754Z-p3615537` pass with no failures. | The sole supported visual importer now uses the identical `./grid` export; accessibility had no importer. Removed aliases intentionally fail and receive no compatibility shim. Rollback restores the two facade files, export-map entries, consumer import, guide text, facade test, and policy wording together. | Pass tracker Markdown validation, then begin S-11. |
+| 2026-08-04T17:35:07-04:00 | Codex / S-11 saved-view ownership restoration | Saved-view support now defines its private locator, page, request, response, visibility, evaluation, selection, and retry capabilities; test-utils retains only grid-required page capabilities. | Changed `apps/web/e2e/support/workbook/savedViews.ts`, `packages/test-utils/src/browser.ts`, `packages/test-utils/src/grid.ts`, and this tracker. | Route/network `rg` scans; `make format`; package slice; exact saved-view support row; focused `module.savedviews`; `make frontend-typecheck`; `make frontend-unit`; `make frontend-import-boundary-check`; exact architecture-policy slice; `git diff --check` | Format `.cartulary/test-results/20260804T213242Z-p3657922`, package `.cartulary/test-results/20260804T213251Z-p3661240`, saved-view support `.cartulary/test-results/20260804T213251Z-p3661210`, 34-unit saved-view owner `.cartulary/test-results/20260804T213251Z-p3661262`, typecheck `.cartulary/test-results/20260804T213251Z-p3661562`, 359-unit `.cartulary/test-results/20260804T213251Z-p3661611`, import `.cartulary/test-results/20260804T213251Z-p3661661`, and architecture `.cartulary/test-results/20260804T213251Z-p3661433` pass with no failures. | Runtime behavior, fake-driven signatures, route matching, request/response envelopes, visibility behavior, and failure ordering are unchanged. Compatibility is internal ownership only. Rollback restores the test-utils types/imports and removes the owner-local seam atomically. | Pass tracker Markdown validation, then begin S-12. |
+| 2026-08-04T17:39:05-04:00 | Codex / S-12 Collaboration scenario ownership | The sole Collaboration consumer now owns the ordered Enter, Tab, blur, and single-cell-paste scenario table through native Playwright types; test-utils no longer exposes the scenario factory or generic command guards. | Changed the Collaboration spec, package actions/browser/facade modules, facade-shape characterization, and this tracker. | Zero-consumer `rg` scans; `make format`; package slice; `make frontend-typecheck`; `make frontend-unit`; `make frontend-import-boundary-check`; exact architecture-policy row; exact Collaboration service-backed row; `git diff --check` | Final format `.cartulary/test-results/20260804T213847Z-p3797701`, typecheck `.cartulary/test-results/20260804T213851Z-p3800721`, package `.cartulary/test-results/20260804T213634Z-p3734977`, 359-unit `.cartulary/test-results/20260804T213634Z-p3735253`, import `.cartulary/test-results/20260804T213634Z-p3735299`, architecture `.cartulary/test-results/20260804T213634Z-p3735104`, and 12-unit Collaboration `.cartulary/test-results/20260804T213634Z-p3735158` pass. The first typecheck at `.cartulary/test-results/20260804T213634Z-p3735217` failed on one related unused type import; removing it produced the passing rerun. | Scenario names, order, commands, and live catalog title are unchanged. The removed package scenario had one consumer and receives no compatibility shim. Rollback restores the factory, command guards, facade exports, and consumer call together. | Pass tracker Markdown validation, then begin S-13. |
+| 2026-08-04T17:46:08-04:00 | Codex / S-13 semantic facade contraction | The sole facade now has exactly 17 semantic runtime exports and no public types. Grid paste performs one target-preparation path, focuses with `preventScroll`, and dispatches exact TSV; the redundant locator scroll and standalone formatter module are removed. | Changed the grid facade, browser structural type, paste action, package characterization/fixture, both guides, deleted `matrix.ts`, and updated this tracker. | Exact facade and zero-consumer scans; `make format`; package slice; `make frontend-typecheck`; `make frontend-unit`; `make frontend-import-boundary-check`; exact architecture-policy row; `make browser-e2e`; `make browser-e2e-a11y`; `git diff --check` | Final format `.cartulary/test-results/20260804T214543Z-p3905559`, typecheck `.cartulary/test-results/20260804T214547Z-p3908581`, package `.cartulary/test-results/20260804T214557Z-p3908986`, 359-unit `.cartulary/test-results/20260804T214109Z-p3807450`, import `.cartulary/test-results/20260804T214109Z-p3807475`, architecture `.cartulary/test-results/20260804T214109Z-p3807271`, functional 53/53 `.cartulary/test-results/20260804T214109Z-p3807606`, and a11y 14/14 `.cartulary/test-results/20260804T214110Z-p3807937` pass. The first typecheck at `.cartulary/test-results/20260804T214109Z-p3807522` rejected an overly narrow test-event cast; using the DOM `ClipboardEvent` contract produced the passing rerun. A direct Node source import was inapplicable because repository TypeScript modules use bundler resolution; the authoritative facade-shape package test passed. | Semantic helper signatures, defaults, errors, selectors, TSV bytes, focus, paste event, and grid behavior remain stable. Removed primitives had zero consumers after S-11/S-12 and receive no shim. Rollback restores the facade exports, structural member, formatter module, redundant call, characterization, and guide wording together. | Pass tracker Markdown validation, then begin S-14. |
+| 2026-08-04T17:56:42-04:00 | Codex / S-14 architectural hardening | Unsupported root, removed aliases, a private deep path, and removed `delay` export now have compile-only negative evidence. Import policy enforces the sole declared subpath, an acyclic production graph, Playwright/Node independence, and observer-to-action/setup prohibition. One discovered entry registers the same 40 unique titles through facade, action, grouping, continuity, targeting, and marker-oriented modules. | Added the unsupported-entrypoint fixture; split the selector/grouping registration and shared fixture into cohesive package test-support modules; changed the sole test entry, import-boundary registry, static-analysis self-test, and this tracker; deleted the two superseded test-support files. No generated output changed. | `make format`; `make test-slice OWNER=package.test_utils`; `make frontend-typecheck`; `make frontend-import-boundary-check`; `make lint-scripts`; `make generate`; `make json-shape-check`; `make generate-drift`; `make generated-artifact-policy-check`; `make frontend-unit`; exact architecture-policy row; owner/title/entrypoint and forbidden-import scans; `git diff --check`; `make lint-markdown` | Format `.cartulary/test-results/20260804T215336Z-p3913413`, package `.cartulary/test-results/20260804T215343Z-p3916639`, typecheck `.cartulary/test-results/20260804T215343Z-p3916758`, import policy `.cartulary/test-results/20260804T215343Z-p3916789`, script lint `.cartulary/test-results/20260804T215343Z-p3916838`, generation `.cartulary/test-results/20260804T215358Z-p3918151`, JSON `.cartulary/test-results/20260804T215410Z-p3920557`, drift `.cartulary/test-results/20260804T215410Z-p3920522`, generated policy `.cartulary/test-results/20260804T215410Z-p3920561`, 359-unit `.cartulary/test-results/20260804T215410Z-p3920916`, architecture `.cartulary/test-results/20260804T215410Z-p3920717`, and tracker Markdown `.cartulary/test-results/20260804T215714Z-p3963338` pass. The active package row contains 40 titles and 40 unique values; exactly one discovered test entry remains. No failures occurred. | Runtime exports and behavior are unchanged. Unsupported surfaces intentionally remain compile errors. Rollback restores the two consolidated support files and removes the negative fixture and three policy rules/self-tests together; regenerate only through Make. | Begin cumulative S-15 validation. |
+| 2026-08-04T18:09:26-04:00 | Codex / S-15 cumulative validation and final handoff | Iteration 2 is complete. The private package has one semantic `./grid` facade with 17 runtime helpers, no public low-level types, compile-enforced unsupported surfaces, owner-local saved-view and Collaboration support, a directional acyclic implementation graph, cohesive characterization support, one discovered entry, and 40 uniquely owned titles. | Revalidated every authored/generated change from S-10 through S-14, added one lint-only use of the negative `delay` import, updated this tracker, and audited the final status. Changed scope is limited to test-utils, its two owner consumers, browser architecture/visual imports, two implementation guides, the import-boundary registry/self-test, and this handoff. | `make agent-finalize`; generation/JSON/drift/generated policy; frontend typecheck/unit/import policy; package, saved-view, Collaboration, and architecture focused rows; `make lint-biome`; `make lint-scripts`; `make build-web`; functional, webserver-backed, stateful, accessibility, and visual browser gates; `make check`; title/import/status/scope scans; `git diff --check`; `make lint-markdown` | Finalizer `.cartulary/test-results/20260804T215807Z-p3966621`, generation `.cartulary/test-results/20260804T215820Z-p3969123`, JSON `.cartulary/test-results/20260804T215837Z-p3971532`, drift `.cartulary/test-results/20260804T215837Z-p3971492`, generated policy `.cartulary/test-results/20260804T215837Z-p3971791`, unit `.cartulary/test-results/20260804T215838Z-p3972437`, harness rows `.cartulary/test-results/20260804T215838Z-p3972218`, saved views `.cartulary/test-results/20260804T215838Z-p3972324`, Collaboration `.cartulary/test-results/20260804T215838Z-p3972409`, script lint `.cartulary/test-results/20260804T215838Z-p3972726`, final typecheck `.cartulary/test-results/20260804T215958Z-p4035613`, import policy `.cartulary/test-results/20260804T215958Z-p4035622`, package `.cartulary/test-results/20260804T215957Z-p4035476`, Biome `.cartulary/test-results/20260804T215958Z-p4035685`, serial build `.cartulary/test-results/20260804T220012Z-p4037229`, functional `.cartulary/test-results/20260804T220033Z-p4042102`, webserver-backed `.cartulary/test-results/20260804T220033Z-p4042123`, stateful `.cartulary/test-results/20260804T220033Z-p4042153`, accessibility `.cartulary/test-results/20260804T220033Z-p4042399`, visual `.cartulary/test-results/20260804T220033Z-p4042223`, 714-unit check `.cartulary/test-results/20260804T220426Z-p5199`, and final tracker Markdown `.cartulary/test-results/20260804T221017Z-p163552` pass. Initial Biome `.cartulary/test-results/20260804T215838Z-p3973121` found the intentionally unresolved named import unused; `void delay` preserves the negative compile check and cleared the warning. A concurrent build `.cartulary/test-results/20260804T215838Z-p3973627` reported pass but emitted transient missing checksum inputs, so it was discarded in favor of the clean serial build. | No helper signature, timeout, tolerance, selector, route, payload, authentication, persistence, dependency, lockfile, product specification, domain, generated contract, or golden changed. Alias and primitive removals intentionally have no shim. Roll back in reverse slice order; S-14 policy/tests and S-13 facade contraction must remain paired. | Iteration 2 is complete; no implementation work remains. |

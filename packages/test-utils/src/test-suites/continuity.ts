@@ -5,10 +5,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { assertGridFocusContinuity } from "../grid";
-import {
-  installGridContinuityFixture,
-  testTimelineViewSchemaId,
-} from "./fixtures";
+import { testTimelineViewSchemaId } from "./browser-fixtures";
+import { installGridContinuityFixture } from "./continuity-fixtures";
 
 export function registerContinuitySuite() {
   describe("@cartulary/test-utils grid continuity", () => {

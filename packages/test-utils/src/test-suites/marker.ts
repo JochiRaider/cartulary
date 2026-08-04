@@ -2,10 +2,8 @@ import { gridRowGutterTestId, gridShellTestId } from "@cartulary/ui-contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { assertMarkerAnchoredToGridTarget } from "../grid";
-import {
-  installMarkerAnchorFixture,
-  testTimelineViewSchemaId,
-} from "./fixtures";
+import { testTimelineViewSchemaId } from "./browser-fixtures";
+import { installMarkerAnchorFixture } from "./marker-fixtures";
 
 export function registerMarkerSuite() {
   describe("@cartulary/test-utils marker anchoring", () => {

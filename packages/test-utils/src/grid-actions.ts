@@ -4,65 +4,21 @@ import {
   gridFilterFieldTestId,
   gridFilterValueTestId,
   gridGroupingSelectTestId,
-  gridShellTestId,
   gridSortHeaderTestId,
   rowCellTestId,
   workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 
 import {
-  type BrowserLocator,
   type BrowserPageLike,
   isLocatorVisible,
-  requireBlur,
-  requireDispatchEvent,
   requireEvaluate,
-  requirePress,
   requireSelectOption,
 } from "./browser";
 import { scrollGridCellIntoView, scrollGridTargetIntoView } from "./grid-setup";
-import { pasteMatrixText } from "./matrix";
 
-export type GridAnchorCommandScenario = {
-  commit: (context: {
-    input: BrowserLocator;
-    page: BrowserPageLike;
-    surface: string;
-  }) => Promise<void>;
-  name: string;
-};
-
-export function gridAnchorCommandScenarios(
-  surface: string,
-): readonly GridAnchorCommandScenario[] {
-  void surface;
-  return [
-    {
-      commit: async ({ input }) => {
-        await requirePress(input, "Enter");
-      },
-      name: "enter",
-    },
-    {
-      commit: async ({ input }) => {
-        await requirePress(input, "Tab");
-      },
-      name: "tab",
-    },
-    {
-      commit: async ({ input, page, surface }) => {
-        await requireBlur(input);
-        await page.getByTestId(gridShellTestId(surface)).click();
-      },
-      name: "blur",
-    },
-    {
-      commit: async ({ input }) => {
-        await requireDispatchEvent(input, "paste");
-      },
-      name: "single-cell-paste",
-    },
-  ];
+function formatGridPasteMatrix(matrix: readonly (readonly string[])[]) {
+  return matrix.map((row) => row.join("\t")).join("\n");
 }
 
 export async function assertActiveFilterChipVisible(
@@ -94,7 +50,6 @@ export async function pasteGridMatrix(options: {
   const cell = options.page.getByTestId(
     rowCellTestId(options.recordId, options.fieldKey),
   );
-  await cell.scrollIntoViewIfNeeded?.();
   const evaluate = requireEvaluate(
     cell,
     `pasteGridMatrix(${options.surface}) requires locator.evaluate() support`,
@@ -114,7 +69,7 @@ export async function pasteGridMatrix(options: {
         clipboardData: data,
       }),
     );
-  }, pasteMatrixText(options.matrix));
+  }, formatGridPasteMatrix(options.matrix));
 }
 
 export async function sortByHeader(

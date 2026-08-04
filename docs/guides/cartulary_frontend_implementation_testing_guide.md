@@ -209,12 +209,12 @@ Grid evidence uses the following ownership split:
 | DOM bounds or timing measurements | The measurement class only; results remain informative unless Core 05 separately authorizes publication. |
 
 `@cartulary/test-utils` is implementation support, not behavioral authority.
-It has no root export; its exact supported subpaths are `./grid` for structural
-browser capabilities and reusable grid choreography, `./accessibility` for the
-focus-continuity and marker-anchor observers, and `./visual` for grid setup plus
-the marker-anchor observer. Product keyboard, accessible-name, ARIA, contrast,
-and state assertions remain direct owner evidence unless every condition below
-is proven.
+It has no root export; its only supported subpath is `./grid` for semantic,
+reusable grid choreography, including the admitted focus-continuity and
+marker-anchor observers. Browser capability primitives and structural types
+remain private. Product keyboard,
+accessible-name, ARIA, contrast, and state assertions remain direct owner
+evidence unless every condition below is proven.
 
 | Shared-helper admission condition | Required binary evidence |
 | --- | --- |
@@ -223,7 +223,7 @@ is proven.
 | The helper is route-free and payload-neutral. | Pass route/payload architecture-policy and import-boundary scans. |
 | No controller, app registry, authentication state, control token, or vendor import enters the package. | Pass the package import-boundary evidence with no exception. |
 | Required browser capabilities and omission behavior are explicit. | Define the structural capabilities and pass negative missing-capability tests. |
-| Public placement is authorized. | Name one of the three exact supported subpaths and verify the package export map. |
+| Public placement is authorized. | Name the exact `./grid` subpath and verify the package export map. |
 | Package semantics are characterized. | Pass exact facade-shape and focused `package.test_utils` evidence. |
 | Product behavior remains live-owner evidence. | Retain an active product or adapter row assigned to its behavioral owner. |
 

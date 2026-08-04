@@ -1,15 +1,5 @@
 import type { SheetRef } from "@cartulary/protocol-ts/http";
 import {
-  type BrowserNetworkRequestLike,
-  type BrowserNetworkResponseLike,
-  type BrowserPageLike,
-  delay,
-  isLocatorVisible,
-  requireEvaluate,
-  requireSelectOption,
-  supportsVisibilityCheck,
-} from "@cartulary/test-utils/grid";
-import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
   savedViewCreateButtonTestId,
@@ -29,6 +19,100 @@ import { csrfHeaders } from "../auth/browserSession";
 import { apiBase } from "../runtime/configuration";
 import { atJsonOrigin, requestPublicJson } from "../transport/publicJsonClient";
 import { createEnvironmentTestControlClient } from "../transport/testControlEnvironment";
+
+type SavedViewLocatorLike = {
+  click: () => Promise<void>;
+  evaluate?: (
+    pageFunction: (element: Element, arg?: unknown) => unknown,
+    arg?: unknown,
+  ) => Promise<unknown>;
+  fill: (value: string) => Promise<void>;
+  isVisible?: () => Promise<boolean>;
+  selectOption?: (value: string | readonly string[]) => Promise<unknown>;
+};
+
+type SavedViewNetworkRequestLike = {
+  method: () => string;
+  postData?: () => string | null;
+  postDataJSON?: () => unknown;
+  url: () => string;
+};
+
+type SavedViewNetworkResponseLike = {
+  json?: () => Promise<unknown>;
+  ok: () => boolean;
+  request: () => SavedViewNetworkRequestLike;
+  status?: () => number;
+  url: () => string;
+};
+
+type SavedViewPageLike = {
+  getByTestId: (value: string) => SavedViewLocatorLike;
+  waitForRequest?: (
+    predicate: (request: SavedViewNetworkRequestLike) => boolean,
+  ) => Promise<SavedViewNetworkRequestLike>;
+  waitForResponse?: (
+    predicate: (response: SavedViewNetworkResponseLike) => boolean,
+  ) => Promise<SavedViewNetworkResponseLike>;
+};
+
+type SavedViewEvaluate = NonNullable<SavedViewLocatorLike["evaluate"]>;
+
+function requireSavedViewEvaluate(
+  locator: SavedViewLocatorLike,
+  message: string,
+): SavedViewEvaluate {
+  if (typeof locator.evaluate !== "function") {
+    throw new Error(message);
+  }
+  return (pageFunction, arg) =>
+    locator.evaluate?.(pageFunction, arg) as Promise<unknown>;
+}
+
+function requireSavedViewSelectOption(
+  locator: SavedViewLocatorLike,
+  message: string,
+): NonNullable<SavedViewLocatorLike["selectOption"]> {
+  if (typeof locator.selectOption !== "function") {
+    throw new Error(message);
+  }
+  return (value) => locator.selectOption?.(value) as Promise<unknown>;
+}
+
+async function isSavedViewLocatorVisible(locator: SavedViewLocatorLike) {
+  if (typeof locator.isVisible === "function") {
+    return locator.isVisible();
+  }
+  try {
+    const evaluate = requireSavedViewEvaluate(
+      locator,
+      "isSavedViewLocatorVisible requires locator.evaluate() support",
+    );
+    return Boolean(
+      await evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return (
+          element.isConnected &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          getComputedStyle(element).visibility !== "hidden"
+        );
+      }),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function supportsSavedViewVisibilityCheck(locator: SavedViewLocatorLike) {
+  return typeof locator.isVisible === "function";
+}
+
+function waitForSavedViewRetry(durationMs: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
 
 export type SavedViewApiResource = {
   saved_view_id: string;
@@ -106,12 +190,12 @@ export type SavedViewPreferenceActionResult = {
 };
 
 export async function selectSavedView(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   savedViewId: string,
 ) {
   const selector = page.getByTestId(savedViewSelectorTestId(surface));
-  const selectOption = requireSelectOption(
+  const selectOption = requireSavedViewSelectOption(
     selector,
     `selectSavedView(${surface}) requires locator.selectOption() support`,
   );
@@ -119,11 +203,11 @@ export async function selectSavedView(
 }
 
 export async function readSavedViewSelectionState(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ): Promise<SavedViewSelectionState> {
   const selector = page.getByTestId(savedViewSelectorTestId(surface));
-  const evaluate = requireEvaluate(
+  const evaluate = requireSavedViewEvaluate(
     selector,
     `readSavedViewSelectionState(${surface}) requires locator.evaluate() support`,
   );
@@ -135,26 +219,26 @@ export async function readSavedViewSelectionState(
 }
 
 export async function openSavedViewActionMenu(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ) {
   const menu = page.getByTestId(savedViewActionMenuTestId(surface));
-  const canVerifyVisibility = supportsVisibilityCheck(menu);
+  const canVerifyVisibility = supportsSavedViewVisibilityCheck(menu);
   if (canVerifyVisibility) {
-    if (await isLocatorVisible(menu)) {
+    if (await isSavedViewLocatorVisible(menu)) {
       return;
     }
   }
   await page.getByTestId(savedViewActionMenuTriggerTestId(surface)).click();
   if (canVerifyVisibility) {
-    if (!(await isLocatorVisible(menu))) {
+    if (!(await isSavedViewLocatorVisible(menu))) {
       throw new Error(`Saved-view action menu for ${surface} did not open`);
     }
   }
 }
 
 export async function setSavedViewDraftName(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   displayName: string,
 ) {
@@ -163,13 +247,13 @@ export async function setSavedViewDraftName(
 }
 
 export async function selectSavedViewScope(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   scope: "private" | "shared",
 ) {
   await openSavedViewActionMenu(page, surface);
   const scopeSelect = page.getByTestId(savedViewScopeSelectTestId(surface));
-  const selectOption = requireSelectOption(
+  const selectOption = requireSavedViewSelectOption(
     scopeSelect,
     `selectSavedViewScope(${surface}) requires locator.selectOption() support`,
   );
@@ -177,7 +261,7 @@ export async function selectSavedViewScope(
 }
 
 export async function createSavedViewFromCurrentSurface(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -188,7 +272,7 @@ export async function createSavedViewFromCurrentSurface(
 }
 
 export async function updateSavedViewFromCurrentSurface(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   savedViewId: string,
 ) {
@@ -200,7 +284,7 @@ export async function updateSavedViewFromCurrentSurface(
 }
 
 export async function duplicateSavedViewFromCurrentSurface(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   savedViewId: string,
 ) {
@@ -212,7 +296,7 @@ export async function duplicateSavedViewFromCurrentSurface(
 }
 
 export async function deleteSavedViewFromCurrentSurface(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   savedViewId: string,
 ) {
@@ -224,7 +308,7 @@ export async function deleteSavedViewFromCurrentSurface(
 }
 
 export async function setCurrentSavedViewAsHome(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -235,7 +319,7 @@ export async function setCurrentSavedViewAsHome(
 }
 
 export async function setCurrentSavedViewAsHomeAndWait(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   options: {
     expectedSheetRef: SheetRef;
@@ -252,7 +336,7 @@ export async function setCurrentSavedViewAsHomeAndWait(
 }
 
 export async function setCurrentSavedViewAsDefault(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ) {
   await clickSavedViewMenuActionAndWaitForClose(
@@ -263,7 +347,7 @@ export async function setCurrentSavedViewAsDefault(
 }
 
 export async function setCurrentSavedViewAsDefaultAndWait(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   options: {
     expectedSheetRef: SheetRef;
@@ -280,7 +364,7 @@ export async function setCurrentSavedViewAsDefaultAndWait(
 }
 
 async function clickSavedViewMenuActionAndWaitForClose(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   actionTestId: string,
 ) {
@@ -290,25 +374,25 @@ async function clickSavedViewMenuActionAndWaitForClose(
 }
 
 async function waitForSavedViewActionMenuClose(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
 ) {
   const menu = page.getByTestId(savedViewActionMenuTestId(surface));
-  if (!supportsVisibilityCheck(menu)) {
+  if (!supportsSavedViewVisibilityCheck(menu)) {
     return;
   }
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
-    if (!(await isLocatorVisible(menu))) {
+    if (!(await isSavedViewLocatorVisible(menu))) {
       return;
     }
-    await delay(50);
+    await waitForSavedViewRetry(50);
   }
   throw new Error(`Saved-view action menu for ${surface} did not close`);
 }
 
 async function setCurrentSavedViewPreferenceAndWait(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   surface: string,
   options: {
     buttonTestId: string;
@@ -367,29 +451,29 @@ async function setCurrentSavedViewPreferenceAndWait(
 }
 
 function requireWaitForRequest(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   message: string,
-): NonNullable<BrowserPageLike["waitForRequest"]> {
+): NonNullable<SavedViewPageLike["waitForRequest"]> {
   if (typeof page.waitForRequest !== "function") {
     throw new Error(message);
   }
   return (predicate) =>
-    page.waitForRequest?.(predicate) as Promise<BrowserNetworkRequestLike>;
+    page.waitForRequest?.(predicate) as Promise<SavedViewNetworkRequestLike>;
 }
 
 function requireWaitForResponse(
-  page: BrowserPageLike,
+  page: SavedViewPageLike,
   message: string,
-): NonNullable<BrowserPageLike["waitForResponse"]> {
+): NonNullable<SavedViewPageLike["waitForResponse"]> {
   if (typeof page.waitForResponse !== "function") {
     throw new Error(message);
   }
   return (predicate) =>
-    page.waitForResponse?.(predicate) as Promise<BrowserNetworkResponseLike>;
+    page.waitForResponse?.(predicate) as Promise<SavedViewNetworkResponseLike>;
 }
 
 function readRequestJSON(
-  request: BrowserNetworkRequestLike,
+  request: SavedViewNetworkRequestLike,
   field: string,
 ): Record<string, unknown> {
   if (request.postDataJSON !== undefined) {
@@ -407,7 +491,7 @@ function readRequestJSON(
 }
 
 async function readResponseJSON(
-  response: BrowserNetworkResponseLike,
+  response: SavedViewNetworkResponseLike,
   field: string,
 ) {
   if (response.json === undefined) {

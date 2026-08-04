@@ -7,9 +7,7 @@
     "@cartulary/ui-contracts": "workspace:*"
   },
   "exports": {
-    "./accessibility": "./src/accessibility.ts",
-    "./grid": "./src/grid.ts",
-    "./visual": "./src/visual.ts"
+    "./grid": "./src/grid.ts"
   },
   "devDependencies": {
     "vitest": "4.1.4"

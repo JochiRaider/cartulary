@@ -45,6 +45,21 @@
           "apps/web/src/testing/**"
         ]
       }
+    },
+    {
+      "id": "frontend-test-utils-production-acyclic-import-graph",
+      "level": "error",
+      "message": "Production test-utils imports, type imports, re-exports, and dynamic imports must form an enumerable acyclic graph.",
+      "applies_to": {
+        "include": [
+          "packages/test-utils/src/**"
+        ],
+        "exclude": [
+          "packages/test-utils/src/*.test.ts",
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts",
+          "packages/test-utils/src/test-suites/**"
+        ]
+      }
     }
   ],
   "singleton_imports": [
@@ -951,13 +966,65 @@
       ]
     },
     {
+      "id": "frontend-test-utils-runtime-dependency-boundary",
+      "level": "error",
+      "message": "Production test-utils code must remain Playwright- and Node-independent.",
+      "applies_to": {
+        "include": [
+          "packages/test-utils/src/**"
+        ],
+        "exclude": [
+          "packages/test-utils/src/*.test.ts",
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts",
+          "packages/test-utils/src/test-suites/**"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "package",
+          "name": "@playwright/test",
+          "include_subpaths": true
+        },
+        {
+          "kind": "node_builtin",
+          "names": ["*"]
+        }
+      ]
+    },
+    {
+      "id": "frontend-test-utils-observer-direction",
+      "level": "error",
+      "message": "Test-utils observers must not depend on setup or action modules.",
+      "applies_to": {
+        "include": [
+          "packages/test-utils/src/focus.ts",
+          "packages/test-utils/src/grid-observers.ts",
+          "packages/test-utils/src/marker.ts"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/test-utils/src/grid-actions"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/test-utils/src/grid-setup"
+        }
+      ]
+    },
+    {
       "id": "frontend-workspace-package-facade-boundary",
       "level": "error",
       "message": "Import workspace packages only through package names and declared package.json exports.",
       "applies_to": {
         "include": ["**"],
         "exclude": [
-          "packages/protocol-ts/src/unsupported-entrypoints.compile.ts"
+          "packages/protocol-ts/src/unsupported-entrypoints.compile.ts",
+          "packages/test-utils/src/unsupported-entrypoints.compile.ts"
         ]
       },
       "allowed_importers": [],
@@ -1089,7 +1156,7 @@
     {
       "id": "web-e2e-test-utils-subpath-boundary",
       "level": "error",
-      "message": "Import @cartulary/test-utils through its semantic grid, accessibility, or visual subpaths.",
+      "message": "Import @cartulary/test-utils only through its semantic grid subpath.",
       "applies_to": {
         "include": ["apps/web/e2e/**"],
         "exclude": []
