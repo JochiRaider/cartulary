@@ -1,18 +1,16 @@
 import {
   listViewSchemaRegistryEntries,
+  type ViewInspectorPanelID,
   type ViewSchemaRegistryEntry,
-  type ViewSchemaSourceDocument,
-  viewSchemaArtifacts,
   viewSchemaRegistry,
 } from "@cartulary/protocol-ts/view-schemas";
 
-declare const source: ViewSchemaSourceDocument;
 declare const firstViewSchemaEntry: ViewSchemaRegistryEntry;
+declare const panelID: ViewInspectorPanelID;
 
 export const viewSchemaCompileSurface = {
-  artifacts: viewSchemaArtifacts,
   entries: listViewSchemaRegistryEntries(),
   firstViewSchemaEntry,
+  panelID,
   registry: viewSchemaRegistry,
-  source,
 };

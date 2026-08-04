@@ -1,9 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.contract_family_registry.v4",
+  "schema_id": "cartulary.contract_family_registry.v5",
   "registry_id": "cartulary.contract_families.v1",
   "note": "Operational contract-family generation configuration. Active families declare exact TypeScript projections and generated outputs.",
-  "typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
   "families": [
     {
       "family_id": "openapi",
@@ -40,20 +39,10 @@
       "generated_outputs": [
         "internal/gen/contractviewschemas/artifacts_gen.go",
         "internal/gen/viewschemasource/types_gen.go",
-        "packages/protocol-ts/src/generated/view-schema-source-types.ts",
         "packages/protocol-ts/src/generated/view-schema-registry.ts",
-        "packages/protocol-ts/src/generated/view-schemas-artifacts.ts"
+        "packages/view-contracts/src/generated/view-contract-projection.ts"
       ],
       "typescript_projections": [
-        {
-          "projection_kind": "artifact_collection",
-          "output_path": "packages/protocol-ts/src/generated/view-schemas-artifacts.ts",
-          "identifier": "viewSchemaArtifacts",
-          "index_identifier": "viewSchemaArtifactsIndex",
-          "artifact_prefixes": [
-            "contracts/view-schemas/"
-          ]
-        },
         {
           "projection_kind": "json_value",
           "output_path": "packages/protocol-ts/src/generated/view-schema-registry.ts",

@@ -7,9 +7,6 @@ import {
   rowCellTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import type { Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -21,7 +18,9 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import type { ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {

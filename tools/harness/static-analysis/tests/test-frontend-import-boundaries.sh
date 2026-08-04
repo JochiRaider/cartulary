@@ -334,14 +334,6 @@ write_config() {
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/view-schema-source-types"
-        },
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/view-schemas-artifacts"
-        },
-        {
-          "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/error-registry"
         },
         {
@@ -489,7 +481,7 @@ write_config() {
     {
       "id": "web-e2e-workbook-contract-boundary",
       "level": "error",
-      "message": "E2E workbook support must consume derived surface metadata through support/contracts/workbookSurfaces.",
+      "message": "E2E workbook support must consume generated-projection metadata from @cartulary/view-contracts instead of the web registry.",
       "applies_to": {
         "include": ["apps/web/e2e/**"],
         "exclude": []

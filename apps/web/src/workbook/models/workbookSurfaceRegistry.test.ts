@@ -1,12 +1,8 @@
-import {
-  fieldCapability,
-  requireViewContract,
-} from "@cartulary/view-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 
 import {
   assessmentsViewSchemaId,
-  buildWorkbookSurfaceRegistry,
   commLogViewSchemaId,
   decisionsViewSchemaId,
   findingsViewSchemaId,
@@ -83,11 +79,6 @@ describe("workbook surface registry", () => {
         )
         .map((entry) => entry.viewSchemaId),
     ).toEqual(requiredIds);
-
-    const shuffled = buildWorkbookSurfaceRegistry(
-      [...entries].reverse().map((entry) => entry.contract),
-    );
-    expect(shuffled.map((entry) => entry.viewSchemaId)).toEqual(ids);
   });
 
   it("groups System views by stable group tokens and registry-backed IDs", () => {
@@ -133,77 +124,6 @@ describe("workbook surface registry", () => {
       lessonViewSchemaId,
       ...optionalStandardizedWorkbookSurfaceIds,
     ]);
-  });
-
-  it("remains keyed by stable IDs when registry labels are relabeled", () => {
-    const entries = listWorkbookSurfaceRegistryEntries();
-    const relabeledContracts = entries.map((entry) => ({
-      ...entry.contract,
-      title: `Surface ${entry.viewSchemaId}`,
-    }));
-
-    const relabeled = buildWorkbookSurfaceRegistry(relabeledContracts);
-
-    expect(relabeled.map((entry) => entry.viewSchemaId)).toEqual(
-      entries.map((entry) => entry.viewSchemaId),
-    );
-    expect(relabeled.map((entry) => entry.contract.title)).toEqual(
-      relabeled.map((entry) => `Surface ${entry.viewSchemaId}`),
-    );
-    expect(relabeled.map((entry) => entry.surfaceStatus)).toEqual(
-      entries.map((entry) => entry.surfaceStatus),
-    );
-  });
-
-  it("tolerates absent optional standardized surfaces while requiring required surfaces", () => {
-    const entries = listWorkbookSurfaceRegistryEntries();
-    const requiredIds = [
-      ...requiredBuiltInWorkbookSurfaceIds,
-      ...requiredSystemWorkbookSurfaceIds,
-    ];
-    const requiredIdSet = new Set<string>(requiredIds);
-    const optionalIdSet = new Set<string>(
-      optionalStandardizedWorkbookSurfaceIds,
-    );
-    const requiredContracts = entries
-      .filter((entry) => requiredIdSet.has(entry.viewSchemaId))
-      .map((entry) => entry.contract);
-
-    const requiredOnly = buildWorkbookSurfaceRegistry(requiredContracts);
-
-    expect(requiredOnly.map((entry) => entry.viewSchemaId)).toEqual(
-      requiredIds,
-    );
-    expect(
-      requiredOnly.some((entry) => optionalIdSet.has(entry.viewSchemaId)),
-    ).toBe(false);
-    expect(() =>
-      buildWorkbookSurfaceRegistry(
-        requiredContracts.filter(
-          (contract) =>
-            contract.viewSchemaId !== requiredBuiltInWorkbookSurfaceIds[0],
-        ),
-      ),
-    ).toThrow(/Missing workbook surface contract/);
-  });
-
-  it("exposes required reference-pack keys from view contracts", () => {
-    const entries = listWorkbookSurfaceRegistryEntries();
-    const packBoundContracts = entries.map((entry) =>
-      entry.viewSchemaId === findingsViewSchemaId
-        ? {
-            ...entry.contract,
-            requiredReferencePackKeys: ["mitre_attack_enterprise"],
-          }
-        : entry.contract,
-    );
-
-    expect(entries.map((entry) => entry.requiredReferencePackKeys)).toEqual(
-      entries.map(() => []),
-    );
-    expect(() => buildWorkbookSurfaceRegistry(packBoundContracts)).toThrow(
-      /required_reference_pack_keys do not match its registry entry/,
-    );
   });
 
   it("Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata.", () => {
@@ -513,7 +433,7 @@ describe("workbook surface registry", () => {
       for (const [fieldKey, values] of Object.entries(expected.enumFields)) {
         expect(contract.fieldMap[fieldKey]?.readKind).toBe("enum");
         expect(contract.fieldMap[fieldKey]?.enumValues).toEqual(values);
-        expect(fieldCapability(contract, fieldKey).editable).toBe(
+        expect(contract.fieldMap[fieldKey]?.gridEditable).toBe(
           contract.fieldMap[fieldKey]?.writeKind !== "read_only",
         );
       }

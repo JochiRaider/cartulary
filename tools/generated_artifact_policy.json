@@ -19,6 +19,13 @@
       "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     },
     {
+      "path": "packages/view-contracts/src/generated",
+      "allowed_extensions": [
+        ".ts"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
+    },
+    {
       "path": "packages/ui-contracts/src/generated",
       "allowed_extensions": [
         ".ts"
@@ -95,6 +102,7 @@
       "path": "biome.json",
       "required_files_includes": [
         "!packages/protocol-ts/src/generated/**",
+        "!packages/view-contracts/src/generated/**",
         "!packages/ui-contracts/src/generated/**"
       ],
       "forbidden_files_includes": [
@@ -103,6 +111,7 @@
       ],
       "required_override_includes": [
         "!packages/protocol-ts/src/generated/**",
+        "!packages/view-contracts/src/generated/**",
         "!packages/ui-contracts/src/generated/**"
       ]
     },
@@ -110,10 +119,12 @@
       "path": "tools/frontend_import_boundaries.json",
       "required_scan_excludes": [
         "packages/protocol-ts/src/generated/**",
+        "packages/view-contracts/src/generated/**",
         "packages/ui-contracts/src/generated/**"
       ],
       "required_restricted_paths": [
         "packages/protocol-ts/src/generated",
+        "packages/view-contracts/src/generated",
         "packages/ui-contracts/src/generated"
       ]
     }

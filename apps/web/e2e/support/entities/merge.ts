@@ -8,9 +8,8 @@ import {
   timelinePreviewRowTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page, type Response } from "@playwright/test";
-
-import { timelineViewSchemaId } from "../contracts/workbookSurfaces";
 import { queryViewRows } from "../workbook/query";
 import {
   collectionItems,

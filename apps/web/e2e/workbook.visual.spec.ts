@@ -84,6 +84,18 @@ import {
   workbookSortMenuTriggerTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
+import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  lessonViewSchemaId,
+  partiesViewSchemaId,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { gridSavedRows } from "./pages/workbookInspector";
@@ -96,18 +108,6 @@ import {
   openIncidentAsTrackedUserReady,
   successfulPatchCalls,
 } from "./support/collaboration/replay";
-import {
-  commLogViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  handoffViewSchemaId,
-  hostsViewSchemaId,
-  lessonViewSchemaId,
-  partiesViewSchemaId,
-  statusReviewViewSchemaId,
-  taskRequestsViewSchemaId,
-  timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
 import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,

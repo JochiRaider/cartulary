@@ -37,10 +37,6 @@ import {
   workbookSurfacesMenuTriggerTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
-import type { Locator, Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
-import { csrfHeaders } from "./support/auth/browserSession";
 import {
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -53,7 +49,10 @@ import {
   notesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   collectionActionsPayload,
   hostRefsFieldKey,

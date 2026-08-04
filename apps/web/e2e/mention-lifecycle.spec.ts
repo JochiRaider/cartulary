@@ -12,13 +12,12 @@ import {
   timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Page, Route } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Page, Route } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import {
   addRelationshipTokenViaUI,
   aliasCollectionActionsPayload,

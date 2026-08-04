@@ -801,16 +801,6 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
 const entrypoints = validateFrontendEntrypointsOwner(
   readJSON("contracts/protocol-ts/frontend-entrypoints.v2.json"),
 );
-const viewSchemaSourceSchema = readJSON(
-  "tools/schemas/cartulary.view_schema_source.v1.schema.json",
-);
-const viewSchemaSourceBundle = {
-  ...viewSchemaSourceSchema,
-  $id: "https://contracts.cartulary.local/generated/view-schema-source.v1",
-};
-const viewSchemaSourcePublicDefinitions = new Map([
-  ["cartulary.view_schema_source.v1", null],
-]);
 const networkFlowEntrypoints = readJSON(
   requireString(
     entrypoints.network_flow_entrypoints_path,
@@ -979,15 +969,6 @@ writeFilesAtomically([
     ]),
   },
   {
-    path: path.join(generatedRoot, "view-schema-source-validator.ts"),
-    content: validatorSource([
-      {
-        bundle: viewSchemaSourceBundle,
-        publicDefinitions: viewSchemaSourcePublicDefinitions,
-      },
-    ]),
-  },
-  {
     path: path.join(generatedRoot, "http-operation-bindings.ts"),
     content: httpOperationBindingSource(
       selectedHTTPOperations,
@@ -1019,4 +1000,5 @@ writeFilesAtomically([
 ]);
 removeObsoleteGeneratedOutputs([
   path.join(generatedRoot, "protocol-validators.ts"),
+  path.join(generatedRoot, "view-schema-source-validator.ts"),
 ]);

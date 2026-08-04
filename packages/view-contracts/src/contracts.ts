@@ -1,97 +1,58 @@
 import type { ViewSchemaRegistryEntry } from "@cartulary/protocol-ts/view-schemas";
 import { viewSchemaRegistry } from "@cartulary/protocol-ts/view-schemas";
+
+import {
+  listProjectedViewContracts,
+  listProjectedWorkbookSurfaceContracts,
+} from "./projection.js";
 import type {
   ViewContract,
   WorkbookSurfaceContract,
   WorkbookSurfaceStatus,
 } from "./types.js";
-import { listViewContracts } from "./view-contracts.js";
+
+const contracts = listProjectedViewContracts();
+const contractIndex = Object.freeze(
+  Object.fromEntries(
+    contracts.map((contract) => [contract.viewSchemaId, contract]),
+  ) as Record<string, ViewContract>,
+);
+
+export function listViewContracts(): readonly ViewContract[] {
+  return contracts;
+}
+
+export function getViewContract(
+  viewSchemaId: string,
+): ViewContract | undefined {
+  return contractIndex[viewSchemaId];
+}
+
+export function requireViewContract(viewSchemaId: string): ViewContract {
+  const contract = getViewContract(viewSchemaId);
+  if (!contract) {
+    throw new Error(`Unknown view schema contract: ${viewSchemaId}`);
+  }
+  return contract;
+}
+
+export function resolveHeaderSortFieldKey(
+  contract: ViewContract,
+  fieldKey: string,
+): string | null {
+  const field = contract.fieldMap[fieldKey];
+  if (!field) {
+    return null;
+  }
+  return field.headerSortFieldKey ?? field.fieldKey;
+}
 
 const workbookSurfaceRegistryEntries: readonly ViewSchemaRegistryEntry[] =
   viewSchemaRegistry.view_schemas;
-
-function sameOrderedValues(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
-}
-
-export function buildWorkbookSurfaceContracts(
-  sourceContracts: readonly ViewContract[] = listViewContracts(),
-): readonly WorkbookSurfaceContract[] {
-  const contractsById = new Map(
-    sourceContracts.map((contract) => [contract.viewSchemaId, contract]),
-  );
-  return Object.freeze(
-    workbookSurfaceRegistryEntries.flatMap((entry) => {
-      const contract = contractsById.get(entry.view_schema_id);
-      if (!contract) {
-        if (entry.surface_status === "standardized_optional_workbook_surface") {
-          return [];
-        }
-        throw new Error(
-          `Missing workbook surface contract: ${entry.view_schema_id}`,
-        );
-      }
-      if (contract.surfaceKind !== entry.surface_kind) {
-        throw new Error(
-          `Workbook surface ${entry.view_schema_id} has surface_kind ${contract.surfaceKind}, expected ${entry.surface_kind}`,
-        );
-      }
-      if (
-        !sameOrderedValues(
-          contract.requiredReferencePackKeys,
-          entry.required_reference_pack_keys,
-        )
-      ) {
-        throw new Error(
-          `Workbook surface ${entry.view_schema_id} required_reference_pack_keys do not match its registry entry`,
-        );
-      }
-      return [
-        Object.freeze({
-          contract,
-          requiredReferencePackKeys: Object.freeze([
-            ...entry.required_reference_pack_keys,
-          ]),
-          sourceRecordTypes: Object.freeze([...entry.source_record_types]),
-          surfaceKind: entry.surface_kind,
-          surfaceStatus: entry.surface_status,
-          title: entry.title,
-          viewSchemaId: entry.view_schema_id,
-        }),
-      ];
-    }),
-  );
-}
-
-const workbookSurfaceContracts = buildWorkbookSurfaceContracts();
-const workbookSurfaceContractIndex = new Map(
-  workbookSurfaceContracts.map((entry) => [entry.viewSchemaId, entry]),
-);
+const workbookSurfaceContracts = listProjectedWorkbookSurfaceContracts();
 
 export function listWorkbookSurfaceContracts(): readonly WorkbookSurfaceContract[] {
   return workbookSurfaceContracts;
-}
-
-export function getWorkbookSurfaceContract(
-  viewSchemaId: string,
-): WorkbookSurfaceContract | undefined {
-  return workbookSurfaceContractIndex.get(viewSchemaId);
-}
-
-export function requireWorkbookSurfaceContract(
-  viewSchemaId: string,
-): WorkbookSurfaceContract {
-  const entry = getWorkbookSurfaceContract(viewSchemaId);
-  if (!entry) {
-    throw new Error(`Unknown workbook surface contract: ${viewSchemaId}`);
-  }
-  return entry;
 }
 
 function requiredRegistryViewSchemaId(viewSchemaId: string): string {

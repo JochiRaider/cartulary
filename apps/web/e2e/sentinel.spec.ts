@@ -47,17 +47,6 @@ import {
   workbookShellSlotTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
-import type { Locator, Page, Request } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
-import {
-  gridSavedRows,
-  openSystemSurfaceBySwitcher,
-} from "./pages/workbookInspector";
-import {
-  createAssessmentViaUI,
-  expectAssessmentGridOrder,
-} from "./support/assessments/fixtures";
 import {
   assessmentsViewSchemaId,
   commLogViewSchemaId,
@@ -72,7 +61,17 @@ import {
   partiesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Locator, Page, Request } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import {
+  gridSavedRows,
+  openSystemSurfaceBySwitcher,
+} from "./pages/workbookInspector";
+import {
+  createAssessmentViaUI,
+  expectAssessmentGridOrder,
+} from "./support/assessments/fixtures";
 import { collectionItems } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";

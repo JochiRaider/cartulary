@@ -5,12 +5,11 @@ import {
   timelineCollectionInputTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
-import { expect, type Page, type Response } from "@playwright/test";
-
 import {
   hostsViewSchemaId,
   timelineViewSchemaId,
-} from "../contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import { expect, type Page, type Response } from "@playwright/test";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow, type ViewApiRow } from "../workbook/query";
 import {

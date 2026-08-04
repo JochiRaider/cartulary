@@ -1,9 +1,9 @@
-import { test } from "./fixtures";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import { test } from "./fixtures";
 import {
   aliasCollectionActionsPayload,
   collectionActionsPayload,

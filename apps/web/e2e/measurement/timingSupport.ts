@@ -8,10 +8,9 @@ import {
   rowCellTestId,
   timelineRowVersionTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect } from "@playwright/test";
-import { timelineViewSchemaId } from "../support/contracts/workbookSurfaces";
 
 export const ordinaryMeasurementSamplePolicy = {
   warmupSamples: 1,

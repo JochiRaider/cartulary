@@ -22,9 +22,7 @@ import {
 } from "./network-flow.js";
 import {
   listViewSchemaRegistryEntries,
-  viewSchemaArtifacts,
   viewSchemaRegistry,
-  viewSchemaSourceDocumentDecoder,
 } from "./view-schemas.js";
 
 describe("Protocol-TS authored family entrypoints", () => {
@@ -134,38 +132,5 @@ describe("Protocol-TS authored family entrypoints", () => {
         artifact_path: "contracts/view-schemas/cartulary.view.timeline.v2.json",
       }),
     );
-    expect(viewSchemaArtifacts.length).toBe(
-      viewSchemaRegistry.view_schemas.length,
-    );
-
-    const valid = JSON.parse(viewSchemaArtifacts[0]?.json ?? "null") as unknown;
-    expect(viewSchemaSourceDocumentDecoder.decode(valid)).toEqual({
-      ok: true,
-      value: valid,
-    });
-    expect(
-      viewSchemaSourceDocumentDecoder.decode({
-        ...(valid as Record<string, unknown>),
-        legacy_member: "must-not-leak",
-      }),
-    ).toEqual({
-      ok: false,
-      error: {
-        boundary: "generated_protocol",
-        instancePath: "/legacy_member",
-        reasonCategory: "unknown_member",
-        schemaId: "cartulary.view_schema_source.v1",
-      },
-    });
-    const { title: _title, ...missingTitle } = valid as Record<string, unknown>;
-    expect(viewSchemaSourceDocumentDecoder.decode(missingTitle)).toEqual({
-      ok: false,
-      error: {
-        boundary: "generated_protocol",
-        instancePath: "/title",
-        reasonCategory: "required_member",
-        schemaId: "cartulary.view_schema_source.v1",
-      },
-    });
   });
 });

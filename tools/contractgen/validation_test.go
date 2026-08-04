@@ -365,11 +365,10 @@ func TestLoadFamiliesUsesActiveRegistryEntries(t *testing.T) {
 		}
 	}
 	writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
-		"$schema":                            contractDraft202012Schema,
-		"schema_id":                          contractFamilyRegistrySchemaID,
-		"registry_id":                        contractFamilyRegistryID,
-		"note":                               "test registry",
-		"typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
+		"$schema":     contractDraft202012Schema,
+		"schema_id":   contractFamilyRegistrySchemaID,
+		"registry_id": contractFamilyRegistryID,
+		"note":        "test registry",
 		"families": []any{
 			validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", 0, nil),
 			validContractFamilyEntry("network-flow", "contracts/network-flow", "planned", "NetworkFlowArtifacts", 1, []any{"NFA-GEN-002"}),
@@ -397,11 +396,10 @@ func TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry(t *testing.T) {
 			}
 		}
 		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
-			"$schema":                            contractDraft202012Schema,
-			"schema_id":                          contractFamilyRegistrySchemaID,
-			"registry_id":                        contractFamilyRegistryID,
-			"note":                               "test registry",
-			"typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
 			"families": []any{
 				validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", 0, nil),
 				validContractFamilyEntry("network-flow", "contracts/network-flow", "planned", "NetworkFlowArtifacts", 1, nil),
@@ -420,11 +418,10 @@ func TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry(t *testing.T) {
 			}
 		}
 		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
-			"$schema":                            contractDraft202012Schema,
-			"schema_id":                          contractFamilyRegistrySchemaID,
-			"registry_id":                        contractFamilyRegistryID,
-			"note":                               "test registry",
-			"typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
 			"families": []any{
 				validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", 0, nil),
 				validContractFamilyEntry("ws", "contracts/ws", "active", "OpenAPIArtifacts", 1, nil),
@@ -441,11 +438,10 @@ func TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry(t *testing.T) {
 			t.Fatalf("create contract dir: %v", err)
 		}
 		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
-			"$schema":                            contractDraft202012Schema,
-			"schema_id":                          contractFamilyRegistrySchemaID,
-			"registry_id":                        contractFamilyRegistryID,
-			"note":                               "test registry",
-			"typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
 			"families": []any{
 				validContractFamilyEntry("openapi", "contracts/../openapi", "active", "OpenAPIArtifacts", 0, nil),
 			},
@@ -467,6 +463,13 @@ func TestGenerationPlanRejectsUnsafeOrAmbiguousTypeScriptProjections(t *testing.
 		mutate     func(*contractFamilyRegistry)
 		wantDetail string
 	}{
+		{
+			name: "artifact collections are unsupported",
+			mutate: func(registry *contractFamilyRegistry) {
+				registry.Families[0].TypeScriptProjections[0].ProjectionKind = "artifact_collection"
+			},
+			wantDetail: "projection_kind must be json_value",
+		},
 		{
 			name: "projection output must be declared",
 			mutate: func(registry *contractFamilyRegistry) {
@@ -557,11 +560,10 @@ func TestTypeScriptProjectionSourcesAreExactAndDeeplyReadonly(t *testing.T) {
 
 func validProjectionRegistry() contractFamilyRegistry {
 	return contractFamilyRegistry{
-		Schema:                          contractDraft202012Schema,
-		SchemaID:                        contractFamilyRegistrySchemaID,
-		RegistryID:                      contractFamilyRegistryID,
-		Note:                            "test registry",
-		TypeScriptArtifactSupportOutput: "packages/protocol-ts/src/generated/artifact.ts",
+		Schema:     contractDraft202012Schema,
+		SchemaID:   contractFamilyRegistrySchemaID,
+		RegistryID: contractFamilyRegistryID,
+		Note:       "test registry",
 		Families: []contractFamilyEntry{
 			{
 				FamilyID:         "errors",

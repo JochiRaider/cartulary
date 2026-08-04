@@ -21,10 +21,9 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, Response } from "@playwright/test";
-
 import { expect } from "@playwright/test";
-import { timelineViewSchemaId } from "../contracts/workbookSurfaces";
 import { queryViewRows, type ViewApiRow } from "./query";
 
 type ViewRow = ViewApiRow;

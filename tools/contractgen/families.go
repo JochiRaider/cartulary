@@ -10,20 +10,17 @@ import (
 )
 
 const (
-	contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v4"
+	contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v5"
 	contractFamilyRegistryID       = "cartulary.contract_families.v1"
-	artifactCollectionProjection   = "artifact_collection"
 	jsonValueProjection            = "json_value"
 )
 
 type contractFamilyRegistry struct {
-	Schema                          string                `json:"$schema"`
-	SchemaID                        string                `json:"schema_id"`
-	RegistryID                      string                `json:"registry_id"`
-	Note                            string                `json:"note"`
-	TypeScriptArtifactSupportOutput string                `json:"typescript_artifact_support_output"`
-	TypeScriptBarrelOutput          string                `json:"typescript_barrel_output,omitempty"`
-	Families                        []contractFamilyEntry `json:"families"`
+	Schema     string                `json:"$schema"`
+	SchemaID   string                `json:"schema_id"`
+	RegistryID string                `json:"registry_id"`
+	Note       string                `json:"note"`
+	Families   []contractFamilyEntry `json:"families"`
 }
 
 type contractFamilyEntry struct {
@@ -39,18 +36,14 @@ type contractFamilyEntry struct {
 }
 
 type typeScriptProjectionEntry struct {
-	ProjectionKind   string   `json:"projection_kind"`
-	OutputPath       string   `json:"output_path"`
-	Identifier       string   `json:"identifier"`
-	IndexIdentifier  string   `json:"index_identifier,omitempty"`
-	ArtifactPrefixes []string `json:"artifact_prefixes,omitempty"`
-	ArtifactPath     string   `json:"artifact_path,omitempty"`
+	ProjectionKind string `json:"projection_kind"`
+	OutputPath     string `json:"output_path"`
+	Identifier     string `json:"identifier"`
+	ArtifactPath   string `json:"artifact_path"`
 }
 
 type generationPlan struct {
-	TypeScriptArtifactSupportOutput string
-	TypeScriptBarrelOutput          string
-	Families                        []family
+	Families []family
 }
 
 func loadGenerationPlan(root string) (generationPlan, error) {
@@ -99,18 +92,6 @@ func generationPlanFromRegistry(root string, registry contractFamilyRegistry) (g
 	if len(registry.Families) == 0 {
 		return generationPlan{}, fmt.Errorf("contracts/index.json families must not be empty")
 	}
-	if err := validateGeneratedTypeScriptPath(registry.TypeScriptArtifactSupportOutput, "contracts/index.json.typescript_artifact_support_output"); err != nil {
-		return generationPlan{}, err
-	}
-	if registry.TypeScriptBarrelOutput != "" {
-		if err := validateGeneratedTypeScriptPath(registry.TypeScriptBarrelOutput, "contracts/index.json.typescript_barrel_output"); err != nil {
-			return generationPlan{}, err
-		}
-		if registry.TypeScriptBarrelOutput == registry.TypeScriptArtifactSupportOutput {
-			return generationPlan{}, fmt.Errorf("contracts/index.json TypeScript barrel and artifact support outputs must be distinct")
-		}
-	}
-
 	seenFamilyIDs := map[string]struct{}{}
 	seenRoots := map[string]string{}
 	seenGoNames := map[string]string{}
@@ -164,9 +145,6 @@ func generationPlanFromRegistry(root string, registry contractFamilyRegistry) (g
 			if _, duplicate := familyOutputs[output]; duplicate {
 				return generationPlan{}, fmt.Errorf("%s contains duplicate %s", label+".generated_outputs", output)
 			}
-			if output == registry.TypeScriptArtifactSupportOutput || (registry.TypeScriptBarrelOutput != "" && output == registry.TypeScriptBarrelOutput) {
-				return generationPlan{}, fmt.Errorf("%s conflicts with a registry-owned shared TypeScript output", outputLabel)
-			}
 			familyOutputs[output] = struct{}{}
 			if previous, duplicate := seenGeneratedOutputs[output]; duplicate {
 				return generationPlan{}, fmt.Errorf("%s duplicates generated output owned by family %s", outputLabel, previous)
@@ -191,41 +169,20 @@ func generationPlanFromRegistry(root string, registry contractFamilyRegistry) (g
 				return generationPlan{}, err
 			}
 
-			validated := typeScriptProjection{
-				Kind:       projection.ProjectionKind,
-				OutputPath: projection.OutputPath,
-				Identifier: projection.Identifier,
+			if projection.ProjectionKind != jsonValueProjection {
+				return generationPlan{}, fmt.Errorf("%s.projection_kind must be json_value", projectionLabel)
 			}
-			switch projection.ProjectionKind {
-			case artifactCollectionProjection:
-				if projection.IndexIdentifier == "" || len(projection.ArtifactPrefixes) == 0 || projection.ArtifactPath != "" {
-					return generationPlan{}, fmt.Errorf("%s artifact_collection requires index_identifier and artifact_prefixes only", projectionLabel)
-				}
-				if err := registerProjectionIdentifier(seenProjectionIdentifiers, projection.IndexIdentifier, entry.FamilyID, projectionLabel+".index_identifier"); err != nil {
-					return generationPlan{}, err
-				}
-				seenPrefixes := map[string]struct{}{}
-				for _, prefix := range projection.ArtifactPrefixes {
-					if _, duplicate := seenPrefixes[prefix]; duplicate {
-						return generationPlan{}, fmt.Errorf("%s.artifact_prefixes contains duplicate %s", projectionLabel, prefix)
-					}
-					seenPrefixes[prefix] = struct{}{}
-					if err := validateArtifactSelection(prefix, entry.ContractRoot, true, projectionLabel+".artifact_prefixes"); err != nil {
-						return generationPlan{}, err
-					}
-				}
-				validated.IndexIdentifier = projection.IndexIdentifier
-				validated.ArtifactPrefixes = append([]string(nil), projection.ArtifactPrefixes...)
-			case jsonValueProjection:
-				if projection.ArtifactPath == "" || projection.IndexIdentifier != "" || len(projection.ArtifactPrefixes) != 0 {
-					return generationPlan{}, fmt.Errorf("%s json_value requires artifact_path only", projectionLabel)
-				}
-				if err := validateArtifactSelection(projection.ArtifactPath, entry.ContractRoot, false, projectionLabel+".artifact_path"); err != nil {
-					return generationPlan{}, err
-				}
-				validated.ArtifactPath = projection.ArtifactPath
-			default:
-				return generationPlan{}, fmt.Errorf("%s.projection_kind must be artifact_collection or json_value", projectionLabel)
+			if projection.ArtifactPath == "" {
+				return generationPlan{}, fmt.Errorf("%s json_value requires artifact_path", projectionLabel)
+			}
+			if err := validateArtifactSelection(projection.ArtifactPath, entry.ContractRoot, projectionLabel+".artifact_path"); err != nil {
+				return generationPlan{}, err
+			}
+			validated := typeScriptProjection{
+				Kind:         projection.ProjectionKind,
+				OutputPath:   projection.OutputPath,
+				Identifier:   projection.Identifier,
+				ArtifactPath: projection.ArtifactPath,
 			}
 			projections = append(projections, validated)
 		}
@@ -260,11 +217,7 @@ func generationPlanFromRegistry(root string, registry contractFamilyRegistry) (g
 			return generationPlan{}, fmt.Errorf("active contract family output_order values must be contiguous from 0")
 		}
 	}
-	return generationPlan{
-		TypeScriptArtifactSupportOutput: registry.TypeScriptArtifactSupportOutput,
-		TypeScriptBarrelOutput:          registry.TypeScriptBarrelOutput,
-		Families:                        active,
-	}, nil
+	return generationPlan{Families: active}, nil
 }
 
 func registerProjectionIdentifier(seen map[string]string, identifier, familyID, label string) error {
@@ -278,15 +231,15 @@ func registerProjectionIdentifier(seen map[string]string, identifier, familyID, 
 	return nil
 }
 
-func validateArtifactSelection(selection, contractRoot string, allowPrefix bool, label string) error {
-	if err := validateRepositoryPath(strings.TrimSuffix(selection, "/"), label); err != nil {
+func validateArtifactSelection(selection, contractRoot, label string) error {
+	if strings.HasSuffix(selection, "/") {
+		return fmt.Errorf("%s entry %s must select one exact artifact", label, selection)
+	}
+	if err := validateRepositoryPath(selection, label); err != nil {
 		return err
 	}
 	if !strings.HasPrefix(selection, contractRoot+"/") || strings.Contains(selection, "..") {
 		return fmt.Errorf("%s entry %s must stay within %s", label, selection, contractRoot)
-	}
-	if !allowPrefix && strings.HasSuffix(selection, "/") {
-		return fmt.Errorf("%s entry %s must select one exact artifact", label, selection)
 	}
 	return nil
 }

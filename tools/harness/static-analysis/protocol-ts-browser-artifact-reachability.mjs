@@ -18,6 +18,10 @@ const removedGeneratedModules = [
   "packages/protocol-ts/src/generated/network-flow-artifacts.ts",
   "packages/protocol-ts/src/generated/protocol-validators.ts",
   "packages/protocol-ts/src/generated/revisions-artifacts.ts",
+  "packages/protocol-ts/src/generated/artifact.ts",
+  "packages/protocol-ts/src/generated/view-schema-source-types.ts",
+  "packages/protocol-ts/src/generated/view-schema-source-validator.ts",
+  "packages/protocol-ts/src/generated/view-schemas-artifacts.ts",
   "packages/protocol-ts/src/generated/ws-artifacts.ts",
 ];
 const networkFlowRuntimeModules = [
@@ -128,7 +132,7 @@ async function forbiddenEvidence() {
   const registry = JSON.parse(
     await readFile(path.join(repositoryRoot, "contracts/index.json"), "utf8"),
   );
-  if (registry.schema_id !== "cartulary.contract_family_registry.v4") {
+  if (registry.schema_id !== "cartulary.contract_family_registry.v5") {
     throw new Error("contracts/index.json has an unexpected schema_id");
   }
   const protectedFamilyIDs = ["audit", "revisions"];

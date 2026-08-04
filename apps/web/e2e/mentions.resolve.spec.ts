@@ -9,12 +9,12 @@ import {
   timelineInspectorTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import { expect, test } from "./fixtures";
 import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,

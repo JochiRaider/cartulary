@@ -1122,12 +1122,9 @@
       "selector": {
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
         "titles": [
-          "exposes required reference-pack keys from view contracts",
           "groups System views by stable group tokens and registry-backed IDs",
           "keeps optional standardized surfaces additive after required surfaces",
-          "registers built-in and system workbook surfaces by stable IDs",
-          "remains keyed by stable IDs when registry labels are relabeled",
-          "tolerates absent optional standardized surfaces while requiring required surfaces"
+          "registers built-in and system workbook surfaces by stable IDs"
         ]
       },
       "evidence_class": "unit",
@@ -1175,9 +1172,9 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
+        "file": "packages/view-contracts/src/contracts.test.ts",
         "titles": [
-          "Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering."
+          "uses generated Inspector panels and feature groups validated before browser initialization"
         ]
       },
       "evidence_class": "unit",

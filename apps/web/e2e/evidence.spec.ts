@@ -14,14 +14,13 @@ import {
   timelineEvidenceFileInputTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import type { Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
-import { csrfHeaders } from "./support/auth/browserSession";
 import {
   evidenceViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import { collectionItems, type ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";

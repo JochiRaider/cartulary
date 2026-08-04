@@ -97,6 +97,19 @@ import {
   workbookShellSlots,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
+import {
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
+  handoffViewSchemaId,
+  indicatorsViewSchemaId,
+  lessonViewSchemaId,
+  partiesViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { APIRequestContext, Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
@@ -122,19 +135,6 @@ import {
   requireRecordId,
   successfulPatchCalls,
 } from "./support/collaboration/replay";
-import {
-  commLogViewSchemaId,
-  decisionsViewSchemaId,
-  evidenceViewSchemaId,
-  handoffViewSchemaId,
-  indicatorsViewSchemaId,
-  lessonViewSchemaId,
-  partiesViewSchemaId,
-  requiredBuiltInWorkbookSurfaceIds,
-  statusReviewViewSchemaId,
-  taskRequestsViewSchemaId,
-  timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
 import {
   addRelationshipTokenViaUI,
   collectionActionsPayload,

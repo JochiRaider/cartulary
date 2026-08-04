@@ -33,6 +33,12 @@ import {
   workbookShellSlots,
   workbookShellSlotTestId,
 } from "@cartulary/ui-contracts";
+import {
+  hostsViewSchemaId,
+  indicatorsViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
@@ -43,12 +49,6 @@ import {
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
-import {
-  hostsViewSchemaId,
-  indicatorsViewSchemaId,
-  requiredBuiltInWorkbookSurfaceIds,
-  timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
 import { createIncident } from "./support/incidents/fixtures";
 import { createLocalUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";

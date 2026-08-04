@@ -65,7 +65,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
-const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v4";
+const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v5";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
@@ -125,8 +125,6 @@ const contractFamilyRegistryKeys = new Set([
   "schema_id",
   "registry_id",
   "note",
-  "typescript_artifact_support_output",
-  "typescript_barrel_output",
   "families",
 ]);
 const contractFamilyRegistryRequiredKeys = new Set([
@@ -134,7 +132,6 @@ const contractFamilyRegistryRequiredKeys = new Set([
   "schema_id",
   "registry_id",
   "note",
-  "typescript_artifact_support_output",
   "families",
 ]);
 const contractFamilyEntryKeys = new Set([
@@ -891,28 +888,6 @@ function validateContractFamilyRegistryShape(file) {
     `${file}.registry_id`,
   );
   requireString(registry.note, `${file}.note`);
-  const artifactSupportOutput = requireRepoRelativePath(
-    registry.typescript_artifact_support_output,
-    `${file}.typescript_artifact_support_output`,
-  );
-  if (!/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(artifactSupportOutput)) {
-    throw new Error(`${file}.typescript_artifact_support_output must target the Protocol-TS generated root`);
-  }
-  const barrelOutput =
-    registry.typescript_barrel_output === undefined
-      ? undefined
-      : requireRepoRelativePath(
-          registry.typescript_barrel_output,
-          `${file}.typescript_barrel_output`,
-        );
-  if (
-    barrelOutput !== undefined &&
-    (!/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(barrelOutput) ||
-      barrelOutput === artifactSupportOutput)
-  ) {
-    throw new Error(`${file}.typescript_barrel_output must be a distinct Protocol-TS generated file`);
-  }
-
   const familyIDs = [];
   const contractRoots = [];
   const goNames = [];
@@ -965,14 +940,12 @@ function validateContractFamilyRegistryShape(file) {
         requireRepoRelativePath(generatedOutput, `${label}.generated_outputs[]`);
         if (
           !generatedOutput.startsWith("internal/gen/") &&
-          !generatedOutput.startsWith("packages/protocol-ts/src/generated/")
+          !generatedOutput.startsWith("packages/protocol-ts/src/generated/") &&
+          !generatedOutput.startsWith("packages/view-contracts/src/generated/")
         ) {
           throw new Error(
             `${label}.generated_outputs[] must target the contract generated roots`,
           );
-        }
-        if (generatedOutput === artifactSupportOutput || generatedOutput === barrelOutput) {
-          throw new Error(`${label}.generated_outputs[] conflicts with a shared TypeScript output`);
         }
         if (generatedOutputOwners.has(generatedOutput)) {
           throw new Error(`${label}.generated_outputs[] duplicates family ${generatedOutputOwners.get(generatedOutput)}`);
@@ -988,15 +961,17 @@ function validateContractFamilyRegistryShape(file) {
       for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
         const projectionLabel = `${label}.typescript_projections[${projectionIndex}]`;
         const projection = requireObject(rawProjection, projectionLabel);
-        const kind = requireEnum(
+        requireExact(
           projection.projection_kind,
+          "json_value",
           `${projectionLabel}.projection_kind`,
-          new Set(["artifact_collection", "json_value"]),
         );
-        const allowedKeys =
-          kind === "artifact_collection"
-            ? new Set(["projection_kind", "output_path", "identifier", "index_identifier", "artifact_prefixes"])
-            : new Set(["projection_kind", "output_path", "identifier", "artifact_path"]);
+        const allowedKeys = new Set([
+          "projection_kind",
+          "output_path",
+          "identifier",
+          "artifact_path",
+        ]);
         assertObjectKeys(projection, allowedKeys, projectionLabel);
         assertRequiredKeys(projection, allowedKeys, projectionLabel);
         const outputPath = requireRepoRelativePath(
@@ -1018,35 +993,12 @@ function validateContractFamilyRegistryShape(file) {
             pattern: /^[a-z][A-Za-z0-9]*$/,
           }),
         ];
-        if (kind === "artifact_collection") {
-          identifiers.push(
-            requireString(projection.index_identifier, `${projectionLabel}.index_identifier`, {
-              pattern: /^[a-z][A-Za-z0-9]*$/,
-            }),
-          );
-          const prefixes = requireStringArray(
-            projection.artifact_prefixes,
-            `${projectionLabel}.artifact_prefixes`,
-            { nonEmpty: true },
-          );
-          assertUnique(prefixes, `${projectionLabel}.artifact_prefixes`);
-          for (const prefix of prefixes) {
-            if (
-              !prefix.startsWith(`${contractRoot}/`) ||
-              prefix.includes("..") ||
-              !/^contracts\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\/?$/u.test(prefix)
-            ) {
-              throw new Error(`${projectionLabel}.artifact_prefixes[] must stay within ${contractRoot}`);
-            }
-          }
-        } else {
-          const artifactPath = requireRepoRelativePath(
-            projection.artifact_path,
-            `${projectionLabel}.artifact_path`,
-          );
-          if (!artifactPath.startsWith(`${contractRoot}/`) || artifactPath.endsWith("/")) {
-            throw new Error(`${projectionLabel}.artifact_path must select one exact artifact within ${contractRoot}`);
-          }
+        const artifactPath = requireRepoRelativePath(
+          projection.artifact_path,
+          `${projectionLabel}.artifact_path`,
+        );
+        if (!artifactPath.startsWith(`${contractRoot}/`) || artifactPath.endsWith("/")) {
+          throw new Error(`${projectionLabel}.artifact_path must select one exact artifact within ${contractRoot}`);
         }
         for (const identifier of identifiers) {
           if (projectionIdentifierOwners.has(identifier)) {
@@ -1125,7 +1077,7 @@ function validateContractFamilyRegistryShape(file) {
     );
   }
   if (plannedIDs.length !== 0) {
-    throw new Error(`${file}.families has no planned family in v4`);
+    throw new Error(`${file}.families has no planned family in v5`);
   }
 }
 

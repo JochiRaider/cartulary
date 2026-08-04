@@ -3,33 +3,84 @@
   "owner_id": "package.view_contracts",
   "rows": [
     {
-      "row_id": "package.view_contracts.frontend_unit.characterization_baseline_31fd4bbd8a",
+      "row_id": "package.view_contracts.frontend_unit.contracts",
       "owner_id": "package.view_contracts",
       "family_id": "package.view_contracts.frontend_unit",
       "collaborator_ids": [
         "platform.viewschema"
       ],
       "verification_ids": [
+        "package.view_contracts.verification.behavior_contract",
+        "package.view_contracts.verification.openapi_required_grid_editable",
+        "package.view_contracts.verification.openapi_required_inline_create",
         "package.view_contracts.verification.shared_contract"
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
+        "file": "packages/view-contracts/src/contracts.test.ts",
+        "titles": [
+          "derives the four exact Indicator feature signatures from the owner registry",
+          "exposes inspector config by stable view_schema_id and semantic keys",
+          "exposes mutation metadata needed by workbook controls",
+          "exposes sortable, filterable, groupable, and inline-create metadata",
+          "exposes synthetic filter predicates as filter-only fields",
+          "freezes contracts and Inspector metadata",
+          "initializes all generated view artifacts by stable identity",
+          "matches generated contract projections by shared identity",
+          "requires an exact inline_create policy",
+          "requires explicit boolean grid_editable inputs",
+          "resolves header sort keys from contract metadata"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "package.view_contracts.frontend_unit.facade",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.view_contracts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/facade.test.ts",
+        "titles": [
+          "exposes the supported public package facade"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "package.view_contracts.frontend_unit.rows",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.view_contracts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/rows.test.ts",
         "titles": [
           "accepts sparse patch cells without weakening full-row completeness",
-          "derives every schema constant and status partition in registry order",
-          "derives the four exact Indicator feature signatures from the owner registry",
-          "exposes the supported public package facade",
-          "fails for missing required surfaces and omits missing optional surfaces",
-          "freezes shared contracts, surfaces, inspector metadata, and normalized rows",
+          "enforces conditional full-row group_values and sparse patch group_values",
           "ignores additive row and cell members while preserving wire-derived values",
-          "initializes all generated view artifacts by stable identity",
           "keeps normalized full rows and sparse patches non-assignable",
-          "rejects invalid JSON and malformed document roots",
           "rejects missing and malformed row identity and version values",
-          "rejects missing, mistyped, unknown, and invalid source-schema members",
           "rejects row view identity mismatches deterministically",
-          "rejects workbook registry mismatches and preserves registry order",
           "requires complete full-row cells and rejects technical cells"
         ]
       },
@@ -42,117 +93,23 @@
       "minimum_tier": "fast"
     },
     {
-      "row_id": "package.view_contracts.frontend_unit.requires_explicit_grid_editable_389871561a",
+      "row_id": "package.view_contracts.frontend_unit.surfaces",
       "owner_id": "package.view_contracts",
       "family_id": "package.view_contracts.frontend_unit",
       "collaborator_ids": [
         "platform.viewschema"
       ],
-      "verification_ids": [
-        "package.view_contracts.verification.openapi_required_grid_editable"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
-        "titles": [
-          "requires explicit boolean grid_editable inputs"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "package.view_contracts.frontend_unit.requires_explicit_inline_create_9a33d9c7f5",
-      "owner_id": "package.view_contracts",
-      "family_id": "package.view_contracts.frontend_unit",
-      "collaborator_ids": [
-        "platform.viewschema"
-      ],
-      "verification_ids": [
-        "package.view_contracts.verification.openapi_required_inline_create"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
-        "titles": [
-          "requires an exact inline_create policy"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "package.view_contracts.frontend_unit.verify_view_schema_adapters_key_editable_and_que_52bafc21a9",
-      "owner_id": "package.view_contracts",
-      "family_id": "package.view_contracts.frontend_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "package.view_contracts.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
-        "titles": [
-          "fails deterministically for duplicate and missing field_key inputs",
-          "fails deterministically for unknown field_key references",
-          "keeps field identity and capabilities stable when labels change",
-          "keeps field identity stable when fields and visible columns reorder",
-          "resolves editable, queryable, and synthetic fields by field_key",
-          "selects generated contracts by view_schema_id, not display title",
-          "treats duplicate labels as display-only with distinct field_key identities",
-          "visibleFields fails deterministically when default-visible keys are unresolved"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "package.view_contracts.regression.index_suite_7e2dba7451",
-      "owner_id": "package.view_contracts",
-      "family_id": "package.view_contracts.regression",
-      "collaborator_ids": [],
       "verification_ids": [
         "package.view_contracts.verification.shared_contract"
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/view-contracts/src/index.test.ts",
+        "file": "packages/view-contracts/src/surfaces.test.ts",
         "titles": [
-          "view-contracts Verify inspector panels and feature groups render from active config keys and reject unknown panel IDs, route owners, result behaviors, disabled tokens, duplicate keys, missing required keys, and extra current-profile keys before rendering.",
-          "view-contracts enforces conditional full-row group_values and sparse patch group_values",
-          "view-contracts exposes inspector config by stable view_schema_id and semantic keys",
-          "view-contracts exposes mutation metadata needed by workbook controls",
-          "view-contracts exposes required reference-pack metadata from view contracts",
-          "view-contracts exposes synthetic filter predicates as filter-only fields",
-          "view-contracts joins workbook identity and status metadata in Core 01 Table 7.4-A order",
-          "view-contracts parses enum values for contract-backed controls",
-          "view-contracts parses sortable, filterable, and inline-create metadata",
-          "view-contracts rejects missing and undeclared feature groups for current-profile surfaces",
-          "view-contracts resolves header sort keys and field capabilities from contract metadata",
-          "view-contracts returns the contract-default visible field order",
-          "view-schema field-key adapter contract fails deterministically for duplicate and missing field_key inputs",
-          "view-schema field-key adapter contract fails deterministically for unknown field_key references",
-          "view-schema field-key adapter contract keeps field identity and capabilities stable when labels change",
-          "view-schema field-key adapter contract keeps field identity stable when fields and visible columns reorder",
-          "view-schema field-key adapter contract resolves editable, queryable, and synthetic fields by field_key",
-          "view-schema field-key adapter contract selects generated contracts by view_schema_id, not display title",
-          "view-schema field-key adapter contract treats duplicate labels as display-only with distinct field_key identities",
-          "view-schema field-key adapter contract visibleFields fails deterministically when default-visible keys are unresolved"
+          "derives every schema constant and status partition in registry order",
+          "exposes required reference-pack metadata from view contracts",
+          "joins workbook identity and status metadata in Core 01 Table 7.4-A order",
+          "matches generated surface projections by shared identity"
         ]
       },
       "evidence_class": "unit",

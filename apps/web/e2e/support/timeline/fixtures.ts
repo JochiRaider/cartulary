@@ -1,6 +1,5 @@
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
-import { timelineViewSchemaId } from "../contracts/workbookSurfaces";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow } from "../workbook/query";
 

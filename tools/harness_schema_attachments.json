@@ -65,8 +65,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.contract_family_registry.v4",
-      "path": "tools/schemas/cartulary.contract_family_registry.v4.schema.json",
+      "schema_id": "cartulary.contract_family_registry.v5",
+      "path": "tools/schemas/cartulary.contract_family_registry.v5.schema.json",
       "classification": "owner_input",
       "producer": "contract family owner",
       "validation": "json-shape-check"

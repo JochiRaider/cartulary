@@ -8,16 +8,15 @@ import {
   surfaceTabTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import { requireViewContract } from "@cartulary/view-contracts";
-import type { Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
 import {
   hostsViewSchemaId,
   identitiesViewSchemaId,
   notesViewSchemaId,
+  requireViewContract,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import {
   aliasCollectionActionsPayload,
   collectionItems,

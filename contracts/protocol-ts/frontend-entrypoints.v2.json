@@ -91,10 +91,7 @@
       "authored_path": "packages/protocol-ts/src/entrypoints/view-schemas.ts",
       "generated_module_allowlist": [
         "packages/protocol-ts/src/generated/view-inspector-registry.ts",
-        "packages/protocol-ts/src/generated/view-schema-registry.ts",
-        "packages/protocol-ts/src/generated/view-schema-source-types.ts",
-        "packages/protocol-ts/src/generated/view-schema-source-validator.ts",
-        "packages/protocol-ts/src/generated/view-schemas-artifacts.ts"
+        "packages/protocol-ts/src/generated/view-schema-registry.ts"
       ]
     }
   ]

@@ -27,6 +27,7 @@ import {
   workbookConflictSavedValueTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { openIncidentAsTrackedUser } from "./pages/incidentDirectory";
@@ -50,7 +51,6 @@ import {
   successfulPatchCalls,
   summaryPatchValue,
 } from "./support/collaboration/replay";
-import { timelineViewSchemaId } from "./support/contracts/workbookSurfaces";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";

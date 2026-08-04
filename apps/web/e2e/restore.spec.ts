@@ -2,11 +2,10 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { workbookShellReadyTestId } from "@cartulary/ui-contracts";
-
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { waitForCommittedRowSummary } from "./measurement/timingSupport";
 import { applyCookies, requireCookie } from "./support/auth/browserSession";
-import { timelineViewSchemaId } from "./support/contracts/workbookSurfaces";
 
 type RestoreTarget = {
   backup_set_id: string;

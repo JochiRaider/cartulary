@@ -1,9 +1,8 @@
 import type { Buffer } from "node:buffer";
+import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
-import { evidenceViewSchemaId } from "../contracts/workbookSurfaces";
 
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";

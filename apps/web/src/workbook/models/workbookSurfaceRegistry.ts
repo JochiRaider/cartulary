@@ -1,7 +1,6 @@
 import type { SystemViewSwitcherGroupToken } from "@cartulary/ui-contracts";
 import {
   assessmentsViewSchemaId,
-  buildWorkbookSurfaceContracts,
   commLogViewSchemaId,
   decisionsViewSchemaId,
   evidenceViewSchemaId,
@@ -13,6 +12,7 @@ import {
   indicatorsViewSchemaId,
   investigativeQueriesViewSchemaId,
   lessonViewSchemaId,
+  listWorkbookSurfaceContracts,
   notesViewSchemaId,
   optionalStandardizedWorkbookSurfaceIds,
   partiesViewSchemaId,
@@ -21,7 +21,6 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
-  type ViewContract,
   type WorkbookSurfaceContract,
 } from "@cartulary/view-contracts";
 
@@ -93,15 +92,7 @@ const systemWorkbookSurfaceGroupDefinitions = [
   readonly viewSchemaIds: readonly string[];
 }>;
 
-export function buildWorkbookSurfaceRegistry(
-  contracts?: readonly ViewContract[],
-): readonly WorkbookSurfaceRegistryEntry[] {
-  return contracts === undefined
-    ? buildWorkbookSurfaceContracts()
-    : buildWorkbookSurfaceContracts(contracts);
-}
-
-const workbookSurfaceRegistry = buildWorkbookSurfaceRegistry();
+const workbookSurfaceRegistry = listWorkbookSurfaceContracts();
 const workbookSurfaceRegistryIndex = new Map(
   workbookSurfaceRegistry.map((entry) => [entry.viewSchemaId, entry]),
 );

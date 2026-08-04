@@ -1,517 +1,270 @@
 # view-contracts Module Refactoring Tracker and Handoff
 
-## 1. Scope and Source Posture
+## Current Control — Production-Readiness Iteration
 
-This tracker is the controlling execution and handoff artifact for the authorized S-00 through S-08 remediation. It does not supersede an adopted owner; each completed slice records its authored inputs, generated projections, implementation, evidence, compatibility effect, and rollback posture here before the next slice begins.
+This section controls the authorized S-09 through S-14 production-readiness
+iteration. Sections 1 through 12 retain the completed first-iteration analysis
+until the S-09 rebaseline replaces them; section 13 is immutable historical
+evidence for S-00 through S-08.
 
 | Item | Value |
 | --- | --- |
-| Target path | `packages/view-contracts` |
-| Target label | `view-contracts` |
-| Output path | `docs/handoffs/view-contracts-package-refactor-tracker.md` |
-| Status | `DONE` 2026-08-04; S-00 through S-08 implemented, validated, and handed off |
-| Allowed change in this session | Adopted owners, authored contracts, generator inputs, generated projections through Make, package and web implementation, tests, authored harness inputs, and this tracker |
-| Repository baseline | Clean `main` worktree at `ea622cf7f09451d87fd2be955d9cea6959d4e0f6` before the tracker was created |
-| Prior tracker history | None; the output path did not exist at session start |
-| Implementation authority | Granted by the task owner on 2026-08-04 for the complete S-00 through S-08 remediation plan; generated files remain generator-owned and MUST NOT be hand-edited |
-| Compatibility decision | The task owner confirmed that no supported previously shipped client rejects the current indicator-specific inspector values |
-
-The source hierarchy used for this plan is:
-
-1. Adopted subsystem NLSpecs for their named subsystem. No adopted subsystem NLSpec was found that directly owns this TypeScript package.
-2. Core 00 through Core 04 for implementation-conformance behavior.
-3. Core 05 only for claim-bearing timed or fixture-sensitive publication. It was inspected and is not applicable to this refactor.
-4. Domain vocabulary and implementation-support guides.
-5. Current repository code, contracts, tests, and harness inputs.
-6. The planning framework and prior handoffs as evidence only.
-
-Owner and planning documents inspected:
-
-- `docs/handoffs/cartulary_modular_refactor_planning_framework.md`
-- `docs/domain.md`
-- `docs/spec/00_document_set_status_and_precedence.md`
-- `docs/spec/01_architecture_storage_and_view_contracts.md`
-- `docs/spec/02_domain_model_schema_and_history.md`
-- `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`
-- `docs/spec/04_security_deployment_and_conformance.md`
-- `docs/spec/05_claim_publication_and_benchmark_reproducibility.md`
-- `docs/research/nlspec-spec.md`, used as writing doctrine rather than behavioral authority
-- `temp/analysis-notes.md`, used as non-authoritative decision input
-
-Repository evidence inspected includes:
-
-- Every tracked file under `packages/view-contracts`, plus its ignored dependency and compiler artifacts.
-- The `@cartulary/protocol-ts/view-schemas` entry point, its generated source types, `contracts/view-schemas/index.json`, the indicator view-schema source, its JSON schema, and the contract generator input chain.
-- The `platform.viewschema` and `module.workbook` authored OpenAPI sources and `contracts/ws/index.schema.json`.
-- Representative web consumers for contract rows, surface registration, inspector state, saved views, import mapping, query patches, timeline collaboration, and generic/entity/assessment query flows.
-- Backend route ownership in `internal/modules/viewschemas/routes.go`, `internal/modules/workbook/routes.go`, and collaboration protocol code.
-- `tools/test_families/package.view_contracts.json`, its verification owner, related workbook/view-schema/protocol owner mappings, the test catalog, execution topology inputs, frontend import-boundary policy, and relevant Make target explanations.
-
-The framework correctly anticipates a frontend contract-adapter role, but it is not proof of the live boundary. The execution baseline has 81 direct TypeScript importer files and four current harness rows. A historical phase-row comment in `src/index.ts` is not current runtime or harness authority.
-
-Non-goals are implementing the selected owner repair locally in the package, moving domain workflows, editing generated files by hand, weakening closed-enum validation, or treating harness phase maps as runtime architecture. Valid owner-defined wire behavior is preserved. Intentional remediation includes strict malformed-source rejection, positive row-version enforcement, a distinct sparse-row type, and removal of public symbols that have no repository importer or continuing architectural value.
-
-### 1.1 Normative language and local requirement IDs
-
-The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in this tracker state conditions for the later authorized refactor. They do not amend Core 00 through Core 04. A contradiction between this tracker and an adopted owner MUST be resolved in the owner before implementation proceeds.
-
-Identifiers beginning with `VCRT-` are tracker-local traceability aids. They MUST NOT be emitted into runtime contracts, generated artifacts, harness identity, or public APIs.
-
-**VCRT-SRC-001**  
-Implementation MUST derive behavior from adopted owners and their typed projections. It MUST NOT parse Markdown, this tracker, or research notes as runtime or conformance input.
-
-**VCRT-SRC-002**  
-The semantic decision for RB-001 is resolved: the indicator-specific values MUST be preserved. Delivery is complete; Core 01 and downstream evidence satisfy section 12.2.
-
-**VCRT-COMPAT-001**  
-Because no supported prior client rejects the current values, `cartulary.view.timeline.v2`, `cartulary.view.indicators.v1`, and `cartulary.inspector_config.v1` MUST retain their identities. Unknown inspector values MUST continue to fail closed. Implementations MUST NOT add fallback aliases, accept arbitrary strings, or introduce a protocol-version transition for this owner-corpus repair.
-
-## 2. Execution-Baseline Repository Inventory
-
-| Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `packages/view-contracts/.gitkeep` | Historical directory marker | None | None | None | None | None | Package maintenance | Low | The package is no longer empty. Retain during planning; removal is not required for the refactor. |
-| `packages/view-contracts/package.json` | Declares private ESM workspace package `@cartulary/view-contracts`, a single `.` source export, Vitest script, and dependency metadata | `.` maps to `src/index.ts` | Root TypeScript project and `apps/web` workspace dependency | Runtime: `@cartulary/protocol-ts`; development: Vitest and shared TypeScript tooling | Package test invocation and workspace build/typecheck | Does not generate artifacts | Frontend contract-adapter package | Medium | The public subpath surface must remain unchanged during a structural refactor. |
-| `packages/view-contracts/src/index.ts` | Defines public view/row/inspector/surface types; parses and validates view-schema JSON; normalizes full rows and sparse patches; joins workbook-surface registry metadata; exposes schema IDs, status arrays, lookup helpers, sort resolution, field capabilities, and visible fields | `SortEntry`; view-field, inspector, surface, and row types; `normalizeViewRowV1`; `normalizeViewRowPatchV1`; `parseViewContractJSON`; surface build/list/get/require functions; 17 schema ID constants; surface-status arrays; view list/get/require functions; sort/capability/visibility helpers | 81 direct TypeScript importer files at execution bootstrap | `@cartulary/protocol-ts/view-schemas` generated source types, registry, and artifacts | `src/index.test.ts`; direct web and browser-E2E consumers; indirect workbook tests | Reads generated view-schema projections; owns no generated output | `package.view_contracts` as browser adapter, with contract meaning owned by Core 01 and interaction meaning owned by Core 03 | High | At 1,931 lines, this is a stable external facade with mixed internal responsibilities. It imports no backend, SQL, platform, grid-vendor, or test-util package. |
-| `packages/view-contracts/src/index.test.ts` | Characterizes parsing, registry order, field metadata, row variants, inspector configuration, and invalid closed vocabulary values | No runtime exports; 22 Vitest cases | Package test family and a workbook collaborator test-family row keyed to an existing test title | Vitest and local public facade | Self-contained package unit tests | Exercises generated view-schema projections through the public facade | `package.view_contracts` test evidence | Medium | Coverage is meaningful but does not close all structural-refactor risks listed in section 4. Keep path and titles stable unless authored harness accounting is updated. |
-| `packages/view-contracts/tsconfig.json` | Strict no-emit TypeScript project configuration | TypeScript project boundary | Root `tsconfig.json` project reference and Make-owned typecheck/build targets | Shared root TypeScript configuration | `make frontend-typecheck` | Produces no tracked output | Frontend tooling | Low | Preserve strictness and no-emit behavior. |
-| `packages/view-contracts/node_modules/.bin/vitest` | Installed dependency shim | Out of scope | Tool invocation only | Package manager installation | Not source evidence | Tool-managed install artifact | Package manager | Low | Ignored and explicitly outside refactor scope. Do not edit or inventory as authored source. |
-| `packages/view-contracts/tsconfig.tsbuildinfo` | Incremental compiler cache | Out of scope | TypeScript tooling only | TypeScript compiler | Not source evidence | Ignored build artifact | TypeScript tooling | Low | Do not edit, depend on, or treat as retained evidence. |
-
-The generated contract chain is downstream of adopted owners. The completed refactor consumes those projections through `@cartulary/protocol-ts/view-schemas`; it did not hand-edit `packages/protocol-ts/src/generated/**`, `internal/gen/**`, or authored generated-artifact outputs.
-
-## 3. Module Boundary Diagnosis
-
-The live evidence supports retaining `@cartulary/view-contracts` as a thin browser-facing contract facade. That finding comes from its protocol-only runtime dependency, stable single-entry-point surface, and extensive browser consumers, not from the directory name. The current implementation is nevertheless a mixed-responsibility package internally: row-wire adaptation, view-contract parsing, inspector metadata validation, surface registry assembly, and field-capability helpers are concentrated in one source file.
-
-The target is a view/projection-adjacent and transport-adjacent adapter because it interprets generated wire and view-schema projections. It does not materialize projections, execute transport, persist records, coordinate mutations or revisions, own frontend controller state, implement a grid vendor, or enforce authorization.
-
-| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Public browser contract facade | `packages/view-contracts/src/index.ts` | `@cartulary/view-contracts` | Keep and simplify | One package export and 81 direct TypeScript importer files | Preserve the external entry point; remove only the unused raw parser and unused raw row type after the final importer audit. |
-| Generated view-schema parsing and lookup | `src/index.ts` | View-contracts adapter over Core 01 projections | Split | Imports only the generated view-schema registry, artifacts, and source types | Separate implementation by semantic concern without changing module-load validation. |
-| Full `view_row_v1` normalization | `src/index.ts` | Core 01 row-wire browser adapter | Split | Used by contract-row and timeline models | Preserve record identity, version, cell completeness, technical cells, and frozen output. |
-| Sparse `view_row_patch_v1` normalization | `src/index.ts` | Core 01 row-wire browser adapter | Split | Used by generic, entity, assessment, and timeline live-patch consumers | Preserve sparse and additive-cell semantics; distinguish the concept internally without changing the public return type in the initial slice. |
-| Inspector configuration metadata and closed vocabularies | `src/index.ts` | Core 01 emitted metadata; Core 03 interaction algorithms | Defer, then split | Core 02 REQ-02-258 delegates emitted registry content to Core 01; the semantic resolution is selected but Core 01 is not repaired | Preserve the current values verbatim until S-00 passes; S-06 MUST NOT begin earlier. |
-| Workbook surface registry join, order, status, and constants | `src/index.ts` | View-contracts adapter, consumed by Workbook Interaction | Split | Joins generated artifact and registry projections for 17 surfaces | Preserve canonical order and required/optional omission behavior. |
-| Sort, capability, and visible-field helpers | `src/index.ts` | View-contracts adapter | Split | Used by workbook grid/view models without importing a grid vendor | Keep vendor-neutral. |
-| Frontend shell, inspector UI, and controller state | `apps/web/src/workbook/**` | Workbook Interaction frontend | Keep outside target | Representative consumers own registration, panels, and state | The target supplies metadata and types only. |
-| Saved-view query/layout behavior | `apps/web/src/workbook/models/workbookSavedViews.ts` and saved-view owner modules | Saved Views and Workbook Interaction | Keep outside target | Target contributes `ViewContract` identity and fields only | Do not move persistence or startup behavior into the package. |
-| Collaboration refresh and patch application | `apps/web/src/workbook/collaboration/**`, query hooks, and backend collaboration module | Collaboration plus owning workbook/query modules | Keep outside target | `record_changed` consumers call target normalizers; target does not own the stream | Preserve event admission semantics indirectly. |
-| Import/tabular ingest workflow | `apps/web/src/workbook/features/ImportAssistantFeature.tsx` and imports owners | Imports plus source-record owners | Keep outside target | Target provides field metadata for mapping | No import execution belongs in view-contracts. |
-| Projection refresh and storage | Backend projection, workbook, and source-owner modules | Projections and Search plus source owners | Keep outside target | No SQL, object store, or backend import exists in the package | The package validates returned browser rows only. |
-| Authorization enforcement | Core 04 and backend route/source owners | Security and route owners | Keep outside target | Role and disabled-state metadata are presentation hints | Never elevate package metadata into an authorization decision. |
-| Grid vendor integration | Web grid adapter | Grid adapter | Keep outside target | No vendor import exists in the package | The package may expose vendor-neutral capability metadata only. |
-
-**VCRT-BND-001**  
-`@cartulary/view-contracts` MUST remain a validating browser adapter over generated contract inputs. It MUST NOT become the semantic owner of view schemas, Inspector routes, authorization, persistence, projection refresh, mutation coordination, collaboration publication, saved views, imports, frontend shell state, or grid-vendor behavior.
-
-**VCRT-BND-002**  
-The package MUST retain the public `.` entry point and every used or strategically coherent exported name. It MUST add `NormalizedViewRowPatchV1`, make sparse and full normalized rows non-assignable at compile time, and remove `parseViewContractJSON` plus `ViewRowV1` after a repository-wide importer audit. It MUST NOT add a public subpath. Valid runtime result and freeze behavior remains stable; malformed source inputs and `row_version=0` intentionally fail closed.
-
-**VCRT-BND-003**  
-Internal source decomposition MAY vary from the filenames proposed in section 7 when that variation is not observable. Semantic responsibility, dependency direction, and slice acceptance criteria MUST remain unchanged.
-
-## 4. Public Contract and Behavior Freeze Map
-
-| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `@cartulary/view-contracts` `.` export, exported names, object shapes, error strings, freezing, and module-load parsing | Package facade, semantics downstream of Core 01/Core 03 | `package.json` and `src/index.ts` | Package unit suite plus compile-time consumer coverage | Snapshot or explicit assertions for export availability, frozen results, and representative error classes/messages | High | No public subpath or symbol pruning in a behavior-preserving refactor. |
-| View-schema discovery: `GET /api/v1/view-schemas` and `GET /api/v1/view-schemas/{view_schema_id}` | `platform.viewschema` and Core 01 | Authored OpenAPI and `internal/modules/viewschemas/routes.go` | Platform view-schema integration and contract rows | Preserve admission of every generated discovery artifact and registry/artifact identity agreement | High | The target is an indirect browser adapter, not a route handler. |
-| Workbook query rows: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` | `module.workbook` and source/projection owners | Authored OpenAPI, workbook routes, and web query adapters | Backend workbook tests and web query tests | Missing/invalid identity and version; complete cell set; unknown/additive fields; group values; technical cells; schema mismatch | High | Preserve the query envelope and full `view_row_v1` interpretation. |
-| Row creation: `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | `module.workbook` plus source owner selected by view schema | Authored OpenAPI and workbook mutation adapters | Workbook integration and package grid-editable/create tests | Characterize returned row admission for all supported surface classes and replay responses | High | Target does not choose mutation owner or implement create semantics. |
-| Row-refresh mutation envelopes from `PATCH /api/v1/records/{record_id}`, linked-note creation, same-field conflict resolution, and other workbook mutation routes | Revision coordinator, source owners, and `module.workbook` facade | `ViewMutationEnvelope` OpenAPI references and web mutation ports | Backend integration, revision, conflict, and web mutation tests | Preserve complete refresh-row parsing, record/version identity, change-set-adjacent fields, and rejection boundaries | High | No revision, conflict, or idempotency coordination moves into the target. |
-| Sparse live row patches | Core 01 row wire; Collaboration transports owner-produced change data | `normalizeViewRowPatchV1` consumers in generic, entity, assessment, and timeline query paths | Package patch cases and web collaboration/query tests | Unknown field, technical cell, empty patch, invalid cell shape, view mismatch, and version edge cases | High | S-03 now returns branded `NormalizedViewRowPatchV1`; full and sparse results are compile-time distinct without runtime wire-member changes. |
-| `GET /ws/v1/incidents/{incident_id}` and replayable `record_changed` event | Collaboration and source/revision owners | `contracts/ws/index.schema.json`, collaboration protocol, and web coordinator | Backend collaboration tests and web collaboration tests | Preserve affected-view selection, changed-field handling, sparse patch admission, refresh fallback, and replay behavior | High | The target owns neither authorization nor event emission. |
-| Inspector configuration, panels, route bindings, seed bindings, conditions, and result behavior | Core 01 metadata and Core 03 interaction algorithms | Core 01 REQ-01-615 and section 7.4; Core 02 REQ-02-258; Core 03 REQ-03-247 and REQ-03-306; indicator schema | Package inspector tests and workbook inspector collaborator row | Exact mapping, generated-registry closure, strict parsing, and four-feature consumer evidence | Repaired | S-00 amended Core 01 and aligned every downstream projection/consumer; S-06 consumes the resulting registry without an independent map. |
-| Workbook surface registry, 17 schema ID constants, status arrays, canonical order, required/optional surface handling | Core 01 surface registry projected through protocol-ts | `contracts/view-schemas/index.json` and surface registry code | Registry order/status tests | Required artifact omission; optional artifact omission; unknown artifact; duplicate or mismatched ID/path/status/kind; frozen output | High | There are 14 required surfaces and three standardized optional surfaces in the live registry. |
-| Field keys, visibility, query metadata, grouping, filter operators, sort mapping, edit/create capability, enums, mutation metadata, and reference-pack metadata | Core 01 view contracts | Authored view schemas and package parser/helpers | Package field, filter, sort, group, capability, enum, mutation, and reference-pack tests | Cross-schema field-key identity and complete generated-contract closure | Medium | Preserve vendor-neutral behavior and exact field keys. |
-| Saved-view identity, query, and layout interpretation | Saved Views owner and Workbook Interaction | `workbookSavedViews.ts` consumes `ViewContract` | Web saved-view and shell tests | Representative saved-view round trip against unchanged view and field IDs | Medium | Target affects identity compatibility but owns no saved-view storage or startup policy. |
-| Import target field mapping | Imports owner and source owners | `ImportAssistantFeature.tsx` consumes view contracts | Web import-assistant tests and backend import tests | Representative writable/hidden/technical field mapping | Medium | No import preview, validation, or commit behavior belongs in this package. |
-| Projection refresh and source-owner row semantics | Projections and Search plus each source owner | Backend query/mutation implementations; package has no backend dependency | Source-owner and workbook integration tests | Representative query and mutation refresh for affected surface families | Medium | Treat as consumer compatibility, not target architecture. |
-| Role, route, and disabled-state hints | Core 01 metadata for presentation; Core 04 for enforcement | Inspector/config metadata and Core 04 REQ-04-150 | Package metadata tests and backend authorization tests | Ensure structural extraction preserves hints; rely on backend tests for actual authorization outcomes | High | Client metadata must never become authoritative access control. |
-| Generated protocol/view-schema surface | Contract generator and `package.protocol_ts` | Generated source types and view-schema entry point | Protocol and generate-drift families | Every registry entry parses; generated source and artifact identities agree | High | Generated files are regenerated from owners and authored inputs, never hand-edited. |
-| Test-util row/query/mutation/save-state/conflict/inspector behavior | Respective test-support and owning modules, not this package | No test-util import in production target; representative tests consume the facade | Package, web, workbook, collaboration, and owner integration tests | Preserve facade outcomes used by test support; do not move test fixtures into production | Medium | The absence of test-util production coupling is intentional. |
-| Harness/test accounting | Verification owners and test-family catalog | Four active `package.view_contracts` rows and workbook collaborator mapping | `make explain-test-owner OWNER=package.view_contracts` | New or renamed test titles must be authored in owner inputs and regenerated through Make | Medium | Accounting is verification evidence, not runtime ownership. |
-
-### 4.1 Required Indicator Inspector interface
-
-**VCRT-INSP-001**  
-The S-00 owner repair defines the following four feature objects exactly. Array order in `disabled_when[]` MUST match the order shown. `minimum_incident_role=null` means an authenticated caller with ordinary incident row-read access; it MUST NOT mean anonymous access.
-
-| `feature_group_key` | Surface | `panel_id` | `route_binding.kind` | `route_binding.owner` | `minimum_incident_role` | `mutates` | `requires_confirmation` | `disabled_when[]` | Success | Failure |
-| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
-| `indicator.observations.manage` | Timeline | `relationships` | `indicator_observations` | `indicator_observations_route` | `editor` | `true` | `false` | `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
-| `indicator.observations.pivot` | Indicators | `relationships` | `indicator_observations` | `indicator_observations_route` | `null` | `false` | `false` | `no_row_selected`, `authorization_lost`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
-| `indicator.lifecycle.read` | Indicators | `history` | `indicator_lifecycle` | `indicator_lifecycle_route` | `null` | `false` | `false` | `no_row_selected`, `authorization_lost`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
-| `indicator.lifecycle.manage` | Indicators | `history` | `indicator_lifecycle` | `indicator_lifecycle_route` | `editor` | `true` | `false` | `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
-
-**VCRT-INSP-002**  
-Each row in Table 4.1 MUST use `seed_bindings=[]`. Its `route_binding.action_key` MUST equal its `feature_group_key`. `route_binding.target_view_schema_id` MUST be omitted, not emitted as `null` or an empty string.
-
-**VCRT-INSP-003**  
-Core 01 REQ-01-615 MUST add `indicator_observations` and `indicator_lifecycle` to its closed kind vocabulary and `indicator_observations_route` and `indicator_lifecycle_route` to its closed owner vocabulary. The kind tokens identify semantic child-resource families. They MUST NOT identify HTTP methods, components, handlers, storage relations, or arbitrary route strings.
-
-**VCRT-INSP-004**  
-Core 01 section 7.4.1A MUST include exact rows for the four keys in Table 4.1 and MUST include `indicator.lifecycle.manage` in the `cartulary.view.indicators.v1` required feature list. The Timeline list MUST retain `indicator.observations.manage`.
-
-**VCRT-INSP-005**  
-The execution-baseline Timeline and Indicators schemas emitted the four keys and owner tokens but placed the four feature groups in `workflow`. S-00 moved observation features to `relationships` and lifecycle features to `history` together with the Core 01 amendment and aligned acceptance evidence.
-
-### 4.2 Deterministic feature resolution and dispatch
-
-**VCRT-DISPATCH-001**  
-For one emitted feature group, resolution MUST execute in this order:
-
-1. Match the complete `feature_group_key` against an exact Core 01 row.
-2. If an exact row exists, use every routing, role, mutation, confirmation, disabled-state, seed, success, and failure member from that row.
-3. Consult a wildcard family only when no exact row exists.
-4. Validate that the resolved owner token has a registered narrow client adapter.
-5. Omit the feature when no handler exists; do not render an inert control.
-6. Dispatch through the registered semantic owner adapter and revalidate current selection state after completion.
-
-**VCRT-DISPATCH-002**  
-`indicator.observations.manage`, `indicator.observations.pivot`, `indicator.lifecycle.read`, and `indicator.lifecycle.manage` MUST be excluded from generic `*.manage` or other `record_patch` expansion. Observation features MUST use the Indicator observation child-route family. Lifecycle features MUST use `GET` or `POST /api/v1/indicators/{indicator_id}/state-intervals` as selected by the feature. Neither family may use `PATCH /api/v1/records/{record_id}`.
-
-**VCRT-DISPATCH-003**  
-The client MUST supply stable selected-record identity and current row version. Timeline observation management MUST additionally preserve the selected source field and exact byte-span context. Success MUST preserve selection by stable record ID rather than row position. Server routes MUST rederive membership, role, target visibility, lifecycle state, idempotency, and concurrency; disabled states are presentation hints only.
-
-**VCRT-DISPATCH-004**  
-No route-binding token, action key, grid coordinate, visible label, React component identity, backend handler name, SQL identity, or grid-vendor type may be converted into an arbitrary route string. No Indicator Inspector operation may introduce external enrichment or incident-data egress.
-
-### 4.3 Compatibility and forward evolution
-
-**VCRT-COMPAT-002**  
-This repair is an owner-corpus correction, not a new wire feature: current authored view schemas, authored OpenAPI input, generated protocol projections, package validators, and package tests already contain the indicator-specific values, and the task owner confirmed that no supported prior client rejects them. No identity bump is permitted for this repair.
-
-**VCRT-COMPAT-003**  
-The two specialized kinds MUST remain limited to the existing Indicator child-resource families. They MUST NOT become a callback bus, plugin interface, authorization capability, external-enrichment mechanism, route-string escape hatch, or runtime registration precedent. A future generic child-resource binding requires a separately versioned owner contract.
-
-## 5. Coupling and Boundary Findings
-
-| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
-| --- | --- | --- | --- | --- | --- |
-| RB-001 owner-corpus contradiction has a selected resolution but is not delivered | Core 01 omits values required by Core 03 and already present downstream; the task owner selected preservation | Local package repair would still violate owner order | `must_fix` | Core 01 metadata owner, with Core 03/Core 04 cross-references | Amend Core 01 exactly as section 4 requires, align projections, and pass section 12.2 before S-06. |
-| One 1,931-line public entry point combines five semantic concerns | Direct inspection of `src/index.ts` | Structural edits have broad blast radius | `should_fix` | View-contracts facade with internal concern modules | Sequence characterization before extraction and keep the public facade stable. |
-| Per-view inspector feature-key facts are hardcoded in package code as well as owner projections | Package registry and generated view-schema metadata | Drift can be internally consistent yet owner-inconsistent | `should_fix` | Core 01 projection chain | After S-00, consume one owner-derived typed source and remove independently authoritative package registry facts without changing the public API. |
-| Authored Indicator and Timeline feature objects place specialized observation and lifecycle features in `workflow` | Exact authored schema objects compared with the selected mapping in section 4.1 | UI grouping and same-surface behavior would remain owner-inconsistent | `should_fix` | Core 01 and authored view-schema inputs | Move observation features to `relationships` and lifecycle features to `history` only in the owner-aligned S-00 change. |
-| Characterization does not cover several invalid-input and required/optional registry branches | Direct comparison of exported branches with 22 tests | A structural split could change rejection behavior unnoticed | `should_fix` | `package.view_contracts` tests | Add focused characterization before moving implementation. |
-| Full and sparse normalized rows share `NormalizedViewRowV1` despite distinct invariants | Both normalizers return the same public type | Future callers may accidentally assume full-cell completeness | `should_fix` | Core 01 row adapter | Separate internal concepts first; defer any public type change. |
-| Historical `unit.stage-0.row-02` comment remains in production code | Comment in `src/index.ts`; current owner has four rows | Historical phase vocabulary can be mistaken for current authority | `should_fix` | Package maintenance | Remove or rewrite only in a later structural slice; no behavior change. |
-| Some public helpers/types have no discovered external production importer | Import aggregation compared with exports | Removal could break unsearched or future consumers | `defer` | Public package API owner | Do not prune without separate compatibility authority and complete usage evidence. |
-| Tightening acceptance of malformed values beyond current tests is unspecified | Exported parser accepts JSON text and validates selected closed shapes | Validation changes are observable behavior | `defer` | Core 01 plus package adapter | Characterize current behavior; require later authorization for tightening. |
-| Runtime dependency is limited to generated protocol contracts | `package.json` and imports | Low coupling and correct projection direction | `intentional/no_action` | View-contracts facade | Preserve the dependency direction. |
-| No backend, platform, SQL, storage, test-util, or grid-vendor import exists | Direct target import scan | Moving such behavior here would erode boundaries | `intentional/no_action` | Existing backend, frontend, and adapter owners | Keep those responsibilities outside the package. |
-| Saved views, imports, collaboration, projection refresh, and UI state remain in semantic owners | Representative caller inspection | Target could become a catch-all if consumer workflows move inward | `intentional/no_action` | Existing semantic owners | Retain only contract adaptation in this package. |
-| Generated artifacts are consumed but not owned | Protocol entry point and generated-artifact policy | Hand edits would drift or be overwritten | `intentional/no_action` | Contract generator | Change owners/authored inputs, regenerate, and run drift checks when authorized. |
-| Existing public identities remain compatible with all supported clients | Task-owner compatibility confirmation and current downstream acceptance | An unnecessary version fork would create incompatible duplicate identities | `intentional/no_action` | Core 01 compatibility owner | Retain both view-schema IDs and `cartulary.inspector_config.v1`; keep unknown-value rejection strict. |
-
-## 6. Refactor Workstreams
-
-| Workflow ID | Name | Class: root/chain/parallel | Required previous workflows | Required subsequent workflows | Goal | Files likely involved | Validation | Handoff checkpoint |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| WF-00 | Session/source bootstrap and tracker initialization | root | None | WF-01 | Establish authority order, safe scope, baseline, and handoff record | This tracker; owner and framework documents as evidence | `make lint-markdown` for the tracker | Execution authority and baseline are recorded. |
-| WF-01 | Target inventory | chain | WF-00 | WF-02, WF-03, WF-04 | Account for every target file, public symbol family, caller class, dependency, and artifact | `packages/view-contracts/**` and representative consumers | Read-only scans; `make explain-test-owner OWNER=package.view_contracts` | Inventory is rebaselined at 81 direct importer files. |
-| WF-02 | Contract-owner mapping and owner-corpus repair | parallel | WF-01 | WF-05 | Map every affected observable contract, then deliver the selected RB-001 repair through the owner chain | Core 01-04, Appendix E/F, authored OpenAPI/view schemas, generated projections | Section 8 owner/projection ladder | `DONE`; section 12.2 passes and RB-001 is closed. |
-| WF-03 | Characterization test gap analysis | parallel | WF-01 | WF-05 | Identify tests required before code moves | `src/index.test.ts` and consumer tests | `make test-slice OWNER=package.view_contracts` | Existing coverage and exact missing branches are documented. |
-| WF-04 | Boundary/coupling scan | parallel | WF-01 | WF-05 | Distinguish legitimate facade behavior from misplaced workflows | Target imports plus representative web/backend owners | `make frontend-import-boundary-check` | No domain workflow, grid vendor, persistence, transport, or authorization implementation is assigned to the target. |
-| WF-05 | Facade and ownership redesign plan | chain | WF-02, WF-03, WF-04 | WF-06 | Preserve one public facade while dividing implementation by semantic concern | Internal type, row, view, inspector, and surface modules | Typecheck and focused tests | `DONE`; explicit façade and acyclic semantic modules pass. |
-| WF-06 | Slice sequencing plan | chain | WF-05 | WF-07 | Order the smallest reversible behavior-preserving moves | Target source and tests | Per-slice commands in section 7 | Each slice has dependencies, risks, rollback, and completion criteria. |
-| WF-07 | Harness/test/accounting update plan | chain | WF-06 | WF-08 | Preserve or intentionally update authored test ownership without treating it as architecture | Authored test-family and verification-owner inputs only if tests move or are renamed | Test catalog/generation targets discovered through Make | Existing titles stay stable where practical; generated topology remains untouched by hand. |
-| WF-08 | Validation and final handoff | chain | WF-07 | None | Run focused-to-broad evidence and leave a resumable handoff | Tracker plus authorized later changes | Section 8 validation ladder | Results, failures, skipped checks, and remaining blocker are recorded. |
-
-Planning, owner repair, package decomposition, compatibility cleanup, authored accounting, validation, and handoff are complete. WF-00 through WF-08 are closed with slice evidence in section 13.
-
-## 7. Proposed Refactor Slice Plan
-
-| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| S-00 | Authorization granted; `DONE` 2026-08-04 | Deliver the Core 01 vocabulary, exact rows, panel placement, precedence, typed Inspector registry, typed Indicator operations, narrow dispatch, and owner/browser evidence | Core 01, Core 03/Core 04 cross-references, Appendix E/F, authored view-schema/protocol inputs, generator/projection outputs, package and workbook adapters | Partial owner repair; panel or dispatch drift; hand-edited generated output; generic record patch fallback | Section 8 owner/projection, security/service, package, UI, and browser criteria | Focused S-00 ladder and standalone webserver-backed browser gate | Revert the owner/projection/application/UI/test slice as one compatibility unit and regenerate prior projections | Section 12.2 passes; RB-001 and VC-006 are `DONE`; S-06 is owner-unblocked. |
-| S-01 | S-00; `DONE` 2026-08-04 | Added named characterization for all valid/rejection branches selected by the adopted schemas and approved cleanup decisions. Did not characterize malformed required documents or `row_version=0` as supported. | `packages/view-contracts/src/index.test.ts`; `tools/test_families/package.view_contracts.json`; generated topology render index | Tests could canonize accidental permissiveness | Invalid JSON/root/identity/version, cells, technical cells, additive members, sparse patches, registry/order, required/optional surfaces, freezing, deterministic errors | `make test-slice OWNER=package.view_contracts`; no web source changed, so no web owner slice was affected | Revert the S-01 test, authored manifest row, and regenerated topology projection together | All 11 new branches pass in their authored owner row; package owner now has 5 authored rows and 6 scheduled units including install. |
-| S-02 | S-01; `DONE` 2026-08-04 | Extracted shared public types and invariant utilities behind the unchanged `.` facade. | `src/index.ts`, `src/types.ts`, `src/invariants.ts`; protocol view-schema literal type aliases | Export identity, error text, validation order, and cyclic imports | Characterization, package slice, repository typecheck, and formatting/lint preserve behavior | `make test-slice OWNER=package.view_contracts`; `make frontend-typecheck`; `make lint-biome` | Revert the two internal modules, restore definitions in `index.ts`, and remove only the added protocol type aliases | Public exports/runtime results are unchanged; dependency direction is protocol types → package types/invariants → façade with no internal cycle. |
-| S-03 | S-02; `DONE` 2026-08-04 | Extracted row normalization, added branded `NormalizedViewRowPatchV1`, kept full and sparse runtime objects unchanged, and now requires positive safe `row_version >= 1`. | `src/index.ts`, `src/types.ts`, `src/rows.ts`, package row tests and authored family title | Sparse/full semantic drift; invalid concurrency admission; query/live patch regressions | Compile-time bidirectional non-assignability and full/sparse runtime matrix | Package and `web.workbook` slices, repository typecheck, Biome | Revert `rows.ts`, restore row functions/types in their S-02 locations, remove the one added title, and regenerate topology | Branded separation, positive versions, freezing, additive-member behavior, query/collaboration consumers, and 120/120 web owner units pass. |
-| S-04 | S-01, S-02; `DONE` 2026-08-04 | Extracted view parsing/helpers and validates raw source documents with a generated runtime decoder before semantic invariants. | One-line façade, `src/view-contracts.ts`, invariant source diagnostics, protocol generator/decoder/entrypoint, generated validator | Diagnostic ordering, module-load timing, valid artifact order | Invalid JSON/root/required/type/unknown-member/closed-value tests and all 17 valid artifacts | Package/protocol slices, typecheck, drift, JSON shape, Biome | Revert parser module move, decoder entrypoint/generator work, source-diagnostic tests, and regenerated outputs without affecting `rows.ts` | Malformed source documents fail closed with deterministic source/path/reason errors; all 17 artifacts and valid helper behavior are unchanged. |
-| S-05 | S-02, S-04; `DONE` 2026-08-04 | Extracted workbook-surface assembly, status arrays, schema constants, and required/optional joining while retaining `buildWorkbookSurfaceContracts` and injected sources. | `src/index.ts`, `src/view-contracts.ts`, `src/workbook-surfaces.ts`, package surface tests/accounting | Required/optional omission, ordering, artifact/registry mismatch | Required/optional branches, status partitions, all constants, canonical order, injected construction, kind/reference-pack drift | Package and 120-unit `web.workbook` slices, typecheck, Biome | Revert only the surface module, restore its block to `view-contracts.ts`, remove one test title, and regenerate topology | Registry order, identities, failures, omissions, constants, freeze boundaries, and production injection pass. |
-| S-06 | S-00, S-02, S-04; `DONE` 2026-08-04 | Extracted Inspector parsing after owner/projection repair and consumes only owner-derived typed registry facts. The public façade and selected semantics remain unchanged. | `src/view-contracts.ts`, `src/inspector.ts`, exact package Inspector tests/accounting | Closed-vocabulary, route, lifecycle, authorization-hint, result, initialization, and freezing drift | Exact four-row mapping; mismatch/generic-patch rejection; strict unknown rejection; all 17 artifacts; representative Inspector consumers | Package, 120-unit web workbook, and 66-unit service-backed workbook slices; typecheck; Biome | Restore Inspector parsing to `view-contracts.ts`, remove `inspector.ts` and one title, then regenerate topology; retain S-00 owner repair | Section 4 interfaces pass, no independent registry remains, metadata stays non-authoritative, and package plus consumer evidence passes. |
-| S-07 | S-03, S-04, S-05, S-06; `DONE` 2026-08-04 | Reduced `src/index.ts` to exact value/type re-exports, kept `.` and the coherent Inspector graph, removed public `parseViewContractJSON` and `ViewRowV1`, and added no alias or subpath. | `src/index.ts`, `src/types.ts`, internal parser test import, exact façade test | Accidental real-consumer removal or initialization-order change | Exact runtime export set, importer/subpath scans, internal module load, package consumers | Package slice, typecheck, import boundary, Biome | Restore the S-06 star exports and row type; no generated rollback is needed | One package entrypoint remains; parser is internal-only; removed type is absent; every workspace consumer compiles. |
-| S-08 | S-07; `DONE` 2026-08-04 | Audited authored test accounting/topology, repaired two broad-gate omissions, reran the exact focused-to-broad ladder, and completed the implementation handoff. | Owner manifests, frontend source ownership, generator cleanup, generated topology through Make, tracker | Unaccounted evidence, generated drift, or incomplete handoff | Every added/renamed test is owner-routable; source ownership and Go staticcheck pass | Section 8.4 exact sequence; final `check` 715/715 | Revert S-08 ownership/helper fixes only if the corresponding S-00 files are also reverted; regenerate rather than edit outputs | All focused and broad checks pass; no unaccounted test/generated drift remains; overall tracker is `DONE`. |
-
-### 7.1 S-00 ordered owner-corpus repair
-
-S-00 MUST execute in this order and MUST stop at the first failed gate:
-
-1. Amend Core 01 with the two kinds, two owner tokens, four exact feature rows, `indicator.lifecycle.manage`, exact-over-wildcard precedence, and the generic-record-patch exclusion.
-2. Align Core 03 cross-references and Core 04 acceptance criteria without transferring metadata, interaction, source-state, or authorization ownership.
-3. Update Appendix E historical status and Appendix F traceability; neither appendix may become an owner.
-4. Align the authored Timeline and Indicators view schemas plus the platform view-schema OpenAPI owner input with section 4.
-5. Regenerate every downstream projection through Make-owned generation. Generated roots MUST NOT be hand-edited.
-6. Change `@cartulary/view-contracts` to validate owner-projected data without an independently authoritative per-view feature registry.
-7. Bind workbook owner tokens to narrow Indicator adapters; React components and grid callbacks MUST NOT construct routes.
-8. Run the complete section 8 ladder and record exact evidence before changing RB-001 delivery to `DONE`.
-
-### 7.2 Slice independence rule
-
-**VCRT-SLICE-001**  
-S-01 through S-05 MAY proceed before S-00 only when they preserve every inspector value, feature object, error, freeze boundary, and initialization effect byte-for-byte or structurally equivalently. They MUST NOT reinterpret, remove, normalize, relocate between panels, or add aliases for inspector values.
-
-**VCRT-SLICE-002**  
-S-06 MUST NOT begin until S-00 and section 12.2 are complete. S-07 MUST NOT finalize the public facade while S-06 is blocked.
-
-Every code-bearing slice MUST be independently reviewable and reversible. No behavior change is authorized unless the slice explicitly says `requires later authorization`.
-
-## 8. Validation Plan
-
-| Validation layer | Command | Scope | Required before implementation? | Notes |
-| --- | --- | --- | --- | --- |
-| documentation | `make lint-markdown` | This tracker and repository Markdown policy | yes | Required after every slice and after the final implementation handoff. |
-| unit | `make test-slice OWNER=package.view_contracts` | Four owned package rows | yes | Run before characterization and after each source extraction. |
-| integration | `make service-backed-test-slice OWNER=module.workbook` | Workbook routes, row refresh, conflicts, inspector action integration | no | Required before completing a later slice that changes consumer-visible row or inspector behavior. |
-| e2e/browser | `make browser-e2e-webserver-backed` | Browser/workbook behavior against a real server | no | Required when a later slice changes consumer-visible row, registry, inspector, or collaboration flow. |
-| generated drift | `make generate-drift` | Contract and generated artifact projections | yes for owner/contract slices | A passing drift check proves projection consistency, not completeness against prose owners. |
-| generated policy | `make generated-artifact-policy-check` | Generated-root ownership and edit policy | yes for owner/contract slices | Required after regeneration; generated roots MUST NOT be hand-edited. |
-| JSON shape | `make json-shape-check` | Authored contract JSON shape | yes for owner/contract slices | Required after authored view-schema or OpenAPI input changes. |
-| import-boundary/static | `make frontend-typecheck` | TypeScript package and consumers | yes | Baseline passed. |
-| import-boundary/static | `make frontend-import-boundary-check` | Browser/runtime facade and package boundary policy | yes | Baseline passed. |
-| import-boundary/static | `make lint-biome` | Authored frontend source style and static checks | no | Run for later TypeScript edits; not needed for the tracker-only write. |
-| consumer unit | `make test-slice OWNER=platform.viewschema` | View-schema discovery owner | no | Required when discovery or generated schema adaptation changes. |
-| consumer unit | `make test-slice OWNER=package.protocol_ts` | Generated TypeScript protocol entry points | no | Required when generator inputs or entry points change. |
-| owner unit/service | `make test-slice OWNER=module.indicators` and `make service-backed-test-slice OWNER=module.indicators` | Indicator observations, lifecycle, storage, routes, and UI ownership | no | Required for S-00; live owner has 23 rows, 11 service-backed. |
-| consumer unit | `make test-slice OWNER=web.workbook` | Workbook frontend consumers | no | Required after row, view, surface, or inspector extraction. |
-| finalization | `make agent-finalize` | Retained run evidence and end-of-run maintenance | no | Passed in S-08 before broad verification; retained-run maintenance skipped because `RESULTS_DIR` was unset. |
-| full fast check | `make test-fast` | Broad fast repository evidence | no | Run after all later structural slices. |
-| full check | `make check` | Full repository check | no | Passed 715/715 in the final S-08 sequence. |
-
-Commands were discovered through `make help`, `make task-guide ROLE=module-author OWNER=package.view_contracts`, `make explain-test-owner OWNER=package.view_contracts`, and `make explain-target` for the listed targets. Baseline evidence already run during planning:
-
-| Command | Result | Retained run root |
-| --- | --- | --- |
-| `make test-slice OWNER=package.view_contracts` | Passed, 5/5 execution rows | `.cartulary/test-results/20260804T122125Z-p358192` |
-| `make generate-drift` | Passed, 4/4 execution rows | `.cartulary/test-results/20260804T122133Z-p358556` |
-| `make frontend-typecheck` | Passed, 2/2 execution rows | `.cartulary/test-results/20260804T122144Z-p361175` |
-| `make frontend-import-boundary-check` | Passed, 2/2 execution rows | `.cartulary/test-results/20260804T122145Z-p361540` |
-| `make lint-markdown` | Passed | `.cartulary/test-results/20260804T123720Z-p368339` |
-
-No unrun command is claimed as successful.
-
-### 8.1 Owner and projection acceptance
-
-The following criteria are binary and MUST pass before S-00 is complete:
-
-1. `indicator_observations` and `indicator_lifecycle` occur exactly once in every applicable closed kind projection.
-2. `indicator_observations_route` and `indicator_lifecycle_route` occur exactly once in every applicable closed owner projection.
-3. Unknown, misspelled, case-folded, padded, or extension-prefixed kind and owner values fail validation.
-4. Every required surface emits exactly its Core 01 feature set; each implemented optional surface does the same.
-5. Indicators emits `indicator.lifecycle.manage` exactly once.
-6. Timeline resolves `indicator.observations.manage` to `indicator_observations_route`, never `record_patch_route`.
-7. All four exact rows in section 4.1 override every wildcard family.
-8. All 17 current view-schema artifacts parse and agree with the registry.
-9. Authored JSON, generated source types, generated artifacts, OpenAPI discovery enums, and package runtime validation agree.
-10. Generated-artifact policy and drift checks prove that regeneration came from authored inputs rather than hand edits.
-
-### 8.2 Security and service acceptance
-
-| Scenario | Required result |
+| Status | `DONE` 2026-08-04; S-09 through S-14 complete and handed off |
+| Baseline | Clean worktree at `25cd6532dfd9a6531ac7fffb10b6d051478225b2` |
+| Target | Replace browser-time parsing of trusted view-schema artifacts with a generator-owned normalized projection, then remove obsolete protocol, package, web, test, and harness seams |
+| Compatibility boundary | Private workspace packages at `0.0.0`; repository-wide importer scans and frontend typecheck; no aliases or fallback APIs |
+| Preserved identities | All current view-schema IDs, `cartulary.inspector_config.v1`, HTTP routes, row wire shapes, and the `@cartulary/view-contracts` `.` entrypoint |
+| Generated-file rule | Authored generator and policy inputs change first; generated roots and topology outputs change only through Make |
+
+After each slice, and before beginning the next slice, this tracker MUST record
+the status, substantive authored and generated files, validation commands and run
+roots, compatibility impact, rollback posture, blocker state, and next slice.
+`make lint-markdown` and `git diff --check` MUST pass before a slice is `DONE`.
+
+| Slice | State | Depends on | Exit summary |
+| --- | --- | --- | --- |
+| S-09 | `DONE` | S-08 | Generator-owned normalized projection, policy ownership, and parity evidence pass without a production cutover |
+| S-10 | `DONE` | S-09 | Package initialization consumes the projection and contains no source parser or Inspector parser |
+| S-11 | `DONE` | S-10 | Raw TypeScript artifacts, source decoder/types, runtime Inspector registry value, and generic artifact-collection machinery are removed |
+| S-12 | `DONE` | S-11 | Dead package and web APIs are removed without aliases and all consumers migrate to the immutable list API |
+| S-13 | `DONE` | S-12 | Focused tests and authored harness accounting replace the monolith; obsolete sentinels and seams are absent |
+| S-14 | `DONE` | S-13 | Exact focused-to-broad validation passes and the implementation handoff is complete |
+
+### Current work items
+
+| Work item | Slice | State | Binary outcome |
+| --- | --- | --- | --- |
+| VC-014 | S-09 | `DONE` | A generator-owned normalized browser projection has exact parity with all 17 contracts and surfaces |
+| VC-015 | S-10 | `DONE` | Production package initialization has no raw-source parser, decoder, or duplicate Inspector validator |
+| VC-016 | S-11 | `DONE` | Protocol and contractgen expose no raw view artifact, TypeScript source type, source decoder, runtime Inspector registry value, or artifact-collection facility |
+| VC-017 | S-12 | `DONE` | Dead façade and workbook construction seams are absent without aliases |
+| VC-018 | S-13 | `DONE` | Package tests are focused, owner-routable, and free of parser/builder and sentinel residue |
+| VC-019 | S-14 | `DONE` | The prescribed focused-to-broad validation sequence and production handoff are complete |
+
+### Current blockers and completion criteria
+
+No blocker is open. A slice is binary-complete only when its implementation,
+importer audit, focused validation, generated-policy validation where applicable,
+tracker checkpoint, `make lint-markdown`, and `git diff --check` all pass. The
+overall iteration is complete only when VC-014 through VC-019 are `DONE`, every
+S-14 command passes in order, removed symbols and outputs are absent, generated
+drift is empty, and the final compatibility and rollback handoff is recorded.
+
+### Current handoff log
+
+| Date | Slice | Event | Next action |
+| --- | --- | --- | --- |
+| 2026-08-04 | S-09 | Generated projection and policy ownership completed | Cut package runtime over to the projection |
+| 2026-08-04 | S-10 | Browser source parsing and Inspector validation removed | Remove the now-unreachable protocol and generator facilities |
+| 2026-08-04 | S-11 | Registry v5 and protocol/generator cleanup completed | Remove dead façade and workbook construction seams in S-12 |
+| 2026-08-04 | S-12 | Dead package, workbook, and E2E construction/re-export seams removed | Split and account the focused package test architecture in S-13 |
+| 2026-08-04 | S-13 | Five-module production graph and four owner-routable test files completed | Run the exact S-14 validation and handoff sequence |
+| 2026-08-04 | S-14 | Corrected one dead staticcheck helper, restarted the sequence, and passed every focused and broad gate | Implementation is ready for review and commit |
+
+The selected target and removals are the decision-complete plan in the task
+authorization. In particular, the prior decisions to retain `.gitkeep`, runtime
+source parsing, injected surface builders, capability/visibility helpers, and
+test-only optional-surface omission are superseded. Optional surface status
+remains owner metadata; absence of a declared build artifact is a generation
+failure unless a future adopted owner introduces an explicit availability model.
+
+## 1. Scope, Authority, and Status
+
+This tracker controls the S-09 through S-14 production-readiness iteration for
+`@cartulary/view-contracts`. Adopted Core owners and authored contracts remain
+the behavioral authority. This tracker controls sequencing, compatibility
+decisions, evidence, rollback, and handoff; no runtime or test reads it.
+
+The iteration began from clean commit
+`25cd6532dfd9a6531ac7fffb10b6d051478225b2`. No Core owner, domain vocabulary,
+database, HTTP route, view identity, or Inspector identity change is in scope.
+Generated files and harness topology MUST change only through Make-owned
+generation.
+
+The tracker status is `DONE`. S-09 through S-14 are complete. Section 13 is the
+preserved S-00 through S-08
+historical execution record. Section 14 records this iteration's checkpoints.
+
+## 2. Rebaseline and Repository Evidence
+
+| Evidence | Baseline conclusion |
 | --- | --- |
-| Authenticated incident viewer reads observation or lifecycle collection | Allowed when the selected record is visible and active. |
-| Viewer attempts create, resolve, dismiss, restore, or lifecycle append | Denied without disclosing a hidden target. |
-| Incident editor performs a declared mutation | Allowed only through the dedicated Indicator child route after current state validation. |
-| `deployment_admin` without incident membership | No incident read or mutation access. |
-| Cookie-authenticated mutation without valid CSRF | Rejected before mutation. |
-| Hidden, foreign-incident, deleted, or wrong-type target | No existence disclosure; no child-resource side channel. |
-| Exact idempotent replay | Returns the original successful result after current authorization. |
-| Divergent replay or stale row version | Fails with no partial success. |
-| Failed operation | Creates no history, projection refresh, idempotency-success record, or Collaboration publication. |
-| Inspector dispatch | Calls the real observation or state-interval route; never generic record patch. |
-| Missing client handler | Omits the feature instead of rendering an inert control. |
-| Base-profile operation | Performs no third-party enrichment or external incident-data egress. |
+| Package importers | 83 TypeScript files referenced `@cartulary/view-contracts` at rebaseline; repository typecheck is the private-workspace compatibility boundary |
+| Removable source path | Raw artifacts, source types, decoder/parser code, and duplicate Inspector validation totaled approximately 453 KB before S-09 |
+| Package identity | Private workspace package at `0.0.0`, one public `.` entrypoint, no supported subpaths |
+| Runtime trust boundary | Authored view-schema sources are trusted generation inputs; no browser API accepts untrusted source documents |
+| Surface corpus | All 17 declared contracts and surfaces are required build outputs; optional status is metadata, not a silent omission profile |
+| Baseline checks | Package, protocol, typecheck, import-boundary, generation-drift, JSON-shape, and Markdown checks passed before implementation |
 
-### 8.3 Package and browser acceptance
+The production package previously reparsed escaped JSON, decoded already
+validated authored sources, repeated cross-field Inspector validation, built
+optional subsets through injected tests, and exposed helpers with no production
+consumer. Those behaviors are compatibility burden rather than product value.
 
-1. The package accepts the four exact feature objects in section 4.1 and rejects unknown kind or owner tokens.
-2. Parser results and normalized contract data remain recursively immutable to the same observable extent as the current package.
-3. Saved views over the same `view_schema_id` inherit the same Inspector config and persist no Inspector UI state.
-4. A pending lifecycle or observation form invalidates on selected-record, row-version, authorization, incident-lifecycle, deletion, or active-surface change.
-5. Successful same-surface operations preserve the selected Indicator or Timeline row, scroll context, and focus target by stable identity.
-6. Browser tests prove that no generic record-patch adapter is called for the four exact features.
-7. Route dispatch accepts no grid-vendor type, cell coordinate, row index, visible label, or component identity.
-8. Unknown or unsupported features remain fail-closed and follow `omit_feature` behavior.
+## 3. Production Target Architecture
 
-### 8.4 S-08 final validation order
+The final package MUST contain five authored production modules plus focused
+tests:
 
-S-08 MUST run the following commands in order and MUST stop on the first failure:
+1. `index.ts` — the only public façade.
+2. `types.ts` — the coherent View, Inspector, row, and surface metadata graph.
+3. `rows.ts` — full and sparse branded row normalization.
+4. `projection.ts` — the sole adapter over the package-local generated browser projection.
+5. `contracts.ts` — immutable contract/surface lookup, schema constants, and status partitions.
 
-```text
-make lint-markdown
-make lint-biome
-make generate-drift
-make generated-artifact-policy-check
-make json-shape-check
-make test-slice OWNER=platform.viewschema
-make test-slice OWNER=package.protocol_ts
-make test-slice OWNER=package.view_contracts
-make test-slice OWNER=module.indicators
-make service-backed-test-slice OWNER=module.indicators
-make test-slice OWNER=web.workbook
-make service-backed-test-slice OWNER=module.workbook
-make frontend-typecheck
-make frontend-import-boundary-check
-make browser-e2e-webserver-backed
-make agent-finalize
-make test-fast
-make check
-git diff --check
-git status --short
-```
+The generated `view-contract-projection.ts` contains normalized, registry-ordered,
+deeply frozen browser values. It MUST NOT contain raw JSON strings, hashes,
+defaults, fallback validation, or package imports. `projection.ts` alone may
+import it and derives maps while preserving shared contract identity between
+contract and surface lists.
 
-### 8.5 Current documentation revision evidence
+The package MUST NOT own source-schema parsing, runtime source decoding,
+authorization, routes, mutation execution, workbook state, feature availability,
+or a generic plugin system.
 
-Only documentation validation applies to this tracker revision.
+## 4. Interface and Compatibility Decisions
 
-| Command | Result | Evidence |
-| --- | --- | --- |
-| `make lint-markdown` | Passed | `.cartulary/test-results/20260804T132354Z-p385630` |
-| `git diff --check` | Passed | No output |
-| `git status --short` | Passed scope check | Only `?? docs/handoffs/view-contracts-package-refactor-tracker.md` |
+Retained public runtime APIs are row normalization, contract list/get/require,
+header-sort resolution, surface listing, 17 schema constants, and three status
+arrays. Retained public types are the branded full/sparse row results and the
+coherent View, Inspector, field, row-cell, and surface metadata graph.
+
+The following are intentionally removed without aliases:
+
+- `fieldCapability`, `visibleFields`, and `ViewFieldCapability`;
+- `buildWorkbookSurfaceContracts`, `getWorkbookSurfaceContract`, and
+  `requireWorkbookSurfaceContract`;
+- web `buildWorkbookSurfaceRegistry` and its injectable impossible-state tests;
+- the E2E workbook-surface re-export module;
+- protocol `viewSchemaArtifacts`, `viewSchemaSourceDocumentDecoder`, every
+  `ViewSchemaSource*` TypeScript type, and runtime `viewInspectorRegistry`;
+- generated `artifact.ts`, raw view-schema artifacts, source types, and source decoder;
+- contractgen artifact-collection and shared TypeScript artifact support.
+
+`viewSchemaRegistry`, `listViewSchemaRegistryEntries`, literal-derived Inspector
+types, and Go view-schema source types remain. No deprecation alias, fallback,
+package subpath, identity bump, database migration, or route migration is
+introduced.
+
+Prior S-00 through S-08 decisions to retain `.gitkeep`, runtime parsing,
+injected surface builders, capability/visibility helpers, and optional-surface
+omission through test injection are superseded.
+
+## 5. Gap Remediation Matrix
+
+| Gap | Structural remediation | Areas | Long-term benefit | Risk if unresolved | Completion evidence |
+| --- | --- | --- | --- | --- | --- |
+| Duplicate browser source validation | Generate one normalized frozen browser projection and adapt it locally | Generator, policy, package, tests | Single validation authority and deterministic startup | Drift and browser-only initialization failures | 17-contract parity, shared identity, freeze, drift, and package evidence |
+| Raw artifact projection facility | Remove artifact collections, source writer/decoder, and adopt registry v5 | Contracts, generator, protocol, tests | Smaller generated surface and no raw-source coupling path | Future features may ship owner sources into browsers | v5 shape, generation, obsolete-output absence, protocol exact surface |
+| Dead façade/build seams | Remove helpers/builders and migrate workbook/E2E callers to immutable lists | Package, web, E2E, tests | Fewer impossible states and supported APIs | Dead behavior constrains future structure | Importer scans, export test, typecheck, browser behavior |
+| Browser-owned invalid-source tests | Move rejection evidence to contractgen; test browser values and public behavior only | Generator and package tests | Tests follow the real trust boundary | Parser architecture survives only to support tests | Generator rejection matrix and no parser test seam |
+| Monolithic tests and sentinel | Split façade, row, contract, and surface tests; remove `.gitkeep` | Tests, harness, package | Focused failures and accountable growth | Owner slices can omit or obscure evidence | Four owner-routable paths, topology drift-clean, no sentinel |
+
+## 6. Sequential Workstreams
+
+| Slice | Scope | Dependency | Exit condition |
+| --- | --- | --- | --- |
+| S-09 | Generate normalized browser projection, adapter, ownership policy, and parity tests | S-08 | Projection is deterministic and unused by production until parity passes |
+| S-10 | Cut package initialization to the projection and delete source/Inspector parsers | S-09 | Production graph contains no parser, source decoder, or duplicate Inspector validation |
+| S-11 | Remove protocol/generator legacy and adopt contract-family registry v5 | S-10 | Obsolete outputs and artifact-collection machinery are absent |
+| S-12 | Remove dead façade, workbook, and E2E seams | S-11 | All importers use retained immutable APIs and browser behavior passes |
+| S-13 | Consolidate five-module production graph, split tests, and finalize accounting | S-12 | Every retained test is owner-routable and cleanup scans are empty |
+| S-14 | Run prescribed focused-to-broad validation and complete handoff | S-13 | Every command passes in order and VC-014 through VC-019 are `DONE` |
+
+Each slice is independently reversible within its stated compatibility unit.
+The tracker MUST be updated after a slice and before the next begins. A failed
+slice is `BLOCKED`; later slices MUST NOT start.
+
+## 7. Dependencies and Sequencing Rules
+
+- S-09 establishes parity before any runtime switch.
+- S-10 removes browser parsing only while S-11 protocol rollback remains available.
+- S-11 removes the old protocol/generator unit only after the package graph no longer imports it.
+- S-12 removes public and web seams only after a final importer audit.
+- S-13 moves tests and topology only after runtime/public structure is stable.
+- S-14 is validation and handoff only; first-time implementation or test registration is prohibited.
+
+After every slice, update the current work table, blocker state, handoff log,
+checkpoint, generated/authored distinction, compatibility impact, rollback, and
+next slice. Run `make lint-markdown` and `git diff --check`; mark `DONE` only
+after both pass.
+
+## 8. Validation Strategy
+
+Narrow evidence is selected by owner before broad checks. Generator or harness
+input changes require generation through Make and drift checks. The minimum
+focused owners are `platform.viewschema`, `package.protocol_ts`,
+`package.view_contracts`, `web.architecture`, `web.workbook`, and the affected
+`module.workbook` collaborator row.
+
+Validation covers:
+
+- exact public runtime and type surfaces;
+- all 17 contract/surface values, order, freezing, and shared identity;
+- full/sparse row behavior and type non-assignability;
+- generator-time malformed source and cross-field rejection;
+- generated ownership, JSON shape, drift, and frontend boundaries;
+- package, workbook, browser, typecheck, Biome, and web build behavior;
+- authored title/path ownership and generated topology.
+
+S-14 runs the user-prescribed command sequence in order and stops at the first
+failure. `make agent-finalize` runs without `RESULTS_DIR` unless an equivalent
+successful retained warm-check root exists.
 
 ## 9. Top-Level Work Tracker
 
-| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
-| --- | --- | --- | --- | --- | --- | --- |
-| VC-001 | Establish source hierarchy, safe scope, baseline, and tracker | WF-00 | DONE | None | Section 1 | Tracker is the only touched file and implementation is explicitly unauthorized. |
-| VC-002 | Inventory every target file, public surface, caller class, and dependency | WF-01 | DONE | VC-001 | Section 2 | All tracked and ignored target files are accounted for. |
-| VC-003 | Map observable contracts to owners and select RB-001 semantics | WF-02 | DONE | VC-002 | Sections 4 and 11; task-owner compatibility confirmation | Owners, exact values, interfaces, and selected no-version-change posture are explicit. |
-| VC-004 | Identify characterization gaps | WF-03 | DONE | VC-002 | Sections 4 and 7, S-01 | Exact pre-extraction test gaps are listed without inventing behavior. |
-| VC-005 | Diagnose package boundary and coupling | WF-04 | DONE | VC-002 | Sections 3 and 5 | Facade responsibilities are separated from consumer-owned workflows. |
-| VC-006 | Deliver the selected Core 01 owner-corpus repair | WF-02 | DONE | VC-003; implementation authority granted | RB-001, S-00, section 12.2, and the S-00 checkpoint | Core 01, authored inputs, generated projections, application dispatch, and conformance evidence agree. |
-| VC-007 | Add behavior-preserving characterization tests | WF-03 | DONE | VC-004 | S-01 and checkpoint 13.2 | Required branches pass before implementation moves. |
-| VC-008 | Extract types, invariants, and row normalization | WF-05/WF-06 | DONE | VC-007 | S-02 and S-03; checkpoints 13.3 and 13.4 | Public facade is stable; row runtime shape is unchanged; full and sparse results are type-distinct. |
-| VC-009 | Extract view parsing and surface registry | WF-05/WF-06 | DONE | VC-007, VC-008 | S-04 and S-05; checkpoints 13.5 and 13.6 | All 17 schema artifacts, parser invariants, registry joins, constants, and consumer evidence pass. |
-| VC-010 | Extract inspector metadata handling | WF-05/WF-06 | DONE | VC-006, VC-008, VC-009 | S-06 and checkpoint 13.7 | Owner conflict is closed; one owner-derived registry drives strict metadata parsing and exact specialized signatures. |
-| VC-011 | Finalize stable facade and authored harness accounting | WF-07 | DONE | VC-008, VC-009, VC-010 | S-07 and S-08; checkpoints 13.8 and 13.9 | Explicit public façade and final catalog/topology/source-ownership accounting pass. |
-| VC-012 | Run final implementation validation and hand off | WF-08 | DONE | VC-011 | Section 8 and checkpoint 13.9 | Required focused and broad evidence is recorded with no unreported failure. |
-| VC-013 | Confirm supported-client compatibility posture | WF-02 | DONE | VC-003 | Task-owner confirmation recorded in section 1 | Existing schema and view IDs remain valid; no fallback alias or version transition is planned. |
+| Work item | Slice | State | Exit evidence |
+| --- | --- | --- | --- |
+| VC-014 | S-09 | `DONE` | Generated projection parity and policy ownership |
+| VC-015 | S-10 | `DONE` | Runtime projection cutover and parser deletion |
+| VC-016 | S-11 | `DONE` | Registry v5 and protocol/generator legacy removal |
+| VC-017 | S-12 | `DONE` | Dead façade/web/E2E seams removed and importers migrated |
+| VC-018 | S-13 | `DONE` | Five-module graph, four focused test files, topology and cleanup audit |
+| VC-019 | S-14 | `DONE` | Complete validation and handoff |
 
-## 10. Session Handoff Log
+## 10. Risk and Rollback Register
 
-### Scope and authority
+| Risk | Prevention | Rollback unit |
+| --- | --- | --- |
+| Generated values differ from characterized runtime | Full semantic parity before S-10 | S-09 projection, adapter, and policy additions |
+| Cutover changes order, identity, or freezing | Exact object identity/order/freeze tests | S-10 package parser/projection unit |
+| Generator v5 removes a still-used output | Repository import scan plus protocol/typecheck gates | S-11 registry v4, writers, outputs, and entrypoint together |
+| Dead API removal breaks a hidden consumer | Final repository scan and private-workspace typecheck | S-12 façade, web tests, and E2E import migration |
+| Test split loses evidence | Same-slice manifests, Make generation, focused owner execution | S-13 tests and authored topology inputs |
+| Broad unrelated failure obscures handoff | Stop on first failure and classify relatedness from run artifacts | No code rollback until failure is diagnosed |
 
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Framework doctrine and Core 00-05 authority mapped; planning-only boundary active | Inspected framework, domain vocabulary, Core 00-05, target package, contracts, consumers, and harness inputs; touched only this tracker | `git status --short`; representative `rg`, `sed`, and `jq` reads | Clean baseline confirmed; target exists; prior tracker absent | RB-001 | Obtain later authorization and resolve RB-001 before inspector semantic work. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Semantic decision resolved; adopted-owner delivery remains blocked | Inspected `nlspec-spec.md`, `analysis-notes.md`, live tracker, Core owner sections, authored contracts, package validators, generator validation, history, and compatibility evidence; touched only this tracker | `git status --short`; `sha256sum`; `rg`; `sed`; `jq`; `git log`; `git branch` | Tracker-local normative rules, exact mapping, compatibility posture, and acceptance gates added | RB-001 delivery gate | Seek separate authority for S-00; do not treat the tracker as an owner amendment. |
-| 2026-08-04T09:53:44-04:00 | Codex remediation session | Execution authority granted; S-00 starting | Rebaselined tracker and live package importers; tracker changed from planning-only to active remediation | `git status --short`; `git rev-parse`; importer `rg`; `make task-guide ROLE=module-author OWNER=package.view_contracts` | Baseline remains `ea622cf7f09451d87fd2be955d9cea6959d4e0f6`; tracker is untracked; 81 direct importer files; focused owner command reconfirmed | None | Execute S-00 as one owner/projection/application compatibility unit. |
-| 2026-08-04T11:00:27-04:00 | Codex remediation session | S-00 complete; RB-001 delivered | Core owners, typed registry and protocol inputs, generators, generated projections, package validation, workbook transport/dispatch/UI, focused tests, visual goldens, and owner-slice browser harness | S-00 checkpoint section 13.1 records exact commands, roots, failures, and visual refresh evidence | Owner/projection/application/browser agreement established; 24 Indicator owner rows, including two frontend rows and 11 service-backed rows | None | Run tracker close checks, then begin S-01 characterization. |
-| 2026-08-04T11:10:45-04:00 | Codex remediation session | S-01 complete; characterization baseline frozen | Added 11 named package tests, registered one authored owner row, and regenerated topology through Make | `make test-slice OWNER=package.view_contracts`; `make generate`; tracker close checks in checkpoint 13.2 | Parser/row/patch/surface/export/freeze branches selected for preservation or intentional later cleanup now have explicit evidence; malformed required source tolerance and zero row versions were not blessed | None | Begin S-02 shared types and invariant extraction. |
-| 2026-08-04T11:16:11-04:00 | Codex remediation session | S-02 complete; shared foundations extracted | Moved the public type graph to `types.ts`, moved owner-neutral invariant primitives to `invariants.ts`, retained explicit type re-exports from `.`, and exposed missing registry-derived protocol type aliases | Package slice, repository typecheck, Biome, and tracker close checks in checkpoint 13.3 | Runtime initialization, deterministic errors, public names, and all characterized outputs are unchanged; internal dependencies are one-way | None | Begin S-03 branded full/sparse row adapters. |
-| 2026-08-04T11:21:13-04:00 | Codex remediation session | S-03 complete; row concepts separated | Extracted `rows.ts`, added compile-time-only full/patch brands, changed the sparse normalizer return type, rejected `row_version < 1`, expanded the runtime/type matrix, and regenerated topology | Package and complete `web.workbook` owner slices, repository typecheck, Biome, generation, and tracker close checks in checkpoint 13.4 | No runtime wire-member change; ReturnType consumers migrated automatically; invalid zero versions intentionally fail | None | Begin S-04 strict view-source decoding and parser/helper extraction. |
-| 2026-08-04T11:31:17-04:00 | Codex remediation session | S-04 complete; malformed source tolerance removed | Generated an AJV standalone validator from the authored view-source schema, exposed a payload-safe typed decoder, applied it before semantic parsing, moved parser/lookups/helpers behind the façade, and added deterministic path/reason coverage | Package/protocol slices, typecheck, generator drift, JSON shape, Biome, and tracker close checks in checkpoint 13.5 | Valid artifacts and helper results remain stable; malformed documents now intentionally fail closed; decoder diagnostics identify required/unknown members exactly | None | Begin S-05 workbook surface assembly extraction. |
-| 2026-08-04T11:37:34-04:00 | Codex remediation session | S-05 complete; surface assembly isolated | Moved registry joining, injected construction, lookup index, schema constants, and status partitions to `workbook-surfaces.ts`; expanded mismatch/constant evidence and regenerated topology | Package and complete `web.workbook` owner slices, typecheck, Biome, generation, and tracker close checks in checkpoint 13.6 | Required/optional behavior, order, identities, frozen outputs, and production injection remain stable | None | Begin S-06 Inspector module extraction. |
-| 2026-08-04T11:46:55-04:00 | Codex remediation session | S-06 complete; Inspector metadata isolated | Moved Inspector parsing/cross-field validation to `inspector.ts`, retained only generic parser algorithms elsewhere, added exact four-signature and record-patch mismatch evidence, and regenerated topology | Package, complete web workbook, service-backed workbook, typecheck, Biome, generation, and tracker close checks in checkpoint 13.7 | No metadata, public type, initialization, authorization, transport, workflow, or UI behavior changed | None | Begin S-07 façade and compatibility cleanup. |
-| 2026-08-04T11:51:57-04:00 | Codex remediation session | S-07 complete; intended package façade finalized | Replaced star exports with explicit value/type exports, made the raw parser internal-only, removed the unused raw row type, and pinned the exact runtime surface | Package slice, workspace typecheck, import-boundary gate, Biome, importer/subpath scans, and tracker close checks in checkpoint 13.8 | One `.` entrypoint remains; no importer migration, alias, subpath, initialization change, or valid runtime change was needed | None | Begin S-08 accounting audit and exact final validation sequence. |
-| 2026-08-04T12:22:37-04:00 | Codex remediation session | S-08 and overall remediation complete | Audited six affected owners, repaired frontend source ownership and unused generator-helper omissions exposed by the first full check, regenerated through Make, reran the exact final sequence, and inventoried the final worktree | Checkpoint 13.9 records every final run root; `test-fast` 349/349; `check` 715/715; browser 62/62 | All planned owner, projection, package, UI, test, generated, and handoff outcomes are complete; no retained-run maintenance was performed because `RESULTS_DIR` was unset | None | Handoff complete; changes are ready for review and commit. |
+No database, owner, identity, route, or wire rollback is required by this
+iteration.
 
-### Backend module boundary
+## 11. Blockers, Assumptions, and Open Questions
 
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Target owns no backend route, projection, mutation, revision, persistence, or storage implementation | Inspected module workbook/view-schema OpenAPI, `internal/modules/workbook/routes.go`, `internal/modules/viewschemas/routes.go`, collaboration route/protocol evidence; touched only this tracker | `rg` route/operation scans; `jq` OpenAPI path and operation extraction | Route ownership remains in `platform.viewschema`, `module.workbook`, Collaboration, Revisions, and source owners | None outside RB-001 metadata ownership | Keep backend behavior in current owners; validate it only as consumer compatibility. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Observation and lifecycle route families remain adopted and outside the target package | Inspected Core 01 REQ-01-652/654, module ownership, OpenAPI operations, and Core 04 AC-532; touched only this tracker | Exact owner and route searches; `make task-guide ROLE=module-author OWNER=module.indicators`; `make explain-test-owner OWNER=module.indicators` | S-00 now requires dedicated child-route dispatch, no generic patch, and 23 owner rows including 11 service-backed rows | RB-001 delivery gate | Amend owners first, then align narrow adapters and service evidence in one authorized sequence. |
+No blocker or open design question remains. The production cutover was selected
+by the task owner. Authored schemas and registries are trusted build inputs.
+Optional surface status remains metadata, but silent artifact absence is not a
+supported build profile. Repository-wide typecheck and importer scans are the
+compatibility boundary for private `0.0.0` TypeScript packages.
 
-### Frontend module boundary
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Legitimate public facade with mixed internals; 82 direct TypeScript importers | Inspected all target source plus representative row, surface, inspector, saved-view, import, query, timeline, and collaboration consumers; touched only this tracker | `rg` import aggregation and exact-source `sed` reads | Keep package facade; split internals; keep controller/workflow/vendor state outside target | RB-001 blocks inspector semantics only | Add characterization, then execute S-02 through S-05 as isolated later slices. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Public facade remains frozen; exact Indicator dispatch and panel ownership are now specified | Inspected package types/registries/tests and authored Timeline/Indicators feature objects; touched only this tracker | `rg` exact token/key reads; `jq` exact feature-object extraction | Live authored objects use `workflow`; target mapping requires observation in `relationships` and lifecycle in `history` | RB-001 delivery gate | S-01 through S-05 may remain neutral; S-06 waits for owner-aligned panel and dispatch repair. |
-
-### Contract and codegen
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Package consumes 17 generated view-schema projections and owns no generated root | Inspected protocol view-schema entry point/types, registry, indicator source, OpenAPI, WebSocket schema, generator inputs, and generated-artifact policy; touched only this tracker | `jq` registry/schema reads; `make generate-drift` | Drift passed at `.cartulary/test-results/20260804T122133Z-p358556`; this does not resolve owner inconsistency | RB-001 | Reconcile owners, change authored inputs if authorized, then regenerate; never hand-edit generated files. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Downstream authored/generated/package inputs already contain the disputed tokens; Core 01 remains behind them | Inspected Core 01 vocabularies/registry, Core 03 REQ-03-306, OpenAPI enums, view-schema inputs, generator registry, and package validator; touched only this tracker | `rg`; `sed`; `jq`; repository history inspection | No identity bump is required by supported-client compatibility; exact owner repair and regeneration remain mandatory | RB-001 delivery gate | Apply S-00 in order and fail if any owner, authored input, generated projection, or runtime validator disagrees. |
-
-### Tests and harness
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Four active package owner rows and one workbook collaborator dependency mapped; characterization gaps identified | Inspected target tests, package/workbook/view-schema/protocol test families, verification owners, catalog, topology, and Make target guides; touched only this tracker | `make task-guide ROLE=module-author OWNER=package.view_contracts`; `make explain-test-owner OWNER=package.view_contracts`; `make explain-target`; focused baseline targets | Package slice, typecheck, import boundary, generated drift, and Markdown lint passed | RB-001 affects inspector expected values | In a later authorized task, add S-01 tests before source extraction. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Owner/projection, security/service, package/browser, and binary closure matrices are explicit | Inspected current test owners and the analysis-note acceptance inventory; touched only this tracker | Owner discovery commands; `make lint-markdown`; `git diff --check`; `git status --short` | Future ladder is ordered and stops on first failure; documentation checks passed with only this tracker changed | RB-001 delivery gate | Add implementation test evidence only in a separately authorized S-00/S-01 task. |
-
-### Security and authorization
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Target parses presentation metadata but performs no authoritative access check | Inspected Core 04 authorization requirements, inspector metadata, route security declarations, and relevant consumers; touched only this tracker | `rg`/`sed` owner and consumer reads; `jq` OpenAPI security reads | Server route/source owners remain authoritative; role and disabled hints are presentation only | RB-001 includes route-binding vocabulary, not authorization authority | Preserve hints exactly and require backend authorization evidence for any later action-flow change. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Security boundary is defined as an explicit acceptance matrix | Inspected Core 04 REQ-04-150/AC-532 and current feature roles/disabled conditions; touched only this tracker | `rg`; `sed`; `jq` | Viewer/editor, membership, CSRF, non-disclosure, replay, concurrency, atomicity, omission, and non-egress outcomes are binary | RB-001 delivery gate | Server tests must remain authoritative; client disabled conditions must never grant or deny access. |
-
-### Open risks and next session
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-04T08:26:07-04:00 | Codex planning session | Structural plan is decision-complete; implementation remains unstarted | Inspected all evidence listed in section 1; touched only this tracker | Read-only repository discovery and five passing validation targets, including Markdown lint | Non-inspector structural work is sequenced; no production refactor performed | RB-001 | First later session: authorize and perform S-00 or explicitly restrict work to S-01 through S-05 without inspector semantic changes. |
-| 2026-08-04T09:18:36-04:00 | Codex NLSpec revision session | Product choice and no-version posture are complete; owner delivery and package refactor remain unstarted | Inspected all revision sources and live contradiction evidence; touched only this tracker | Read-only discovery; documentation validation and scope checks | RB-001 is no longer a design question; documentation checks pass; delivery remains a binary owner gate | RB-001 delivery gate | Authorize S-00 or restrict the next task to neutral S-01 through S-05 work. |
-
-## 11. Open Questions and Blockers
-
-| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
-| --- | --- | --- | --- | --- |
-| RB-001 | **Owner-corpus delivery gate. Decision status: RESOLVED. Delivery status: DONE.** Preserve `indicator_observations`, `indicator_lifecycle`, `indicator_observations_route`, `indicator_lifecycle_route`, and `indicator.lifecycle.manage`; use the exact mapping in section 4. | Partial repair could route a child-resource mutation through generic patching, publish inconsistent discovery, or make client presentation metadata disagree with authorization and service behavior. | Exact Core 01 amendment; aligned Core 03/Core 04 references; Appendix E/F maintenance; authored input alignment; generated projection refresh; narrow client adapters; every section 12.2 criterion passing | **DONE in S-00; rechecked through S-08.** Final focused, browser, fast, and full gates retain the resolved registry and expose no blocker. |
+If a future phase needs feature-gated surface availability, it MUST introduce an
+explicit owner model rather than restore injected builders or omission fallback.
 
 ## 12. Binary Completion Criteria
 
-### 12.1 Revised tracker completion
+The iteration is `DONE` only when all statements are true:
 
-- [x] Every tracked target file and ignored target artifact is inventoried with an explicit posture.
-- [x] The source hierarchy distinguishes adopted owners, typed projections, current implementation evidence, writing doctrine, and research input.
-- [x] The RB-001 semantic decision, delivery status, compatibility posture, and ownership boundaries are unambiguous.
-- [x] The four target feature objects define exact panels, roles, mutation flags, confirmation flags, disabled-state defaults, seed defaults, route bindings, and result behavior.
-- [x] Exact-over-wildcard resolution and real-route dispatch are deterministic.
-- [x] Public package compatibility, fail-closed unknown handling, and no-version-change behavior are explicit.
-- [x] Every discovered public contract risk has an owner, test posture, and acceptance boundary.
-- [x] Every workflow and slice has dependencies, validation, rollback, and a binary exit condition.
-- [x] Owner/projection, security/service, and package/browser acceptance criteria are testable.
-- [x] Generated files and generated harness outputs remain downstream projections and MUST NOT be hand-edited.
-- [x] The framework/live mismatch, Core/downstream mismatch, and authored-panel mismatch are recorded.
-- [x] Prior handoff history is preserved and the NLSpec revision session is appended.
-- [x] Production implementation authority was granted on 2026-08-04 for S-00 through S-08.
-
-### 12.2 S-00 owner-repair completion
-
-RB-001 delivery remained blocked until every item below was reverified against the same resulting change; all S-00 items are now closed:
-
-- [x] Core 01 lists `indicator_observations` and `indicator_lifecycle` exactly once in the closed kind vocabulary.
-- [x] Core 01 lists `indicator_observations_route` and `indicator_lifecycle_route` exactly once in the closed owner vocabulary.
-- [x] Core 01 contains the four exact feature rows from section 4.1.
-- [x] The Indicators per-surface registry requires `indicator.lifecycle.manage` exactly once.
-- [x] Exact feature rows precede and override wildcard families, and the four specialized keys cannot resolve to `record_patch`.
-- [x] Core 03 references the same bindings without becoming a second wire-registry owner.
-- [x] Core 02 source-state and Core 04 authorization/non-egress boundaries remain unchanged and correctly referenced.
-- [x] Appendix E records the contradiction as closed historical material and Appendix F maps the repaired requirements to AC-454, AC-455, and AC-532.
-- [x] Authored Timeline and Indicators schemas exactly match section 4.1, including panels, disabled-state order, empty seeds, action keys, and omitted target schema IDs.
-- [x] Authored OpenAPI discovery enums and existing Indicator child routes match the adopted Core without aliases or generic-patch substitutes.
-- [x] Generated OpenAPI, Go, protocol-ts, validator, registry, and other declared projections are regenerated and drift-clean.
-- [x] Negative tests prove unknown tokens fail closed and all four features avoid generic record patching.
-- [x] Security, authorization, CSRF, non-disclosure, idempotency, concurrency, atomicity, selection continuity, omission, and non-egress criteria pass.
-- [x] `@cartulary/view-contracts` remains an adapter and no longer maintains an independently authoritative per-view feature registry.
-- [x] The no-version-change posture remains valid and no fallback alias, permissive validation, or identity bump is introduced.
-- [x] Separate implementation authority has been granted.
-- [x] The focused S-00 section 8 ladder and standalone webserver-backed browser gate pass, VC-006 is `DONE`, and S-06 is owner-unblocked; final broad gates remain owned by S-08.
-
-### 12.3 Package-refactor completion
-
-- [x] S-01 characterizes all identified parser, row, patch, registry, freezing, and error boundaries before production source moves.
-- [x] S-02 preserves public exports and completes independently with focused package and repository type evidence.
-- [x] S-03 introduces the approved branded patch type and positive row versions without runtime wire drift.
-- [x] S-04 closes malformed source documents and extracts parsing/helpers without valid-artifact drift.
-- [x] S-05 preserves registry assembly, ordering, required failures, optional omission, constants, and production injection.
-- [x] S-06 begins only after section 12.2 and consumes owner-derived Inspector projections.
-- [x] S-07 preserves the `.` facade with no new public subpath, adds only the approved branded patch type, and removes only the approved dead parser/row seams after the importer audit.
-- [x] Test titles and paths remain stable or authored harness inputs are updated and generated topology is regenerated.
-- [x] Every required focused, service-backed, frontend, browser, finalization, fast, and full validation command passes.
-- [x] Final handoff records exact changes, run roots, failures, skipped checks, rollback posture, and any remaining blocker.
-
-Sections 12.1 through 12.3 pass, checkpoint 13.9 marks S-08 `DONE`, and the overall effort is complete.
+- VC-014 through VC-019 and S-09 through S-14 are `DONE`.
+- The package has one `.` entrypoint, five authored production modules, four
+  focused test files, and no `.gitkeep`.
+- Every retained API/type remains and every selected removal is absent without an alias.
+- No production browser source imports raw artifacts, source types/decoder,
+  runtime Inspector registry values, or parses view-schema JSON.
+- Contractgen supports no artifact collection or shared raw TypeScript artifact output.
+- Contract-family registry v5, generated policy, JSON shapes, and generation drift pass.
+- All 17 contracts and surfaces preserve value, registry/status order, freezing,
+  shared identity, schema constants, and Inspector metadata.
+- Every focused test path/title is owned and generated topology is current.
+- Every S-14 command passes in order, with exact run roots recorded.
+- The final checkpoint records generated-file confirmation, API removals,
+  compatibility impact, source-size reduction, remaining risks, rollback, and handoff.
 
 ## 13. Execution Checkpoints
 
@@ -862,3 +615,205 @@ The first exact sequence stopped at `make check` root `.cartulary/test-results/2
 - Go staticcheck found `requireEnumStringFromSet` unused after Inspector closed-vocabulary validation moved to the owner-derived registry.
 
 The ownership manifest and obsolete helper were corrected. `make test-slice OWNER=web.architecture` then passed 12/12 at `.cartulary/test-results/20260804T160824Z-p1275215`; `make lint-go-staticcheck` passed; `make generate` refreshed downstream artifacts; and the complete 20-command sequence above was restarted from command 1. No final validation was skipped and no unrelated failure remains.
+
+## 14. Production-Readiness Execution Checkpoints
+
+### 14.1 S-09 — Generated production projection
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Baseline | Clean `25cd6532dfd9a6531ac7fffb10b6d051478225b2`; S-08 complete |
+| Authored implementation | Added the contractgen browser-projection writer and the package-local `projection.ts` adapter; declared the exact generated output; added semantic parity evidence |
+| Authored policy | Added `packages/view-contracts/src/generated` to generated-artifact, drift-scratch, Biome, import-boundary, generated-path, and JSON-shape ownership inputs |
+| Generated output | `packages/view-contracts/src/generated/view-contract-projection.ts`, produced only by `make generate`; 17 registry-ordered normalized rows and no raw JSON strings or hashes |
+| Runtime posture | Production still uses the S-08 parser in this slice; the projection adapter is test-only parity evidence, so rollback is deletion of the new output/adapter/policy entries |
+| Compatibility | Projected contracts equal the characterized runtime values; `listViewContracts` retains its historical stable ID order and projected surfaces retain registry order and shared contract identity |
+| Test accounting | Added one ASCII-sorted title to the existing characterization owner row and regenerated topology through Make |
+| Failure record | The first package slice found the projected contract list in registry rather than historical contract-list order; the adapter now preserves both established contract order and registry surface order. The first Biome gate found formatting/import order only; `make format` corrected it. |
+| Next slice | S-10 package runtime cutover |
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make generate` | PASS | `.cartulary/test-results/20260804T165806Z-p1592139` |
+| `make test-slice OWNER=package.view_contracts` | PASS, 6/6 | `.cartulary/test-results/20260804T165912Z-p1595916` |
+| `make test-slice OWNER=package.protocol_ts` | PASS, 7/7 | `.cartulary/test-results/20260804T165923Z-p1597199` |
+| `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T165713Z-p1591136` |
+| `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T165923Z-p1597516` |
+| `make generate-drift` | PASS, 4/4 | `.cartulary/test-results/20260804T165923Z-p1596967` |
+| `make generated-artifact-policy-check` | PASS, 3/3 | `.cartulary/test-results/20260804T165923Z-p1597005` |
+| `make json-shape-check` | PASS, 3/3 | `.cartulary/test-results/20260804T165923Z-p1597045` |
+| `make test-fast` | PASS, 349/349 | `.cartulary/test-results/20260804T165923Z-p1597801` |
+| `make format` | PASS after formatting-only failure | `.cartulary/test-results/20260804T170034Z-p1638758` |
+
+### 14.2 S-10 — Package runtime cutover
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Authored implementation | Replaced runtime source parsing with the package-local projection adapter; made surface initialization consume the projected surfaces; folded row-only invariant helpers into `rows.ts` |
+| Removed implementation | Deleted `inspector.ts`, `invariants.ts`, and the complete JSON/source-decoder parser path from `view-contracts.ts` |
+| Tests and accounting | Replaced parser-invalidity characterization with generated-runtime, row, metadata, and projection-boundary evidence; reduced the package manifest to four authored rows and migrated the module-workbook collaborator title |
+| Compatibility | All 17 view contracts retain historical list order; surfaces retain registry order, shared contract identity, freezing, fields, synthetic filters, Inspector metadata, and lookup behavior |
+| Runtime audit | No authored package production source references raw artifacts, source types, the source decoder, the Inspector registry value, or `JSON.parse` |
+| Rollback | Restore the S-09 parser/Inspector/invariants modules and production surface builder while the legacy protocol surface still exists; no generator rollback is required |
+| Failure record | Topology initially rejected a removed module-workbook collaborator title and then an overlapping replacement title. Ownership was made singular under module-workbook. One compatibility test removed the first alphabetically sorted contract rather than Timeline; it now filters by stable ID. |
+| Next slice | S-11 protocol and generator legacy removal |
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make generate` | PASS | `.cartulary/test-results/20260804T170719Z-p1667775` |
+| `make format` | PASS | `.cartulary/test-results/20260804T170831Z-p1697756` |
+| `make test-slice OWNER=package.view_contracts` | PASS, 5/5 | `.cartulary/test-results/20260804T170839Z-p1700807` |
+| `make test-slice OWNER=package.protocol_ts` | PASS, 7/7 | `.cartulary/test-results/20260804T170739Z-p1673396` |
+| `make test-slice OWNER=web.workbook` | PASS, 120/120 | `.cartulary/test-results/20260804T170739Z-p1673433` |
+| `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T170739Z-p1673713` |
+| `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T170739Z-p1673769` |
+| `make lint-biome` | PASS, 2/2 | `.cartulary/test-results/20260804T170739Z-p1673850` |
+| `make build-web` | PASS | `.cartulary/test-results/20260804T170739Z-p1674290` |
+
+### 14.3 S-11 — Protocol and generator legacy removal
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Authored generator change | Adopted `cartulary.contract_family_registry.v5`; removed the shared TypeScript artifact support output, barrel seam, `artifact_collection`, raw artifact writer, and TypeScript view-source type writer while retaining the Go source-type writer |
+| Authored protocol change | Reduced `@cartulary/protocol-ts/view-schemas` to the frozen view registry, registry listing, and literal-derived Inspector types; the generated Inspector registry is now a type-only dependency |
+| Generated removal | `artifact.ts`, `view-schemas-artifacts.ts`, `view-schema-source-types.ts`, and `view-schema-source-validator.ts` were deleted only through their owning Make generators |
+| Policy and schema change | Replaced the v4 registry schema and attachment with v5; removed obsolete entrypoint allowlist and import-boundary members; added removed modules to browser artifact-reachability enforcement |
+| Compatibility | Registry values and literal Inspector types remain; browser raw artifacts, runtime decoding, runtime Inspector registry access, and all TypeScript source-document types are intentionally removed without aliases |
+| Rollback | Restore registry v4, the raw projection/support writers, source decoder generator, four generated outputs, and the protocol entrypoint as one generator/protocol unit |
+| Failure record | No validation failure. Regeneration updated the extension integrity artifact because `main.go` is an integrity-tracked generator source. |
+| Next slice | S-12 dead façade and workbook seam removal |
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make generate` | PASS | `.cartulary/test-results/20260804T171537Z-p1705669` |
+| `make format` | PASS | `.cartulary/test-results/20260804T171556Z-p1708102` |
+| `make json-shape-check` | PASS, 3/3 | `.cartulary/test-results/20260804T171617Z-p1711295` |
+| `make generated-artifact-policy-check` | PASS, 3/3 | `.cartulary/test-results/20260804T171617Z-p1711304` |
+| `make test-slice OWNER=package.protocol_ts` | PASS, 7/7 | `.cartulary/test-results/20260804T171617Z-p1711412` |
+| `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T171617Z-p1711523` |
+| `make generate-drift` | PASS, 4/4 | `.cartulary/test-results/20260804T171638Z-p1717603` |
+| `make test-slice OWNER=platform.viewschema` | PASS, 3/3 | `.cartulary/test-results/20260804T171638Z-p1717724` |
+| `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T171638Z-p1717865` |
+| `make lint-biome` | PASS, 2/2 | `.cartulary/test-results/20260804T171638Z-p1717923` |
+| `make test-fast` | PASS, 348/348 | `.cartulary/test-results/20260804T171657Z-p1721619` |
+| `make lint-markdown` | PASS | `.cartulary/test-results/20260804T171947Z-p1771098` |
+| `git diff --check` | PASS | Repository root after S-11 checkpoint |
+
+### 14.4 S-12 — Dead façade and workbook seam removal
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Package removal | Removed `fieldCapability`, `visibleFields`, `ViewFieldCapability`, `buildWorkbookSurfaceContracts`, `getWorkbookSurfaceContract`, and `requireWorkbookSurfaceContract` without aliases |
+| Web removal | Workbook startup now consumes `listWorkbookSurfaceContracts()` directly; removed the injectable `buildWorkbookSurfaceRegistry` and its impossible-state/optional-omission tests |
+| E2E removal | Deleted the workbook-surface re-export module and migrated 30 E2E import sites directly to `@cartulary/view-contracts`; the import-boundary rule now forbids coupling to the web registry rather than requiring the deleted seam |
+| Test migration | Replaced the remaining `fieldCapability` assertion with direct `ViewFieldContract.gridEditable` metadata and removed parser/builder compatibility titles from authored manifests before regenerating topology |
+| Importer audit | Exact repository scans are empty for every removed function/type and the deleted E2E module path; package export-surface evidence passes |
+| Compatibility | Intentional private-workspace API removal only; all production consumers use immutable generated-projection lists and all 17 surfaces remain present |
+| Rollback | Restore the façade exports, injected package/web builders, E2E re-export, migrated imports, and removed test titles as one local façade/web unit; no protocol rollback is required |
+| Failure record | No validation failure |
+| Next slice | S-13 focused test architecture and package cleanup |
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make format` | PASS | `.cartulary/test-results/20260804T172229Z-p1775287` |
+| `make generate` | PASS | `.cartulary/test-results/20260804T172236Z-p1778328` |
+| `make test-slice OWNER=package.view_contracts` | PASS, 5/5 | `.cartulary/test-results/20260804T172251Z-p1780828` |
+| `make test-slice OWNER=web.workbook` | PASS, 120/120 | `.cartulary/test-results/20260804T172251Z-p1780849` |
+| `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T172251Z-p1781042` |
+| `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T172251Z-p1781084` |
+| `make lint-biome` | PASS, 2/2 | `.cartulary/test-results/20260804T172251Z-p1781143` |
+| `make test-slice OWNER=web.architecture` | PASS, 12/12 | `.cartulary/test-results/20260804T172338Z-p1795822` |
+| `make build-web` | PASS | `.cartulary/test-results/20260804T172339Z-p1796034` |
+| `make browser-e2e-webserver-backed` | PASS, 62/62 | `.cartulary/test-results/20260804T172350Z-p1801690` |
+| `make explain-test-owner OWNER=package.view_contracts` | PASS, four rows | Repository root after S-12 |
+| `make explain-test-owner OWNER=module.workbook` | PASS, 89 rows | Repository root after S-12 |
+| `make lint-markdown` | PASS | `.cartulary/test-results/20260804T172756Z-p1854872` |
+| `git diff --check` | PASS | Repository root after S-12 checkpoint |
+
+### 14.5 S-13 — Test architecture and package cleanup
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Production structure | Consolidated contract and surface lookup into `contracts.ts`; the production graph is exactly `index.ts`, `types.ts`, `rows.ts`, `projection.ts`, and `contracts.ts` with one-way dependencies and no cycle |
+| Test structure | Replaced the monolith with `facade.test.ts`, `rows.test.ts`, `contracts.test.ts`, and `surfaces.test.ts`; retained meaningful behavior titles and removed parser/builder-only cases |
+| Harness accounting | Rebuilt four ASCII-sorted package rows around the four test files, moved the module-workbook collaborator selector to `contracts.test.ts`, and regenerated topology through Make |
+| Cleanup | Removed `.gitkeep`; source scans find no raw-source/parser APIs, obsolete generated outputs, removed façade symbols, old internal modules, or unaccounted package test path |
+| Tracker revision | Replaced stale sections 1 through 12 with the production-readiness baseline, target architecture, compatibility decisions, workstreams, risk register, and binary completion criteria; section 13 remains the S-00 through S-08 historical record |
+| Compatibility | Public runtime behavior is unchanged from S-12; this slice changes internal module and test organization only |
+| Rollback | Restore the two lookup modules, monolithic test, prior manifests, and sentinel as the isolated S-13 unit; no generator/protocol rollback is required |
+| Failure record | `make format` initially rejected unsorted authored row IDs; sorting the four manifest rows resolved the owner-input failure before topology generation |
+| Next slice | S-14 validation and handoff completion |
+
+| Command | Result | Run root |
+| --- | --- | --- |
+| `make format` | PASS after authored-row sort | `.cartulary/test-results/20260804T173233Z-p1859544` |
+| `make generate` | PASS | `.cartulary/test-results/20260804T173243Z-p1862598` |
+| `make test-slice OWNER=package.view_contracts` | PASS, 5/5 | `.cartulary/test-results/20260804T173254Z-p1864823` |
+| `make test-slice OWNER=module.workbook` | PASS, 99/99 | `.cartulary/test-results/20260804T173340Z-p1865959` |
+| `make generate-drift` | PASS, 4/4 | `.cartulary/test-results/20260804T173339Z-p1865900` |
+| `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T173340Z-p1866118` |
+| `make lint-biome` | PASS, 2/2 | `.cartulary/test-results/20260804T173340Z-p1866135` |
+| `make generated-artifact-policy-check` | PASS, 3/3 | `.cartulary/test-results/20260804T173809Z-p1911049` |
+| `make json-shape-check` | PASS, 3/3 | `.cartulary/test-results/20260804T173809Z-p1911075` |
+| `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T173809Z-p1911220` |
+| `make explain-test-owner OWNER=package.view_contracts` | PASS, four focused rows | Repository root after S-13 |
+| `make target-plan` | PASS, 615 units and digest `sha256:4c5fc36ce6502f58756fc835cea41d87d4803f320e61906afb65508684ca7ec7` | Repository root after S-13 |
+| Source/output/import scans | PASS | Repository root after S-13 |
+| `make lint-markdown` | PASS | `.cartulary/test-results/20260804T173858Z-p1912553` |
+| `git diff --check` | PASS | Repository root after S-13 checkpoint |
+
+### 14.6 S-14 — Validation and handoff
+
+| Checkpoint field | Result |
+| --- | --- |
+| Status | `DONE` 2026-08-04 |
+| Final generated confirmation | All authored generator/policy changes were regenerated through Make; the package-local projection and integrity-tracked Go artifact are current; four obsolete protocol outputs are absent; final drift and policy checks pass |
+| API removal confirmation | Raw artifact/source decoder/types, runtime Inspector registry value, capability/visibility helpers, package and web surface builders, package surface lookup helpers, and the E2E re-export module are absent without aliases |
+| Compatibility | All view/Inspector identities, routes, row wire shapes, 17 contracts, 17 surfaces, status arrays, retained metadata types, list/get/require contract APIs, sort resolution, and row normalizers remain; private dead APIs and malformed-source browser behavior are intentionally removed |
+| Source-size result | The selected legacy runtime path was 459,654 bytes at baseline; its generated projection and authored adapters are 388,306 bytes, a 71,348-byte or 15% reduction, while moving validation entirely to generation |
+| Final source graph | Exactly five authored production modules and four focused test files; no cycle, `.gitkeep`, raw-source reference, obsolete output, removed-symbol importer, or unaccounted package test remains |
+| Remaining risk | The normalized projection remains a substantial generated browser input and must stay drift/policy gated. Any future conditional surface availability requires a new explicit owner model rather than restoring omission or injection seams. No known correctness blocker remains. |
+| Rollback guidance | Revert S-13/S-12 locally for façade/test structure; revert S-11 as the registry-v4/protocol/generator unit; restore S-10 parser initialization before reverting S-09 projection ownership. No database, route, identity, or wire rollback is required. |
+| Retained-run maintenance | Skipped because `RESULTS_DIR` was intentionally unset for `make agent-finalize`; the command passed with a fresh run root |
+| Final worktree | `git status --short` contains only the expected authored/generated implementation, test, policy, topology, and tracker changes; no unrelated pre-existing edit was present |
+| Handoff | Production reads one generator-owned projection, protocol exposes only registry values and Inspector literal types, the package has one small public façade and five-module graph, workbook/E2E consumers use immutable lists directly, and all focused/broad validation is green |
+
+The first S-14 attempt stopped correctly at `make check`: 713 of 714 units
+passed in `.cartulary/test-results/20260804T174710Z-p2038804`, and Go
+staticcheck identified the now-unused `marshalJSONString` helper left after the
+artifact/barrel writer removal. The helper was deleted, `make generate` passed at
+`.cartulary/test-results/20260804T175149Z-p2168396`, and
+`make lint-go-staticcheck` passed. The complete sequence was then restarted from
+command 1; only the successful restarted sequence is completion evidence.
+
+| Ordered command | Final result | Run root |
+| --- | --- | --- |
+| 1. `make lint-markdown` | PASS | `.cartulary/test-results/20260804T175231Z-p2172270` |
+| 2. `make lint-biome` | PASS, 2/2 | `.cartulary/test-results/20260804T175238Z-p2173784` |
+| 3. `make generate-drift` | PASS, 4/4 | `.cartulary/test-results/20260804T175246Z-p2174205` |
+| 4. `make generated-artifact-policy-check` | PASS, 3/3 | `.cartulary/test-results/20260804T175255Z-p2176796` |
+| 5. `make json-shape-check` | PASS, 3/3 | `.cartulary/test-results/20260804T175303Z-p2177233` |
+| 6. `make test-slice OWNER=harness.generated_artifacts` | PASS, 2/2 | `.cartulary/test-results/20260804T175315Z-p2177732` |
+| 7. `make test-slice OWNER=platform.viewschema` | PASS, 3/3 | `.cartulary/test-results/20260804T175326Z-p2180150` |
+| 8. `make test-slice OWNER=package.protocol_ts` | PASS, 7/7 | `.cartulary/test-results/20260804T175334Z-p2180722` |
+| 9. `make test-slice OWNER=package.view_contracts` | PASS, 5/5 | `.cartulary/test-results/20260804T175343Z-p2184941` |
+| 10. `make test-slice OWNER=web.architecture` | PASS, 12/12 | `.cartulary/test-results/20260804T175401Z-p2185793` |
+| 11. `make test-slice OWNER=web.workbook` | PASS, 120/120 | `.cartulary/test-results/20260804T175409Z-p2187267` |
+| 12. `make frontend-typecheck` | PASS, 2/2 | `.cartulary/test-results/20260804T175452Z-p2200283` |
+| 13. `make frontend-import-boundary-check` | PASS, 2/2 | `.cartulary/test-results/20260804T175524Z-p2200867` |
+| 14. `make build-web` | PASS | `.cartulary/test-results/20260804T175534Z-p2201357` |
+| 15. `make browser-e2e-webserver-backed` | PASS, 62/62 | `.cartulary/test-results/20260804T175544Z-p2204837` |
+| 16. `make agent-finalize` | PASS, 1/1 | `.cartulary/test-results/20260804T175916Z-p2256864` |
+| 17. `make test-fast` | PASS, 348/348 | `.cartulary/test-results/20260804T175929Z-p2259416` |
+| 18. `make check` | PASS, 714/714 | `.cartulary/test-results/20260804T180057Z-p2295567` |
+| 19. `git diff --check` | PASS | Repository root after final broad validation |
+| 20. `git status --short` | PASS, expected implementation set captured | Repository root after final broad validation |
+
+After this checkpoint was authored, `make lint-markdown` passed at
+`.cartulary/test-results/20260804T180608Z-p2420608` and `git diff --check`
+passed at the repository root. No command or generated output remains pending.

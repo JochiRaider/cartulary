@@ -13,18 +13,17 @@ import {
   workbookInspectorToggleTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-
+import {
+  assessmentsViewSchemaId,
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import {
   createAssessmentViaUI,
   expectAssessmentGridOrder,
   waitForAssessmentCreate,
 } from "./support/assessments/fixtures";
-import {
-  assessmentsViewSchemaId,
-  hostsViewSchemaId,
-  timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
 import type { ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {

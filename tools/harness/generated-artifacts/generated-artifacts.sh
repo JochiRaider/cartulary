@@ -48,7 +48,7 @@ cartulary_filter_authored_go_packages() {
 cartulary_is_generated_artifact_path() {
   local path="$1"
   case "$path" in
-    internal/gen/* | packages/protocol-ts/src/generated/* | packages/ui-contracts/src/generated/*) return 0 ;;
+    internal/gen/* | packages/protocol-ts/src/generated/* | packages/ui-contracts/src/generated/* | packages/view-contracts/src/generated/*) return 0 ;;
     *) return 1 ;;
   esac
 }

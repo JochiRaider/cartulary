@@ -16,10 +16,10 @@ import {
   workbookConflictResolverTestId,
   workbookConflictSavedValueTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Browser, Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
-import { timelineViewSchemaId } from "../contracts/workbookSurfaces";
 import { createIncident } from "../incidents/fixtures";
 import { createIncidentMemberUser } from "../incidents/memberships";
 import { apiBase } from "../runtime/configuration";

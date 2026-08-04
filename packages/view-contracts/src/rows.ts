@@ -1,10 +1,21 @@
-import { hasOwn, isRecord, viewRowInvariant } from "./invariants.js";
 import type {
   NormalizedViewRowPatchV1,
   NormalizedViewRowV1,
   ViewContract,
   ViewRowCellV1,
 } from "./types.js";
+
+function viewRowInvariant(source: string, detail: string): never {
+  throw new Error(`View row invariant failed: ${source} ${detail}`);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOwn(object: Record<string, unknown>, key: string): boolean {
+  return Object.hasOwn(object, key);
+}
 
 function requireRowObject(
   value: unknown,

@@ -4,9 +4,8 @@ import {
   gridSavedRowsSelector,
   gridShellTestId,
 } from "@cartulary/ui-contracts";
+import { assessmentsViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
-
-import { assessmentsViewSchemaId } from "../contracts/workbookSurfaces";
 import { readTimelineMutation } from "../workbook/rowMutations";
 
 export async function createAssessmentViaUI(

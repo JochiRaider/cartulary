@@ -15,6 +15,7 @@
   ],
   "scan_excludes": [
     "packages/protocol-ts/src/generated/**",
+    "packages/view-contracts/src/generated/**",
     "packages/ui-contracts/src/generated/**",
     "apps/web/dist/**",
     "apps/web/test-results/**",
@@ -57,6 +58,24 @@
     }
   ],
   "rules": [
+    {
+      "id": "frontend-generated-view-contract-projection-owner",
+      "level": "error",
+      "message": "Only the authored view-contract projection adapter may import generated normalized view contracts.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/view-contracts/src/projection.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/view-contracts/src/generated"
+        }
+      ]
+    },
     {
       "id": "frontend-grid-vendor-boundary",
       "level": "error",
@@ -807,14 +826,6 @@
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/view-schema-source-types"
-        },
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/view-schemas-artifacts"
-        },
-        {
-          "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/error-registry"
         },
         {
@@ -1062,7 +1073,7 @@
     {
       "id": "web-e2e-workbook-contract-boundary",
       "level": "error",
-      "message": "E2E workbook support must consume derived surface metadata through support/contracts/workbookSurfaces.",
+      "message": "E2E workbook support must consume generated-projection metadata from @cartulary/view-contracts instead of the web registry.",
       "applies_to": {
         "include": ["apps/web/e2e/**"],
         "exclude": []

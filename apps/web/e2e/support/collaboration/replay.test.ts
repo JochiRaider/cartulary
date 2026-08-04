@@ -6,9 +6,9 @@ import {
   rowCellTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { describe, expect, it } from "vitest";
-import { timelineViewSchemaId } from "../contracts/workbookSurfaces";
 import { currentTimelineSummary } from "./replay";
 
 type RowState = {

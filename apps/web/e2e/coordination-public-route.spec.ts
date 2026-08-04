@@ -1,7 +1,3 @@
-import type { APIResponse, Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
-import { csrfHeaders } from "./support/auth/browserSession";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -10,7 +6,10 @@ import {
   partiesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { APIResponse, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";

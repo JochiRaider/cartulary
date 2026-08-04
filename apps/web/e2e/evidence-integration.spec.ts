@@ -19,11 +19,10 @@ import {
   evidencePreviewFrameTestId,
   gridShellTestId,
 } from "@cartulary/ui-contracts";
+import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { APIRequestContext, Page, Request } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
-import { evidenceViewSchemaId } from "./support/contracts/workbookSurfaces";
 import type { ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";

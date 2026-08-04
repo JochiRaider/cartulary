@@ -37,13 +37,6 @@ export type ViewFieldContract = {
   readonly entityBindingMode: string | null;
 };
 
-export type ViewFieldCapability = {
-  readonly editable: boolean;
-  readonly filterable: boolean;
-  readonly groupable: boolean;
-  readonly sortable: boolean;
-};
-
 export type InspectorPanelId = ViewInspectorPanelID;
 export type InspectorRouteBindingKind = ViewInspectorRouteKind;
 export type InspectorRouteBindingOwner = ViewInspectorRouteOwner;

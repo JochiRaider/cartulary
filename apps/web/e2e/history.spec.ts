@@ -11,15 +11,14 @@ import {
   rowHistoryRestoreButtonTestId,
   rowHistoryRollbackConfirmButtonTestId,
 } from "@cartulary/ui-contracts";
-import type { Page } from "@playwright/test";
-
-import { expect, test } from "./fixtures";
-import { csrfHeaders } from "./support/auth/browserSession";
 import {
   evidenceViewSchemaId,
   hostsViewSchemaId,
   timelineViewSchemaId,
-} from "./support/contracts/workbookSurfaces";
+} from "@cartulary/view-contracts";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
+import { csrfHeaders } from "./support/auth/browserSession";
 import {
   aliasCollectionActionsPayload,
   collectionActionsPayload,

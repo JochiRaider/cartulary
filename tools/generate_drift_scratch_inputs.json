@@ -22,6 +22,7 @@
     "internal/gen/sql",
     "internal/gen/viewschemasource",
     "packages/protocol-ts/src/generated",
+    "packages/view-contracts/src/generated",
     "packages/ui-contracts/src/generated",
     "tools/browser_e2e_batch_manifest.json",
     "tools/execution_topology_render_index.json",
@@ -86,6 +87,7 @@
     "internal/gen/viewschemasource",
     "internal/platform/openapicompat",
     "packages/protocol-ts/src/generated",
+    "packages/view-contracts/src/generated",
     "packages/ui-contracts/src/generated"
   ],
   "placeholder_dirs": [

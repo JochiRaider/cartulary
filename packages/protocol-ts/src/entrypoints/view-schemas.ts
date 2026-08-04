@@ -1,21 +1,7 @@
-import { viewInspectorRegistry as generatedViewInspectorRegistry } from "../generated/view-inspector-registry.js";
+import type { viewInspectorRegistry as generatedViewInspectorRegistry } from "../generated/view-inspector-registry.js";
 import { viewSchemaRegistry as generatedViewSchemaRegistry } from "../generated/view-schema-registry.js";
-import type { ViewSchemaSourceDocument } from "../generated/view-schema-source-types.js";
-import { validateCartularyViewSchemaSourceV1 } from "../generated/view-schema-source-validator.js";
-import { viewSchemaArtifacts } from "../generated/view-schemas-artifacts.js";
-import { createDecoder } from "../internal/decoder.js";
 
-export type * from "../generated/view-schema-source-types.js";
-export { viewSchemaArtifacts };
-
-export const viewSchemaSourceDocumentDecoder =
-  createDecoder<ViewSchemaSourceDocument>(
-    "cartulary.view_schema_source.v1",
-    validateCartularyViewSchemaSourceV1,
-  );
-
-export const viewInspectorRegistry = generatedViewInspectorRegistry;
-export type ViewInspectorRegistry = typeof viewInspectorRegistry;
+export type ViewInspectorRegistry = typeof generatedViewInspectorRegistry;
 export type ViewInspectorPanelID =
   ViewInspectorRegistry["vocabularies"]["panels"][number];
 export type ViewInspectorRouteKind =
