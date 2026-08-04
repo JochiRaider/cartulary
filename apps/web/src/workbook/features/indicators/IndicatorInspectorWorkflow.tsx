@@ -1,11 +1,21 @@
 import type { CSSProperties, FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   IndicatorLifecycleState,
+  IndicatorMutationAccepted,
   IndicatorObservation,
+  IndicatorPage,
+  IndicatorPaging,
   IndicatorStateInterval,
   IndicatorWorkflowPort,
 } from "../../mutations/workbookMutationCommandPorts";
+import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";
+import type { IndicatorInspectorAction } from "./indicatorInspectorHandlers";
+
+export {
+  type IndicatorInspectorAction,
+  isIndicatorInspectorAction,
+} from "./indicatorInspectorHandlers";
 
 const lifecycleStates = [
   "active",
@@ -25,22 +35,13 @@ const indicatorTypes = [
   "text",
 ] as const;
 
-export type IndicatorInspectorAction =
-  | "indicator.observations.manage"
-  | "indicator.observations.pivot"
-  | "indicator.lifecycle.read"
-  | "indicator.lifecycle.manage";
-
-export function isIndicatorInspectorAction(
-  value: string | undefined,
-): value is IndicatorInspectorAction {
-  return (
-    value === "indicator.observations.manage" ||
-    value === "indicator.observations.pivot" ||
-    value === "indicator.lifecycle.read" ||
-    value === "indicator.lifecycle.manage"
-  );
-}
+type IndicatorParsedType = Exclude<
+  IndicatorObservation["parsed_indicator_type"],
+  null
+>;
+type IndicatorCommittedMutation =
+  | IndicatorMutationAccepted<IndicatorObservation>
+  | IndicatorMutationAccepted<IndicatorStateInterval>;
 
 export function IndicatorInspectorWorkflow({
   action,
@@ -53,7 +54,9 @@ export function IndicatorInspectorWorkflow({
 }: {
   readonly action: IndicatorInspectorAction | null;
   readonly indicatorRecordId?: string | undefined;
-  readonly onMutationCommitted?: (() => Promise<void> | void) | undefined;
+  readonly onMutationCommitted?:
+    | ((mutation: IndicatorCommittedMutation) => Promise<void> | void)
+    | undefined;
   readonly port: IndicatorWorkflowPort;
   readonly rowVersion: number;
   readonly sourceFields?:
@@ -72,13 +75,16 @@ export function IndicatorInspectorWorkflow({
     [],
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [paging, setPaging] = useState<IndicatorPaging | null>(null);
   const [busy, setBusy] = useState(false);
+  const loadRequestId = useRef(0);
   const [sourceFieldKey, setSourceFieldKey] = useState(
     sourceFields[0]?.fieldKey ?? "",
   );
   const [spanStart, setSpanStart] = useState("0");
   const [spanEnd, setSpanEnd] = useState("1");
-  const [parsedType, setParsedType] = useState("");
+  const [parsedType, setParsedType] = useState<"" | IndicatorParsedType>("");
   const [resolvedIndicatorID, setResolvedIndicatorID] = useState("");
   const [lifecycleState, setLifecycleState] =
     useState<IndicatorLifecycleState>("active");
@@ -92,9 +98,72 @@ export function IndicatorInspectorWorkflow({
     setSourceFieldKey((current) => current || sourceFields[0]?.fieldKey || "");
   }, [sourceFields]);
 
+  const loadResources = useCallback(
+    async (cursorToken?: string) => {
+      const requestId = ++loadRequestId.current;
+      setBusy(true);
+      setLoadError(null);
+      let outcome: WorkbookOperationOutcome<
+        IndicatorPage<IndicatorObservation>
+      >;
+      if (action === "indicator.observations.pivot" && indicatorRecordId) {
+        outcome = await port.listObservations({
+          cursorToken,
+          indicatorRecordId,
+        });
+      } else if (action === "indicator.observations.manage" && sourceRecordId) {
+        outcome = await port.listSourceObservations({
+          cursorToken,
+          sourceRecordId,
+        });
+      } else if (
+        (action === "indicator.lifecycle.read" ||
+          action === "indicator.lifecycle.manage") &&
+        indicatorRecordId
+      ) {
+        const lifecycleOutcome = await port.listStateIntervals({
+          cursorToken,
+          indicatorRecordId,
+        });
+        if (requestId !== loadRequestId.current) return;
+        setBusy(false);
+        if (lifecycleOutcome.kind === "rejected") {
+          setLoadError(lifecycleOutcome.failure.message);
+          return;
+        }
+        setIntervals((current) =>
+          cursorToken === undefined
+            ? lifecycleOutcome.value.items
+            : [...current, ...lifecycleOutcome.value.items],
+        );
+        setPaging(lifecycleOutcome.value.paging);
+        return;
+      } else {
+        setBusy(false);
+        return;
+      }
+      if (requestId !== loadRequestId.current) return;
+      setBusy(false);
+      if (outcome.kind === "rejected") {
+        setLoadError(outcome.failure.message);
+        return;
+      }
+      setObservations((current) =>
+        cursorToken === undefined
+          ? outcome.value.items
+          : [...current, ...outcome.value.items],
+      );
+      setPaging(outcome.value.paging);
+    },
+    [action, indicatorRecordId, port, sourceRecordId],
+  );
+
   useEffect(() => {
-    let active = true;
     setMessage(null);
+    setLoadError(null);
+    setPaging(null);
+    setObservations([]);
+    setIntervals([]);
     if (
       (action === "indicator.observations.pivot" ||
         action === "indicator.lifecycle.read" ||
@@ -103,56 +172,14 @@ export function IndicatorInspectorWorkflow({
     ) {
       setMessage("The selected row is not an Indicator record.");
       return () => {
-        active = false;
+        loadRequestId.current += 1;
       };
     }
-    if (action === "indicator.observations.pivot" && indicatorRecordId) {
-      setBusy(true);
-      void port
-        .listObservations({ indicatorRecordId })
-        .then((outcome) => {
-          if (!active) return;
-          if (outcome.kind === "accepted") setObservations(outcome.value);
-          else setMessage(outcome.failure.message);
-        })
-        .finally(() => {
-          if (active) setBusy(false);
-        });
-    }
-    if (action === "indicator.observations.manage" && sourceRecordId) {
-      setBusy(true);
-      void port
-        .listSourceObservations({ sourceRecordId })
-        .then((outcome) => {
-          if (!active) return;
-          if (outcome.kind === "accepted") setObservations(outcome.value);
-          else setMessage(outcome.failure.message);
-        })
-        .finally(() => {
-          if (active) setBusy(false);
-        });
-    }
-    if (
-      (action === "indicator.lifecycle.read" ||
-        action === "indicator.lifecycle.manage") &&
-      indicatorRecordId
-    ) {
-      setBusy(true);
-      void port
-        .listStateIntervals({ indicatorRecordId })
-        .then((outcome) => {
-          if (!active) return;
-          if (outcome.kind === "accepted") setIntervals(outcome.value);
-          else setMessage(outcome.failure.message);
-        })
-        .finally(() => {
-          if (active) setBusy(false);
-        });
-    }
+    void loadResources();
     return () => {
-      active = false;
+      loadRequestId.current += 1;
     };
-  }, [action, indicatorRecordId, port, sourceRecordId]);
+  }, [action, indicatorRecordId, loadResources]);
 
   if (action === null) return null;
 
@@ -191,9 +218,10 @@ export function IndicatorInspectorWorkflow({
       setMessage(outcome.failure.message);
       return;
     }
-    setMessage(`Observation ${outcome.value.observation_id} created.`);
-    setObservations((current) => [outcome.value, ...current]);
-    await onMutationCommitted?.();
+    const observation = outcome.value.resource;
+    setMessage(`Observation ${observation.observation_id} created.`);
+    setObservations((current) => [observation, ...current]);
+    await onMutationCommitted?.(outcome.value);
   };
 
   const transitionObservation = async (
@@ -222,13 +250,13 @@ export function IndicatorInspectorWorkflow({
     }
     setObservations((current) =>
       current.map((candidate) =>
-        candidate.observation_id === outcome.value.observation_id
-          ? outcome.value
+        candidate.observation_id === outcome.value.resource.observation_id
+          ? outcome.value.resource
           : candidate,
       ),
     );
-    setMessage(`Observation ${outcome.value.observation_id} updated.`);
-    await onMutationCommitted?.();
+    setMessage(`Observation ${outcome.value.resource.observation_id} updated.`);
+    await onMutationCommitted?.(outcome.value);
   };
 
   const submitLifecycle = async (event: FormEvent) => {
@@ -266,9 +294,11 @@ export function IndicatorInspectorWorkflow({
       setMessage(outcome.failure.message);
       return;
     }
-    setIntervals((current) => [outcome.value, ...current]);
-    setMessage(`Lifecycle interval ${outcome.value.interval_id} created.`);
-    await onMutationCommitted?.();
+    setIntervals((current) => [outcome.value.resource, ...current]);
+    setMessage(
+      `Lifecycle interval ${outcome.value.resource.interval_id} created.`,
+    );
+    await onMutationCommitted?.(outcome.value);
   };
 
   return (
@@ -316,7 +346,9 @@ export function IndicatorInspectorWorkflow({
             Parsed type (optional)
             <select
               value={parsedType}
-              onChange={(event) => setParsedType(event.target.value)}
+              onChange={(event) =>
+                setParsedType(event.target.value as "" | IndicatorParsedType)
+              }
             >
               <option value="">Infer from selected text</option>
               {indicatorTypes.map((indicatorType) => (
@@ -438,8 +470,39 @@ export function IndicatorInspectorWorkflow({
           }))}
         />
       ) : null}
-      {busy ? <p style={messageStyle}>Loading…</p> : null}
-      {message ? <p style={messageStyle}>{message}</p> : null}
+      {paging?.has_more && paging.next_cursor !== null ? (
+        <button
+          disabled={busy}
+          type="button"
+          onClick={() => void loadResources(paging.next_cursor ?? undefined)}
+        >
+          Load more
+        </button>
+      ) : null}
+      {busy ? (
+        <p aria-live="polite" role="status" style={messageStyle}>
+          Loading…
+        </p>
+      ) : null}
+      {loadError ? (
+        <div style={shellStyle}>
+          <p role="alert" style={messageStyle}>
+            {loadError}
+          </p>
+          <button
+            disabled={busy}
+            type="button"
+            onClick={() => void loadResources()}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+      {message ? (
+        <p aria-live="polite" role="status" style={messageStyle}>
+          {message}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -34,3 +34,35 @@ for (const [affinity, units] of byAffinity) {
   );
   assert.equal(terminal.length, 1, `${affinity} must have one terminal stack releaser`);
 }
+
+const workbookOwner = compiler.compile({
+  kind: "owner",
+  owner_id: "module.workbook",
+});
+const selectedWorkbookBrowserRows = compiler.catalog.rows
+  .filter(
+    (row) => row.owner_id === "module.workbook" && row.runner === "playwright",
+  )
+  .map((row) => row.row_id)
+  .sort();
+const projectedWorkbookBrowserRows = workbookOwner.units
+  .flatMap((unit) =>
+    unit.evidence_outputs
+      .filter((output) => output.startsWith("rows/"))
+      .map((output) => output.slice("rows/".length, -".json".length)),
+  )
+  .sort();
+assert.deepEqual(
+  projectedWorkbookBrowserRows,
+  selectedWorkbookBrowserRows,
+  "owner selections must project Playwright rows through browser group units",
+);
+assert.equal(
+  workbookOwner.units.some(
+    (unit) =>
+      unit.unit_id.startsWith("row:") &&
+      selectedWorkbookBrowserRows.includes(unit.unit_id.slice("row:".length)),
+  ),
+  false,
+  "owner selections must not schedule Playwright row runners directly",
+);

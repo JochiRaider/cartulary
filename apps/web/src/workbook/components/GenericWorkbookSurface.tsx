@@ -54,11 +54,11 @@ import type {
 } from "../continuity/workbookContinuityPort";
 import { CoordinationWorkflowBindings } from "../features/coordination/CoordinationWorkflowBindings";
 import { useEvidenceWorkbookBindings } from "../features/evidence/useEvidenceWorkbookBindings";
+import { IndicatorInspectorWorkflow } from "../features/indicators/IndicatorInspectorWorkflow";
 import {
-  type IndicatorInspectorAction,
-  IndicatorInspectorWorkflow,
-  isIndicatorInspectorAction,
-} from "../features/indicators/IndicatorInspectorWorkflow";
+  type IndicatorInspectorHandler,
+  resolveIndicatorInspectorHandler,
+} from "../features/indicators/indicatorInspectorHandlers";
 import { useGenericPartyLinkWorkflow } from "../features/parties/useGenericPartyLinkWorkflow";
 import { useGenericSurfaceMutationController } from "../hooks/useGenericSurfaceMutationController";
 import { useOwnerReferenceOptions } from "../hooks/useOwnerReferenceOptions";
@@ -200,8 +200,8 @@ export function ContractWorkbookSurface({
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
   const [linkedNoteSourceRecordId, setLinkedNoteSourceRecordId] = useState("");
-  const [indicatorInspectorAction, setIndicatorInspectorAction] =
-    useState<IndicatorInspectorAction | null>(null);
+  const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
+    useState<IndicatorInspectorHandler | null>(null);
   const [editCollectionMode, setEditCollectionMode] =
     useState<GenericCollectionMode>("add");
   const { referenceLoadError, referenceOptions, refreshReferenceOptions } =
@@ -715,9 +715,8 @@ export function ContractWorkbookSurface({
   );
   const supportsIndicatorFeature = useCallback(
     (featureGroup: InspectorFeatureGroup) =>
-      contract.viewSchemaId === "cartulary.view.indicators.v1" &&
-      isIndicatorInspectorAction(featureGroup.routeBinding.actionKey) &&
-      featureGroup.routeBinding.actionKey !== "indicator.observations.manage",
+      resolveIndicatorInspectorHandler(contract.viewSchemaId, featureGroup) !==
+      null,
     [contract.viewSchemaId],
   );
 
@@ -852,7 +851,7 @@ export function ContractWorkbookSurface({
     <WorkbookSurfaceLayout
       chromeMode={chromeMode}
       inspector={
-        isInspectorOpen && writableFields.length > 0 ? (
+        isInspectorOpen ? (
           <section style={genericMutationPanelStyle}>
             <div style={inspectorTitleRowStyle}>
               <div>
@@ -879,15 +878,18 @@ export function ContractWorkbookSurface({
                 key={panel.panelId}
                 panelId={panel.panelId}
                 onFeatureAction={(featureGroup) => {
-                  const action = featureGroup.routeBinding.actionKey;
-                  if (isIndicatorInspectorAction(action)) {
-                    setIndicatorInspectorAction(action);
-                  }
+                  setIndicatorInspectorHandler(
+                    resolveIndicatorInspectorHandler(
+                      contract.viewSchemaId,
+                      featureGroup,
+                    ),
+                  );
                 }}
               >
-                {panel.panelId === "workflow" && selectedEditRow !== null ? (
+                {indicatorInspectorHandler?.panelId === panel.panelId &&
+                selectedEditRow !== null ? (
                   <IndicatorInspectorWorkflow
-                    action={indicatorInspectorAction}
+                    action={indicatorInspectorHandler.action}
                     indicatorRecordId={selectedEditRow.record_id}
                     port={mutationCommands.indicators}
                     rowVersion={selectedEditRow.row_version}

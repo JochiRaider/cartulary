@@ -7,7 +7,11 @@ import {
 } from "../../test-catalog/index.mjs";
 import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
-import { browserTargetStage, compileBrowserStageGraph } from "./browser.mjs";
+import {
+  browserTargetStage,
+  compileBrowserRowSelectionGraph,
+  compileBrowserStageGraph,
+} from "./browser.mjs";
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
@@ -252,6 +256,17 @@ export class WorkGraphCompiler {
     const prerequisiteTargetsForRow = (row) => {
       const targets = new Set();
       if (row.runner === "vitest") targets.add("frontend-install");
+      if (row.runner === "playwright") {
+        for (const target of [
+          "playwright-install",
+          "build-web",
+          "build-server-harness",
+          "build-migrate",
+          "test-service-images",
+        ]) {
+          targets.add(target);
+        }
+      }
       if (row.fixture_capability !== "none") targets.add("test-service-images");
       for (const binaryID of this.familyRuntimeBinaries.get(row.family_id) ?? []) {
         const producer = this.runtimeBinaryProducer.get(binaryID);
@@ -289,7 +304,10 @@ export class WorkGraphCompiler {
         .sort(([left], [right]) => compareASCII(left, right)),
     );
     const goRows = rows.filter((row) => row.runner === "go");
-    const otherRows = rows.filter((row) => row.runner !== "go");
+    const playwrightRows = rows.filter((row) => row.runner === "playwright");
+    const otherRows = rows.filter(
+      (row) => row.runner !== "go" && row.runner !== "playwright",
+    );
     const goUnits = [];
     if (goRows.length > 0) {
       const plan = planGoLPTShards(
@@ -319,9 +337,31 @@ export class WorkGraphCompiler {
         ));
       }
     }
+    const browserGraph =
+      playwrightRows.length === 0
+        ? buildWorkGraph([])
+        : compileBrowserRowSelectionGraph(
+            this.root,
+            this.owner,
+            playwrightRows.map((row) => row.row_id),
+          );
+    const browserRoots = new Set(
+      browserGraph.units
+        .filter((unit) => unit.needs.length === 0)
+        .map((unit) => unit.unit_id),
+    );
+    const browserPrerequisites = playwrightRows
+      .flatMap((row) => needsForRow(row))
+      .filter((unitID, index, values) => values.indexOf(unitID) === index)
+      .sort(compareASCII);
     return buildWorkGraph([
       ...prerequisiteUnits,
       ...goUnits,
+      ...browserGraph.units.map((unit) =>
+        browserRoots.has(unit.unit_id)
+          ? { ...unit, needs: browserPrerequisites }
+          : unit,
+      ),
       ...otherRows.map((row) =>
         rowUnit(
           row,

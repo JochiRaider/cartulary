@@ -441,8 +441,8 @@ export function createWorkbookMutationCommandPorts(
   });
   return {
     indicators: createIndicatorWorkflowPort({
-      apiBase: context.apiBase,
       createMutationID: (prefix) => createId(context.transactionIds, prefix),
+      operations,
     }),
     timeline: {
       identity: {

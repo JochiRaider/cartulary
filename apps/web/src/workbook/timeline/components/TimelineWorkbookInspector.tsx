@@ -43,6 +43,7 @@ export function TimelineWorkbookInspector({
   onSubmitMentionAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
+  renderPanelSupplement,
   renderRelationshipEditors,
   renderWorkflowSection,
   renderRowHistorySection,
@@ -78,6 +79,9 @@ export function TimelineWorkbookInspector({
   ) => void;
   readonly renderEvidenceAttachSection: (row: WorkbookRow) => ReactNode;
   readonly renderInspectorFieldEditors: (row: WorkbookRow) => ReactNode;
+  readonly renderPanelSupplement: (
+    panelId: InspectorConfig["panels"][number]["panelId"],
+  ) => ReactNode;
   readonly renderRelationshipEditors: (row: WorkbookRow) => ReactNode;
   readonly renderWorkflowSection: () => ReactNode;
   readonly renderRowHistorySection: () => ReactNode;
@@ -139,6 +143,7 @@ export function TimelineWorkbookInspector({
     ) {
       content = renderRowHistorySection();
     }
+    const supplement = renderPanelSupplement(panelId);
     return (
       <WorkbookInspectorPanelSection
         config={inspectorConfig}
@@ -149,6 +154,7 @@ export function TimelineWorkbookInspector({
         isFeatureActionSupported={isFeatureActionSupported}
       >
         {content}
+        {supplement}
       </WorkbookInspectorPanelSection>
     );
   };

@@ -240,7 +240,12 @@ function browserSuiteEnvironment(environment) {
   );
 }
 
-export function productionFixtureProviders({ root, runRoot, suiteController }) {
+export function productionFixtureProviders({
+  root,
+  runRoot,
+  selectionEnvironment = {},
+  suiteController,
+}) {
   const sharedProviders = Object.fromEntries(
     [
       "postgres_transaction",
@@ -268,6 +273,7 @@ export function productionFixtureProviders({ root, runRoot, suiteController }) {
         const lifecycle = path.join(root, "tools/harness/browser/start-web-e2e.sh");
         const environment = {
           ...suiteEnvironment,
+          ...selectionEnvironment,
           CARTULARY_BROWSER_RUNTIME_PROFILE_ID: runtimeProfileID,
           CARTULARY_BROWSER_SERVICE_REQUIREMENT: "test-services",
           CARTULARY_BROWSER_SESSION_GROUP: safeAffinity,
@@ -280,6 +286,7 @@ export function productionFixtureProviders({ root, runRoot, suiteController }) {
         const stackEnvironment = readEnvironmentFile(envFile);
         const unitEnvironment = {
           ...browserSuiteEnvironment(suiteEnvironment),
+          ...selectionEnvironment,
           ...stackEnvironment,
         };
         const close = () =>

@@ -38,11 +38,11 @@ import type {
   WorkbookContinuityAnchor,
   WorkbookContinuityToken,
 } from "../../continuity/workbookContinuityPort";
+import { IndicatorInspectorWorkflow } from "../../features/indicators/IndicatorInspectorWorkflow";
 import {
-  type IndicatorInspectorAction,
-  IndicatorInspectorWorkflow,
-  isIndicatorInspectorAction,
-} from "../../features/indicators/IndicatorInspectorWorkflow";
+  type IndicatorInspectorHandler,
+  resolveIndicatorInspectorHandler,
+} from "../../features/indicators/indicatorInspectorHandlers";
 import { useIncidentMemberReferenceOptions } from "../../hooks/useOwnerReferenceOptions";
 import { useWorkbookInspectorCoordinator } from "../../inspector/useWorkbookInspectorCoordinator";
 import { WorkbookSurfaceLayout } from "../../layout/WorkbookSurfaceLayout";
@@ -285,8 +285,8 @@ function TimelineWorkbookContent({
       }),
     [apiBase, incidentId, mutationCommands.identity],
   );
-  const [indicatorInspectorAction, setIndicatorInspectorAction] =
-    useState<IndicatorInspectorAction | null>(null);
+  const [indicatorInspectorHandler, setIndicatorInspectorHandler] =
+    useState<IndicatorInspectorHandler | null>(null);
   const {
     commands: {
       onColumnHiddenChange: handleColumnHiddenChange,
@@ -787,14 +787,17 @@ function TimelineWorkbookContent({
   });
   const handleInspectorFeatureAction = useCallback(
     (featureGroup: Parameters<typeof beginCreateRelatedWorkflow>[0]) => {
-      const action = featureGroup.routeBinding.actionKey;
-      if (isIndicatorInspectorAction(action)) {
-        setIndicatorInspectorAction(action);
+      const indicatorHandler = resolveIndicatorInspectorHandler(
+        timelineViewSchemaId,
+        featureGroup,
+      );
+      if (indicatorHandler !== null) {
+        setIndicatorInspectorHandler(indicatorHandler);
         setInspectorMessage(null);
         cancelCreateRelatedWorkflow();
         return;
       }
-      setIndicatorInspectorAction(null);
+      setIndicatorInspectorHandler(null);
       beginCreateRelatedWorkflow(featureGroup);
     },
     [
@@ -807,7 +810,8 @@ function TimelineWorkbookContent({
     (featureGroup: Parameters<typeof beginCreateRelatedWorkflow>[0]) =>
       (featureGroup.routeBinding.kind === "view_row_create" &&
         featureGroup.routeBinding.owner === "view_row_create_route") ||
-      featureGroup.routeBinding.actionKey === "indicator.observations.manage",
+      resolveIndicatorInspectorHandler(timelineViewSchemaId, featureGroup) !==
+        null,
     [],
   );
   const createRelatedNeedsIncidentMembers =
@@ -1852,23 +1856,23 @@ function TimelineWorkbookContent({
             renderEvidenceAttachSection={renderEvidenceAttachSection}
             renderInspectorFieldEditors={renderInspectorFieldEditors}
             renderRelationshipEditors={renderInspectorRelationshipEditors}
-            renderWorkflowSection={() => (
-              <>
-                {renderCreateRelatedWorkflowSection()}
-                {selectedRow?.recordId && selectedRow.rowVersion !== null ? (
-                  <IndicatorInspectorWorkflow
-                    action={indicatorInspectorAction}
-                    port={indicatorWorkflow}
-                    rowVersion={selectedRow.rowVersion}
-                    sourceFields={timelineObservationSourceFields}
-                    sourceRecordId={selectedRow.recordId}
-                    onMutationCommitted={() =>
-                      loadRowsRef.current({ showLoading: false })
-                    }
-                  />
-                ) : null}
-              </>
-            )}
+            renderWorkflowSection={() => renderCreateRelatedWorkflowSection()}
+            renderPanelSupplement={(panelId) =>
+              indicatorInspectorHandler?.panelId === panelId &&
+              selectedRow?.recordId &&
+              selectedRow.rowVersion !== null ? (
+                <IndicatorInspectorWorkflow
+                  action={indicatorInspectorHandler.action}
+                  port={indicatorWorkflow}
+                  rowVersion={selectedRow.rowVersion}
+                  sourceFields={timelineObservationSourceFields}
+                  sourceRecordId={selectedRow.recordId}
+                  onMutationCommitted={() =>
+                    loadRowsRef.current({ showLoading: false })
+                  }
+                />
+              ) : null
+            }
             renderRowHistorySection={renderRowHistorySection}
             rowHistoryRecordId={
               currentHistoryDeleted ? currentHistoryRecordId : null

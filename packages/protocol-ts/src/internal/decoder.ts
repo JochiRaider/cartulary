@@ -1,6 +1,7 @@
 export type GeneratedValidationError = {
   readonly instancePath?: string;
   readonly keyword?: string;
+  readonly params?: Readonly<Record<string, unknown>>;
 };
 
 export type GeneratedValidator = ((value: unknown) => boolean) & {
@@ -53,6 +54,23 @@ function reasonCategory(
   }
 }
 
+function escapeJSONPointerMember(value: string): string {
+  return value.replaceAll("~", "~0").replaceAll("/", "~1");
+}
+
+function validationPath(error: GeneratedValidationError | undefined): string {
+  const instancePath = error?.instancePath ?? "";
+  const member =
+    error?.keyword === "required"
+      ? error.params?.missingProperty
+      : error?.keyword === "additionalProperties"
+        ? error.params?.additionalProperty
+        : undefined;
+  return typeof member === "string"
+    ? `${instancePath}/${escapeJSONPointerMember(member)}`
+    : instancePath;
+}
+
 export function createDecoder<T>(
   schemaId: string,
   validate: GeneratedValidator,
@@ -68,7 +86,7 @@ export function createDecoder<T>(
         ok: false,
         error: {
           boundary: "generated_protocol",
-          instancePath: firstError?.instancePath ?? "",
+          instancePath: validationPath(firstError),
           reasonCategory: reasonCategory(firstError?.keyword),
           schemaId,
         },

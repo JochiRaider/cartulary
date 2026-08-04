@@ -16,14 +16,17 @@ import type {
 import { parseSameFieldConflict } from "../runtime/workbookConflictModel";
 
 const workbookOperationIDs = [
+  "appendIndicatorStateInterval",
   "applyWorkbookBulkMutation",
   "attachBlobToEvidenceRecord",
   "createIncidentSavedView",
+  "createManualIndicatorObservation",
   "createObjectBlobSlot",
   "createRecordLinkedNote",
   "createViewRow",
   "deleteIncidentSavedView",
   "deleteRecord",
+  "dismissIndicatorObservation",
   "getCurrentUserWorkbookPreferences",
   "getIncident",
   "getIncidentDefaultWorkbookPreferences",
@@ -34,6 +37,9 @@ const workbookOperationIDs = [
   "issueEvidencePreviewHandle",
   "listIncidentMemberships",
   "listIncidentSavedViews",
+  "listIndicatorObservations",
+  "listIndicatorStateIntervals",
+  "listSourceRecordIndicatorObservations",
   "markTimelineRecordReviewed",
   "mergeEntityRecord",
   "pasteWorkbookClipboard",
@@ -44,13 +50,17 @@ const workbookOperationIDs = [
   "putTimelineTimeConversionProfile",
   "queryWorkbookView",
   "resolveEntityMention",
+  "resolveIndicatorObservation",
   "resolveRecordSameFieldConflict",
+  "restoreIndicatorObservation",
   "restoreRecord",
   "rollbackRecord",
   "supersedeRecord",
 ] as const satisfies readonly HTTPOperationID[];
 
 export type WorkbookOperationID = (typeof workbookOperationIDs)[number];
+export type WorkbookOperationResponse<OperationID extends WorkbookOperationID> =
+  HTTPOperationResponse<OperationID>;
 
 type WorkbookOperationRequestInput<OperationID extends WorkbookOperationID> =
   HTTPOperationRequest<OperationID> extends undefined
@@ -77,11 +87,16 @@ export interface WorkbookOperationExecutor {
 }
 
 const staleTargetCodes = new Set([
+  "illegal_transition",
+  "indicator_not_found",
+  "indicator_observation_not_found",
+  "indicator_source_record_not_found",
   "incident_not_found",
   "record_already_deleted",
   "record_deleted_use_restore",
   "record_not_deleted",
   "record_not_found",
+  "resolved_indicator_not_found",
   "row_version_conflict",
 ]);
 

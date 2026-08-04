@@ -681,6 +681,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.view_inspector_registry.v1",
+      "path": "tools/schemas/cartulary.view_inspector_registry.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "view Inspector contract owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.view_schema_source.v1",
       "path": "tools/schemas/cartulary.view_schema_source.v1.schema.json",
       "classification": "owner_input",

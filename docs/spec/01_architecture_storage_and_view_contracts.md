@@ -4542,6 +4542,8 @@ The closed `route_binding.kind` vocabulary is:
 | `entity_mention_action` | Invoke the existing entity-mention action route for resolve, create-host, create-identity, dismiss, or restore semantics. |
 | `evidence_access` | Issue preview or download handles through the existing evidence-access contract. |
 | `surface_pivot` | Navigate within the same workbook shell to another `sheet_ref` with a seeded query over stable `field_key` filters. |
+| `indicator_observations` | Read or mutate source-bound Indicator observations through the dedicated observation child-resource route family. |
+| `indicator_lifecycle` | Read or append canonical Indicator lifecycle intervals through the dedicated lifecycle child-resource route family. |
 
 The closed `route_binding.owner` vocabulary is:
 
@@ -4559,6 +4561,8 @@ The closed `route_binding.owner` vocabulary is:
 | `record_rollback_route` | `POST /api/v1/records/{record_id}/rollback`. |
 | `record_merge_route` | `POST /api/v1/records/{survivor_record_id}/merge`. |
 | `entity_mention_resolve_route` | `POST /api/v1/entity-mentions/{entity_mention_id}/resolve`. |
+| `indicator_observations_route` | The Indicator observation collection and action routes owned by REQ-01-652 and Core 03 REQ-03-306. |
+| `indicator_lifecycle_route` | The Indicator state-interval collection and append routes owned by REQ-01-654 and Core 03 REQ-03-306. |
 | `evidence_attach_blob_route` | `POST /api/v1/evidence-records/{record_id}/attach-blob`. |
 | `evidence_preview_handle_route` | `POST /api/v1/evidence-records/{record_id}/preview-handle`. |
 | `evidence_download_handle_route` | `POST /api/v1/evidence-records/{record_id}/download-handle`. |
@@ -4573,7 +4577,7 @@ An emitted current-profile `inspector_config_v1` with an unknown panel id, unkno
 
 Inspector route bindings MUST reuse existing Core-owned route and mutation contracts. The inspector MUST NOT define a generic workflow route, workflow engine, hidden sub-workspace, inspector-state record family, record-specific ACL system, or forms-first capture path.
 Profiles: base
-Verified by: AC-453
+Verified by: AC-453, AC-455, AC-532
 
 **REQ-01-289**
 View behavior MUST bind to `view_schema_id`, not to the visible tab label, column header text, or any other display label. `title` and field `label` values exposed by discovery are non-authoritative display hints only. The public discovery resource MUST describe semantic workbook behavior and MUST NOT expose `base_projection`, `canonical_source_filter`, storage-table names, internal write targets, or other storage-realization details.
@@ -4775,7 +4779,7 @@ Every current-profile standardized workbook surface MUST emit an explicit `inspe
 
 The exact field membership, writeability, create minima, omitted-versus-`null` behavior, write targets, and relationship storage semantics remain owned by the relevant per-field registry and route owner sections. The inspector matrix MUST NOT be used as a substitute field registry, storage registry, route inventory, or authorization matrix.
 Profiles: base
-Verified by: AC-453, AC-519
+Verified by: AC-453, AC-455, AC-519, AC-532
 
 **REQ-01-617**
 Inspector feature groups MUST use dotted lower-snake `feature_group_key` values. A feature key MUST be unique within its containing `view_schema_id`. Reuse of the same feature key across different `view_schema_id` values is valid only when the feature has the same observable meaning, route-binding kind, route-binding owner, mutation classification, confirmation classification, and result-behavior family.
@@ -4784,7 +4788,7 @@ Feature keys MUST use these owner prefixes when applicable: `details`, `relation
 
 A current-profile implementation MUST NOT emit a feature group whose key is not declared by the exhaustive registry in §7.4.1A, except for standardized optional surfaces when the optional surface itself is not implemented, in which case the entire surface and its inspector feature groups are omitted.
 Profiles: base
-Verified by: AC-454, AC-519
+Verified by: AC-454, AC-455, AC-519, AC-532
 
 ### 7.4.1A Inspector feature-group registry
 
@@ -4818,7 +4822,24 @@ The registry below is the exhaustive current-profile feature-group source. It is
 | `entity_mentions.create_host` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
 | `entity_mentions.create_identity` | `relationships` | `entity_mention_action` | `entity_mention_resolve_route` | `editor` | `true` | `true` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
 
-The table above defines defaults for feature-key families only. The per-surface registry below determines which keys exist for each surface. If a per-surface row needs a different panel, role, confirmation, disabled-state, seed, success, or failure behavior, the per-surface row must override it explicitly.
+The table above defines defaults for feature-key families only. The exact
+specialized rows below take precedence over every wildcard family. In
+particular, the four Indicator keys below MUST NOT resolve through `*.manage`
+or any other `record_patch` family.
+
+| `view_schema_id` | `feature_group_key` | `panel_id` | `route_binding.kind` | `route_binding.owner` | `minimum_incident_role` | `mutates` | `requires_confirmation` | `disabled_when[]` | Success behavior | Failure behavior |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | --- | --- | --- |
+| `cartulary.view.timeline.v2` | `indicator.observations.manage` | `relationships` | `indicator_observations` | `indicator_observations_route` | `editor` | `true` | `false` | `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+| `cartulary.view.indicators.v1` | `indicator.observations.pivot` | `relationships` | `indicator_observations` | `indicator_observations_route` | `null` | `false` | `false` | `no_row_selected`, `authorization_lost`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `cartulary.view.indicators.v1` | `indicator.lifecycle.read` | `history` | `indicator_lifecycle` | `indicator_lifecycle_route` | `null` | `false` | `false` | `no_row_selected`, `authorization_lost`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_preserve_selection` |
+| `cartulary.view.indicators.v1` | `indicator.lifecycle.manage` | `history` | `indicator_lifecycle` | `indicator_lifecycle_route` | `editor` | `true` | `false` | `no_row_selected`, `incident_closed`, `authorization_lost`, `row_version_changed`, `record_deleted` | `preserve_selected_row` | `show_same_shell_error_invalidate_pending_action` |
+
+For these four rows, `seed_bindings[]` MUST be `[]`, `route_binding.action_key`
+MUST equal `feature_group_key`, and `route_binding.target_view_schema_id` MUST
+be omitted. The per-surface registry below determines which keys exist for each
+surface. If another per-surface row needs a different panel, role,
+confirmation, disabled-state, seed, success, or failure behavior, the
+per-surface row must override it explicitly.
 
 | `view_schema_id` | Required `feature_group_key` values |
 | --- | --- |
@@ -4827,7 +4848,7 @@ The table above defines defaults for feature-key families only. The per-surface 
 | `cartulary.view.identities.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `entity.aliases.read`, `entity.relationships.manage`, `entity.merge`, `surface_pivot.timeline`, `surface_pivot.evidence`, `surface_pivot.assessments`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.evidence.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `evidence.preview_handle`, `evidence.download_handle`, `evidence.attach_blob`, `party.collector.link`, `party.source.link`, `party.reference.clear`, `relationships.manage`, `surface_pivot.linked_records`, `surface_pivot.timeline`, `create_related.note`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.notes.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `artifact.source_links.manage`, `artifact.evidence_refs.manage`, `artifact.tags.manage`, `artifact.related_notes.manage`, `surface_pivot.source_records`, `create_related.task_request`, `create_related.decision` |
-| `cartulary.view.indicators.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `indicator.observations.pivot`, `indicator.lifecycle.read`, `relationships.manage`, `create_related.task_request`, `create_related.decision` |
+| `cartulary.view.indicators.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `indicator.observations.pivot`, `indicator.lifecycle.read`, `indicator.lifecycle.manage`, `relationships.manage`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.assessments.v1` | `details.read`, `relationships.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `assessment.subject_pivot`, `assessment.prior_history`, `create_related.assessment`, `create_related.task_request`, `create_related.decision` |
 | `cartulary.view.task_requests.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `task.links.manage`, `task.requester_party.link`, `task.requester_party.clear`, `task.decision.link`, `task.decision.clear`, `task.status.transition`, `create_related.comm_log`, `create_related.status_review`, `create_related.lesson` |
 | `cartulary.view.decisions.v1` | `details.read`, `relationships.read`, `evidence.read`, `history.read`, `record.delete`, `record.restore`, `history.rollback`, `decision.support_refs.manage`, `decision.affected_records.manage`, `decision.status.transition`, `decision.supersede`, `create_related.task_request`, `create_related.comm_log`, `create_related.status_review` |

@@ -1103,6 +1103,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("revisions")) {
     throw new Error(`${file}.families must declare revisions`);
   }
+  if (!familyIDs.includes("view-inspector")) {
+    throw new Error(`${file}.families must declare view-inspector`);
+  }
   const expectedActiveIDs = [
     "openapi",
     "ws",
@@ -1114,6 +1117,7 @@ function validateContractFamilyRegistryShape(file) {
     "imports",
     "recovery",
     "revisions",
+    "view-inspector",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

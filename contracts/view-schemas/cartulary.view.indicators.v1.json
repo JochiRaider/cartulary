@@ -122,7 +122,9 @@
         },
         "seed_bindings": [],
         "disabled_when": [
-          "no_row_selected"
+          "no_row_selected",
+          "authorization_lost",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_preserve_selection"
@@ -236,7 +238,7 @@
       },
       {
         "feature_group_key": "indicator.observations.pivot",
-        "panel_id": "workflow",
+        "panel_id": "relationships",
         "label": "Indicator Observations Pivot",
         "minimum_incident_role": null,
         "mutates": false,
@@ -248,14 +250,16 @@
         },
         "seed_bindings": [],
         "disabled_when": [
-          "no_row_selected"
+          "no_row_selected",
+          "authorization_lost",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "indicator.lifecycle.read",
-        "panel_id": "workflow",
+        "panel_id": "history",
         "label": "Indicator Lifecycle Read",
         "minimum_incident_role": null,
         "mutates": false,
@@ -267,14 +271,16 @@
         },
         "seed_bindings": [],
         "disabled_when": [
-          "no_row_selected"
+          "no_row_selected",
+          "authorization_lost",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_preserve_selection"
       },
       {
         "feature_group_key": "indicator.lifecycle.manage",
-        "panel_id": "workflow",
+        "panel_id": "history",
         "label": "Indicator Lifecycle Manage",
         "minimum_incident_role": "editor",
         "mutates": true,

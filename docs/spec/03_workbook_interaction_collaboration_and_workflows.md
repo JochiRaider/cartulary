@@ -1293,6 +1293,13 @@ and create route rather than to generic record patch. These changes are
 additive to `cartulary.view.indicators.v1` and
 `cartulary.view.timeline.v2`; they do not change either `view_schema_id`.
 
+The client handler registry MUST resolve the complete
+`(feature_group_key, panel_id, route_binding.kind, route_binding.owner,
+route_binding.action_key)` tuple defined by Core 01 REQ-01-617. Exact
+Indicator tuples MUST resolve before generic feature families and MUST NOT
+fall back to generic record patch. A tuple with an unknown or mismatched
+member has no registered handler and is omitted.
+
 The client MUST use the selected row's stable `record_id` and current
 `row_version`, MUST preserve the selected source text and byte-span boundaries,
 and MUST render loading, empty, error, paging, transition, and retry states in

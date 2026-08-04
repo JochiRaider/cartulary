@@ -282,7 +282,8 @@
           "no_row_selected",
           "incident_closed",
           "authorization_lost",
-          "row_version_changed"
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"
@@ -377,7 +378,7 @@
       },
       {
         "feature_group_key": "indicator.observations.manage",
-        "panel_id": "workflow",
+        "panel_id": "relationships",
         "label": "Indicator Observations Manage",
         "minimum_incident_role": "editor",
         "mutates": true,
@@ -392,7 +393,8 @@
           "no_row_selected",
           "incident_closed",
           "authorization_lost",
-          "row_version_changed"
+          "row_version_changed",
+          "record_deleted"
         ],
         "success_result_behavior": "preserve_selected_row",
         "failure_result_behavior": "show_same_shell_error_invalidate_pending_action"

@@ -402,7 +402,10 @@ function validatorSource(entries) {
       ajv.addSchema({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: wrapperID,
-        $ref: `${entry.bundle.$id}#/$defs/${definitionName}`,
+        $ref:
+          definitionName === null
+            ? entry.bundle.$id
+            : `${entry.bundle.$id}#/$defs/${definitionName}`,
       });
       exports[`validate${pascalCase(schemaID)}`] = wrapperID;
     }
@@ -534,7 +537,15 @@ function operationBindings(openAPI, selection, definitions) {
       const parameters = [
         ...(Array.isArray(pathItem.parameters) ? pathItem.parameters : []),
         ...(Array.isArray(operation.parameters) ? operation.parameters : []),
-      ];
+      ].map((parameter) => {
+        const componentName = localComponentName(parameter?.$ref, "parameters");
+        return componentName
+          ? requireObject(
+              openAPI.components?.parameters?.[componentName],
+              `OpenAPI parameter ${componentName}`,
+            )
+          : parameter;
+      });
       const queryParameters = parameters
         .filter((parameter) => parameter?.in === "query")
         .map((parameter) => requireString(parameter.name, `${operation.operationId} query parameter`))
@@ -790,6 +801,16 @@ function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens
 const entrypoints = validateFrontendEntrypointsOwner(
   readJSON("contracts/protocol-ts/frontend-entrypoints.v2.json"),
 );
+const viewSchemaSourceSchema = readJSON(
+  "tools/schemas/cartulary.view_schema_source.v1.schema.json",
+);
+const viewSchemaSourceBundle = {
+  ...viewSchemaSourceSchema,
+  $id: "https://contracts.cartulary.local/generated/view-schema-source.v1",
+};
+const viewSchemaSourcePublicDefinitions = new Map([
+  ["cartulary.view_schema_source.v1", null],
+]);
 const networkFlowEntrypoints = readJSON(
   requireString(
     entrypoints.network_flow_entrypoints_path,
@@ -954,6 +975,15 @@ writeFilesAtomically([
       {
         bundle: collaborationBundle,
         publicDefinitions: collaboration.schemaIDs,
+      },
+    ]),
+  },
+  {
+    path: path.join(generatedRoot, "view-schema-source-validator.ts"),
+    content: validatorSource([
+      {
+        bundle: viewSchemaSourceBundle,
+        publicDefinitions: viewSchemaSourcePublicDefinitions,
       },
     ]),
   },

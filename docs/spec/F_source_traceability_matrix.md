@@ -782,9 +782,9 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | REQ-01-612 | Core 01 §3.3.5.0A Timeline time-conversion profile | base | AC-444, AC-449, AC-451 |
 | REQ-01-613 | Core 01 §3.3.5.0A Timeline time-conversion profile | base | AC-451 |
 | REQ-01-614 | Core 01 §18 timeline_visible_text_v1 | base | AC-444..AC-449, AC-452 |
-| REQ-01-615 | Core 01 §7.4 `inspector_config_v1` | base | AC-453..AC-455, AC-460..AC-462 |
-| REQ-01-616 | Core 01 §7.4 per-surface inspector matrix | base | AC-453..AC-455, AC-461..AC-462, AC-519 |
-| REQ-01-617 | Core 01 §7.4.1A Inspector feature-group registry | base | AC-454..AC-455, AC-458, AC-460..AC-462, AC-519 |
+| REQ-01-615 | Core 01 §7.4 `inspector_config_v1` | base | AC-453..AC-455, AC-460..AC-462, AC-532 |
+| REQ-01-616 | Core 01 §7.4 per-surface inspector matrix | base | AC-453..AC-455, AC-461..AC-462, AC-519, AC-532 |
+| REQ-01-617 | Core 01 §7.4.1A Inspector feature-group registry | base | AC-454..AC-455, AC-458, AC-460..AC-462, AC-519, AC-532 |
 | REQ-02-001 | Core 02 §1 Domain-model goals | base, reference_pack | AC-231, AC-234 |
 | REQ-02-002 | Core 02 §1 Domain-model goals | base | AC-231 |
 | REQ-02-003 | Core 02 §2 Core record types | base, reference_pack | AC-231, AC-234, AC-277 |
@@ -1959,7 +1959,7 @@ No appendix text is authoritative for current-profile runtime behavior unless th
 | AC-520 | REQ-01-332, REQ-01-334, REQ-03-304..REQ-03-305 |
 | AC-530 | REQ-01-640, REQ-02-056..REQ-02-057 |
 | AC-531 | REQ-01-639..REQ-01-646 |
-| AC-532 | REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150 |
+| AC-532 | REQ-01-615..REQ-01-617, REQ-01-652, REQ-01-654, REQ-02-263..REQ-02-264, REQ-03-306, REQ-04-150 |
 | AC-533 | REQ-01-653, REQ-02-263, REQ-04-150 |
 | PC-001 | REQ-05-003, REQ-05-006, REQ-05-009 |
 | PC-002 | REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013 |

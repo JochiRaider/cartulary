@@ -1221,6 +1221,191 @@ export interface IncidentMembershipResource {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorLifecycleAppendRequest".
+ */
+export interface IndicatorLifecycleAppendRequest {
+  assessor: string | null;
+  base_row_version: number;
+  client_txn_id: string;
+  confidence: number | null;
+  lifecycle_state: "active" | "benign" | "false_positive" | "retired";
+  rationale: string | null;
+  /**
+   * @maxItems 64
+   */
+  support_refs: string[];
+  valid_from: string;
+  valid_to: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorLifecycleListEnvelope".
+ */
+export interface IndicatorLifecycleListEnvelope {
+  data: IndicatorLifecycleListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorLifecycleListData".
+ */
+export interface IndicatorLifecycleListData {
+  intervals: IndicatorStateInterval[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorStateInterval".
+ */
+export interface IndicatorStateInterval {
+  assessed_at: string;
+  assessor: string | null;
+  confidence: number | null;
+  created_at: string;
+  created_by_user_id: string;
+  incident_id: string;
+  indicator_record_id: string;
+  interval_id: string;
+  lifecycle_state: "active" | "benign" | "false_positive" | "retired";
+  rationale: string | null;
+  row_version: number;
+  support_refs: string[];
+  valid_from: string;
+  valid_to: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorLifecycleMutationEnvelope".
+ */
+export interface IndicatorLifecycleMutationEnvelope {
+  data: IndicatorLifecycleMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorLifecycleMutationData".
+ */
+export interface IndicatorLifecycleMutationData {
+  affected_records: IndicatorAffectedRecordVersion[];
+  change_set_id: string;
+  interval: IndicatorStateInterval;
+  replayed: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorAffectedRecordVersion".
+ */
+export interface IndicatorAffectedRecordVersion {
+  record_id: string;
+  row_version: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationActionRequest".
+ */
+export interface IndicatorObservationActionRequest {
+  base_row_version: number;
+  client_txn_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationCreateRequest".
+ */
+export interface IndicatorObservationCreateRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  parsed_indicator_type?:
+    | "ipv4_addr"
+    | "ipv6_addr"
+    | "domain_name"
+    | "url"
+    | "sha256"
+    | "email_addr"
+    | "registry_key"
+    | "process_name"
+    | "text";
+  resolved_indicator_record_id?: string;
+  source_field_key: string;
+  span_end_byte: number;
+  span_start_byte: number;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationListEnvelope".
+ */
+export interface IndicatorObservationListEnvelope {
+  data: IndicatorObservationListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationListData".
+ */
+export interface IndicatorObservationListData {
+  observations: IndicatorObservation[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservation".
+ */
+export interface IndicatorObservation {
+  created_at: string;
+  created_by_user_id: string;
+  incident_id: string;
+  normalized_candidate: string | null;
+  observation_id: string;
+  observed_text: string;
+  origin_kind:
+    "manual_entry" | "clipboard_paste" | "csv_import" | "xlsx_import" | "api_import" | "extraction" | "system";
+  origin_locator: string;
+  parsed_indicator_type:
+    | "ipv4_addr"
+    | "ipv6_addr"
+    | "domain_name"
+    | "url"
+    | "sha256"
+    | "email_addr"
+    | "registry_key"
+    | "process_name"
+    | "text"
+    | null;
+  resolution_method: string | null;
+  resolution_status: "unresolved" | "resolved" | "dismissed";
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+  resolved_indicator_record_id: string | null;
+  row_version: number;
+  source_field_key: string;
+  source_record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationMutationEnvelope".
+ */
+export interface IndicatorObservationMutationEnvelope {
+  data: IndicatorObservationMutationData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationMutationData".
+ */
+export interface IndicatorObservationMutationData {
+  affected_records: IndicatorAffectedRecordVersion[];
+  change_set_id: string;
+  observation: IndicatorObservation;
+  replayed: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IndicatorObservationResolveRequest".
+ */
+export interface IndicatorObservationResolveRequest {
+  base_row_version: number;
+  client_txn_id: string;
+  resolved_indicator_record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "JobCancelRequest".
  */
 export interface JobCancelRequest {

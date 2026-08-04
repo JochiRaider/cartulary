@@ -723,7 +723,7 @@ describe("@cartulary/protocol-ts family conformance", () => {
       ok: false,
       error: {
         boundary: "generated_protocol",
-        instancePath: "",
+        instancePath: "/raw_source_value",
         reasonCategory: "unknown_member",
         schemaId: "cartulary.network_flow.table_list.v1",
       },

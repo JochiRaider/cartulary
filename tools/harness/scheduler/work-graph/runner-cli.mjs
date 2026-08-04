@@ -105,6 +105,29 @@ function selectionInputs(options) {
   };
 }
 
+function fixtureSelectionEnvironment(options) {
+  const values = selectionInputs(options);
+  const publicSelectionNames = ["OWNER", "ROWS"].filter(
+    (name) => values[name] !== undefined,
+  );
+  const retainedSources = String(
+    process.env.CARTULARY_MAKE_INPUT_SOURCES ?? "",
+  )
+    .split(/\s+/u)
+    .filter(Boolean)
+    .filter(
+      (token) =>
+        !publicSelectionNames.some((name) => token.startsWith(`${name}=`)),
+    );
+  return {
+    ...values,
+    CARTULARY_MAKE_INPUT_SOURCES: [
+      ...retainedSources,
+      ...publicSelectionNames.map((name) => `${name}=cli`),
+    ].join(" "),
+  };
+}
+
 function graphChildEnvironment(options) {
   const environment = { ...process.env };
   for (const name of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"]) {
@@ -721,7 +744,12 @@ async function main() {
     },
   };
   const broker = new FixtureBroker({
-    providers: productionFixtureProviders({ root, runRoot, suiteController }),
+    providers: productionFixtureProviders({
+      root,
+      runRoot,
+      selectionEnvironment: fixtureSelectionEnvironment(options),
+      suiteController,
+    }),
     recordSink(record) {
       writeJSON(
         path.join(runRoot, "_shared", "fixture-leases", `${record.lease_id}.json`),

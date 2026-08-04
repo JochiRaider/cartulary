@@ -803,6 +803,10 @@
         },
         {
           "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-inspector-registry"
+        },
+        {
+          "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/view-schema-source-types"
         },
         {

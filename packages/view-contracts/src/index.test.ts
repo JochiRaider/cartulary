@@ -1,44 +1,99 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
+import * as publicFacade from "./index";
 import {
+  assessmentsViewSchemaId,
+  buildWorkbookSurfaceContracts,
+  commLogViewSchemaId,
+  decisionsViewSchemaId,
+  evidenceViewSchemaId,
   fieldCapability,
+  findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
   getViewContract,
   getWorkbookSurfaceContract,
+  handoffViewSchemaId,
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+  indicatorsViewSchemaId,
+  investigativeQueriesViewSchemaId,
+  lessonViewSchemaId,
   listViewContracts,
   listWorkbookSurfaceContracts,
+  type NormalizedViewRowPatchV1,
+  type NormalizedViewRowV1,
   normalizeViewRowPatchV1,
   normalizeViewRowV1,
-  parseViewContractJSON,
+  notesViewSchemaId,
+  optionalStandardizedWorkbookSurfaceIds,
+  partiesViewSchemaId,
+  requiredBuiltInWorkbookSurfaceIds,
+  requiredSystemWorkbookSurfaceIds,
   requireViewContract,
+  requireWorkbookSurfaceContract,
   resolveHeaderSortFieldKey,
+  statusReviewViewSchemaId,
+  taskRequestsViewSchemaId,
+  timelineViewSchemaId,
   type ViewContract,
   visibleFields,
 } from "./index";
+import { parseViewContractJSON } from "./view-contracts";
+
+const fixtureFieldDefaults = {
+  default_hidden: false,
+  sortable: false,
+  header_sort_field_key: null,
+  filter_ops: [],
+  groupable: false,
+  read_kind: "text",
+  write_kind: "read_only",
+  grid_editable: false,
+  conflict_resolution_class: null,
+  entity_binding_mode: null,
+  string_contract_id: null,
+  direct_scalar_contract_id: null,
+  direct_reference_contract_id: null,
+  clearable: false,
+  enum_values: null,
+  writable: false,
+  read_model: "fixture_value",
+} as const;
 
 function fixtureRawContract() {
   return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    schema_id: "cartulary.view_schema_source.v1",
     view_schema_id: "cartulary.view.fixture.v1",
     title: "Fixture Surface",
     surface_kind: "system_view",
+    source_record_types: ["fixture_record"],
     default_visible_fields: ["fixture.editable", "fixture.queryable"],
     default_hidden_fields: ["record_id", "row_version", "fixture.sort_shadow"],
     default_sort: [{ field_key: "fixture.sort_shadow", direction: "asc" }],
     sort_fields: ["fixture.sort_shadow", "fixture.queryable"],
+    sort_null_order: "last",
     filter_fields: ["fixture.queryable"],
     grouping_fields: ["fixture.queryable"],
     technical_fields: ["record_id", "row_version"],
+    required_reference_pack_keys: [],
+    create_capable: false,
+    create_inputs: [],
     inline_create: {
       minimum_create_field_sets: [],
       permits_zero_field_create: false,
     },
     fields: [
       {
+        ...fixtureFieldDefaults,
         field_key: "fixture.editable",
         label: "Editable Field",
         write_kind: "direct_value",
+        writable: true,
         grid_editable: true,
       },
       {
+        ...fixtureFieldDefaults,
         field_key: "fixture.queryable",
         label: "Queryable Field",
         filter_ops: ["eq"],
@@ -48,6 +103,7 @@ function fixtureRawContract() {
         grid_editable: false,
       },
       {
+        ...fixtureFieldDefaults,
         field_key: "fixture.sort_shadow",
         label: "Sort Shadow",
         default_hidden: true,
@@ -135,6 +191,543 @@ function expectInvariantFailure(raw: unknown, pattern: RegExp) {
   ).toThrow(pattern);
 }
 
+function fixtureCells() {
+  return {
+    "fixture.editable": { value: "editable" },
+    "fixture.queryable": { value: "bucket" },
+    "fixture.sort_shadow": { value: "sort" },
+  };
+}
+
+function sourceInspectorFeatureGroup(
+  group: ViewContract["inspectorConfig"]["featureGroups"][number],
+) {
+  return {
+    feature_group_key: group.featureGroupKey,
+    panel_id: group.panelId,
+    label: group.label,
+    minimum_incident_role: group.minimumIncidentRole,
+    mutates: group.mutates,
+    requires_confirmation: group.requiresConfirmation,
+    route_binding: {
+      kind: group.routeBinding.kind,
+      owner: group.routeBinding.owner,
+      action_key: group.routeBinding.actionKey,
+      target_view_schema_id: group.routeBinding.targetViewSchemaId,
+    },
+    seed_bindings: group.seedBindings.map((binding) => ({
+      target_field_key: binding.targetFieldKey,
+      source: {
+        kind: binding.source.kind,
+        source_field_key: binding.source.sourceFieldKey,
+        value: binding.source.value,
+      },
+    })),
+    disabled_when: group.disabledWhen,
+    success_result_behavior: group.successResultBehavior,
+    failure_result_behavior: group.failureResultBehavior,
+  };
+}
+
+describe("view-contracts characterization baseline", () => {
+  it("exposes the supported public package facade", () => {
+    for (const exportedFunction of [
+      buildWorkbookSurfaceContracts,
+      fieldCapability,
+      getViewContract,
+      getWorkbookSurfaceContract,
+      listViewContracts,
+      listWorkbookSurfaceContracts,
+      normalizeViewRowPatchV1,
+      normalizeViewRowV1,
+      requireViewContract,
+      requireWorkbookSurfaceContract,
+      resolveHeaderSortFieldKey,
+      visibleFields,
+    ]) {
+      expect(typeof exportedFunction).toBe("function");
+    }
+    expect(Object.keys(publicFacade).sort()).toEqual(
+      [
+        "assessmentsViewSchemaId",
+        "buildWorkbookSurfaceContracts",
+        "commLogViewSchemaId",
+        "decisionsViewSchemaId",
+        "evidenceViewSchemaId",
+        "fieldCapability",
+        "findingsViewSchemaId",
+        "forensicKeywordsViewSchemaId",
+        "getViewContract",
+        "getWorkbookSurfaceContract",
+        "handoffViewSchemaId",
+        "hostsViewSchemaId",
+        "identitiesViewSchemaId",
+        "indicatorsViewSchemaId",
+        "investigativeQueriesViewSchemaId",
+        "lessonViewSchemaId",
+        "listViewContracts",
+        "listWorkbookSurfaceContracts",
+        "normalizeViewRowPatchV1",
+        "normalizeViewRowV1",
+        "notesViewSchemaId",
+        "optionalStandardizedWorkbookSurfaceIds",
+        "partiesViewSchemaId",
+        "requiredBuiltInWorkbookSurfaceIds",
+        "requiredSystemWorkbookSurfaceIds",
+        "requireViewContract",
+        "requireWorkbookSurfaceContract",
+        "resolveHeaderSortFieldKey",
+        "statusReviewViewSchemaId",
+        "taskRequestsViewSchemaId",
+        "timelineViewSchemaId",
+        "visibleFields",
+      ].sort(),
+    );
+  });
+
+  it("initializes all generated view artifacts by stable identity", () => {
+    const contracts = listViewContracts();
+    const ids = contracts.map((contract) => contract.viewSchemaId);
+
+    expect(contracts).toHaveLength(17);
+    expect(new Set(ids)).toHaveLength(17);
+    for (const contract of contracts) {
+      expect(getViewContract(contract.viewSchemaId)).toBe(contract);
+      expect(requireViewContract(contract.viewSchemaId)).toBe(contract);
+      expect(contract.inspectorConfig.viewSchemaId).toBe(contract.viewSchemaId);
+    }
+  });
+
+  it("derives every schema constant and status partition in registry order", () => {
+    const constants = [
+      timelineViewSchemaId,
+      hostsViewSchemaId,
+      identitiesViewSchemaId,
+      evidenceViewSchemaId,
+      notesViewSchemaId,
+      indicatorsViewSchemaId,
+      assessmentsViewSchemaId,
+      taskRequestsViewSchemaId,
+      decisionsViewSchemaId,
+      partiesViewSchemaId,
+      commLogViewSchemaId,
+      handoffViewSchemaId,
+      statusReviewViewSchemaId,
+      lessonViewSchemaId,
+      findingsViewSchemaId,
+      investigativeQueriesViewSchemaId,
+      forensicKeywordsViewSchemaId,
+    ];
+
+    expect(constants).toEqual(
+      listWorkbookSurfaceContracts().map((surface) => surface.viewSchemaId),
+    );
+    expect(requiredBuiltInWorkbookSurfaceIds).toEqual(constants.slice(0, 5));
+    expect(requiredSystemWorkbookSurfaceIds).toEqual(constants.slice(5, 14));
+    expect(optionalStandardizedWorkbookSurfaceIds).toEqual(constants.slice(14));
+    expect(Object.isFrozen(requiredBuiltInWorkbookSurfaceIds)).toBe(true);
+    expect(Object.isFrozen(requiredSystemWorkbookSurfaceIds)).toBe(true);
+    expect(Object.isFrozen(optionalStandardizedWorkbookSurfaceIds)).toBe(true);
+  });
+
+  it("freezes shared contracts, surfaces, inspector metadata, and normalized rows", () => {
+    const contract = parseFixture();
+    const surfaces = listWorkbookSurfaceContracts();
+    const row = normalizeViewRowV1(contract, {
+      record_id: "record-1",
+      row_version: 1,
+      cells: fixtureCells(),
+      group_values: { "fixture.queryable": "bucket" },
+    });
+
+    expect(Object.isFrozen(listViewContracts())).toBe(true);
+    expect(Object.isFrozen(contract)).toBe(true);
+    expect(Object.isFrozen(contract.fields)).toBe(true);
+    expect(Object.isFrozen(contract.fieldMap)).toBe(true);
+    expect(Object.isFrozen(contract.inspectorConfig)).toBe(true);
+    expect(Object.isFrozen(contract.inspectorConfig.panels)).toBe(true);
+    expect(Object.isFrozen(contract.inspectorConfig.panels[0])).toBe(true);
+    expect(Object.isFrozen(contract.inspectorConfig.featureGroups)).toBe(true);
+    expect(Object.isFrozen(contract.inspectorConfig.featureGroups[0])).toBe(
+      true,
+    );
+    expect(Object.isFrozen(surfaces)).toBe(true);
+    expect(Object.isFrozen(surfaces[0])).toBe(true);
+    expect(Object.isFrozen(row)).toBe(true);
+    expect(Object.isFrozen(row.cells)).toBe(true);
+    expect(Object.isFrozen(row.cells["fixture.editable"])).toBe(true);
+    expect(Object.isFrozen(row.groupValues)).toBe(true);
+  });
+
+  it("derives the four exact Indicator feature signatures from the owner registry", () => {
+    const timeline = requireViewContract("cartulary.view.timeline.v2");
+    const indicators = requireViewContract("cartulary.view.indicators.v1");
+    const specializedKeys = [
+      "indicator.observations.manage",
+      "indicator.observations.pivot",
+      "indicator.lifecycle.read",
+      "indicator.lifecycle.manage",
+    ];
+    const specialized = [timeline, indicators]
+      .flatMap((contract) => contract.inspectorConfig.featureGroups)
+      .filter((group) => specializedKeys.includes(group.featureGroupKey));
+
+    expect(
+      specialized.map((group) => ({
+        actionKey: group.routeBinding.actionKey,
+        disabledWhen: group.disabledWhen,
+        failure: group.failureResultBehavior,
+        featureGroupKey: group.featureGroupKey,
+        kind: group.routeBinding.kind,
+        mutates: group.mutates,
+        owner: group.routeBinding.owner,
+        panelId: group.panelId,
+        requiresConfirmation: group.requiresConfirmation,
+        role: group.minimumIncidentRole,
+        seeds: group.seedBindings,
+        success: group.successResultBehavior,
+        target: group.routeBinding.targetViewSchemaId,
+      })),
+    ).toEqual([
+      {
+        actionKey: "indicator.observations.manage",
+        disabledWhen: [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted",
+        ],
+        failure: "show_same_shell_error_invalidate_pending_action",
+        featureGroupKey: "indicator.observations.manage",
+        kind: "indicator_observations",
+        mutates: true,
+        owner: "indicator_observations_route",
+        panelId: "relationships",
+        requiresConfirmation: false,
+        role: "editor",
+        seeds: [],
+        success: "preserve_selected_row",
+        target: undefined,
+      },
+      {
+        actionKey: "indicator.observations.pivot",
+        disabledWhen: [
+          "no_row_selected",
+          "authorization_lost",
+          "record_deleted",
+        ],
+        failure: "show_same_shell_error_preserve_selection",
+        featureGroupKey: "indicator.observations.pivot",
+        kind: "indicator_observations",
+        mutates: false,
+        owner: "indicator_observations_route",
+        panelId: "relationships",
+        requiresConfirmation: false,
+        role: null,
+        seeds: [],
+        success: "preserve_selected_row",
+        target: undefined,
+      },
+      {
+        actionKey: "indicator.lifecycle.read",
+        disabledWhen: [
+          "no_row_selected",
+          "authorization_lost",
+          "record_deleted",
+        ],
+        failure: "show_same_shell_error_preserve_selection",
+        featureGroupKey: "indicator.lifecycle.read",
+        kind: "indicator_lifecycle",
+        mutates: false,
+        owner: "indicator_lifecycle_route",
+        panelId: "history",
+        requiresConfirmation: false,
+        role: null,
+        seeds: [],
+        success: "preserve_selected_row",
+        target: undefined,
+      },
+      {
+        actionKey: "indicator.lifecycle.manage",
+        disabledWhen: [
+          "no_row_selected",
+          "incident_closed",
+          "authorization_lost",
+          "row_version_changed",
+          "record_deleted",
+        ],
+        failure: "show_same_shell_error_invalidate_pending_action",
+        featureGroupKey: "indicator.lifecycle.manage",
+        kind: "indicator_lifecycle",
+        mutates: true,
+        owner: "indicator_lifecycle_route",
+        panelId: "history",
+        requiresConfirmation: false,
+        role: "editor",
+        seeds: [],
+        success: "preserve_selected_row",
+        target: undefined,
+      },
+    ]);
+    expect(specialized).toHaveLength(4);
+    expect(
+      specialized.some((group) => group.routeBinding.kind === "record_patch"),
+    ).toBe(false);
+  });
+
+  it("rejects invalid JSON and malformed document roots", () => {
+    expect(() => parseViewContractJSON("{", "invalid.json")).toThrow(
+      "View contract source validation failed: invalid.json path=$ reason=invalid_json",
+    );
+    for (const json of ["null", "[]", '"not an object"']) {
+      expect(() => parseViewContractJSON(json, "invalid-root.json")).toThrow(
+        "View contract source validation failed: invalid-root.json path=$ reason=invalid_type",
+      );
+    }
+  });
+
+  it("rejects missing, mistyped, unknown, and invalid source-schema members", () => {
+    const { schema_id: _schemaId, ...missingSchemaId } = fixtureRawContract();
+    const { title: _title, ...missingTitle } = fixtureRawContract();
+    const cases = [
+      {
+        raw: missingSchemaId,
+        path: "$/schema_id",
+        reason: "required_member",
+      },
+      {
+        raw: missingTitle,
+        path: "$/title",
+        reason: "required_member",
+      },
+      {
+        raw: { ...fixtureRawContract(), schema_id: "legacy.schema.v0" },
+        path: "$/schema_id",
+        reason: "invalid_value",
+      },
+      {
+        raw: { ...fixtureRawContract(), surface_kind: "legacy_surface" },
+        path: "$/surface_kind",
+        reason: "invalid_value",
+      },
+      {
+        raw: { ...fixtureRawContract(), fields: "not-an-array" },
+        path: "$/fields",
+        reason: "invalid_type",
+      },
+      {
+        raw: { ...fixtureRawContract(), legacy_member: true },
+        path: "$/legacy_member",
+        reason: "unknown_member",
+      },
+    ] as const;
+
+    for (const { path, raw, reason } of cases) {
+      expectInvariantFailure(
+        raw,
+        new RegExp(
+          `^View contract source validation failed: broken-contract\\.json path=${path.replaceAll("$", "\\$")} reason=${reason}$`,
+        ),
+      );
+    }
+  });
+
+  it("rejects missing and malformed row identity and version values", () => {
+    const contract = parseFixture();
+    const base = {
+      record_id: "record-1",
+      row_version: 1,
+      cells: fixtureCells(),
+      group_values: { "fixture.queryable": "bucket" },
+    };
+
+    for (const recordId of [undefined, null, "", "   ", 1]) {
+      expect(() =>
+        normalizeViewRowV1(contract, { ...base, record_id: recordId }),
+      ).toThrow(/record_id must be a non-empty string/);
+    }
+    for (const rowVersion of [
+      undefined,
+      null,
+      "1",
+      0,
+      -1,
+      1.5,
+      Number.MAX_SAFE_INTEGER + 1,
+      Infinity,
+    ]) {
+      expect(() =>
+        normalizeViewRowV1(contract, { ...base, row_version: rowVersion }),
+      ).toThrow(/row_version must be a positive safe integer/);
+      expect(() =>
+        normalizeViewRowPatchV1(contract, {
+          ...base,
+          cells: {},
+          row_version: rowVersion,
+        }),
+      ).toThrow(/row_version must be a positive safe integer/);
+    }
+  });
+
+  it("keeps normalized full rows and sparse patches non-assignable", () => {
+    expectTypeOf<NormalizedViewRowPatchV1>().not.toMatchTypeOf<NormalizedViewRowV1>();
+    expectTypeOf<NormalizedViewRowV1>().not.toMatchTypeOf<NormalizedViewRowPatchV1>();
+  });
+
+  it("requires complete full-row cells and rejects technical cells", () => {
+    const contract = parseFixture();
+    const { "fixture.sort_shadow": _missing, ...incompleteCells } =
+      fixtureCells();
+
+    expect(() =>
+      normalizeViewRowV1(contract, {
+        record_id: "record-1",
+        row_version: 1,
+        cells: incompleteCells,
+        group_values: { "fixture.queryable": "bucket" },
+      }),
+    ).toThrow(/missing cell fixture\.sort_shadow/);
+    expect(() =>
+      normalizeViewRowV1(contract, {
+        record_id: "record-1",
+        row_version: 1,
+        cells: { ...fixtureCells(), record_id: { value: "record-1" } },
+        group_values: { "fixture.queryable": "bucket" },
+      }),
+    ).toThrow(/technical cell record_id is not allowed/);
+  });
+
+  it("ignores additive row and cell members while preserving wire-derived values", () => {
+    const contract = parseFixture();
+    const normalized = normalizeViewRowV1(contract, {
+      record_id: "record-1",
+      row_version: 1,
+      view_schema_id: contract.viewSchemaId,
+      future_row_member: "ignored",
+      cells: {
+        ...fixtureCells(),
+        "fixture.editable": {
+          value: { nested: true },
+          future_cell_member: "ignored",
+        },
+      },
+      group_values: { "fixture.queryable": "bucket" },
+    });
+
+    expect(normalized).toEqual({
+      recordId: "record-1",
+      rowVersion: 1,
+      viewSchemaId: contract.viewSchemaId,
+      cells: {
+        "fixture.editable": { value: { nested: true } },
+        "fixture.queryable": { value: "bucket" },
+        "fixture.sort_shadow": { value: "sort" },
+      },
+      groupValues: { "fixture.queryable": "bucket" },
+    });
+    expect(normalized).not.toHaveProperty("future_row_member");
+    expect(normalized.cells["fixture.editable"]).not.toHaveProperty(
+      "future_cell_member",
+    );
+  });
+
+  it("accepts sparse patch cells without weakening full-row completeness", () => {
+    const contract = parseFixture();
+    const patch = normalizeViewRowPatchV1(contract, {
+      record_id: "record-1",
+      row_version: 2,
+      cells: { "fixture.editable": { value: "changed" } },
+    });
+
+    expect(patch.cells).toEqual({
+      "fixture.editable": { value: "changed" },
+    });
+    expect(patch.groupValues).toBeUndefined();
+    expect(() =>
+      normalizeViewRowV1(contract, {
+        record_id: "record-1",
+        row_version: 2,
+        cells: patch.cells,
+        group_values: { "fixture.queryable": "bucket" },
+      }),
+    ).toThrow(/missing cell fixture\.queryable/);
+  });
+
+  it("rejects row view identity mismatches deterministically", () => {
+    const contract = parseFixture();
+
+    expect(() =>
+      normalizeViewRowV1(
+        contract,
+        {
+          record_id: "record-1",
+          row_version: 1,
+          view_schema_id: "cartulary.view.other.v1",
+          cells: fixtureCells(),
+          group_values: { "fixture.queryable": "bucket" },
+        },
+        "fixture-row.json",
+      ),
+    ).toThrow(
+      "View row invariant failed: fixture-row.json view_schema_id must be cartulary.view.fixture.v1",
+    );
+  });
+
+  it("fails for missing required surfaces and omits missing optional surfaces", () => {
+    const allContracts = listViewContracts();
+    const requiredId = "cartulary.view.timeline.v2";
+    const optionalId = "cartulary.view.findings.v1";
+
+    expect(() =>
+      buildWorkbookSurfaceContracts(
+        allContracts.filter((contract) => contract.viewSchemaId !== requiredId),
+      ),
+    ).toThrow(`Missing workbook surface contract: ${requiredId}`);
+    expect(
+      buildWorkbookSurfaceContracts(
+        allContracts.filter((contract) => contract.viewSchemaId !== optionalId),
+      ).map((surface) => surface.viewSchemaId),
+    ).not.toContain(optionalId);
+  });
+
+  it("rejects workbook registry mismatches and preserves registry order", () => {
+    const allContracts = listViewContracts();
+    const first = allContracts[0];
+    if (!first) {
+      throw new Error("expected at least one generated view contract");
+    }
+    const mismatched: ViewContract = {
+      ...first,
+      surfaceKind:
+        first.surfaceKind === "built_in_sheet"
+          ? "system_view"
+          : "built_in_sheet",
+    };
+
+    expect(() =>
+      buildWorkbookSurfaceContracts([mismatched, ...allContracts.slice(1)]),
+    ).toThrow(
+      `Workbook surface ${first.viewSchemaId} has surface_kind ${mismatched.surfaceKind}, expected ${first.surfaceKind}`,
+    );
+    expect(() =>
+      buildWorkbookSurfaceContracts([
+        { ...first, requiredReferencePackKeys: ["unexpected_pack"] },
+        ...allContracts.slice(1),
+      ]),
+    ).toThrow(
+      `Workbook surface ${first.viewSchemaId} required_reference_pack_keys do not match its registry entry`,
+    );
+    expect(
+      buildWorkbookSurfaceContracts(allContracts).map(
+        (surface) => surface.viewSchemaId,
+      ),
+    ).toEqual(
+      listWorkbookSurfaceContracts().map((surface) => surface.viewSchemaId),
+    );
+  });
+});
+
 describe("view-contracts", () => {
   it("requires explicit boolean grid_editable inputs", () => {
     const parsed = parseFixture();
@@ -153,7 +746,9 @@ describe("view-contracts", () => {
             },
           ],
         },
-        /View contract invariant failed: broken-contract\.json fields\[1\]\.grid_editable must be a boolean/,
+        gridEditable === undefined
+          ? /View contract source validation failed: broken-contract\.json path=\$\/fields\/0\/grid_editable reason=required_member/
+          : /View contract source validation failed: broken-contract\.json path=\$\/fields\/0\/grid_editable reason=invalid_type/,
       );
     }
   });
@@ -170,19 +765,19 @@ describe("view-contracts", () => {
 
     expectInvariantFailure(
       withoutInlineCreate,
-      /View contract invariant failed: broken-contract\.json inline_create must be an object/,
+      /path=\$\/inline_create reason=required_member/,
     );
     expectInvariantFailure(
       { ...fixtureRawContract(), inline_create: null },
-      /View contract invariant failed: broken-contract\.json inline_create must be an object/,
+      /path=\$\/inline_create reason=invalid_type/,
     );
     expectInvariantFailure(
       { ...fixtureRawContract(), inline_create: missingMinimum },
-      /View contract invariant failed: broken-contract\.json inline_create\.minimum_create_field_sets must be an array/,
+      /path=\$\/inline_create\/minimum_create_field_sets reason=required_member/,
     );
     expectInvariantFailure(
       { ...fixtureRawContract(), inline_create: missingPermission },
-      /View contract invariant failed: broken-contract\.json inline_create\.permits_zero_field_create must be a boolean/,
+      /path=\$\/inline_create\/permits_zero_field_create reason=required_member/,
     );
     expectInvariantFailure(
       {
@@ -192,7 +787,7 @@ describe("view-contracts", () => {
           legacy_default: false,
         },
       },
-      /View contract invariant failed: broken-contract\.json inline_create has unknown member legacy_default/,
+      /path=\$\/inline_create\/legacy_default reason=unknown_member/,
     );
   });
 
@@ -260,11 +855,7 @@ describe("view-contracts", () => {
 
   it("enforces conditional full-row group_values and sparse patch group_values", () => {
     const grouped = parseFixture();
-    const cells = {
-      "fixture.editable": { value: "editable" },
-      "fixture.queryable": { value: "bucket" },
-      "fixture.sort_shadow": { value: "sort" },
-    };
+    const cells = fixtureCells();
     expect(
       normalizeViewRowV1(grouped, {
         record_id: "record-1",
@@ -507,7 +1098,7 @@ describe("view-contracts", () => {
     }> = [
       {
         raw: { ...fixtureRawContract(), inspector_config: undefined },
-        pattern: /inspector_config must be an object/,
+        pattern: /path=\$\/inspector_config reason=required_member/,
       },
       {
         raw: {
@@ -590,7 +1181,7 @@ describe("view-contracts", () => {
           },
         },
         pattern:
-          /route_binding\.kind must be one of panel_read\|view_row_create\|record_patch\|record_action\|entity_mention_action\|indicator_observations\|indicator_lifecycle\|evidence_access\|surface_pivot/,
+          /route_binding\.kind must be one of panel_read\|view_row_create\|record_patch\|record_action\|entity_mention_action\|evidence_access\|surface_pivot\|indicator_observations\|indicator_lifecycle/,
       },
       {
         raw: {
@@ -689,7 +1280,8 @@ describe("view-contracts", () => {
               ),
           },
         },
-        pattern: /feature_group_key must be ASCII lower snake or dotted key/,
+        pattern:
+          /path=\$\/inspector_config\/feature_groups\/0\/feature_group_key reason=constraint_violation/,
       },
     ];
 
@@ -716,7 +1308,7 @@ describe("view-contracts", () => {
 
     expectInvariantFailure(
       raw,
-      /inspector_config\.feature_groups must contain exactly 27 declared feature groups for cartulary\.view\.timeline\.v2, got 2/,
+      /inspector_config\.feature_groups must contain exactly 27 ordered feature groups for cartulary\.view\.timeline\.v2, got 2/,
     );
     expectInvariantFailure(
       {
@@ -781,7 +1373,31 @@ describe("view-contracts", () => {
           ),
         },
       },
-      /inspector_config\.feature_groups missing required feature_group_key details\.read for cartulary\.view\.timeline\.v2/,
+      /inspector_config\.feature_groups\[1\]\.feature_group_key must be details\.read for cartulary\.view\.timeline\.v2/,
+    );
+    expectInvariantFailure(
+      {
+        ...raw,
+        inspector_config: {
+          ...raw.inspector_config,
+          feature_groups: timeline.inspectorConfig.featureGroups.map(
+            (group) => {
+              const sourceGroup = sourceInspectorFeatureGroup(group);
+              return group.featureGroupKey === "indicator.observations.manage"
+                ? {
+                    ...sourceGroup,
+                    route_binding: {
+                      action_key: group.featureGroupKey,
+                      kind: "record_patch",
+                      owner: "record_patch_route",
+                    },
+                  }
+                : sourceGroup;
+            },
+          ),
+        },
+      },
+      /specialized feature_group_key indicator\.observations\.manage does not match the owner registry/,
     );
   });
 });
@@ -802,12 +1418,15 @@ describe("view-schema field-key adapter contract", () => {
       title: "Renamed Surface",
       fields: [
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.editable",
           label: "Editable Field Renamed",
           write_kind: "direct_value",
+          writable: true,
           grid_editable: true,
         },
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.queryable",
           label: "Queryable Field Renamed",
           filter_ops: ["eq"],
@@ -817,6 +1436,7 @@ describe("view-schema field-key adapter contract", () => {
           grid_editable: false,
         },
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.sort_shadow",
           label: "Sort Shadow Renamed",
           default_hidden: true,
@@ -855,12 +1475,15 @@ describe("view-schema field-key adapter contract", () => {
       ...fixtureRawContract(),
       fields: [
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.editable",
           label: "Shared Display Label",
           write_kind: "direct_value",
+          writable: true,
           grid_editable: true,
         },
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.queryable",
           label: "Shared Display Label",
           filter_ops: ["eq"],
@@ -870,6 +1493,7 @@ describe("view-schema field-key adapter contract", () => {
           grid_editable: false,
         },
         {
+          ...fixtureFieldDefaults,
           field_key: "fixture.sort_shadow",
           label: "Sort Shadow",
           default_hidden: true,
@@ -967,6 +1591,7 @@ describe("view-schema field-key adapter contract", () => {
         fields: [
           ...fixtureRawContract().fields,
           {
+            ...fixtureFieldDefaults,
             field_key: "fixture.queryable",
             label: "Duplicate Field",
             grid_editable: false,
@@ -981,12 +1606,13 @@ describe("view-schema field-key adapter contract", () => {
         ...fixtureRawContract(),
         fields: [
           {
+            ...fixtureFieldDefaults,
             field_key: "",
             label: "Missing Key",
           },
         ],
       },
-      /View contract invariant failed: broken-contract\.json fields\[1\]\.field_key must be a non-empty string/,
+      /View contract source validation failed: broken-contract\.json path=\$\/fields\/0\/field_key reason=constraint_violation/,
     );
 
     expectInvariantFailure(
@@ -996,10 +1622,11 @@ describe("view-schema field-key adapter contract", () => {
           {
             field_key: "",
             label: "Missing Synthetic Key",
+            filter_ops: [],
           },
         ],
       },
-      /View contract invariant failed: broken-contract\.json synthetic_filter_predicates\[1\]\.field_key must be a non-empty string/,
+      /View contract source validation failed: broken-contract\.json path=\$\/synthetic_filter_predicates\/0\/field_key reason=constraint_violation/,
     );
   });
 

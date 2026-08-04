@@ -126,6 +126,7 @@ function groupUnit(stage, group, dependencyID, owner, mode) {
       {
         BROWSER_E2E_BATCH_MANIFEST: manifestRelativePath,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
         CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
         CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
         CARTULARY_BROWSER_SESSION_GROUP: key,
@@ -247,5 +248,37 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       owner,
     ),
   );
+  return buildWorkGraph(units);
+}
+
+export function compileBrowserRowSelectionGraph(root, owner, rowIDs) {
+  const remaining = new Set(rowIDs);
+  const units = [];
+  for (const stage of browserStages(root).values()) {
+    const groups = stage.groups.flatMap((group) => {
+      const selectedRowIDs = group.selectedRowIDs.filter((rowID) =>
+        remaining.has(rowID),
+      );
+      if (selectedRowIDs.length === 0) return [];
+      for (const rowID of selectedRowIDs) remaining.delete(rowID);
+      return [{ ...group, selectedRowIDs }];
+    });
+    if (groups.length === 0) continue;
+    units.push(
+      ...compileBrowserStageGraph(
+        root,
+        owner,
+        { ...stage, groups, summaryChildren: [] },
+        { mode: "validation" },
+      ).units,
+    );
+  }
+  if (remaining.size > 0) {
+    throw new Error(
+      `Playwright rows are missing generated browser groups: ${[
+        ...remaining,
+      ].join(", ")}`,
+    );
+  }
   return buildWorkGraph(units);
 }

@@ -715,9 +715,10 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		schema := validViewSchema("cartulary.view.test.v1")
 		config := schema["inspector_config"].(map[string]any)
 		config["panels"] = []any{map[string]any{"panel_id": "legacy", "label": "Legacy"}}
+		config["feature_groups"].([]any)[0].(map[string]any)["panel_id"] = "legacy"
 
-		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
-		requireErrorContains(t, err, "panel_id must be one of")
+		err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
+		requireErrorContains(t, err, "panel_id references unknown panel legacy")
 	})
 
 	t.Run("duplicate panel", func(t *testing.T) {
@@ -760,8 +761,8 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
 		group["route_binding"] = map[string]any{"kind": "legacy_route", "owner": "current_row_projection"}
 
-		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
-		requireErrorContains(t, err, "kind must be one of")
+		err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
+		requireErrorContains(t, err, "route_binding.kind references unknown kind legacy_route")
 	})
 
 	t.Run("unknown route owner", func(t *testing.T) {
@@ -769,8 +770,8 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
 		group["route_binding"] = map[string]any{"kind": "panel_read", "owner": "legacy_owner"}
 
-		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
-		requireErrorContains(t, err, "owner must be one of")
+		err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
+		requireErrorContains(t, err, "route_binding.owner references unknown owner legacy_owner")
 	})
 
 	t.Run("unknown disabled condition", func(t *testing.T) {
@@ -778,20 +779,20 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
 		group["disabled_when"] = []any{"stale_legacy_state"}
 
-		err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
-		requireErrorContains(t, err, "references unknown condition stale_legacy_state")
+		err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
+		requireErrorContains(t, err, "references unknown value stale_legacy_state")
 	})
 
 	t.Run("unknown result behaviors", func(t *testing.T) {
 		for field, want := range map[string]string{
-			"success_result_behavior": "success_result_behavior must be one of",
-			"failure_result_behavior": "failure_result_behavior must be one of",
+			"success_result_behavior": "success_result_behavior references unknown behavior legacy_result",
+			"failure_result_behavior": "failure_result_behavior references unknown behavior legacy_result",
 		} {
 			schema := validViewSchema("cartulary.view.test.v1")
 			group := schema["inspector_config"].(map[string]any)["feature_groups"].([]any)[0].(map[string]any)
 			group[field] = "legacy_result"
 
-			err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json")
+			err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
 			requireErrorContains(t, err, want)
 		}
 	})
@@ -810,19 +811,52 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		config := schema["inspector_config"].(map[string]any)
 		config["view_schema_id"] = "cartulary.view.timeline.v2"
 
-		err := validateViewSchemaShape(schema, "cartulary.view.timeline.v2.json")
-		requireErrorContains(t, err, "feature_groups must contain exactly 27 declared feature groups for cartulary.view.timeline.v2")
+		registry := loadTestViewInspectorRegistry(t)
+		expected := registry.ViewFeatureKeys["cartulary.view.timeline.v2"]
+		err := validateInspectorConfigAgainstRegistry(config, "cartulary.view.timeline.v2", expected, registry)
+		requireErrorContains(t, err, "feature_groups must contain exactly 27 ordered feature groups, got 1")
 
-		groups := make([]any, 0, len(inspectorFeatureRegistry["cartulary.view.timeline.v2"]))
-		for _, key := range inspectorFeatureRegistry["cartulary.view.timeline.v2"] {
+		groups := make([]any, 0, len(expected))
+		for _, key := range expected {
 			groups = append(groups, validInspectorFeatureGroup(key))
 		}
 		groups[0].(map[string]any)["feature_group_key"] = "details.future"
 		config["feature_groups"] = groups
 
-		err = validateViewSchemaShape(schema, "cartulary.view.timeline.v2.json")
-		requireErrorContains(t, err, "missing required feature_group_key details.read for cartulary.view.timeline.v2")
+		err = validateInspectorConfigAgainstRegistry(config, "cartulary.view.timeline.v2", expected, registry)
+		requireErrorContains(t, err, "feature_group_key must be details.read, got details.future")
 	})
+}
+
+func loadTestViewInspectorRegistry(t *testing.T) viewInspectorRegistry {
+	t.Helper()
+	root, err := repoRoot()
+	if err != nil {
+		t.Fatalf("find repository root: %v", err)
+	}
+	registry, err := loadViewInspectorRegistry(root)
+	if err != nil {
+		t.Fatalf("load view Inspector registry: %v", err)
+	}
+	return registry
+}
+
+func validateViewSchemaWithInspectorRegistry(
+	t *testing.T,
+	schema map[string]any,
+	expected []string,
+) error {
+	t.Helper()
+	if err := validateViewSchemaShape(schema, "cartulary.view.test.v1.json"); err != nil {
+		return err
+	}
+	config := schema["inspector_config"].(map[string]any)
+	return validateInspectorConfigAgainstRegistry(
+		config,
+		"cartulary.view.test.v1",
+		expected,
+		loadTestViewInspectorRegistry(t),
+	)
 }
 
 func validViewSchema(id string) map[string]any {

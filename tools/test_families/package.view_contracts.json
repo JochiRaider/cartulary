@@ -3,6 +3,45 @@
   "owner_id": "package.view_contracts",
   "rows": [
     {
+      "row_id": "package.view_contracts.frontend_unit.characterization_baseline_31fd4bbd8a",
+      "owner_id": "package.view_contracts",
+      "family_id": "package.view_contracts.frontend_unit",
+      "collaborator_ids": [
+        "platform.viewschema"
+      ],
+      "verification_ids": [
+        "package.view_contracts.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/view-contracts/src/index.test.ts",
+        "titles": [
+          "accepts sparse patch cells without weakening full-row completeness",
+          "derives every schema constant and status partition in registry order",
+          "derives the four exact Indicator feature signatures from the owner registry",
+          "exposes the supported public package facade",
+          "fails for missing required surfaces and omits missing optional surfaces",
+          "freezes shared contracts, surfaces, inspector metadata, and normalized rows",
+          "ignores additive row and cell members while preserving wire-derived values",
+          "initializes all generated view artifacts by stable identity",
+          "keeps normalized full rows and sparse patches non-assignable",
+          "rejects invalid JSON and malformed document roots",
+          "rejects missing and malformed row identity and version values",
+          "rejects missing, mistyped, unknown, and invalid source-schema members",
+          "rejects row view identity mismatches deterministically",
+          "rejects workbook registry mismatches and preserves registry order",
+          "requires complete full-row cells and rejects technical cells"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "package.view_contracts.frontend_unit.requires_explicit_grid_editable_389871561a",
       "owner_id": "package.view_contracts",
       "family_id": "package.view_contracts.frontend_unit",

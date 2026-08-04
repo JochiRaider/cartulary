@@ -189,6 +189,27 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Revisions-owned deployment and generic capability contracts derived from adopted Core owners."
+    },
+    {
+      "family_id": "view-inspector",
+      "contract_root": "contracts/view-inspector",
+      "generation_status": "active",
+      "go_name": "ViewInspectorArtifacts",
+      "output_order": 10,
+      "generated_outputs": [
+        "internal/gen/contractviewinspector/artifacts_gen.go",
+        "packages/protocol-ts/src/generated/view-inspector-registry.ts"
+      ],
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/view-inspector-registry.ts",
+          "identifier": "viewInspectorRegistry",
+          "artifact_path": "contracts/view-inspector/index.json"
+        }
+      ],
+      "activation_dependency_ids": [],
+      "description": "Cross-document Inspector vocabularies, required feature keys, specialized bindings, and resolution policy."
     }
   ]
 }

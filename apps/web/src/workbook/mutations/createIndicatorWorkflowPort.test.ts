@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { requireViewContract } from "@cartulary/view-contracts";
+import { describe, expect, it, vi } from "vitest";
+import type { WorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import { resolveIndicatorInspectorHandler } from "../features/indicators/indicatorInspectorHandlers";
 import { createIndicatorWorkflowPort } from "./createIndicatorWorkflowPort";
 import type { IndicatorObservation } from "./workbookMutationCommandPorts";
 
@@ -22,30 +25,35 @@ const observation = {
   resolution_method: null,
 } as const satisfies IndicatorObservation;
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+const mutationEnvelope = {
+  data: {
+    affected_records: [
+      { record_id: observation.source_record_id, row_version: 6 },
+    ],
+    change_set_id: "60000000-0000-4000-8000-000000000001",
+    observation,
+    replayed: false,
+  },
+  meta: { request_id: "request-indicator-mutation" },
+};
+
+function executorReturning(value: unknown) {
+  const execute = vi.fn(async (_input: unknown) => ({
+    kind: "accepted",
+    value,
+  }));
+  return {
+    execute,
+    operations: { execute } as unknown as WorkbookOperationExecutor,
+  };
+}
 
 describe("createIndicatorWorkflowPort", () => {
-  it("uses the source-span route without exposing provenance fields", async () => {
-    const requests: Array<{ readonly path: string; readonly body: unknown }> =
-      [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        requests.push({
-          path: String(input),
-          body: init?.body ? JSON.parse(String(init.body)) : null,
-        });
-        return new Response(
-          JSON.stringify({ data: { observation }, meta: {} }),
-          { status: 201, headers: { "Content-Type": "application/json" } },
-        );
-      }),
-    );
+  it("uses the typed source-span operation without provenance fields", async () => {
+    const { execute, operations } = executorReturning(mutationEnvelope);
     const port = createIndicatorWorkflowPort({
-      apiBase: "https://cartulary.test",
       createMutationID: () => "client-observation-1",
+      operations,
     });
 
     const outcome = await port.createManualObservation({
@@ -57,37 +65,42 @@ describe("createIndicatorWorkflowPort", () => {
       spanEndByte: 7,
     });
 
-    expect(outcome).toEqual({ kind: "accepted", value: observation });
-    expect(requests).toEqual([
-      {
-        path: `https://cartulary.test/api/v1/records/${observation.source_record_id}/indicator-observations`,
-        body: {
-          client_txn_id: "client-observation-1",
-          base_row_version: 5,
-          source_field_key: "timeline.raw_activity_text",
-          span_start_byte: 0,
-          span_end_byte: 7,
-          parsed_indicator_type: "ipv4_addr",
-        },
+    expect(outcome).toEqual({
+      kind: "accepted",
+      value: {
+        affectedRecords: mutationEnvelope.data.affected_records,
+        changeSetId: mutationEnvelope.data.change_set_id,
+        replayed: false,
+        resource: observation,
       },
-    ]);
-    expect(requests[0]?.body).not.toHaveProperty("origin_kind");
-    expect(requests[0]?.body).not.toHaveProperty("observed_text");
-    expect(requests[0]?.body).not.toHaveProperty("origin_locator");
+    });
+    expect(execute).toHaveBeenCalledWith({
+      operationID: "createManualIndicatorObservation",
+      pathParameters: { source_record_id: observation.source_record_id },
+      request: {
+        client_txn_id: "client-observation-1",
+        base_row_version: 5,
+        source_field_key: "timeline.raw_activity_text",
+        span_start_byte: 0,
+        span_end_byte: 7,
+        parsed_indicator_type: "ipv4_addr",
+      },
+    });
+    const call = execute.mock.calls[0]?.[0];
+    if (call === undefined || typeof call !== "object" || call === null) {
+      throw new Error("Expected a typed Indicator operation request");
+    }
+    const request = (call as { readonly request: unknown }).request;
+    expect(request).not.toHaveProperty("origin_kind");
+    expect(request).not.toHaveProperty("observed_text");
+    expect(request).not.toHaveProperty("origin_locator");
   });
 
-  it("binds observation transition actions to the child row version", async () => {
-    const request = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(JSON.stringify({ data: { observation }, meta: {} }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", request);
+  it("binds observation transitions to typed child operations", async () => {
+    const { execute, operations } = executorReturning(mutationEnvelope);
     const port = createIndicatorWorkflowPort({
-      apiBase: undefined,
       createMutationID: () => "client-transition-1",
+      operations,
     });
 
     await port.transitionObservation({
@@ -97,14 +110,108 @@ describe("createIndicatorWorkflowPort", () => {
       resolvedIndicatorRecordId: "50000000-0000-4000-8000-000000000001",
     });
 
-    expect(request).toHaveBeenCalledOnce();
-    expect(request.mock.calls[0]?.[0]).toBe(
-      `/api/v1/indicator-observations/${observation.observation_id}/resolve`,
-    );
-    expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toEqual({
-      client_txn_id: "client-transition-1",
-      base_row_version: 2,
-      resolved_indicator_record_id: "50000000-0000-4000-8000-000000000001",
+    expect(execute).toHaveBeenCalledWith({
+      operationID: "resolveIndicatorObservation",
+      pathParameters: { observation_id: observation.observation_id },
+      request: {
+        client_txn_id: "client-transition-1",
+        base_row_version: 2,
+        resolved_indicator_record_id: "50000000-0000-4000-8000-000000000001",
+      },
     });
+  });
+
+  it("preserves paging metadata for load-more requests", async () => {
+    const envelope = {
+      data: { observations: [observation] },
+      meta: {
+        request_id: "request-indicator-list",
+        paging: { has_more: true, limit: 25, next_cursor: "cursor-next" },
+      },
+    };
+    const { execute, operations } = executorReturning(envelope);
+    const port = createIndicatorWorkflowPort({
+      createMutationID: () => "unused",
+      operations,
+    });
+
+    const outcome = await port.listObservations({
+      cursorToken: "cursor-current",
+      indicatorRecordId: "50000000-0000-4000-8000-000000000001",
+      limit: 25,
+    });
+
+    expect(outcome).toEqual({
+      kind: "accepted",
+      value: {
+        items: [observation],
+        paging: envelope.meta.paging,
+      },
+    });
+    expect(execute).toHaveBeenCalledWith({
+      operationID: "listIndicatorObservations",
+      pathParameters: {
+        indicator_id: "50000000-0000-4000-8000-000000000001",
+      },
+      query: { cursor_token: "cursor-current", limit: 25 },
+    });
+  });
+
+  it("resolves all four Indicator handlers by their complete semantic tuple", () => {
+    const expected = [
+      [
+        "cartulary.view.timeline.v2",
+        "indicator.observations.manage",
+        "relationships",
+      ],
+      [
+        "cartulary.view.indicators.v1",
+        "indicator.observations.pivot",
+        "relationships",
+      ],
+      ["cartulary.view.indicators.v1", "indicator.lifecycle.read", "history"],
+      ["cartulary.view.indicators.v1", "indicator.lifecycle.manage", "history"],
+    ] as const;
+
+    for (const [viewSchemaId, action, panelId] of expected) {
+      const featureGroup = requireViewContract(
+        viewSchemaId,
+      ).inspectorConfig.featureGroups.find(
+        (candidate) => candidate.featureGroupKey === action,
+      );
+      if (featureGroup === undefined) {
+        throw new Error(`Missing characterized feature group ${action}`);
+      }
+      expect(
+        resolveIndicatorInspectorHandler(viewSchemaId, featureGroup),
+      ).toEqual({ action, panelId });
+    }
+  });
+
+  it("omits mismatched and generic-patch Indicator tuples", () => {
+    const featureGroup = requireViewContract(
+      "cartulary.view.indicators.v1",
+    ).inspectorConfig.featureGroups.find(
+      (candidate) => candidate.featureGroupKey === "indicator.lifecycle.manage",
+    );
+    if (featureGroup === undefined) {
+      throw new Error("Missing characterized Indicator lifecycle feature");
+    }
+    expect(
+      resolveIndicatorInspectorHandler("cartulary.view.timeline.v2", {
+        ...featureGroup,
+        routeBinding: {
+          ...featureGroup.routeBinding,
+          kind: "record_patch",
+          owner: "record_patch_route",
+        },
+      }),
+    ).toBeNull();
+    expect(
+      resolveIndicatorInspectorHandler("cartulary.view.indicators.v1", {
+        ...featureGroup,
+        panelId: "relationships",
+      }),
+    ).toBeNull();
   });
 });

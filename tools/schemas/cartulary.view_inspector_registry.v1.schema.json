@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.view_inspector_registry.v1",
+  "title": "Cartulary view Inspector registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "registry_id",
+    "note",
+    "vocabularies",
+    "view_feature_keys",
+    "specialized_features",
+    "resolution_policy"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": {
+      "const": "cartulary.view_inspector_registry.v1"
+    },
+    "registry_id": {
+      "const": "cartulary.view_inspector.base.v1"
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    },
+    "vocabularies": {
+      "$ref": "#/$defs/vocabularies"
+    },
+    "view_feature_keys": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^cartulary\\.view\\.[a-z0-9_]+\\.v[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/featureKey"
+        }
+      }
+    },
+    "specialized_features": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/specializedFeature"
+      }
+    },
+    "resolution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_precedes_wildcard",
+        "record_patch_excluded_feature_keys"
+      ],
+      "properties": {
+        "exact_precedes_wildcard": {
+          "const": true
+        },
+        "record_patch_excluded_feature_keys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/featureKey"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "featureKey": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+    },
+    "tokenArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/token"
+      }
+    },
+    "vocabularies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "panels",
+        "route_kinds",
+        "route_owners",
+        "incident_roles",
+        "disabled_conditions",
+        "success_result_behaviors",
+        "failure_result_behaviors",
+        "seed_source_kinds"
+      ],
+      "properties": {
+        "panels": { "$ref": "#/$defs/tokenArray" },
+        "route_kinds": { "$ref": "#/$defs/tokenArray" },
+        "route_owners": { "$ref": "#/$defs/tokenArray" },
+        "incident_roles": { "$ref": "#/$defs/tokenArray" },
+        "disabled_conditions": { "$ref": "#/$defs/tokenArray" },
+        "success_result_behaviors": { "$ref": "#/$defs/tokenArray" },
+        "failure_result_behaviors": { "$ref": "#/$defs/tokenArray" },
+        "seed_source_kinds": { "$ref": "#/$defs/tokenArray" }
+      }
+    },
+    "specializedFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "view_schema_id",
+        "feature_group_key",
+        "panel_id",
+        "route_binding_kind",
+        "route_binding_owner",
+        "action_key",
+        "minimum_incident_role",
+        "mutates",
+        "requires_confirmation",
+        "seed_bindings",
+        "disabled_when",
+        "success_result_behavior",
+        "failure_result_behavior"
+      ],
+      "properties": {
+        "view_schema_id": {
+          "type": "string",
+          "pattern": "^cartulary\\.view\\.[a-z0-9_]+\\.v[0-9]+$"
+        },
+        "feature_group_key": { "$ref": "#/$defs/featureKey" },
+        "panel_id": { "$ref": "#/$defs/token" },
+        "route_binding_kind": { "$ref": "#/$defs/token" },
+        "route_binding_owner": { "$ref": "#/$defs/token" },
+        "action_key": { "$ref": "#/$defs/featureKey" },
+        "minimum_incident_role": {
+          "oneOf": [
+            { "$ref": "#/$defs/token" },
+            { "type": "null" }
+          ]
+        },
+        "mutates": { "type": "boolean" },
+        "requires_confirmation": { "type": "boolean" },
+        "seed_bindings": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "disabled_when": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        },
+        "success_result_behavior": { "$ref": "#/$defs/token" },
+        "failure_result_behavior": { "$ref": "#/$defs/token" }
+      }
+    }
+  }
+}

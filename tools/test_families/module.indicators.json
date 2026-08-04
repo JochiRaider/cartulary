@@ -3,6 +3,33 @@
   "owner_id": "module.indicators",
   "rows": [
     {
+      "row_id": "module.indicators.frontend.indicator_inspector_accessible_paging_and_metadata",
+      "owner_id": "module.indicators",
+      "family_id": "module.indicators.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.indicators.verification.production_child_workflows"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/IndicatorInspectorWorkflow.test.tsx",
+        "titles": [
+          "forwards accepted mutation metadata to stable-ID refresh coordination",
+          "presents loading, retry, and empty observation states accessibly",
+          "preserves prior observations while loading the next cursor page"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.indicators.frontend.source_span_and_transition_requests",
       "owner_id": "module.indicators",
       "family_id": "module.indicators.frontend",
@@ -17,8 +44,11 @@
       "selector": {
         "file": "apps/web/src/workbook/mutations/createIndicatorWorkflowPort.test.ts",
         "titles": [
-          "binds observation transition actions to the child row version",
-          "uses the source-span route without exposing provenance fields"
+          "binds observation transitions to typed child operations",
+          "omits mismatched and generic-patch Indicator tuples",
+          "preserves paging metadata for load-more requests",
+          "resolves all four Indicator handlers by their complete semantic tuple",
+          "uses the typed source-span operation without provenance fields"
         ]
       },
       "evidence_class": "unit",
