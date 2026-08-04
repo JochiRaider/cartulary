@@ -8,7 +8,6 @@
     "apps/web/*.config.ts",
     "packages/grid-adapter/src/index.tsx",
     "packages/grid-adapter/src/test-support.tsx",
-    "packages/protocol-ts/src/index.ts",
     "packages/test-utils/src/index.ts",
     "packages/ui-contracts/src/index.ts",
     "packages/view-contracts/src/index.ts"
@@ -38,14 +37,12 @@
   "ignoreExports": [
     { "file": "packages/grid-adapter/src/index.tsx", "exports": ["*"] },
     { "file": "packages/grid-adapter/src/test-support.tsx", "exports": ["*"] },
-    { "file": "packages/protocol-ts/src/index.ts", "exports": ["*"] },
     { "file": "packages/test-utils/src/index.ts", "exports": ["*"] },
     { "file": "packages/ui-contracts/src/index.ts", "exports": ["*"] },
     { "file": "packages/view-contracts/src/index.ts", "exports": ["*"] }
   ],
   "publicPackages": [
     "@cartulary/grid-adapter",
-    "@cartulary/protocol-ts",
     "@cartulary/test-utils",
     "@cartulary/ui-contracts",
     "@cartulary/view-contracts"

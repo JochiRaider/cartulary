@@ -1,7 +1,7 @@
 import {
   type IncidentStreamMessage,
   incidentStreamMessageDecoder,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/collaboration";
 import {
   createContext,
   type ReactNode,

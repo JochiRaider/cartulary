@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.contract_family_registry.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "registry_id",
+    "note",
+    "typescript_artifact_support_output",
+    "families"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": { "const": "cartulary.contract_family_registry.v4" },
+    "registry_id": { "const": "cartulary.contract_families.v1" },
+    "note": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "typescript_artifact_support_output": {
+      "allOf": [
+        { "$ref": "#/$defs/repo_path" },
+        { "pattern": "^packages/protocol-ts/src/generated/[A-Za-z0-9._@+-]+\\.ts$" }
+      ]
+    },
+    "typescript_barrel_output": {
+      "allOf": [
+        { "$ref": "#/$defs/repo_path" },
+        { "pattern": "^packages/protocol-ts/src/generated/[A-Za-z0-9._@+-]+\\.ts$" }
+      ]
+    },
+    "families": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/family" }
+    }
+  },
+  "$defs": {
+    "repo_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"
+    },
+    "family_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "go_symbol": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]*$"
+    },
+    "ts_symbol": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9]*$"
+    },
+    "work_item_id": {
+      "type": "string",
+      "pattern": "^NFA-[A-Z0-9]+-[0-9]{3}$"
+    },
+    "artifact_selector": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^contracts/[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*/?$"
+    },
+    "projection_base": {
+      "type": "object",
+      "required": ["projection_kind", "output_path", "identifier"],
+      "properties": {
+        "projection_kind": {
+          "enum": ["artifact_collection", "json_value"]
+        },
+        "output_path": {
+          "allOf": [
+            { "$ref": "#/$defs/repo_path" },
+            { "pattern": "^packages/protocol-ts/src/generated/[A-Za-z0-9._@+-]+\\.ts$" }
+          ]
+        },
+        "identifier": { "$ref": "#/$defs/ts_symbol" }
+      }
+    },
+    "artifact_collection": {
+      "allOf": [
+        { "$ref": "#/$defs/projection_base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "projection_kind",
+            "output_path",
+            "identifier",
+            "index_identifier",
+            "artifact_prefixes"
+          ],
+          "properties": {
+            "projection_kind": { "const": "artifact_collection" },
+            "output_path": { "$ref": "#/$defs/repo_path" },
+            "identifier": { "$ref": "#/$defs/ts_symbol" },
+            "index_identifier": { "$ref": "#/$defs/ts_symbol" },
+            "artifact_prefixes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/artifact_selector" }
+            }
+          }
+        }
+      ]
+    },
+    "json_value": {
+      "allOf": [
+        { "$ref": "#/$defs/projection_base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "projection_kind",
+            "output_path",
+            "identifier",
+            "artifact_path"
+          ],
+          "properties": {
+            "projection_kind": { "const": "json_value" },
+            "output_path": { "$ref": "#/$defs/repo_path" },
+            "identifier": { "$ref": "#/$defs/ts_symbol" },
+            "artifact_path": { "$ref": "#/$defs/artifact_selector" }
+          }
+        }
+      ]
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family_id",
+        "contract_root",
+        "generation_status",
+        "go_name",
+        "output_order",
+        "generated_outputs",
+        "typescript_projections",
+        "activation_dependency_ids",
+        "description"
+      ],
+      "properties": {
+        "family_id": { "$ref": "#/$defs/family_id" },
+        "contract_root": {
+          "allOf": [
+            { "$ref": "#/$defs/repo_path" },
+            { "pattern": "^contracts/[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" }
+          ]
+        },
+        "generation_status": { "enum": ["active", "planned"] },
+        "go_name": { "$ref": "#/$defs/go_symbol" },
+        "output_order": { "type": "integer", "minimum": 0 },
+        "generated_outputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "typescript_projections": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/artifact_collection" },
+              { "$ref": "#/$defs/json_value" }
+            ]
+          }
+        },
+        "activation_dependency_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/work_item_id" }
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280
+        }
+      }
+    }
+  }
+}

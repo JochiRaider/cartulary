@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v2",
+  "owner_id": "package.protocol_ts",
+  "network_flow_entrypoints_path": "contracts/network-flow/frontend-entrypoints.v3.json",
+  "http_operation_selection_path": "contracts/protocol-ts/http-operations.v2.json",
+  "core_http": {
+    "openapi_path": "contracts/openapi/cartulary.openapi.yaml",
+    "component_schema_names": [
+      "EnvelopeMeta",
+      "ErrorEnvelope",
+      "ExtensionMappingPreviewEnvelope",
+      "ExtensionMappingPreviewRequest",
+      "ExtensionMappingPreviewResource",
+      "ExtensionDiscoveryEnvelope"
+    ]
+  },
+  "collaboration": {
+    "contract_index_path": "contracts/ws/index.schema.json",
+    "message_types": [
+      "hello",
+      "resume",
+      "pong",
+      "presence_update",
+      "hello_ack",
+      "resume_ack",
+      "presence_snapshot",
+      "presence_delta",
+      "record_changed",
+      "extension_resource_changed",
+      "job_progress",
+      "ping",
+      "error",
+      "session_revoked"
+    ]
+  },
+  "entrypoints": [
+    {
+      "specifier": "@cartulary/protocol-ts/collaboration",
+      "authored_path": "packages/protocol-ts/src/entrypoints/collaboration.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/collaboration-types.ts",
+        "packages/protocol-ts/src/generated/collaboration-validators.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/errors",
+      "authored_path": "packages/protocol-ts/src/entrypoints/errors.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/error-registry.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/extensions",
+      "authored_path": "packages/protocol-ts/src/entrypoints/extensions.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
+        "packages/protocol-ts/src/generated/extension-profile-registry.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/http",
+      "authored_path": "packages/protocol-ts/src/entrypoints/http.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/core-http-types.ts",
+        "packages/protocol-ts/src/generated/core-http-validators.ts",
+        "packages/protocol-ts/src/generated/http-operation-bindings.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/import-targets",
+      "authored_path": "packages/protocol-ts/src/entrypoints/import-targets.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/import-target-registry.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/network-flow",
+      "authored_path": "packages/protocol-ts/src/entrypoints/network-flow.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/network-flow-descriptor.ts",
+        "packages/protocol-ts/src/generated/network-flow-error-registry.ts",
+        "packages/protocol-ts/src/generated/network-flow-mapping-registry.ts",
+        "packages/protocol-ts/src/generated/network-flow-presentation.ts",
+        "packages/protocol-ts/src/generated/network-flow-types.ts",
+        "packages/protocol-ts/src/generated/network-flow-validators.ts"
+      ]
+    },
+    {
+      "specifier": "@cartulary/protocol-ts/view-schemas",
+      "authored_path": "packages/protocol-ts/src/entrypoints/view-schemas.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/view-schema-registry.ts",
+        "packages/protocol-ts/src/generated/view-schema-source-types.ts",
+        "packages/protocol-ts/src/generated/view-schemas-artifacts.ts"
+      ]
+    }
+  ]
+}

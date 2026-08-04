@@ -1,14 +1,15 @@
 import type {
+  ViewSchemaRegistryEntry,
   ViewSchemaSourceDocument,
   ViewSchemaSourceInspectorConfig,
   ViewSchemaSourceInspectorFeatureGroup,
   ViewSchemaSourceInspectorRouteBinding,
   ViewSchemaSourceInspectorSeedBinding,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/view-schemas";
 import {
-  getViewSchemaRegistryContract,
-  listViewSchemaArtifacts,
-} from "@cartulary/protocol-ts";
+  viewSchemaArtifacts,
+  viewSchemaRegistry,
+} from "@cartulary/protocol-ts/view-schemas";
 
 export type SortEntry = {
   readonly fieldKey: string;
@@ -1692,7 +1693,7 @@ export function parseViewContractJSON(
 }
 
 const contracts = Object.freeze(
-  listViewSchemaArtifacts()
+  viewSchemaArtifacts
     .filter((artifact) => !artifact.path.endsWith("/index.json"))
     .map((artifact) => parseViewContractJSON(artifact.json, artifact.path)),
 );
@@ -1703,7 +1704,9 @@ const contractIndex = Object.freeze(
   ) as Record<string, ViewContract>,
 );
 
-const workbookSurfaceRegistryContract = getViewSchemaRegistryContract();
+const workbookSurfaceRegistryContract = viewSchemaRegistry;
+const workbookSurfaceRegistryEntries: readonly ViewSchemaRegistryEntry[] =
+  workbookSurfaceRegistryContract.view_schemas;
 
 function sameOrderedValues(
   left: readonly string[],
@@ -1722,7 +1725,7 @@ export function buildWorkbookSurfaceContracts(
     sourceContracts.map((contract) => [contract.viewSchemaId, contract]),
   );
   return Object.freeze(
-    workbookSurfaceRegistryContract.view_schemas.flatMap((entry) => {
+    workbookSurfaceRegistryEntries.flatMap((entry) => {
       const contract = contractsById.get(entry.view_schema_id);
       if (!contract) {
         if (entry.surface_status === "standardized_optional_workbook_surface") {
@@ -1790,7 +1793,7 @@ export function requireWorkbookSurfaceContract(
 }
 
 function requiredRegistryViewSchemaId(viewSchemaId: string): string {
-  const entry = workbookSurfaceRegistryContract.view_schemas.find(
+  const entry = workbookSurfaceRegistryEntries.find(
     (candidate) => candidate.view_schema_id === viewSchemaId,
   );
   if (!entry) {
@@ -1855,7 +1858,7 @@ function workbookSurfaceIdsByStatus(
   status: WorkbookSurfaceStatus,
 ): readonly string[] {
   return Object.freeze(
-    workbookSurfaceRegistryContract.view_schemas
+    workbookSurfaceRegistryEntries
       .filter((entry) => entry.surface_status === status)
       .map((entry) => entry.view_schema_id),
   );

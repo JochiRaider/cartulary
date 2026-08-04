@@ -2001,6 +2001,20 @@
       ],
       "test_target": "self"
     },
+    "protocol-ts-dead-code-check": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)"
+      ],
+      "mode": "run_step",
+      "step_label": "protocol-ts-dead-code-check",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/static-analysis/protocol-ts-dead-code-check.mjs"
+      ],
+      "test_target": "self"
+    },
     "backend-module-boundary-check": {
       "type": "step_command",
       "prerequisites": [
@@ -8868,6 +8882,18 @@
       "lifecycle_state": "candidate_child"
     },
     {
+      "name": "protocol-ts-dead-code-check",
+      "backing_scripts": [
+        ".fallowrc.json",
+        "packages/protocol-ts/package.json",
+        "tools/harness/static-analysis/protocol-ts-dead-code-check.mjs"
+      ],
+      "command_id": "cartulary.harness.command.protocol_ts_dead_code_check.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
       "name": "backend-module-boundary-check",
       "backing_scripts": [
         "tools/backend_module_boundaries.json",
@@ -13346,7 +13372,9 @@
       "name": "harness-smoke-fallow-static",
       "backing_scripts": [
         "tools/harness/static-analysis/tests/test-fallow-static.sh",
+        "tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh",
         "tools/harness/static-analysis/fallow-reachability.mjs",
+        "tools/harness/static-analysis/protocol-ts-dead-code-check.mjs",
         ".fallowrc.json",
         "tools/fallow/reachability_owner.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",

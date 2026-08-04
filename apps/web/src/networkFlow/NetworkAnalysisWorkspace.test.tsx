@@ -1,4 +1,4 @@
-import { networkFlowDecoders } from "@cartulary/protocol-ts";
+import { networkFlowDecoders } from "@cartulary/protocol-ts/network-flow";
 import {
   networkAnalysisEdgeTestId,
   networkAnalysisTableTabTestId,

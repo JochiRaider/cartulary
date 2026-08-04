@@ -1,4 +1,4 @@
-import type { Decoder } from "@cartulary/protocol-ts";
+import type { Decoder } from "@cartulary/protocol-ts/http";
 
 const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";

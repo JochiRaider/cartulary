@@ -11,7 +11,7 @@
     {
       "profile_id": "frontend_analysis",
       "policy": "content_addressed",
-      "targets": ["check-frontend-install", "frontend-import-boundary-check", "frontend-typecheck", "lint-biome", "lint-scripts"],
+      "targets": ["check-frontend-install", "frontend-fallow-static", "frontend-import-boundary-check", "frontend-typecheck", "lint-biome", "lint-scripts"],
       "input_roots": ["apps", "package.json", "packages", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tools"],
       "requires_vulnerability_database_revision": false
     },

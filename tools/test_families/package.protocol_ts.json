@@ -36,7 +36,7 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
-          "@cartulary/protocol-ts facade checks evidence protocol values through generated types"
+          "@cartulary/protocol-ts family conformance checks evidence protocol values through generated types"
         ]
       },
       "evidence_class": "static",
@@ -59,8 +59,8 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
-          "@cartulary/protocol-ts facade characterizes all WebSocket message families and payload-free failures",
-          "@cartulary/protocol-ts facade decodes exact Network Flow contracts without exposing payload data on failure"
+          "@cartulary/protocol-ts family conformance characterizes all WebSocket message families and payload-free failures",
+          "@cartulary/protocol-ts family conformance decodes exact Network Flow contracts without exposing payload data on failure"
         ]
       },
       "evidence_class": "static",
@@ -83,7 +83,7 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
-          "@cartulary/protocol-ts facade decodes the Core extension discovery envelope at the transport boundary"
+          "@cartulary/protocol-ts family conformance implements extension discovery tolerance through the HTTP owner policy"
         ]
       },
       "evidence_class": "static",
@@ -93,6 +93,33 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "standard"
+    },
+    {
+      "row_id": "package.protocol_ts.frontend_unit.family_registries_and_account_types_i2",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/index.test.ts",
+        "titles": [
+          "@cartulary/protocol-ts family conformance checks account preference values through generated types",
+          "@cartulary/protocol-ts family conformance emits owner-selected registries as deeply readonly stable values",
+          "@cartulary/protocol-ts family conformance exposes stable current-profile view schema identifiers",
+          "@cartulary/protocol-ts family conformance exposes the typed error and reason-code registry",
+          "@cartulary/protocol-ts family conformance exposes typed extension registry profiles"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.generated_http_operation_bindings",
@@ -106,36 +133,7 @@
       "selector": {
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
-          "@cartulary/protocol-ts facade exposes deterministic generated HTTP operation bindings without payload leakage"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "none",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "package.protocol_ts.frontend_unit.verify_generated_protocol_exports_and_frontend_c_f780588cd1",
-      "owner_id": "package.protocol_ts",
-      "family_id": "package.protocol_ts.frontend_unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "package.protocol_ts.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
-        "titles": [
-          "characterizes the exact root runtime surface and stable artifact identity",
-          "checks account preference values through generated types",
-          "exposes error and reason-code registries through facade helpers",
-          "exposes extension registry profiles through facade helpers",
-          "exposes generated artifact families through stable facade helpers",
-          "exposes stable current-profile view schema identifiers",
-          "requires and parses known contract artifacts through the facade"
+          "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage"
         ]
       },
       "evidence_class": "unit",

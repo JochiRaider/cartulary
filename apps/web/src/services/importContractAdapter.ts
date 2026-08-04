@@ -6,13 +6,12 @@ import type {
   CreateImportSessionResponse,
   CreateImportUnitRegionRequest,
   CreateImportUnitRegionResponse,
-  ExtensionMappingPreviewRequest,
   GetImportSessionResponse,
   GetImportUnitPreviewResponse,
   GetImportUnitResponse,
   GetJobResponse,
-  ImportSourceColumnMapping,
   ListImportUnitsResponse,
+  PreviewImportUnitExtensionMappingRequest,
   PreviewImportUnitExtensionMappingResponse,
   PutImportUnitMappingRequest,
   PutImportUnitMappingResponse,
@@ -20,7 +19,7 @@ import type {
   SelectImportUnitResponse,
   SkipImportUnitRequest,
   SkipImportUnitResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 
 export type {
   ApplyImportSessionRequest,
@@ -30,12 +29,10 @@ export type {
   CreateImportSessionResponse,
   CreateImportUnitRegionRequest,
   CreateImportUnitRegionResponse,
-  ExtensionMappingPreviewRequest,
   GetImportSessionResponse,
   GetImportUnitPreviewResponse,
   GetImportUnitResponse,
   GetJobResponse,
-  ImportSourceColumnMapping,
   ListImportUnitsResponse,
   PreviewImportUnitExtensionMappingResponse,
   PutImportUnitMappingRequest,
@@ -45,6 +42,12 @@ export type {
   SkipImportUnitRequest,
   SkipImportUnitResponse,
 };
+
+export type ExtensionMappingPreviewRequest =
+  PreviewImportUnitExtensionMappingRequest;
+export type ImportSourceColumnMapping = NonNullable<
+  GetImportUnitResponse["data"]["approved_mapping"]
+>["source_columns"][number];
 
 export type DiscoveredImportColumn =
   GetImportUnitPreviewResponse["data"]["columns"][number];

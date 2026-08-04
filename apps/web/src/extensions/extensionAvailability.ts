@@ -1,7 +1,8 @@
-import { parseExtensionContractArtifact } from "../services/extensionContractAdapter";
+import {
+  type ExtensionClientSupportRegistry,
+  extensionClientSupportRegistry,
+} from "@cartulary/protocol-ts/extensions";
 
-const supportRegistryPath =
-  "contracts/extensions/generated/client-support-registry.json";
 const tokenPattern = /^[a-z][a-z0-9_]{0,63}$/u;
 const schemaIDPattern = /^[a-z][a-z0-9_.-]{0,159}$/u;
 const digestPattern = /^[0-9a-f]{64}$/u;
@@ -19,6 +20,7 @@ export type ExtensionWorkspaceIdentity = {
 
 export type ExtensionDiscoveryProfile = {
   readonly profile_id: string;
+  readonly claimable?: boolean;
   readonly claimed: boolean;
   readonly contract_major: number | null;
   readonly route_families: readonly string[];
@@ -26,19 +28,7 @@ export type ExtensionDiscoveryProfile = {
   readonly capabilities: readonly string[];
 };
 
-export type ClientExtensionSupportRegistry = {
-  readonly schema_id: "cartulary.client_extension_support_registry.v1";
-  readonly client_build_id: string;
-  readonly client_build_class: "standard";
-  readonly asset_set_sha256: string;
-  readonly profiles: readonly {
-    readonly profile_id: string;
-    readonly supported_contract_majors: readonly [number];
-    readonly workspace_keys: readonly string[];
-    readonly capability_ids: readonly [];
-    readonly public_schema_ids: readonly string[];
-  }[];
-};
+export type ClientExtensionSupportRegistry = ExtensionClientSupportRegistry;
 
 export class ExtensionAvailabilityUnavailableError extends Error {
   readonly code = "extension_workspace_unavailable";
@@ -163,9 +153,7 @@ export function packagedClientExtensionSupportRegistry(): ClientExtensionSupport
   if (bootstrap.present) {
     return decodeClientExtensionSupportRegistry(bootstrap.value);
   }
-  return decodeClientExtensionSupportRegistry(
-    parseExtensionContractArtifact<unknown>(supportRegistryPath),
-  );
+  return extensionClientSupportRegistry;
 }
 
 function browserClientSupportRegistry(): {

@@ -2,7 +2,7 @@ import type {
   CreateViewRowRequest,
   CreateViewRowResponse,
   PatchRecordRequest,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import {
   createUploadedEvidenceObjectBlob,
   evidenceAttachPublicErrorMessage,

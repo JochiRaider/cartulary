@@ -1,5 +1,11 @@
 # Protocol-TS Public Type Compatibility Decision
 
+> **Superseded by Protocol-TS Iteration 2.** This record is retained as
+> historical evidence for the Iteration 1 compatibility posture. The private
+> `0.0.0` package now exposes only its seven owner-declared family entrypoints;
+> the root facade, `./core-http`, and the compatibility declarations described
+> below were intentionally removed after repository consumer migration.
+
 ## Decision
 
 The five supported package specifiers and every root export remain public. The

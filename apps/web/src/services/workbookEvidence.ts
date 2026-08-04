@@ -2,7 +2,7 @@ import type {
   CreateObjectBlobSlotRequest,
   CreateObjectBlobSlotResponse,
   ErrorEnvelope,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { publicErrorStatusText } from "../shared/publicError";
 import { apiPath, fetchHTTPOperation } from "./browserApi";
 

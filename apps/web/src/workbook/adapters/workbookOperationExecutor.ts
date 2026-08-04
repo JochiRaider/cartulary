@@ -1,13 +1,12 @@
 import {
-  createGeneratedDecoder,
-  type ErrorEnvelope,
+  errorEnvelopeDecoder,
   type HTTPOperationID,
   type HTTPOperationRequest,
   type HTTPOperationResponse,
   type HTTPPathParameters,
   type HTTPQueryValue,
   httpOperationBindings,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation, publicErrorView } from "../../services/browserApi";
 import type {
   WorkbookOperationFailure,
@@ -76,10 +75,6 @@ export interface WorkbookOperationExecutor {
     input: WorkbookOperationExecution<OperationID>,
   ): Promise<WorkbookOperationOutcome<HTTPOperationResponse<OperationID>>>;
 }
-
-const errorEnvelopeDecoder = createGeneratedDecoder<ErrorEnvelope>(
-  "cartulary.core_http.ErrorEnvelope.v1",
-);
 
 const staleTargetCodes = new Set([
   "incident_not_found",

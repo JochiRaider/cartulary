@@ -1,4 +1,4 @@
-import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts";
+import { listViewSchemaRegistryEntries } from "@cartulary/protocol-ts/view-schemas";
 import type { StableTestId } from "./selectorCore";
 import {
   encodeSelectorSegment,
@@ -21,7 +21,9 @@ export const systemViewSwitcherGroupTokens = [
 ] as const satisfies readonly SystemViewSwitcherGroupToken[];
 
 const registeredViewSchemaIds = Object.freeze(
-  new Set(listViewSchemaRegistryEntries().map((entry) => entry.view_schema_id)),
+  new Set<string>(
+    listViewSchemaRegistryEntries().map((entry) => entry.view_schema_id),
+  ),
 );
 
 export function gridShellTestId(viewSchemaId: string): string {

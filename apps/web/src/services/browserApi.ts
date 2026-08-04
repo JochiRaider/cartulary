@@ -4,7 +4,7 @@ import {
   type HTTPOperationID,
   type HTTPQueryValue,
   validateHTTPOperationResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { type PublicAPIError, publicErrorView } from "../shared/publicError";
 import { createClientTransactionId } from "./clientTransactionId";
 import {

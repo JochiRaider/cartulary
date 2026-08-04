@@ -1,7 +1,7 @@
 import type {
   CreateViewRowRequest,
   ResolveEntityMentionRequest,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import { buildMentionActionPayload } from "../../collaboration/workbookCollaborationMessages";
 import {

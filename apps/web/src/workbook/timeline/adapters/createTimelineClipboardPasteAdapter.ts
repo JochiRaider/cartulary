@@ -1,4 +1,4 @@
-import type { PasteWorkbookClipboardRequest } from "@cartulary/protocol-ts";
+import type { PasteWorkbookClipboardRequest } from "@cartulary/protocol-ts/http";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { WorkbookOperationOutcome } from "../../mutations/workbookOperationOutcome";

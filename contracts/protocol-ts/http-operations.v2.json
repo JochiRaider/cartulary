@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.protocol_ts_http_operations.v1",
+  "schema_id": "cartulary.protocol_ts_http_operations.v2",
   "owner_id": "package.protocol_ts",
+  "default_response_validation_policy_id": "closed_schema",
   "operation_ids": [
     "applyImportSession",
     "applyWorkbookBulkMutation",
@@ -70,9 +71,18 @@
     "supersedeRecord",
     "uploadObjectBlobContent"
   ],
-  "forward_tolerant_response_operation_ids": [
-    "listAdministrativeAuditEvents",
-    "listDeploymentExtensions",
-    "listIncidentMembershipAuditEvents"
+  "response_validation_policies": [
+    {
+      "operation_id": "listAdministrativeAuditEvents",
+      "policy_id": "administrative_audit_future_vocabulary"
+    },
+    {
+      "operation_id": "listDeploymentExtensions",
+      "policy_id": "extension_discovery_additive_items"
+    },
+    {
+      "operation_id": "listIncidentMembershipAuditEvents",
+      "policy_id": "administrative_audit_future_vocabulary"
+    }
   ]
 }

@@ -1,4 +1,8 @@
-import { parseContractArtifact } from "@cartulary/protocol-ts";
+import { errorRegistry, type PublicError } from "@cartulary/protocol-ts/errors";
+import {
+  type ExtensionProfile,
+  extensionProfileRegistry,
+} from "@cartulary/protocol-ts/extensions";
 import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import type { APIResponse } from "@playwright/test";
 
@@ -13,19 +17,8 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 
-type ErrorContract = {
-  code: string;
-  http_status: number;
-};
-
-type ExtensionProfileContract = {
-  capability_ids: string[];
-  claimable: boolean;
-  contract_major: number;
-  profile_id: string;
-  route_families: string[];
-  workspace_keys: string[];
-};
+type ErrorContract = PublicError;
+type ExtensionProfileContract = ExtensionProfile;
 
 test("supports route-owned incident validation errors through browser-authenticated request probes", async ({
   page,
@@ -147,7 +140,7 @@ test("supports zero-membership extension discovery and singleton pagination reje
     };
   };
   expect(extensionsBody.data.extensions).toEqual(
-    extensionRegistry().map((profile) => ({
+    extensionProfileRegistry.profiles.map((profile) => ({
       profile_id: profile.profile_id,
       claimed:
         profile.profile_id === "import" ||
@@ -250,24 +243,17 @@ async function expectAPIError(
 }
 
 function errorContract(code: string): ErrorContract {
-  const registry = parseContractArtifact<{
-    errors: ErrorContract[];
-  }>("contracts/errors/index.json");
-  const match = registry.errors.find((candidate) => candidate.code === code);
+  const match = errorRegistry.errors.find(
+    (candidate) => candidate.code === code,
+  );
   if (!match) {
     throw new Error(`missing error contract for ${code}`);
   }
   return match;
 }
 
-function extensionRegistry(): ExtensionProfileContract[] {
-  return parseContractArtifact<{
-    profiles: ExtensionProfileContract[];
-  }>("contracts/extensions/generated/profile-registry.json").profiles;
-}
-
 function extensionProfile(profileID: string): ExtensionProfileContract {
-  const match = extensionRegistry().find(
+  const match = extensionProfileRegistry.profiles.find(
     (profile) => profile.profile_id === profileID,
   );
   if (!match) {

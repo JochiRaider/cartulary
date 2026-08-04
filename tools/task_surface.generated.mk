@@ -88,6 +88,7 @@
   frontend-unit \
   frontend-import-boundary-check \
   protocol-ts-browser-artifact-reachability \
+  protocol-ts-dead-code-check \
   backend-module-boundary-check \
   frontend-fallow-static \
   lint-biome \
@@ -953,6 +954,11 @@ protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= proto
 protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 protocol-ts-browser-artifact-reachability: $(NODE_BIN) $(WEB_DIST_INDEX)
 	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-browser-artifact-reachability" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs --dist $(CURDIR)/apps/web/dist
+
+protocol-ts-dead-code-check: export CARTULARY_TEST_TARGET ?= protocol-ts-dead-code-check
+protocol-ts-dead-code-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+protocol-ts-dead-code-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
+	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-dead-code-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-dead-code-check.mjs
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 backend-module-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)

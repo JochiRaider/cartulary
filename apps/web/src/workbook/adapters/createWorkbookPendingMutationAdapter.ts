@@ -2,7 +2,7 @@ import type {
   CreateViewRowRequest,
   CreateViewRowResponse,
   PatchRecordRequest,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import type { ViewContract } from "@cartulary/view-contracts";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { requireWorkbookSurfaceRegistration } from "../models/workbookSurfaceRegistration";

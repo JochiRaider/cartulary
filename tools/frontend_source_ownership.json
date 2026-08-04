@@ -125,7 +125,6 @@
         "apps/web/src/services/clientTransactionId.test.ts",
         "apps/web/src/services/clientTransactionId.ts",
         "apps/web/src/services/clientTransactionIdPolicy.test.ts",
-        "apps/web/src/services/extensionContractAdapter.ts",
         "apps/web/src/services/httpTransport.ts",
         "apps/web/src/services/importContractAdapter.ts",
         "apps/web/src/services/importTargetContractAdapter.test.ts",

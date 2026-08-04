@@ -172,7 +172,7 @@ request/response handling already owned by specs and backend contracts.
 | --- | --- |
 | `services/browserApi.ts` | Owner-neutral browser JSON, multipart, and generated-operation transport with path/query derivation, response validation, CSRF, and public-error extraction. |
 | `services/clientTransactionId.ts` | Secure prefixed client transaction ID generation using Web Crypto UUIDs or RFC 4122 v4 fallback formatting. |
-| `services/extensionContractAdapter.ts` | Thin generated-protocol facade for extension resource types and packaged contract-artifact parsing. |
+| `extensions/extensionAvailability.ts` | Extension discovery state and typed packaged client-support registry consumption. |
 | `services/httpTransport.ts` | Same-origin JSON and multipart transport mechanics for credentials, CSRF, cancellation, parsing, optional runtime decoding, and sanitized contract failures. |
 | `services/importContractAdapter.ts` | Thin generated-protocol alias facade for Import and common-job operations and workflow resource types. |
 | `services/importTargetContractAdapter.ts` | Thin generated-protocol facade for Import target discovery and target-specific mapping contracts. |

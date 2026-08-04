@@ -55,7 +55,7 @@ function assertGeneralContract(index) {
       assert.equal(topology.schema_id, "cartulary.execution_topology.v6");
       break;
     case 1:
-      assert.equal(taskSurface.targets.length, 144);
+      assert.equal(taskSurface.targets.length, 145);
       assert.equal(taskSurface.targets.filter((entry) => entry.target_class === "public").length, 98);
       break;
     case 2:

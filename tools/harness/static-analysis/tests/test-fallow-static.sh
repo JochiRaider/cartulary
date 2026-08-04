@@ -78,6 +78,8 @@ if (results.filter((result) => result.status === "fail").map((result) => result.
 }
 EOF
 
+bash "$ROOT_DIR/tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh"
+
 case_root="$(mktemp -d)"
 cleanup_paths+=("$case_root")
 

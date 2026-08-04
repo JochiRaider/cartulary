@@ -804,6 +804,123 @@ function evaluateFile(root, config, file, imports) {
   return diagnostics;
 }
 
+function withoutModuleExtension(value) {
+  return normalizePath(value).replace(/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/u, "");
+}
+
+function evaluateProtocolTSEntrypointAllowlists(root, fileImportEntries) {
+  const ownerPath = path.join(
+    root,
+    "contracts/protocol-ts/frontend-entrypoints.v2.json",
+  );
+  if (!existsSync(ownerPath)) {
+    return [];
+  }
+  const owner = JSON.parse(readFileSync(ownerPath, "utf8"));
+  if (owner.schema_id !== "cartulary.protocol_ts_frontend_entrypoints.v2") {
+    throw new Error(
+      "contracts/protocol-ts/frontend-entrypoints.v2.json must declare schema_id=cartulary.protocol_ts_frontend_entrypoints.v2",
+    );
+  }
+  const entrypoints = requireArray(
+    owner.entrypoints,
+    "protocol TypeScript entrypoint owner entrypoints",
+  );
+  const importsByFile = new Map(
+    fileImportEntries.map(({ file, imports }) => [repoRelative(root, file), imports]),
+  );
+  const diagnostics = [];
+  const protocolPackagePath = path.join(root, "packages/protocol-ts/package.json");
+  const protocolPackage = JSON.parse(
+    readFileSync(protocolPackagePath, "utf8"),
+  );
+  const expectedExports = Object.fromEntries(
+    entrypoints.map((entrypoint, index) => {
+      const label = `protocol TypeScript entrypoint owner entrypoints[${index + 1}]`;
+      const specifier = requireString(entrypoint.specifier, `${label}.specifier`);
+      const authoredPath = normalizePath(
+        requireString(entrypoint.authored_path, `${label}.authored_path`),
+      );
+      return [
+        `./${specifier.slice("@cartulary/protocol-ts/".length)}`,
+        `./${authoredPath.slice("packages/protocol-ts/".length)}`,
+      ];
+    }),
+  );
+  const actualExports = protocolPackage.exports;
+  if (
+    !actualExports ||
+    typeof actualExports !== "object" ||
+    Array.isArray(actualExports) ||
+    JSON.stringify(Object.entries(actualExports).sort()) !==
+      JSON.stringify(Object.entries(expectedExports).sort())
+  ) {
+    diagnostics.push({
+      column: 1,
+      file: "packages/protocol-ts/package.json",
+      importKind: "package export map",
+      level: "error",
+      line: 1,
+      message: "The Protocol-TS package export map must exactly match the owner-declared family entrypoints.",
+      ruleID: "frontend-protocol-ts-entrypoint-export-map",
+      specifier: "@cartulary/protocol-ts",
+    });
+  }
+
+  for (const [index, entrypoint] of entrypoints.entries()) {
+    const label = `protocol TypeScript entrypoint owner entrypoints[${index + 1}]`;
+    const authoredPath = normalizePath(
+      requireString(entrypoint.authored_path, `${label}.authored_path`),
+    );
+    const imports = importsByFile.get(authoredPath);
+    if (!imports) {
+      diagnostics.push({
+        column: 1,
+        file: authoredPath,
+        importKind: "owner-declared entrypoint",
+        level: "error",
+        line: 1,
+        message: "Every owner-declared Protocol-TS entrypoint must exist in the frontend source graph.",
+        ruleID: "frontend-protocol-ts-entrypoint-generated-allowlist",
+        specifier: requireString(entrypoint.specifier, `${label}.specifier`),
+      });
+      continue;
+    }
+    const allowedGeneratedModules = new Set(
+      requireStringArray(
+        entrypoint.generated_module_allowlist,
+        `${label}.generated_module_allowlist`,
+      ).map(withoutModuleExtension),
+    );
+    const absoluteAuthoredPath = path.join(root, authoredPath);
+    for (const imported of imports) {
+      const resolved = resolvedRelativeImport(
+        root,
+        absoluteAuthoredPath,
+        imported.specifier,
+      );
+      const generatedModule = withoutModuleExtension(resolved);
+      if (
+        !generatedModule.startsWith("packages/protocol-ts/src/generated/") ||
+        allowedGeneratedModules.has(generatedModule)
+      ) {
+        continue;
+      }
+      diagnostics.push({
+        column: imported.column,
+        file: authoredPath,
+        importKind: imported.kind,
+        level: "error",
+        line: imported.line,
+        message: "A Protocol-TS family entrypoint may import only its owner-declared generated modules.",
+        ruleID: "frontend-protocol-ts-entrypoint-generated-allowlist",
+        specifier: imported.specifier,
+      });
+    }
+  }
+  return diagnostics;
+}
+
 function evaluateSingletonImports(root, config, fileImportEntries) {
   const diagnostics = [];
   for (const singletonImport of config.singletonImports) {
@@ -962,6 +1079,7 @@ function main() {
     ),
     ...evaluateSingletonImports(root, config, fileImportEntries),
     ...evaluateAcyclicImportGraphs(root, config, fileImportEntries),
+    ...evaluateProtocolTSEntrypointAllowlists(root, fileImportEntries),
     ...evaluateRawDesignTokenLiterals(root, config, files),
   ];
   const errorCount = diagnostics.filter((diagnostic) => diagnostic.level === "error").length;

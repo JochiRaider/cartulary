@@ -1,7 +1,7 @@
 import {
   type ImportTargetFrontendRow,
   importTargetRegistry,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/import-targets";
 
 export type ImportUnknownColumnPolicy =
   | "preserve_raw_capture"

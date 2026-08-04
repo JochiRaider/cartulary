@@ -1,4 +1,4 @@
-import type { RollbackRecordRequest } from "@cartulary/protocol-ts";
+import type { RollbackRecordRequest } from "@cartulary/protocol-ts/http";
 import { createWorkbookOperationExecutor } from "../../adapters/workbookOperationExecutor";
 import type {
   WorkbookOperationFailure,

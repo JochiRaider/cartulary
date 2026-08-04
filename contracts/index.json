@@ -1,22 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "schema_id": "cartulary.contract_family_registry.v3",
+  "schema_id": "cartulary.contract_family_registry.v4",
   "registry_id": "cartulary.contract_families.v1",
-  "note": "Operational contract-family generation configuration. Only active families are emitted by tools/contractgen.",
+  "note": "Operational contract-family generation configuration. Active families declare exact TypeScript projections and generated outputs.",
+  "typescript_artifact_support_output": "packages/protocol-ts/src/generated/artifact.ts",
   "families": [
     {
       "family_id": "openapi",
       "contract_root": "contracts/openapi",
       "generation_status": "active",
       "go_name": "OpenAPIArtifacts",
-      "ts_name": "openAPIArtifacts",
       "output_order": 0,
       "generated_outputs": [
-        "internal/gen/contractopenapi/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "internal/gen/contractopenapi/artifacts_gen.go"
       ],
-      "typescript_runtime_artifact_prefixes": [],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Public HTTP/OpenAPI contract artifacts."
     },
@@ -25,17 +23,11 @@
       "contract_root": "contracts/ws",
       "generation_status": "active",
       "go_name": "WSArtifacts",
-      "ts_name": "wsArtifacts",
       "output_order": 1,
       "generated_outputs": [
-        "internal/gen/contractws/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/ws-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "internal/gen/contractws/artifacts_gen.go"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/ws/"
-      ],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "WebSocket and invalidation contract artifacts."
     },
@@ -44,18 +36,30 @@
       "contract_root": "contracts/view-schemas",
       "generation_status": "active",
       "go_name": "ViewSchemaArtifacts",
-      "ts_name": "viewSchemaArtifacts",
       "output_order": 2,
       "generated_outputs": [
         "internal/gen/contractviewschemas/artifacts_gen.go",
         "internal/gen/viewschemasource/types_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
         "packages/protocol-ts/src/generated/view-schema-source-types.ts",
-        "packages/protocol-ts/src/generated/view-schemas-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "packages/protocol-ts/src/generated/view-schema-registry.ts",
+        "packages/protocol-ts/src/generated/view-schemas-artifacts.ts"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/view-schemas/"
+      "typescript_projections": [
+        {
+          "projection_kind": "artifact_collection",
+          "output_path": "packages/protocol-ts/src/generated/view-schemas-artifacts.ts",
+          "identifier": "viewSchemaArtifacts",
+          "index_identifier": "viewSchemaArtifactsIndex",
+          "artifact_prefixes": [
+            "contracts/view-schemas/"
+          ]
+        },
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/view-schema-registry.ts",
+          "identifier": "viewSchemaRegistry",
+          "artifact_path": "contracts/view-schemas/index.json"
+        }
       ],
       "activation_dependency_ids": [],
       "description": "Workbook view-schema contract artifacts."
@@ -65,16 +69,18 @@
       "contract_root": "contracts/errors",
       "generation_status": "active",
       "go_name": "ErrorArtifacts",
-      "ts_name": "errorArtifacts",
       "output_order": 3,
       "generated_outputs": [
         "internal/gen/contracterrors/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/errors-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "packages/protocol-ts/src/generated/error-registry.ts"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/errors/"
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/error-registry.ts",
+          "identifier": "errorRegistry",
+          "artifact_path": "contracts/errors/index.json"
+        }
       ],
       "activation_dependency_ids": [],
       "description": "Public error and reason-code registry artifacts."
@@ -84,18 +90,25 @@
       "contract_root": "contracts/extensions",
       "generation_status": "active",
       "go_name": "ExtensionArtifacts",
-      "ts_name": "extensionArtifacts",
       "output_order": 4,
       "generated_outputs": [
         "internal/gen/contractextensions/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/extensions-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
+        "packages/protocol-ts/src/generated/extension-profile-registry.ts"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/extensions/generated/client-support-registry.json",
-        "contracts/extensions/generated/descriptors/",
-        "contracts/extensions/generated/profile-registry.json"
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/extension-client-support-registry.ts",
+          "identifier": "extensionClientSupportRegistry",
+          "artifact_path": "contracts/extensions/generated/client-support-registry.json"
+        },
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/extension-profile-registry.ts",
+          "identifier": "extensionProfileRegistry",
+          "artifact_path": "contracts/extensions/generated/profile-registry.json"
+        }
       ],
       "activation_dependency_ids": [],
       "description": "Extension profile discovery contract artifacts."
@@ -105,25 +118,19 @@
       "contract_root": "contracts/network-flow",
       "generation_status": "active",
       "go_name": "NetworkFlowArtifacts",
-      "ts_name": "networkFlowArtifacts",
       "output_order": 5,
       "generated_outputs": [
         "internal/gen/contractnetworkflow/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/network-flow-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "internal/gen/networkflowmapping/registry_gen.go",
+        "packages/protocol-ts/src/generated/network-flow-error-registry.ts"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/network-flow/errors.v1.json",
-        "contracts/network-flow/frontend-entrypoints.v3.json",
-        "contracts/network-flow/index.json",
-        "contracts/network-flow/key-rings.v1.schema.json",
-        "contracts/network-flow/mapping-registry.v2.json",
-        "contracts/network-flow/presentation.v2.json",
-        "contracts/network-flow/routes.v1.json",
-        "contracts/network-flow/schemas.v1.json",
-        "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
-        "contracts/network-flow/unicode17-nfc.provenance.json"
+      "typescript_projections": [
+        {
+          "projection_kind": "json_value",
+          "output_path": "packages/protocol-ts/src/generated/network-flow-error-registry.ts",
+          "identifier": "networkFlowErrorRegistry",
+          "artifact_path": "contracts/network-flow/errors.v1.json"
+        }
       ],
       "activation_dependency_ids": [],
       "description": "Network Flow Activity extension contracts derived from the adopted owner inputs."
@@ -133,18 +140,12 @@
       "contract_root": "contracts/audit",
       "generation_status": "active",
       "go_name": "AuditArtifacts",
-      "ts_name": "auditArtifacts",
       "output_order": 6,
       "generated_outputs": [
-        "internal/gen/contractaudit/artifacts_gen.go",
         "internal/gen/administrativeauditregistry/registry_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/audit-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "internal/gen/contractaudit/artifacts_gen.go"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/audit/"
-      ],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Administrative audit vocabularies, action mappings, and secret-safe projection policy."
     },
@@ -153,16 +154,13 @@
       "contract_root": "contracts/imports",
       "generation_status": "active",
       "go_name": "ImportArtifacts",
-      "ts_name": "importArtifacts",
       "output_order": 7,
       "generated_outputs": [
         "internal/gen/contractimports/artifacts_gen.go",
         "internal/gen/importtargetregistry/registry_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/import-target-registry.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "packages/protocol-ts/src/generated/import-target-registry.ts"
       ],
-      "typescript_runtime_artifact_prefixes": [],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Core Imports target inputs plus generated backend, frontend, adapter, verification, and integrity projections."
     },
@@ -171,12 +169,11 @@
       "contract_root": "contracts/recovery",
       "generation_status": "active",
       "go_name": "RecoveryArtifacts",
-      "ts_name": "recoveryArtifacts",
       "output_order": 8,
       "generated_outputs": [
         "internal/gen/contractrecovery/artifacts_gen.go"
       ],
-      "typescript_runtime_artifact_prefixes": [],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Recovery state ownership, backup, restore, verification, target-safety, and private evidence contracts."
     },
@@ -185,17 +182,11 @@
       "contract_root": "contracts/revisions",
       "generation_status": "active",
       "go_name": "RevisionsArtifacts",
-      "ts_name": "revisionsArtifacts",
       "output_order": 9,
       "generated_outputs": [
-        "internal/gen/contractrevisions/artifacts_gen.go",
-        "packages/protocol-ts/src/generated/artifact.ts",
-        "packages/protocol-ts/src/generated/revisions-artifacts.ts",
-        "packages/protocol-ts/src/generated/index.ts"
+        "internal/gen/contractrevisions/artifacts_gen.go"
       ],
-      "typescript_runtime_artifact_prefixes": [
-        "contracts/revisions/"
-      ],
+      "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Revisions-owned deployment and generic capability contracts derived from adopted Core owners."
     }

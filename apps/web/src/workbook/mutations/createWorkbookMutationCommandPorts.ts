@@ -11,7 +11,7 @@ import type {
   PatchRecordRequest,
   SupersedeRecordRequest,
   SupersedeRecordResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import {
   resolvePublicEvidenceHandleHref,
   uploadEvidenceObjectBlobTarget,

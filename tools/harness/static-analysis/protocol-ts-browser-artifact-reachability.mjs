@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -9,6 +10,28 @@ const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../..",
 );
+const removedGeneratedModules = [
+  "packages/protocol-ts/src/generated/audit-artifacts.ts",
+  "packages/protocol-ts/src/generated/errors-artifacts.ts",
+  "packages/protocol-ts/src/generated/extensions-artifacts.ts",
+  "packages/protocol-ts/src/generated/index.ts",
+  "packages/protocol-ts/src/generated/network-flow-artifacts.ts",
+  "packages/protocol-ts/src/generated/protocol-validators.ts",
+  "packages/protocol-ts/src/generated/revisions-artifacts.ts",
+  "packages/protocol-ts/src/generated/ws-artifacts.ts",
+];
+const networkFlowRuntimeModules = [
+  "packages/protocol-ts/src/entrypoints/network-flow.ts",
+  "packages/protocol-ts/src/generated/network-flow-descriptor.ts",
+  "packages/protocol-ts/src/generated/network-flow-error-registry.ts",
+  "packages/protocol-ts/src/generated/network-flow-mapping-registry.ts",
+  "packages/protocol-ts/src/generated/network-flow-presentation.ts",
+  "packages/protocol-ts/src/generated/network-flow-validators.ts",
+];
+const requiredNetworkFlowRuntimeModules = [
+  "packages/protocol-ts/src/entrypoints/network-flow.ts",
+  "packages/protocol-ts/src/generated/network-flow-validators.ts",
+];
 
 function parseArguments(argv) {
   const result = {
@@ -46,20 +69,40 @@ async function emittedFiles(root) {
   return result.sort((left, right) => left.localeCompare(right));
 }
 
-function artifactRecords(source, sourcePath) {
-  const records = [];
-  const recordPattern =
-    /path:\s*("(?:\\.|[^"\\])*")\s*,\s*json:\s*("(?:\\.|[^"\\])*")\s*,\s*sha256:\s*("[a-f0-9]{64}")/gu;
-  for (const match of source.matchAll(recordPattern)) {
-    const artifactPath = JSON.parse(match[1]);
-    const json = JSON.parse(match[2]);
-    const sha256 = JSON.parse(match[3]);
-    records.push({ artifactPath, json, sha256, sourcePath });
+function canonicalJSON(value) {
+  if (Array.isArray(value)) {
+    return value.map(canonicalJSON);
   }
-  if (records.length === 0) {
-    throw new Error(`no artifact records found in ${sourcePath}`);
+  if (!value || typeof value !== "object") {
+    return value;
   }
-  return records;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort((left, right) => left.localeCompare(right))
+      .map((key) => [key, canonicalJSON(value[key])]),
+  );
+}
+
+async function contractFiles(contractRoot) {
+  const absoluteRoot = path.join(repositoryRoot, contractRoot);
+  const result = [];
+  async function visit(current) {
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const entryPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        await visit(entryPath);
+        continue;
+      }
+      if (
+        entry.isFile() &&
+        [".json", ".yaml", ".yml"].includes(path.extname(entry.name).toLowerCase())
+      ) {
+        result.push(entryPath);
+      }
+    }
+  }
+  await visit(absoluteRoot);
+  return result.sort((left, right) => left.localeCompare(right));
 }
 
 function schemaIdentifiers(value, result = new Set()) {
@@ -82,16 +125,56 @@ function schemaIdentifiers(value, result = new Set()) {
 }
 
 async function forbiddenEvidence() {
-  const modules = [
-    "packages/protocol-ts/src/generated/audit-artifacts.ts",
-    "packages/protocol-ts/src/generated/revisions-artifacts.ts",
-  ];
-  const records = [];
-  for (const modulePath of modules) {
-    const absolutePath = path.join(repositoryRoot, modulePath);
-    records.push(
-      ...artifactRecords(await readFile(absolutePath, "utf8"), modulePath),
+  const registry = JSON.parse(
+    await readFile(path.join(repositoryRoot, "contracts/index.json"), "utf8"),
+  );
+  if (registry.schema_id !== "cartulary.contract_family_registry.v4") {
+    throw new Error("contracts/index.json has an unexpected schema_id");
+  }
+  const protectedFamilyIDs = ["audit", "revisions"];
+  const families = protectedFamilyIDs.map((familyID) => {
+    const family = registry.families?.find(
+      (candidate) => candidate?.family_id === familyID,
     );
+    if (!family) {
+      throw new Error(`contracts/index.json is missing protected family ${familyID}`);
+    }
+    if (
+      family.generation_status !== "active" ||
+      typeof family.contract_root !== "string"
+    ) {
+      throw new Error(`protected family ${familyID} must remain active with a contract root`);
+    }
+    if (
+      family.typescript_projections?.length !== 0 ||
+      family.generated_outputs?.some((output) =>
+        output.startsWith("packages/protocol-ts/src/generated/"),
+      )
+    ) {
+      throw new Error(`protected family ${familyID} must not declare browser projections`);
+    }
+    return family;
+  });
+  const protectedModules = protectedFamilyIDs.map(
+    (familyID) =>
+      `packages/protocol-ts/src/generated/${familyID}-artifacts.ts`,
+  );
+  const records = [];
+  for (const family of families) {
+    for (const absolutePath of await contractFiles(family.contract_root)) {
+      const artifactPath = path
+        .relative(repositoryRoot, absolutePath)
+        .split(path.sep)
+        .join("/");
+      const decoded = JSON.parse(await readFile(absolutePath, "utf8"));
+      const json = JSON.stringify(canonicalJSON(decoded));
+      records.push({
+        artifactPath,
+        decoded,
+        json,
+        sha256: createHash("sha256").update(json).digest("hex"),
+      });
+    }
   }
 
   const signals = [];
@@ -100,7 +183,7 @@ async function forbiddenEvidence() {
       { kind: "artifact_path", value: record.artifactPath },
       { kind: "artifact_digest", value: record.sha256 },
     );
-    for (const schemaIdentifier of schemaIdentifiers(JSON.parse(record.json))) {
+    for (const schemaIdentifier of schemaIdentifiers(record.decoded)) {
       signals.push({ kind: "schema_identifier", value: schemaIdentifier });
     }
     const signature = record.json.slice(0, 96);
@@ -112,7 +195,7 @@ async function forbiddenEvidence() {
       },
     );
   }
-  return { modules, signals };
+  return { protectedModules, signals };
 }
 
 function scanSignals(text, emittedPath, signals, findings) {
@@ -134,8 +217,12 @@ async function main() {
     throw new Error(`no emitted JavaScript or source maps found under ${options.dist}`);
   }
 
-  const { modules, signals } = await forbiddenEvidence();
+  const { protectedModules, signals } = await forbiddenEvidence();
+  const forbiddenModules = [
+    ...new Set([...protectedModules, ...removedGeneratedModules]),
+  ].sort((left, right) => left.localeCompare(right));
   const findings = [];
+  const networkFlowRuntimeModulesSeen = new Set();
   let javascriptCount = 0;
   let sourceMapCount = 0;
   for (const emittedPath of files) {
@@ -160,11 +247,24 @@ async function main() {
         continue;
       }
       const normalized = source.replaceAll("\\", "/");
-      for (const modulePath of modules) {
+      for (const modulePath of forbiddenModules) {
         if (normalized.endsWith(modulePath)) {
           findings.push({
             emittedPath: relativePath,
             kind: "source_map_module",
+            value: modulePath,
+          });
+        }
+      }
+      for (const modulePath of networkFlowRuntimeModules) {
+        if (!normalized.endsWith(modulePath)) {
+          continue;
+        }
+        networkFlowRuntimeModulesSeen.add(modulePath);
+        if (!path.basename(emittedPath).startsWith("NetworkFlowFeature-")) {
+          findings.push({
+            emittedPath: relativePath,
+            kind: "network_flow_graph_escape",
             value: modulePath,
           });
         }
@@ -177,6 +277,16 @@ async function main() {
       if (typeof sourceContent === "string") {
         scanSignals(sourceContent, relativePath, signals, findings);
       }
+    }
+  }
+
+  for (const modulePath of requiredNetworkFlowRuntimeModules) {
+    if (!networkFlowRuntimeModulesSeen.has(modulePath)) {
+      findings.push({
+        emittedPath: path.relative(repositoryRoot, options.dist),
+        kind: "network_flow_graph_missing",
+        value: modulePath,
+      });
     }
   }
 

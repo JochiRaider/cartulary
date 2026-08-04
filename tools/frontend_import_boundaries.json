@@ -100,18 +100,21 @@
     {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
-      "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
+      "message": "Import generated protocol artifacts only through owner-declared Protocol-TS entrypoints.",
       "applies_to": {
         "include": ["**"],
-        "exclude": []
+        "exclude": [
+          "packages/protocol-ts/src/unsupported-entrypoints.compile.ts"
+        ]
       },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/collaboration.ts",
-        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
-        "packages/protocol-ts/src/facade/contractArtifacts.ts",
-        "packages/protocol-ts/src/facade/extensionDiscovery.ts",
-        "packages/protocol-ts/src/facade/networkFlow.ts",
-        "packages/protocol-ts/src/facade/runtimeValidation.ts"
+        "packages/protocol-ts/src/entrypoints/collaboration.ts",
+        "packages/protocol-ts/src/entrypoints/errors.ts",
+        "packages/protocol-ts/src/entrypoints/extensions.ts",
+        "packages/protocol-ts/src/entrypoints/http.ts",
+        "packages/protocol-ts/src/entrypoints/import-targets.ts",
+        "packages/protocol-ts/src/entrypoints/network-flow.ts",
+        "packages/protocol-ts/src/entrypoints/view-schemas.ts"
       ],
       "restricted_imports": [
         {
@@ -146,6 +149,7 @@
       "allowed_importers": [
         "apps/web/src/app/api/**",
         "apps/web/src/collaboration/**",
+        "apps/web/src/extensions/extensionAvailability.ts",
         "apps/web/src/services/**",
         "apps/web/src/shared/sheetRef.ts",
         "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.ts",
@@ -664,83 +668,16 @@
       ]
     },
     {
-      "id": "frontend-generated-protocol-runtime-validation-owner",
+      "id": "frontend-generated-protocol-obsolete-artifact-projection-deny",
       "level": "error",
-      "message": "Only the runtime-validation facade may import generated validators and HTTP bindings.",
+      "message": "Authored frontend code must not import removed aggregate Protocol-TS artifact projections.",
       "applies_to": {
         "include": [
           "**"
         ],
         "exclude": []
       },
-      "allowed_importers": [
-        "packages/protocol-ts/src/facade/runtimeValidation.ts"
-      ],
-      "restricted_imports": [
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/http-operation-bindings"
-        },
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/protocol-validators"
-        }
-      ]
-    },
-    {
-      "id": "frontend-generated-protocol-collaboration-owner",
-      "level": "error",
-      "message": "Only the collaboration facade may import generated collaboration types.",
-      "applies_to": {
-        "include": [
-          "**"
-        ],
-        "exclude": []
-      },
-      "allowed_importers": [
-        "packages/protocol-ts/src/facade/collaboration.ts"
-      ],
-      "restricted_imports": [
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/collaboration-types"
-        }
-      ]
-    },
-    {
-      "id": "frontend-generated-protocol-core-http-owner",
-      "level": "error",
-      "message": "Only the compatibility and extension-discovery facades may import generated Core HTTP types.",
-      "applies_to": {
-        "include": [
-          "**"
-        ],
-        "exclude": []
-      },
-      "allowed_importers": [
-        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
-        "packages/protocol-ts/src/facade/extensionDiscovery.ts"
-      ],
-      "restricted_imports": [
-        {
-          "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/core-http-types"
-        }
-      ]
-    },
-    {
-      "id": "frontend-generated-protocol-contract-artifact-owner",
-      "level": "error",
-      "message": "Only the contract-artifact facade may import approved generated artifact families and registries.",
-      "applies_to": {
-        "include": [
-          "**"
-        ],
-        "exclude": []
-      },
-      "allowed_importers": [
-        "packages/protocol-ts/src/facade/contractArtifacts.ts"
-      ],
+      "allowed_importers": [],
       "restricted_imports": [
         {
           "kind": "path_prefix",
@@ -752,11 +689,117 @@
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/import-target-registry"
+          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
+          "path": "packages/protocol-ts/src/generated/ws-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-validator-barrel-deny",
+      "level": "error",
+      "message": "Authored frontend code must import only its owner-specific generated validator module.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/protocol-validators"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-http-owner",
+      "level": "error",
+      "message": "Only the HTTP entrypoint may import generated Core HTTP validators and operation bindings.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/entrypoints/http.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/http-operation-bindings"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/core-http-validators"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-collaboration-owner",
+      "level": "error",
+      "message": "Only the collaboration entrypoint may import generated collaboration types.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/entrypoints/collaboration.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/collaboration-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-core-http-owner",
+      "level": "error",
+      "message": "Only the HTTP entrypoint may import generated Core HTTP types.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/entrypoints/http.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/core-http-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-contract-artifact-owner",
+      "level": "error",
+      "message": "Only owner-declared family entrypoints may import approved generated artifacts and registries.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/entrypoints/errors.ts",
+        "packages/protocol-ts/src/entrypoints/extensions.ts",
+        "packages/protocol-ts/src/entrypoints/import-targets.ts",
+        "packages/protocol-ts/src/entrypoints/network-flow.ts",
+        "packages/protocol-ts/src/entrypoints/view-schemas.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/import-target-registry"
         },
         {
           "kind": "path_prefix",
@@ -768,14 +811,30 @@
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/ws-artifacts"
+          "path": "packages/protocol-ts/src/generated/error-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extension-client-support-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extension-profile-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-error-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-schema-registry"
         }
       ]
     },
     {
       "id": "frontend-generated-protocol-network-flow-owner",
       "level": "error",
-      "message": "Only the Network Flow facade may import generated Network Flow behavior projections.",
+      "message": "Only the Network Flow entrypoint may import generated Network Flow behavior projections.",
       "applies_to": {
         "include": [
           "**"
@@ -783,7 +842,7 @@
         "exclude": []
       },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/networkFlow.ts"
+        "packages/protocol-ts/src/entrypoints/network-flow.ts"
       ],
       "restricted_imports": [
         {
@@ -801,6 +860,10 @@
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/network-flow-types"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-validators"
         }
       ]
     },
@@ -878,7 +941,9 @@
       "message": "Import workspace packages only through package names and declared package.json exports.",
       "applies_to": {
         "include": ["**"],
-        "exclude": []
+        "exclude": [
+          "packages/protocol-ts/src/unsupported-entrypoints.compile.ts"
+        ]
       },
       "allowed_importers": [],
       "restricted_imports": [

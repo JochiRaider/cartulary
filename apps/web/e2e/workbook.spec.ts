@@ -1,4 +1,4 @@
-import type { SheetRef } from "@cartulary/protocol-ts/core-http";
+import type { SheetRef } from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,

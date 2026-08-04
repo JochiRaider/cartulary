@@ -1,7 +1,7 @@
 import type {
   QueryWorkbookViewRequest,
   QueryWorkbookViewResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { normalizeWorkbookViewRows } from "../models/workbookContractRows";
 import { buildQueryRequest } from "../models/workbookQuery";
 import type {

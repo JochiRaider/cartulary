@@ -163,18 +163,19 @@ write_config() {
     {
       "id": "frontend-generated-protocol-boundary",
       "level": "error",
-      "message": "Import generated protocol artifacts only through the @cartulary/protocol-ts facade.",
+      "message": "Import generated protocol artifacts only through owner-declared Protocol-TS entrypoints.",
       "applies_to": {
         "include": ["**"],
         "exclude": []
       },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/collaboration.ts",
-        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
-        "packages/protocol-ts/src/facade/contractArtifacts.ts",
-        "packages/protocol-ts/src/facade/extensionDiscovery.ts",
-        "packages/protocol-ts/src/facade/networkFlow.ts",
-        "packages/protocol-ts/src/facade/runtimeValidation.ts"
+        "packages/protocol-ts/src/entrypoints/collaboration.ts",
+        "packages/protocol-ts/src/entrypoints/errors.ts",
+        "packages/protocol-ts/src/entrypoints/extensions.ts",
+        "packages/protocol-ts/src/entrypoints/http.ts",
+        "packages/protocol-ts/src/entrypoints/import-targets.ts",
+        "packages/protocol-ts/src/entrypoints/network-flow.ts",
+        "packages/protocol-ts/src/entrypoints/view-schemas.ts"
       ],
       "restricted_imports": [
         {
@@ -228,12 +229,50 @@ write_config() {
       ]
     },
     {
-      "id": "frontend-generated-protocol-runtime-validation-owner",
+      "id": "frontend-generated-protocol-obsolete-artifact-projection-deny",
       "level": "error",
-      "message": "Only the runtime-validation facade may import generated validators and HTTP bindings.",
+      "message": "Authored frontend code must not import removed aggregate Protocol-TS artifact projections.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/errors-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extensions-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/ws-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-validator-barrel-deny",
+      "level": "error",
+      "message": "Authored frontend code must import only its owner-specific generated validator module.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/protocol-validators"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-http-owner",
+      "level": "error",
+      "message": "Only the HTTP entrypoint may import generated Core HTTP validators and operation bindings.",
       "applies_to": { "include": ["**"], "exclude": [] },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/runtimeValidation.ts"
+        "packages/protocol-ts/src/entrypoints/http.ts"
       ],
       "restricted_imports": [
         {
@@ -242,17 +281,17 @@ write_config() {
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/protocol-validators"
+          "path": "packages/protocol-ts/src/generated/core-http-validators"
         }
       ]
     },
     {
       "id": "frontend-generated-protocol-collaboration-owner",
       "level": "error",
-      "message": "Only the collaboration facade may import generated collaboration types.",
+      "message": "Only the collaboration entrypoint may import generated collaboration types.",
       "applies_to": { "include": ["**"], "exclude": [] },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/collaboration.ts"
+        "packages/protocol-ts/src/entrypoints/collaboration.ts"
       ],
       "restricted_imports": [
         {
@@ -264,11 +303,10 @@ write_config() {
     {
       "id": "frontend-generated-protocol-core-http-owner",
       "level": "error",
-      "message": "Only the compatibility and extension-discovery facades may import generated Core HTTP types.",
+      "message": "Only the HTTP entrypoint may import generated Core HTTP types.",
       "applies_to": { "include": ["**"], "exclude": [] },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
-        "packages/protocol-ts/src/facade/extensionDiscovery.ts"
+        "packages/protocol-ts/src/entrypoints/http.ts"
       ],
       "restricted_imports": [
         {
@@ -280,34 +318,66 @@ write_config() {
     {
       "id": "frontend-generated-protocol-contract-artifact-owner",
       "level": "error",
-      "message": "Only the contract-artifact facade may import approved generated artifact families and registries.",
+      "message": "Only owner-declared family entrypoints may import approved generated artifacts and registries.",
       "applies_to": { "include": ["**"], "exclude": [] },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/contractArtifacts.ts"
+        "packages/protocol-ts/src/entrypoints/errors.ts",
+        "packages/protocol-ts/src/entrypoints/extensions.ts",
+        "packages/protocol-ts/src/entrypoints/import-targets.ts",
+        "packages/protocol-ts/src/entrypoints/network-flow.ts",
+        "packages/protocol-ts/src/entrypoints/view-schemas.ts"
       ],
       "restricted_imports": [
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/errors-artifacts"
+          "path": "packages/protocol-ts/src/generated/import-target-registry"
         },
         {
           "kind": "path_prefix",
-          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
+          "path": "packages/protocol-ts/src/generated/view-schema-source-types"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-schemas-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/error-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extension-client-support-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extension-profile-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-error-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-schema-registry"
         }
       ]
     },
     {
       "id": "frontend-generated-protocol-network-flow-owner",
       "level": "error",
-      "message": "Only the Network Flow facade may import generated Network Flow behavior projections.",
+      "message": "Only the Network Flow entrypoint may import generated Network Flow behavior projections.",
       "applies_to": { "include": ["**"], "exclude": [] },
       "allowed_importers": [
-        "packages/protocol-ts/src/facade/networkFlow.ts"
+        "packages/protocol-ts/src/entrypoints/network-flow.ts"
       ],
       "restricted_imports": [
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated/network-flow-types"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-validators"
         }
       ]
     },
@@ -544,7 +614,7 @@ prepare_case_root() {
     "$case_root/apps/web/e2e/support/visual" \
     "$case_root/apps/web/e2e/support/workbook" \
     "$case_root/packages/grid-adapter/src" \
-    "$case_root/packages/protocol-ts/src/facade" \
+    "$case_root/packages/protocol-ts/src/entrypoints" \
     "$case_root/packages/protocol-ts/src/generated" \
     "$case_root/packages/test-utils/src" \
     "$case_root/packages/ui-contracts/src/generated" \
@@ -736,24 +806,49 @@ assert_contains "$warning_fixture_output" "warning: frontend-synthetic-warning-b
 warning_fixture_error_output="$(assert_fails "synthetic warning as error" run_checker "$warning_fixture_root" --warnings-as-errors)"
 assert_contains "$warning_fixture_error_output" "error: frontend-synthetic-warning-boundary" "synthetic warning promoted to error"
 
-facade_root="$(prepare_case_root facade)"
-cat >"$facade_root/apps/web/src/contracts.ts" <<'TS'
-import { parseContractArtifact } from "@cartulary/protocol-ts";
+family_root="$(prepare_case_root family)"
+cat >"$family_root/packages/protocol-ts/package.json" <<'JSON'
+{
+  "name": "@cartulary/protocol-ts",
+  "exports": {
+    "./http": "./src/entrypoints/http.ts"
+  }
+}
+JSON
+cat >"$family_root/apps/web/src/contracts.ts" <<'TS'
+import { buildHTTPOperationPath } from "@cartulary/protocol-ts/http";
 
-export const parse = parseContractArtifact;
+export const buildPath = buildHTTPOperationPath;
 TS
-facade_output="$(assert_passes "protocol facade import" run_checker "$facade_root")"
-assert_contains "$facade_output" "frontend import boundaries verified" "facade import output"
-assert_not_contains "$facade_output" "frontend-generated-protocol-boundary" "facade import must not warn"
+family_output="$(assert_passes "protocol family import" run_checker "$family_root")"
+assert_contains "$family_output" "frontend import boundaries verified" "family import output"
+assert_not_contains "$family_output" "frontend-generated-protocol-boundary" "family import must not warn"
 
-protocol_facade_root="$(prepare_case_root protocol-facade)"
-cat >"$protocol_facade_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
-import { errorArtifacts } from "../generated/errors-artifacts.js";
+unsupported_root="$(prepare_case_root unsupported-root)"
+cat >"$unsupported_root/packages/protocol-ts/package.json" <<'JSON'
+{
+  "name": "@cartulary/protocol-ts",
+  "exports": {
+    "./http": "./src/entrypoints/http.ts"
+  }
+}
+JSON
+cat >"$unsupported_root/apps/web/src/contracts.ts" <<'TS'
+import { legacy } from "@cartulary/protocol-ts";
 
-export const artifacts = errorArtifacts;
+export const leaked = legacy;
 TS
-protocol_facade_output="$(assert_passes "protocol facade generated import" run_checker "$protocol_facade_root")"
-assert_contains "$protocol_facade_output" "frontend import boundaries verified" "protocol facade generated import output"
+unsupported_root_output="$(assert_fails "unsupported protocol root import" run_checker "$unsupported_root")"
+assert_contains "$unsupported_root_output" "frontend-workspace-package-facade-boundary" "unsupported protocol root rule"
+
+protocol_entrypoint_root="$(prepare_case_root protocol-entrypoint)"
+cat >"$protocol_entrypoint_root/packages/protocol-ts/src/entrypoints/errors.ts" <<'TS'
+import { errorRegistry } from "../generated/error-registry.js";
+
+export { errorRegistry };
+TS
+protocol_entrypoint_output="$(assert_passes "protocol entrypoint generated import" run_checker "$protocol_entrypoint_root")"
+assert_contains "$protocol_entrypoint_output" "frontend import boundaries verified" "protocol entrypoint generated import output"
 
 protocol_root_bypass_root="$(prepare_case_root protocol-root-bypass)"
 cat >"$protocol_root_bypass_root/packages/protocol-ts/src/index.ts" <<'TS'
@@ -764,17 +859,17 @@ TS
 protocol_root_bypass_output="$(assert_fails "protocol root generated import" run_checker "$protocol_root_bypass_root")"
 assert_contains "$protocol_root_bypass_output" "frontend-generated-protocol-boundary" "protocol root generated import rule"
 
-protocol_wrong_facade_root="$(prepare_case_root protocol-wrong-facade)"
-cat >"$protocol_wrong_facade_root/packages/protocol-ts/src/facade/collaboration.ts" <<'TS'
-import { errorArtifacts } from "../generated/errors-artifacts.js";
+protocol_wrong_entrypoint_root="$(prepare_case_root protocol-wrong-entrypoint)"
+cat >"$protocol_wrong_entrypoint_root/packages/protocol-ts/src/entrypoints/collaboration.ts" <<'TS'
+import { errorRegistry } from "../generated/error-registry.js";
 
-export const artifacts = errorArtifacts;
+export { errorRegistry };
 TS
-protocol_wrong_facade_output="$(assert_fails "protocol wrong facade import" run_checker "$protocol_wrong_facade_root")"
-assert_contains "$protocol_wrong_facade_output" "frontend-generated-protocol-contract-artifact-owner" "protocol wrong facade rule"
+protocol_wrong_entrypoint_output="$(assert_fails "protocol wrong entrypoint import" run_checker "$protocol_wrong_entrypoint_root")"
+assert_contains "$protocol_wrong_entrypoint_output" "frontend-generated-protocol-contract-artifact-owner" "protocol wrong entrypoint rule"
 
 protocol_barrel_root="$(prepare_case_root protocol-barrel)"
-cat >"$protocol_barrel_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+cat >"$protocol_barrel_root/packages/protocol-ts/src/entrypoints/errors.ts" <<'TS'
 import { errorArtifacts } from "../generated/index.js";
 
 export const artifacts = errorArtifacts;
@@ -782,8 +877,24 @@ TS
 protocol_barrel_output="$(assert_fails "protocol barrel import" run_checker "$protocol_barrel_root")"
 assert_contains "$protocol_barrel_output" "frontend-generated-protocol-barrel-deny" "protocol barrel deny rule"
 
+protocol_obsolete_artifact_root="$(prepare_case_root protocol-obsolete-artifact)"
+cat >"$protocol_obsolete_artifact_root/packages/protocol-ts/src/entrypoints/errors.ts" <<'TS'
+import { errorArtifacts } from "../generated/errors-artifacts.js";
+
+export { errorArtifacts };
+TS
+protocol_obsolete_artifact_output="$(assert_fails "protocol obsolete artifact import" run_checker "$protocol_obsolete_artifact_root")"
+assert_contains "$protocol_obsolete_artifact_output" "frontend-generated-protocol-obsolete-artifact-projection-deny" "protocol obsolete artifact deny rule"
+
+protocol_validator_barrel_root="$(prepare_case_root protocol-validator-barrel)"
+cat >"$protocol_validator_barrel_root/packages/protocol-ts/src/entrypoints/http.ts" <<'TS'
+export { validateCartularyCoreHttpErrorEnvelopeV1 } from "../generated/protocol-validators.js";
+TS
+protocol_validator_barrel_output="$(assert_fails "protocol validator barrel import" run_checker "$protocol_validator_barrel_root")"
+assert_contains "$protocol_validator_barrel_output" "frontend-generated-protocol-validator-barrel-deny" "protocol validator barrel deny rule"
+
 protocol_audit_root="$(prepare_case_root protocol-audit)"
-cat >"$protocol_audit_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+cat >"$protocol_audit_root/packages/protocol-ts/src/entrypoints/errors.ts" <<'TS'
 import { auditArtifacts } from "../generated/audit-artifacts.js";
 
 export const artifacts = auditArtifacts;
@@ -792,7 +903,7 @@ protocol_audit_output="$(assert_fails "protocol audit import" run_checker "$prot
 assert_contains "$protocol_audit_output" "frontend-generated-protocol-audit-deny" "protocol audit deny rule"
 
 protocol_revisions_root="$(prepare_case_root protocol-revisions)"
-cat >"$protocol_revisions_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+cat >"$protocol_revisions_root/packages/protocol-ts/src/entrypoints/errors.ts" <<'TS'
 import { revisionsArtifacts } from "../generated/revisions-artifacts.js";
 
 export const artifacts = revisionsArtifacts;
@@ -968,3 +1079,61 @@ export const leaked = evidenceFixture;
 TS
 e2e_core_evidence_output="$(assert_fails "core support evidence import" run_checker "$e2e_core_evidence_root")"
 assert_contains "$e2e_core_evidence_output" "web-e2e-core-support-direction" "core support direction rule"
+
+protocol_entrypoint_allowed_root="$(prepare_case_root protocol-entrypoint-allowed)"
+mkdir -p "$protocol_entrypoint_allowed_root/contracts/protocol-ts"
+cat >"$protocol_entrypoint_allowed_root/contracts/protocol-ts/frontend-entrypoints.v2.json" <<'JSON'
+{
+  "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v2",
+  "entrypoints": [
+    {
+      "specifier": "@cartulary/protocol-ts/collaboration",
+      "authored_path": "packages/protocol-ts/src/entrypoints/collaboration.ts",
+      "generated_module_allowlist": [
+        "packages/protocol-ts/src/generated/collaboration-types.ts"
+      ]
+    }
+  ]
+}
+JSON
+cat >"$protocol_entrypoint_allowed_root/packages/protocol-ts/src/entrypoints/collaboration.ts" <<'TS'
+export type { IncidentStreamMessage } from "../generated/collaboration-types.js";
+TS
+cat >"$protocol_entrypoint_allowed_root/packages/protocol-ts/package.json" <<'JSON'
+{
+  "name": "@cartulary/protocol-ts",
+  "exports": {
+    "./collaboration": "./src/entrypoints/collaboration.ts"
+  }
+}
+JSON
+protocol_entrypoint_allowed_output="$(assert_passes "owner-allowed protocol entrypoint import" run_checker "$protocol_entrypoint_allowed_root")"
+assert_contains "$protocol_entrypoint_allowed_output" "frontend import boundaries verified" "owner-allowed protocol entrypoint output"
+
+protocol_entrypoint_forbidden_root="$(prepare_case_root protocol-entrypoint-forbidden)"
+mkdir -p "$protocol_entrypoint_forbidden_root/contracts/protocol-ts"
+cp "$protocol_entrypoint_allowed_root/contracts/protocol-ts/frontend-entrypoints.v2.json" "$protocol_entrypoint_forbidden_root/contracts/protocol-ts/frontend-entrypoints.v2.json"
+cp "$protocol_entrypoint_allowed_root/packages/protocol-ts/package.json" "$protocol_entrypoint_forbidden_root/packages/protocol-ts/package.json"
+cat >"$protocol_entrypoint_forbidden_root/packages/protocol-ts/src/entrypoints/collaboration.ts" <<'TS'
+export { validateCartularyCoreHttpErrorEnvelopeV1 } from "../generated/core-http-validators.js";
+TS
+protocol_entrypoint_forbidden_output="$(assert_fails "owner-forbidden protocol entrypoint import" run_checker "$protocol_entrypoint_forbidden_root")"
+assert_contains "$protocol_entrypoint_forbidden_output" "frontend-protocol-ts-entrypoint-generated-allowlist" "owner-forbidden protocol entrypoint rule"
+
+protocol_export_map_mismatch_root="$(prepare_case_root protocol-export-map-mismatch)"
+mkdir -p "$protocol_export_map_mismatch_root/contracts/protocol-ts"
+cp "$protocol_entrypoint_allowed_root/contracts/protocol-ts/frontend-entrypoints.v2.json" "$protocol_export_map_mismatch_root/contracts/protocol-ts/frontend-entrypoints.v2.json"
+cat >"$protocol_export_map_mismatch_root/packages/protocol-ts/package.json" <<'JSON'
+{
+  "name": "@cartulary/protocol-ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./collaboration": "./src/entrypoints/collaboration.ts"
+  }
+}
+JSON
+cat >"$protocol_export_map_mismatch_root/packages/protocol-ts/src/entrypoints/collaboration.ts" <<'TS'
+export type { IncidentStreamMessage } from "../generated/collaboration-types.js";
+TS
+protocol_export_map_mismatch_output="$(assert_fails "owner-mismatched protocol export map" run_checker "$protocol_export_map_mismatch_root")"
+assert_contains "$protocol_export_map_mismatch_output" "frontend-protocol-ts-entrypoint-export-map" "owner-mismatched protocol export map rule"

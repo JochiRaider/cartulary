@@ -5,4 +5,4 @@ export type {
   ListIncidentMembershipAuditEventsResponse,
   ReopenIncidentRequest,
   ReopenIncidentResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";

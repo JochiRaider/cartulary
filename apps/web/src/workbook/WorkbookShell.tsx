@@ -24,7 +24,10 @@ import {
   useIncidentCollaborationSession,
 } from "../collaboration/IncidentCollaborationSession";
 import { ExtensionAvailabilityProvider } from "../extensions/ExtensionAvailabilityContext";
-import { ExtensionAvailabilityController } from "../extensions/extensionAvailability";
+import {
+  ExtensionAvailabilityController,
+  type ExtensionDiscoveryProfile,
+} from "../extensions/extensionAvailability";
 import {
   importProfileId,
   importRouteFamily,
@@ -32,7 +35,6 @@ import {
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
 } from "../extensions/extensionWorkspaceIdentities";
-import type { GeneratedExtensionProfileResource } from "../services/extensionContractAdapter";
 import type { AuthorizationRecoveryPort } from "../shared/authorizationRecovery";
 import { sheetRefKey } from "../shared/sheetRef";
 import type {
@@ -141,7 +143,7 @@ type WorkbookShellProps = {
     | undefined;
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
-  extensionProfiles?: readonly GeneratedExtensionProfileResource[] | undefined;
+  extensionProfiles?: readonly ExtensionDiscoveryProfile[] | undefined;
   onIncidentSnapshot?:
     | ((incident: WorkbookIncidentSnapshot) => void)
     | undefined;

@@ -89,6 +89,16 @@ function writeFilesAtomically(outputs) {
   }
 }
 
+function removeObsoleteGeneratedOutputs(outputs) {
+  for (const output of outputs) {
+    const resolved = path.resolve(output);
+    if (path.dirname(resolved) !== generatedRoot || !resolved.endsWith(".ts")) {
+      throw new Error(`obsolete generated output escapes Protocol-TS root: ${output}`);
+    }
+    rmSync(resolved, { force: true });
+  }
+}
+
 function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
@@ -120,6 +130,47 @@ function requireSortedUniqueStrings(value, label) {
     }
   }
   return entries;
+}
+
+function validateFrontendEntrypointsOwner(value) {
+  const owner = requireObject(value, "protocol TypeScript frontend entrypoints");
+  if (owner.schema_id !== "cartulary.protocol_ts_frontend_entrypoints.v2") {
+    throw new Error("protocol TypeScript frontend entrypoints has unexpected schema_id");
+  }
+  if (owner.owner_id !== "package.protocol_ts") {
+    throw new Error("protocol TypeScript frontend entrypoints has unexpected owner_id");
+  }
+  const expectedSpecifiers = [
+    "@cartulary/protocol-ts/collaboration",
+    "@cartulary/protocol-ts/errors",
+    "@cartulary/protocol-ts/extensions",
+    "@cartulary/protocol-ts/http",
+    "@cartulary/protocol-ts/import-targets",
+    "@cartulary/protocol-ts/network-flow",
+    "@cartulary/protocol-ts/view-schemas",
+  ];
+  if (!Array.isArray(owner.entrypoints) || owner.entrypoints.length !== expectedSpecifiers.length) {
+    throw new Error("protocol TypeScript frontend entrypoints must contain exactly seven rows");
+  }
+  for (const [index, rawEntrypoint] of owner.entrypoints.entries()) {
+    const entrypoint = requireObject(rawEntrypoint, `protocol TypeScript entrypoints[${index}]`);
+    const specifier = requireString(entrypoint.specifier, `protocol TypeScript entrypoints[${index}].specifier`);
+    if (specifier !== expectedSpecifiers[index]) {
+      throw new Error("protocol TypeScript frontend entrypoint specifiers must be the exact sorted v2 set");
+    }
+    const family = specifier.slice("@cartulary/protocol-ts/".length);
+    if (entrypoint.authored_path !== `packages/protocol-ts/src/entrypoints/${family}.ts`) {
+      throw new Error(`protocol TypeScript entrypoint ${specifier} has an unexpected authored_path`);
+    }
+    const allowlist = requireSortedUniqueStrings(
+      entrypoint.generated_module_allowlist,
+      `protocol TypeScript entrypoint ${specifier} generated_module_allowlist`,
+    );
+    if (allowlist.some((modulePath) => !/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(modulePath))) {
+      throw new Error(`protocol TypeScript entrypoint ${specifier} has an unsafe generated module path`);
+    }
+  }
+  return owner;
 }
 
 function pascalCase(value) {
@@ -389,16 +440,36 @@ function operationBindings(openAPI, selection, definitions) {
     selection.operation_ids,
     "http operation_ids",
   );
-  const forwardTolerant = new Set(
-    requireSortedUniqueStrings(
-      selection.forward_tolerant_response_operation_ids,
-      "http forward_tolerant_response_operation_ids",
-    ),
+  const defaultResponseValidationPolicyID = requireString(
+    selection.default_response_validation_policy_id,
+    "http default_response_validation_policy_id",
   );
-  for (const operationID of forwardTolerant) {
+  if (defaultResponseValidationPolicyID !== "closed_schema") {
+    throw new Error("http default response validation policy must be closed_schema");
+  }
+  if (!Array.isArray(selection.response_validation_policies)) {
+    throw new Error("http response_validation_policies must be an array");
+  }
+  const responseValidationPolicies = new Map();
+  let previousPolicyOperationID;
+  for (const [index, rawPolicy] of selection.response_validation_policies.entries()) {
+    const policy = requireObject(rawPolicy, `http response_validation_policies[${index}]`);
+    const operationID = requireString(policy.operation_id, `http response_validation_policies[${index}].operation_id`);
+    const policyID = requireString(policy.policy_id, `http response_validation_policies[${index}].policy_id`);
     if (!selectedIDs.includes(operationID)) {
-      throw new Error(`forward-tolerant operation ${operationID} is not selected`);
+      throw new Error(`response validation policy operation ${operationID} is not selected`);
     }
+    if (previousPolicyOperationID !== undefined && previousPolicyOperationID >= operationID) {
+      throw new Error("http response_validation_policies must be sorted by operation_id and unique");
+    }
+    if (
+      policyID !== "administrative_audit_future_vocabulary" &&
+      policyID !== "extension_discovery_additive_items"
+    ) {
+      throw new Error(`unsupported response validation policy ${policyID}`);
+    }
+    previousPolicyOperationID = operationID;
+    responseValidationPolicies.set(operationID, policyID);
   }
   const found = new Map();
   for (const [pathTemplate, rawPathItem] of Object.entries(
@@ -477,9 +548,9 @@ function operationBindings(openAPI, selection, definitions) {
         requestType,
         responseType,
         successStatuses,
-        responseTolerance: forwardTolerant.has(operation.operationId)
-          ? "forward_tolerant_vocabulary"
-          : "closed",
+        responseValidationPolicyID:
+          responseValidationPolicies.get(operation.operationId) ??
+          defaultResponseValidationPolicyID,
       });
     }
   }
@@ -491,7 +562,7 @@ function operationBindings(openAPI, selection, definitions) {
   return selectedIDs.map((operationID) => found.get(operationID));
 }
 
-function httpOperationBindingSource(operations) {
+function httpOperationBindingSource(operations, forbiddenAuditVisibleFieldTokens) {
   const typeNames = [
     ...new Set(
       operations.flatMap((operation) =>
@@ -503,7 +574,7 @@ function httpOperationBindingSource(operations) {
   if (typeNames.length > 0) {
     lines.push(
       `import type { ${typeNames.join(", ")} } from "./core-http-types.js";`,
-      'import * as validators from "./protocol-validators.js";',
+      'import * as validators from "./core-http-validators.js";',
       "",
     );
   }
@@ -521,7 +592,8 @@ function httpOperationBindingSource(operations) {
             response_schema_id: operation.responseType
               ? `cartulary.core_http.${operation.responseType}.v1`
               : null,
-            response_tolerance: operation.responseTolerance,
+            response_validation_policy_id:
+              operation.responseValidationPolicyID,
           },
         ]),
       ),
@@ -563,6 +635,96 @@ function httpOperationBindingSource(operations) {
     "  | { readonly ok: true }",
     "  | { readonly ok: false; readonly schemaId: string; readonly instancePath: string };",
     "",
+    "type ResponseValidationPolicyID = (typeof httpOperationBindings)[HTTPOperationID][\"response_validation_policy_id\"];",
+    "const invalidResponseValue = Symbol(\"invalid protocol response\");",
+    `const forbiddenAuditVisibleFieldTokens = ${JSON.stringify(forbiddenAuditVisibleFieldTokens)} as const;`,
+    "const extensionTokenPattern = /^[a-z][a-z0-9_]{0,63}$/u;",
+    "const extensionRoutePattern = /^\\/api\\/v1\\/[^?#%\\\\]+$/u;",
+    "",
+    "function isRecord(value: unknown): value is Record<string, unknown> {",
+    "  return value !== null && typeof value === \"object\" && !Array.isArray(value);",
+    "}",
+    "",
+    "function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {",
+    "  const expected = new Set(allowed);",
+    "  return Object.keys(value).every((key) => expected.has(key));",
+    "}",
+    "",
+    "function sortedUniqueStrings(value: unknown, predicate: (item: string) => boolean): readonly string[] | undefined {",
+    "  if (!Array.isArray(value) || !value.every((item) => typeof item === \"string\")) return undefined;",
+    "  for (let index = 0; index < value.length; index += 1) {",
+    "    const item = value[index] ?? \"\";",
+    "    if (!predicate(item) || (index > 0 && (value[index - 1] ?? \"\") >= item)) return undefined;",
+    "  }",
+    "  return value;",
+    "}",
+    "",
+    "function prepareExtensionDiscoveryResponse(value: unknown): unknown | typeof invalidResponseValue {",
+    "  if (!isRecord(value) || !hasOnlyKeys(value, [\"data\", \"meta\"]) || !isRecord(value.data) || !hasOnlyKeys(value.data, [\"extensions\"]) || !Array.isArray(value.data.extensions)) return invalidResponseValue;",
+    "  const extensions: Record<string, unknown>[] = [];",
+    "  for (const rawItem of value.data.extensions) {",
+    "    if (!isRecord(rawItem) || typeof rawItem.profile_id !== \"string\" || !extensionTokenPattern.test(rawItem.profile_id) || typeof rawItem.claimable !== \"boolean\" || typeof rawItem.claimed !== \"boolean\") return invalidResponseValue;",
+    "    if (rawItem.contract_major !== null && (typeof rawItem.contract_major !== \"number\" || !Number.isSafeInteger(rawItem.contract_major) || rawItem.contract_major < 1)) return invalidResponseValue;",
+    "    const routeFamilies = sortedUniqueStrings(rawItem.route_families, (item) => extensionRoutePattern.test(item));",
+    "    const workspaceKeys = sortedUniqueStrings(rawItem.workspace_keys, (item) => extensionTokenPattern.test(item));",
+    "    const capabilities = sortedUniqueStrings(rawItem.capabilities, (item) => extensionTokenPattern.test(item));",
+    "    if (!routeFamilies || !workspaceKeys || !capabilities || capabilities.length !== 0 || (rawItem.claimable && rawItem.contract_major === null)) return invalidResponseValue;",
+    "    extensions.push({",
+    "      profile_id: rawItem.profile_id,",
+    "      claimable: rawItem.claimable,",
+    "      claimed: rawItem.claimed,",
+    "      contract_major: rawItem.contract_major,",
+    "      route_families: routeFamilies,",
+    "      workspace_keys: workspaceKeys,",
+    "      capabilities,",
+    "    });",
+    "  }",
+    "  return { data: { extensions }, meta: value.meta };",
+    "}",
+    "",
+    "function containsForbiddenAuditKey(value: unknown, visited: WeakSet<object>): boolean {",
+    "  if (value === null || typeof value !== \"object\") return false;",
+    "  if (visited.has(value)) return true;",
+    "  visited.add(value);",
+    "  if (Array.isArray(value)) return value.some((item) => containsForbiddenAuditKey(item, visited));",
+    "  for (const [key, child] of Object.entries(value)) {",
+    "    const normalized = key.toLowerCase();",
+    "    if (forbiddenAuditVisibleFieldTokens.some((token) => normalized.includes(token)) || containsForbiddenAuditKey(child, visited)) return true;",
+    "  }",
+    "  return false;",
+    "}",
+    "",
+    "function auditResponseIsRedactionSafe(value: unknown): boolean {",
+    "  if (!isRecord(value) || !isRecord(value.data) || !Array.isArray(value.data.audit_events)) return false;",
+    "  for (const event of value.data.audit_events) {",
+    "    if (!isRecord(event) || !Array.isArray(event.changes) || event.changes.length === 0) return false;",
+    "    let previousFieldPath: string | undefined;",
+    "    for (const change of event.changes) {",
+    "      if (!isRecord(change) || typeof change.field_path !== \"string\" || change.field_path.trim() === \"\" || (previousFieldPath !== undefined && previousFieldPath >= change.field_path)) return false;",
+    "      previousFieldPath = change.field_path;",
+    "      if (change.value_state === \"redacted\") {",
+    "        if (change.before !== null || change.after !== null) return false;",
+    "      } else if (change.value_state === \"visible\") {",
+    "        const fieldPath = change.field_path.toLowerCase();",
+    "        if (forbiddenAuditVisibleFieldTokens.some((token) => fieldPath.includes(token)) || containsForbiddenAuditKey(change.before, new WeakSet()) || containsForbiddenAuditKey(change.after, new WeakSet())) return false;",
+    "      } else {",
+    "        return false;",
+    "      }",
+    "    }",
+    "  }",
+    "  return true;",
+    "}",
+    "",
+    "function prepareResponseForPolicy(policyID: ResponseValidationPolicyID, value: unknown): unknown | typeof invalidResponseValue {",
+    "  switch (policyID) {",
+    "    case \"closed_schema\":",
+    "    case \"administrative_audit_future_vocabulary\":",
+    "      return value;",
+    "    case \"extension_discovery_additive_items\":",
+    "      return prepareExtensionDiscoveryResponse(value);",
+    "  }",
+    "}",
+    "",
   );
   const responseValidators = operations
     .filter((operation) => operation.responseType)
@@ -582,7 +744,13 @@ function httpOperationBindingSource(operations) {
     "  const schemaId = httpOperationBindings[operationID].response_schema_id;",
     "  if (!schemaId) return { ok: true };",
     "  if (!validator) return { ok: false, schemaId, instancePath: \"\" };",
-    "  if (validator(value)) return { ok: true };",
+    "  const policyID = httpOperationBindings[operationID].response_validation_policy_id;",
+    "  const prepared = prepareResponseForPolicy(policyID, value);",
+    "  if (prepared === invalidResponseValue) return { ok: false, schemaId, instancePath: \"\" };",
+    "  if (validator(prepared)) {",
+    "    if (policyID === \"administrative_audit_future_vocabulary\" && !auditResponseIsRedactionSafe(prepared)) return { ok: false, schemaId, instancePath: \"\" };",
+    "    return { ok: true };",
+    "  }",
     "  return { ok: false, schemaId, instancePath: validator.errors?.[0]?.instancePath ?? \"\" };",
     "}",
     "",
@@ -619,8 +787,8 @@ function httpOperationBindingSource(operations) {
   return `${lines.join("\n")}\n`;
 }
 
-const entrypoints = readJSON(
-  "contracts/protocol-ts/frontend-entrypoints.v1.json",
+const entrypoints = validateFrontendEntrypointsOwner(
+  readJSON("contracts/protocol-ts/frontend-entrypoints.v2.json"),
 );
 const networkFlowEntrypoints = readJSON(
   requireString(
@@ -685,6 +853,17 @@ const selectedHTTPOperations = operationBindings(
     ),
   ),
   openAPIDefinitions,
+);
+const administrativeAuditContract = requireObject(
+  readJSON("contracts/audit/index.json"),
+  "administrative audit contract",
+);
+if (administrativeAuditContract.schema_id !== "cartulary.administrative_audit.v1") {
+  throw new Error("administrative audit contract has unexpected schema_id");
+}
+const forbiddenAuditVisibleFieldTokens = requireSortedUniqueStrings(
+  administrativeAuditContract.forbidden_visible_field_tokens,
+  "administrative audit forbidden_visible_field_tokens",
 );
 const coreHTTPEntrypoints = [
   ...new Set([
@@ -755,13 +934,23 @@ writeFilesAtomically([
     content: collaborationTypes,
   },
   {
-    path: path.join(generatedRoot, "protocol-validators.ts"),
+    path: path.join(generatedRoot, "network-flow-validators.ts"),
     content: validatorSource([
       {
         bundle: networkFlowBundle,
         publicDefinitions: networkFlowPublicDefinitions,
       },
+    ]),
+  },
+  {
+    path: path.join(generatedRoot, "core-http-validators.ts"),
+    content: validatorSource([
       { bundle: coreHTTPBundle, publicDefinitions: coreHTTPPublicDefinitions },
+    ]),
+  },
+  {
+    path: path.join(generatedRoot, "collaboration-validators.ts"),
+    content: validatorSource([
       {
         bundle: collaborationBundle,
         publicDefinitions: collaboration.schemaIDs,
@@ -770,7 +959,10 @@ writeFilesAtomically([
   },
   {
     path: path.join(generatedRoot, "http-operation-bindings.ts"),
-    content: httpOperationBindingSource(selectedHTTPOperations),
+    content: httpOperationBindingSource(
+      selectedHTTPOperations,
+      forbiddenAuditVisibleFieldTokens,
+    ),
   },
   {
     path: path.join(generatedRoot, "network-flow-descriptor.ts"),
@@ -794,4 +986,7 @@ writeFilesAtomically([
       networkFlowMappingRegistry,
     ),
   },
+]);
+removeObsoleteGeneratedOutputs([
+  path.join(generatedRoot, "protocol-validators.ts"),
 ]);

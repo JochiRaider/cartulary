@@ -97,4 +97,3 @@ export const viewSchemaArtifacts: readonly Artifact[] = [
 ];
 
 export const viewSchemaArtifactsIndex = indexArtifacts(viewSchemaArtifacts);
-

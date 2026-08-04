@@ -223,11 +223,33 @@ The repo-local package boundary around that grid stack is fixed:
 - `/packages/view-contracts` parses generated contract artifacts and exposes TypeScript-consumable surface, field, sort, filter, grouping, and capability metadata.
 - `/packages/grid-adapter` owns direct `react-data-grid` imports, stylesheet ownership, the identity-neutral `SemanticDataGrid` facade, vendor-event translation, semantic row-identity assertions, presentation-only group-row or header behavior, and the restricted semantic `GridHandle` for focus, navigation, paste-target planning, scroll-to-anchor, and scroll-element access.
 - `/packages/ui-contracts` owns runtime-safe selector and test-id builders shared by workbook runtime code, unit tests, and browser suites.
-- `/packages/protocol-ts` is the authored facade over generated protocol declarations and static runtime decoders. Browser features MUST decode untrusted payloads at their transport boundary and MUST NOT import its protected generated root directly.
+- `/packages/protocol-ts` exposes only the seven authored family entrypoints listed below. Browser features MUST import the narrow family they consume, decode untrusted payloads at their transport boundary, and MUST NOT import its protected generated, internal, or filesystem paths directly.
 - `/packages/test-utils` owns route-free browser choreography through the explicit `grid`, `accessibility`, and `visual` package subpaths. It MUST NOT own Cartulary routes, domain payloads, authentication, test-control tokens, extension profiles, or app registries.
 - `/apps/web` owns workbook controllers, query state, clipboard scalar-versus-table dispatch and CSV/TSV decoding, HTTP mutation submission, pending replay, and feature interpretation. Its incident collaboration facade owns one WebSocket transport lifecycle per incident and tab; Timeline and extension features retain their own event effects. Exact `view_schema_id` registrations bind contract execution to bounded-context policies, while the reference broker only executes owner-declared requirements. Shared same-origin JSON/CSRF mechanics belong to the frontend transport adapter, not components or policy modules. Tests that target those controllers MUST import the workbook or controller modules directly rather than routing through `App.tsx` re-exports.
 
 `/apps/web/e2e` remains the Playwright discovery and evidence facade. Spec paths and exact titles use semantic owner and behavior identities, and shared support belongs under semantic `support/<owner>` modules. Root fixtures and specs compose those owners; support modules MUST NOT use delivery-shaped helper names, wildcard barrels, app-internal workbook registries, protected generated roots, or grid-vendor imports. Public JSON, privileged test-control, and incident-socket transport are separate facades. Workbook-surface identity and required/optional status flow from `/contracts/view-schemas/index.json` through `/packages/view-contracts` and the E2E contract adapter.
+
+The supported Protocol-TS package surface is exact:
+
+| Specifier | Responsibility |
+| --- | --- |
+| `@cartulary/protocol-ts/collaboration` | Incident-stream message types and payload-safe decoding. |
+| `@cartulary/protocol-ts/errors` | The typed immutable public error and reason-code registry. |
+| `@cartulary/protocol-ts/extensions` | Typed immutable client-support and extension-profile registries. |
+| `@cartulary/protocol-ts/http` | HTTP operation metadata, builders, types, validation, decoder primitives, `ErrorEnvelope`, and `SheetRef`. |
+| `@cartulary/protocol-ts/import-targets` | The generated import-target registry and row types without interpretation. |
+| `@cartulary/protocol-ts/network-flow` | Network Flow types, descriptors, registries, error metadata, and decoders. |
+| `@cartulary/protocol-ts/view-schemas` | View-schema source types, artifacts, typed registry entries, and live registry access. |
+
+There is no aggregate root or `./core-http` export. Generated files remain
+Make-owned projections, but their filesystem layout is private: application,
+package, test, and E2E code must not import `src/generated`, `src/internal`, or
+authored entrypoint files directly. Browser projections are least-privilege:
+only the view-schema artifact collection is retained; audit, revisions, WS,
+error, Extensions, and Network Flow aggregate artifact arrays and the global
+validator/barrel modules are intentionally absent. Update adopted owners and
+machine contracts, then use `make generate`; never recreate a deleted browser
+projection as a compatibility path.
 
 ### 2.3.2 Vendored font asset boundary
 
@@ -382,7 +404,7 @@ The path tree below is an intended baseline shape, not an independently verified
   /packages
     /ui                              # Reusable presentational components
     /grid-adapter                    # Cartulary-owned adapter over react-data-grid
-    /protocol-ts                     # Stable authored protocol facade over generated projections
+    /protocol-ts                     # Seven authored protocol-family entrypoints over protected generated projections
     /view-contracts                  # TypeScript-consumable adapters around view-schema contracts
     /ui-contracts                    # Runtime-safe UI selector and test-id contracts
     /test-utils                      # Shared frontend test helper choreography
@@ -739,7 +761,7 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/packages/ui`             | Reusable presentational components with no workbook-state ownership                                                                                                                                                                                                           |
 | `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps committed rows, the recordless bottom-summary draft row, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and restricted imperative focus/scroll APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
-| `/packages/protocol-ts`    | Stable authored protocol facade over protected generated projections from `/contracts/*`; owns curated exports, runtime decoders, and compatibility types while keeping generated roots private                                                                                                  |
+| `/packages/protocol-ts`    | Seven exact authored family entrypoints over protected generated projections from `/contracts/*`; owns narrow typed registries, protocol-family types, validation, and payload-safe decoders while keeping generated, internal, and filesystem paths private                                                                      |
 | `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                                                               |
 | `/packages/ui-contracts`   | Runtime-safe selector and test-id contracts shared by frontend runtime code and test harnesses                                                                                                                                                                                |
 | `/packages/test-utils`     | Shared browser test helper choreography, including sort, filter, grouping, scroll, paste, anchor assertions, keyboard traversal, focus restoration, accessible-name checks, and accessibility state assertions                                                                 |

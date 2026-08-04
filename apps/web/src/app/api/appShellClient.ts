@@ -1,11 +1,10 @@
 import type {
   CreateDeploymentUserRequest,
-  ExtensionDiscoveryEnvelope,
-  GeneratedExtensionProfileResource,
   GetCurrentAccountPreferencesResponse,
   GetCurrentAccountProfileResponse,
   GetCurrentSessionResponse,
   GetDeploymentUserResponse,
+  ListDeploymentExtensionsResponse,
   ListDeploymentUsersResponse,
   PatchCurrentAccountProfileRequest,
   PatchCurrentAccountProfileResponse,
@@ -15,7 +14,7 @@ import type {
   ResetDeploymentUserPasswordRequest,
   ResetDeploymentUserTOTPRequest,
   RevokeAllDeploymentUserSessionsRequest,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import {
   type APIResult,
   clientTxnID,
@@ -57,7 +56,8 @@ export type DensityMode = Exclude<
   null
 >;
 
-export type ExtensionProfileResource = GeneratedExtensionProfileResource;
+export type ExtensionProfileResource =
+  ListDeploymentExtensionsResponse["data"]["extensions"][number];
 
 export type PagingMeta = NonNullable<
   ListDeploymentUsersResponse["meta"]["paging"]
@@ -309,7 +309,7 @@ export function putAccountPreferences(options: {
 }
 
 export function loadExtensions(options?: ShellGetOptions) {
-  return fetchHTTPOperation<ExtensionDiscoveryEnvelope>({
+  return fetchHTTPOperation<ListDeploymentExtensionsResponse>({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"

@@ -65,7 +65,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
-const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v3";
+const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v4";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
@@ -125,6 +125,16 @@ const contractFamilyRegistryKeys = new Set([
   "schema_id",
   "registry_id",
   "note",
+  "typescript_artifact_support_output",
+  "typescript_barrel_output",
+  "families",
+]);
+const contractFamilyRegistryRequiredKeys = new Set([
+  "$schema",
+  "schema_id",
+  "registry_id",
+  "note",
+  "typescript_artifact_support_output",
   "families",
 ]);
 const contractFamilyEntryKeys = new Set([
@@ -132,10 +142,9 @@ const contractFamilyEntryKeys = new Set([
   "contract_root",
   "generation_status",
   "go_name",
-  "ts_name",
   "output_order",
   "generated_outputs",
-  "typescript_runtime_artifact_prefixes",
+  "typescript_projections",
   "activation_dependency_ids",
   "description",
 ]);
@@ -874,7 +883,7 @@ function validateContractFamilyRegistryShape(file) {
   const registry = readShapeFile(file, file);
   validateSchemaSync(contractFamilyRegistrySchemaID, registry);
   assertObjectKeys(registry, contractFamilyRegistryKeys, file);
-  assertRequiredKeys(registry, contractFamilyRegistryKeys, file);
+  assertRequiredKeys(registry, contractFamilyRegistryRequiredKeys, file);
   requireSchemaID(registry, contractFamilyRegistrySchemaID, file);
   requireExact(
     requireString(registry.registry_id, `${file}.registry_id`),
@@ -882,12 +891,35 @@ function validateContractFamilyRegistryShape(file) {
     `${file}.registry_id`,
   );
   requireString(registry.note, `${file}.note`);
+  const artifactSupportOutput = requireRepoRelativePath(
+    registry.typescript_artifact_support_output,
+    `${file}.typescript_artifact_support_output`,
+  );
+  if (!/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(artifactSupportOutput)) {
+    throw new Error(`${file}.typescript_artifact_support_output must target the Protocol-TS generated root`);
+  }
+  const barrelOutput =
+    registry.typescript_barrel_output === undefined
+      ? undefined
+      : requireRepoRelativePath(
+          registry.typescript_barrel_output,
+          `${file}.typescript_barrel_output`,
+        );
+  if (
+    barrelOutput !== undefined &&
+    (!/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(barrelOutput) ||
+      barrelOutput === artifactSupportOutput)
+  ) {
+    throw new Error(`${file}.typescript_barrel_output must be a distinct Protocol-TS generated file`);
+  }
 
   const familyIDs = [];
   const contractRoots = [];
   const goNames = [];
-  const tsNames = [];
   const outputOrders = [];
+  const generatedOutputOwners = new Map();
+  const projectionOutputOwners = new Map();
+  const projectionIdentifierOwners = new Map();
   const activeIDsByOrder = [];
   const plannedIDs = [];
   validateObjectArray(
@@ -919,11 +951,6 @@ function validateContractFamilyRegistryShape(file) {
           pattern: /^[A-Z][A-Za-z0-9]*$/,
         }),
       );
-      tsNames.push(
-        requireString(entry.ts_name, `${label}.ts_name`, {
-          pattern: /^[a-z][A-Za-z0-9]*$/,
-        }),
-      );
       const outputOrder = requireInteger(entry.output_order, `${label}.output_order`, {
         min: 0,
       });
@@ -933,6 +960,7 @@ function validateContractFamilyRegistryShape(file) {
         `${label}.generated_outputs`,
         { nonEmpty: true },
       );
+      assertUnique(generatedOutputs, `${label}.generated_outputs`);
       for (const generatedOutput of generatedOutputs) {
         requireRepoRelativePath(generatedOutput, `${label}.generated_outputs[]`);
         if (
@@ -943,45 +971,88 @@ function validateContractFamilyRegistryShape(file) {
             `${label}.generated_outputs[] must target the contract generated roots`,
           );
         }
+        if (generatedOutput === artifactSupportOutput || generatedOutput === barrelOutput) {
+          throw new Error(`${label}.generated_outputs[] conflicts with a shared TypeScript output`);
+        }
+        if (generatedOutputOwners.has(generatedOutput)) {
+          throw new Error(`${label}.generated_outputs[] duplicates family ${generatedOutputOwners.get(generatedOutput)}`);
+        }
+        generatedOutputOwners.set(generatedOutput, familyID);
       }
-      const typeScriptRuntimePrefixes = requireStringArray(
-        entry.typescript_runtime_artifact_prefixes,
-        `${label}.typescript_runtime_artifact_prefixes`,
-        {
-          nonEmpty:
-            familyID !== "openapi" &&
-            familyID !== "imports" &&
-            familyID !== "recovery",
-        },
-      );
-      if (familyID === "openapi" && typeScriptRuntimePrefixes.length !== 0) {
-        throw new Error(
-          `${label}.typescript_runtime_artifact_prefixes must stay empty so the raw OpenAPI document cannot enter runtime bundles`,
+      if (!Array.isArray(entry.typescript_projections)) {
+        throw new Error(`${label}.typescript_projections must be an array`);
+      }
+      if (["openapi", "imports", "recovery"].includes(familyID) && entry.typescript_projections.length !== 0) {
+        throw new Error(`${label}.typescript_projections must stay empty for protected backend-only inputs`);
+      }
+      for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
+        const projectionLabel = `${label}.typescript_projections[${projectionIndex}]`;
+        const projection = requireObject(rawProjection, projectionLabel);
+        const kind = requireEnum(
+          projection.projection_kind,
+          `${projectionLabel}.projection_kind`,
+          new Set(["artifact_collection", "json_value"]),
         );
-      }
-      if (familyID === "imports" && typeScriptRuntimePrefixes.length !== 0) {
-        throw new Error(
-          `${label}.typescript_runtime_artifact_prefixes must stay empty so internal adapter descriptors cannot enter frontend bundles`,
+        const allowedKeys =
+          kind === "artifact_collection"
+            ? new Set(["projection_kind", "output_path", "identifier", "index_identifier", "artifact_prefixes"])
+            : new Set(["projection_kind", "output_path", "identifier", "artifact_path"]);
+        assertObjectKeys(projection, allowedKeys, projectionLabel);
+        assertRequiredKeys(projection, allowedKeys, projectionLabel);
+        const outputPath = requireRepoRelativePath(
+          projection.output_path,
+          `${projectionLabel}.output_path`,
         );
-      }
-      if (familyID === "recovery" && typeScriptRuntimePrefixes.length !== 0) {
-        throw new Error(
-          `${label}.typescript_runtime_artifact_prefixes must stay empty so operator-private recovery contracts cannot enter frontend bundles`,
-        );
-      }
-      assertUnique(
-        typeScriptRuntimePrefixes,
-        `${label}.typescript_runtime_artifact_prefixes`,
-      );
-      for (const prefix of typeScriptRuntimePrefixes) {
-        if (
-          !prefix.startsWith(`${contractRoot}/`) ||
-          prefix.includes("..") ||
-          !/^contracts\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\/?$/u.test(prefix)
-        ) {
-          throw new Error(
-            `${label}.typescript_runtime_artifact_prefixes[] must stay within ${contractRoot}`,
+        if (!generatedOutputs.includes(outputPath)) {
+          throw new Error(`${projectionLabel}.output_path must be declared in generated_outputs`);
+        }
+        if (!/^packages\/protocol-ts\/src\/generated\/[A-Za-z0-9._@+-]+\.ts$/u.test(outputPath)) {
+          throw new Error(`${projectionLabel}.output_path must target the Protocol-TS generated root`);
+        }
+        if (projectionOutputOwners.has(outputPath)) {
+          throw new Error(`${projectionLabel}.output_path duplicates family ${projectionOutputOwners.get(outputPath)}`);
+        }
+        projectionOutputOwners.set(outputPath, familyID);
+        const identifiers = [
+          requireString(projection.identifier, `${projectionLabel}.identifier`, {
+            pattern: /^[a-z][A-Za-z0-9]*$/,
+          }),
+        ];
+        if (kind === "artifact_collection") {
+          identifiers.push(
+            requireString(projection.index_identifier, `${projectionLabel}.index_identifier`, {
+              pattern: /^[a-z][A-Za-z0-9]*$/,
+            }),
           );
+          const prefixes = requireStringArray(
+            projection.artifact_prefixes,
+            `${projectionLabel}.artifact_prefixes`,
+            { nonEmpty: true },
+          );
+          assertUnique(prefixes, `${projectionLabel}.artifact_prefixes`);
+          for (const prefix of prefixes) {
+            if (
+              !prefix.startsWith(`${contractRoot}/`) ||
+              prefix.includes("..") ||
+              !/^contracts\/[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*\/?$/u.test(prefix)
+            ) {
+              throw new Error(`${projectionLabel}.artifact_prefixes[] must stay within ${contractRoot}`);
+            }
+          }
+        } else {
+          const artifactPath = requireRepoRelativePath(
+            projection.artifact_path,
+            `${projectionLabel}.artifact_path`,
+          );
+          if (!artifactPath.startsWith(`${contractRoot}/`) || artifactPath.endsWith("/")) {
+            throw new Error(`${projectionLabel}.artifact_path must select one exact artifact within ${contractRoot}`);
+          }
+        }
+        for (const identifier of identifiers) {
+          if (projectionIdentifierOwners.has(identifier)) {
+            throw new Error(`${projectionLabel} identifier ${identifier} duplicates family ${projectionIdentifierOwners.get(identifier)}`);
+          }
+          projectionIdentifierOwners.set(identifier, familyID);
         }
       }
       const activationDependencies = requireStringArray(
@@ -1015,7 +1086,6 @@ function validateContractFamilyRegistryShape(file) {
   assertUnique(familyIDs, `${file}.families.family_id`);
   assertUnique(contractRoots, `${file}.families.contract_root`);
   assertUnique(goNames, `${file}.families.go_name`);
-  assertUnique(tsNames, `${file}.families.ts_name`);
   assertUnique(outputOrders, `${file}.families.output_order`);
 
   if (!familyIDs.includes("network-flow")) {
@@ -1033,24 +1103,25 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("revisions")) {
     throw new Error(`${file}.families must declare revisions`);
   }
-  const expectedBaseActiveIDs = [
+  const expectedActiveIDs = [
     "openapi",
     "ws",
     "view-schemas",
     "errors",
     "extensions",
+    "network-flow",
+    "audit",
+    "imports",
+    "recovery",
+    "revisions",
   ];
-  const expectedActiveIDVariants = [
-    [...expectedBaseActiveIDs, "audit", "imports", "recovery", "revisions"].join("\n"),
-    [...expectedBaseActiveIDs, "network-flow", "audit", "imports", "recovery", "revisions"].join("\n"),
-  ];
-  if (!expectedActiveIDVariants.includes(activeIDsByOrder.filter(Boolean).join("\n"))) {
+  if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(
-      `${file}.families active output_order must be ${expectedBaseActiveIDs.join(", ")}, optional network-flow, audit, imports, recovery, revisions`,
+      `${file}.families active output_order must be ${expectedActiveIDs.join(", ")}`,
     );
   }
-  if (plannedIDs.length > 1 || (plannedIDs.length === 1 && plannedIDs[0] !== "network-flow")) {
-    throw new Error(`${file}.families may declare only network-flow as planned`);
+  if (plannedIDs.length !== 0) {
+    throw new Error(`${file}.families has no planned family in v4`);
   }
 }
 

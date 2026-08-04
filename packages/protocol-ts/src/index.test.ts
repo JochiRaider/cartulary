@@ -1,57 +1,52 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-
-import * as protocolFacade from "./index";
+import { incidentStreamMessageDecoder } from "./entrypoints/collaboration.js";
+import { errorRegistry } from "./entrypoints/errors.js";
 import {
-  type AccountPreferencesEnvelope,
-  type AccountPreferencesPutRequest,
-  type AccountPreferencesResource,
-  type AccountProfileEnvelope,
-  type AccountProfilePatchRequest,
-  type AccountProfileResource,
+  extensionClientSupportRegistry,
+  extensionProfileRegistry,
+} from "./entrypoints/extensions.js";
+import {
   type ApplyImportSessionRequest,
+  type AttachBlobToEvidenceRecordRequest,
+  type AttachBlobToEvidenceRecordResponse,
   buildHTTPOperationPath,
   type CancelJobRequest,
-  type ContractArtifact,
-  type DensityMode,
+  type CreateObjectBlobSlotRequest,
+  type CreateObjectBlobSlotResponse,
   type ErrorEnvelope,
-  type EvidenceAttachBlobEnvelope,
-  type EvidenceAttachBlobRequest,
-  type EvidenceHandleEnvelope,
-  type EvidenceHandleIssueRequest,
-  type ExtensionRegistryContract,
   encodeHTTPOperationQuery,
-  extensionDiscoveryDecoder,
-  getContractArtifact,
-  getErrorRegistryContract,
-  getExtensionProfile,
-  getExtensionRegistryContract,
-  getReasonCodeRegistry,
-  getViewSchemaRegistryContract,
-  getViewSchemaRegistryEntry,
+  type GetCurrentAccountPreferencesResponse,
+  type GetCurrentAccountProfileResponse,
   type HTTPOperationRequest,
   type HTTPOperationResponse,
   httpOperationBindings,
-  incidentStreamMessageDecoder,
+  type IssueEvidencePreviewHandleRequest,
+  type IssueEvidencePreviewHandleResponse,
   type ListImportUnitsResponse,
-  listContractArtifactFamilies,
-  listExtensionProfiles,
-  listViewSchemaRegistryEntries,
-  networkFlowContractDescriptor,
-  networkFlowDecoders,
-  type ObjectBlobCreateEnvelope,
-  type ObjectBlobCreateRequest,
-  type ObjectBlobUploadTarget,
-  parseContractArtifact,
+  type PatchCurrentAccountProfileRequest,
+  type PatchCurrentAccountProfileResponse,
+  type PutCurrentAccountPreferencesRequest,
+  type PutCurrentAccountPreferencesResponse,
   type QueryWorkbookViewRequest,
   type QueryWorkbookViewResponse,
-  requireContractArtifact,
-  requireExtensionProfile,
-  requireReasonCodeRegistry,
-  requireViewSchemaRegistryEntry,
   type SelectImportUnitResponse,
-  type ViewSchemaRegistryContract,
   validateHTTPOperationResponse,
-} from "./index";
+} from "./entrypoints/http.js";
+import {
+  networkFlowContractDescriptor,
+  networkFlowDecoders,
+  networkFlowErrorRegistry,
+} from "./entrypoints/network-flow.js";
+import {
+  listViewSchemaRegistryEntries,
+  viewSchemaRegistry,
+} from "./entrypoints/view-schemas.js";
+
+type ObjectBlobUploadTarget =
+  CreateObjectBlobSlotResponse["data"]["upload_target"];
+type AccountProfileResource = GetCurrentAccountProfileResponse["data"];
+type AccountPreferencesResource = GetCurrentAccountPreferencesResponse["data"];
+type DensityMode = Exclude<AccountPreferencesResource["density_mode"], null>;
 
 const requiredBaseViewSchemaIds = [
   "cartulary.view.timeline.v2",
@@ -70,112 +65,37 @@ const requiredBaseViewSchemaIds = [
   "cartulary.view.lesson.v1",
 ] as const;
 
-describe("@cartulary/protocol-ts facade", () => {
-  it("characterizes the exact root runtime surface and stable artifact identity", () => {
-    expect(Object.keys(protocolFacade).sort()).toEqual([
-      "buildHTTPOperationPath",
-      "createGeneratedDecoder",
-      "decodeExtensionDiscoveryItem",
-      "encodeHTTPOperationQuery",
-      "extensionDiscoveryDecoder",
-      "getContractArtifact",
-      "getErrorRegistryContract",
-      "getExtensionProfile",
-      "getExtensionRegistryContract",
-      "getNetworkFlowErrorRegistry",
-      "getReasonCodeRegistry",
-      "getViewSchemaRegistryContract",
-      "getViewSchemaRegistryEntry",
-      "httpOperationBindings",
-      "importTargetRegistry",
-      "incidentStreamMessageDecoder",
-      "listContractArtifactFamilies",
-      "listErrorArtifacts",
-      "listExtensionArtifacts",
-      "listExtensionProfiles",
-      "listReasonCodeRegistries",
-      "listViewSchemaArtifacts",
-      "listViewSchemaRegistryEntries",
-      "listWSArtifacts",
-      "networkFlowContractDescriptor",
-      "networkFlowDecoders",
-      "networkFlowMappingRegistry",
-      "networkFlowPresentationRegistry",
-      "parseContractArtifact",
-      "requireContractArtifact",
-      "requireContractArtifactJSON",
-      "requireExtensionProfile",
-      "requireReasonCodeRegistry",
-      "requireViewSchemaRegistryEntry",
-      "validateHTTPOperationResponse",
-    ]);
+function expectDeepFrozen(
+  value: unknown,
+  visited = new WeakSet<object>(),
+): void {
+  if (value === null || typeof value !== "object" || visited.has(value)) return;
+  visited.add(value);
+  expect(Object.isFrozen(value)).toBe(true);
+  for (const child of Object.values(value)) expectDeepFrozen(child, visited);
+}
 
-    const firstFamilies = listContractArtifactFamilies();
-    expect(listContractArtifactFamilies()).toBe(firstFamilies);
-    expect(protocolFacade.listWSArtifacts()).toBe(firstFamilies.wsArtifacts);
-    expect(protocolFacade.listViewSchemaArtifacts()).toBe(
-      firstFamilies.viewSchemaArtifacts,
+describe("@cartulary/protocol-ts family conformance", () => {
+  it("emits owner-selected registries as deeply readonly stable values", () => {
+    for (const registry of [
+      errorRegistry,
+      extensionClientSupportRegistry,
+      extensionProfileRegistry,
+      networkFlowErrorRegistry,
+      viewSchemaRegistry,
+    ]) {
+      expectDeepFrozen(registry);
+    }
+    expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
+    expect(extensionProfileRegistry.schema_id).toBe(
+      "cartulary.extension_profile_registry.v1",
     );
-    expect(protocolFacade.listErrorArtifacts()).toBe(
-      firstFamilies.errorArtifacts,
+    expect(networkFlowErrorRegistry.schema_id).toBe(
+      "cartulary.network_flow_error_contracts.v1",
     );
-    expect(protocolFacade.listExtensionArtifacts()).toBe(
-      firstFamilies.extensionArtifacts,
+    expect(viewSchemaRegistry.registry_id).toBe(
+      "cartulary.view_schemas.base.v1",
     );
-    expect(Object.isFrozen(firstFamilies)).toBe(true);
-    expect(Object.isFrozen(incidentStreamMessageDecoder)).toBe(true);
-    expect(Object.isFrozen(networkFlowDecoders)).toBe(true);
-    expect(protocolFacade.incidentStreamMessageDecoder).toBe(
-      incidentStreamMessageDecoder,
-    );
-    expect(protocolFacade.networkFlowDecoders.tableList).toBe(
-      networkFlowDecoders.tableList,
-    );
-
-    expect(
-      Object.values(firstFamilies)
-        .flat()
-        .map((artifact) => `${artifact.path}:${artifact.sha256}`),
-    ).toEqual([
-      "contracts/ws/index.schema.json:1f0155f872991f00afe7c2ea83269b656f8ab873cfcadd411e0a8a0a1425eeaa",
-      "contracts/view-schemas/cartulary.view.assessments.v1.json:d45c00b3df0ce14104aa6cb338700cfda81c5efa7662c40dda335140edc53640",
-      "contracts/view-schemas/cartulary.view.comm_log.v1.json:75ce6aa473202be2e4eb702ea75d6761ce3211badf04325b5ab16f3ef5c10348",
-      "contracts/view-schemas/cartulary.view.decisions.v1.json:1bbf524b237a07e45dafa9e13872882a3c1ffcc0a360cfeac9ab8f0109c57677",
-      "contracts/view-schemas/cartulary.view.evidence.v1.json:9784f4262d447bcde2d0dd3decb0d512d2c46a293c5a6fbf20d81202dfdbaf79",
-      "contracts/view-schemas/cartulary.view.findings.v1.json:2a0593f2196030a3747dc3ee666040068794f2ac595fe997791bd7b1ec627210",
-      "contracts/view-schemas/cartulary.view.forensic_keywords.v1.json:9fae534b5548cee5952ce811540f82f9d9f6bd6cb5dc715109d75ac002dfc577",
-      "contracts/view-schemas/cartulary.view.handoff.v1.json:3920ca6215c0ed2aa995a2e15ab4f9f727700d5b640c93c646f399107dddda8d",
-      "contracts/view-schemas/cartulary.view.hosts.v1.json:ec1bdcd1375b826fd0e483d74df49c5c70f0cf7de0cba298a42b2a328ec50489",
-      "contracts/view-schemas/cartulary.view.identities.v1.json:76f9dee4f302ff471a149c1954ba77a6efefb231e3db4c92439c6b4a1099f0cc",
-      "contracts/view-schemas/cartulary.view.indicators.v1.json:4f8f8263073cd59e550ac5fa137631cbcf4c435bb1bde792236d4c9d9ea5d815",
-      "contracts/view-schemas/cartulary.view.investigative_queries.v1.json:667230d66a48965c758be280396d733c3b221947a8d6e9416cc5257fd2309984",
-      "contracts/view-schemas/cartulary.view.lesson.v1.json:b5c546a6b65c11de5fe3cc929634d17d62d93e6d6764fcc01f8f27027f235b2e",
-      "contracts/view-schemas/cartulary.view.notes.v1.json:8ed810f3cf03e3ed9e4de79d7b41c1c305ccac71ac8ef4278c63717fd39c858b",
-      "contracts/view-schemas/cartulary.view.parties.v1.json:9d9d9b9d3770b81518c732ec424c6eae772744c77d55017841cdc69263eb09a9",
-      "contracts/view-schemas/cartulary.view.status_review.v1.json:7e6d6bd4bf970a99ffe044e6a07777c0dfb9e1cf5c1aa4f1ae6cce4e2bc1328f",
-      "contracts/view-schemas/cartulary.view.task_requests.v1.json:4009aed0c9e8ac17c9f1075eb0a4180f37bbf12c2f6fd7d6f4eef89cf20d6e45",
-      "contracts/view-schemas/cartulary.view.timeline.v2.json:d21045fadef3d1ee6bcdddd73c5abce5fc21d0b2cec49fbbe57741629712bc1d",
-      "contracts/view-schemas/index.json:a3cc8a9f2001e2d40150bfc8e2fbed62401118fb5b1aa854aa1be3573f1fe0f4",
-      "contracts/errors/index.json:e5a857dda85be46d51134bc324ef8028aff0dc3bae4c5e049c7c9a173c0d2a22",
-      "contracts/extensions/generated/client-support-registry.json:e7f906285d9138feed9c7e5105fa79681496d6337052390a0fa5ec59272de470",
-      "contracts/extensions/generated/descriptors/enterprise_authentication.json:703a46d1c5274109574b912555168c33c28ab678290f43b3e43598edd2116957",
-      "contracts/extensions/generated/descriptors/import.json:e47b16467ac8030a82169e17d9421d1a77fe87de0b8f77a8290242dcc0497e53",
-      "contracts/extensions/generated/descriptors/incident_portability.json:a4ada5b51aa648f8aea6c16cae979663519b2e59cad36e429bb3cf73b058db55",
-      "contracts/extensions/generated/descriptors/network_flow_activity.json:d4472be715f9ac9e7273de6cd0389bbbf63e158a429647547a84d0192766f327",
-      "contracts/extensions/generated/descriptors/reference_pack.json:d0b7a5d664a97b113d4376b0e13088a5ce8315d859fe536f5ce9f77c4f16efc5",
-      "contracts/extensions/generated/descriptors/snapshot_reporting.json:6a1f47e4f2036eddab4b932c88815a96733d9a4e5c4b69d269285c94f79b9536",
-      "contracts/extensions/generated/profile-registry.json:780023873673b58663db9156497cf32867726b48a1d3560b7465f3c5e0fc2ed9",
-      "contracts/network-flow/errors.v1.json:00b89a0de2b99037b25c661012707dd1fa81d0335de05bc31146cd2e3e2eff56",
-      "contracts/network-flow/frontend-entrypoints.v3.json:d6e4c65d82c01a5ade347e5cd992ec7e7234cffcf6137859a4dccc4b4a90401e",
-      "contracts/network-flow/index.json:daf4be3faf5e9848ec5ac70ce06ec202ff25c0636a5fa4955ba88aca9ee6626d",
-      "contracts/network-flow/key-rings.v1.schema.json:e71f02f71dad4f06b997a80928497acb831a8a2794be31a56cf09fb11b44cc1a",
-      "contracts/network-flow/mapping-registry.v2.json:2f406bfeb37e2f5cd12a9901f34c22ed1ceb88a98bcf0a326d6d12f7845fd381",
-      "contracts/network-flow/presentation.v2.json:74567c1d348c7c31861a85584a2ccbc63cc666a970f4f2d2d538c158d5358f6c",
-      "contracts/network-flow/routes.v1.json:8c3cef00088d29b29ad6b630ac08a68a212a711fd7ce86d8fbd650169f0d92fd",
-      "contracts/network-flow/schemas.v1.json:94463c8964c51158d89a3d102c821a3d9a7082f918179d1f7d3c74c65a1e1ca9",
-      "contracts/network-flow/timezone/tzdb-2026c.provenance.json:bf77ec3f4efc3a31e37426adae4b0c8ed574f69da6d9dbc76587da7034e91aa5",
-      "contracts/network-flow/unicode17-nfc.provenance.json:10bcf7b12536e39da236678c60e01a6e32f7fb9e509ec628563cfec97b7d5ea4",
-    ]);
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
@@ -537,49 +457,112 @@ describe("@cartulary/protocol-ts facade", () => {
       }),
     );
     expect(JSON.stringify(invalid)).not.toContain("must-not-leak");
-  });
 
-  it("exposes generated artifact families through stable facade helpers", () => {
-    const families = listContractArtifactFamilies();
+    const futureVocabularyAuditEnvelope = {
+      data: {
+        audit_events: [
+          {
+            action_code: "future_owner_action",
+            actor_kind: "system",
+            actor_user_id: null,
+            audit_event_id: "00000000-0000-4000-8000-000000000001",
+            changes: [
+              {
+                after: "safe",
+                before: null,
+                field_path: "future_field",
+                value_state: "visible",
+              },
+            ],
+            occurred_at: "2026-08-04T02:00:00Z",
+            reason_code: null,
+            scope_id: null,
+            scope_kind: "deployment",
+            source: "system",
+            target_id: "future-target",
+            target_kind: "future_owner_target",
+          },
+        ],
+      },
+      meta: { request_id: "request-future-audit" },
+    };
+    for (const operationID of [
+      "listAdministrativeAuditEvents",
+      "listIncidentMembershipAuditEvents",
+    ] as const) {
+      expect(
+        validateHTTPOperationResponse(
+          operationID,
+          futureVocabularyAuditEnvelope,
+        ),
+      ).toEqual({ ok: true });
+    }
 
-    expect("openAPIArtifacts" in families).toBe(false);
-    expect(families.wsArtifacts.map((artifact) => artifact.path)).toEqual([
-      "contracts/ws/index.schema.json",
-    ]);
-    expect(
-      families.viewSchemaArtifacts.map((artifact) => artifact.path),
-    ).toContain("contracts/view-schemas/index.json");
-    expect(families.errorArtifacts.map((artifact) => artifact.path)).toEqual([
-      "contracts/errors/index.json",
-    ]);
-    expect(
-      families.extensionArtifacts.map((artifact) => artifact.path),
-    ).toContain("contracts/extensions/generated/profile-registry.json");
-
-    const artifact: ContractArtifact = requireContractArtifact(
-      "contracts/view-schemas/index.json",
-    );
-    expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(artifact.json).toContain("cartulary.view_schemas.base.v1");
-  });
-
-  it("requires and parses known contract artifacts through the facade", () => {
-    expect(getContractArtifact("contracts/view-schemas/index.json")?.path).toBe(
-      "contracts/view-schemas/index.json",
-    );
-    expect(
-      parseContractArtifact<ViewSchemaRegistryContract>(
-        "contracts/view-schemas/index.json",
-      ).registry_id,
-    ).toBe("cartulary.view_schemas.base.v1");
-
-    expect(() =>
-      requireContractArtifact("contracts/view-schemas/missing.json"),
-    ).toThrow("missing contract artifact contracts/view-schemas/missing.json");
+    for (const unsafeAuditEnvelope of [
+      {
+        ...futureVocabularyAuditEnvelope,
+        data: {
+          audit_events: [
+            {
+              ...futureVocabularyAuditEnvelope.data.audit_events[0],
+              changes: [
+                {
+                  after: "must-not-leak",
+                  before: null,
+                  field_path: "password",
+                  value_state: "redacted",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        ...futureVocabularyAuditEnvelope,
+        data: {
+          audit_events: [
+            {
+              ...futureVocabularyAuditEnvelope.data.audit_events[0],
+              changes: [
+                {
+                  after: { nested_secret: "must-not-leak" },
+                  before: null,
+                  field_path: "safe_field",
+                  value_state: "visible",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        ...futureVocabularyAuditEnvelope,
+        data: {
+          audit_events: [
+            {
+              ...futureVocabularyAuditEnvelope.data.audit_events[0],
+              future_structure: true,
+            },
+          ],
+        },
+      },
+    ]) {
+      const validation = validateHTTPOperationResponse(
+        "listAdministrativeAuditEvents",
+        unsafeAuditEnvelope,
+      );
+      expect(validation).toEqual(
+        expect.objectContaining({
+          ok: false,
+          schemaId: "cartulary.core_http.AdministrativeAuditEnvelope.v1",
+        }),
+      );
+      expect(JSON.stringify(validation)).not.toContain("must-not-leak");
+    }
   });
 
   it("exposes stable current-profile view schema identifiers", () => {
-    const registry = getViewSchemaRegistryContract();
+    const registry = viewSchemaRegistry;
     const ids = listViewSchemaRegistryEntries().map(
       (entry) => entry.view_schema_id,
     );
@@ -587,24 +570,28 @@ describe("@cartulary/protocol-ts facade", () => {
     expect(registry.registry_id).toBe("cartulary.view_schemas.base.v1");
     expect(ids).toEqual(expect.arrayContaining([...requiredBaseViewSchemaIds]));
     for (const viewSchemaId of requiredBaseViewSchemaIds) {
-      expect(requireViewSchemaRegistryEntry(viewSchemaId).artifact_path).toBe(
-        `contracts/view-schemas/${viewSchemaId}.json`,
-      );
+      expect(
+        registry.view_schemas.find(
+          (entry) => entry.view_schema_id === viewSchemaId,
+        )?.artifact_path,
+      ).toBe(`contracts/view-schemas/${viewSchemaId}.json`);
     }
     expect(
-      getViewSchemaRegistryEntry("cartulary.view.missing.v1"),
+      registry.view_schemas.find(
+        (entry) => entry.view_schema_id === "cartulary.view.missing.v1",
+      ),
     ).toBeUndefined();
-    expect(() =>
-      requireViewSchemaRegistryEntry("cartulary.view.missing.v1"),
-    ).toThrow(
-      "missing view-schema registry entry for cartulary.view.missing.v1",
-    );
   });
 
-  it("exposes error and reason-code registries through facade helpers", () => {
-    expect(getErrorRegistryContract().registry_id).toBe(
-      "cartulary.errors.phase3.v1",
-    );
+  it("exposes the typed error and reason-code registry", () => {
+    const requireReasonCodeRegistry = (errorCode: string) => {
+      const registry = errorRegistry.reason_registries.find(
+        (candidate) => candidate.error_code === errorCode,
+      );
+      if (!registry) throw new Error(`missing reason registry ${errorCode}`);
+      return registry;
+    };
+    expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
     expect(
       requireReasonCodeRegistry("invalid_mutation_payload").reason_codes,
     ).toEqual(
@@ -621,20 +608,19 @@ describe("@cartulary/protocol-ts facade", () => {
         expect.objectContaining({ code: "unsupported_sheet_ref_kind" }),
       ]),
     );
-    expect(getReasonCodeRegistry("missing_error_code")).toBeUndefined();
+    expect(
+      errorRegistry.reason_registries.find(
+        (registry) => String(registry.error_code) === "missing_error_code",
+      ),
+    ).toBeUndefined();
     expect(() => requireReasonCodeRegistry("missing_error_code")).toThrow(
-      "missing reason-code registry for missing_error_code",
+      "missing reason registry missing_error_code",
     );
   });
 
-  it("exposes extension registry profiles through facade helpers", () => {
-    const registry = parseContractArtifact<ExtensionRegistryContract>(
-      "contracts/extensions/generated/profile-registry.json",
-    );
-
-    expect(getExtensionRegistryContract()).toEqual(registry);
+  it("exposes typed extension registry profiles", () => {
     expect(
-      listExtensionProfiles().map((profile) => profile.profile_id),
+      extensionProfileRegistry.profiles.map((profile) => profile.profile_id),
     ).toEqual([
       "enterprise_authentication",
       "import",
@@ -643,13 +629,68 @@ describe("@cartulary/protocol-ts facade", () => {
       "reference_pack",
       "snapshot_reporting",
     ]);
-    expect(requireExtensionProfile("reference_pack").route_families).toContain(
-      "/api/v1/reference-packs",
-    );
-    expect(getExtensionProfile("missing_profile")).toBeUndefined();
-    expect(() => requireExtensionProfile("missing_profile")).toThrow(
-      "missing extension profile for missing_profile",
-    );
+    expect(
+      extensionProfileRegistry.profiles.find(
+        (profile) => profile.profile_id === "reference_pack",
+      )?.route_families,
+    ).toContain("/api/v1/reference-packs");
+    expect(
+      extensionProfileRegistry.profiles.find(
+        (profile) => String(profile.profile_id) === "missing_profile",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("implements extension discovery tolerance through the HTTP owner policy", () => {
+    const additiveEnvelope = {
+      data: {
+        extensions: [
+          {
+            capabilities: [],
+            claimable: true,
+            claimed: true,
+            contract_major: 2,
+            future_additive_member: { executable: "must-remain-inert" },
+            profile_id: "network_flow_activity",
+            route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
+            workspace_keys: ["network_analysis"],
+          },
+        ],
+      },
+      meta: { request_id: "request-test" },
+    };
+    expect(
+      validateHTTPOperationResponse(
+        "listDeploymentExtensions",
+        additiveEnvelope,
+      ),
+    ).toEqual({ ok: true });
+    for (const invalidEnvelope of [
+      {
+        ...additiveEnvelope,
+        data: {
+          extensions: [
+            {
+              ...additiveEnvelope.data.extensions[0],
+              route_families: ["/api/v1/z", "/api/v1/a"],
+            },
+          ],
+        },
+      },
+      { ...additiveEnvelope, future_envelope_member: true },
+    ]) {
+      const validation = validateHTTPOperationResponse(
+        "listDeploymentExtensions",
+        invalidEnvelope,
+      );
+      expect(validation).toEqual(
+        expect.objectContaining({
+          ok: false,
+          schemaId: "cartulary.core_http.ExtensionDiscoveryEnvelope.v1",
+        }),
+      );
+      expect(JSON.stringify(validation)).not.toContain("must-remain-inert");
+    }
   });
 
   it("decodes exact Network Flow contracts without exposing payload data on failure", () => {
@@ -849,132 +890,6 @@ describe("@cartulary/protocol-ts facade", () => {
     }
   });
 
-  it("decodes the Core extension discovery envelope at the transport boundary", () => {
-    expect(
-      extensionDiscoveryDecoder.decode({
-        data: { extensions: [] },
-        meta: { request_id: "request-test" },
-      }),
-    ).toEqual({
-      ok: true,
-      value: {
-        data: { extensions: [] },
-        meta: { request_id: "request-test" },
-      },
-    });
-
-    expect(
-      extensionDiscoveryDecoder.decode({
-        data: {
-          extensions: [
-            {
-              profile_id: "network_flow_activity",
-              claimable: true,
-              claimed: true,
-              contract_major: 2,
-              route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
-              workspace_keys: ["network_analysis"],
-              capabilities: [],
-              future_additive_member: { executable: "must-remain-inert" },
-            },
-          ],
-        },
-        meta: { request_id: "request-test" },
-      }),
-    ).toEqual({
-      ok: true,
-      value: {
-        data: {
-          extensions: [
-            {
-              profile_id: "network_flow_activity",
-              claimable: true,
-              claimed: true,
-              contract_major: 2,
-              route_families: ["/api/v1/incidents/{incident_id}/network-flow"],
-              workspace_keys: ["network_analysis"],
-              capabilities: [],
-            },
-          ],
-        },
-        meta: { request_id: "request-test" },
-      },
-    });
-
-    const knownItem = {
-      capabilities: [],
-      claimable: true,
-      claimed: true,
-      contract_major: 2,
-      profile_id: "network_flow_activity",
-      route_families: [
-        "/api/v1/incidents/{incident_id}/network-flow",
-        "/api/v1/network-flow",
-      ],
-      workspace_keys: ["network_analysis", "network_tables"],
-      future_additive_member: { executable: "must-remain-inert" },
-    };
-    const decodedKnownItem =
-      protocolFacade.decodeExtensionDiscoveryItem(knownItem);
-    expect(Object.keys(decodedKnownItem).sort()).toEqual([
-      "capabilities",
-      "claimable",
-      "claimed",
-      "contract_major",
-      "profile_id",
-      "route_families",
-      "workspace_keys",
-    ]);
-    expect(decodedKnownItem).not.toHaveProperty("future_additive_member");
-
-    for (const invalidItem of [
-      { ...knownItem, profile_id: "Invalid-Profile" },
-      {
-        ...knownItem,
-        route_families: ["/api/v1/z", "/api/v1/a"],
-      },
-      {
-        ...knownItem,
-        workspace_keys: ["network_analysis", "network_analysis"],
-      },
-      { ...knownItem, capabilities: ["future_execution"] },
-      { ...knownItem, contract_major: null },
-    ]) {
-      expect(() =>
-        protocolFacade.decodeExtensionDiscoveryItem(invalidItem),
-      ).toThrow("invalid extension discovery");
-    }
-
-    for (const malformedEnvelope of [
-      null,
-      {},
-      { data: { extensions: "not-an-array" }, meta: { request_id: "req" } },
-      {
-        data: {
-          extensions: [knownItem, { ...knownItem, profile_id: "invalid-id!" }],
-        },
-        meta: { request_id: "req" },
-      },
-      {
-        data: { extensions: [knownItem] },
-        meta: { request_id: 42 },
-      },
-    ]) {
-      const result = extensionDiscoveryDecoder.decode(malformedEnvelope);
-      expect(result).toEqual(
-        expect.objectContaining({
-          ok: false,
-          error: expect.objectContaining({
-            boundary: "generated_protocol",
-            schemaId: "cartulary.core_http.ExtensionDiscoveryEnvelope.v1",
-          }),
-        }),
-      );
-      expect(result).not.toHaveProperty("value");
-      expect(JSON.stringify(result)).not.toContain("must-remain-inert");
-    }
-  });
-
   it("checks evidence protocol values through generated types", () => {
     const createRequest = {
       incident_id: "incident-1",
@@ -983,7 +898,7 @@ describe("@cartulary/protocol-ts facade", () => {
       filename_hint: "evidence.txt",
       content_type_hint: "text/plain",
       sha256_hex: null,
-    } satisfies ObjectBlobCreateRequest;
+    } satisfies CreateObjectBlobSlotRequest;
     const uploadTarget = {
       href: "/api/v1/object-uploads/upload-token",
       method: "PUT",
@@ -1007,12 +922,12 @@ describe("@cartulary/protocol-ts facade", () => {
         upload_target: uploadTarget,
       },
       meta: { request_id: "req-create-blob" },
-    } satisfies ObjectBlobCreateEnvelope;
+    } satisfies CreateObjectBlobSlotResponse;
     const attachRequest = {
       object_blob_id: createEnvelope.data.object_blob_id,
       base_row_version: 1,
       client_txn_id: "txn-attach-blob",
-    } satisfies EvidenceAttachBlobRequest;
+    } satisfies AttachBlobToEvidenceRecordRequest;
     const attachEnvelope = {
       data: {
         change_set_id: "change-1",
@@ -1025,8 +940,8 @@ describe("@cartulary/protocol-ts facade", () => {
         view_schema_id: "cartulary.view.evidence.v1",
       },
       meta: { request_id: "req-attach-blob" },
-    } satisfies EvidenceAttachBlobEnvelope;
-    const handleRequest = {} satisfies EvidenceHandleIssueRequest;
+    } satisfies AttachBlobToEvidenceRecordResponse;
+    const handleRequest = {} satisfies IssueEvidencePreviewHandleRequest;
     const handleEnvelope = {
       data: {
         content_type: "text/plain",
@@ -1048,7 +963,7 @@ describe("@cartulary/protocol-ts facade", () => {
         upload_state: "available",
       },
       meta: { request_id: "req-handle" },
-    } satisfies EvidenceHandleEnvelope;
+    } satisfies IssueEvidencePreviewHandleResponse;
     const errorEnvelope = {
       error: {
         status: 409,
@@ -1090,20 +1005,20 @@ describe("@cartulary/protocol-ts facade", () => {
       base_user_version: profileResource.user_version,
       client_txn_id: "txn-profile",
       display_name: "Operator Prime",
-    } satisfies AccountProfilePatchRequest;
+    } satisfies PatchCurrentAccountProfileRequest;
     const preferencesPutRequest = {
       base_preferences_version: preferencesResource.preferences_version,
       client_txn_id: "txn-preferences",
       density_mode: null,
-    } satisfies AccountPreferencesPutRequest;
+    } satisfies PutCurrentAccountPreferencesRequest;
     const profileEnvelope = {
       data: profileResource,
       meta: { request_id: "req-profile" },
-    } satisfies AccountProfileEnvelope;
+    } satisfies PatchCurrentAccountProfileResponse;
     const preferencesEnvelope = {
       data: preferencesResource,
       meta: { request_id: "req-preferences" },
-    } satisfies AccountPreferencesEnvelope;
+    } satisfies PutCurrentAccountPreferencesResponse;
 
     expect(profilePatchRequest.display_name).toBe("Operator Prime");
     expect(preferencesPutRequest.density_mode).toBeNull();

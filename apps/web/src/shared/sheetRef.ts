@@ -1,6 +1,6 @@
-import type { SheetRef } from "@cartulary/protocol-ts/core-http";
+import type { SheetRef } from "@cartulary/protocol-ts/http";
 
-export type { SheetRef } from "@cartulary/protocol-ts/core-http";
+export type { SheetRef } from "@cartulary/protocol-ts/http";
 
 const exactKeys = (record: Record<string, unknown>, expected: string[]) => {
   const keys = Object.keys(record).sort();

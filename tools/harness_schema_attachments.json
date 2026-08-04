@@ -65,8 +65,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.contract_family_registry.v3",
-      "path": "tools/schemas/cartulary.contract_family_registry.v3.schema.json",
+      "schema_id": "cartulary.contract_family_registry.v4",
+      "path": "tools/schemas/cartulary.contract_family_registry.v4.schema.json",
       "classification": "owner_input",
       "producer": "contract family owner",
       "validation": "json-shape-check"
@@ -464,15 +464,15 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v1",
-      "path": "tools/schemas/cartulary.protocol_ts_frontend_entrypoints.v1.schema.json",
+      "schema_id": "cartulary.protocol_ts_frontend_entrypoints.v2",
+      "path": "tools/schemas/cartulary.protocol_ts_frontend_entrypoints.v2.schema.json",
       "classification": "owner_input",
       "producer": "protocol TypeScript package owner",
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.protocol_ts_http_operations.v1",
-      "path": "tools/schemas/cartulary.protocol_ts_http_operations.v1.schema.json",
+      "schema_id": "cartulary.protocol_ts_http_operations.v2",
+      "path": "tools/schemas/cartulary.protocol_ts_http_operations.v2.schema.json",
       "classification": "owner_input",
       "producer": "protocol TypeScript package owner",
       "validation": "json-shape-check"

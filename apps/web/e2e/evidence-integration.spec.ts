@@ -8,7 +8,7 @@ import type {
   IssueEvidenceDownloadHandleResponse,
   IssueEvidencePreviewHandleRequest,
   IssueEvidencePreviewHandleResponse,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,

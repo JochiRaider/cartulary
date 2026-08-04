@@ -177,7 +177,7 @@ never mixes source, catalog, verification, or profile digests.
   and application-private copy. Shared selector packages do not become owners
   of application state merely because selectors accept those values.
 - Navigation, startup, presence, saved-view, and extension-workspace semantics
-  use generated `SheetRef` from `@cartulary/protocol-ts/core-http`. Plain
+  use generated `SheetRef` from `@cartulary/protocol-ts/http`. Plain
   `view_schema_id` strings are limited to view-schema-specific operations and
   selector builders, where the canonical registry validates them.
 - `packages/grid-adapter` owns the shared grid integration boundary; application
@@ -186,8 +186,10 @@ never mixes source, catalog, verification, or profile digests.
   semantic DOM contracts, stable shared accessibility names, and the authored
   facade for generated design tokens and token-derived presentation values. It
   does not own workbook identity or application controller-state vocabularies.
-- `packages/protocol-ts` and `packages/ui-contracts` generated roots are downstream
-  artifacts and are never hand-edited.
+- `packages/protocol-ts` exposes only its seven owner-declared family subpaths;
+  its aggregate root, `./core-http`, generated, internal, and filesystem paths
+  are unsupported. The `packages/protocol-ts` and `packages/ui-contracts`
+  generated roots are downstream artifacts and are never hand-edited.
 - Runtime UI code consumes the resolved machine token registry projected through
   contract packages rather than parsing documentation. Human design authority
   remains in `docs/design.md`; executable token generation consumes

@@ -13,7 +13,6 @@ import {
   type GraphQueryResult,
   type GraphSelector,
   type GraphSemanticQuery,
-  getNetworkFlowErrorRegistry,
   type ImportPreviewResult,
   type IndicatorLinkRequest,
   type IndicatorLinkResult,
@@ -25,6 +24,7 @@ import {
   type NetworkFlowTable,
   networkFlowContractDescriptor,
   networkFlowDecoders,
+  networkFlowErrorRegistry,
   networkFlowMappingRegistry,
   networkFlowPresentationRegistry,
   type PagingMeta,
@@ -42,7 +42,7 @@ import {
   type TableRenameRequest,
   type TableScope,
   type TableSoftDeleteRequest,
-} from "@cartulary/protocol-ts";
+} from "@cartulary/protocol-ts/network-flow";
 
 export type { NetworkFlowRow, NetworkFlowRowRef, NetworkFlowTable };
 
@@ -86,7 +86,7 @@ export { networkFlowContractDescriptor };
 export const networkFlowMappingMetadata = networkFlowMappingRegistry;
 export const networkFlowMappingCandidateSchemaId =
   "cartulary.network_flow.mapping_candidate.v1";
-export const networkFlowErrorMetadata = getNetworkFlowErrorRegistry();
+export const networkFlowErrorMetadata = networkFlowErrorRegistry;
 export const networkFlowPresentationMetadata = networkFlowPresentationRegistry;
 
 const supportedNetworkFlowContractMajors = new Set([2]);

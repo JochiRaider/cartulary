@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.protocol_ts_http_operations.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "owner_id",
+    "default_response_validation_policy_id",
+    "operation_ids",
+    "response_validation_policies"
+  ],
+  "properties": {
+    "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
+    "schema_id": { "const": "cartulary.protocol_ts_http_operations.v2" },
+    "owner_id": { "const": "package.protocol_ts" },
+    "default_response_validation_policy_id": {
+      "const": "closed_schema"
+    },
+    "operation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" }
+    },
+    "response_validation_policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation_id", "policy_id"],
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          },
+          "policy_id": {
+            "enum": [
+              "administrative_audit_future_vocabulary",
+              "extension_discovery_additive_items"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
