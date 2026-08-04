@@ -288,7 +288,37 @@ async function generatedTypes(bundle, rootName) {
     style: { singleQuote: false },
     unreachableDefinitions: true,
   });
-  return compiled.endsWith("\n") ? compiled : `${compiled}\n`;
+  const normalized = normalizeClosedEmptyObjectTypes(compiled, bundle);
+  return normalized.endsWith("\n") ? normalized : `${normalized}\n`;
+}
+
+function normalizeClosedEmptyObjectTypes(compiled, bundle) {
+  let normalized = compiled;
+  const definitions = bundle.$defs ?? {};
+  for (const [name, schema] of Object.entries(definitions)) {
+    if (
+      schema?.type !== "object" ||
+      schema.additionalProperties !== false ||
+      Object.keys(schema.properties ?? {}).length !== 0 ||
+      Object.keys(schema.patternProperties ?? {}).length !== 0 ||
+      (schema.required ?? []).length !== 0
+    ) {
+      continue;
+    }
+
+    const generatedDeclaration = `export interface ${name} {}`;
+    const declarationCount = normalized.split(generatedDeclaration).length - 1;
+    if (declarationCount !== 1) {
+      throw new Error(
+        `closed empty object ${name} expected exactly one generated interface, found ${declarationCount}`,
+      );
+    }
+    normalized = normalized.replace(
+      generatedDeclaration,
+      `export type ${name} = Record<string, never>;`,
+    );
+  }
+  return normalized;
 }
 
 function validatorSource(entries) {

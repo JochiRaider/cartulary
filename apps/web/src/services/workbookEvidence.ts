@@ -1,7 +1,7 @@
 import type {
+  CreateObjectBlobSlotRequest,
+  CreateObjectBlobSlotResponse,
   ErrorEnvelope,
-  ObjectBlobCreateEnvelope,
-  ObjectBlobCreateRequest,
 } from "@cartulary/protocol-ts";
 import { publicErrorStatusText } from "../shared/publicError";
 import { apiPath, fetchHTTPOperation } from "./browserApi";
@@ -14,11 +14,8 @@ export type EvidenceUploadOutcome =
       readonly message: string;
     };
 
-export type EvidenceObjectUploadTarget = {
-  readonly headers?: Readonly<Record<string, unknown>> | undefined;
-  readonly href: string;
-  readonly method?: string | undefined;
-};
+export type EvidenceObjectUploadTarget =
+  CreateObjectBlobSlotResponse["data"]["upload_target"];
 
 export async function uploadEvidenceObjectBlobTarget(
   apiBase: string | undefined,
@@ -30,8 +27,8 @@ export async function uploadEvidenceObjectBlobTarget(
       ? apiPath(apiBase, uploadTarget.href)
       : uploadTarget.href;
   const headers = new Headers();
-  for (const [key, value] of Object.entries(uploadTarget.headers ?? {})) {
-    if (typeof value === "string") headers.set(key, value);
+  for (const [key, value] of Object.entries(uploadTarget.headers)) {
+    headers.set(key, value);
   }
   let hasContentType = false;
   headers.forEach((_value, key) => {
@@ -46,7 +43,7 @@ export async function uploadEvidenceObjectBlobTarget(
     let upload: Response;
     try {
       upload = await fetch(uploadHref, {
-        method: uploadTarget.method ?? "PUT",
+        method: uploadTarget.method,
         credentials: "omit",
         headers,
         body: file,
@@ -100,8 +97,8 @@ export async function createUploadedEvidenceObjectBlob({
     byte_size: file.size,
     filename_hint: file.name || null,
     content_type_hint: file.type || null,
-  } satisfies ObjectBlobCreateRequest;
-  const createBlob = await fetchHTTPOperation<ObjectBlobCreateEnvelope>({
+  } satisfies CreateObjectBlobSlotRequest;
+  const createBlob = await fetchHTTPOperation<CreateObjectBlobSlotResponse>({
     apiBase,
     operationID: "createObjectBlobSlot",
     init: {
@@ -128,8 +125,8 @@ export async function createUploadedEvidenceObjectBlob({
 }
 
 function createdBlobMatchesRequest(
-  envelope: ObjectBlobCreateEnvelope,
-  request: ObjectBlobCreateRequest,
+  envelope: CreateObjectBlobSlotResponse,
+  request: CreateObjectBlobSlotRequest,
 ): boolean {
   const accepted = envelope.data.accepted_contract;
   return (

@@ -79,6 +79,7 @@ describe("workbookEvidence", () => {
       const statusRetry = uploadEvidenceObjectBlobTarget(
         "/base",
         {
+          expires_at: "2026-08-04T00:30:00Z",
           href: "/api/v1/object-uploads/upload-token",
           method: "PUT",
           headers: {},
@@ -103,6 +104,7 @@ describe("workbookEvidence", () => {
       const networkRetry = uploadEvidenceObjectBlobTarget(
         "/base",
         {
+          expires_at: "2026-08-04T00:30:00Z",
           href: "/api/v1/object-uploads/upload-token",
           method: "PUT",
           headers: {},

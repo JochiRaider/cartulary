@@ -106,7 +106,12 @@
         "exclude": []
       },
       "allowed_importers": [
-        "packages/protocol-ts/src/index.ts"
+        "packages/protocol-ts/src/facade/collaboration.ts",
+        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
+        "packages/protocol-ts/src/facade/contractArtifacts.ts",
+        "packages/protocol-ts/src/facade/extensionDiscovery.ts",
+        "packages/protocol-ts/src/facade/networkFlow.ts",
+        "packages/protocol-ts/src/facade/runtimeValidation.ts"
       ],
       "restricted_imports": [
         {
@@ -601,6 +606,201 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/timeline/mutations"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-barrel-deny",
+      "level": "error",
+      "message": "Authored frontend code must not import the broad generated protocol barrel.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/index"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-audit-deny",
+      "level": "error",
+      "message": "Browser-authored code must not import generated audit artifacts.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/audit-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-revisions-deny",
+      "level": "error",
+      "message": "Browser-authored code must not import generated revisions artifacts.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/revisions-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-runtime-validation-owner",
+      "level": "error",
+      "message": "Only the runtime-validation facade may import generated validators and HTTP bindings.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/runtimeValidation.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/http-operation-bindings"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/protocol-validators"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-collaboration-owner",
+      "level": "error",
+      "message": "Only the collaboration facade may import generated collaboration types.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/collaboration.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/collaboration-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-core-http-owner",
+      "level": "error",
+      "message": "Only the compatibility and extension-discovery facades may import generated Core HTTP types.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
+        "packages/protocol-ts/src/facade/extensionDiscovery.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/core-http-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-contract-artifact-owner",
+      "level": "error",
+      "message": "Only the contract-artifact facade may import approved generated artifact families and registries.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/contractArtifacts.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/errors-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/extensions-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/import-target-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-schema-source-types"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/view-schemas-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/ws-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-network-flow-owner",
+      "level": "error",
+      "message": "Only the Network Flow facade may import generated Network Flow behavior projections.",
+      "applies_to": {
+        "include": [
+          "**"
+        ],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/networkFlow.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-descriptor"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-mapping-registry"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-presentation"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-types"
         }
       ]
     },

@@ -418,7 +418,10 @@
             "format": "date-time"
           },
           "headers": {
-            "type": "object"
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": [

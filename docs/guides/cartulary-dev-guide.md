@@ -382,7 +382,7 @@ The path tree below is an intended baseline shape, not an independently verified
   /packages
     /ui                              # Reusable presentational components
     /grid-adapter                    # Cartulary-owned adapter over react-data-grid
-    /protocol-ts                     # Generated TypeScript protocol types
+    /protocol-ts                     # Stable authored protocol facade over generated projections
     /view-contracts                  # TypeScript-consumable adapters around view-schema contracts
     /ui-contracts                    # Runtime-safe UI selector and test-id contracts
     /test-utils                      # Shared frontend test helper choreography
@@ -739,7 +739,7 @@ If a referenced saved view or view schema is missing, invisible, or invalid beca
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/packages/ui`             | Reusable presentational components with no workbook-state ownership                                                                                                                                                                                                           |
 | `/packages/grid-adapter`   | Cartulary-owned `react-data-grid` adapter that maps committed rows, the recordless bottom-summary draft row, columns, renderers, editors, vendor events, focus, selection, sorting, paste, fill, grouping, and restricted imperative focus/scroll APIs to Cartulary `record_id`, `row_version`, `field_key`, `view_schema_id`, and sync-engine contracts |
-| `/packages/protocol-ts`    | Generated protocol types and helpers derived from `/contracts/*`                                                                                                                                                                                                              |
+| `/packages/protocol-ts`    | Stable authored protocol facade over protected generated projections from `/contracts/*`; owns curated exports, runtime decoders, and compatibility types while keeping generated roots private                                                                                                  |
 | `/packages/view-contracts` | TypeScript-consumable adapters over `/contracts/view-schemas/*`                                                                                                                                                                                                               |
 | `/packages/ui-contracts`   | Runtime-safe selector and test-id contracts shared by frontend runtime code and test harnesses                                                                                                                                                                                |
 | `/packages/test-utils`     | Shared browser test helper choreography, including sort, filter, grouping, scroll, paste, anchor assertions, keyboard traversal, focus restoration, accessible-name checks, and accessibility state assertions                                                                 |

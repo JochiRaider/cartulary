@@ -14014,6 +14014,9 @@
             "type": "string"
           },
           "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
             "type": "object"
           },
           "href": {
@@ -17470,7 +17473,7 @@
         "type": "object"
       },
       "ViewCell": {
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "value": {}
         },
@@ -17682,7 +17685,7 @@
         "type": "object"
       },
       "ViewRow": {
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "cells": {
             "additionalProperties": {

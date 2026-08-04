@@ -817,6 +817,7 @@ export interface ViewRow {
   };
   record_id: string;
   row_version: number;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -824,6 +825,7 @@ export interface ViewRow {
  */
 export interface ViewCell {
   value: unknown;
+  [k: string]: unknown;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -869,7 +871,7 @@ export interface EvidenceHandleData {
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "EvidenceHandleIssueRequest".
  */
-export interface EvidenceHandleIssueRequest {}
+export type EvidenceHandleIssueRequest = Record<string, never>;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionDiscoveryEnvelope".
@@ -1393,7 +1395,7 @@ export interface ObjectBlobAcceptedContract {
 export interface ObjectBlobUploadTarget {
   expires_at: string;
   headers: {
-    [k: string]: unknown;
+    [k: string]: string;
   };
   /**
    * Opaque same-origin app-owned upload capability path in the base profile.

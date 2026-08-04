@@ -672,8 +672,15 @@ function hydrateWorkspacePackageRestrictions(root, config) {
 }
 
 function isPathPrefixRestricted(root, importerFile, restriction, specifier) {
-  const resolved = resolvedRelativeImport(root, importerFile, specifier);
-  return resolved === restriction.path || resolved.startsWith(`${restriction.path}/`);
+  const stripModuleExtension = (value) =>
+    value.replace(/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/u, "");
+  const resolved = stripModuleExtension(
+    resolvedRelativeImport(root, importerFile, specifier),
+  );
+  const restrictedPath = stripModuleExtension(restriction.path);
+  return (
+    resolved === restrictedPath || resolved.startsWith(`${restrictedPath}/`)
+  );
 }
 
 function isNodeBuiltinRestricted(restriction, specifier) {

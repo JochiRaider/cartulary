@@ -169,7 +169,12 @@ write_config() {
         "exclude": []
       },
       "allowed_importers": [
-        "packages/protocol-ts/src/index.ts"
+        "packages/protocol-ts/src/facade/collaboration.ts",
+        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
+        "packages/protocol-ts/src/facade/contractArtifacts.ts",
+        "packages/protocol-ts/src/facade/extensionDiscovery.ts",
+        "packages/protocol-ts/src/facade/networkFlow.ts",
+        "packages/protocol-ts/src/facade/runtimeValidation.ts"
       ],
       "restricted_imports": [
         {
@@ -180,6 +185,129 @@ write_config() {
         {
           "kind": "path_prefix",
           "path": "packages/protocol-ts/src/generated"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-barrel-deny",
+      "level": "error",
+      "message": "Authored frontend code must not import the broad generated protocol barrel.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/index"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-audit-deny",
+      "level": "error",
+      "message": "Browser-authored code must not import generated audit artifacts.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/audit-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-revisions-deny",
+      "level": "error",
+      "message": "Browser-authored code must not import generated revisions artifacts.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/revisions-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-runtime-validation-owner",
+      "level": "error",
+      "message": "Only the runtime-validation facade may import generated validators and HTTP bindings.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/runtimeValidation.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/http-operation-bindings"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/protocol-validators"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-collaboration-owner",
+      "level": "error",
+      "message": "Only the collaboration facade may import generated collaboration types.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/collaboration.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/collaboration-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-core-http-owner",
+      "level": "error",
+      "message": "Only the compatibility and extension-discovery facades may import generated Core HTTP types.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/compatibilityTypes.ts",
+        "packages/protocol-ts/src/facade/extensionDiscovery.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/core-http-types"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-contract-artifact-owner",
+      "level": "error",
+      "message": "Only the contract-artifact facade may import approved generated artifact families and registries.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/contractArtifacts.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/errors-artifacts"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-artifacts"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-protocol-network-flow-owner",
+      "level": "error",
+      "message": "Only the Network Flow facade may import generated Network Flow behavior projections.",
+      "applies_to": { "include": ["**"], "exclude": [] },
+      "allowed_importers": [
+        "packages/protocol-ts/src/facade/networkFlow.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/protocol-ts/src/generated/network-flow-types"
         }
       ]
     },
@@ -416,6 +544,7 @@ prepare_case_root() {
     "$case_root/apps/web/e2e/support/visual" \
     "$case_root/apps/web/e2e/support/workbook" \
     "$case_root/packages/grid-adapter/src" \
+    "$case_root/packages/protocol-ts/src/facade" \
     "$case_root/packages/protocol-ts/src/generated" \
     "$case_root/packages/test-utils/src" \
     "$case_root/packages/ui-contracts/src/generated" \
@@ -617,14 +746,59 @@ facade_output="$(assert_passes "protocol facade import" run_checker "$facade_roo
 assert_contains "$facade_output" "frontend import boundaries verified" "facade import output"
 assert_not_contains "$facade_output" "frontend-generated-protocol-boundary" "facade import must not warn"
 
-protocol_owner_root="$(prepare_case_root protocol-owner)"
-cat >"$protocol_owner_root/packages/protocol-ts/src/index.ts" <<'TS'
-import { contractArtifactIndex } from "./generated/index.js";
+protocol_facade_root="$(prepare_case_root protocol-facade)"
+cat >"$protocol_facade_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+import { errorArtifacts } from "../generated/errors-artifacts.js";
 
-export const contracts = contractArtifactIndex;
+export const artifacts = errorArtifacts;
 TS
-protocol_owner_output="$(assert_passes "protocol facade generated import" run_checker "$protocol_owner_root")"
-assert_contains "$protocol_owner_output" "frontend import boundaries verified" "protocol owner generated import output"
+protocol_facade_output="$(assert_passes "protocol facade generated import" run_checker "$protocol_facade_root")"
+assert_contains "$protocol_facade_output" "frontend import boundaries verified" "protocol facade generated import output"
+
+protocol_root_bypass_root="$(prepare_case_root protocol-root-bypass)"
+cat >"$protocol_root_bypass_root/packages/protocol-ts/src/index.ts" <<'TS'
+import { errorArtifacts } from "./generated/errors-artifacts.js";
+
+export const artifacts = errorArtifacts;
+TS
+protocol_root_bypass_output="$(assert_fails "protocol root generated import" run_checker "$protocol_root_bypass_root")"
+assert_contains "$protocol_root_bypass_output" "frontend-generated-protocol-boundary" "protocol root generated import rule"
+
+protocol_wrong_facade_root="$(prepare_case_root protocol-wrong-facade)"
+cat >"$protocol_wrong_facade_root/packages/protocol-ts/src/facade/collaboration.ts" <<'TS'
+import { errorArtifacts } from "../generated/errors-artifacts.js";
+
+export const artifacts = errorArtifacts;
+TS
+protocol_wrong_facade_output="$(assert_fails "protocol wrong facade import" run_checker "$protocol_wrong_facade_root")"
+assert_contains "$protocol_wrong_facade_output" "frontend-generated-protocol-contract-artifact-owner" "protocol wrong facade rule"
+
+protocol_barrel_root="$(prepare_case_root protocol-barrel)"
+cat >"$protocol_barrel_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+import { errorArtifacts } from "../generated/index.js";
+
+export const artifacts = errorArtifacts;
+TS
+protocol_barrel_output="$(assert_fails "protocol barrel import" run_checker "$protocol_barrel_root")"
+assert_contains "$protocol_barrel_output" "frontend-generated-protocol-barrel-deny" "protocol barrel deny rule"
+
+protocol_audit_root="$(prepare_case_root protocol-audit)"
+cat >"$protocol_audit_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+import { auditArtifacts } from "../generated/audit-artifacts.js";
+
+export const artifacts = auditArtifacts;
+TS
+protocol_audit_output="$(assert_fails "protocol audit import" run_checker "$protocol_audit_root")"
+assert_contains "$protocol_audit_output" "frontend-generated-protocol-audit-deny" "protocol audit deny rule"
+
+protocol_revisions_root="$(prepare_case_root protocol-revisions)"
+cat >"$protocol_revisions_root/packages/protocol-ts/src/facade/contractArtifacts.ts" <<'TS'
+import { revisionsArtifacts } from "../generated/revisions-artifacts.js";
+
+export const artifacts = revisionsArtifacts;
+TS
+protocol_revisions_output="$(assert_fails "protocol revisions import" run_checker "$protocol_revisions_root")"
+assert_contains "$protocol_revisions_output" "frontend-generated-protocol-revisions-deny" "protocol revisions deny rule"
 
 design_token_owner_root="$(prepare_case_root design-token-owner)"
 cat >"$design_token_owner_root/packages/ui-contracts/src/index.ts" <<'TS'

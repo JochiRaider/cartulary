@@ -47,9 +47,9 @@ describe("frontend transport boundary policy", () => {
       "utf8",
     );
     expect(source).toContain("uploadTarget.href");
-    expect(source).toContain('method: uploadTarget.method ?? "PUT"');
+    expect(source).toContain("method: uploadTarget.method");
     expect(source).toContain('credentials: "omit"');
-    expect(source).toContain("Object.entries(uploadTarget.headers ?? {})");
+    expect(source).toContain("Object.entries(uploadTarget.headers)");
     expect(source).toContain("headers.set(key, value);");
   });
 });

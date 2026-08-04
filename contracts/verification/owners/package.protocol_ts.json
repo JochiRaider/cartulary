@@ -11,6 +11,14 @@
       ]
     },
     {
+      "verification_id": "package.protocol_ts.verification.browser_reachability",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
       "verification_id": "package.protocol_ts.verification.openapi_generated_surface",
       "behavior_class": "architecture",
       "profile": "support",

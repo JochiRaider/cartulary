@@ -87,6 +87,7 @@
   frontend-typecheck \
   frontend-unit \
   frontend-import-boundary-check \
+  protocol-ts-browser-artifact-reachability \
   backend-module-boundary-check \
   frontend-fallow-static \
   lint-biome \
@@ -947,6 +948,11 @@ frontend-import-boundary-check:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs --selection target --target \
 	  frontend-import-boundary-check
 endif
+
+protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= protocol-ts-browser-artifact-reachability
+protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+protocol-ts-browser-artifact-reachability: $(NODE_BIN) $(WEB_DIST_INDEX)
+	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-browser-artifact-reachability" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs --dist $(CURDIR)/apps/web/dist
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 backend-module-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)

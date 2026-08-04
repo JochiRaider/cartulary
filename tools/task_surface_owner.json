@@ -1985,6 +1985,22 @@
       "test_target": "self",
       "graph_entry": true
     },
+    "protocol-ts-browser-artifact-reachability": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(WEB_DIST_INDEX)"
+      ],
+      "mode": "run_step",
+      "step_label": "protocol-ts-browser-artifact-reachability",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs",
+        "--dist",
+        "$(CURDIR)/apps/web/dist"
+      ],
+      "test_target": "self"
+    },
     "backend-module-boundary-check": {
       "type": "step_command",
       "prerequisites": [
@@ -8840,6 +8856,16 @@
           }
         ]
       }
+    },
+    {
+      "name": "protocol-ts-browser-artifact-reachability",
+      "backing_scripts": [
+        "tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs"
+      ],
+      "command_id": "cartulary.harness.command.protocol_ts_browser_artifact_reachability.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     },
     {
       "name": "backend-module-boundary-check",

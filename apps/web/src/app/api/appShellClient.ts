@@ -1,14 +1,17 @@
 import type {
-  AccountPreferencesResource,
-  AccountProfileResource,
   CreateDeploymentUserRequest,
-  DensityMode,
   ExtensionDiscoveryEnvelope,
   GeneratedExtensionProfileResource,
+  GetCurrentAccountPreferencesResponse,
+  GetCurrentAccountProfileResponse,
   GetCurrentSessionResponse,
   GetDeploymentUserResponse,
   ListDeploymentUsersResponse,
+  PatchCurrentAccountProfileRequest,
+  PatchCurrentAccountProfileResponse,
   PatchDeploymentUserRequest,
+  PutCurrentAccountPreferencesRequest,
+  PutCurrentAccountPreferencesResponse,
   ResetDeploymentUserPasswordRequest,
   ResetDeploymentUserTOTPRequest,
   RevokeAllDeploymentUserSessionsRequest,
@@ -46,7 +49,13 @@ export type CredentialState = {
 
 export type UserResource = GetDeploymentUserResponse["data"];
 
-export type { AccountPreferencesResource, AccountProfileResource, DensityMode };
+export type AccountProfileResource = GetCurrentAccountProfileResponse["data"];
+export type AccountPreferencesResource =
+  GetCurrentAccountPreferencesResponse["data"];
+export type DensityMode = Exclude<
+  AccountPreferencesResource["density_mode"],
+  null
+>;
 
 export type ExtensionProfileResource = GeneratedExtensionProfileResource;
 
@@ -231,7 +240,7 @@ export function loadCredentialState(
 }
 
 export function loadAccountProfile(options?: ShellGetOptions) {
-  return fetchHTTPOperation<DataEnvelope<AccountProfileResource>>({
+  return fetchHTTPOperation<GetCurrentAccountProfileResponse>({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"
@@ -249,23 +258,23 @@ export function patchAccountProfile(options: {
   clientTxnId?: string;
   displayName: string;
 }) {
-  return fetchHTTPOperation<DataEnvelope<AccountProfileResource>>({
+  const request = {
+    base_user_version: options.baseUserVersion,
+    client_txn_id: options.clientTxnId ?? clientTxnID("account-profile-patch"),
+    display_name: options.displayName,
+  } satisfies PatchCurrentAccountProfileRequest;
+  return fetchHTTPOperation<PatchCurrentAccountProfileResponse>({
     apiBase: options.apiBase,
     init: {
       method: "PATCH",
-      body: JSON.stringify({
-        base_user_version: options.baseUserVersion,
-        client_txn_id:
-          options.clientTxnId ?? clientTxnID("account-profile-patch"),
-        display_name: options.displayName,
-      }),
+      body: JSON.stringify(request),
     },
     operationID: "patchCurrentAccountProfile",
   });
 }
 
 export function loadAccountPreferences(options?: ShellGetOptions) {
-  return fetchHTTPOperation<DataEnvelope<AccountPreferencesResource>>({
+  return fetchHTTPOperation<GetCurrentAccountPreferencesResponse>({
     apiBase: options?.apiBase,
     init:
       typeof options?.signal === "undefined"
@@ -283,16 +292,17 @@ export function putAccountPreferences(options: {
   clientTxnId?: string;
   densityMode: DensityMode | null;
 }) {
-  return fetchHTTPOperation<DataEnvelope<AccountPreferencesResource>>({
+  const request = {
+    base_preferences_version: options.basePreferencesVersion,
+    client_txn_id:
+      options.clientTxnId ?? clientTxnID("account-preferences-put"),
+    density_mode: options.densityMode,
+  } satisfies PutCurrentAccountPreferencesRequest;
+  return fetchHTTPOperation<PutCurrentAccountPreferencesResponse>({
     apiBase: options.apiBase,
     init: {
       method: "PUT",
-      body: JSON.stringify({
-        base_preferences_version: options.basePreferencesVersion,
-        client_txn_id:
-          options.clientTxnId ?? clientTxnID("account-preferences-put"),
-        density_mode: options.densityMode,
-      }),
+      body: JSON.stringify(request),
     },
     operationID: "putCurrentAccountPreferences",
   });

@@ -2539,7 +2539,7 @@
       },
       "ViewCell": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "value": {}
         },
@@ -2549,7 +2549,7 @@
       },
       "ViewRow": {
         "type": "object",
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "record_id": {
             "type": "string",

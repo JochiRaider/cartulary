@@ -1,11 +1,12 @@
 import type {
   ApplyWorkbookBulkMutationRequest,
+  AttachBlobToEvidenceRecordRequest,
+  CreateObjectBlobSlotRequest,
   CreateRecordLinkedNoteRequest,
   CreateViewRowRequest,
-  EvidenceAttachBlobRequest,
-  EvidenceHandleIssueRequest,
+  IssueEvidenceDownloadHandleRequest,
+  IssueEvidencePreviewHandleRequest,
   MergeEntityRecordRequest,
-  ObjectBlobCreateRequest,
   PasteWorkbookClipboardRequest,
   PatchRecordRequest,
   SupersedeRecordRequest,
@@ -869,7 +870,7 @@ export function createWorkbookMutationCommandPorts(
             byte_size: input.file.size,
             filename_hint: input.file.name || null,
             content_type_hint: input.file.type || null,
-          } as ObjectBlobCreateRequest,
+          } satisfies CreateObjectBlobSlotRequest,
         });
         if (createBlob.kind === "rejected") return createBlob;
         const upload = await uploadEvidenceObjectBlobTarget(
@@ -894,7 +895,7 @@ export function createWorkbookMutationCommandPorts(
             object_blob_id: objectBlobId,
             base_row_version: input.baseRowVersion,
             client_txn_id: attachClientTxnId,
-          } as EvidenceAttachBlobRequest,
+          } satisfies AttachBlobToEvidenceRecordRequest,
         });
         if (attach.kind === "rejected") return attach;
         if (
@@ -916,7 +917,8 @@ export function createWorkbookMutationCommandPorts(
         const outcome = await operations.execute({
           operationID,
           pathParameters: { record_id: input.evidenceRecordId },
-          request: {} as EvidenceHandleIssueRequest,
+          request: {} satisfies IssueEvidencePreviewHandleRequest &
+            IssueEvidenceDownloadHandleRequest,
         });
         if (outcome.kind === "rejected") return outcome;
         const href = resolvePublicEvidenceHandleHref(outcome.value.data.href);

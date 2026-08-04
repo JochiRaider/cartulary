@@ -1,11 +1,13 @@
 import { Buffer } from "node:buffer";
 
 import type {
-  EvidenceAttachBlobRequest,
-  EvidenceHandleEnvelope,
-  EvidenceHandleIssueRequest,
-  ObjectBlobCreateEnvelope,
-  ObjectBlobCreateRequest,
+  AttachBlobToEvidenceRecordRequest,
+  CreateObjectBlobSlotRequest,
+  CreateObjectBlobSlotResponse,
+  IssueEvidenceDownloadHandleRequest,
+  IssueEvidenceDownloadHandleResponse,
+  IssueEvidencePreviewHandleRequest,
+  IssueEvidencePreviewHandleResponse,
 } from "@cartulary/protocol-ts";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
@@ -88,14 +90,14 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     "object blob create request",
   );
   const createBlobBody =
-    createBlobRequest.postDataJSON() as ObjectBlobCreateRequest;
+    createBlobRequest.postDataJSON() as CreateObjectBlobSlotRequest;
   const expectedCreateBlobBody = {
     incident_id: incidentId,
     client_txn_id: createBlobBody.client_txn_id,
     byte_size: Buffer.byteLength("integration.evidence-workflow evidence body"),
     filename_hint: "integration.evidence-workflow-evidence.txt",
     content_type_hint: "text/plain",
-  } satisfies ObjectBlobCreateRequest;
+  } satisfies CreateObjectBlobSlotRequest;
   expect(createBlobBody).toEqual(expectedCreateBlobBody);
   expect(Object.keys(createBlobBody).sort()).toEqual([
     "byte_size",
@@ -106,7 +108,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
   ]);
 
   const createBlobEnvelope =
-    await observed.requireJsonResponse<ObjectBlobCreateEnvelope>(
+    await observed.requireJsonResponse<CreateObjectBlobSlotResponse>(
       createBlobRequest,
       "object blob create envelope",
     );
@@ -130,12 +132,13 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
       `/api/v1/evidence-records/${evidenceRow.record_id}/attach-blob`,
     "evidence attach request",
   );
-  const attachBody = attachRequest.postDataJSON() as EvidenceAttachBlobRequest;
+  const attachBody =
+    attachRequest.postDataJSON() as AttachBlobToEvidenceRecordRequest;
   const expectedAttachBody = {
     object_blob_id: createBlobEnvelope.data.object_blob_id,
     base_row_version: evidenceRow.row_version,
     client_txn_id: attachBody.client_txn_id,
-  } satisfies EvidenceAttachBlobRequest;
+  } satisfies AttachBlobToEvidenceRecordRequest;
   expect(attachBody).toEqual(expectedAttachBody);
   expect(Object.keys(attachBody).sort()).toEqual([
     "base_row_version",
@@ -160,10 +163,10 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     "preview handle request",
   );
   const previewHandleBody =
-    previewHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
+    previewHandleRequest.postDataJSON() as IssueEvidencePreviewHandleRequest;
   expect(previewHandleBody).toEqual({});
   const previewHandleEnvelope =
-    await observed.requireJsonResponse<EvidenceHandleEnvelope>(
+    await observed.requireJsonResponse<IssueEvidencePreviewHandleResponse>(
       previewHandleRequest,
       "preview handle envelope",
     );
@@ -186,10 +189,10 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     "download handle request",
   );
   const downloadHandleBody =
-    downloadHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
+    downloadHandleRequest.postDataJSON() as IssueEvidenceDownloadHandleRequest;
   expect(downloadHandleBody).toEqual({});
   const downloadHandleEnvelope =
-    await observed.requireJsonResponse<EvidenceHandleEnvelope>(
+    await observed.requireJsonResponse<IssueEvidenceDownloadHandleResponse>(
       downloadHandleRequest,
       "download handle envelope",
     );
@@ -288,16 +291,16 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     "end-to-end.evidence-workflow object blob create request",
   );
   const createBlobBody =
-    createBlobRequest.postDataJSON() as ObjectBlobCreateRequest;
+    createBlobRequest.postDataJSON() as CreateObjectBlobSlotRequest;
   expect(createBlobBody).toEqual({
     incident_id: incidentId,
     client_txn_id: createBlobBody.client_txn_id,
     byte_size: Buffer.byteLength(safeBody),
     filename_hint: "end-to-end.evidence-workflow-safe.txt",
     content_type_hint: "text/plain",
-  } satisfies ObjectBlobCreateRequest);
+  } satisfies CreateObjectBlobSlotRequest);
   const createBlobEnvelope =
-    await observed.requireJsonResponse<ObjectBlobCreateEnvelope>(
+    await observed.requireJsonResponse<CreateObjectBlobSlotResponse>(
       createBlobRequest,
       "end-to-end.evidence-workflow object blob create envelope",
     );
@@ -321,12 +324,13 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
       `/api/v1/evidence-records/${safeRow.record_id}/attach-blob`,
     "end-to-end.evidence-workflow evidence attach request",
   );
-  const attachBody = attachRequest.postDataJSON() as EvidenceAttachBlobRequest;
+  const attachBody =
+    attachRequest.postDataJSON() as AttachBlobToEvidenceRecordRequest;
   expect(attachBody).toEqual({
     object_blob_id: createBlobEnvelope.data.object_blob_id,
     base_row_version: safeRow.row_version,
     client_txn_id: attachBody.client_txn_id,
-  } satisfies EvidenceAttachBlobRequest);
+  } satisfies AttachBlobToEvidenceRecordRequest);
   await observed.requireJsonResponse(
     attachRequest,
     "end-to-end.evidence-workflow evidence attach envelope",
@@ -355,10 +359,10 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     "end-to-end.evidence-workflow preview handle request",
   );
   const safePreviewHandleBody =
-    safePreviewHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
+    safePreviewHandleRequest.postDataJSON() as IssueEvidencePreviewHandleRequest;
   expect(safePreviewHandleBody).toEqual({});
   const safePreviewHandleEnvelope =
-    await observed.requireJsonResponse<EvidenceHandleEnvelope>(
+    await observed.requireJsonResponse<IssueEvidencePreviewHandleResponse>(
       safePreviewHandleRequest,
       "end-to-end.evidence-workflow preview handle envelope",
     );
@@ -382,10 +386,10 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     "end-to-end.evidence-workflow download handle request",
   );
   const safeDownloadHandleBody =
-    safeDownloadHandleRequest.postDataJSON() as EvidenceHandleIssueRequest;
+    safeDownloadHandleRequest.postDataJSON() as IssueEvidenceDownloadHandleRequest;
   expect(safeDownloadHandleBody).toEqual({});
   const safeDownloadHandleEnvelope =
-    await observed.requireJsonResponse<EvidenceHandleEnvelope>(
+    await observed.requireJsonResponse<IssueEvidenceDownloadHandleResponse>(
       safeDownloadHandleRequest,
       "end-to-end.evidence-workflow download handle envelope",
     );
@@ -467,7 +471,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
       "end-to-end.evidence-workflow member preview handle request",
     );
     const authPreviewHandleEnvelope =
-      await memberObserved.requireJsonResponse<EvidenceHandleEnvelope>(
+      await memberObserved.requireJsonResponse<IssueEvidencePreviewHandleResponse>(
         authPreviewHandleRequest,
         "end-to-end.evidence-workflow member preview handle envelope",
       );
@@ -738,10 +742,11 @@ async function createUploadedEvidence(
       byte_size: options.body.byteLength,
       filename_hint: options.filename,
       content_type_hint: options.contentType,
-    } satisfies ObjectBlobCreateRequest,
+    } satisfies CreateObjectBlobSlotRequest,
   });
   expect(createBlob.ok()).toBeTruthy();
-  const blobEnvelope = (await createBlob.json()) as ObjectBlobCreateEnvelope;
+  const blobEnvelope =
+    (await createBlob.json()) as CreateObjectBlobSlotResponse;
   expectSameOriginObjectUploadTarget(blobEnvelope.data.upload_target.href);
   expect(blobEnvelope.data.upload_target.method).toBe("PUT");
 
@@ -762,7 +767,7 @@ async function createUploadedEvidence(
         object_blob_id: blobEnvelope.data.object_blob_id,
         base_row_version: row.row_version,
         client_txn_id: uniqueTxn("fee-p6-uploaded-attach"),
-      } satisfies EvidenceAttachBlobRequest,
+      } satisfies AttachBlobToEvidenceRecordRequest,
     },
   );
   expect(attach.ok()).toBeTruthy();
