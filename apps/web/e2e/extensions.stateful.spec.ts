@@ -3,6 +3,7 @@ import {
   surfaceTabTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 
 import { expect, test } from "./fixtures";
 import {
@@ -10,8 +11,6 @@ import {
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
 import { apiBase } from "./support/runtime/configuration";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("Verify extension availability bootstrap, no-store startup, lazy Network Analysis loading, and Base client identity continuity.", async ({
   page,

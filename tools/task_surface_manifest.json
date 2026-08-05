@@ -13247,7 +13247,8 @@
     {
       "name": "harness-smoke-browser-work-graph",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-browser-work-graph.mjs"
+        "tools/harness/browser/tests/test-browser-work-graph.mjs",
+        "tools/harness/browser/frontend-visual-reconciliation.mjs"
       ],
       "command": [
         "$(NODE_BIN)",

@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_visual_reconciliation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "status",
+    "source_refs",
+    "capture_intents",
+    "goldens",
+    "counts",
+    "artifact_refs",
+    "errors"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.frontend_visual_reconciliation.v1"
+    },
+    "status": {
+      "enum": ["pass", "fail"]
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "path",
+          "sha256",
+          "project_ids",
+          "snapshot_path_template",
+          "symbols"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "catalog_owner",
+              "family_manifest",
+              "fixture_registry",
+              "playwright_config",
+              "screenshot_helper"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "project_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "snapshot_path_template": {
+            "type": ["string", "null"]
+          },
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "capture_intents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_id",
+          "owner_id",
+          "row_id",
+          "scenario_id",
+          "project_id",
+          "screenshot_assertion_location",
+          "assertion_file",
+          "capture_intent",
+          "screenshot_name_source",
+          "capture_profile",
+          "expected_golden_path",
+          "test_title"
+        ],
+        "properties": {
+          "capture_id": {
+            "type": "string",
+            "pattern": "^visual\\.capture\\.[0-9a-f]{20}$"
+          },
+          "owner_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "row_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario_id": {
+            "type": "string",
+            "pattern": "^scenario_[0-9a-f]{12}$"
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "screenshot_assertion_location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assertion_file": {
+            "const": "apps/web/e2e/workbook.visual.spec.ts"
+          },
+          "capture_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "screenshot_name_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "capture_profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "browser_zoom_percent",
+              "color_scheme",
+              "density_id",
+              "device_scale_factor",
+              "reduced_motion",
+              "theme_id",
+              "project_id",
+              "snapshot_path_template",
+              "snapshot_suffix",
+              "viewport_css_px"
+            ],
+            "properties": {
+              "browser_zoom_percent": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "color_scheme": {
+                "enum": ["dark", "light"]
+              },
+              "density_id": {
+                "type": "string"
+              },
+              "device_scale_factor": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "reduced_motion": {
+                "type": "boolean"
+              },
+              "theme_id": {
+                "type": "string"
+              },
+              "project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "snapshot_path_template": {
+                "const": "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}"
+              },
+              "snapshot_suffix": {
+                "type": "string",
+                "minLength": 1
+              },
+              "viewport_css_px": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+              }
+            }
+          },
+          "expected_golden_path": {
+            "type": "string",
+            "pattern": "^apps/web/e2e/workbook\\.visual\\.spec\\.ts-snapshots/[^/]+\\.png$"
+          },
+          "test_title": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "goldens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "golden_path",
+          "sha256",
+          "consumer_capture_ids",
+          "catalog_row_ids",
+          "owner_ids",
+          "scenario_ids",
+          "project_ids",
+          "fixture_ids",
+          "design_contract_ids",
+          "consumer_refs",
+          "classification",
+          "permitted_action"
+        ],
+        "properties": {
+          "golden_path": {
+            "type": "string",
+            "pattern": "^apps/web/e2e/workbook\\.visual\\.spec\\.ts-snapshots/[^/]+\\.png$"
+          },
+          "sha256": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "consumer_capture_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "catalog_row_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "owner_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "scenario_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "project_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "fixture_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "design_contract_ids": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "consumer_refs": {
+            "$ref": "#/$defs/unique_strings"
+          },
+          "classification": {
+            "enum": [
+              "active",
+              "orphan",
+              "missing_golden",
+              "ambiguous_mapping"
+            ]
+          },
+          "permitted_action": {
+            "enum": [
+              "retain",
+              "path_only_move",
+              "pixel_refresh",
+              "delete_orphan",
+              "blocked"
+            ]
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_intents",
+        "committed_goldens",
+        "active",
+        "orphan",
+        "missing_golden",
+        "ambiguous_mapping",
+        "registered_fixtures",
+        "unresolved_registered_fixtures"
+      ],
+      "properties": {
+        "capture_intents": {
+          "$ref": "#/$defs/count"
+        },
+        "committed_goldens": {
+          "$ref": "#/$defs/count"
+        },
+        "active": {
+          "$ref": "#/$defs/count"
+        },
+        "orphan": {
+          "$ref": "#/$defs/count"
+        },
+        "missing_golden": {
+          "$ref": "#/$defs/count"
+        },
+        "ambiguous_mapping": {
+          "$ref": "#/$defs/count"
+        },
+        "registered_fixtures": {
+          "$ref": "#/$defs/count"
+        },
+        "unresolved_registered_fixtures": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "artifact_refs": {
+      "$ref": "#/$defs/unique_strings"
+    },
+    "errors": {
+      "$ref": "#/$defs/unique_strings"
+    }
+  },
+  "$defs": {
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unique_strings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}

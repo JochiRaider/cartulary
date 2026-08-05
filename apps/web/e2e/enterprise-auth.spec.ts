@@ -6,11 +6,11 @@ import {
 } from "@cartulary/ui-contracts";
 
 import { expect, test } from "./fixtures";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { createIncident } from "./support/incidents/fixtures";
 import {
   createIncidentMembership,
   createIncidentMemberUser,
-  createLocalUser,
 } from "./support/incidents/memberships";
 import {
   uniqueEmail,
@@ -108,10 +108,12 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
 }) => {
   const zeroPassword = "EnterpriseZero1!";
   const zeroEmail = uniqueEmail("extension_profile-e1103-zero");
-  const zeroMember = await createLocalUser(page, {
+  const zeroMember = await createDeploymentUser(page, {
     email: zeroEmail,
     display_name: "Enterprise Zero Member",
     initial_password: zeroPassword,
+    is_deployment_admin: false,
+    mfa_required: false,
   });
 
   const incidentId = await createIncident(
@@ -125,6 +127,8 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
     display_name: "Enterprise Root Member",
     initial_password: singlePassword,
     role: "admin",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
 
   const multipleIncidentA = await createIncident(
@@ -146,6 +150,8 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
       display_name: "Enterprise Multiple Member",
       initial_password: multiplePassword,
       role: "admin",
+      is_deployment_admin: false,
+      mfa_required: false,
     },
   );
   await createIncidentMembership(

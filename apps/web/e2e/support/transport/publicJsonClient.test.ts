@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { publicHttpOperation } from "./publicHttpOperationClient";
 import { atJsonOrigin, requestPublicJson } from "./publicJsonClient";
 
 describe("public JSON transport", () => {
@@ -92,5 +93,85 @@ describe("public JSON transport", () => {
     expect(() => atJsonOrigin({ fetch }, "file:///tmp/control")).toThrow(
       /absolute HTTP origin/,
     );
+  });
+});
+
+describe("public HTTP operation client", () => {
+  it("derives methods, paths, and encoded queries from generated bindings", async () => {
+    const fetch = vi.fn(async () => ({
+      headers: () => ({ "x-request-id": "request-denied" }),
+      json: async () => ({ error: { code: "authorization_denied" } }),
+      ok: () => false,
+      status: () => 403,
+    }));
+
+    await expect(
+      publicHttpOperation({
+        operationID: "listDeploymentUsers",
+        query: { search: "alpha beta", limit: 10 },
+        request: { fetch },
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      payload: { error: { code: "authorization_denied" } },
+      status: 403,
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/users?limit=10&search=alpha%20beta",
+      { method: "GET" },
+    );
+  });
+
+  it("accepts valid success envelopes and rejects malformed success responses", async () => {
+    const validSession = {
+      data: {
+        absolute_expires_at: "2026-08-05T01:00:00Z",
+        authenticated_at: "2026-08-05T00:00:00Z",
+        display_name: "Operator",
+        idle_expires_at: "2026-08-05T00:30:00Z",
+        is_deployment_admin: true,
+        memberships: [],
+        mfa_state: "satisfied",
+        provider_type: "local",
+        session_expires_at: "2026-08-05T00:30:00Z",
+        user_id: "00000000-0000-4000-8000-000000000001",
+      },
+      meta: { request_id: "request-1" },
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        headers: () => ({}),
+        json: async () => validSession,
+        ok: () => true,
+        status: () => 200,
+      })
+      .mockResolvedValueOnce({
+        headers: () => ({}),
+        json: async () => ({ data: {} }),
+        ok: () => true,
+        status: () => 200,
+      });
+    const request = { fetch };
+
+    await expect(
+      publicHttpOperation({ operationID: "getCurrentSession", request }),
+    ).resolves.toEqual({ ok: true, payload: validSession, status: 200 });
+    const malformed = await publicHttpOperation({
+      operationID: "getCurrentSession",
+      request,
+    });
+
+    expect(malformed.ok).toBe(false);
+    expect(malformed.status).toBe(502);
+    expect(malformed.payload).toEqual({
+      error: expect.objectContaining({
+        code: "invalid_public_contract_response",
+        details: expect.objectContaining({
+          operation_id: "getCurrentSession",
+          schema_id: "cartulary.core_http.SessionEnvelope.v1",
+        }),
+      }),
+    });
   });
 });

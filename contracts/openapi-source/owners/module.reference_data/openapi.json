@@ -7,6 +7,69 @@
         ],
         "operationId": "listReferencePacks",
         "summary": "List visible reference-pack versions.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor_token",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor returned by a prior page for the same normalized Reference Pack list query.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Optional list_search_v1 search text over the Core 01 Reference Pack fields.",
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "pack_version_state",
+            "in": "query",
+            "required": false,
+            "description": "Optional exact public Reference Pack version-state filter.",
+            "schema": {
+              "$ref": "#/components/schemas/ReferencePackVersionState"
+            }
+          },
+          {
+            "name": "verification_result",
+            "in": "query",
+            "required": false,
+            "description": "Optional exact Reference Pack verification-result filter.",
+            "schema": {
+              "$ref": "#/components/schemas/ReferencePackVerificationResult"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "description": "Optional exact lowercase boolean filter for active versions.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Reference-pack versions response",

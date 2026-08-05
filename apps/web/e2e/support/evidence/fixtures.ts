@@ -1,4 +1,5 @@
 import type { Buffer } from "node:buffer";
+import type { AttachBlobToEvidenceRecordRequest } from "@cartulary/protocol-ts/http";
 import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
@@ -6,11 +7,14 @@ import { csrfHeaders } from "../auth/browserSession";
 
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
+import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import { atJsonOrigin } from "../transport/publicJsonClient";
 import {
   createViewRow,
   queryViewRows,
   type ViewApiRow,
 } from "../workbook/query";
+import { createAndUploadObjectBlob } from "./uploads";
 
 type ViewRow = ViewApiRow;
 
@@ -72,49 +76,31 @@ export async function createUploadedEvidenceFixture(
     "evidence.requested_at": options.requestedAt,
     "evidence.title": options.title,
   })) as ViewRow;
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      byte_size: options.body.byteLength,
-      client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.blob}`),
-      content_type_hint: options.contentType,
-      filename_hint: options.filename,
-      incident_id: incidentId,
-    },
+  const blob = await createAndUploadObjectBlob(page, {
+    body: options.body,
+    clientTxnId: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.blob}`),
+    contentType: options.contentType,
+    filename: options.filename,
+    incidentId,
   });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobEnvelope = (await createBlob.json()) as {
-    data: {
-      object_blob_id: string;
-      upload_target: {
-        href: string;
-        method?: string;
-      };
-    };
-  };
-  expect(blobEnvelope.data.upload_target.method ?? "PUT").toBe("PUT");
 
-  const upload = await page.request.put(
-    resolveAPIHref(blobEnvelope.data.upload_target.href),
-    {
-      data: options.body,
-      headers: { "Content-Type": options.contentType },
-    },
-  );
-  expect(upload.ok()).toBeTruthy();
-
-  const attach = await page.request.post(
-    `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        base_row_version: row.row_version,
-        client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.attach}`),
-        object_blob_id: blobEnvelope.data.object_blob_id,
-      },
-    },
-  );
-  expect(attach.ok()).toBeTruthy();
+  const attachBody = {
+    base_row_version: row.row_version,
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.attach}`),
+    object_blob_id: blob.object_blob_id,
+  } satisfies AttachBlobToEvidenceRecordRequest;
+  const attach = await publicHttpOperation({
+    body: attachBody,
+    headers: await csrfHeaders(page),
+    operationID: "attachBlobToEvidenceRecord",
+    pathParameters: { record_id: row.record_id },
+    request: atJsonOrigin(page.request, apiBase),
+  });
+  if (!attach.ok) {
+    throw new Error(
+      `attachBlobToEvidenceRecord failed with HTTP ${attach.status}: ${JSON.stringify(attach.payload)}`,
+    );
+  }
   return waitForEvidenceFixtureState(page, incidentId, row.record_id, {
     lifecycleState: "available",
     uploadState: "available",
@@ -152,10 +138,6 @@ async function waitForEvidenceFixtureState(
     throw new Error(`missing evidence row ${recordId}`);
   }
   return matchingRow;
-}
-
-function resolveAPIHref(href: string): string {
-  return href.startsWith("/") ? `${apiBase}${href}` : href;
 }
 
 function cellValue(cell: unknown): unknown {

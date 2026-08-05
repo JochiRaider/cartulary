@@ -117,10 +117,8 @@ import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
-import {
-  createLocalUser as createAuthLocalUser,
-  revokeAllSessions,
-} from "./support/auth/sessions";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
+import { revokeAllSessions } from "./support/auth/sessions";
 import { sessionCookieName } from "./support/auth/storageState";
 import {
   enrollTotpViaBootstrap,
@@ -2392,6 +2390,8 @@ test.describe("browser.collaboration accessibility readiness", () => {
         email: uniqueEmail("a11y.collaboration-remote"),
         initial_password: "A11yCollaborationRemotePass!",
         role: "editor",
+        is_deployment_admin: false,
+        mfa_required: false,
       });
       const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
         client_txn_id: uniqueTxn("a11y.collaboration-row"),
@@ -2992,6 +2992,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       email: uniqueEmail("coordination-review-a11y-owner"),
       initial_password: "BackupRestoreA11y1!",
       role: "editor",
+      is_deployment_admin: false,
+      mfa_required: false,
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
       client_txn_id: uniqueTxn("a11y.coordination-review-party"),
@@ -3558,11 +3560,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     async ({ page, sessionTracker, workerAdminRequest }) => {
       const email = uniqueEmail("a11y-p1-login");
       const password = "A11yP1LoginPass!";
-      const user = await createAuthLocalUser(workerAdminRequest, {
+      const user = await createDeploymentUser(workerAdminRequest, {
         email,
         display_name: "A11Y P1 Login",
         initial_password: password,
         mfa_required: false,
+        is_deployment_admin: false,
       });
 
       await clearBrowserSession(page);
@@ -3611,11 +3614,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     async ({ page, sessionTracker, workerAdminRequest }) => {
       const email = uniqueEmail("a11y-p1-mfa");
       const password = "A11yP1MfaPass!";
-      const user = await createAuthLocalUser(workerAdminRequest, {
+      const user = await createDeploymentUser(workerAdminRequest, {
         email,
         display_name: "A11Y P1 MFA",
         initial_password: password,
         mfa_required: true,
+        is_deployment_admin: false,
       });
       const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
@@ -3666,11 +3670,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     async ({ page, workerAdminRequest }) => {
       const email = uniqueEmail("a11y-p1-mfa-setup");
       const password = "A11yP1SetupPass!";
-      await createAuthLocalUser(workerAdminRequest, {
+      await createDeploymentUser(workerAdminRequest, {
         email,
         display_name: "A11Y P1 MFA Setup",
         initial_password: password,
         mfa_required: true,
+        is_deployment_admin: false,
       });
 
       await clearBrowserSession(page);
@@ -3755,11 +3760,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     async ({ page, sessionTracker, workerAdminRequest }) => {
       const email = uniqueEmail("a11y-p1-incident");
       const password = "A11yP1IncidentPass!";
-      const user = await createAuthLocalUser(workerAdminRequest, {
+      const user = await createDeploymentUser(workerAdminRequest, {
         email,
         display_name: "A11Y P1 Incident",
         initial_password: password,
         mfa_required: false,
+        is_deployment_admin: false,
       });
 
       await clearBrowserSession(page);
@@ -3937,11 +3943,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       );
       const email = uniqueEmail("a11y-p1-revoked");
       const password = "A11yP1RevokedPass!";
-      const user = await createAuthLocalUser(workerAdminRequest, {
+      const user = await createDeploymentUser(workerAdminRequest, {
         email,
         display_name: "A11Y P1 Revoked",
         initial_password: password,
         mfa_required: false,
+        is_deployment_admin: false,
       });
       await createIncidentMembership(page, incidentId, email, "viewer");
 
@@ -4013,7 +4020,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
     await page.route(routePattern, routeHandler);
     await page.goto("/");
-    await new AccountSettings(page).open("account-security");
+    await new AccountSettings(page).openSecurity();
     await page.getByTestId(accountTestId("refresh-state")).focus();
     await expectVisibleFocus(page.getByTestId(accountTestId("refresh-state")));
     await expect(page.getByTestId(publicErrorCodeTestId("account"))).toHaveText(

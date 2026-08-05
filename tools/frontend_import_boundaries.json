@@ -1154,6 +1154,22 @@
       ]
     },
     {
+      "id": "web-e2e-production-source-boundary",
+      "level": "error",
+      "message": "E2E code must consume public package and selector facades instead of private web production sources.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src"
+        }
+      ]
+    },
+    {
       "id": "web-e2e-test-utils-subpath-boundary",
       "level": "error",
       "message": "Import @cartulary/test-utils only through its semantic grid subpath.",

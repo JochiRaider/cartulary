@@ -23,6 +23,7 @@ import {
   workbookEditRecoveryTestId,
   workbookFocusAnchorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { APIResponse, Page, Response, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
@@ -45,11 +46,10 @@ import {
   createViewRow,
   patchRecord,
   queryViewRows,
+  readWorkbookMutation,
   type ViewApiRow,
 } from "./support/workbook/query";
-import { readTimelineMutation } from "./support/workbook/rowMutations";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
   "Verify rough Timeline row creation, inline edit, paste, pending save, refresh, and replay through /api/v1/ route contracts.";
 const recoveryScenarioTitle =
@@ -386,7 +386,10 @@ test(
           .getByTestId(draftSynopsisTestId)
           .fill("end-to-end.mutation-lifecycle.row-01 Rough summary");
         await page.getByTestId(draftSynopsisTestId).press("Enter");
-        const createEnvelope = await readTimelineMutation(await createResponse);
+        const createEnvelope = await readWorkbookMutation(
+          await createResponse,
+          "createViewRow",
+        );
         const createdRow = createEnvelope.data.row;
         expect(createBodies).toHaveLength(1);
         const createBody = createBodies[0] ?? {};
@@ -1086,8 +1089,9 @@ test(
       );
       await betaUtcEditor.fill("not-a-timestamp");
       await betaUtcEditor.press("Enter");
-      const validationEnvelope = await readTimelineMutation(
+      const validationEnvelope = await readWorkbookMutation(
         await validationResponse,
+        "patchRecord",
       );
       expect(
         validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,

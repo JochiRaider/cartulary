@@ -24,16 +24,7 @@ import {
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, Response } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { queryViewRows, type ViewApiRow } from "./query";
-
-type ViewRow = ViewApiRow;
-
-type TimelineMutationEnvelope = {
-  data: {
-    change_set_id: string;
-    row: ViewRow;
-  };
-};
+import { readWorkbookMutation } from "./query";
 
 export async function waitForSaveState(
   page: Page,
@@ -76,7 +67,7 @@ export async function commitInspectorScalarEdit(
   await input.fill(value);
   await input.press("Tab");
   const response = await responsePromise;
-  const envelope = await readTimelineMutation(response);
+  const envelope = await readWorkbookMutation(response, "patchRecord");
   await expect(page.getByTestId(timelineRowVersionTestId(recordId))).toHaveText(
     String(envelope.data.row.row_version),
   );
@@ -139,27 +130,6 @@ export function waitForTimelinePatch(page: Page, recordId: string) {
     responsePromise,
     waitForPendingQueueAuthPause(page, `timeline PATCH ${recordId}`),
   ]);
-}
-
-export async function readTimelineMutation(response: Response) {
-  if (!response.ok()) {
-    const request = response.request();
-    const responseBody = await response.text().catch((error: unknown) => {
-      return `<<failed to read response body: ${String(error)}>>`;
-    });
-    const requestBody = request.postData() ?? "";
-    expect(
-      response.ok(),
-      [
-        `timeline mutation failed with HTTP ${response.status()}`,
-        `method=${request.method()}`,
-        `url=${response.url()}`,
-        `request_body=${truncateDiagnostic(requestBody)}`,
-        `response_body=${truncateDiagnostic(responseBody)}`,
-      ].join("\n"),
-    ).toBeTruthy();
-  }
-  return (await response.json()) as TimelineMutationEnvelope;
 }
 
 async function waitForPendingQueueAuthPause(
@@ -364,76 +334,6 @@ async function timelineContinuityDiagnosticSnapshot(
     `mounted_row_ids=${JSON.stringify(snapshot.mountedRowIds)}`,
     `scroll_geometry=${JSON.stringify(snapshot.scroll)}`,
   ].join("\n");
-}
-
-function findRow(rows: ViewRow[], recordId: string) {
-  const row = rows.find((candidate) => candidate.record_id === recordId);
-  if (!row) {
-    throw new Error(`missing row ${recordId}`);
-  }
-  return row;
-}
-
-export async function waitForViewRow(
-  page: Page,
-  incidentId: string,
-  viewSchemaId: string,
-  recordId: string,
-) {
-  await expect
-    .poll(async () => {
-      const rows = (await queryViewRows(page, incidentId, viewSchemaId)) as
-        | ViewRow[]
-        | Array<Record<string, unknown>>;
-      return rows.some(
-        (candidate) =>
-          typeof candidate === "object" &&
-          candidate !== null &&
-          "record_id" in candidate &&
-          candidate.record_id === recordId,
-      );
-    })
-    .toBe(true);
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    viewSchemaId,
-  )) as ViewRow[];
-  return findRow(rows, recordId);
-}
-
-export async function waitForViewRowByCell(
-  page: Page,
-  incidentId: string,
-  viewSchemaId: string,
-  fieldKey: string,
-  value: string,
-): Promise<ViewRow> {
-  let match: ViewRow | null = null;
-  await expect
-    .poll(async () => {
-      const rows = (await queryViewRows(
-        page,
-        incidentId,
-        viewSchemaId,
-      )) as ViewRow[];
-      match = rows.find((row) => row.cells[fieldKey]?.value === value) ?? null;
-      return match !== null;
-    })
-    .toBe(true);
-  return requirePolledViewRow(match, viewSchemaId, fieldKey, value);
-}
-
-function requirePolledViewRow(
-  row: ViewRow | null,
-  viewSchemaId: string,
-  fieldKey: string,
-  value: string,
-) {
-  if (row === null) {
-    throw new Error(`missing ${viewSchemaId} row where ${fieldKey}=${value}`);
-  }
-  return row;
 }
 
 export async function editGenericCell(

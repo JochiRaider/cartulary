@@ -58,6 +58,12 @@
       "rationale": "Project Core 01's required string-valued upload-header map so generated clients and validators reject non-string header values."
     },
     {
+      "fingerprint": "bf6040c9aa8f27565a3e56f140af813eb8086f51afc84a513ff3b8d10447587e",
+      "classification": "breaking",
+      "owner_id": "module.evidence",
+      "rationale": "Enforce Core 01's base-profile upload target as exactly one opaque relative app-owned route segment, rejecting query, fragment, alternate-route, and cross-origin targets."
+    },
+    {
       "fingerprint": "5cb36224f9b5334b07e066f075fb462704ec3117e6831d655a43d9e62f7e5e50",
       "classification": "breaking",
       "owner_id": "module.workbook",
@@ -938,6 +944,12 @@
       "classification": "additive",
       "owner_id": "module.indicators",
       "rationale": "Add the source-record observation collection and manual capture operations."
+    },
+    {
+      "fingerprint": "17119c157ba76e7d04698efa6746c720002c7e1c31337a25a237833f3a033b77",
+      "classification": "additive",
+      "owner_id": "module.reference_data",
+      "rationale": "Project Core 01's already-adopted closed Reference Pack list-query vocabulary so generated clients can encode the supported pagination, search, and filter members."
     }
   ]
 }

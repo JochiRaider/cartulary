@@ -3,7 +3,8 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
-import { createLocalUser, readCurrentSession } from "./support/auth/sessions";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
+import { readCurrentSession } from "./support/auth/sessions";
 import { uniqueEmail } from "./support/runtime/fixtureIdentity";
 import { TestClock } from "./support/runtime/testClock";
 
@@ -24,17 +25,18 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   const testClock = new TestClock(page);
   const email = uniqueEmail("authentication-e104");
   const password = "AuthenticationE104Pass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E104",
     initial_password: password,
     mfa_required: false,
+    is_deployment_admin: false,
   });
 
   await clearBrowserSession(page);
   await new AuthGateway(page).goto();
   await new AuthGateway(page).login(email, password);
-  await new AccountSettings(page).open("account-security");
+  await new AccountSettings(page).openSecurity();
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "authentication ordinary shell",
@@ -64,7 +66,7 @@ test("advances the shared clock past idle expiry and requires a fresh login afte
   }
 
   await new AuthGateway(page).login(email, password);
-  await new AccountSettings(page).open("account-security");
+  await new AccountSettings(page).openSecurity();
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await sessionTracker.captureCurrentSession(page, {
     createdBy: "authentication ordinary shell",

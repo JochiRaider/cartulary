@@ -1,3 +1,8 @@
+import {
+  buildHTTPOperationPath,
+  httpOperationBindings,
+} from "@cartulary/protocol-ts/http";
+
 type RequestPageLike = {
   evaluate?: (
     pageFunction: (arg?: unknown) => unknown,
@@ -38,7 +43,11 @@ export async function fillDownGridCells(options: {
       );
     }
   }
-  const path = `/api/v1/incidents/${options.incidentId}/views/${options.surface}/bulk-mutations`;
+  const operationID = "applyWorkbookBulkMutation" as const;
+  const path = buildHTTPOperationPath(operationID, {
+    incident_id: options.incidentId,
+    view_schema_id: options.surface,
+  });
   const apiURL = `${options.apiBase}${path}`;
   const data = {
     view_schema_id: options.surface,
@@ -62,17 +71,23 @@ export async function fillDownGridCells(options: {
         const request = arg as {
           data: unknown;
           headers: Record<string, string>;
+          method: string;
           url: string;
         };
         const result = await fetch(request.url, {
-          method: "POST",
+          method: request.method,
           credentials: "include",
           headers: request.headers,
           body: JSON.stringify(request.data),
         });
         return { ok: result.ok, status: result.status };
       },
-      { data, headers, url: path },
+      {
+        data,
+        headers,
+        method: httpOperationBindings[operationID].method,
+        url: path,
+      },
     )) as { ok?: unknown; status?: unknown };
     return {
       ok: () => response.ok === true,

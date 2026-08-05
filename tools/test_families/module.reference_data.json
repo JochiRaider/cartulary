@@ -47,6 +47,10 @@
       "selector": {
         "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
         "titles": [
+          "clears protected list state and invalidates pending generations on authorization loss",
+          "discards stale reference pack search responses",
+          "rejects malformed successful Reference Pack responses",
+          "retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results",
           "shows job progress and cancel controls for deployment-admin Reference Pack work"
         ]
       },

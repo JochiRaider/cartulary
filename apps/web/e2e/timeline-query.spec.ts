@@ -11,6 +11,7 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -21,13 +22,9 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createViewRow } from "./support/workbook/query";
-import {
-  readTimelineMutation,
-  waitForTimelinePatch,
-} from "./support/workbook/rowMutations";
+import { createViewRow, readWorkbookMutation } from "./support/workbook/query";
+import { waitForTimelinePatch } from "./support/workbook/rowMutations";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const exactScenarioTitle =
   "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh.";
 const timelineSchemaFieldKeys = [
@@ -213,7 +210,10 @@ test(exactScenarioTitle, async ({ page }) => {
     "integration.mutation-lifecycle.row-01 Beta patched",
   );
   await betaSummaryEditor.press("Enter");
-  const betaPatchEnvelope = await readTimelineMutation(await betaPatchResponse);
+  const betaPatchEnvelope = await readWorkbookMutation(
+    await betaPatchResponse,
+    "patchRecord",
+  );
   await expect(
     page.getByTestId(timelineRowVersionTestId(beta.record_id)),
   ).toHaveText(String(betaPatchEnvelope.data.row.row_version));
@@ -242,7 +242,10 @@ test(exactScenarioTitle, async ({ page }) => {
     .getByTestId(draftSummaryTestId)
     .fill("integration.mutation-lifecycle.row-01 Created");
   await page.getByTestId(draftSummaryTestId).press("Enter");
-  const createEnvelope = await readTimelineMutation(await createResponse);
+  const createEnvelope = await readWorkbookMutation(
+    await createResponse,
+    "createViewRow",
+  );
   const createdRecordId = createEnvelope.data.row.record_id;
   await expect(
     page.getByTestId(
@@ -279,7 +282,10 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   await betaOccurredAtEditor.press("Enter");
   const validation = await validationResponse;
-  const validationEnvelope = await readTimelineMutation(validation);
+  const validationEnvelope = await readWorkbookMutation(
+    validation,
+    "patchRecord",
+  );
   expect(
     validationEnvelope.data.row.cells["timeline.activity_utc_text"]?.value,
   ).toBe("not-a-timestamp");

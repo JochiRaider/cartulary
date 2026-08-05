@@ -8,8 +8,8 @@ import type { APIResponse } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { createIncident } from "./support/incidents/fixtures";
-import { createLocalUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -104,10 +104,12 @@ test("supports zero-membership extension discovery and singleton pagination reje
 }) => {
   const zeroMemberEmail = uniqueEmail("incident_membership-support-e205");
   const zeroMemberPassword = "IncidentMembershipSupportE205Pass!";
-  const zeroMemberUser = await createLocalUser(page, {
+  const zeroMemberUser = await createDeploymentUser(page, {
     email: zeroMemberEmail,
     display_name: "Incident administration Support Zero Member",
     initial_password: zeroMemberPassword,
+    is_deployment_admin: false,
+    mfa_required: false,
   });
 
   await sessionTracker.loginTrackedUser(page, {
@@ -170,10 +172,12 @@ test("supports reserved-family dispatch precedence probes while ordinary base an
 }) => {
   const zeroMemberEmail = uniqueEmail("incident_membership-support-e206");
   const zeroMemberPassword = "IncidentMembershipSupportE206Pass!";
-  const zeroMemberUser = await createLocalUser(page, {
+  const zeroMemberUser = await createDeploymentUser(page, {
     email: zeroMemberEmail,
     display_name: "Incident administration Support Reserved Family User",
     initial_password: zeroMemberPassword,
+    is_deployment_admin: false,
+    mfa_required: false,
   });
 
   await sessionTracker.loginTrackedUser(page, {

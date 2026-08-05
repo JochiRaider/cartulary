@@ -602,6 +602,10 @@ export function referencePackJobStatusTestId(): string {
   return "reference-pack-job-status";
 }
 
+export function referencePackListStatusTestId(): string {
+  return "reference-pack-list-status";
+}
+
 export function referencePackReloadButtonTestId(): string {
   return "reference-pack-reload";
 }

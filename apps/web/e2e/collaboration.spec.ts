@@ -121,6 +121,8 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
     email: uniqueEmail("integration.collaboration-remote"),
     initial_password: "FeIP7RemotePass!",
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const conflictId = requireRecordId(
     await createTimelineRow(
@@ -331,6 +333,8 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     email: uniqueEmail("end-to-end.collaboration-remote"),
     initial_password: "FeEP7RemotePass!",
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const liveId = requireRecordId(
     await createTimelineRow(
@@ -607,6 +611,8 @@ test("shows two analysts each other's workbook presence within the expected inte
     email: uniqueEmail("collaboration-e601-remote"),
     initial_password: "CollaborationE601Remote!",
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const row = await createTimelineRow(
     page,
@@ -727,6 +733,8 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
     email: uniqueEmail("collaboration-e602-remote"),
     initial_password: "CollaborationE602Remote!",
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const differentId = requireRecordId(
     await createTimelineRow(
@@ -886,6 +894,8 @@ test("keeps live updates conflict markers and presence markers anchored to recor
     email: uniqueEmail("collaboration-e604-anchor"),
     initial_password: "CollaborationE604Anchor!",
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   for (let index = 0; index < 24; index += 1) {
     await createTimelineRow(
@@ -1192,6 +1202,8 @@ test("replays queued unsent writes after re-authentication without silent reload
       email: uniqueEmail("collaboration-e605-http-auth"),
       initial_password: "CollaborationE605HttpAuth!",
       role: "editor",
+      is_deployment_admin: false,
+      mfa_required: false,
     });
     const firstId = requireRecordId(
       await createTimelineRow(

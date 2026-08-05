@@ -382,11 +382,29 @@ describe("@cartulary/ui-contracts application selectors", () => {
       ["menu", "landing-admin-menu"],
       ["status-strip", "landing-admin-status-strip"],
     ]);
-    expect(landingAdminMenuItemTestId("incidents")).toBe(
-      "landing-admin-menu-item-incidents",
+    expect(landingAdminMenuItemTestId("administrative-audit")).toBe(
+      "landing-admin-menu-item-administrative-audit",
+    );
+    expect(landingAdminMenuItemTestId("deployment-users")).toBe(
+      "landing-admin-menu-item-deployment-users",
+    );
+    expect(landingAdminMenuItemTestId("incident-import")).toBe(
+      "landing-admin-menu-item-incident-import",
+    );
+    expect(landingAdminMenuItemTestId("reference-packs")).toBe(
+      "landing-admin-menu-item-reference-packs",
+    );
+    expect(landingAdminPanelTestId("administrative-audit")).toBe(
+      "landing-admin-panel-administrative-audit",
     );
     expect(landingAdminPanelTestId("deployment-users")).toBe(
       "landing-admin-panel-deployment-users",
+    );
+    expect(landingAdminPanelTestId("incident-import")).toBe(
+      "landing-admin-panel-incident-import",
+    );
+    expect(landingAdminPanelTestId("reference-packs")).toBe(
+      "landing-admin-panel-reference-packs",
     );
     expect(deploymentUserRowTestId("user:1")).toBe(
       "deployment-user-row-user%3A1",

@@ -1,4 +1,9 @@
-import type { SheetRef } from "@cartulary/protocol-ts/http";
+import type {
+  CreateIncidentSavedViewRequest,
+  CreateIncidentSavedViewResponse,
+  DeleteIncidentSavedViewResponse,
+  SheetRef,
+} from "@cartulary/protocol-ts/http";
 import {
   savedViewActionMenuTestId,
   savedViewActionMenuTriggerTestId,
@@ -17,7 +22,8 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
 import { apiBase } from "../runtime/configuration";
-import { atJsonOrigin, requestPublicJson } from "../transport/publicJsonClient";
+import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import { atJsonOrigin } from "../transport/publicJsonClient";
 import { createEnvironmentTestControlClient } from "../transport/testControlEnvironment";
 
 type SavedViewLocatorLike = {
@@ -114,13 +120,7 @@ function waitForSavedViewRetry(durationMs: number) {
   });
 }
 
-export type SavedViewApiResource = {
-  saved_view_id: string;
-  view_schema_id: string;
-  display_name: string;
-  scope?: string;
-  [key: string]: unknown;
-};
+export type SavedViewApiResource = CreateIncidentSavedViewResponse["data"];
 
 export async function createSavedView(
   page: Page,
@@ -133,21 +133,48 @@ export async function createSavedView(
     view_schema_id: string;
   },
 ): Promise<SavedViewApiResource> {
-  const response = await requestPublicJson({
-    body: {
-      display_name: options.display_name,
-      layout_json: options.layout_json ?? {},
-      query_json: options.query_json ?? {},
-      ...(options.scope === undefined ? {} : { scope: options.scope }),
-      view_schema_id: options.view_schema_id,
-    },
+  const body = {
+    display_name: options.display_name,
+    layout_json: options.layout_json ?? {},
+    query_json: options.query_json ?? {},
+    ...(options.scope === undefined ? {} : { scope: options.scope }),
+    view_schema_id: options.view_schema_id,
+  } satisfies CreateIncidentSavedViewRequest;
+  const response = await publicHttpOperation({
+    body,
     headers: await csrfHeaders(page),
-    method: "POST",
-    path: `/api/v1/incidents/${incidentId}/saved-views`,
+    operationID: "createIncidentSavedView",
+    pathParameters: { incident_id: incidentId },
     request: atJsonOrigin(page.request, apiBase),
   });
-  expect(response.ok).toBeTruthy();
-  return (response.body as { data: SavedViewApiResource }).data;
+  if (!response.ok) {
+    throw new Error(
+      `createIncidentSavedView failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+    );
+  }
+  return response.payload.data;
+}
+
+export async function deleteSavedView(
+  page: Page,
+  incidentId: string,
+  savedViewId: string,
+): Promise<DeleteIncidentSavedViewResponse["data"]> {
+  const response = await publicHttpOperation({
+    headers: await csrfHeaders(page),
+    operationID: "deleteIncidentSavedView",
+    pathParameters: {
+      incident_id: incidentId,
+      saved_view_id: savedViewId,
+    },
+    request: atJsonOrigin(page.request, apiBase),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `deleteIncidentSavedView failed with HTTP ${response.status}: ${JSON.stringify(response.payload)}`,
+    );
+  }
+  return response.payload.data;
 }
 
 export async function seedSystemSavedView(

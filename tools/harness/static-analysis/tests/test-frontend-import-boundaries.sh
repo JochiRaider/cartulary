@@ -561,6 +561,22 @@ write_config() {
       ]
     },
     {
+      "id": "web-e2e-production-source-boundary",
+      "level": "error",
+      "message": "E2E code must consume public package and selector facades instead of private web production sources.",
+      "applies_to": {
+        "include": ["apps/web/e2e/**"],
+        "exclude": []
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src"
+        }
+      ]
+    },
+    {
       "id": "web-e2e-test-utils-subpath-boundary",
       "level": "error",
       "message": "Import @cartulary/test-utils only through its semantic grid subpath.",
@@ -1171,6 +1187,15 @@ export const leaked = registry;
 TS
 e2e_app_registry_output="$(assert_fails "E2E app workbook registry import" run_checker "$e2e_app_registry_root")"
 assert_contains "$e2e_app_registry_output" "web-e2e-workbook-contract-boundary" "E2E app workbook registry rule"
+
+e2e_production_source_root="$(prepare_case_root e2e-production-source)"
+cat >"$e2e_production_source_root/apps/web/e2e/runtimeHarness.ts" <<'TS'
+import type { PrivateControllerState } from "../src/app/privateController";
+
+export type Leaked = PrivateControllerState;
+TS
+e2e_production_source_output="$(assert_fails "E2E production source import" run_checker "$e2e_production_source_root")"
+assert_contains "$e2e_production_source_output" "web-e2e-production-source-boundary" "E2E production source rule"
 
 e2e_public_control_root="$(prepare_case_root e2e-public-control)"
 cat >"$e2e_public_control_root/apps/web/e2e/support/transport/publicJsonClient.ts" <<'TS'

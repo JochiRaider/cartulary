@@ -1,7 +1,11 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
-
+import { describe, expect, it, vi } from "vitest";
+import type { JsonRequestContextLike } from "../transport/publicJsonClient";
+import {
+  createDeploymentUser,
+  type DeploymentUserCreation,
+} from "./deploymentUsers";
 import {
   type DeploymentAdminMutationClient,
   reconcileWorkerAdminManifest,
@@ -25,6 +29,90 @@ type FakeControlPlane = {
   };
   users: Map<string, FakeUser>;
 };
+
+describe("createDeploymentUser", () => {
+  it("preserves explicit MFA and deployment-admin intent in request bytes", async () => {
+    const fetch = vi.fn<JsonRequestContextLike["fetch"]>(
+      async (_url, options) => ({
+        headers: () => ({}),
+        json: async () => {
+          const requestBody = options.data as {
+            is_deployment_admin: boolean;
+            mfa_required: boolean;
+          };
+          return {
+            data: {
+              auth_bindings: [
+                {
+                  created_at: "2026-08-05T00:00:00Z",
+                  provider_key: "local",
+                  provider_type: "local",
+                  username: "explicit@example.test",
+                },
+              ],
+              created_at: "2026-08-05T00:00:00Z",
+              user_id: "11111111-1111-4111-8111-111111111111",
+              email: "explicit@example.test",
+              display_name: "Explicit User",
+              user_version: 1,
+              is_active: true,
+              last_login_at: null,
+              updated_at: "2026-08-05T00:00:00Z",
+              updated_by_user_id: null,
+              is_deployment_admin: requestBody.is_deployment_admin,
+              mfa_required: requestBody.mfa_required,
+            },
+            meta: { request_id: "request-1" },
+          };
+        },
+        ok: () => true,
+        status: () => 201,
+      }),
+    );
+    const request = { fetch };
+    type IsRequired<Key extends keyof DeploymentUserCreation> =
+      Record<never, never> extends Pick<DeploymentUserCreation, Key>
+        ? false
+        : true;
+    const requiredSecurityFields: [
+      IsRequired<"is_deployment_admin">,
+      IsRequired<"mfa_required">,
+    ] = [true, true];
+    expect(requiredSecurityFields).toEqual([true, true]);
+
+    await createDeploymentUser(request, {
+      email: "explicit-admin@example.test",
+      display_name: "Explicit Admin",
+      initial_password: "ExplicitAdmin1!",
+      mfa_required: true,
+      is_deployment_admin: true,
+    });
+    await createDeploymentUser(request, {
+      email: "explicit-member@example.test",
+      display_name: "Explicit Member",
+      initial_password: "ExplicitMember1!",
+      mfa_required: false,
+      is_deployment_admin: false,
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[0]?.[0]).toBe("/api/v1/users");
+    expect(fetch.mock.calls[0]?.[1]?.data).toEqual(
+      expect.objectContaining({
+        auth_kind: "local",
+        mfa_required: true,
+        is_deployment_admin: true,
+      }),
+    );
+    expect(fetch.mock.calls[1]?.[1]?.data).toEqual(
+      expect.objectContaining({
+        auth_kind: "local",
+        mfa_required: false,
+        is_deployment_admin: false,
+      }),
+    );
+  });
+});
 
 describe("reconcileWorkerAdminManifest", () => {
   it("reuses the same worker-admin accounts across sequential invocations", async () => {

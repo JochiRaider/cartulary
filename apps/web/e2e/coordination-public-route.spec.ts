@@ -139,6 +139,8 @@ test("Verify coordination rows can be queried and edited through public view/row
     email: uniqueEmail("end-to-end.coordination-review-editor"),
     initial_password: memberPassword,
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
 
   const seededRows = new Map<string, ViewApiRow>();

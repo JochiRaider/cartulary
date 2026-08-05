@@ -1,4 +1,7 @@
-import type { SheetRef } from "@cartulary/protocol-ts/http";
+import type {
+  QueryWorkbookViewRequest,
+  SheetRef,
+} from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
@@ -23,6 +26,12 @@ import {
   timelineRowMarkReviewedButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import {
+  evidenceViewSchemaId,
+  hostsViewSchemaId,
+  notesViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -35,14 +44,17 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createViewRow } from "./support/workbook/query";
+import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 import {
+  createSavedView,
   createSavedViewFromCurrentSurface,
+  deleteSavedView,
   deleteSavedViewFromCurrentSurface,
   duplicateSavedViewFromCurrentSurface,
   openSavedViewActionMenu,
   readSavedViewSelectionState,
+  type SavedViewApiResource,
   seedSystemSavedView,
   selectSavedView,
   selectSavedViewScope,
@@ -51,11 +63,6 @@ import {
   setSavedViewDraftName,
   updateSavedViewFromCurrentSurface,
 } from "./support/workbook/savedViews";
-
-const evidenceViewSchemaId = "cartulary.view.evidence.v1";
-const hostsViewSchemaId = "cartulary.view.hosts.v1";
-const notesViewSchemaId = "cartulary.view.notes.v1";
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("saved-view route foundation persists canonical state while browser lifecycle affordances remain pending", async ({
   page,
@@ -359,7 +366,7 @@ test("Verify saved-view create/update/select/default UI uses active surface scop
   });
   const duplicateSavedView = (
     (await (await duplicateResponse).json()) as {
-      data: SavedViewResource;
+      data: SavedViewApiResource;
     }
   ).data;
 
@@ -780,7 +787,7 @@ async function verifySavedViewPersistenceReplay(
       { direction: "asc", field_key: "timeline.capture_state" },
       { direction: "asc", field_key: "timeline.activity_synopsis_text" },
     ],
-  };
+  } satisfies QueryWorkbookViewRequest;
   expect(readPostBody(await groupRequest)).toEqual(replayedQuery);
   await expectFirstDataRow(page, String(beta.record_id));
 
@@ -824,7 +831,7 @@ async function verifySavedViewPersistenceReplay(
   });
   const savedView = (
     (await (await createResponse).json()) as {
-      data: SavedViewResource;
+      data: SavedViewApiResource;
     }
   ).data;
   await expect
@@ -841,7 +848,7 @@ async function verifySavedViewPersistenceReplay(
   expect(savedViewsResponse.ok()).toBeTruthy();
   const savedViews = (
     (await savedViewsResponse.json()) as {
-      data: { saved_views: SavedViewResource[] };
+      data: { saved_views: SavedViewApiResource[] };
     }
   ).data.saved_views;
   const persistedSavedView = savedViews.find(
@@ -1083,6 +1090,8 @@ test("workbook startup falls back to Timeline for an unsupported explicit sheet"
     display_name: "Workbook query workbook-interaction Viewer",
     initial_password: viewerPassword,
     role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   await loginLocalSession(page, viewer.email, viewerPassword);
   await putUserHomeSheetRef(page, incidentId, {
@@ -1628,17 +1637,6 @@ function stableJSON(value: unknown): string {
   return JSON.stringify(value) ?? "undefined";
 }
 
-type SavedViewResource = {
-  display_name: string;
-  layout_json?: Record<string, unknown>;
-  owner_user_id?: string | null;
-  query_json?: Record<string, unknown>;
-  saved_view_id: string;
-  saved_view_version?: number;
-  scope?: string;
-  view_schema_id: string;
-};
-
 type WorkbookPreferencesResource = {
   default_sheet_ref?: SheetRef | null;
   home_sheet_ref?: SheetRef | null;
@@ -1649,48 +1647,6 @@ type WorkbookStartupResource = {
   selected_view_schema_id: string;
   source: "default" | "explicit" | "home" | "timeline";
 };
-
-async function createSavedView(
-  page: Page,
-  incidentId: string,
-  data: {
-    display_name: string;
-    layout_json?: Record<string, unknown>;
-    query_json?: Record<string, unknown>;
-    scope?: "private" | "shared";
-    view_schema_id: string;
-  },
-) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        display_name: data.display_name,
-        layout_json: data.layout_json ?? {},
-        query_json: data.query_json ?? {},
-        ...(data.scope === undefined ? {} : { scope: data.scope }),
-        view_schema_id: data.view_schema_id,
-      },
-    },
-  );
-  expect(response.status()).toBe(201);
-  return ((await response.json()) as { data: SavedViewResource }).data;
-}
-
-async function deleteSavedView(
-  page: Page,
-  incidentId: string,
-  savedViewId: string,
-) {
-  const response = await page.request.delete(
-    `${apiBase}/api/v1/incidents/${incidentId}/saved-views/${savedViewId}`,
-    {
-      headers: await csrfHeaders(page),
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-}
 
 async function putDefaultSheetRef(
   page: Page,
@@ -1783,26 +1739,6 @@ async function expectFirstDataRow(page: Page, recordId: string) {
   await expect
     .poll(async () => (await visibleRecordIds(page))[0] ?? null)
     .toBe(recordId);
-}
-
-async function queryViewRows(
-  page: Page,
-  incidentId: string,
-  viewSchemaId: string,
-  body: Record<string, unknown>,
-) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/views/${viewSchemaId}/query`,
-    {
-      data: body,
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-  return (
-    (await response.json()) as {
-      data: { rows: Array<Record<string, unknown>> };
-    }
-  ).data.rows;
 }
 
 function rowIDs(rows: Array<Record<string, unknown>>) {

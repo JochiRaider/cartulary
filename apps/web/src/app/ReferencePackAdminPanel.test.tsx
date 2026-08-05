@@ -1,8 +1,10 @@
 import {
   referencePackAdminPanelTestId,
   referencePackCancelButtonTestId,
+  referencePackErrorTestId,
   referencePackFileInputTestId,
   referencePackJobStatusTestId,
+  referencePackListStatusTestId,
   referencePackRefreshAllButtonTestId,
   referencePackRowTestId,
 } from "@cartulary/ui-contracts";
@@ -15,7 +17,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deferred, jsonResponse } from "../testing/fetchMockTestSupport";
+import {
+  deferred,
+  errorResponse,
+  jsonResponse,
+} from "../testing/fetchMockTestSupport";
 import type { SessionData } from "./api/appShellClient";
 import { ReferencePackAdminPanel } from "./ReferencePackAdminPanel";
 
@@ -41,6 +47,7 @@ describe("ReferencePackAdminPanel", () => {
   });
 
   it("shows job progress and cancel controls for deployment-admin Reference Pack work", async () => {
+    const jobID = "11111111-1111-4111-8111-111111111111";
     fetchMock.mockImplementation((input, init) => {
       const url = String(input);
       const method = (init?.method ?? "GET").toUpperCase();
@@ -50,66 +57,50 @@ describe("ReferencePackAdminPanel", () => {
         const filtered =
           search === "identity"
             ? [
-                {
+                packResource({
                   pack_key: "type_registry.identity",
-                  pack_version: "1",
-                  pack_kind: "type_registry",
                   pack_version_state: "staged",
                   active: false,
                   verification_result: "pending",
-                },
+                }),
               ]
             : [
-                {
+                packResource({
                   pack_key: "type_registry.host",
-                  pack_version: "1",
-                  pack_kind: "type_registry",
                   pack_version_state: "verified_available",
                   active: true,
                   verification_result: "passed",
-                },
-                {
+                }),
+                packResource({
                   pack_key: "type_registry.identity",
-                  pack_version: "1",
-                  pack_kind: "type_registry",
                   pack_version_state: "staged",
                   active: false,
                   verification_result: "pending",
-                },
+                }),
               ];
-        return Promise.resolve(
-          jsonResponse({
-            data: {
-              pack_versions: filtered,
-            },
-            meta: {
-              paging: {
-                limit: 100,
-                has_more: false,
-                next_cursor: null,
-              },
-            },
-          }),
-        );
+        return Promise.resolve(jsonResponse(packListEnvelope(filtered)));
       }
       if (url === "/api/v1/reference-packs/refresh" && method === "POST") {
         return Promise.resolve(
           jsonResponse({
-            data: jobResource("job-1", "queued", true, 0, 1),
+            data: jobResource(jobID, "queued", true, 0, 1),
+            meta: { request_id: "request-1" },
           }),
         );
       }
-      if (url === "/api/v1/jobs/job-1" && method === "GET") {
+      if (url === `/api/v1/jobs/${jobID}` && method === "GET") {
         return Promise.resolve(
           jsonResponse({
-            data: jobResource("job-1", "running", true, 0, 1),
+            data: jobResource(jobID, "running", true, 0, 1),
+            meta: { request_id: "request-2" },
           }),
         );
       }
-      if (url === "/api/v1/jobs/job-1/cancel" && method === "POST") {
+      if (url === `/api/v1/jobs/${jobID}/cancel` && method === "POST") {
         return Promise.resolve(
           jsonResponse({
-            data: jobResource("job-1", "cancel_requested", false, 0, 1),
+            data: jobResource(jobID, "cancel_requested", false, 0, 1),
+            meta: { request_id: "request-3" },
           }),
         );
       }
@@ -165,7 +156,7 @@ describe("ReferencePackAdminPanel", () => {
         fetchMock.mock.calls.some(
           ([input]) =>
             String(input) ===
-            "/api/v1/reference-packs?limit=100&pack_version_state=verified_available&verification_result=passed&active=true",
+            "/api/v1/reference-packs?active=true&limit=100&pack_version_state=verified_available&verification_result=passed",
         ),
       ).toBe(true);
     });
@@ -186,7 +177,7 @@ describe("ReferencePackAdminPanel", () => {
     });
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/v1/jobs/job-1/cancel",
+        `/api/v1/jobs/${jobID}/cancel`,
         expect.objectContaining({ method: "POST" }),
       );
     });
@@ -217,20 +208,16 @@ describe("ReferencePackAdminPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     searchResponse.resolve(
-      jsonResponse({
-        data: {
-          pack_versions: [
-            {
-              pack_key: "type_registry.identity",
-              pack_version: "1",
-              pack_kind: "type_registry",
-              pack_version_state: "staged",
-              active: false,
-              verification_result: "pending",
-            },
-          ],
-        },
-      }),
+      jsonResponse(
+        packListEnvelope([
+          packResource({
+            pack_key: "type_registry.identity",
+            pack_version_state: "staged",
+            active: false,
+            verification_result: "pending",
+          }),
+        ]),
+      ),
     );
     expect(
       await screen.findByTestId(
@@ -239,20 +226,16 @@ describe("ReferencePackAdminPanel", () => {
     ).toBeTruthy();
 
     initialResponse.resolve(
-      jsonResponse({
-        data: {
-          pack_versions: [
-            {
-              pack_key: "type_registry.host",
-              pack_version: "1",
-              pack_kind: "type_registry",
-              pack_version_state: "verified_available",
-              active: true,
-              verification_result: "passed",
-            },
-          ],
-        },
-      }),
+      jsonResponse(
+        packListEnvelope([
+          packResource({
+            pack_key: "type_registry.host",
+            pack_version_state: "verified_available",
+            active: true,
+            verification_result: "passed",
+          }),
+        ]),
+      ),
     );
 
     await waitFor(() => {
@@ -260,6 +243,169 @@ describe("ReferencePackAdminPanel", () => {
         screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
       ).toBe(null);
     });
+  });
+
+  it("retains accepted rows while searching, resets paging on Enter, and ignores stale terminal results", async () => {
+    const appendResponse = deferred<Response>();
+    const searchResponse = deferred<Response>();
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/reference-packs?limit=100" && method === "GET") {
+        return Promise.resolve(
+          jsonResponse(
+            packListEnvelope(
+              [packResource({ pack_key: "type_registry.host" })],
+              {
+                limit: 100,
+                has_more: true,
+                next_cursor: "cursor-a",
+              },
+            ),
+          ),
+        );
+      }
+      if (
+        url === "/api/v1/reference-packs?cursor_token=cursor-a&limit=100" &&
+        method === "GET"
+      ) {
+        return appendResponse.promise;
+      }
+      if (
+        url === "/api/v1/reference-packs?limit=100&search=identity" &&
+        method === "GET"
+      ) {
+        return searchResponse.promise;
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    });
+
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    expect(
+      await screen.findByTestId(
+        referencePackRowTestId("type_registry.host", "1"),
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
+      target: { value: "identity" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Search reference packs"), {
+      key: "Enter",
+    });
+
+    expect(
+      screen.getByTestId(referencePackListStatusTestId()).textContent,
+    ).toBe("Searching reference packs");
+    expect(
+      screen.getByTestId(referencePackRowTestId("type_registry.host", "1")),
+    ).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) =>
+          String(input) === "/api/v1/reference-packs?limit=100&search=identity",
+      ),
+    ).toBe(true);
+
+    searchResponse.resolve(errorResponse("reference_pack_search_failed", 500));
+    await waitFor(() => {
+      expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
+        "reference_pack_search_failed",
+      );
+    });
+    appendResponse.resolve(
+      jsonResponse(
+        packListEnvelope([packResource({ pack_key: "type_registry.stale" })]),
+      ),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          referencePackRowTestId("type_registry.stale", "1"),
+        ),
+      ).toBeNull();
+    });
+    expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
+      "reference_pack_search_failed",
+    );
+  });
+
+  it("clears protected list state and invalidates pending generations on authorization loss", async () => {
+    const pendingResponse = deferred<Response>();
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/reference-packs?limit=100" && method === "GET") {
+        return Promise.resolve(
+          jsonResponse(
+            packListEnvelope([
+              packResource({ pack_key: "type_registry.host" }),
+            ]),
+          ),
+        );
+      }
+      if (
+        url === "/api/v1/reference-packs?limit=100&search=identity" &&
+        method === "GET"
+      ) {
+        return pendingResponse.promise;
+      }
+      throw new Error(`unexpected fetch ${method} ${url}`);
+    });
+
+    const view = render(<ReferencePackAdminPanel session={session(true)} />);
+    expect(
+      await screen.findByTestId(
+        referencePackRowTestId("type_registry.host", "1"),
+      ),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Search reference packs"), {
+      target: { value: "identity" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    view.rerender(<ReferencePackAdminPanel session={session(false)} />);
+    expect(
+      screen.getByTestId(referencePackAdminPanelTestId()).textContent,
+    ).toContain("Deployment admin access is required");
+    expect(
+      screen.queryByTestId(referencePackRowTestId("type_registry.host", "1")),
+    ).toBeNull();
+
+    pendingResponse.resolve(
+      jsonResponse(
+        packListEnvelope([
+          packResource({ pack_key: "type_registry.identity" }),
+        ]),
+      ),
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(
+          referencePackRowTestId("type_registry.identity", "1"),
+        ),
+      ).toBeNull();
+    });
+  });
+
+  it("rejects malformed successful Reference Pack responses", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: { pack_versions: [{ pack_key: "incomplete" }] },
+        meta: { request_id: "request-invalid" },
+      }),
+    );
+
+    render(<ReferencePackAdminPanel session={session(true)} />);
+    await waitFor(() => {
+      expect(screen.getByTestId(referencePackErrorTestId()).textContent).toBe(
+        "invalid_public_contract_response",
+      );
+    });
+    expect(
+      screen.getByTestId(referencePackListStatusTestId()).textContent,
+    ).toBe("Reference packs unavailable");
   });
 });
 
@@ -291,7 +437,7 @@ function jobResource(
     cancelable,
     scope: { kind: "deployment" },
     status_route: `/api/v1/jobs/${jobID}`,
-    submitted_by_user_id: "user-1",
+    submitted_by_user_id: "22222222-2222-4222-8222-222222222222",
     submitted_at: "2026-05-24T00:00:00Z",
     updated_at: "2026-05-24T00:00:00Z",
     progress: { completed, total },
@@ -300,5 +446,53 @@ function jobResource(
     retained_until: null,
     result_summary: null,
     error_summary: null,
+  };
+}
+
+function packResource(
+  overrides: Partial<{
+    active: boolean;
+    pack_key: string;
+    pack_version_state:
+      | "staged"
+      | "verified_available"
+      | "disabled"
+      | "failed"
+      | "missing";
+    verification_result: "pending" | "passed" | "failed";
+  }> = {},
+) {
+  return {
+    activated_at: null,
+    activated_by_user_id: null,
+    active: false,
+    imported_at: "2026-05-24T00:00:00Z",
+    imported_by_user_id: null,
+    manifest_sha256: "a".repeat(64),
+    pack_contract_version: "1",
+    pack_key: "type_registry.host",
+    pack_kind: "type_registry",
+    pack_version: "1",
+    pack_version_state: "verified_available" as const,
+    payload_sha256: "b".repeat(64),
+    previous_active_version: null,
+    signer_key_id: null,
+    source_identifier: null,
+    verification_method: "sha256",
+    verification_result: "passed" as const,
+    ...overrides,
+  };
+}
+
+function packListEnvelope(
+  packVersions: ReturnType<typeof packResource>[],
+  paging = { limit: 100, has_more: false, next_cursor: null as string | null },
+) {
+  return {
+    data: { pack_versions: packVersions },
+    meta: {
+      request_id: "request-list",
+      paging,
+    },
   };
 }

@@ -34,13 +34,16 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  queryViewRows,
+  waitForViewRow,
+} from "./support/workbook/query";
 import {
   ensureTimelineGridTargetVisible,
   expectNoPendingQueueAuthPause,
   expectTimelineMutationContinuity,
   openTimelineInspector,
-  waitForViewRow,
 } from "./support/workbook/rowMutations";
 
 test("resolves and creates entities from Timeline mentions in the inspector", async ({

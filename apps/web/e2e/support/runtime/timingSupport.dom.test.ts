@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { gridShellTestId, rowCellTestId } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 import { findCommittedRowSummaryInRoot } from "../../measurement/timingSupport";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 describe("committed row measurement predicates", () => {
   it("matches only visible committed rows with stable record and row version", () => {
     document.body.innerHTML = `

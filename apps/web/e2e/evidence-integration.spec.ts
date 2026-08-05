@@ -24,6 +24,10 @@ import type { APIRequestContext, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import type { ViewRow } from "./support/entities/mentions";
+import {
+  createAndUploadObjectBlob,
+  resolveObjectUploadTarget,
+} from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
 import { apiBase, webBase } from "./support/runtime/configuration";
@@ -111,10 +115,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
       createBlobRequest,
       "object blob create envelope",
     );
-  expect(createBlobEnvelope.data.upload_target.href).toMatch(
-    /^\/api\/v1\/object-uploads\//u,
-  );
-  expect(createBlobEnvelope.data.upload_target.method).toBe("PUT");
+  resolveObjectUploadTarget(createBlobEnvelope.data.upload_target);
 
   const uploadRequest = await observed.requirePut(
     (request) =>
@@ -303,9 +304,7 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
       createBlobRequest,
       "end-to-end.evidence-workflow object blob create envelope",
     );
-  expectSameOriginObjectUploadTarget(
-    createBlobEnvelope.data.upload_target.href,
-  );
+  resolveObjectUploadTarget(createBlobEnvelope.data.upload_target);
   expect(createBlobEnvelope.data.upload_target.method).toBe("PUT");
 
   const uploadRequest = await observed.requirePut(
@@ -433,6 +432,8 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     display_name: "end-to-end.evidence-workflow member",
     initial_password: memberPassword,
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
@@ -733,37 +734,20 @@ async function createUploadedEvidence(
     "evidence.title": options.title,
     "evidence.collector_party_text": "Browser evidence",
   })) as unknown as ViewRow;
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      incident_id: incidentId,
-      client_txn_id: uniqueTxn("fee-p6-uploaded-blob"),
-      byte_size: options.body.byteLength,
-      filename_hint: options.filename,
-      content_type_hint: options.contentType,
-    } satisfies CreateObjectBlobSlotRequest,
+  const blob = await createAndUploadObjectBlob(page, {
+    body: options.body,
+    clientTxnId: uniqueTxn("fee-p6-uploaded-blob"),
+    contentType: options.contentType,
+    filename: options.filename,
+    incidentId,
   });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobEnvelope =
-    (await createBlob.json()) as CreateObjectBlobSlotResponse;
-  expectSameOriginObjectUploadTarget(blobEnvelope.data.upload_target.href);
-  expect(blobEnvelope.data.upload_target.method).toBe("PUT");
-
-  const upload = await page.request.put(
-    resolveAPIHref(blobEnvelope.data.upload_target.href),
-    {
-      data: options.body,
-      headers: { "Content-Type": options.contentType },
-    },
-  );
-  expect(upload.ok()).toBeTruthy();
 
   const attach = await page.request.post(
     `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
     {
       headers: await csrfHeaders(page),
       data: {
-        object_blob_id: blobEnvelope.data.object_blob_id,
+        object_blob_id: blob.object_blob_id,
         base_row_version: row.row_version,
         client_txn_id: uniqueTxn("fee-p6-uploaded-attach"),
       } satisfies AttachBlobToEvidenceRecordRequest,
@@ -783,21 +767,10 @@ async function expectActiveEvidenceSurface(page: Page, expectedURL: string) {
   ).toBeVisible();
 }
 
-function resolveAPIHref(href: string): string {
-  return href.startsWith("/") ? `${apiBase}${href}` : href;
-}
-
 function expectSameOriginEvidenceHandle(href: string) {
   const parsed = new URL(href, webBase);
   expect(parsed.origin).toBe(new URL(webBase).origin);
   expect(parsed.pathname).toMatch(/^\/api\/v1\/evidence-handles\/[^/]+$/u);
-  expectNoRawStorageDetailsInText(href);
-}
-
-function expectSameOriginObjectUploadTarget(href: string) {
-  const parsed = new URL(href, webBase);
-  expect(parsed.origin).toBe(new URL(webBase).origin);
-  expect(parsed.pathname).toMatch(/^\/api\/v1\/object-uploads\/[^/]+$/u);
   expectNoRawStorageDetailsInText(href);
 }
 

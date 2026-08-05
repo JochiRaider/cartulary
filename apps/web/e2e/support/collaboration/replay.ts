@@ -19,10 +19,8 @@ import {
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Browser, Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { csrfHeaders } from "../auth/browserSession";
 import { createIncident } from "../incidents/fixtures";
 import { createIncidentMemberUser } from "../incidents/memberships";
-import { apiBase } from "../runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
@@ -33,7 +31,7 @@ import {
   type SocketMessage,
 } from "../transport/incidentSocket";
 import { safelyRemoveRoute as safeUnroute } from "../transport/requestInterception";
-import { createViewRow, queryViewRows } from "../workbook/query";
+import { createViewRow, patchRecord, queryViewRows } from "../workbook/query";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
@@ -275,24 +273,17 @@ export async function patchTimelineField(
   value: string,
   txnPrefix: string,
 ) {
-  const response = await page.request.patch(
-    `${apiBase}/api/v1/records/${recordId}`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        view_schema_id: timelineViewSchemaId,
-        base_row_version: baseRowVersion,
-        client_txn_id: uniqueTxn(txnPrefix),
-        changes: [
-          {
-            field_key: fieldKey,
-            value,
-          },
-        ],
+  await patchRecord(page, recordId, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: baseRowVersion,
+    client_txn_id: uniqueTxn(txnPrefix),
+    changes: [
+      {
+        field_key: fieldKey,
+        value,
       },
-    },
-  );
-  expect(response.ok()).toBeTruthy();
+    ],
+  });
 }
 
 export async function driveRealTimelineSummaryConflict({
@@ -476,6 +467,8 @@ export async function exerciseRevokedPendingReplay({
     email: uniqueEmail(`collaboration-${createdBy.toLowerCase()}-${scenario}`),
     initial_password: `Collaboration${createdBy.replaceAll("-", "")}${scenario}Pass!`,
     role: "editor",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const recordIds: string[] = [];
   for (const [index] of replayValues.entries()) {

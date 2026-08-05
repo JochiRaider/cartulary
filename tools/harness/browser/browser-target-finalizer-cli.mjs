@@ -11,6 +11,7 @@ import {
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import { buildFrontendVisualReconciliation } from "./frontend-visual-reconciliation.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -75,6 +76,38 @@ function writeTargetResult(base, options, groups) {
   if (existsSync(output)) {
     throw new Error(`browser target result is immutable: ${output}`);
   }
+  secureMkdir(targetDirectory);
+  const artifacts = [];
+  let visualReconciliation = null;
+  if (options.target === "browser-e2e-visual") {
+    const reconciliationOutput = path.join(
+      targetDirectory,
+      "frontend-visual-reconciliation.json",
+    );
+    if (existsSync(reconciliationOutput)) {
+      throw new Error(
+        `frontend visual reconciliation is immutable: ${reconciliationOutput}`,
+      );
+    }
+    visualReconciliation = buildFrontendVisualReconciliation({
+      root,
+      reportPaths: groups.map((group) =>
+        path.join(path.dirname(group.file), "playwright-report.json"),
+      ),
+      attemptPassed: groups.every((group) => group.result.status === "pass"),
+    });
+    validateSchemaSync(visualReconciliation.schema_id, visualReconciliation);
+    const reconciliationBytes = Buffer.from(
+      `${JSON.stringify(visualReconciliation, null, 2)}\n`,
+      "utf8",
+    );
+    secureWriteFile(reconciliationOutput, reconciliationBytes);
+    artifacts.push({
+      kind: "frontend_visual_reconciliation_v1",
+      ref: relativeToRun(base, reconciliationOutput),
+      sha256: sha256(reconciliationBytes),
+    });
+  }
   const sessionsByID = new Map();
   for (const group of groups) {
     const existing = sessionsByID.get(group.result.browser_session_id);
@@ -94,9 +127,11 @@ function writeTargetResult(base, options, groups) {
   const payload = {
     schema_id: "cartulary.browser_target_result.v1",
     target_id: options.target,
-    status: groups.every((group) => group.result.status === "pass")
-      ? "pass"
-      : "fail",
+    status:
+      groups.every((group) => group.result.status === "pass") &&
+      (visualReconciliation === null || visualReconciliation.status === "pass")
+        ? "pass"
+        : "fail",
     group_results: groups
       .map((group) => ({
         group_id: group.result.group_id,
@@ -108,10 +143,10 @@ function writeTargetResult(base, options, groups) {
     sessions: [...sessionsByID.values()].sort((left, right) =>
       left.browser_session_id.localeCompare(right.browser_session_id),
     ),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
     generated_at: new Date().toISOString(),
   };
   validateSchemaSync(payload.schema_id, payload);
-  secureMkdir(targetDirectory);
   secureWriteFile(output, `${JSON.stringify(payload, null, 2)}\n`);
   return payload;
 }
@@ -129,6 +164,8 @@ if (!complete) {
   process.stderr.write(`browser target ${options.target} is missing group results\n`);
   process.exitCode = 11;
 } else if (targetResult.status !== "pass") {
-  process.stderr.write(`browser target ${options.target} contains failed groups\n`);
+  process.stderr.write(
+    `browser target ${options.target} contains failed groups or target artifacts\n`,
+  );
   process.exitCode = 10;
 }

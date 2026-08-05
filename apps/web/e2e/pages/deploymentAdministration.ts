@@ -11,16 +11,25 @@ import {
 } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import type {
-  IncidentControlsSection,
-  LandingAdminPanelId,
-} from "../../src/app/landingAdminTypes";
+
+type DeploymentAdministrationPanelSelectorId =
+  | "administrative-audit"
+  | "deployment-users"
+  | "incident-import"
+  | "reference-packs";
+
+type IncidentControlsSectionSelectorId =
+  | "import-assistant"
+  | "incident-fields"
+  | "membership-audit"
+  | "memberships"
+  | "summary";
 
 const incidentControlsLoadedStatePattern = /^(partial|synced)$/;
 
 export async function openIncidentControls(
   page: Page,
-  section: IncidentControlsSection = "summary",
+  section: IncidentControlsSectionSelectorId = "summary",
 ) {
   await page.getByLabel("Account and application navigation").click();
   const trigger = page.getByTestId(incidentControlsTriggerTestId());
@@ -64,7 +73,7 @@ export class DeploymentAdministration {
     ).toBeVisible();
   }
 
-  async selectPanel(panel: LandingAdminPanelId) {
+  async selectPanel(panel: DeploymentAdministrationPanelSelectorId) {
     await this.open();
     const menuItem = this.page.getByTestId(landingAdminMenuItemTestId(panel));
     await menuItem.click();

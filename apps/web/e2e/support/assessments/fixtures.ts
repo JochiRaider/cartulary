@@ -6,7 +6,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { assessmentsViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
-import { readTimelineMutation } from "../workbook/rowMutations";
+import { readWorkbookMutation } from "../workbook/query";
 
 export async function createAssessmentViaUI(
   page: Page,
@@ -42,7 +42,10 @@ export async function createAssessmentViaUI(
   }
   const responsePromise = waitForAssessmentCreate(page);
   await page.getByTestId(assessmentCreateControlTestId("submit")).click();
-  const envelope = await readTimelineMutation(await responsePromise);
+  const envelope = await readWorkbookMutation(
+    await responsePromise,
+    "createViewRow",
+  );
   await expect(
     page.getByTestId(
       gridRowTestId(assessmentsViewSchemaId, envelope.data.row.record_id),

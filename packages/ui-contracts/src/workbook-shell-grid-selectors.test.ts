@@ -6,6 +6,7 @@ import {
   gridDataCellsSelector,
   gridDataRowsSelector,
   gridDraftRowSelector,
+  gridFillHandleSelector,
   gridFilterApplyTestId,
   gridFilterChipTestId,
   gridFilterFieldTestId,
@@ -184,6 +185,9 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
     );
     expect(gridScrollportClassName()).toBe("cartulary-grid-scrollport");
     expect(gridScrollportSelector()).toBe(".cartulary-grid-scrollport");
+    expect(gridFillHandleSelector()).toBe(
+      '[data-cartulary-fill-handle="true"]',
+    );
     expect(gridActionsHeaderTestId("cartulary.view.timeline.v2")).toBe(
       "cartulary.view.timeline.v2-actions-header",
     );

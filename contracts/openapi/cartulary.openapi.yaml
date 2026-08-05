@@ -6061,6 +6061,69 @@
     "/api/v1/reference-packs": {
       "get": {
         "operationId": "listReferencePacks",
+        "parameters": [
+          {
+            "description": "Cursor page size. Omission defaults to 100 without cursor_token and reuses the cursor-bound limit with cursor_token.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor returned by a prior page for the same normalized Reference Pack list query.",
+            "in": "query",
+            "name": "cursor_token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional list_search_v1 search text over the Core 01 Reference Pack fields.",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional exact public Reference Pack version-state filter.",
+            "in": "query",
+            "name": "pack_version_state",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ReferencePackVersionState"
+            }
+          },
+          {
+            "description": "Optional exact Reference Pack verification-result filter.",
+            "in": "query",
+            "name": "verification_result",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ReferencePackVerificationResult"
+            }
+          },
+          {
+            "description": "Optional exact lowercase boolean filter for active versions.",
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -14021,7 +14084,7 @@
           },
           "href": {
             "description": "Opaque same-origin app-owned upload capability path in the base profile.",
-            "pattern": "^/api/v1/object-uploads/",
+            "pattern": "^/api/v1/object-uploads/[^/?#]+$",
             "type": "string"
           },
           "method": {

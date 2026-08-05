@@ -9,10 +9,11 @@ evidence or promote them into Base Profile conformance.
 
 Committed Playwright screenshots are regression inputs for browser-rendered
 workbook states. The authoritative visual row inventory is the set of active
-`visual` Playwright rows in `tools/test_families/*.json`. Fixture-to-row and
-fixture-to-golden ownership is declared once in
-`tools/frontend_visual_fixture_registry.json`; do not copy that registry into a
-guide, infer ownership from filenames, or derive row success from test titles.
+`visual` Playwright rows in `tools/test_families/*.json`. The visual fixture
+registry declares only the semantic fixtures and design projections it names;
+it is not required to enumerate every active screenshot or golden. Do not copy
+the registry into a guide, infer ownership from filenames, or derive row success
+from test titles.
 
 For pre-MVP browser inspection and design-discovery review, use
 `docs/guides/cartulary_browser_design_readiness_workflow.md` before accepting a
@@ -63,9 +64,21 @@ Every refresh must record:
   scope changed;
 - the validation run root and visual review outcome.
 
-The row and fixture lists must come from the authored catalog and fixture
-registry on the same source snapshot. A missing registry mapping is a contract
-defect, not permission to use a filename or retired identity as a substitute.
+The row list must come from the authored catalog. When a capture claims a
+registered fixture, its fixture and golden paths must resolve exactly against the
+registry from the same source snapshot. An active capture with no registry entry
+is valid when its emitted capture intent, catalog row, scenario, Playwright
+project, snapshot template, and committed golden reconcile exactly. Registry
+absence alone is neither drift nor an orphan and never permits filename-derived
+ownership.
+
+Before moving, refreshing, deleting, or re-accounting a golden, review the
+retained `cartulary.frontend_visual_reconciliation.v1` artifact from an ordinary
+visual run. It must account for every active capture intent, every committed PNG,
+every declared registry fixture, SHA-256, exact catalog/scenario/project identity,
+and any declared non-Playwright consumer. Ambiguous mappings and active missing
+goldens block mutation. Delete only a reconciled `orphan` with zero consumers;
+retain an active nonregistry golden.
 
 ## Deterministic Capture Contract
 

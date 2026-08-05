@@ -2416,40 +2416,7 @@
           "scenario_2ad2818dac42"
         ],
         "titles": [
-          "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures."
-        ]
-      },
-      "evidence_class": "visual",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
-      "claim_posture": "informative",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
-    },
-    {
-      "row_id": "module.workbook.visual.the_visual_harness_captures_a_required_coordinat_a38d329f28",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.visual",
-      "collaborator_ids": [
-        "harness.browser",
-        "harness.visual",
-        "web.design",
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
-        "project_id": "chromium",
-        "stage": "visual",
-        "scenario_ids": [
-          "scenario_5d80d611a0a5"
-        ],
-        "titles": [
-          "captures Task Requests system view fields through the generic workbook grid"
+          "Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, and keyboard focus fixtures."
         ]
       },
       "evidence_class": "visual",

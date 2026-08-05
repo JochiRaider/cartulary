@@ -49,8 +49,8 @@ import {
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { createIncident } from "./support/incidents/fixtures";
-import { createLocalUser } from "./support/incidents/memberships";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -373,7 +373,7 @@ test("updates workbook density from Account Settings while the workbook remains 
       incidentTitle,
     });
 
-    await new AccountSettings(page).open("account-appearance");
+    await new AccountSettings(page).openAppearance();
     const densitySelect = page.getByTestId(
       accountTestId("appearance-density-mode"),
     );
@@ -773,10 +773,12 @@ test("lets incident admins manage memberships and hides those controls from non-
 }) => {
   const memberEmail = uniqueEmail("incident_membership-e203-member");
   const memberPassword = "IncidentMembershipE203Pass!";
-  const memberUser = await createLocalUser(page, {
+  const memberUser = await createDeploymentUser(page, {
     email: memberEmail,
     display_name: "Incident administration E203 Member",
     initial_password: memberPassword,
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const incidentId = await createIncident(
     page,

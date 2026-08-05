@@ -10,6 +10,7 @@ import {
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page, type Response } from "@playwright/test";
+import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
 import { queryViewRows } from "../workbook/query";
 import {
   collectionItems,
@@ -17,19 +18,6 @@ import {
   requireItemByRawText,
   type ViewRow,
 } from "./mentions";
-
-type MergeEnvelope = {
-  data: {
-    survivor_record_id: string;
-    loser_record_id: string;
-    merged_into_record_id: string;
-    merge_summary: {
-      record_type: string;
-      repointed_mention_resolution_count: number;
-      repointed_link_count: number;
-    };
-  };
-};
 
 export async function exerciseEntityMerge(
   page: Page,
@@ -191,8 +179,7 @@ function waitForMergeResponse(page: Page, survivorRecordId: string) {
 }
 
 async function readMergeEnvelope(response: Response) {
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as MergeEnvelope;
+  return readHttpOperationResponse(response, "mergeEntityRecord");
 }
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {

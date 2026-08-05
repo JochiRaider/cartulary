@@ -15,12 +15,11 @@ import {
   timelineRowMarkReviewedButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
-import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
-import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
   uniqueTxn,
@@ -28,6 +27,7 @@ import {
 import { createViewRow } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 import {
+  createSavedView,
   readSavedViewSelectionState,
   selectSavedView,
   selectSavedViewScope,
@@ -36,8 +36,6 @@ import {
   setSavedViewDraftName,
   updateSavedViewFromCurrentSurface,
 } from "./support/workbook/savedViews";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("Verify browser command helpers for sort, filter, group, active chips, layout persistence, group expand-collapse, and startup/default surface UI.", async ({
   page,
@@ -270,42 +268,6 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
     group_by: "timeline.capture_state",
   });
 });
-
-type SavedViewResource = {
-  display_name: string;
-  saved_view_id: string;
-  saved_view_version?: number;
-  scope?: string;
-  view_schema_id: string;
-};
-
-async function createSavedView(
-  page: Page,
-  incidentId: string,
-  data: {
-    display_name: string;
-    layout_json?: Record<string, unknown>;
-    query_json?: Record<string, unknown>;
-    scope?: "private" | "shared";
-    view_schema_id: string;
-  },
-) {
-  const response = await page.request.post(
-    `${apiBase}/api/v1/incidents/${incidentId}/saved-views`,
-    {
-      headers: await csrfHeaders(page),
-      data: {
-        display_name: data.display_name,
-        layout_json: data.layout_json ?? {},
-        query_json: data.query_json ?? {},
-        ...(data.scope === undefined ? {} : { scope: data.scope }),
-        view_schema_id: data.view_schema_id,
-      },
-    },
-  );
-  expect(response.status()).toBe(201);
-  return ((await response.json()) as { data: SavedViewResource }).data;
-}
 
 function waitForTimelineQuery(page: Page, incidentId: string) {
   return page.waitForRequest(

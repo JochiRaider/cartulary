@@ -33,12 +33,15 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  queryViewRows,
+  readWorkbookMutation,
+} from "./support/workbook/query";
 import {
   ensureTimelineGridTargetVisible,
   expectTimelineMutationContinuity,
   openTimelineInspector,
-  readTimelineMutation,
   waitForTimelinePatch,
 } from "./support/workbook/rowMutations";
 
@@ -112,8 +115,9 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   );
   await eligibleHostRefsInput.fill(" vpn   gateway ");
   await eligibleHostRefsInput.press("Enter");
-  const eligibleEnvelope = await readTimelineMutation(
+  const eligibleEnvelope = await readWorkbookMutation(
     await eligibleResponsePromise,
+    "patchRecord",
   );
   const eligibleItem = requireItemByRawText(
     collectionItems(eligibleEnvelope.data.row, hostRefsFieldKey),

@@ -1,13 +1,95 @@
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   assertRecordFieldMutationAnchor,
   fillDownGridCells,
 } from "./mutationAnchors";
+import {
+  readWorkbookMutation,
+  waitForViewRow,
+  waitForViewRowByCell,
+} from "./query";
 
-const surface = "cartulary.view.timeline.v2";
+const surface = timelineViewSchemaId;
 
 describe("workbook row mutation support", () => {
+  it("reports the view and record identity when row polling times out", async () => {
+    const fetch = vi.fn(async () => ({
+      headers: () => ({}),
+      json: async () => ({ data: { rows: [] } }),
+      ok: () => true,
+      status: () => 200,
+    }));
+    const page = { request: { fetch } } as unknown as Parameters<
+      typeof waitForViewRow
+    >[0];
+
+    await expect(
+      waitForViewRow(page, "incident-1", surface, "record-missing", {
+        timeout: 1,
+      }),
+    ).rejects.toThrow(
+      "cartulary.view.timeline.v2 default query should include created row record-missing",
+    );
+    expect(fetch).toHaveBeenCalled();
+  });
+
+  it("reports the view field and context when cell polling times out", async () => {
+    const fetch = vi.fn(async () => ({
+      headers: () => ({}),
+      json: async () => ({ data: { rows: [] } }),
+      ok: () => true,
+      status: () => 200,
+    }));
+    const page = { request: { fetch } } as unknown as Parameters<
+      typeof waitForViewRowByCell
+    >[0];
+
+    await expect(
+      waitForViewRowByCell(
+        page,
+        "incident-1",
+        surface,
+        "timeline.activity_synopsis_text",
+        "missing projection",
+        { diagnosticContext: "assessment projection", timeout: 1 },
+      ),
+    ).rejects.toThrow(
+      /view_schema_id=cartulary\.view\.timeline\.v2[\s\S]*context=assessment projection[\s\S]*last_rows=\[\]/u,
+    );
+  });
+
+  it("validates mutation responses with operation-aware diagnostics", async () => {
+    const validPayload = {
+      data: {
+        change_set_id: "00000000-0000-4000-8000-000000000002",
+        row: {
+          cells: {},
+          record_id: "00000000-0000-4000-8000-000000000001",
+          row_version: 2,
+        },
+        view_schema_id: surface,
+      },
+      meta: { request_id: "request-workbook-mutation" },
+    };
+
+    await expect(
+      readWorkbookMutation(
+        workbookMutationResponse(validPayload),
+        "patchRecord",
+      ),
+    ).resolves.toEqual(validPayload);
+    await expect(
+      readWorkbookMutation(
+        workbookMutationResponse({ data: {} }),
+        "patchRecord",
+      ),
+    ).rejects.toThrow(
+      "public HTTP operation patchRecord failed: invalid_public_contract_response",
+    );
+  });
+
   it("posts the stable fill-down envelope through the same-origin page context", async () => {
     const evaluate = vi.fn(async (_callback, argument) => {
       expect(argument).toEqual({
@@ -26,6 +108,7 @@ describe("workbook row mutation support", () => {
           "content-type": "application/json",
           "x-csrf-token": "csrf",
         },
+        method: "POST",
         url: `/api/v1/incidents/incident-1/views/${surface}/bulk-mutations`,
       });
       return { ok: true, status: 202 };
@@ -121,3 +204,16 @@ describe("workbook row mutation support", () => {
     ).toThrow(/Expected mutation for record_id record-1/);
   });
 });
+
+function workbookMutationResponse(payload: unknown) {
+  return {
+    ok: () => true,
+    request: () => ({
+      method: () => "PATCH",
+      postData: () => JSON.stringify({ base_row_version: 1 }),
+    }),
+    status: () => 200,
+    text: async () => JSON.stringify(payload),
+    url: () => "https://cartulary.test/api/v1/records/record-1",
+  } as unknown as Parameters<typeof readWorkbookMutation>[0];
+}

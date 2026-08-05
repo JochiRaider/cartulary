@@ -27,7 +27,7 @@ test("Verify bootstrap route selectors and error-state selectors use stable test
   await expect(
     page.getByTestId(publicErrorSummaryTestIds("landing").container),
   ).toBeAttached();
-  await new AccountSettings(page).open("account-security");
+  await new AccountSettings(page).openSecurity();
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await expect(
     page.getByTestId(publicErrorSummaryTestIds("account").message),

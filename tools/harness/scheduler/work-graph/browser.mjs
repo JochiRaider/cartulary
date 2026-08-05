@@ -188,7 +188,12 @@ function targetFinalizer(stage, target, groupUnits, needs, owner) {
     fixture_lease: "none",
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
-    evidence_outputs: [`${target}/browser-target-result.json`],
+    evidence_outputs: [
+      `${target}/browser-target-result.json`,
+      ...(target === "browser-e2e-visual"
+        ? [`${target}/frontend-visual-reconciliation.json`]
+        : []),
+    ],
     failure_policy: requiredFailurePolicy(),
     estimated_work_ms: 500,
   };

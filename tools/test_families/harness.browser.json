@@ -17,7 +17,10 @@
           "web E2E semantic support policy keeps E2E consumers on contract and package facades",
           "web E2E semantic support policy keeps application routes and payload semantics out of test-utils",
           "web E2E semantic support policy keeps phase and catch-all names out of semantic support",
-          "web E2E semantic support policy removes legacy root support implementations"
+          "web E2E semantic support policy rejects raw grid-vendor selectors outside the grid adapter",
+          "web E2E semantic support policy removes legacy root support implementations",
+          "web E2E semantic support policy requires current view-schema identities to come from the view-contract facade",
+          "web E2E semantic support policy retains deliberate invalid view-schema probes as explicit negative coverage"
         ]
       },
       "evidence_class": "static",
@@ -73,6 +76,33 @@
           "OwnedSessionTracker fails cleanup when revocation verification fails",
           "OwnedSessionTracker revokes each owned user once and verifies every tracked snapshot",
           "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.evidenceupload_suite_6f27a1c9e4",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/evidence/uploads.test.ts",
+        "titles": [
+          "evidence upload adapter does not synthesize headers when the returned header map is empty",
+          "evidence upload adapter rejects malformed targets and envelopes before upload dispatch",
+          "evidence upload adapter sends validated same-origin PUT targets with exactly the returned headers"
         ]
       },
       "evidence_class": "static",
@@ -222,8 +252,11 @@
         "file": "apps/web/e2e/support/workbook/mutationAnchors.test.ts",
         "titles": [
           "workbook row mutation support posts the stable fill-down envelope through the same-origin page context",
+          "workbook row mutation support reports the view and record identity when row polling times out",
+          "workbook row mutation support reports the view field and context when cell polling times out",
           "workbook row mutation support requires an exact record, field, and optionally supplied value anchor",
-          "workbook row mutation support uses the request context as the explicit fallback and preserves omitted CSRF headers"
+          "workbook row mutation support uses the request context as the explicit fallback and preserves omitted CSRF headers",
+          "workbook row mutation support validates mutation responses with operation-aware diagnostics"
         ]
       },
       "evidence_class": "static",
@@ -278,6 +311,8 @@
       "selector": {
         "file": "apps/web/e2e/support/transport/publicJsonClient.test.ts",
         "titles": [
+          "public HTTP operation client accepts valid success envelopes and rejects malformed success responses",
+          "public HTTP operation client derives methods, paths, and encoded queries from generated bindings",
           "public JSON transport binds relative paths to an explicitly approved request origin",
           "public JSON transport preserves body omission and rejects absolute or protocol-relative paths",
           "public JSON transport preserves non-2xx JSON envelopes, status, and headers"
@@ -353,6 +388,7 @@
       "selector": {
         "file": "apps/web/e2e/support/auth/sessions.test.ts",
         "titles": [
+          "createDeploymentUser preserves explicit MFA and deployment-admin intent in request bytes",
           "reconcileWorkerAdminManifest rediscovers deterministic worker-admin users when local manifest state is missing",
           "reconcileWorkerAdminManifest resets the canonical password when a reused worker-admin user can no longer log in",
           "reconcileWorkerAdminManifest reuses the same worker-admin accounts across sequential invocations",

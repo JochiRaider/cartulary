@@ -25,9 +25,9 @@ import {
 } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
   authenticatedRequestContextFromStorageState,
-  createLocalUser,
   deploymentAdminMutationClient,
   loadUser,
   patchUser,
@@ -60,7 +60,7 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
 }
 
 async function expectLandingAccountSession(page: Page) {
-  await new AccountSettings(page).open("account-security");
+  await new AccountSettings(page).openSecurity();
   await expect(page.getByTestId(accountTestId("refresh-state"))).toBeVisible();
   await expect(page.getByTestId(accountTestId("logout"))).toBeVisible();
   await expect(
@@ -75,11 +75,12 @@ test("signs in as a local user and inspects the ordinary session surface", async
 }) => {
   const email = uniqueEmail("authentication-e101");
   const password = "AuthenticationE101Pass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E101",
     initial_password: password,
     mfa_required: false,
+    is_deployment_admin: false,
   });
 
   await clearBrowserSession(page);
@@ -129,11 +130,12 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
 }) => {
   const email = uniqueEmail("authentication-e102");
   const password = "AuthenticationE102Pass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E102",
     initial_password: password,
     mfa_required: true,
+    is_deployment_admin: false,
   });
   const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
@@ -192,11 +194,12 @@ test("rejects invalid credentials without issuing a session cookie", async ({
   workerAdminRequest,
 }) => {
   const email = uniqueEmail("authentication-e103");
-  await createLocalUser(workerAdminRequest, {
+  await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E103",
     initial_password: "AuthenticationE103Pass!",
     mfa_required: false,
+    is_deployment_admin: false,
   });
 
   await clearBrowserSession(page);
@@ -306,11 +309,12 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
 }) => {
   const email = uniqueEmail("authentication-e106");
   const password = "AuthenticationE106Pass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E106",
     initial_password: password,
     mfa_required: true,
+    is_deployment_admin: false,
   });
 
   await clearBrowserSession(page);
@@ -417,11 +421,12 @@ test("requires the current password and current TOTP code, revokes the session i
 }) => {
   const email = uniqueEmail("authentication-e107");
   const password = "AuthenticationE107Pass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication E107",
     initial_password: password,
     mfa_required: true,
+    is_deployment_admin: false,
   });
   const secretBase32 = await enrollTotpViaBootstrap(email, password);
 
@@ -492,21 +497,23 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
 }) => {
   const targetEmail = uniqueEmail("authentication-e108-target");
   const targetPassword = "AuthenticationE108Pass!";
-  const targetUser = await createLocalUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E108 Target",
     initial_password: targetPassword,
     mfa_required: true,
+    is_deployment_admin: false,
   });
   await enrollTotpViaBootstrap(targetEmail, targetPassword);
 
   const incidentAdminEmail = uniqueEmail("authentication-e108-incident-admin");
   const incidentAdminPassword = "AuthenticationE108Incident!";
-  const incidentAdminUser = await createLocalUser(workerAdminRequest, {
+  const incidentAdminUser = await createDeploymentUser(workerAdminRequest, {
     email: incidentAdminEmail,
     display_name: "Authentication E108 Incident Admin",
     initial_password: incidentAdminPassword,
     mfa_required: false,
+    is_deployment_admin: false,
   });
   const incidentId = await createIncident(
     page,
@@ -704,11 +711,12 @@ test("clears a stale selected incident after membership removal while preserving
   );
   const targetEmail = uniqueEmail("authentication-e110-target");
   const targetPassword = "AuthenticationE110Pass!";
-  const targetUser = await createLocalUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E110 Target",
     initial_password: targetPassword,
     mfa_required: false,
+    is_deployment_admin: false,
   });
   await createIncidentMembership(
     page,
@@ -791,11 +799,12 @@ test("observes current-role authorization on a stale reviewer edit through the p
   );
   const targetEmail = uniqueEmail("authentication-e111-reviewer");
   const targetPassword = "AuthenticationE111Pass!";
-  const targetUser = await createLocalUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E111 Reviewer",
     initial_password: targetPassword,
     mfa_required: false,
+    is_deployment_admin: false,
   });
   await createIncidentMembership(page, incidentId, targetEmail, "reviewer");
 
@@ -880,11 +889,12 @@ test("returns a revoked target browser to login and allows re-authentication wit
   );
   const targetEmail = uniqueEmail("authentication-e112-target");
   const targetPassword = "AuthenticationE112Pass!";
-  const targetUser = await createLocalUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(workerAdminRequest, {
     email: targetEmail,
     display_name: "Authentication E112 Target",
     initial_password: targetPassword,
     mfa_required: false,
+    is_deployment_admin: false,
   });
   await createIncidentMembership(page, incidentId, targetEmail, "viewer");
   await createIncidentMembership(
@@ -955,11 +965,12 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
 }) => {
   const email = uniqueEmail("authentication-auth-session");
   const password = "AuthenticationAUTHSESSIONPass!";
-  const user = await createLocalUser(workerAdminRequest, {
+  const user = await createDeploymentUser(workerAdminRequest, {
     email,
     display_name: "Authentication end-to-end.incident-selection.row-01",
     initial_password: password,
     mfa_required: false,
+    is_deployment_admin: false,
   });
   const incidentKey = uniqueIncidentKey("AUTHSESSION");
   const incidentTitle = "end-to-end.incident-selection.row-01 incident entry";

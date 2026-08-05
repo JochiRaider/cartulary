@@ -8818,6 +8818,23 @@ The cursor-bound normalized list-query state MUST include the canonical search p
 Profiles: reference_pack
 Verified by: AC-443
 
+**REQ-01-610A**
+The browser controller for `GET /api/v1/reference-packs` MUST implement one request-generation state machine:
+
+1. Effective request state consists of normalized `search`, `pack_version_state`, `verification_result`, `active`, effective `limit`, and a `cursor_token` bound to that exact state.
+2. A material change to normalized search or any filter MUST discard the prior cursor and admit a first-page request. A paging request MAY carry a cursor only for the unchanged effective request state that produced it.
+3. Each admitted request MUST receive a monotonically newer local generation. Admission of a generation MUST set the semantic list status to `searching`; the accessible status exposed to the user MUST be `Searching reference packs` while that generation is pending.
+4. Rows from the last accepted generation MAY remain visible while a newer generation is pending only while the caller remains authorized to view them.
+5. Only the newest admitted generation MAY replace rows or paging, clear the `searching` state, or publish the current terminal error. Success and error are equally generation-gated.
+6. A response or terminal failure from an older generation MUST have no visible effect, including when attempted transport cancellation fails, races, or is unsupported.
+7. Cancellation MAY be attempted as resource cleanup, but correctness MUST NOT depend on `AbortController`, transport cancellation support, or cancellation success.
+8. No debounce duration is normative. Enter or an equivalent explicit submission MUST immediately admit the newest normalized request state.
+9. Loss of authentication, current `deployment_admin`, the claimed Reference Pack extension profile, or deployment-administration authorization MUST invalidate every admitted generation and clear protected rows, paging, pending state, and terminal error before another administrative result can become visible.
+
+The semantic status token is controller state, not a public HTTP member. Rendering MAY vary in visual presentation, but its accessible status name while pending MUST convey the exact phrase `Searching reference packs`.
+Profiles: reference_pack
+Verified by: AC-443
+
 ### 17.5 Incident Portability Extension Profile public contract
 
 **REQ-01-483**

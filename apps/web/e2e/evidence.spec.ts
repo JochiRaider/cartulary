@@ -22,6 +22,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { collectionItems, type ViewRow } from "./support/entities/mentions";
+import { createAndUploadObjectBlob } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
 import {
@@ -651,10 +652,6 @@ function collectObjectUploadRoutes(page: Page): string[] {
   return routes;
 }
 
-function resolveUploadHref(href: string): string {
-  return href.startsWith("/") ? `${apiBase}${href}` : href;
-}
-
 async function createUploadedEvidence(
   page: Page,
   incidentId: string,
@@ -670,37 +667,20 @@ async function createUploadedEvidence(
     "evidence.title": options.title,
     "evidence.collector_party_text": "Browser evidence",
   })) as unknown as ViewRow;
-  const createBlob = await page.request.post(`${apiBase}/api/v1/object-blobs`, {
-    headers: await csrfHeaders(page),
-    data: {
-      incident_id: incidentId,
-      client_txn_id: uniqueTxn("e5-preview-blob"),
-      byte_size: options.body.byteLength,
-      filename_hint: options.filename,
-      content_type_hint: options.contentType,
-    },
+  const blob = await createAndUploadObjectBlob(page, {
+    body: options.body,
+    clientTxnId: uniqueTxn("e5-preview-blob"),
+    contentType: options.contentType,
+    filename: options.filename,
+    incidentId,
   });
-  expect(createBlob.ok()).toBeTruthy();
-  const blobData = (
-    (await createBlob.json()) as {
-      data: { object_blob_id: string; upload_target: { href: string } };
-    }
-  ).data;
-  const upload = await page.request.put(
-    resolveUploadHref(blobData.upload_target.href),
-    {
-      data: options.body,
-      headers: { "Content-Type": options.contentType },
-    },
-  );
-  expect(upload.ok()).toBeTruthy();
 
   const attach = await page.request.post(
     `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,
     {
       headers: await csrfHeaders(page),
       data: {
-        object_blob_id: blobData.object_blob_id,
+        object_blob_id: blob.object_blob_id,
         base_row_version: row.row_version,
         client_txn_id: uniqueTxn("e5-preview-attach"),
       },

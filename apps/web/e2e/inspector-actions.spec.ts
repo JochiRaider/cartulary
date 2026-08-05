@@ -423,6 +423,8 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     email: uniqueEmail("end-to-end.inspector-history-reviewer"),
     initial_password: memberPassword,
     role: "reviewer",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
@@ -683,6 +685,8 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     email: uniqueEmail("end-to-end.inspector-history.row-02-viewer"),
     initial_password: memberPassword,
     role: "viewer",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();

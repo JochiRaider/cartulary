@@ -1798,57 +1798,6 @@ test.describe("workbook visual evidence", () => {
       { scroll: { top: 0, left: "left" } },
     );
   });
-
-  test("captures Task Requests system view fields through the generic workbook grid", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    const incidentId = await createIncident(
-      page,
-      uniqueIncidentKey("VISUALCOORDINATION"),
-      "Entity linking visual task requests",
-    );
-    const taskRow = (await createViewRow(
-      page,
-      incidentId,
-      taskRequestsViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("VISUALCOORDINATION-TASK"),
-        "task.title": "Visual task request",
-        "task.task_kind": "collection",
-      },
-    )) as ViewRow;
-
-    await page.goto(
-      `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-        taskRequestsViewSchemaId,
-      )}`,
-    );
-    await maskIncidentIdentity(page, incidentId);
-    await expect(
-      await mountedGridCell(
-        page,
-        taskRequestsViewSchemaId,
-        taskRow.record_id,
-        "task.title",
-      ),
-    ).toHaveText("Visual task request");
-    await expect(
-      await mountedGridCell(
-        page,
-        taskRequestsViewSchemaId,
-        taskRow.record_id,
-        "task.status",
-      ),
-    ).toHaveText("open");
-
-    await assertWorkbookGridVisualRegression(
-      page,
-      "record-relationships-task-requests",
-      taskRequestsViewSchemaId,
-      { scroll: { top: 0, left: "left" } },
-    );
-  });
 });
 
 test.describe("workbook visual evidence", () => {
@@ -2321,6 +2270,8 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           email: uniqueEmail(`collaboration-remote-${index + 1}`),
           initial_password: "FeVP7RemotePass!",
           role: "editor",
+          is_deployment_admin: false,
+          mfa_required: false,
         }),
       })),
     );
@@ -2965,6 +2916,8 @@ test.describe("workbook visual evidence", () => {
       email: uniqueEmail("collaboration-v6grid01-remote"),
       initial_password: "CollaborationV6Grid01!",
       role: "editor",
+      is_deployment_admin: false,
+      mfa_required: false,
     });
     const timelineRow = (await createViewRow(
       page,
@@ -3200,7 +3153,7 @@ test.describe("workbook visual evidence", () => {
 });
 
 test.describe("browser.coordination-review workbook visual readiness", () => {
-  test("Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, keyboard focus, frozen column, resize handle, and fill-down fixtures.", async ({
+  test("Capture Task Requests or Decisions, Parties link state, Communications Log, Handoff, Status Review, Lesson, and keyboard focus fixtures.", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3217,6 +3170,8 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       email: uniqueEmail("coordination-review-visual-owner"),
       initial_password: "BackupRestoreVisual1!",
       role: "editor",
+      is_deployment_admin: false,
+      mfa_required: false,
     });
     const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-PARTY"),
@@ -3314,28 +3269,6 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       "record-relationships-task-requests",
       taskRequestsViewSchemaId,
       { scroll: { top: 0, left: "left" } },
-    );
-
-    await injectFeP3GridAdapterVisualFixture(page);
-    const fixture = page.locator(
-      "[data-design-fixture='grid-interaction-grid-adapter']",
-    );
-    await expect(fixture).toBeVisible();
-    for (const fixtureId of [
-      "visual.fixture.frozen_column",
-      "visual.fixture.resize_handle",
-      "visual.fixture.drag_fill_handle",
-      "visual.fixture.edit_cell",
-      "visual.fixture.tree_group_row",
-    ]) {
-      await expect(
-        fixture.locator(`[data-fixture-id='${fixtureId}']`),
-      ).toBeVisible();
-    }
-    await assertVisualRegression(
-      page,
-      "timeline-grid-adapter-fixtures",
-      fixture,
     );
 
     const linkedTask = (await createViewRow(
@@ -3741,6 +3674,11 @@ async function assertVisualRegression(
   await expect(locator).toBeVisible();
   await prepareVisualRegressionState(page);
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
+  await emitVisualCaptureIntent(
+    page,
+    name,
+    "apps/web/e2e/workbook.visual.spec.ts#assertVisualRegression",
+  );
   await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
@@ -3757,10 +3695,82 @@ async function assertViewportVisualRegression(
 ) {
   await prepareVisualRegressionState(page);
   await attachVisualRenderDiagnostics(page, name, options.renderSurface);
+  await emitVisualCaptureIntent(
+    page,
+    name,
+    "apps/web/e2e/workbook.visual.spec.ts#assertViewportVisualRegression",
+  );
   await expect(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     caret: "hide",
     fullPage: false,
+  });
+}
+
+async function emitVisualCaptureIntent(
+  page: Page,
+  captureIntent: string,
+  screenshotAssertionLocation: string,
+) {
+  const testInfo = test.info();
+  const viewport = page.viewportSize();
+  if (viewport === null) {
+    throw new Error(`visual capture ${captureIntent} requires a viewport`);
+  }
+  const browserProfile = await page.evaluate(() => {
+    const zoom = Number.parseFloat(document.documentElement.style.zoom);
+    return {
+      browser_zoom_percent: Number.isFinite(zoom) ? Math.round(zoom) : 100,
+      color_scheme: window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+      density_id:
+        document.documentElement.getAttribute("data-cartulary-density") ?? "",
+      device_scale_factor: window.devicePixelRatio,
+      reduced_motion: window.matchMedia("(prefers-reduced-motion: reduce)")
+        .matches,
+      theme_id:
+        document.documentElement.getAttribute("data-cartulary-theme") ?? "",
+    };
+  });
+  const expectedGoldenPath = path
+    .relative(findRepoRoot(), testInfo.snapshotPath(`${captureIntent}.png`))
+    .replaceAll(path.sep, "/");
+  const captureId = `visual.capture.${createHash("sha256")
+    .update(
+      JSON.stringify([
+        testInfo.project.name,
+        testInfo.title,
+        expectedGoldenPath,
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 20)}`;
+  await testInfo.attach(`cartulary-visual-capture-intent-${captureId}.json`, {
+    body: Buffer.from(
+      `${JSON.stringify({
+        schema_id: "cartulary.frontend_visual_capture_intent.v1",
+        capture_id: captureId,
+        capture_intent: captureIntent,
+        expected_golden_path: expectedGoldenPath,
+        project_id: testInfo.project.name,
+        screenshot_assertion_location: screenshotAssertionLocation,
+        capture_profile: {
+          ...browserProfile,
+          project_id: testInfo.project.name,
+          snapshot_path_template:
+            "{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{-snapshotSuffix}{ext}",
+          snapshot_suffix: testInfo.snapshotSuffix,
+          viewport_css_px: `${viewport.width}x${viewport.height}`,
+        },
+        test_file: path
+          .relative(findRepoRoot(), testInfo.file)
+          .replaceAll(path.sep, "/"),
+        test_title: testInfo.title,
+      })}\n`,
+      "utf8",
+    ),
+    contentType: "application/json",
   });
 }
 

@@ -14,6 +14,10 @@ export function gridScrollportSelector(): string {
   return `.${gridScrollportClassName()}`;
 }
 
+export function gridFillHandleSelector(): string {
+  return '[data-cartulary-fill-handle="true"]';
+}
+
 export function gridActionsHeaderTestId(viewSchemaId: string): string {
   return viewFirstTestId(viewSchemaId, "actions-header");
 }

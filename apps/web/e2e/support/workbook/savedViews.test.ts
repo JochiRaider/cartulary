@@ -6,6 +6,7 @@ import {
   savedViewSelectorTestId,
   savedViewSetHomeButtonTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -13,8 +14,6 @@ import {
   selectSavedView,
   setCurrentSavedViewAsHomeAndWait,
 } from "./savedViews";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 describe("saved-view workbook support", () => {
   it("selects by stable ID and reads identity from data attributes", async () => {

@@ -1,29 +1,27 @@
 import { accountTestId } from "@cartulary/ui-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import type { LandingAdminPanelId } from "../../src/app/landingAdminTypes";
 
-type AccountSettingsPanel = Extract<
-  LandingAdminPanelId,
-  "account-profile" | "account-appearance" | "account-security"
->;
+type AccountSettingsPanel = "account-appearance" | "account-security";
 
 export class AccountSettings {
   constructor(private readonly page: Page) {}
 
-  async open(panel: AccountSettingsPanel = "account-security") {
+  async openAppearance() {
+    await this.openPanel("account-appearance");
+  }
+
+  async openSecurity() {
+    await this.openPanel("account-security");
+  }
+
+  private async openPanel(panel: AccountSettingsPanel) {
     const panelLabel =
-      panel === "account-profile"
-        ? "Profile"
-        : panel === "account-appearance"
-          ? "Appearance"
-          : "Security";
+      panel === "account-appearance" ? "Appearance" : "Security";
     const expectedControl =
-      panel === "account-profile"
-        ? accountTestId("profile-email")
-        : panel === "account-appearance"
-          ? accountTestId("appearance-density-mode")
-          : accountTestId("refresh-state");
+      panel === "account-appearance"
+        ? accountTestId("appearance-density-mode")
+        : accountTestId("refresh-state");
     const expectedControlLocator = this.page.getByTestId(expectedControl);
     try {
       await expect(expectedControlLocator).toBeVisible({ timeout: 500 });
@@ -51,14 +49,12 @@ export class AccountSettings {
     await expect(trigger).toBeVisible();
     await trigger.click();
     await this.page.getByRole("menuitem", { name: "Account settings" }).click();
-    if (panel !== "account-profile") {
-      await this.page.getByRole("tab", { name: panelLabel }).click();
-    }
+    await this.page.getByRole("tab", { name: panelLabel }).click();
     await expect(expectedControlLocator).toBeVisible();
   }
 
   async refresh() {
-    await this.open("account-security");
+    await this.openSecurity();
     await this.page.getByTestId(accountTestId("refresh-state")).click();
   }
 
@@ -67,7 +63,7 @@ export class AccountSettings {
     nextPassword: string,
     factorCode: string,
   ) {
-    await this.open("account-security");
+    await this.openSecurity();
     await this.page
       .getByTestId(accountTestId("password-current"))
       .fill(currentPassword);

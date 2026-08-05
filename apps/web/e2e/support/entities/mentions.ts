@@ -11,10 +11,14 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, type Page, type Response } from "@playwright/test";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
-import { createViewRow, type ViewApiRow } from "../workbook/query";
+import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
+import {
+  createViewRow,
+  readWorkbookMutation,
+  type ViewApiRow,
+} from "../workbook/query";
 import {
   openTimelineInspector,
-  readTimelineMutation,
   waitForTimelinePatch,
 } from "../workbook/rowMutations";
 
@@ -22,28 +26,6 @@ export const hostRefsFieldKey = "timeline.host_refs";
 export const identityRefsFieldKey = "timeline.identity_refs";
 
 export type ViewRow = ViewApiRow;
-
-export type MentionActionEnvelope = {
-  data: {
-    incident_id: string;
-    entity_mention: {
-      entity_mention_id: string;
-      source_record_id: string;
-      source_field_key: string;
-      entity_type: "host" | "identity" | string;
-      raw_text: string;
-      resolution_status: "unresolved" | "resolved" | "dismissed" | string;
-      resolved_record_id: string | null;
-      row_version: number;
-      resolution_method: string | null;
-    };
-    source_record: {
-      record_id: string;
-      row_version: number;
-    };
-    change_set_id: string;
-  };
-};
 
 type CollectionItem = Record<string, unknown>;
 
@@ -73,7 +55,7 @@ export async function addRelationshipTokenViaUI(
   await input.press("Enter");
   const response = await responsePromise;
   const requestPayload = readRequestPayload(response);
-  const envelope = await readTimelineMutation(response);
+  const envelope = await readWorkbookMutation(response, "patchRecord");
   options.onPatchRequest?.(requestPayload);
   const item = requireItemByRawText(
     collectionItems(envelope.data.row, fieldKey),
@@ -188,8 +170,10 @@ export async function readMentionAction(
   response: Response,
   expectedSourceRecordId: string,
 ) {
-  expect(response.ok()).toBeTruthy();
-  const envelope = (await response.json()) as MentionActionEnvelope;
+  const envelope = await readHttpOperationResponse(
+    response,
+    "resolveEntityMention",
+  );
   expect(envelope.data.source_record.record_id).toBe(expectedSourceRecordId);
   expect(
     Number.isSafeInteger(envelope.data.source_record.row_version),

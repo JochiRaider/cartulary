@@ -27,11 +27,8 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createViewRow } from "./support/workbook/query";
-import {
-  editGenericCell,
-  waitForViewRowByCell,
-} from "./support/workbook/rowMutations";
+import { createViewRow, waitForViewRowByCell } from "./support/workbook/query";
+import { editGenericCell } from "./support/workbook/rowMutations";
 
 test("creates and edits required workbook mutation surfaces through typed generic controls", async ({
   page,

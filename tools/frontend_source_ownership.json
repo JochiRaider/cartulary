@@ -38,7 +38,6 @@
         "apps/web/src/app/landingAdminStyles.ts",
         "apps/web/src/app/landingAdminTypes.ts",
         "apps/web/src/app/otelBoundary.test.ts",
-        "apps/web/src/app/referencePackAdminClient.ts",
         "apps/web/src/app/referencePackAdminModel.ts",
         "apps/web/src/app/routeState.test.ts",
         "apps/web/src/app/routeState.ts",
@@ -131,6 +130,7 @@
         "apps/web/src/services/importTargetContractAdapter.ts",
         "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "apps/web/src/services/networkFlowContractAdapter.ts",
+        "apps/web/src/services/referencePacks.ts",
         "apps/web/src/services/workbookEvidence.test.ts",
         "apps/web/src/services/workbookEvidence.ts"
       ]

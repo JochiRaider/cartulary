@@ -408,7 +408,7 @@
           "href": {
             "type": "string",
             "description": "Opaque same-origin app-owned upload capability path in the base profile.",
-            "pattern": "^/api/v1/object-uploads/"
+            "pattern": "^/api/v1/object-uploads/[^/?#]+$"
           },
           "method": {
             "const": "PUT"

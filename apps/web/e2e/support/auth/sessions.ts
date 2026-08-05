@@ -13,6 +13,7 @@ import {
   loginLocalAPIContext,
   requireCookie,
 } from "./browserSession";
+import { createDeploymentUser } from "./deploymentUsers";
 import {
   authHeadersForStorageState,
   csrfCookieName,
@@ -291,33 +292,6 @@ export async function revokeAllSessions(
   if (!response.ok()) {
     throw new Error(`revoke-all failed with HTTP ${response.status()}`);
   }
-}
-
-export async function createLocalUser(
-  authRequests: APIRequestContext,
-  options: {
-    email: string;
-    display_name: string;
-    initial_password: string;
-    mfa_required?: boolean;
-    is_deployment_admin?: boolean;
-  },
-) {
-  const response = await authRequests.post(`${apiBase}/api/v1/users`, {
-    data: {
-      client_txn_id: uniqueTxn("deployment-user"),
-      auth_kind: "local",
-      email: options.email,
-      display_name: options.display_name,
-      initial_password: options.initial_password,
-      mfa_required: options.mfa_required ?? true,
-      is_deployment_admin: options.is_deployment_admin ?? false,
-    },
-  });
-  if (!response.ok()) {
-    throw new Error(`create local user failed with HTTP ${response.status()}`);
-  }
-  return ((await response.json()) as { data: UserResource }).data;
 }
 
 export async function resetUserPassword(
@@ -685,7 +659,7 @@ function controlPlaneClient(
       }
     },
     createUser: async (blueprint) =>
-      createLocalUser(authRequests, {
+      createDeploymentUser(authRequests, {
         email: blueprint.email,
         display_name: blueprint.displayName,
         initial_password: blueprint.password,

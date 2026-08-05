@@ -52,15 +52,19 @@ import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
   evidenceViewSchemaId,
+  findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
   handoffViewSchemaId,
   hostsViewSchemaId,
   identitiesViewSchemaId,
   indicatorsViewSchemaId,
+  investigativeQueriesViewSchemaId,
   lessonViewSchemaId,
   notesViewSchemaId,
   partiesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
+  timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Locator, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -84,16 +88,14 @@ import {
   patchRecord,
   queryViewRows,
   type ViewApiRow,
+  waitForViewRowByCell,
 } from "./support/workbook/query";
 import {
   editGenericCell,
   openTimelineInspector,
   submitGenericEditAndWait,
-  waitForViewRowByCell,
 } from "./support/workbook/rowMutations";
 import { createSavedView } from "./support/workbook/savedViews";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function activateSemanticGridCell(content: Locator) {
   const cell = content.locator("xpath=ancestor::*[@role='gridcell'][1]");
@@ -119,9 +121,9 @@ const requiredBaseViewSchemaIds = [
   timelineViewSchemaId,
 ] as const;
 const optionalStandardizedSurfaceIds = [
-  "cartulary.view.findings.v1",
-  "cartulary.view.forensic_keywords.v1",
-  "cartulary.view.investigative_queries.v1",
+  findingsViewSchemaId,
+  forensicKeywordsViewSchemaId,
+  investigativeQueriesViewSchemaId,
 ] as const;
 const feP10WorkbookShellSurfaces = [
   {
@@ -160,10 +162,6 @@ const feP10WorkbookShellSurfaces = [
     viewSchemaId: lessonViewSchemaId,
   },
 ] as const;
-const findingsViewSchemaId = "cartulary.view.findings.v1";
-const forensicKeywordsViewSchemaId = "cartulary.view.forensic_keywords.v1";
-const investigativeQueriesViewSchemaId =
-  "cartulary.view.investigative_queries.v1";
 async function disableWorkbookSockets(page: Page) {
   await page.addInitScript(() => {
     class ClosedWebSocket {

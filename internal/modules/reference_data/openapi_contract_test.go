@@ -34,7 +34,9 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 		"activated_at",
 	})
 	paths := openAPIObjectAt(t, document, "paths")
-	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs", "get"), "200", "ReferencePackListEnvelope")
+	listOperation := openAPIObjectAt(t, paths, "/api/v1/reference-packs", "get")
+	requireResponseRef(t, listOperation, "200", "ReferencePackListEnvelope")
+	requireParameterNames(t, listOperation, []string{"limit", "cursor_token", "search", "pack_version_state", "verification_result", "active"})
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}", "get"), "200", "ReferencePackVersionEnvelope")
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/import", "post"), "202", "JobEnvelope")
 	for _, action := range []string{"activate", "disable"} {
@@ -56,6 +58,26 @@ func TestOpenAPIAndErrorRegistriesExposeClosedReferencePackContract_Unit(t *test
 	})
 	requireReasonRegistry(t, errorsDoc, "reference_pack_activation_rejected", []string{"already_active", "not_verified_available"})
 	requireReasonRegistry(t, errorsDoc, "reference_pack_state_conflict", []string{"already_disabled", "not_disableable", "verification_pending"})
+}
+
+func requireParameterNames(t testing.TB, operation map[string]any, want []string) {
+	t.Helper()
+	parameters, ok := operation["parameters"].([]any)
+	if !ok {
+		t.Fatalf("operation parameters are %T, want array", operation["parameters"])
+	}
+	got := make([]string, 0, len(parameters))
+	for _, rawParameter := range parameters {
+		parameter, ok := rawParameter.(map[string]any)
+		if !ok {
+			t.Fatalf("operation parameter is %T, want object", rawParameter)
+		}
+		name, _ := parameter["name"].(string)
+		got = append(got, name)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("operation parameter names mismatch: got %v want %v", got, want)
+	}
 }
 
 func requireEnum(t testing.TB, schema map[string]any, want []string) {

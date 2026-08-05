@@ -159,6 +159,8 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	target.Headers = copyUploadTargetHeaders(target.Headers)
+	target.Headers["Content-Type"] = firstNonEmptyPtr(request.ContentTypeHint, nil, "application/octet-stream")
 	result, err := s.operations.CreateBlobSlot(r.Context(), BlobSlotParams{
 		ObjectBlobID: objectBlobID, IncidentID: request.IncidentID, ActorUserID: principal.User.ID,
 		StorageKey: storageKey, ByteSize: request.ByteSize, FilenameHint: request.FilenameHint,
@@ -190,6 +192,14 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func copyUploadTargetHeaders(source map[string]string) map[string]string {
+	result := make(map[string]string, len(source)+1)
+	for name, value := range source {
+		result[name] = value
+	}
+	return result
 }
 
 func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,10 @@ import {
   workbookImportAssistantTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
+import {
+  hostsViewSchemaId,
+  timelineViewSchemaId,
+} from "@cartulary/view-contracts";
 
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
@@ -15,9 +19,6 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { queryViewRows } from "./support/workbook/query";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
-const hostsViewSchemaId = "cartulary.view.hosts.v1";
 
 test("Workbook Import Assistant discovers, maps, selects, applies, and navigates from the claimed production surface", async ({
   page,

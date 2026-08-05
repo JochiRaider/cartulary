@@ -10,6 +10,7 @@ import {
 } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
+  gridFillHandleSelector,
   gridGroupingSelectTestId,
   gridGroupRowTestId,
   gridRowGutterTestId,
@@ -49,6 +50,7 @@ import {
   notesViewSchemaId,
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
+  timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
@@ -71,8 +73,6 @@ import {
   waitForViewRow,
 } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 function stringCell(
   row: { readonly cells?: Record<string, { readonly value?: unknown }> },
@@ -974,7 +974,7 @@ test("Verify full keyboard/clipboard contract: one-click edit, copy, paste, exac
       fillRequests.push(request.postData() ?? "");
     }
   });
-  const fillHandle = page.locator(".rdg-cell-drag-handle");
+  const fillHandle = page.locator(gridFillHandleSelector());
   await expect(fillHandle).toHaveAttribute(
     "aria-label",
     "Drag to fill this value",

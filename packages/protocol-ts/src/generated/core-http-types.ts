@@ -102,6 +102,16 @@ export type RecordRollbackTarget =
   RecordRollbackHistoryEntryTarget | RecordRollbackChangeSetTarget | RecordRollbackRowRestoreTarget;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVersionState".
+ */
+export type ReferencePackVersionState = "staged" | "verified_available" | "disabled" | "failed" | "missing";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVerificationResult".
+ */
+export type ReferencePackVerificationResult = "pending" | "passed" | "failed";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ResolveRecordSameFieldConflictResponseBody".
  */
 export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | RecordConflictClearEnvelope;
@@ -1824,6 +1834,73 @@ export interface RecordRollbackRequest {
   client_txn_id: string;
   reason?: string | null;
   target: RecordRollbackTarget;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackActionEnvelope".
+ */
+export interface ReferencePackActionEnvelope {
+  data: {
+    pack_version: ReferencePackVersionResource;
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVersionResource".
+ */
+export interface ReferencePackVersionResource {
+  activated_at: string | null;
+  activated_by_user_id: string | null;
+  active: boolean;
+  imported_at: string;
+  imported_by_user_id: string | null;
+  manifest_sha256: string;
+  pack_contract_version: string;
+  pack_key: string;
+  pack_kind: string;
+  pack_version: string;
+  pack_version_state: ReferencePackVersionState;
+  payload_sha256: string;
+  previous_active_version: string | null;
+  signer_key_id: string | null;
+  source_identifier: string | null;
+  verification_method: string;
+  verification_result: ReferencePackVerificationResult;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackActionRequest".
+ */
+export interface ReferencePackActionRequest {
+  client_txn_id: string;
+  reason?: string | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackListEnvelope".
+ */
+export interface ReferencePackListEnvelope {
+  data: {
+    pack_versions: ReferencePackVersionResource[];
+  };
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackRefreshRequest".
+ */
+export interface ReferencePackRefreshRequest {
+  client_txn_id: string;
+  pack_keys?: string[];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReferencePackVersionEnvelope".
+ */
+export interface ReferencePackVersionEnvelope {
+  data: ReferencePackVersionResource;
+  meta: EnvelopeMeta;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

@@ -142,6 +142,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_visual_reconciliation.v1",
+      "path": "tools/schemas/cartulary.frontend_visual_reconciliation.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser visual target summary",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.govulncheck_findings.v1",
       "path": "tools/schemas/cartulary.govulncheck_findings.v1.schema.json",
       "classification": "public_contract",

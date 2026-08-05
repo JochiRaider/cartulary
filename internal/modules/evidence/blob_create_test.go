@@ -179,6 +179,10 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 	if strings.Contains(href, "object-blobs/") || strings.Contains(href, "://") {
 		t.Fatalf("upload_target href should be an opaque same-origin capability: %#v", uploadTarget)
 	}
+	uploadHeaders := uploadTarget["headers"].(map[string]any)
+	if uploadHeaders["Content-Type"] != "text/plain" {
+		t.Fatalf("upload_target should carry the accepted content type: %#v", uploadHeaders)
+	}
 	requireAcceptedContract(t, createData["accepted_contract"].(map[string]any), map[string]any{
 		"incident_id":       incidentID.String(),
 		"byte_size":         float64(42),
@@ -193,6 +197,10 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 		"byte_size":     0,
 	}, authOptions(login)...)
 	nullableData := httptestx.RequireSuccessEnvelope(t, nullableResp, http.StatusCreated)["data"].(map[string]any)
+	nullableHeaders := nullableData["upload_target"].(map[string]any)["headers"].(map[string]any)
+	if nullableHeaders["Content-Type"] != "application/octet-stream" {
+		t.Fatalf("upload_target should carry the default content type: %#v", nullableHeaders)
+	}
 	requireAcceptedContract(t, nullableData["accepted_contract"].(map[string]any), map[string]any{
 		"incident_id":       incidentID.String(),
 		"byte_size":         float64(0),

@@ -51,6 +51,7 @@ import {
   referencePackFileInputTestId,
   referencePackImportButtonTestId,
   referencePackJobStatusTestId,
+  referencePackListStatusTestId,
   referencePackRefreshAllButtonTestId,
   referencePackRefreshSelectedButtonTestId,
   referencePackReloadButtonTestId,
@@ -301,6 +302,7 @@ describe("@cartulary/ui-contracts workbook interaction selectors", () => {
     expect(referencePackFileInputTestId()).toBe("reference-pack-file");
     expect(referencePackImportButtonTestId()).toBe("reference-pack-import");
     expect(referencePackJobStatusTestId()).toBe("reference-pack-job-status");
+    expect(referencePackListStatusTestId()).toBe("reference-pack-list-status");
     expect(referencePackReloadButtonTestId()).toBe("reference-pack-reload");
     expect(referencePackCancelButtonTestId()).toBe("reference-pack-cancel");
     expect(referencePackRefreshAllButtonTestId()).toBe(

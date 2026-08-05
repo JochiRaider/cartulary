@@ -15,6 +15,7 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page, Route } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -38,8 +39,6 @@ import {
   openTimelineInspector,
   openTimelineRowActions,
 } from "./support/workbook/rowMutations";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(
@@ -163,6 +162,8 @@ test("drives review, demotion, and supersede through the visible workbook surfac
     display_name: "Timeline E303 Reviewer",
     initial_password: reviewerPassword,
     role: "reviewer",
+    is_deployment_admin: false,
+    mfa_required: false,
   });
   const primaryRow = await createViewRow(
     page,

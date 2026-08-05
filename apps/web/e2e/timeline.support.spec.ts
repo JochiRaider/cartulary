@@ -18,6 +18,7 @@ import {
   timelineRowVersionTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -35,8 +36,6 @@ import {
 } from "./support/workbook/mutationAnchors";
 import { createViewRow } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
-
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 
 test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
   page,

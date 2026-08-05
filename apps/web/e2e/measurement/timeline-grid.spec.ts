@@ -4,6 +4,7 @@ import {
   saveStateTestId,
   timelineMutationSubstrateReadyTestId,
 } from "@cartulary/ui-contracts";
+import { timelineViewSchemaId } from "@cartulary/view-contracts";
 
 import { expect, test } from "../fixtures";
 import { createIncident } from "../support/incidents/fixtures";
@@ -19,7 +20,6 @@ import {
   percentile95,
 } from "./timingSupport";
 
-const timelineViewSchemaId = "cartulary.view.timeline.v2";
 const draftSummaryTestId = draftCellTestId("timeline.activity_synopsis_text");
 
 test("measures user-visible typing_ack and blank-row-create completion within the Timeline envelope", async ({
