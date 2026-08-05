@@ -181,7 +181,7 @@ export function ensureWorkerAdminCleanupMarkerDirectory() {
   mkdirSync(workerAdminCleanupMarkerDirectory, { recursive: true });
 }
 
-export function workerAdminCleanupMarkerPath(parallelIndex: number) {
+function workerAdminCleanupMarkerPath(parallelIndex: number) {
   return join(
     workerAdminCleanupMarkerDirectory,
     `worker-${parallelIndex}-cleaned`,

@@ -1,9 +1,10 @@
+import type { TimelineCreateRequest } from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { createViewRow } from "../workbook/query";
 
-export const timelineFixtureBaseOccurredAt = "2026-04-10T10:00:00.000Z";
+const timelineFixtureBaseOccurredAt = "2026-04-10T10:00:00.000Z";
 
 export function timelineFixtureOccurredAt(
   offsetMinutes: number,
@@ -39,7 +40,7 @@ export async function createTimelineFillers(
   }
   const occurredAtStepMs = (options.occurredAtStepMinutes ?? 1) * 60_000;
   for (let index = 1; index <= count; index += 1) {
-    const payload: Record<string, unknown> = {
+    const payload: TimelineCreateRequest = {
       client_txn_id: uniqueTxn(`${prefix}-${index}`),
       "timeline.activity_synopsis_text": `${prefix} ${index}`,
     };

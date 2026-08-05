@@ -1,3 +1,7 @@
+import type {
+  RecordHistoryData,
+  RecordHistoryItem,
+} from "@cartulary/protocol-ts/http";
 import { scrollGridCellIntoView } from "@cartulary/test-utils/grid";
 import {
   gridRowTestId,
@@ -26,7 +30,6 @@ import {
   findRow,
   hostRefsFieldKey,
   requireItemByRawText,
-  type ViewRow,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
@@ -35,6 +38,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { fetchRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -42,36 +46,25 @@ import {
 } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
-type HistoryItem = {
-  actor_user_id: string;
-  committed_at: string;
-  history_item_ref: string;
-  operation: string;
-  diff_summary: { summary: string; units: Array<Record<string, unknown>> };
-  change_set_id: string;
-  reversible: boolean;
-  available_rollback_actions: Array<
-    "history_entry" | "change_set" | "row_restore"
-  >;
-  history_entry_ref?: string;
-  revision_no?: number;
-};
-
-type HistoryData = {
-  record_id: string;
-  row_version: number;
-  deleted: boolean;
-  items: HistoryItem[];
-};
-
 function historyActionTestId(
-  item: HistoryItem,
-  action: HistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return rowHistoryActionTestId({
     action,
     historyItemRef: item.history_item_ref,
   });
+}
+
+function historyItemAt(
+  history: RecordHistoryData,
+  index: number,
+): RecordHistoryItem {
+  const item = history.items[index];
+  if (item === undefined) {
+    throw new Error(`missing record-history item at index ${index}`);
+  }
+  return item;
 }
 
 test("opens row history from the workbook surface with legal rollback actions", async ({
@@ -82,10 +75,10 @@ test("opens row history from the workbook surface with legal rollback actions", 
     uniqueIncidentKey("REVISION-HISTORY"),
     "History revision-history row history",
   );
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e701-row"),
     "timeline.activity_synopsis_text": "revision-history before",
-  })) as unknown as ViewRow;
+  });
   await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
@@ -102,7 +95,7 @@ test("opens row history from the workbook surface with legal rollback actions", 
     (item) => item.available_rollback_actions.length > 0,
   );
   expect(visibleItemIndex).toBeGreaterThanOrEqual(0);
-  const visibleItem = history.items[visibleItemIndex] as HistoryItem;
+  const visibleItem = historyItemAt(history, visibleItemIndex);
 
   await openTimelineSurface(page, incidentId);
   await clickTimelineRowAction(
@@ -138,16 +131,11 @@ test("retargets open inspector history when row focus changes", async ({
     uniqueIncidentKey("REVISION-RETARGET"),
     "History revision-retarget row history retarget",
   );
-  const firstRow = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("e701b-first"),
-      "timeline.activity_synopsis_text": "revision-retarget first original",
-    },
-  )) as unknown as ViewRow;
-  const secondRow = (await createViewRow(
+  const firstRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e701b-first"),
+    "timeline.activity_synopsis_text": "revision-retarget first original",
+  });
+  const secondRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -155,7 +143,7 @@ test("retargets open inspector history when row focus changes", async ({
       client_txn_id: uniqueTxn("e701b-second"),
       "timeline.activity_synopsis_text": "revision-retarget second original",
     },
-  )) as unknown as ViewRow;
+  );
   await patchRecord(page, firstRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: firstRow.row_version,
@@ -218,21 +206,16 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
     uniqueIncidentKey("REVISION-EVIDENCE"),
     "History revision-history rollback evidence link",
   );
-  const evidence = (await createViewRow(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("e702-evidence"),
-      "evidence.title": "revision-history linked evidence",
-      "evidence.collector_party_text": "Reviewer",
-    },
-  )) as unknown as ViewRow;
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("e702-evidence"),
+    "evidence.title": "revision-history linked evidence",
+    "evidence.collector_party_text": "Reviewer",
+  });
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e702-row"),
     "timeline.activity_synopsis_text": "revision-history original summary",
-  })) as unknown as ViewRow;
-  const linkedRow = (await patchRecord(page, row.record_id, {
+  });
+  const linkedRow = await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e702-link-evidence"),
@@ -250,8 +233,8 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
         },
       },
     ],
-  })) as unknown as ViewRow;
-  const currentRow = (await patchRecord(page, row.record_id, {
+  });
+  const currentRow = await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: linkedRow.row_version,
     client_txn_id: uniqueTxn("e702-unrelated"),
@@ -261,7 +244,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
         value: "revision-history unrelated later edit",
       },
     ],
-  })) as unknown as ViewRow;
+  });
 
   const history = await fetchRecordHistory(page, row.record_id);
   const rollbackIndex = history.items.findIndex(
@@ -272,7 +255,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
       ),
   );
   expect(rollbackIndex).toBeGreaterThanOrEqual(0);
-  const rollbackItem = history.items[rollbackIndex] as HistoryItem;
+  const rollbackItem = historyItemAt(history, rollbackIndex);
 
   const listener = await page.context().newPage();
   try {
@@ -326,11 +309,7 @@ test("rolls back one attached-evidence mutation without reverting later unrelate
         ),
     });
 
-    const rows = (await queryViewRows(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-    )) as unknown as ViewRow[];
+    const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
     const afterRollback = findRow(rows, row.record_id);
     expect(
       collectionItems(afterRollback, "timeline.attached_evidence_ids").some(
@@ -356,10 +335,10 @@ test("soft-deletes and restores a row with tombstone concurrency", async ({
     uniqueIncidentKey("REVISION-DELETE-RESTORE"),
     "History revision-history delete restore",
   );
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e703-row"),
     "timeline.activity_synopsis_text": "revision-history delete restore row",
-  })) as unknown as ViewRow;
+  });
 
   const listener = await page.context().newPage();
   const socketMonitor = installIncidentSocketMonitor(listener, incidentId);
@@ -447,11 +426,11 @@ test("whole-row restore appends a new attributed revision", async ({
     uniqueIncidentKey("REVISION-ROW-RESTORE"),
     "History revision-history whole row restore",
   );
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e704-row"),
     "timeline.activity_synopsis_text": "revision-history original",
-  })) as unknown as ViewRow;
-  const snapshot = (await patchRecord(page, row.record_id, {
+  });
+  const snapshot = await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e704-snapshot"),
@@ -461,7 +440,7 @@ test("whole-row restore appends a new attributed revision", async ({
         value: "revision-history historical snapshot",
       },
     ],
-  })) as unknown as ViewRow;
+  });
   await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: snapshot.row_version,
@@ -480,7 +459,7 @@ test("whole-row restore appends a new attributed revision", async ({
       item.revision_no === snapshot.row_version,
   );
   expect(restoreIndex).toBeGreaterThanOrEqual(0);
-  const restoreItem = historyBefore.items[restoreIndex] as HistoryItem;
+  const restoreItem = historyItemAt(historyBefore, restoreIndex);
 
   await openTimelineSurface(page, incidentId);
   await clickTimelineRowAction(
@@ -534,13 +513,14 @@ test("whole-row restore appends a new attributed revision", async ({
       (item) => item.change_set_id === restoreItem.change_set_id,
     ),
   ).toBe(true);
-  const appended = historyAfter.items.find(
+  const appendedItem = historyAfter.items.find(
     (item) =>
       item.operation === "row_restore" &&
       item.revision_no === historyAfter.row_version,
-  ) as HistoryItem | undefined;
-  expect(appended).toBeDefined();
-  const appendedItem = appended as HistoryItem;
+  );
+  if (appendedItem === undefined) {
+    throw new Error("missing appended row_restore history item");
+  }
   expect(appendedItem.change_set_id).not.toBe(restoreItem.change_set_id);
   expect(appendedItem.operation).toBe("row_restore");
   expect(appendedItem.actor_user_id).not.toBe("");
@@ -559,12 +539,12 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     uniqueIncidentKey("REVISION-MERGE-ROLLBACK"),
     "History revision-history merge rollback",
   );
-  const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const survivor = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e705-survivor"),
     "host.display_name": "revision-history survivor",
     "host.hostname": "e705-survivor",
-  })) as ViewRow;
-  const loser = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  });
+  const loser = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e705-loser"),
     "host.display_name": "revision-history loser",
     "host.hostname": "e705-loser",
@@ -572,20 +552,15 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     "host.aliases": aliasCollectionActionsPayload([
       "revision-history loser alias",
     ]),
-  })) as ViewRow;
-  const timeline = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("e705-timeline"),
-      "timeline.activity_synopsis_text":
-        "revision-history dependent timeline row",
-      [hostRefsFieldKey]: collectionActionsPayload([
-        "revision-history loser alias",
-      ]),
-    },
-  )) as ViewRow;
+  });
+  const timeline = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("e705-timeline"),
+    "timeline.activity_synopsis_text":
+      "revision-history dependent timeline row",
+    [hostRefsFieldKey]: collectionActionsPayload([
+      "revision-history loser alias",
+    ]),
+  });
   const hostMention = requireItemByRawText(
     collectionItems(timeline, hostRefsFieldKey),
     "revision-history loser alias",
@@ -602,7 +577,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
           actions: [
             {
               op: "resolve_item",
-              item_ref: hostMention.item_ref,
+              item_ref: String(hostMention.item_ref),
               resolved_record_id: loser.record_id,
             },
           ],
@@ -636,6 +611,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
       item.available_rollback_actions.includes("change_set"),
   );
   expect(mergeIndex).toBeGreaterThanOrEqual(0);
+  const mergeItem = historyItemAt(history, mergeIndex);
 
   await openTimelineSurface(page, incidentId);
   await clickTimelineRowAction(
@@ -644,12 +620,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
     rowHistoryOpenButtonTestId(timeline.record_id),
   );
   await expect(
-    page.getByTestId(
-      historyActionTestId(
-        history.items[mergeIndex] as HistoryItem,
-        "change_set",
-      ),
-    ),
+    page.getByTestId(historyActionTestId(mergeItem, "change_set")),
   ).toBeVisible();
 
   const rollbackResponse = page.waitForResponse(
@@ -657,20 +628,12 @@ test("rolls back a merge change set from row history", async ({ page }) => {
       response.request().method() === "POST" &&
       response.url().endsWith(`/api/v1/records/${timeline.record_id}/rollback`),
   );
-  await page
-    .getByTestId(
-      historyActionTestId(
-        history.items[mergeIndex] as HistoryItem,
-        "change_set",
-      ),
-    )
-    .click();
+  await page.getByTestId(historyActionTestId(mergeItem, "change_set")).click();
   await page
     .getByTestId(
       rowHistoryRollbackConfirmButtonTestId({
         action: "change_set",
-        historyItemRef: (history.items[mergeIndex] as HistoryItem)
-          .history_item_ref,
+        historyItemRef: mergeItem.history_item_ref,
       }),
     )
     .click();
@@ -683,11 +646,7 @@ test("rolls back a merge change set from row history", async ({ page }) => {
   });
   expect(rollbackBody.base_row_version).toBe(history.row_version);
 
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    hostsViewSchemaId,
-  )) as unknown as ViewRow[];
+  const rows = await queryViewRows(page, incidentId, hostsViewSchemaId);
   const survivorAfter = findRow(rows, survivor.record_id);
   const loserAfter = findRow(rows, loser.record_id);
   expect(survivorAfter.row_version).toBeGreaterThan(
@@ -721,16 +680,4 @@ async function openHostSurface(page: Page, incidentId: string) {
   await expect(
     page.getByTestId(gridShellTestId(hostsViewSchemaId)),
   ).toBeVisible();
-}
-
-async function fetchRecordHistory(
-  page: Page,
-  recordId: string,
-): Promise<HistoryData> {
-  const response = await page.request.get(
-    `${apiBase}/api/v1/records/${recordId}/history`,
-    { headers: await csrfHeaders(page) },
-  );
-  expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: HistoryData }).data;
 }

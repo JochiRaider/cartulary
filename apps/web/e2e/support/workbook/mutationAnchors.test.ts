@@ -1,11 +1,17 @@
+import type {
+  CreateViewRowRequest,
+  PatchRecordRequest,
+} from "@cartulary/protocol-ts/http";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import { describe, expect, it, vi } from "vitest";
-
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { fetchRecordHistory, fetchRecordHistoryCount } from "./history";
 import {
   assertRecordFieldMutationAnchor,
   fillDownGridCells,
 } from "./mutationAnchors";
 import {
+  createViewRow,
+  patchRecord,
   readWorkbookMutation,
   waitForViewRow,
   waitForViewRowByCell,
@@ -61,6 +67,19 @@ describe("workbook row mutation support", () => {
   });
 
   it("validates mutation responses with operation-aware diagnostics", async () => {
+    expectTypeOf(createViewRow)
+      .parameter(3)
+      .toEqualTypeOf<CreateViewRowRequest>();
+    expectTypeOf(patchRecord).parameter(2).toEqualTypeOf<PatchRecordRequest>();
+    expectTypeOf<{
+      "timeline.activity_synopsis_text": string;
+    }>().not.toExtend<CreateViewRowRequest>();
+    expectTypeOf<{
+      base_row_version: number;
+      client_txn_id: string;
+      view_schema_id: string;
+    }>().not.toExtend<PatchRecordRequest>();
+
     const validPayload = {
       data: {
         change_set_id: "00000000-0000-4000-8000-000000000002",
@@ -88,6 +107,57 @@ describe("workbook row mutation support", () => {
     ).rejects.toThrow(
       "public HTTP operation patchRecord failed: invalid_public_contract_response",
     );
+  });
+
+  it("validates record-history pagination and rejects malformed success payloads", async () => {
+    const validPayload = {
+      data: {
+        deleted: false,
+        incident_id: "00000000-0000-4000-8000-000000000002",
+        items: [],
+        record_id: "00000000-0000-4000-8000-000000000001",
+        row_version: 3,
+      },
+      meta: {
+        paging: { has_more: false, limit: 25, next_cursor: null },
+        request_id: "request-record-history",
+      },
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(validPayload))
+      .mockResolvedValueOnce(jsonResponse(validPayload))
+      .mockResolvedValueOnce(jsonResponse({ data: {} }));
+    const page = { request: { fetch } } as unknown as Parameters<
+      typeof fetchRecordHistory
+    >[0];
+
+    await expect(
+      fetchRecordHistory(page, validPayload.data.record_id, {
+        cursorToken: "cursor-next",
+        limit: 25,
+      }),
+    ).resolves.toEqual(validPayload.data);
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(
+        /\/api\/v1\/records\/00000000-0000-4000-8000-000000000001\/history\?cursor_token=cursor-next&limit=25$/u,
+      ),
+      { method: "GET" },
+    );
+
+    await expect(
+      fetchRecordHistoryCount(page, validPayload.data.record_id),
+    ).resolves.toBe(0);
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/\/history\?limit=100$/u),
+      { method: "GET" },
+    );
+
+    await expect(
+      fetchRecordHistory(page, validPayload.data.record_id),
+    ).rejects.toThrow(/getRecordHistory failed with HTTP 502/u);
   });
 
   it("posts the stable fill-down envelope through the same-origin page context", async () => {
@@ -216,4 +286,13 @@ function workbookMutationResponse(payload: unknown) {
     text: async () => JSON.stringify(payload),
     url: () => "https://cartulary.test/api/v1/records/record-1",
   } as unknown as Parameters<typeof readWorkbookMutation>[0];
+}
+
+function jsonResponse(payload: unknown) {
+  return {
+    headers: () => ({}),
+    json: async () => payload,
+    ok: () => true,
+    status: () => 200,
+  };
 }

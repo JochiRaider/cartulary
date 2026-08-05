@@ -8,7 +8,7 @@ export type SocketMessage = {
   type: string;
 };
 
-export type AcceptedSocket = {
+type AcceptedSocket = {
   message: SocketMessage;
   socketIndex: number;
 };

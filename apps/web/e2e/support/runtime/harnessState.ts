@@ -19,7 +19,7 @@ export function usesSharedPlaywrightState() {
   return sharedPlaywrightStateDir() !== null;
 }
 
-export function ensureSharedPlaywrightStateDir() {
+function ensureSharedPlaywrightStateDir() {
   const directory = sharedPlaywrightStateDir();
   if (directory === null) {
     return null;

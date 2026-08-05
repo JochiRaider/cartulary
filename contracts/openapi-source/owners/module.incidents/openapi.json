@@ -84,6 +84,16 @@
         ],
         "operationId": "createIncident",
         "summary": "Create an incident, bootstrap the creator admin membership, and bootstrap workbook preferences.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentCreateRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/IncidentReplaySuccessResponse"
@@ -704,6 +714,16 @@
         ],
         "operationId": "createIncidentMembership",
         "summary": "Create or replay one incident membership without auto-inviting users.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentMembershipCreateRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/IncidentMembershipReplaySuccessResponse"
@@ -835,6 +855,69 @@
   },
   "components": {
     "schemas": {
+      "IncidentCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "incident_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tlp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "TLP:CLEAR",
+              "TLP:GREEN",
+              "TLP:AMBER",
+              "TLP:AMBER+STRICT",
+              "TLP:RED",
+              null
+            ]
+          },
+          "current_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primary_external_case_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "incident_key",
+          "title"
+        ]
+      },
       "IncidentLifecycleRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -1012,6 +1095,66 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "IncidentMembershipCreateRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "client_txn_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "user_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "viewer",
+                  "editor",
+                  "reviewer",
+                  "admin"
+                ]
+              }
+            },
+            "required": [
+              "client_txn_id",
+              "role",
+              "user_id"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "client_txn_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "viewer",
+                  "editor",
+                  "reviewer",
+                  "admin"
+                ]
+              }
+            },
+            "required": [
+              "client_txn_id",
+              "role",
+              "email"
+            ]
+          }
         ]
       },
       "IncidentMembershipResource": {

@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import {
   pasteGridMatrix,
   scrollGridCellIntoView,
@@ -40,6 +41,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { readHttpOperationResponse } from "./support/transport/publicHttpOperationClient";
 import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
 import {
@@ -47,7 +49,6 @@ import {
   patchRecord,
   queryViewRows,
   readWorkbookMutation,
-  type ViewApiRow,
 } from "./support/workbook/query";
 
 const exactScenarioTitle =
@@ -241,7 +242,7 @@ async function disableWorkbookSockets(page: Page) {
   });
 }
 
-function summaryValue(row: ViewApiRow | undefined) {
+function summaryValue(row: ViewRow | undefined) {
   return row?.cells["timeline.activity_synopsis_text"]?.value;
 }
 
@@ -522,7 +523,7 @@ test(
         );
         heldPatch.release();
         const patchEnvelope = (await (await patchResponse).json()) as {
-          data: { change_set_id: string; row: ViewApiRow };
+          data: { change_set_id: string; row: ViewRow };
         };
         const completedPatch = await heldPatch.waitForCompletion;
         expect(completedPatch.status).toBe(200);
@@ -546,7 +547,7 @@ test(
         );
         expect(replayResponse.ok()).toBeTruthy();
         const replayEnvelope = (await replayResponse.json()) as {
-          data: { change_set_id: string; row: ViewApiRow };
+          data: { change_set_id: string; row: ViewRow };
         };
         expect(replayEnvelope.data.change_set_id).toBe(
           patchEnvelope.data.change_set_id,
@@ -1004,12 +1005,10 @@ test(
             "end-to-end.mutation-lifecycle.row-01 stale created",
           ].join("\n"),
         );
-        const groupedEnvelope = (await (await groupedPasteResponse).json()) as {
-          data: {
-            conflicts: Array<Record<string, unknown>>;
-            rows: ViewApiRow[];
-          };
-        };
+        const groupedEnvelope = await readHttpOperationResponse(
+          await groupedPasteResponse,
+          "pasteWorkbookClipboard",
+        );
         expect(groupedEnvelope.data.conflicts).toHaveLength(2);
         expect(groupedEnvelope.data.rows).toHaveLength(1);
         await expect(
@@ -1335,7 +1334,7 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
       );
       expect(serverAdvanceResponse.ok()).toBeTruthy();
       const serverAdvance = (await serverAdvanceResponse.json()) as {
-        data: { row: ViewApiRow };
+        data: { row: ViewRow };
       };
       await expect(
         page.getByTestId(timelineRowVersionTestId(retryRow.record_id)),

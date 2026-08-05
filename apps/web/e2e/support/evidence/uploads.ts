@@ -13,7 +13,7 @@ import { atJsonOrigin } from "../transport/publicJsonClient";
 
 type ObjectUploadTarget = CreateObjectBlobSlotResponse["data"]["upload_target"];
 
-export type ObjectBlobUploadOptions = {
+type ObjectBlobUploadOptions = {
   readonly body: Buffer;
   readonly clientTxnId: string;
   readonly contentType: string;
@@ -21,7 +21,7 @@ export type ObjectBlobUploadOptions = {
   readonly incidentId: string;
 };
 
-export type ResolvedObjectUploadTarget = {
+type ResolvedObjectUploadTarget = {
   readonly headers: Readonly<Record<string, string>>;
   readonly href: string;
 };

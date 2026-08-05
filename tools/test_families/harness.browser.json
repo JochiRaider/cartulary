@@ -14,12 +14,15 @@
       "selector": {
         "file": "apps/web/e2e/support/runtime/architecturePolicy.test.ts",
         "titles": [
+          "web E2E semantic support policy enforces the closed E2E root and statically reachable support modules",
           "web E2E semantic support policy keeps E2E consumers on contract and package facades",
           "web E2E semantic support policy keeps application routes and payload semantics out of test-utils",
           "web E2E semantic support policy keeps phase and catch-all names out of semantic support",
+          "web E2E semantic support policy keeps requestPublicJson private to the transport boundary",
+          "web E2E semantic support policy rejects ambiguous local namespace and dynamic imports",
           "web E2E semantic support policy rejects raw grid-vendor selectors outside the grid adapter",
-          "web E2E semantic support policy removes legacy root support implementations",
           "web E2E semantic support policy requires current view-schema identities to come from the view-contract facade",
+          "web E2E semantic support policy requires every support and page export to have an external importer",
           "web E2E semantic support policy retains deliberate invalid view-schema probes as explicit negative coverage"
         ]
       },
@@ -256,7 +259,8 @@
           "workbook row mutation support reports the view field and context when cell polling times out",
           "workbook row mutation support requires an exact record, field, and optionally supplied value anchor",
           "workbook row mutation support uses the request context as the explicit fallback and preserves omitted CSRF headers",
-          "workbook row mutation support validates mutation responses with operation-aware diagnostics"
+          "workbook row mutation support validates mutation responses with operation-aware diagnostics",
+          "workbook row mutation support validates record-history pagination and rejects malformed success payloads"
         ]
       },
       "evidence_class": "static",

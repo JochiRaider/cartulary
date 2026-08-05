@@ -1,4 +1,4 @@
-export type FixtureIdentitySource = {
+type FixtureIdentitySource = {
   now?: () => number;
   random?: () => number;
 };

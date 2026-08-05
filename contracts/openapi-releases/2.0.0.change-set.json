@@ -4,6 +4,72 @@
   "target_version": "2.0.0",
   "changes": [
     {
+      "fingerprint": "54a8732db2362f04f90db01c499881e1dbb6dda25c3e2e43d3405d4de17c30f4",
+      "classification": "breaking",
+      "owner_id": "module.workbook",
+      "rationale": "Complete the adopted Core 01 collection-action union so generated request types accept the existing Timeline relationship actions already enforced by the runtime."
+    },
+    {
+      "fingerprint": "d77a462b49db54e42fd13f12df1475d0e192d184957c33ae5138d07e77b02309",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish Core 01's closed add_resolved_ref action shape for generated request typing and validation."
+    },
+    {
+      "fingerprint": "3b56cad410bc0222c5c986771942a6cc068a7ffb547cd6e837a0468e60313063",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish Core 01's closed resolve_item action shape for generated request typing and validation."
+    },
+    {
+      "fingerprint": "5a09c54343e36df5f75690e2a67c3d9f3c4b0ac39c30c6cf919df2d3d7ae73b6",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish Core 01's closed revert_to_unresolved action shape for generated request typing and validation."
+    },
+    {
+      "fingerprint": "b1241e7efe7545cd87194d96e8645ff8dd7d7175d915d23bffab638694080fa3",
+      "classification": "additive",
+      "owner_id": "module.workbook",
+      "rationale": "Publish Core 01's closed dismiss_item action shape for generated request typing and validation."
+    },
+    {
+      "fingerprint": "20123aa319639f311c67b3a454d63258c77b6ea287bc149c31278b4703562d7f",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Publish Core 01's existing closed local-login request contract for generated client validation."
+    },
+    {
+      "fingerprint": "d70b6bf86b8f0fdfc87842625481e46175eae43ec947c81d8949d990d1fb209f",
+      "classification": "additive",
+      "owner_id": "module.auth",
+      "rationale": "Attach the existing Core 01 local-login request contract to its public operation."
+    },
+    {
+      "fingerprint": "4e313f012a42f0a8dc3b1f5f6f4215b43aba169bc591f94294e0df6ddd6b7573",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Publish Core 01's existing closed incident-create request contract for generated clients."
+    },
+    {
+      "fingerprint": "34bba6ba411b36c2a8a8e97f59dd39578998a7f215de4731c9c39b67f3687523",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Attach the existing Core 01 incident-create request contract to its public operation."
+    },
+    {
+      "fingerprint": "4c43cf798e3ac1f05e7875513cf4813363fa34509ca3e5df3567e564ff06763a",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Publish Core 01's existing exclusive-target incident-membership create request contract for generated clients."
+    },
+    {
+      "fingerprint": "370481a5d7ecfb9e01ed7188a1d47ef3da3e07cb21d7bedf6d086995785e3d0e",
+      "classification": "additive",
+      "owner_id": "module.incidents",
+      "rationale": "Attach the existing Core 01 incident-membership create request contract to its public operation."
+    },
+    {
       "fingerprint": "c6503f75e50cabe482dbe4b681a5e14ee3ee411d64a315bbea0b25985ecbf0d0",
       "classification": "additive",
       "owner_id": "module.auth",

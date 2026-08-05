@@ -1,5 +1,12 @@
+import type {
+  PatchDeploymentUserRequest,
+  ResetDeploymentUserPasswordRequest,
+  ResetDeploymentUserTOTPRequest,
+  RevokeAllDeploymentUserSessionsRequest,
+  SafeUserResource,
+  SessionResource,
+} from "@cartulary/protocol-ts/http";
 import { type APIRequestContext, type Page, request } from "@playwright/test";
-import type { StorageState } from "../../playwrightTypes";
 import type { TrackedSessionSnapshot } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
@@ -8,12 +15,18 @@ import {
   usesSharedPlaywrightState,
 } from "../runtime/harnessState";
 import { waitForAPIReady } from "../runtime/readiness";
+import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import {
+  atJsonOrigin,
+  type JsonRequestContextLike,
+} from "../transport/publicJsonClient";
 import {
   applyCookies,
   loginLocalAPIContext,
   requireCookie,
 } from "./browserSession";
 import { createDeploymentUser } from "./deploymentUsers";
+import type { StorageState } from "./storageState";
 import {
   authHeadersForStorageState,
   csrfCookieName,
@@ -49,62 +62,47 @@ type AuthenticatedRequestContext = {
   storageState: StorageState;
 };
 
-export type UserResource = {
-  user_id: string;
-  email: string;
-  display_name: string;
-  user_version: number;
-  is_active: boolean;
-  mfa_required: boolean;
-  is_deployment_admin: boolean;
-};
-
-export type CurrentSession = {
-  readonly session_expires_at: string;
-  readonly user_id: string;
-};
-
-export async function readCurrentSession(page: Page): Promise<CurrentSession> {
+export async function readCurrentSession(page: Page): Promise<SessionResource> {
   const storageState = await page.context().storageState();
-  const response = await page.request.get(`${apiBase}/api/v1/auth/session`, {
+  const response = await publicHttpOperation({
     headers: authHeadersForStorageState(storageState),
+    operationID: "getCurrentSession",
+    request: atJsonOrigin(page.request, apiBase),
   });
-  if (!response.ok()) {
-    throw new Error(`current session request failed with ${response.status()}`);
+  if (!response.ok) {
+    throw new Error(`current session request failed with ${response.status}`);
   }
-  return ((await response.json()) as { data: CurrentSession }).data;
+  return response.payload.data;
 }
-
-type PatchUserBody = {
-  base_user_version: number;
-  display_name?: string;
-  is_active?: boolean;
-  mfa_required?: boolean;
-  is_deployment_admin?: boolean;
-};
 
 type ReconcileWorkerAdminManifestOptions = {
   trustExistingManifestPasswords?: boolean;
 };
 
-export type WorkerAdminControlPlane = {
+type WorkerAdminControlPlane = {
   canLogin: (email: string, password: string) => Promise<boolean>;
-  createUser: (blueprint: WorkerAdminBlueprint) => Promise<UserResource>;
-  listUsers: () => Promise<UserResource[]>;
-  patchUser: (userId: string, body: PatchUserBody) => Promise<UserResource>;
+  createUser: (blueprint: WorkerAdminBlueprint) => Promise<SafeUserResource>;
+  listUsers: () => Promise<SafeUserResource[]>;
+  patchUser: (
+    userId: string,
+    body: PatchDeploymentUserRequest,
+  ) => Promise<SafeUserResource>;
   resetUserPassword: (
     userId: string,
     baseUserVersion: number,
     nextPassword: string,
     reason: string,
-  ) => Promise<UserResource>;
+  ) => Promise<SafeUserResource>;
   revokeAllSessions: (userId: string, reason: string) => Promise<void>;
 };
 
 export type DeploymentAdminMutationClient = {
-  listUsers: () => Promise<UserResource[]>;
-  loadUser: (userId: string) => Promise<UserResource>;
-  patchUser: (userId: string, body: PatchUserBody) => Promise<UserResource>;
+  listUsers: () => Promise<SafeUserResource[]>;
+  loadUser: (userId: string) => Promise<SafeUserResource>;
+  patchUser: (
+    userId: string,
+    body: PatchDeploymentUserRequest,
+  ) => Promise<SafeUserResource>;
 };
 
 export async function prepareWorkerAdminSuite(workerCount: number) {
@@ -191,17 +189,20 @@ export async function loginBootstrapControlPlaneContext() {
       password: bootstrapPassword,
       secondFactorCode: generateTotpCode(secretBase32),
     });
-    if (!loginResponse.ok()) {
+    if (!loginResponse.ok) {
       throw new Error(
-        `bootstrap control-plane login failed with HTTP ${loginResponse.status()}`,
+        `bootstrap control-plane login failed with HTTP ${loginResponse.status}`,
       );
     }
     const storageState = storageStateFromCookieValues(
-      requireCookie(loginResponse, sessionCookieName),
-      requireCookie(loginResponse, csrfCookieName),
+      requireCookie(loginResponse.response, sessionCookieName),
+      requireCookie(loginResponse.response, csrfCookieName),
     );
     return {
-      request: await authenticatedRequestContext(storageState),
+      request: await request.newContext({
+        baseURL: apiBase,
+        extraHTTPHeaders: authHeadersForStorageState(storageState),
+      }),
       storageState,
     } satisfies AuthenticatedRequestContext;
   } finally {
@@ -217,14 +218,14 @@ export async function loginWorkerAdminContext(entry: WorkerAdminEntry) {
       email: entry.email,
       password: entry.password,
     });
-    if (!loginResponse.ok()) {
+    if (!loginResponse.ok) {
       throw new Error(
-        `worker admin login failed with HTTP ${loginResponse.status()}`,
+        `worker admin login failed with HTTP ${loginResponse.status}`,
       );
     }
     const storageState = storageStateFromCookieValues(
-      requireCookie(loginResponse, sessionCookieName),
-      requireCookie(loginResponse, csrfCookieName),
+      requireCookie(loginResponse.response, sessionCookieName),
+      requireCookie(loginResponse.response, csrfCookieName),
     );
     return {
       ...entry,
@@ -244,127 +245,112 @@ export async function loginTrackedUserViaPage(
   },
 ) {
   await page.context().clearCookies();
-  const loginResponse = await page.request.post(
-    `${apiBase}/api/v1/auth/login`,
-    {
-      data: {
-        username: options.email,
-        password: options.password,
-        ...(options.secondFactorCode?.trim()
-          ? {
-              second_factor: {
-                kind: "totp",
-                assertion: {
-                  code: options.secondFactorCode.trim(),
-                },
-              },
-            }
-          : {}),
-      },
-    },
+  const loginResponse = await loginLocalAPIContext(
+    atJsonOrigin(page.request, apiBase),
+    options,
   );
-  if (!loginResponse.ok()) {
+  if (!loginResponse.ok) {
     throw new Error(
-      `tracked user login failed with HTTP ${loginResponse.status()}`,
+      `tracked user login failed with HTTP ${loginResponse.status}`,
     );
   }
   await applyCookies(
     page,
-    requireCookie(loginResponse, sessionCookieName),
-    requireCookie(loginResponse, csrfCookieName),
+    requireCookie(loginResponse.response, sessionCookieName),
+    requireCookie(loginResponse.response, csrfCookieName),
   );
 }
 
 export async function revokeAllSessions(
-  controlPlane: APIRequestContext,
+  controlPlane: JsonRequestContextLike,
   userId: string,
   reason: string,
 ) {
-  const response = await controlPlane.post(
-    `/api/v1/users/${userId}/sessions/revoke-all`,
-    {
-      data: {
-        client_txn_id: uniqueTxn("playwright-revoke-all"),
-        reason,
-      },
-    },
-  );
-  if (!response.ok()) {
-    throw new Error(`revoke-all failed with HTTP ${response.status()}`);
+  const body: RevokeAllDeploymentUserSessionsRequest = {
+    client_txn_id: uniqueTxn("playwright-revoke-all"),
+    reason,
+  };
+  const response = await publicHttpOperation({
+    body,
+    operationID: "revokeAllDeploymentUserSessions",
+    pathParameters: { user_id: userId },
+    request: controlPlane,
+  });
+  if (!response.ok) {
+    throw new Error(`revoke-all failed with HTTP ${response.status}`);
   }
 }
 
-export async function resetUserPassword(
-  authRequests: APIRequestContext,
+async function resetUserPassword(
+  authRequests: JsonRequestContextLike,
   userId: string,
   baseUserVersion: number,
   newPassword: string,
   reason: string,
 ) {
-  const response = await authRequests.post(
-    `${apiBase}/api/v1/users/${userId}/password/reset`,
-    {
-      data: {
-        base_user_version: baseUserVersion,
-        client_txn_id: uniqueTxn("playwright-admin-password-reset"),
-        new_password: newPassword,
-        reason,
-      },
-    },
-  );
-  if (!response.ok()) {
-    throw new Error(
-      `reset user password failed with HTTP ${response.status()}`,
-    );
+  const body: ResetDeploymentUserPasswordRequest = {
+    base_user_version: baseUserVersion,
+    client_txn_id: uniqueTxn("playwright-admin-password-reset"),
+    new_password: newPassword,
+    reason,
+  };
+  const response = await publicHttpOperation({
+    body,
+    operationID: "resetDeploymentUserPassword",
+    pathParameters: { user_id: userId },
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`reset user password failed with HTTP ${response.status}`);
   }
-  return ((await response.json()) as { data: UserResource }).data;
+  return response.payload.data;
 }
 
-export async function listUsers(authRequests: APIRequestContext) {
-  const response = await authRequests.get(`${apiBase}/api/v1/users`);
-  if (!response.ok()) {
-    throw new Error(`list users failed with HTTP ${response.status()}`);
+async function listUsers(authRequests: JsonRequestContextLike) {
+  const response = await publicHttpOperation({
+    operationID: "listDeploymentUsers",
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`list users failed with HTTP ${response.status}`);
   }
-  return ((await response.json()) as { data: { users: UserResource[] } }).data
-    .users;
+  return response.payload.data.users;
 }
 
 export async function loadUser(
-  authRequests: APIRequestContext,
+  authRequests: JsonRequestContextLike,
   userId: string,
 ) {
-  const response = await authRequests.get(`${apiBase}/api/v1/users/${userId}`);
-  if (!response.ok()) {
-    throw new Error(`load user failed with HTTP ${response.status()}`);
+  const response = await publicHttpOperation({
+    operationID: "getDeploymentUser",
+    pathParameters: { user_id: userId },
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`load user failed with HTTP ${response.status}`);
   }
-  return ((await response.json()) as { data: UserResource }).data;
+  return response.payload.data;
 }
 
 export async function patchUser(
-  authRequests: APIRequestContext,
+  authRequests: JsonRequestContextLike,
   userId: string,
-  body: {
-    base_user_version: number;
-    display_name?: string;
-    is_active?: boolean;
-    mfa_required?: boolean;
-    is_deployment_admin?: boolean;
-  },
+  body: PatchDeploymentUserRequest,
 ) {
-  const response = await authRequests.patch(
-    `${apiBase}/api/v1/users/${userId}`,
-    {
-      data: body,
-    },
-  );
-  if (!response.ok()) {
-    throw new Error(`patch user failed with HTTP ${response.status()}`);
+  const response = await publicHttpOperation({
+    body,
+    operationID: "patchDeploymentUser",
+    pathParameters: { user_id: userId },
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`patch user failed with HTTP ${response.status}`);
   }
-  return ((await response.json()) as { data: UserResource }).data;
+  return response.payload.data;
 }
 
 export function deploymentAdminMutationClient(
-  authRequests: APIRequestContext,
+  authRequests: JsonRequestContextLike,
 ): DeploymentAdminMutationClient {
   return {
     listUsers: async () => listUsers(authRequests),
@@ -433,25 +419,26 @@ export async function withOnlyActiveDeploymentAdmin<T>(
 }
 
 export async function resetUserTotp(
-  authRequests: APIRequestContext,
+  authRequests: JsonRequestContextLike,
   userId: string,
   baseUserVersion: number,
   reason: string,
 ) {
-  const response = await authRequests.post(
-    `${apiBase}/api/v1/users/${userId}/mfa/totp/reset`,
-    {
-      data: {
-        base_user_version: baseUserVersion,
-        client_txn_id: uniqueTxn("playwright-admin-totp-reset"),
-        reason,
-      },
-    },
-  );
-  if (!response.ok()) {
-    throw new Error(`reset user TOTP failed with HTTP ${response.status()}`);
+  const body: ResetDeploymentUserTOTPRequest = {
+    base_user_version: baseUserVersion,
+    client_txn_id: uniqueTxn("playwright-admin-totp-reset"),
+    reason,
+  };
+  const response = await publicHttpOperation({
+    body,
+    operationID: "resetDeploymentUserTOTP",
+    pathParameters: { user_id: userId },
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`reset user TOTP failed with HTTP ${response.status}`);
   }
-  return ((await response.json()) as { data: UserResource }).data;
+  return response.payload.data;
 }
 
 export async function verifyRevokedSession(snapshot: TrackedSessionSnapshot) {
@@ -465,7 +452,10 @@ export async function verifySessionUnauthorized(
   storageState: StorageState,
   label: string,
 ) {
-  const authRequests = await authenticatedRequestContext(storageState);
+  const authRequests = await request.newContext({
+    baseURL: apiBase,
+    extraHTTPHeaders: authHeadersForStorageState(storageState),
+  });
   try {
     const sessionResponse = await authRequests.get("/api/v1/auth/session");
     if (sessionResponse.status() !== 401) {
@@ -491,26 +481,14 @@ export async function logoutAndVerify(
   storageState: StorageState,
   label: string,
 ) {
-  const response = await authRequests.post("/api/v1/auth/logout");
-  if (!response.ok()) {
-    throw new Error(
-      `logout failed for ${label} with HTTP ${response.status()}`,
-    );
+  const response = await publicHttpOperation({
+    operationID: "logoutCurrentSession",
+    request: authRequests,
+  });
+  if (!response.ok) {
+    throw new Error(`logout failed for ${label} with HTTP ${response.status}`);
   }
   await verifySessionUnauthorized(storageState, label);
-}
-
-export async function authenticatedRequestContextFromStorageState(
-  storageState: StorageState,
-) {
-  return request.newContext({
-    baseURL: apiBase,
-    extraHTTPHeaders: authHeadersForStorageState(storageState),
-  });
-}
-
-async function authenticatedRequestContext(storageState: StorageState) {
-  return authenticatedRequestContextFromStorageState(storageState);
 }
 
 function formatUnknownError(error: unknown) {
@@ -605,9 +583,9 @@ export async function reconcileWorkerAdminManifest(
 
 function patchBodyForWorkerAdmin(
   blueprint: WorkerAdminBlueprint,
-  user: UserResource,
-): PatchUserBody | null {
-  const patchBody: PatchUserBody = {
+  user: SafeUserResource,
+): PatchDeploymentUserRequest | null {
+  const patchBody: PatchDeploymentUserRequest = {
     base_user_version: user.user_version,
   };
   if (user.display_name !== blueprint.displayName) {
@@ -653,7 +631,7 @@ function controlPlaneClient(
           email,
           password,
         });
-        return response.ok();
+        return response.ok;
       } finally {
         await anonymousRequests.dispose();
       }

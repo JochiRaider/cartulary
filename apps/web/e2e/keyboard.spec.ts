@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import {
   assertGroupRowPresentationOnly,
   assertMountedGridRowCountAtMost,
@@ -69,7 +70,6 @@ import { createTimelineFillers } from "./support/timeline/fixtures";
 import {
   createViewRow,
   queryViewRows,
-  type ViewApiRow,
   waitForViewRow,
 } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
@@ -89,7 +89,7 @@ type SharedGridAnchorOptions = {
   page: Page;
   incidentId: string;
   viewSchemaId: string;
-  row: ViewApiRow;
+  row: ViewRow;
   fieldKey: string;
   expectedText: string;
   textMode?: "text" | "value";
@@ -133,7 +133,7 @@ async function waitForBrowserQueryWithRow(
           return false;
         }
         const body = (await response.json().catch(() => null)) as {
-          data?: { rows?: ViewApiRow[]; view_schema_id?: string };
+          data?: { rows?: ViewRow[]; view_schema_id?: string };
         } | null;
         const rows = body?.data?.rows ?? [];
         lastQueryStatus = `HTTP ${response.status()}; view_schema_id=${
@@ -1148,7 +1148,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
     "Workbook inspector workbook-interaction keyboard anchor semantics",
   );
 
-  let host: ViewApiRow | undefined;
+  let host: ViewRow | undefined;
 
   await test.step("Timeline anchor", async () => {
     const row = await createViewRow(page, incidentId, timelineViewSchemaId, {

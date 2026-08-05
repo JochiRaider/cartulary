@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   currentIncidentRoleTestId,
@@ -12,12 +13,7 @@ import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import { expect, type Page, type Response } from "@playwright/test";
 import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
 import { queryViewRows } from "../workbook/query";
-import {
-  collectionItems,
-  findRow,
-  requireItemByRawText,
-  type ViewRow,
-} from "./mentions";
+import { collectionItems, findRow, requireItemByRawText } from "./mentions";
 
 export async function exerciseEntityMerge(
   page: Page,
@@ -118,16 +114,16 @@ export async function exerciseEntityMerge(
       .getByTestId(timelinePreviewRowTestId(options.dependentRow.record_id))
       .getByLabel(`Resolved ${options.resolvedLabel}`),
   ).toBeVisible();
-  const entityRowsAfter = (await queryViewRows(
+  const entityRowsAfter = await queryViewRows(
     page,
     options.incidentId,
     options.viewSchemaId,
-  )) as ViewRow[];
-  const timelineRowsAfter = (await queryViewRows(
+  );
+  const timelineRowsAfter = await queryViewRows(
     page,
     options.incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const dependentRowAfter = findRow(
     timelineRowsAfter,
     options.dependentRow.record_id,

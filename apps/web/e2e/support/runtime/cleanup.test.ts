@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import type { StorageState } from "../../playwrightTypes";
+import type { StorageState } from "../auth/storageState";
 import { buildWorkerAdminBlueprints } from "../auth/workerAdmin";
 import { OwnedSessionTracker } from "./cleanup";
 

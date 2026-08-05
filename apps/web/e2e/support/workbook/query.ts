@@ -1,11 +1,11 @@
 import type {
   CreateViewRowRequest,
-  CreateViewRowResponse,
   HTTPOperationResponse,
   PatchRecordRequest,
   PatchRecordResponse,
   QueryWorkbookViewRequest,
   QueryWorkbookViewResponse,
+  ViewRow,
 } from "@cartulary/protocol-ts/http";
 import type { Page, Response } from "@playwright/test";
 
@@ -18,11 +18,9 @@ import {
 } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 
-export type ViewApiRow = CreateViewRowResponse["data"]["row"];
-export type ViewApiCell = ViewApiRow["cells"][string];
-export type WorkbookMutationOperationID = "createViewRow" | "patchRecord";
+type WorkbookMutationOperationID = "createViewRow" | "patchRecord";
 
-export type ViewRowPollOptions = {
+type ViewRowPollOptions = {
   readonly diagnosticContext?: string;
   readonly timeout?: number;
 };
@@ -31,10 +29,10 @@ export async function createViewRow(
   page: Page,
   incidentId: string,
   viewSchemaId: string,
-  payload: Record<string, unknown>,
-): Promise<ViewApiRow> {
+  payload: CreateViewRowRequest,
+): Promise<ViewRow> {
   const response = await publicHttpOperation({
-    body: payload as unknown as CreateViewRowRequest,
+    body: payload,
     headers: await csrfHeaders(page),
     operationID: "createViewRow",
     pathParameters: {
@@ -56,7 +54,7 @@ export async function queryViewRows(
   incidentId: string,
   viewSchemaId: string,
   requestBody: QueryWorkbookViewRequest = {},
-): Promise<ViewApiRow[]> {
+): Promise<ViewRow[]> {
   const response = await publicHttpOperation({
     body: requestBody,
     operationID: "queryWorkbookView",
@@ -80,7 +78,7 @@ export async function waitForViewRow(
   viewSchemaId: string,
   recordId: string,
   options: ViewRowPollOptions = {},
-): Promise<ViewApiRow> {
+): Promise<ViewRow> {
   return waitForMatchingViewRow({
     diagnostic: `${viewSchemaId} default query should include created row ${recordId}`,
     incidentId,
@@ -98,7 +96,7 @@ export async function waitForViewRowByCell(
   fieldKey: string,
   value: unknown,
   options: ViewRowPollOptions = {},
-): Promise<ViewApiRow> {
+): Promise<ViewRow> {
   return waitForMatchingViewRow({
     diagnostic: `${viewSchemaId} default query should include row where ${fieldKey}=${JSON.stringify(value)}`,
     incidentId,
@@ -119,13 +117,13 @@ async function waitForMatchingViewRow({
 }: {
   readonly diagnostic: string;
   readonly incidentId: string;
-  readonly matcher: (row: ViewApiRow) => boolean;
+  readonly matcher: (row: ViewRow) => boolean;
   readonly options: ViewRowPollOptions;
   readonly page: Page;
   readonly viewSchemaId: string;
-}): Promise<ViewApiRow> {
-  let lastRows: ViewApiRow[] = [];
-  let matched: ViewApiRow | undefined;
+}): Promise<ViewRow> {
+  let lastRows: ViewRow[] = [];
+  let matched: ViewRow | undefined;
   try {
     await expect
       .poll(
@@ -198,10 +196,10 @@ export async function readWorkbookMutation<
 export async function patchRecord(
   page: Page,
   recordId: string,
-  payload: Record<string, unknown>,
+  payload: PatchRecordRequest,
 ) {
   const response = await publicHttpOperation({
-    body: payload as unknown as PatchRecordRequest,
+    body: payload,
     headers: await csrfHeaders(page),
     operationID: "patchRecord",
     pathParameters: { record_id: recordId },

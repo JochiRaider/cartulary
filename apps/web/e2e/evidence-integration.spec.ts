@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer";
-
 import type {
   AttachBlobToEvidenceRecordRequest,
   CreateObjectBlobSlotRequest,
@@ -8,6 +7,7 @@ import type {
   IssueEvidenceDownloadHandleResponse,
   IssueEvidencePreviewHandleRequest,
   IssueEvidencePreviewHandleResponse,
+  ViewRow,
 } from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
@@ -23,7 +23,6 @@ import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { APIRequestContext, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
-import type { ViewRow } from "./support/entities/mentions";
 import {
   createAndUploadObjectBlob,
   resolveObjectUploadTarget,
@@ -50,7 +49,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
     uniqueIncidentKey("EVIDENCEINTEGRATION"),
     "integration.evidence-workflow.row-01 evidence integration",
   );
-  const evidenceRow = (await createViewRow(
+  const evidenceRow = await createViewRow(
     page,
     incidentId,
     evidenceViewSchemaId,
@@ -59,7 +58,7 @@ test("Verify attach flow uses generated protocol types, public error envelopes, 
       "evidence.title": "integration.evidence-workflow attach target",
       "evidence.collector_party_text": "Browser evidence",
     },
-  )) as unknown as ViewRow;
+  );
   const observed = collectEvidenceRouteRequests(page);
 
   await openEvidenceSurface(page, incidentId);
@@ -236,11 +235,11 @@ test("Verify evidence attach, preview, download, blocked preview, and authorizat
     "end-to-end.evidence-workflow.row-01 evidence handles",
   );
   const safeBody = "end-to-end.evidence-workflow safe preview body";
-  const safeRow = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+  const safeRow = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("fee-p6-safe-evidence"),
     "evidence.title": "end-to-end.evidence-workflow safe evidence",
     "evidence.collector_party_text": "Browser evidence",
-  })) as unknown as ViewRow;
+  });
   const blockedRow = await createUploadedEvidence(page, incidentId, {
     title: "end-to-end.evidence-workflow blocked preview evidence",
     filename: "end-to-end.evidence-workflow-blocked.html",
@@ -613,11 +612,11 @@ async function waitForEvidenceState(
   await expect
     .poll(
       async () => {
-        const rows = (await queryViewRows(
+        const rows = await queryViewRows(
           page,
           incidentId,
           evidenceViewSchemaId,
-        )) as unknown as ViewRow[];
+        );
         matchingRow =
           rows.find((candidate) => candidate.record_id === recordId) ?? null;
         return {
@@ -729,11 +728,11 @@ async function createUploadedEvidence(
     body: Buffer;
   },
 ) {
-  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+  const row = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("fee-p6-uploaded-evidence"),
     "evidence.title": options.title,
     "evidence.collector_party_text": "Browser evidence",
-  })) as unknown as ViewRow;
+  });
   const blob = await createAndUploadObjectBlob(page, {
     body: options.body,
     clientTxnId: uniqueTxn("fee-p6-uploaded-blob"),

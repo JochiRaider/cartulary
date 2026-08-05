@@ -29,7 +29,6 @@ import {
   readMentionAction,
   readMentionActionRequest,
   requireItemByRawText,
-  type ViewRow,
   waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
@@ -49,7 +48,7 @@ test(exactScenarioTitle, async ({ page }) => {
     uniqueIncidentKey("ENTITYMENTION"),
     "Evidence end-to-end.entity-linking.row-01",
   );
-  const manualTarget = (await createViewRow(
+  const manualTarget = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -58,14 +57,14 @@ test(exactScenarioTitle, async ({ page }) => {
       "host.display_name": "end-to-end.entity-linking Manual Target",
       "host.hostname": "entity-mention-manual-target.example.test",
     },
-  )) as ViewRow;
-  const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  );
+  const autoTarget = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("entity-mention-auto-target"),
     "host.display_name": "end-to-end.entity-linking Auto Target",
     "host.hostname": "entity-mention-auto-target.example.test",
     "host.aliases": aliasCollectionActionsPayload(["ENTITYMENTION Auto Alias"]),
-  })) as ViewRow;
-  const correctionTarget = (await createViewRow(
+  });
+  const correctionTarget = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -74,10 +73,10 @@ test(exactScenarioTitle, async ({ page }) => {
       "host.display_name": "end-to-end.entity-linking Corrected Target",
       "host.hostname": "entity-mention-corrected-target.example.test",
     },
-  )) as ViewRow;
+  );
   const manualRawText = "ENTITYMENTION Manual Raw";
   const autoRawText = "ENTITYMENTION Auto Alias";
-  const manualRow = (await createViewRow(
+  const manualRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -87,8 +86,8 @@ test(exactScenarioTitle, async ({ page }) => {
         "end-to-end.entity-linking manual lifecycle row",
       [hostRefsFieldKey]: collectionActionsPayload([manualRawText]),
     },
-  )) as ViewRow;
-  const autoCorrectionRow = (await createViewRow(
+  );
+  const autoCorrectionRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -97,8 +96,8 @@ test(exactScenarioTitle, async ({ page }) => {
       "timeline.activity_synopsis_text":
         "end-to-end.entity-linking auto correction row",
     },
-  )) as ViewRow;
-  const autoUndoRow = (await createViewRow(
+  );
+  const autoUndoRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -107,7 +106,7 @@ test(exactScenarioTitle, async ({ page }) => {
       "timeline.activity_synopsis_text":
         "end-to-end.entity-linking auto undo row",
     },
-  )) as ViewRow;
+  );
   const manualMention = requireItemByRawText(
     collectionItems(manualRow, hostRefsFieldKey),
     manualRawText,
@@ -454,10 +453,6 @@ async function refreshedTimelineRow(
   incidentId: string,
   recordId: string,
 ) {
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-  )) as ViewRow[];
+  const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
   return findRow(rows, recordId);
 }

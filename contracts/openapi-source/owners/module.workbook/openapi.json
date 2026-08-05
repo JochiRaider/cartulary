@@ -2023,6 +2023,18 @@
                   "$ref": "#/components/schemas/CollectionAddTokenAction"
                 },
                 {
+                  "$ref": "#/components/schemas/CollectionAddResolvedRefAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionResolveItemAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionRevertToUnresolvedAction"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectionDismissItemAction"
+                },
+                {
                   "$ref": "#/components/schemas/CollectionAddAliasAction"
                 },
                 {
@@ -2075,6 +2087,83 @@
         "required": [
           "op",
           "raw_text"
+        ]
+      },
+      "CollectionAddResolvedRefAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "add_resolved_ref"
+          },
+          "raw_text": {
+            "type": "string"
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "raw_text",
+          "resolved_record_id"
+        ]
+      },
+      "CollectionResolveItemAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "resolve_item"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_mention:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "resolved_record_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref",
+          "resolved_record_id"
+        ]
+      },
+      "CollectionRevertToUnresolvedAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "revert_to_unresolved"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_mention:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
+        ]
+      },
+      "CollectionDismissItemAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "dismiss_item"
+          },
+          "item_ref": {
+            "type": "string",
+            "pattern": "^entity_mention:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "op",
+          "item_ref"
         ]
       },
       "CollectionAddAliasAction": {

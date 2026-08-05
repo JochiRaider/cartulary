@@ -23,7 +23,6 @@ import {
   readMentionAction,
   readMentionActionRequest,
   requireItemByRawText,
-  type ViewRow,
   waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
@@ -53,7 +52,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     uniqueIncidentKey("MENTION-LIFECYCLE"),
     "Record relationships entity-resolution",
   );
-  const existingHost = (await createViewRow(
+  const existingHost = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -62,7 +61,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.corp.example.test",
     },
-  )) as ViewRow;
+  );
 
   await createTimelineFillers(
     page,
@@ -73,12 +72,12 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
       occurredAtStart: timelineFixtureOccurredAt(0),
     },
   );
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e402-row"),
     "timeline.activity_utc_text": timelineFixtureOccurredAt(6),
     "timeline.activity_synopsis_text": "entity-resolution lifecycle row",
     [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
-  })) as ViewRow;
+  });
   await createTimelineFillers(
     page,
     incidentId,
@@ -104,7 +103,7 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
           actions: [
             {
               op: "resolve_item",
-              item_ref: seededMention.item_ref,
+              item_ref: String(seededMention.item_ref),
               resolved_record_id: existingHost.record_id,
             },
           ],
@@ -132,11 +131,11 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
       .getByTestId(relationshipItemsTestId(row.record_id, hostRefsFieldKey))
       .getByLabel("Resolved WS-023"),
   ).toBeVisible();
-  const initialTimelineRows = (await queryViewRows(
+  const initialTimelineRows = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const rowBeforeDismiss = findRow(initialTimelineRows, row.record_id);
   const mentionBeforeDismiss = requireItemByRawText(
     collectionItems(rowBeforeDismiss, hostRefsFieldKey),
@@ -191,11 +190,11 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
   expect(dismissEnvelope.data.entity_mention.resolution_status).toBe(
     "dismissed",
   );
-  const rowsAfterDismiss = (await queryViewRows(
+  const rowsAfterDismiss = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   expect(
     collectionItems(findRow(rowsAfterDismiss, row.record_id), hostRefsFieldKey),
   ).toHaveLength(0);
@@ -241,11 +240,11 @@ test("dismisses and ordinarily restores a mention without relinking", async ({
     "unresolved",
   );
 
-  const timelineRows = (await queryViewRows(
+  const timelineRows = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const restoredRow = findRow(timelineRows, row.record_id);
   const restoredRowItem = requireItemByRawText(
     collectionItems(restoredRow, hostRefsFieldKey),

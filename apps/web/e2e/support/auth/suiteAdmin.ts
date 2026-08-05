@@ -1,12 +1,6 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
-import {
-  type APIRequestContext,
-  type APIResponse,
-  expect,
-  type Page,
-  request,
-} from "@playwright/test";
+import { type APIRequestContext, expect, request } from "@playwright/test";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import {
@@ -15,16 +9,8 @@ import {
   sharedPlaywrightStateDir,
 } from "../runtime/harnessState";
 import { atomicWritePrivateFile } from "../runtime/privateState";
-import {
-  waitForAPIReady,
-  waitForPageRequestAPIReady,
-} from "../runtime/readiness";
-import {
-  applyCookies,
-  loginLocalAPIContext,
-  requireCookie,
-} from "./browserSession";
-import { csrfCookieName, sessionCookieName } from "./storageState";
+import { waitForAPIReady } from "../runtime/readiness";
+import { loginLocalAPIContext } from "./browserSession";
 
 export const bootstrapEmail = "dev-admin@example.test";
 export const bootstrapPassword = "DevBootstrap1!";
@@ -33,7 +19,7 @@ const suiteAdminTotpStatePath = resolvePlaywrightStateFile(
   "cartulary-playwright-admin-totp.txt",
 );
 
-export type LocalLoginResult =
+type LocalLoginResult =
   | { kind: "success" }
   | {
       kind: "error";
@@ -42,56 +28,18 @@ export type LocalLoginResult =
       details: Record<string, unknown>;
     };
 
-export type SuiteAdminAuthClient = {
+type SuiteAdminAuthClient = {
   loginLocal: (secondFactorCode?: string | null) => Promise<LocalLoginResult>;
   provisionTotpFromBootstrap: (bootstrapToken: string) => Promise<string>;
 };
 
-export type SuiteAdminStateContext = {
+type SuiteAdminStateContext = {
   externalServerMode: boolean;
   sharedStateDir: string | null;
   stateFilePath: string;
 };
 
-let rememberedAdminTotpSecretBase32: string | null = null;
-
-export async function ensureAdminSession(page: Page) {
-  if (rememberedAdminTotpSecretBase32 === null) {
-    rememberedAdminTotpSecretBase32 = loadSuiteAdminTotpSecret();
-  }
-  if (rememberedAdminTotpSecretBase32 === null) {
-    throw new Error("missing suite admin TOTP state; global setup did not run");
-  }
-
-  await waitForPageRequestAPIReady(page);
-  const loginResponse = await page.request.post(
-    `${apiBase}/api/v1/auth/login`,
-    {
-      data: {
-        username: bootstrapEmail,
-        password: bootstrapPassword,
-        second_factor: {
-          kind: "totp",
-          assertion: {
-            code: generateTotpCode(rememberedAdminTotpSecretBase32),
-          },
-        },
-      },
-    },
-  );
-  if (!loginResponse.ok()) {
-    throw new Error(`admin login failed with HTTP ${loginResponse.status()}`);
-  }
-
-  await applyCookies(
-    page,
-    requireCookie(loginResponse, sessionCookieName),
-    requireCookie(loginResponse, csrfCookieName),
-  );
-}
-
 export async function prepareSuiteAdminState() {
-  rememberedAdminTotpSecretBase32 = null;
   const authRequests = await request.newContext({ baseURL: apiBase });
   try {
     await waitForAPIReady(authRequests);
@@ -99,7 +47,6 @@ export async function prepareSuiteAdminState() {
       suiteAdminAuthClient(authRequests),
       loadSuiteAdminTotpSecret(),
     );
-    rememberedAdminTotpSecretBase32 = secretBase32;
     writeSuiteAdminTotpSecret(secretBase32);
   } finally {
     await authRequests.dispose();
@@ -114,10 +61,6 @@ export async function enrollTotpViaBootstrap(email: string, password: string) {
   } finally {
     await authRequests.dispose();
   }
-}
-
-export function resetRememberedAdminSession() {
-  // Each test performs its own login; no worker-shared session should persist.
 }
 
 export function generateTotpCode(secretBase32: string) {
@@ -150,7 +93,7 @@ export function generateTotpCode(secretBase32: string) {
   return String(code % 1_000_000).padStart(6, "0");
 }
 
-export function currentSuiteAdminStateContext(): SuiteAdminStateContext {
+function currentSuiteAdminStateContext(): SuiteAdminStateContext {
   return {
     externalServerMode: isExternalServerHarnessMode(),
     sharedStateDir: sharedPlaywrightStateDir(),
@@ -216,7 +159,7 @@ export function loadSuiteAdminTotpSecret() {
   return secret === "" ? null : secret;
 }
 
-export function writeSuiteAdminTotpSecret(secretBase32: string) {
+function writeSuiteAdminTotpSecret(secretBase32: string) {
   atomicWritePrivateFile(suiteAdminTotpStatePath, `${secretBase32}\n`);
 }
 
@@ -231,10 +174,14 @@ async function provisionUserTotp(
   email: string,
   password: string,
 ) {
-  const loginResponse = await authRequests.post("/api/v1/auth/login", {
-    data: { username: email, password },
+  const loginResponse = await loginLocalAPIContext(authRequests, {
+    email,
+    password,
   });
-  const loginResult = await readLocalLoginResult(loginResponse);
+  const loginResult = readLocalLoginResult(
+    loginResponse.status,
+    loginResponse.ok ? null : loginResponse.payload,
+  );
   if (
     loginResult.kind !== "error" ||
     loginResult.status !== 401 ||
@@ -260,25 +207,29 @@ function suiteAdminAuthClient(
         password: bootstrapPassword,
         ...(secondFactorCode === undefined ? {} : { secondFactorCode }),
       });
-      return readLocalLoginResult(response);
+      return readLocalLoginResult(
+        response.status,
+        response.ok ? null : response.payload,
+      );
     },
     provisionTotpFromBootstrap: async (bootstrapToken) =>
       provisionTotpFromBootstrap(authRequests, bootstrapToken),
   };
 }
 
-async function readLocalLoginResult(
-  response: APIResponse,
-): Promise<LocalLoginResult> {
-  if (response.ok()) {
+function readLocalLoginResult(
+  status: number,
+  payload: unknown,
+): LocalLoginResult {
+  if (payload === null) {
     return { kind: "success" };
   }
-  const body = (await response.json()) as {
+  const body = payload as {
     error?: { code?: string; details?: unknown };
   };
   return {
     kind: "error",
-    status: response.status(),
+    status,
     code: body.error?.code ?? "unknown_error",
     details: toErrorDetails(body.error?.details),
   };

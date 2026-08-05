@@ -159,37 +159,6 @@
       "minimum_tier": "full"
     },
     {
-      "row_id": "module.savedviews.browser_stateful.verify_saved_view_persistence_default_startup_su_3fd1edb0fd",
-      "owner_id": "module.savedviews",
-      "family_id": "module.savedviews.browser_stateful",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.savedviews.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/workbook.spec.ts",
-        "project_id": "chromium",
-        "stage": "stateful",
-        "scenario_ids": [
-          "scenario_7aae6dfe7464"
-        ],
-        "titles": [
-          "Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload."
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
-    },
-    {
       "row_id": "module.savedviews.integration.imported_saved_views_preserve_portable_owners_se_45009255f0",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.integration",

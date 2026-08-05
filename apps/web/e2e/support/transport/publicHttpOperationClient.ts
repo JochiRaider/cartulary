@@ -11,7 +11,8 @@ import {
 
 import {
   type JsonRequestContextLike,
-  requestPublicJson,
+  type RepeatedHeaderJsonResponse,
+  requestPublicJsonObserved,
 } from "./publicJsonClient";
 
 type BodyOption<OperationID extends HTTPOperationID> = [
@@ -20,7 +21,7 @@ type BodyOption<OperationID extends HTTPOperationID> = [
   ? { readonly body?: never }
   : { readonly body: HTTPOperationRequest<OperationID> };
 
-export type PublicHttpOperationOptions<OperationID extends HTTPOperationID> =
+type PublicHttpOperationOptions<OperationID extends HTTPOperationID> =
   BodyOption<OperationID> & {
     readonly headers?: Record<string, string>;
     readonly operationID: OperationID;
@@ -29,7 +30,7 @@ export type PublicHttpOperationOptions<OperationID extends HTTPOperationID> =
     readonly request: JsonRequestContextLike;
   };
 
-export type PublicHttpOperationResult<OperationID extends HTTPOperationID> =
+type PublicHttpOperationResult<OperationID extends HTTPOperationID> =
   | {
       readonly ok: true;
       readonly payload: HTTPOperationResponse<OperationID>;
@@ -41,12 +42,18 @@ export type PublicHttpOperationResult<OperationID extends HTTPOperationID> =
       readonly status: number;
     };
 
-export type ObservedHttpOperationRequest = {
+type PublicHttpOperationObservedResult<OperationID extends HTTPOperationID> =
+  | (Extract<PublicHttpOperationResult<OperationID>, { readonly ok: true }> & {
+      readonly response: RepeatedHeaderJsonResponse;
+    })
+  | Extract<PublicHttpOperationResult<OperationID>, { readonly ok: false }>;
+
+type ObservedHttpOperationRequest = {
   readonly method: () => string;
   readonly postData: () => string | null;
 };
 
-export type ObservedHttpOperationResponse = {
+type ObservedHttpOperationResponse = {
   readonly ok: () => boolean;
   readonly request: () => ObservedHttpOperationRequest;
   readonly status: () => number;
@@ -57,61 +64,115 @@ export type ObservedHttpOperationResponse = {
 export async function publicHttpOperation<OperationID extends HTTPOperationID>(
   options: PublicHttpOperationOptions<OperationID>,
 ): Promise<PublicHttpOperationResult<OperationID>> {
+  return (await executePublicHttpOperation(options)).result;
+}
+
+export async function publicHttpOperationObserved<
+  OperationID extends HTTPOperationID,
+>(
+  options: PublicHttpOperationOptions<OperationID>,
+): Promise<PublicHttpOperationObservedResult<OperationID>> {
+  const execution = await executePublicHttpOperation(options);
+  if (!execution.result.ok) {
+    return execution.result;
+  }
+  if (typeof execution.response.headersArray !== "function") {
+    return invalidPublicContractResult(
+      options.operationID,
+      execution.result.status,
+      {
+        observation_error: "repeated_headers_unavailable",
+      },
+    );
+  }
+  return {
+    ...execution.result,
+    response: execution.response as RepeatedHeaderJsonResponse,
+  };
+}
+
+async function executePublicHttpOperation<OperationID extends HTTPOperationID>(
+  options: PublicHttpOperationOptions<OperationID>,
+) {
   const binding = httpOperationBindings[options.operationID];
   const path =
     buildHTTPOperationPath(options.operationID, options.pathParameters) +
     encodeHTTPOperationQuery(options.operationID, options.query);
-  const response = await requestPublicJson({
+  const observation = await requestPublicJsonObserved({
     ...("body" in options ? { body: options.body } : {}),
     ...(options.headers === undefined ? {} : { headers: options.headers }),
     method: binding.method,
     path,
     request: options.request,
   });
-  if (!response.ok) {
+  const { response, result: publicJsonResult } = observation;
+  if (!publicJsonResult.ok) {
     return {
-      ok: false,
-      payload: response.body,
-      status: response.status,
+      response,
+      result: {
+        ok: false,
+        payload: publicJsonResult.body,
+        status: publicJsonResult.status,
+      } satisfies PublicHttpOperationResult<OperationID>,
     };
   }
   const validation = validateHTTPOperationResponse(
     options.operationID,
-    response.body,
+    publicJsonResult.body,
   );
   if (
     !binding.success_statuses.some(
-      (expectedStatus) => expectedStatus === response.status,
+      (expectedStatus) => expectedStatus === publicJsonResult.status,
     ) ||
     !validation.ok
   ) {
     return {
-      ok: false,
-      payload: {
-        error: {
-          code: "invalid_public_contract_response",
-          details: {
-            ...(validation.ok
-              ? {}
-              : {
-                  instance_path: validation.instancePath,
-                  schema_id: validation.schemaId,
-                }),
-            operation_id: options.operationID,
-            received_status: response.status,
-          },
-          message: "The server returned an invalid public contract response.",
-          retryable: true,
-          status: 502,
+      response,
+      result: invalidPublicContractResult(
+        options.operationID,
+        publicJsonResult.status,
+        {
+          ...(validation.ok
+            ? {}
+            : {
+                instance_path: validation.instancePath,
+                schema_id: validation.schemaId,
+              }),
         },
-      },
-      status: 502,
+      ),
     };
   }
   return {
-    ok: true,
-    payload: response.body as HTTPOperationResponse<OperationID>,
-    status: response.status,
+    response,
+    result: {
+      ok: true,
+      payload: publicJsonResult.body as HTTPOperationResponse<OperationID>,
+      status: publicJsonResult.status,
+    } satisfies PublicHttpOperationResult<OperationID>,
+  };
+}
+
+function invalidPublicContractResult<OperationID extends HTTPOperationID>(
+  operationID: OperationID,
+  receivedStatus: number,
+  details: Readonly<Record<string, unknown>>,
+): Extract<PublicHttpOperationResult<OperationID>, { readonly ok: false }> {
+  return {
+    ok: false,
+    payload: {
+      error: {
+        code: "invalid_public_contract_response",
+        details: {
+          ...details,
+          operation_id: operationID,
+          received_status: receivedStatus,
+        },
+        message: "The server returned an invalid public contract response.",
+        retryable: true,
+        status: 502,
+      },
+    },
+    status: 502,
   };
 }
 

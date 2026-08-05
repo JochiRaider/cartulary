@@ -1,5 +1,9 @@
 import type { Buffer } from "node:buffer";
-import type { AttachBlobToEvidenceRecordRequest } from "@cartulary/protocol-ts/http";
+import type {
+  AttachBlobToEvidenceRecordRequest,
+  EvidenceCreateRequest,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
@@ -9,14 +13,8 @@ import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
-import {
-  createViewRow,
-  queryViewRows,
-  type ViewApiRow,
-} from "../workbook/query";
+import { createViewRow, queryViewRows } from "../workbook/query";
 import { createAndUploadObjectBlob } from "./uploads";
-
-type ViewRow = ViewApiRow;
 
 export type EvidenceUploadOptions = {
   body: Buffer;
@@ -29,7 +27,9 @@ export type EvidenceUploadOptions = {
 
 type EvidenceFixtureOptions = {
   collectorPartyText: string;
-  lifecycleState: string;
+  lifecycleState: NonNullable<
+    EvidenceCreateRequest["evidence.lifecycle_state"]
+  >;
   requestedAt: string;
   storageRef: string;
   title: string;
@@ -50,14 +50,14 @@ export async function createEvidenceFixtureRow(
   incidentId: string,
   options: EvidenceFixtureOptions,
 ): Promise<ViewRow> {
-  return (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+  return await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn(options.txnPrefix),
     "evidence.collector_party_text": options.collectorPartyText,
     "evidence.lifecycle_state": options.lifecycleState,
     "evidence.requested_at": options.requestedAt,
     "evidence.storage_ref": options.storageRef,
     "evidence.title": options.title,
-  })) as ViewRow;
+  });
 }
 
 export async function createUploadedEvidenceFixture(
@@ -70,12 +70,12 @@ export async function createUploadedEvidenceFixture(
     blob: "blob",
     row: "row",
   };
-  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+  const row = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.row}`),
     "evidence.collector_party_text": options.collectorPartyText,
     "evidence.requested_at": options.requestedAt,
     "evidence.title": options.title,
-  })) as ViewRow;
+  });
   const blob = await createAndUploadObjectBlob(page, {
     body: options.body,
     clientTxnId: uniqueTxn(`${options.txnPrefix}-${txnSuffixes.blob}`),
@@ -117,11 +117,11 @@ async function waitForEvidenceFixtureState(
   await expect
     .poll(
       async () => {
-        const rows = (await queryViewRows(
+        const rows = await queryViewRows(
           page,
           incidentId,
           evidenceViewSchemaId,
-        )) as ViewRow[];
+        );
         matchingRow =
           rows.find((candidate) => candidate.record_id === recordId) ?? null;
         return {

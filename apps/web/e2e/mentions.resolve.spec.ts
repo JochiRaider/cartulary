@@ -25,7 +25,6 @@ import {
   readMentionAction,
   readMentionActionRequest,
   requireItemByRawText,
-  type ViewRow,
   waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
@@ -54,7 +53,7 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
     uniqueIncidentKey("MENTION-RESOLUTION"),
     "Record relationships entity-resolution",
   );
-  const existingHost = (await createViewRow(
+  const existingHost = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -63,10 +62,10 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.corp.example.test",
     },
-  )) as ViewRow;
+  );
 
   await createTimelineFillers(page, incidentId, "entity-resolution filler", 12);
-  const siblingRow = (await createViewRow(
+  const siblingRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -75,11 +74,11 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
       "timeline.activity_synopsis_text": "entity-resolution sibling unresolved",
       [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
     },
-  )) as ViewRow;
-  const mainRow = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  );
+  const mainRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("e401-main"),
     "timeline.activity_synopsis_text": "entity-resolution workbook row",
-  })) as ViewRow;
+  });
   const identitiesBefore = await queryViewRows(
     page,
     incidentId,
@@ -211,11 +210,11 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
     createScroll,
   );
 
-  const timelineRows = (await queryViewRows(
+  const timelineRows = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const mainRowAfter = findRow(timelineRows, mainRow.record_id);
   const siblingRowAfter = findRow(timelineRows, siblingRow.record_id);
   const mainHostAfter = requireItemByRawText(

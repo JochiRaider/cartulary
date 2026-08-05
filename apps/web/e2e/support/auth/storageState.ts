@@ -1,4 +1,6 @@
-import type { StorageState } from "../../playwrightTypes";
+import type { BrowserContext } from "@playwright/test";
+
+export type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
 export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
@@ -12,7 +14,7 @@ export function cookieValueFromStorageState(
   return match?.value ?? null;
 }
 
-export function requireCookieValueFromStorageState(
+function requireCookieValueFromStorageState(
   storageState: StorageState,
   name: string,
 ) {
@@ -23,7 +25,7 @@ export function requireCookieValueFromStorageState(
   return value;
 }
 
-export function csrfHeadersForStorageState(storageState: StorageState) {
+function csrfHeadersForStorageState(storageState: StorageState) {
   return {
     [csrfHeaderName]: requireCookieValueFromStorageState(
       storageState,
@@ -32,7 +34,7 @@ export function csrfHeadersForStorageState(storageState: StorageState) {
   };
 }
 
-export function cookieHeaderForStorageState(storageState: StorageState) {
+function cookieHeaderForStorageState(storageState: StorageState) {
   return storageState.cookies
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
@@ -74,28 +76,4 @@ export function storageStateFromCookieValues(
     ],
     origins: [],
   };
-}
-
-export function requireCookieValueFromSetCookieHeaders(
-  headers: string[],
-  name: string,
-) {
-  for (const header of headers) {
-    const [cookiePair] = header.split(";", 1);
-    if (!cookiePair) {
-      continue;
-    }
-    const [cookieName, cookieValue] = cookiePair.split("=", 2);
-    if (cookieName === name && cookieValue) {
-      return cookieValue;
-    }
-  }
-  throw new Error(`missing ${name} cookie in Set-Cookie headers`);
-}
-
-export function storageStateFromSetCookieHeaders(headers: string[]) {
-  return storageStateFromCookieValues(
-    requireCookieValueFromSetCookieHeaders(headers, sessionCookieName),
-    requireCookieValueFromSetCookieHeaders(headers, csrfCookieName),
-  );
 }

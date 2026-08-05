@@ -44,7 +44,7 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
   await accountMenuTrigger.click();
 }
 
-export type PatchCall = {
+type PatchCall = {
   body: Record<string, unknown>;
   recordId: string;
   status: number;
@@ -73,7 +73,7 @@ type PatchBehaviorOptions = {
   recordId?: string;
 };
 
-export type SessionTracker = {
+type SessionTracker = {
   loginTrackedUser: (
     page: Page,
     details: {
@@ -125,7 +125,7 @@ export async function openIncidentAsTrackedUserReady(
   return { acceptedSocket, page, socketMonitor };
 }
 
-export type SessionRecoveryScenario = {
+type SessionRecoveryScenario = {
   createdBy: string;
   incidentKeyPrefix: string;
   localValues?: readonly string[];
@@ -617,7 +617,7 @@ export function presenceDeltaMatches(
   return presenceMessageMatches(message, options);
 }
 
-export function presenceMessageMatches(
+function presenceMessageMatches(
   message: SocketMessage,
   options: {
     fieldKey: string;

@@ -31,8 +31,8 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { fetchRecordHistoryCount } from "./support/workbook/history";
 import { createViewRow } from "./support/workbook/query";
-import { fetchRecordHistoryCount } from "./support/workbook/refresh";
 import {
   clickTimelineRowAction,
   commitInspectorScalarEdit,

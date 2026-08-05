@@ -11,25 +11,42 @@ import {
   type AttachBlobToEvidenceRecordResponse,
   buildHTTPOperationPath,
   type CancelJobRequest,
+  type CreateIncidentMembershipRequest,
+  type CreateIncidentMembershipResponse,
+  type CreateIncidentRequest,
+  type CreateIncidentResponse,
   type CreateObjectBlobSlotRequest,
   type CreateObjectBlobSlotResponse,
+  type CreateViewRowResponse,
   type ErrorEnvelope,
   encodeHTTPOperationQuery,
   type GetCurrentAccountPreferencesResponse,
   type GetCurrentAccountProfileResponse,
+  type GetDeploymentUserResponse,
+  type GetRecordHistoryResponse,
   type HTTPOperationRequest,
   type HTTPOperationResponse,
   httpOperationBindings,
   type IssueEvidencePreviewHandleRequest,
   type IssueEvidencePreviewHandleResponse,
   type ListImportUnitsResponse,
+  type LoginLocalUserRequest,
+  type LoginLocalUserResponse,
+  type LogoutCurrentSessionRequest,
+  type LogoutCurrentSessionResponse,
   type PatchCurrentAccountProfileRequest,
   type PatchCurrentAccountProfileResponse,
   type PutCurrentAccountPreferencesRequest,
   type PutCurrentAccountPreferencesResponse,
   type QueryWorkbookViewRequest,
   type QueryWorkbookViewResponse,
+  type RecordHistoryData,
+  type RecordHistoryItem,
+  type SafeUserResource,
   type SelectImportUnitResponse,
+  type SessionResource,
+  type ViewCell,
+  type ViewRow,
   validateHTTPOperationResponse,
 } from "./entrypoints/http.js";
 import {
@@ -99,6 +116,86 @@ describe("@cartulary/protocol-ts family conformance", () => {
   });
 
   it("exposes deterministic generated HTTP operation bindings without payload leakage", () => {
+    expect([
+      buildHTTPOperationPath("loginLocalUser"),
+      buildHTTPOperationPath("logoutCurrentSession"),
+      buildHTTPOperationPath("createIncident"),
+      buildHTTPOperationPath("createIncidentMembership", {
+        incident_id: "incident/id",
+      }),
+    ]).toEqual([
+      "/api/v1/auth/login",
+      "/api/v1/auth/logout",
+      "/api/v1/incidents",
+      "/api/v1/incidents/incident%2Fid/memberships",
+    ]);
+    expect(
+      [
+        "loginLocalUser",
+        "logoutCurrentSession",
+        "createIncident",
+        "createIncidentMembership",
+      ].map((operationID) => {
+        const binding =
+          httpOperationBindings[
+            operationID as keyof typeof httpOperationBindings
+          ];
+        return [binding.method, binding.success_statuses];
+      }),
+    ).toEqual([
+      ["POST", [200]],
+      ["POST", [200]],
+      ["POST", [200, 201]],
+      ["POST", [200, 201]],
+    ]);
+
+    const loginRequest: LoginLocalUserRequest = {
+      password: "password",
+      username: "operator@example.test",
+    };
+    const incidentRequest: CreateIncidentRequest = {
+      client_txn_id: "txn-incident",
+      incident_key: "INC-1",
+      title: "Incident",
+    };
+    const membershipRequest: CreateIncidentMembershipRequest = {
+      client_txn_id: "txn-membership",
+      email: "member@example.test",
+      role: "reviewer",
+    };
+    const logoutRequest: LogoutCurrentSessionRequest = undefined;
+    expect(loginRequest.username).toBe("operator@example.test");
+    expect(incidentRequest.incident_key).toBe("INC-1");
+    expect(membershipRequest).toEqual(
+      expect.objectContaining({ role: "reviewer" }),
+    );
+    expect(logoutRequest).toBeUndefined();
+    expectTypeOf<
+      LoginLocalUserResponse["data"]
+    >().toEqualTypeOf<SessionResource>();
+    expectTypeOf<LogoutCurrentSessionResponse["data"]>().toMatchTypeOf<{
+      logged_out: true;
+    }>();
+    expectTypeOf<CreateIncidentResponse["data"]>().toMatchTypeOf<{
+      incident_id: string;
+    }>();
+    expectTypeOf<CreateIncidentMembershipResponse["data"]>().toMatchTypeOf<{
+      role: "viewer" | "editor" | "reviewer" | "admin";
+    }>();
+    expectTypeOf<
+      GetDeploymentUserResponse["data"]
+    >().toEqualTypeOf<SafeUserResource>();
+    expectTypeOf<
+      CreateViewRowResponse["data"]["row"]
+    >().toEqualTypeOf<ViewRow>();
+    expectTypeOf<ViewRow["cells"][string]>().toEqualTypeOf<ViewCell>();
+    expectTypeOf<
+      GetRecordHistoryResponse["data"]
+    >().toEqualTypeOf<RecordHistoryData>();
+    expectTypeOf<
+      RecordHistoryData["items"][number]
+    >().toEqualTypeOf<RecordHistoryItem>();
+
     expect(
       buildHTTPOperationPath("getDeploymentUser", {
         user_id: "user/id",

@@ -7,6 +7,16 @@
         ],
         "operationId": "loginLocalUser",
         "summary": "Authenticate a local user and issue a base-profile session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocalLoginRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "$ref": "#/components/responses/AuthSessionSuccessResponse"
@@ -1478,6 +1488,50 @@
         },
         "required": [
           "client_txn_id"
+        ]
+      },
+      "LocalLoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "second_factor": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "totp"
+              },
+              "assertion": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "assertion"
+            ]
+          }
+        },
+        "required": [
+          "username",
+          "password"
         ]
       },
       "AccountProfilePatchRequest": {

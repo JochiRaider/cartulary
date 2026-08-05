@@ -24,7 +24,6 @@ import {
   readMentionAction,
   readMentionActionRequest,
   requireItemByRawText,
-  type ViewRow,
   waitForMentionAction,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
@@ -53,12 +52,12 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     uniqueIncidentKey("ENTITY-AUTORESOLUTION"),
     "Record relationships entity-resolution",
   );
-  const autoTarget = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const autoTarget = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-auto"),
     "host.display_name": "Gateway node",
     "host.hostname": "gateway-node.example.test",
     "host.aliases": aliasCollectionActionsPayload(["VPN Gateway"]),
-  })) as ViewRow;
+  });
   await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e404-competing-a"),
     "host.display_name": "WS-023 A",
@@ -73,7 +72,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
   });
 
   await createTimelineFillers(page, incidentId, "entity-resolution filler", 32);
-  const suppressedRow = (await createViewRow(
+  const suppressedRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -81,8 +80,8 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
       client_txn_id: uniqueTxn("e404-suppressed"),
       "timeline.activity_synopsis_text": "entity-resolution suppressed row",
     },
-  )) as ViewRow;
-  const eligibleRow = (await createViewRow(
+  );
+  const eligibleRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -90,7 +89,7 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
       client_txn_id: uniqueTxn("e404-eligible"),
       "timeline.activity_synopsis_text": "entity-resolution eligible row",
     },
-  )) as ViewRow;
+  );
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -219,11 +218,11 @@ test("auto-resolves only eligible exact-match Timeline tokens", async ({
     ).toHaveCount(0);
   }
 
-  const timelineRows = (await queryViewRows(
+  const timelineRows = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const eligibleRowAfter = findRow(timelineRows, eligibleRow.record_id);
   const suppressedRowAfter = findRow(timelineRows, suppressedRow.record_id);
   const eligibleItemAfterUndo = requireItemByRawText(

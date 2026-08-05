@@ -1,6 +1,13 @@
 import { Buffer } from "node:buffer";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import type {
+  CollectionActionsV1,
+  EvidenceCreateRequest,
+  RecordHistoryData,
+  RecordHistoryItem,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
@@ -116,7 +123,6 @@ import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
-import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { revokeAllSessions } from "./support/auth/sessions";
 import { sessionCookieName } from "./support/auth/storageState";
@@ -164,6 +170,7 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import { fetchRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   clickTimelineRowAction,
@@ -174,24 +181,6 @@ type IncidentMembershipRecord = {
   membership_version: number;
   role: string;
   user_id: string;
-};
-
-type A11yHistoryItem = {
-  available_rollback_actions: Array<
-    "history_entry" | "change_set" | "row_restore"
-  >;
-  history_entry_ref?: string;
-  history_item_ref: string;
-};
-
-type A11yHistoryData = {
-  items: A11yHistoryItem[];
-};
-
-type ViewRow = {
-  cells: Record<string, { value: unknown }>;
-  record_id: string;
-  row_version: number;
 };
 
 const p1AccessibilityScenarioTitles = [
@@ -959,7 +948,7 @@ async function openA11ySystemSurface(
   ).toBeVisible();
 }
 
-function A11yAttachedEvidencePayload(recordId: string) {
+function A11yAttachedEvidencePayload(recordId: string): CollectionActionsV1 {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -972,8 +961,8 @@ function A11yAttachedEvidencePayload(recordId: string) {
 }
 
 function A11yHistoryActionTestId(
-  item: A11yHistoryItem,
-  action: A11yHistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return rowHistoryActionTestId({
     action,
@@ -982,8 +971,8 @@ function A11yHistoryActionTestId(
 }
 
 function A11yRollbackAnchor(
-  item: A11yHistoryItem,
-  action: A11yHistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return {
     action,
@@ -991,7 +980,7 @@ function A11yRollbackAnchor(
   };
 }
 
-function requireA11yHistoryEntryAction(history: A11yHistoryData) {
+function requireA11yHistoryEntryAction(history: RecordHistoryData) {
   const item =
     history.items.find(
       (candidate) =>
@@ -1005,15 +994,6 @@ function requireA11yHistoryEntryAction(history: A11yHistoryData) {
     );
   }
   return item;
-}
-
-async function fetchA11yRecordHistory(page: Page, recordId: string) {
-  const response = await page.request.get(
-    `${apiBase}/api/v1/records/${recordId}/history`,
-    { headers: await csrfHeaders(page) },
-  );
-  expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: A11yHistoryData }).data;
 }
 
 async function expectP1SurfaceA11y(
@@ -1147,7 +1127,9 @@ async function createA11yEvidenceRow(
   page: Page,
   incidentId: string,
   options: {
-    lifecycleState: string;
+    lifecycleState: NonNullable<
+      EvidenceCreateRequest["evidence.lifecycle_state"]
+    >;
     requestedAt: string;
     storageRef: string;
     title: string;
@@ -1338,7 +1320,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
       uniqueIncidentKey("A11YWORKBOOKSHELL"),
       "a11y.workbook-shell.row-01 workbook shell",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1349,7 +1331,7 @@ test.describe("browser.workbook-shell accessibility readiness", () => {
           "browser.workbook-shell accessibility shell row",
         "timeline.raw_activity_text": "Inspector control coverage",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     const shell = page.getByTestId(workbookShellReadyTestId());
@@ -1552,7 +1534,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       uniqueIncidentKey("A11YGRIDINTERACTION"),
       "a11y.grid-interaction.row-01 grid adapter",
     );
-    const alphaRow = (await createViewRow(
+    const alphaRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1562,8 +1544,8 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
         "timeline.activity_synopsis_text": "Alpha accessibility row",
         "timeline.raw_activity_text": "Keyboard grid coverage",
       },
-    )) as ViewRow;
-    const betaRow = (await createViewRow(
+    );
+    const betaRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1573,7 +1555,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
         "timeline.activity_synopsis_text": "Beta accessibility row",
         "timeline.raw_activity_text": "Grouped grid coverage",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -1683,7 +1665,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
       uniqueIncidentKey("A11YMUTATIONLIFECYCLE"),
       "a11y.mutation-lifecycle.row-01 Timeline accessibility",
     );
-    const editRow = (await createViewRow(
+    const editRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1694,8 +1676,8 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
           "browser.mutation-lifecycle edit accessibility row",
         "timeline.raw_activity_text": "Escape priority details",
       },
-    )) as ViewRow;
-    const pasteRow = (await createViewRow(
+    );
+    const pasteRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1705,8 +1687,8 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle paste accessibility row",
       },
-    )) as ViewRow;
-    const pendingRow = (await createViewRow(
+    );
+    const pendingRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1716,8 +1698,8 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle pending accessibility row",
       },
-    )) as ViewRow;
-    const validationRow = (await createViewRow(
+    );
+    const validationRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1727,7 +1709,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle validation accessibility row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -2702,13 +2684,13 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       uniqueIncidentKey("A11YINSPECTORCONFIG"),
       "a11y.inspector-history.row-02 config-driven inspector",
     );
-    const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("a11y.inspector-history-02-row"),
       "timeline.raw_activity_text":
         "a11y.inspector-history.row-02 inspector details",
       "timeline.activity_synopsis_text":
         "a11y.inspector-history.row-02 selected row",
-    })) as ViewRow;
+    });
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
@@ -2801,7 +2783,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       uniqueIncidentKey("A11YINSPECTORHISTORY"),
       "a11y.inspector-history inspector actions",
     );
-    const evidence = (await createViewRow(
+    const evidence = await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
@@ -2810,16 +2792,16 @@ test.describe("browser.inspector-history accessibility readiness", () => {
         "evidence.collector_party_text": "a11y.inspector-history collector",
         "evidence.title": "a11y.inspector-history evidence",
       },
-    )) as ViewRow;
-    const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    );
+    const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
       [hostRefsFieldKey]: collectionActionsPayload([
         "a11y.inspector-history host",
       ]),
       client_txn_id: uniqueTxn("a11y.inspector-history-row"),
       "timeline.raw_activity_text": "a11y.inspector-history inspector details",
       "timeline.activity_synopsis_text": "a11y.inspector-history selected row",
-    })) as ViewRow;
-    const linkedRow = (await patchRecord(page, row.record_id, {
+    });
+    const linkedRow = await patchRecord(page, row.record_id, {
       base_row_version: row.row_version,
       changes: [
         {
@@ -2829,12 +2811,12 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       ],
       client_txn_id: uniqueTxn("a11y.inspector-history-link"),
       view_schema_id: timelineViewSchemaId,
-    })) as ViewRow;
+    });
     const hostItem = requireItemByRawText(
       collectionItems(linkedRow, hostRefsFieldKey),
       "a11y.inspector-history host",
     );
-    const history = await fetchA11yRecordHistory(page, row.record_id);
+    const history = await fetchRecordHistory(page, row.record_id);
     const rollbackItem = requireA11yHistoryEntryAction(history);
     const rollbackAnchor = A11yRollbackAnchor(rollbackItem, "history_entry");
 
@@ -2995,12 +2977,12 @@ test.describe("browser.coordination-review accessibility readiness", () => {
       is_deployment_admin: false,
       mfa_required: false,
     });
-    const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
+    const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
       client_txn_id: uniqueTxn("a11y.coordination-review-party"),
       "party.display_name": "a11y.coordination-review response party",
       "party.party_kind": "team",
-    })) as ViewRow;
-    const task = (await createViewRow(
+    });
+    const task = await createViewRow(
       page,
       incidentId,
       taskRequestsViewSchemaId,
@@ -3011,8 +2993,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         "task.task_kind": "collection",
         "task.title": "a11y.coordination-review task alpha",
       },
-    )) as ViewRow;
-    const urgentTask = (await createViewRow(
+    );
+    const urgentTask = await createViewRow(
       page,
       incidentId,
       taskRequestsViewSchemaId,
@@ -3022,8 +3004,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         "task.task_kind": "follow_up",
         "task.title": "a11y.coordination-review task urgent",
       },
-    )) as ViewRow;
-    const clipboardRow = (await createViewRow(
+    );
+    const clipboardRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -3033,8 +3015,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         "timeline.activity_synopsis_text":
           "a11y.coordination-review clipboard row",
       },
-    )) as ViewRow;
-    const decision = (await createViewRow(
+    );
+    const decision = await createViewRow(
       page,
       incidentId,
       decisionsViewSchemaId,
@@ -3044,8 +3026,8 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         "decision.rationale": "a11y.coordination-review coordination rationale",
         "decision.summary": "a11y.coordination-review decision summary",
       },
-    )) as ViewRow;
-    const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
+    );
+    const comm = await createViewRow(page, incidentId, commLogViewSchemaId, {
       client_txn_id: uniqueTxn("a11y.coordination-review-comm"),
       "comm_log.audience": "a11y.coordination-review responders",
       "comm_log.channel_or_meeting": "a11y.coordination-review bridge",
@@ -3057,19 +3039,13 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         kind: "collection_actions_v1",
       },
       "comm_log.summary": "a11y.coordination-review communications log",
-    })) as ViewRow;
-    const handoff = (await createViewRow(
-      page,
-      incidentId,
-      handoffViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("a11y.coordination-review-handoff"),
-        "handoff.current_state_summary":
-          "a11y.coordination-review handoff state",
-        "handoff.incoming_owner_user_id": owner.user_id,
-      },
-    )) as ViewRow;
-    const status = (await createViewRow(
+    });
+    const handoff = await createViewRow(page, incidentId, handoffViewSchemaId, {
+      client_txn_id: uniqueTxn("a11y.coordination-review-handoff"),
+      "handoff.current_state_summary": "a11y.coordination-review handoff state",
+      "handoff.incoming_owner_user_id": owner.user_id,
+    });
+    const status = await createViewRow(
       page,
       incidentId,
       statusReviewViewSchemaId,
@@ -3078,11 +3054,11 @@ test.describe("browser.coordination-review accessibility readiness", () => {
         "status_review.current_state_summary":
           "a11y.coordination-review status review state",
       },
-    )) as ViewRow;
-    const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
+    );
+    const lesson = await createViewRow(page, incidentId, lessonViewSchemaId, {
       client_txn_id: uniqueTxn("a11y.coordination-review-lesson"),
       "lesson.summary": "a11y.coordination-review lesson summary",
-    })) as ViewRow;
+    });
 
     const surfaces = [
       {
@@ -3370,7 +3346,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
       uniqueIncidentKey("A11YDESIGNREADINESS"),
       "a11y.design-readiness global accessibility matrix",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -3380,8 +3356,8 @@ test.describe("browser.design-readiness accessibility readiness", () => {
         "timeline.activity_synopsis_text": "a11y.design-readiness timeline row",
         "timeline.raw_activity_text": "Global accessibility matrix details",
       },
-    )) as ViewRow;
-    const taskRow = (await createViewRow(
+    );
+    const taskRow = await createViewRow(
       page,
       incidentId,
       taskRequestsViewSchemaId,
@@ -3391,7 +3367,7 @@ test.describe("browser.design-readiness accessibility readiness", () => {
         "task.task_kind": "collection",
         "task.title": "a11y.design-readiness task row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();

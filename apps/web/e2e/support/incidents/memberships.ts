@@ -1,26 +1,38 @@
+import type { CreateIncidentMembershipRequest } from "@cartulary/protocol-ts/http";
 import type { Page } from "@playwright/test";
 
-import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
 import { createDeploymentUser } from "../auth/deploymentUsers";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
-import { atJsonOrigin, requestPublicJson } from "../transport/publicJsonClient";
+import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import { atJsonOrigin } from "../transport/publicJsonClient";
+
+type IncidentMembershipRole = CreateIncidentMembershipRequest["role"];
 
 export async function createIncidentMembership(
   page: Page,
   incidentId: string,
   email: string,
-  role: string,
+  role: IncidentMembershipRole,
 ) {
-  const response = await requestPublicJson({
-    body: { client_txn_id: uniqueTxn("membership"), email, role },
+  const body: CreateIncidentMembershipRequest = {
+    client_txn_id: uniqueTxn("membership"),
+    email,
+    role,
+  };
+  const response = await publicHttpOperation({
+    body,
     headers: await csrfHeaders(page),
-    method: "POST",
-    path: `/api/v1/incidents/${incidentId}/memberships`,
+    operationID: "createIncidentMembership",
+    pathParameters: { incident_id: incidentId },
     request: atJsonOrigin(page.request, apiBase),
   });
-  expect(response.ok).toBeTruthy();
+  if (!response.ok) {
+    throw new Error(
+      `create incident membership failed with HTTP ${response.status}`,
+    );
+  }
 }
 
 export async function createIncidentMemberUser(
@@ -30,7 +42,7 @@ export async function createIncidentMemberUser(
     email: string;
     display_name: string;
     initial_password: string;
-    role: string;
+    role: IncidentMembershipRole;
     mfa_required: boolean;
     is_deployment_admin: boolean;
   },

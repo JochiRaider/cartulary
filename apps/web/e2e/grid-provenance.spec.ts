@@ -1,3 +1,4 @@
+import type { CollectionActionsV1, ViewRow } from "@cartulary/protocol-ts/http";
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -23,7 +24,6 @@ import {
   findRow,
   hostRefsFieldKey,
   identityRefsFieldKey,
-  type ViewRow,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -97,7 +97,7 @@ function mixedRefPayload(
   rawText: string,
   resolvedRecordId: string,
   unresolvedRawText: string,
-) {
+): CollectionActionsV1 {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -138,13 +138,13 @@ test(exactScenarioTitle, async ({ page }) => {
     uniqueIncidentKey("GRIDPROVENANCE"),
     "integration.entity-linking.row-01 grid provenance",
   );
-  const host = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const host = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("grid-provenance-host"),
     "host.display_name": "integration.entity-linking Gateway",
     "host.hostname": "grid-provenance-gateway.example.test",
     "host.aliases": aliasCollectionActionsPayload(["GRIDPROVENANCE Gateway"]),
-  })) as ViewRow;
-  const identity = (await createViewRow(
+  });
+  const identity = await createViewRow(
     page,
     incidentId,
     identitiesViewSchemaId,
@@ -158,48 +158,43 @@ test(exactScenarioTitle, async ({ page }) => {
         "GRIDPROVENANCE Analyst",
       ]),
     },
-  )) as ViewRow;
-  const note = (await createViewRow(page, incidentId, notesViewSchemaId, {
+  );
+  const note = await createViewRow(page, incidentId, notesViewSchemaId, {
     client_txn_id: uniqueTxn("grid-provenance-note"),
     "note.title": "integration.entity-linking Note",
     "note.body": "Initial provenance note",
-  })) as ViewRow;
-  const timeline = (await createViewRow(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("grid-provenance-timeline"),
-      "timeline.activity_synopsis_text":
-        "integration.entity-linking Gateway login by analyst",
-      [hostRefsFieldKey]: mixedRefPayload(
-        " GRIDPROVENANCE Gateway ",
-        host.record_id,
-        "GRIDPROVENANCE Unresolved Host",
-      ),
-      [identityRefsFieldKey]: mixedRefPayload(
-        " GRIDPROVENANCE Analyst ",
-        identity.record_id,
-        "GRIDPROVENANCE Unresolved Identity",
-      ),
-    },
-  )) as ViewRow;
+  });
+  const timeline = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("grid-provenance-timeline"),
+    "timeline.activity_synopsis_text":
+      "integration.entity-linking Gateway login by analyst",
+    [hostRefsFieldKey]: mixedRefPayload(
+      " GRIDPROVENANCE Gateway ",
+      host.record_id,
+      "GRIDPROVENANCE Unresolved Host",
+    ),
+    [identityRefsFieldKey]: mixedRefPayload(
+      " GRIDPROVENANCE Analyst ",
+      identity.record_id,
+      "GRIDPROVENANCE Unresolved Identity",
+    ),
+  });
 
-  const hostRowsBefore = (await queryViewRows(
+  const hostRowsBefore = await queryViewRows(
     page,
     incidentId,
     hostsViewSchemaId,
-  )) as ViewRow[];
-  const identityRowsBefore = (await queryViewRows(
+  );
+  const identityRowsBefore = await queryViewRows(
     page,
     incidentId,
     identitiesViewSchemaId,
-  )) as ViewRow[];
-  const noteRowsBefore = (await queryViewRows(
+  );
+  const noteRowsBefore = await queryViewRows(
     page,
     incidentId,
     notesViewSchemaId,
-  )) as ViewRow[];
+  );
   assertFullCells(findRow(hostRowsBefore, host.record_id), hostAllFieldKeys);
   assertFullCells(
     findRow(identityRowsBefore, identity.record_id),
@@ -207,11 +202,11 @@ test(exactScenarioTitle, async ({ page }) => {
   );
   assertFullCells(findRow(noteRowsBefore, note.record_id), noteAllFieldKeys);
 
-  const timelineRowsBefore = (await queryViewRows(
+  const timelineRowsBefore = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const timelineBefore = findRow(timelineRowsBefore, timeline.record_id);
   const hostMentionBefore = mentionFingerprint(
     timelineBefore,
@@ -408,11 +403,11 @@ test(exactScenarioTitle, async ({ page }) => {
     page.getByTestId(rowCellTestId(note.record_id, "note.body")),
   ).toHaveText("Edited provenance note");
 
-  const timelineRowsAfter = (await queryViewRows(
+  const timelineRowsAfter = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as ViewRow[];
+  );
   const timelineAfter = findRow(timelineRowsAfter, timeline.record_id);
   expect(
     mentionFingerprint(

@@ -26,7 +26,7 @@ import type { Page, Response } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { readWorkbookMutation } from "./query";
 
-export async function waitForSaveState(
+async function waitForSaveState(
   page: Page,
   value: "Saved" | "Syncing" | "Conflict",
 ) {
@@ -360,10 +360,7 @@ export async function editGenericCell(
   await submitGenericEditAndWait(page, viewSchemaId, recordId);
 }
 
-export function waitForRecordPatch(
-  page: Page,
-  recordId: string,
-): Promise<Response> {
+function waitForRecordPatch(page: Page, recordId: string): Promise<Response> {
   return page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&

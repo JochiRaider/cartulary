@@ -7,7 +7,6 @@ import {
   type Page,
   request,
 } from "@playwright/test";
-import type { StorageState } from "./playwrightTypes";
 import { applyStorageState } from "./support/auth/browserSession";
 import {
   loginBootstrapControlPlaneContext,
@@ -19,6 +18,7 @@ import {
   verifySessionUnauthorized,
   type WorkerAdmin,
 } from "./support/auth/sessions";
+import type { StorageState } from "./support/auth/storageState";
 import { authHeadersForStorageState } from "./support/auth/storageState";
 import {
   loadWorkerAdminManifest,

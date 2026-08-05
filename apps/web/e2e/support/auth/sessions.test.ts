@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import type { SafeUserResource } from "@cartulary/protocol-ts/http";
 import { describe, expect, it, vi } from "vitest";
 import type { JsonRequestContextLike } from "../transport/publicJsonClient";
 import {
@@ -8,15 +9,22 @@ import {
 } from "./deploymentUsers";
 import {
   type DeploymentAdminMutationClient,
+  deploymentAdminMutationClient,
   reconcileWorkerAdminManifest,
-  type UserResource,
   withOnlyActiveDeploymentAdmin,
 } from "./sessions";
 import type { WorkerAdminBlueprint } from "./workerAdmin";
 
-type FakeUser = UserResource & {
-  password: string;
-};
+type FakeUser = Pick<
+  SafeUserResource,
+  | "display_name"
+  | "email"
+  | "is_active"
+  | "is_deployment_admin"
+  | "mfa_required"
+  | "user_id"
+  | "user_version"
+> & { password: string };
 
 type FakeControlPlane = {
   controlPlane: Parameters<typeof reconcileWorkerAdminManifest>[0] &
@@ -111,6 +119,64 @@ describe("createDeploymentUser", () => {
         is_deployment_admin: false,
       }),
     );
+  });
+});
+
+describe("deployment admin generated operation boundary", () => {
+  it("preserves list, load, and patch request bytes while validating resources", async () => {
+    const user = safeUserResource("11111111-1111-4111-8111-111111111111");
+    const fetch = vi.fn<JsonRequestContextLike["fetch"]>(
+      async (path, _options) => ({
+        headers: () => ({}),
+        json: async () =>
+          path === "/api/v1/users"
+            ? { data: { users: [user] }, meta: { request_id: "request-1" } }
+            : { data: user, meta: { request_id: "request-1" } },
+        ok: () => true,
+        status: () => 200,
+      }),
+    );
+    const client = deploymentAdminMutationClient({ fetch });
+
+    await expect(client.listUsers()).resolves.toEqual([user]);
+    await expect(client.loadUser(user.user_id)).resolves.toEqual(user);
+    await expect(
+      client.patchUser(user.user_id, {
+        base_user_version: 7,
+        is_deployment_admin: false,
+      }),
+    ).resolves.toEqual(user);
+
+    expect(fetch.mock.calls).toEqual([
+      ["/api/v1/users", { method: "GET" }],
+      [`/api/v1/users/${user.user_id}`, { method: "GET" }],
+      [
+        `/api/v1/users/${user.user_id}`,
+        {
+          data: {
+            base_user_version: 7,
+            is_deployment_admin: false,
+          },
+          method: "PATCH",
+        },
+      ],
+    ]);
+  });
+
+  it("fails closed when a successful deployment-user payload drifts", async () => {
+    const fetch = vi.fn<JsonRequestContextLike["fetch"]>(async () => ({
+      headers: () => ({}),
+      json: async () => ({
+        data: { users: [{ user_id: "missing-required-fields" }] },
+        meta: { request_id: "request-1" },
+      }),
+      ok: () => true,
+      status: () => 200,
+    }));
+
+    await expect(
+      deploymentAdminMutationClient({ fetch }).listUsers(),
+    ).rejects.toThrow("list users failed with HTTP 502");
   });
 });
 
@@ -342,6 +408,30 @@ function buildBlueprints(workerCount: number) {
   })) satisfies WorkerAdminBlueprint[];
 }
 
+function safeUserResource(userId: string): SafeUserResource {
+  return {
+    auth_bindings: [
+      {
+        created_at: "2026-08-05T00:00:00Z",
+        provider_key: "local",
+        provider_type: "local",
+        username: "generated@example.test",
+      },
+    ],
+    created_at: "2026-08-05T00:00:00Z",
+    display_name: "Generated User",
+    email: "generated@example.test",
+    is_active: true,
+    is_deployment_admin: true,
+    last_login_at: null,
+    mfa_required: false,
+    updated_at: "2026-08-05T00:00:00Z",
+    updated_by_user_id: null,
+    user_id: userId,
+    user_version: 7,
+  };
+}
+
 function requireBlueprint(
   blueprints: WorkerAdminBlueprint[],
   index: number,
@@ -452,8 +542,10 @@ function requireUser(users: Map<string, FakeUser>, userId: string) {
   return user;
 }
 
-function toUserResource(user: FakeUser): UserResource {
+function toUserResource(user: FakeUser): SafeUserResource {
   return {
+    auth_bindings: [],
+    created_at: "2026-08-05T00:00:00Z",
     user_id: user.user_id,
     email: user.email,
     display_name: user.display_name,
@@ -461,5 +553,8 @@ function toUserResource(user: FakeUser): UserResource {
     is_active: user.is_active,
     mfa_required: user.mfa_required,
     is_deployment_admin: user.is_deployment_admin,
+    last_login_at: null,
+    updated_at: "2026-08-05T00:00:00Z",
+    updated_by_user_id: null,
   };
 }

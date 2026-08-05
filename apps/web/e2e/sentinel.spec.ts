@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   removeFilterChip,
@@ -87,7 +88,6 @@ import {
   createViewRow,
   patchRecord,
   queryViewRows,
-  type ViewApiRow,
   waitForViewRowByCell,
 } from "./support/workbook/query";
 import {
@@ -557,7 +557,7 @@ test("Workbook inspector fills the shell work area across row counts", async ({
     uniqueIncidentKey("WORKBOOK-LAYOUT"),
     "Workbook inspector inspector shell layout",
   );
-  const timelineRows: ViewApiRow[] = [];
+  const timelineRows: ViewRow[] = [];
   for (let index = 0; index < 16; index += 1) {
     timelineRows.push(
       await createViewRow(page, incidentId, timelineViewSchemaId, {
@@ -2697,7 +2697,7 @@ type PartyPatchExpectation = {
 async function applyPartyPatchAndWait(
   page: Page,
   expectation: PartyPatchExpectation,
-): Promise<ViewApiRow> {
+): Promise<ViewRow> {
   const isTargetPatchRequest = (request: Request) =>
     request.method() === "PATCH" &&
     request.url().endsWith(`/api/v1/records/${expectation.recordId}`);
@@ -2722,7 +2722,7 @@ async function applyPartyPatchAndWait(
       changes: expectation.changes,
     });
     expect(response.ok()).toBeTruthy();
-    const body = (await response.json()) as { data: { row: ViewApiRow } };
+    const body = (await response.json()) as { data: { row: ViewRow } };
     expectPartyPatchCells(body.data.row, expectation.expectedCells);
     const row = await waitForAuthoritativeViewRowCells(
       page,
@@ -2744,8 +2744,8 @@ async function waitForAuthoritativeViewRowCells(
   viewSchemaId: string,
   recordId: string,
   expectedCells: Record<string, unknown>,
-): Promise<ViewApiRow> {
-  let matched: ViewApiRow | null = null;
+): Promise<ViewRow> {
+  let matched: ViewRow | null = null;
   await expect
     .poll(
       async () => {
@@ -2773,7 +2773,7 @@ async function waitForAuthoritativeViewRowCells(
 }
 
 function expectPartyPatchCells(
-  row: ViewApiRow,
+  row: ViewRow,
   expectedCells: Record<string, unknown>,
 ) {
   for (const [fieldKey, expected] of Object.entries(expectedCells)) {
@@ -2928,7 +2928,7 @@ async function expectTimelineWorkflowShell(page: Page) {
 }
 
 function expectCollectionReferencesRecord(
-  row: ViewApiRow,
+  row: ViewRow,
   fieldKey: string,
   recordId: string,
 ) {

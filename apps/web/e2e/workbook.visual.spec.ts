@@ -2,6 +2,13 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import type {
+  CollectionActionsV1,
+  EvidenceCreateRequest,
+  RecordHistoryData,
+  RecordHistoryItem,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
@@ -99,7 +106,6 @@ import {
 import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { gridSavedRows } from "./pages/workbookInspector";
-import { csrfHeaders } from "./support/auth/browserSession";
 import {
   driveRealTimelineSummaryConflict,
   focusRemoteTimelineCellAndWaitForPresence,
@@ -139,6 +145,7 @@ import { installIncidentSocketMonitor } from "./support/transport/incidentSocket
 import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
 import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
 import { injectDesignFixture } from "./support/visual/fixtures";
+import { fetchRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -151,12 +158,6 @@ import {
   setCurrentSavedViewAsHome,
   setSavedViewDraftName,
 } from "./support/workbook/savedViews";
-
-type ViewRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, unknown>;
-};
 
 type FrontendVisualFixture = {
   blocked_reason: string;
@@ -291,19 +292,6 @@ function expectCurrentFrontendVisualFixtureMetadata(
   }
   expect(fixture.golden_artifacts).toContain(fixture.golden_filename);
 }
-
-type FeP9VisualHistoryItem = {
-  available_rollback_actions: Array<
-    "history_entry" | "change_set" | "row_restore"
-  >;
-  history_entry_ref?: string;
-  history_item_ref: string;
-};
-
-type FeP9VisualHistoryData = {
-  items: FeP9VisualHistoryItem[];
-  row_version: number;
-};
 
 type GridVisualScrollLeft = "left" | "right" | number;
 
@@ -478,13 +466,19 @@ async function blurActiveElement(page: Page) {
   });
 }
 
-function tagActionsPayload(tagNames: string[]) {
+function tagActionsPayload(
+  tagNames: readonly [string, ...string[]],
+): CollectionActionsV1 {
+  const [firstTagName, ...remainingTagNames] = tagNames;
   return {
     kind: "collection_actions_v1",
-    actions: tagNames.map((tagName) => ({
-      op: "add_tag",
-      tag_name: tagName,
-    })),
+    actions: [
+      { op: "add_tag", tag_name: firstTagName },
+      ...remainingTagNames.map((tagName) => ({
+        op: "add_tag" as const,
+        tag_name: tagName,
+      })),
+    ],
   };
 }
 
@@ -683,7 +677,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
     ];
     for (const [index, summary] of fixtureRows.entries()) {
       rows.push(
-        (await createViewRow(page, incidentId, timelineViewSchemaId, {
+        await createViewRow(page, incidentId, timelineViewSchemaId, {
           client_txn_id: uniqueTxn(`VISUALWORKBOOKSHELL-ROW-${index + 1}`),
           "timeline.activity_utc_text": new Date(
             Date.UTC(2026, 3, 18, 14, 12 + index * 2, 34),
@@ -704,7 +698,7 @@ test.describe("browser.workbook-shell workbook visual readiness", () => {
             index % 4 === 0 ? "review" : "triage",
             index % 5 === 0 ? "evidence" : "timeline",
           ]),
-        })) as ViewRow,
+        }),
       );
     }
     const rowSummariesById = new Map(
@@ -1084,7 +1078,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALTIMELINEDEFAULT"),
       "Timeline mutation visual default",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1093,7 +1087,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_utc_text": "2025-02-17T09:12:00Z",
         "timeline.activity_synopsis_text": "Default visual row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -1131,7 +1125,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALTIMELINEEDIT"),
       "Timeline mutation visual edit state",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1140,7 +1134,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_utc_text": "2025-01-01T00:00:00Z",
         "timeline.activity_synopsis_text": "Editable visual row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -1267,7 +1261,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALTIMELINEGROUPED"),
       "Timeline mutation visual grouped rows",
     );
-    const firstRow = (await createViewRow(
+    const firstRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1276,7 +1270,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_utc_text": "2025-02-17T11:00:00Z",
         "timeline.activity_synopsis_text": "Alpha grouped row",
       },
-    )) as ViewRow;
+    );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALTIMELINEGROUPED-ROWB"),
       "timeline.activity_utc_text": "2025-02-17T11:05:00Z",
@@ -1389,7 +1383,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       uniqueIncidentKey("VISUALMUTATION"),
       "browser.mutation-lifecycle visual readiness",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1399,7 +1393,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.mutation-lifecycle visual editable row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -1690,12 +1684,12 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALENTITYLINKINGAUX"),
       "Entity linking visual mention chips",
     );
-    const hostRow = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+    const hostRow = await createViewRow(page, incidentId, hostsViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALENTITYLINKINGAUX-HOST"),
       "host.display_name": "WS-023",
       "host.hostname": "ws-023.visual.example.test",
-    })) as ViewRow;
-    const unresolvedRow = (await createViewRow(
+    });
+    const unresolvedRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1705,8 +1699,8 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_synopsis_text": "Unresolved mention visual row",
         [hostRefsFieldKey]: collectionActionsPayload(["WS-023?"]),
       },
-    )) as ViewRow;
-    const resolvedRow = (await createViewRow(
+    );
+    const resolvedRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1716,7 +1710,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_synopsis_text": "Resolved mention visual row",
         [hostRefsFieldKey]: resolvedRefPayload("WS-023", hostRow.record_id),
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -1755,7 +1749,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALEVIDENCEACCESS"),
       "Entity linking visual evidence access",
     );
-    const evidenceRow = (await createViewRow(
+    const evidenceRow = await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
@@ -1764,7 +1758,7 @@ test.describe("workbook visual evidence", () => {
         "evidence.title": "Visual evidence package",
         "evidence.storage_ref": "slot/visual",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -1810,7 +1804,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALEVIDENCEAVAILABLE"),
       "Evidence lifecycle visual evidence states",
     );
-    const evidenceRow = (await createViewRow(
+    const evidenceRow = await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
@@ -1819,7 +1813,7 @@ test.describe("workbook visual evidence", () => {
         "evidence.title": "Requested visual package",
         "evidence.storage_ref": "ticket://visual-request",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -1886,7 +1880,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALEVIDENCEBLOCKED"),
       "Evidence lifecycle visual evidence badges",
     );
-    const blocked = (await createViewRow(
+    const blocked = await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
@@ -1895,8 +1889,8 @@ test.describe("workbook visual evidence", () => {
         "evidence.title": "Blocked visual package",
         "evidence.storage_ref": "ticket://visual-blocked",
       },
-    )) as ViewRow;
-    const timelineRow = (await createViewRow(
+    );
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -1904,7 +1898,7 @@ test.describe("workbook visual evidence", () => {
         client_txn_id: uniqueTxn("VISUALEVIDENCEBLOCKED-TIMELINE"),
         "timeline.activity_synopsis_text": "Visual evidence badge row",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -2069,7 +2063,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         txnPrefix: "VISUALEVIDENCEWORKFLOW-INCONSISTENT",
       },
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -2079,7 +2073,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.evidence-workflow timeline evidence count",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -2275,7 +2269,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         }),
       })),
     );
-    const presenceRow = (await createViewRow(
+    const presenceRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -2283,7 +2277,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         client_txn_id: uniqueTxn("VISUALCOLLABORATION-PRESENCE"),
         "timeline.activity_synopsis_text": "Presence visual row",
       },
-    )) as ViewRow;
+    );
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
     const remotePages: Page[] = [];
@@ -2461,7 +2455,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
       uniqueIncidentKey("VISUALSAVEDVIEW"),
       "browser.saved-view-query visual saved view query controls",
     );
-    const reviewedRow = (await createViewRow(
+    const reviewedRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -2471,7 +2465,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
         "timeline.activity_synopsis_text":
           "browser.saved-view-query reviewed saved-view visual row",
       },
-    )) as ViewRow;
+    );
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALSAVEDVIEW-ROUGH"),
       "timeline.activity_utc_text": "2026-06-08T12:05:00Z",
@@ -2598,7 +2592,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       uniqueIncidentKey("VISUALINSPECTORHISTORY"),
       "browser.inspector-history visual inspector actions",
     );
-    const evidence = (await createViewRow(
+    const evidence = await createViewRow(
       page,
       incidentId,
       evidenceViewSchemaId,
@@ -2608,23 +2602,18 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
           "browser.inspector-history visual collector",
         "evidence.title": "browser.inspector-history visual attached evidence",
       },
-    )) as ViewRow;
-    const target = (await createViewRow(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      {
-        [hostRefsFieldKey]: collectionActionsPayload([
-          "browser.inspector-history visual host",
-        ]),
-        client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-TARGET"),
-        "timeline.raw_activity_text":
-          "browser.inspector-history visual inspector details",
-        "timeline.activity_synopsis_text":
-          "browser.inspector-history visual inspector target",
-      },
-    )) as ViewRow;
-    const linkedTarget = (await patchRecord(page, target.record_id, {
+    );
+    const target = await createViewRow(page, incidentId, timelineViewSchemaId, {
+      [hostRefsFieldKey]: collectionActionsPayload([
+        "browser.inspector-history visual host",
+      ]),
+      client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-TARGET"),
+      "timeline.raw_activity_text":
+        "browser.inspector-history visual inspector details",
+      "timeline.activity_synopsis_text":
+        "browser.inspector-history visual inspector target",
+    });
+    const linkedTarget = await patchRecord(page, target.record_id, {
       base_row_version: target.row_version,
       changes: [
         {
@@ -2634,12 +2623,12 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
       ],
       client_txn_id: uniqueTxn("VISUALINSPECTORHISTORY-LINK"),
       view_schema_id: timelineViewSchemaId,
-    })) as ViewRow;
+    });
     const hostItem = requireItemByRawText(
       collectionItems(linkedTarget, hostRefsFieldKey),
       "browser.inspector-history visual host",
     );
-    const history = await fetchFeP9VisualRecordHistory(page, target.record_id);
+    const history = await fetchRecordHistory(page, target.record_id);
     const rollbackItem = requireFeP9VisualHistoryEntryAction(history);
     const rollbackAnchor = feP9VisualRollbackPreviewAnchor(
       rollbackItem,
@@ -2799,7 +2788,9 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
   });
 });
 
-function feP9VisualAttachedEvidencePayload(recordId: string) {
+function feP9VisualAttachedEvidencePayload(
+  recordId: string,
+): CollectionActionsV1 {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -2812,8 +2803,8 @@ function feP9VisualAttachedEvidencePayload(recordId: string) {
 }
 
 function feP9VisualHistoryActionTestId(
-  item: FeP9VisualHistoryItem,
-  action: FeP9VisualHistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return rowHistoryActionTestId({
     action,
@@ -2822,8 +2813,8 @@ function feP9VisualHistoryActionTestId(
 }
 
 function feP9VisualRollbackPreviewAnchor(
-  item: FeP9VisualHistoryItem,
-  action: FeP9VisualHistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return {
     action,
@@ -2831,7 +2822,7 @@ function feP9VisualRollbackPreviewAnchor(
   };
 }
 
-function requireFeP9VisualHistoryEntryAction(history: FeP9VisualHistoryData) {
+function requireFeP9VisualHistoryEntryAction(history: RecordHistoryData) {
   const item =
     history.items.find(
       (candidate) =>
@@ -2847,18 +2838,6 @@ function requireFeP9VisualHistoryEntryAction(history: FeP9VisualHistoryData) {
   return item;
 }
 
-async function fetchFeP9VisualRecordHistory(
-  page: Page,
-  recordId: string,
-): Promise<FeP9VisualHistoryData> {
-  const response = await page.request.get(
-    `${apiBase}/api/v1/records/${recordId}/history`,
-    { headers: await csrfHeaders(page) },
-  );
-  expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: FeP9VisualHistoryData }).data;
-}
-
 async function prepareFeP7ConflictVisual(
   page: Page,
   options: {
@@ -2872,7 +2851,7 @@ async function prepareFeP7ConflictVisual(
     uniqueIncidentKey(options.incidentKeyPrefix),
     options.title,
   );
-  const conflictRow = (await createViewRow(
+  const conflictRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -2881,7 +2860,7 @@ async function prepareFeP7ConflictVisual(
       "timeline.activity_utc_text": "2025-03-07T10:00:00Z",
       "timeline.activity_synopsis_text": "Conflict visual base",
     },
-  )) as ViewRow;
+  );
   const patchController = await installPatchController(page);
 
   await page.goto(`/?incident_id=${incidentId}`);
@@ -2919,7 +2898,7 @@ test.describe("workbook visual evidence", () => {
       is_deployment_admin: false,
       mfa_required: false,
     });
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -2927,7 +2906,7 @@ test.describe("workbook visual evidence", () => {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONPRESENCE-ROW"),
         "timeline.activity_synopsis_text": "Presence visual row",
       },
-    )) as ViewRow;
+    );
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
     let remotePage: Page | null = null;
@@ -3010,7 +2989,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALCOLLABORATIONCONFLICT"),
       "Collaboration visual conflict resolver",
     );
-    const timelineRow = (await createViewRow(
+    const timelineRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -3018,7 +2997,7 @@ test.describe("workbook visual evidence", () => {
         client_txn_id: uniqueTxn("VISUALCOLLABORATIONCONFLICT-ROW"),
         "timeline.activity_synopsis_text": "Conflict visual base",
       },
-    )) as ViewRow;
+    );
 
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
@@ -3056,7 +3035,7 @@ test.describe("workbook visual evidence", () => {
       uniqueIncidentKey("VISUALCOLLABORATIONSAVE"),
       "Collaboration visual pending queue",
     );
-    const syncRow = (await createViewRow(
+    const syncRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -3065,8 +3044,8 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_utc_text": "2025-03-06T10:00:00Z",
         "timeline.activity_synopsis_text": "Pending visual base",
       },
-    )) as ViewRow;
-    const conflictRow = (await createViewRow(
+    );
+    const conflictRow = await createViewRow(
       page,
       incidentId,
       timelineViewSchemaId,
@@ -3075,7 +3054,7 @@ test.describe("workbook visual evidence", () => {
         "timeline.activity_utc_text": "2025-03-06T10:05:00Z",
         "timeline.activity_synopsis_text": "Pending conflict visual base",
       },
-    )) as ViewRow;
+    );
     await page.goto(`/?incident_id=${incidentId}`);
     await maskIncidentIdentity(page, incidentId);
     const summaryInput = await mountedGridCell(
@@ -3173,12 +3152,12 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       is_deployment_admin: false,
       mfa_required: false,
     });
-    const party = (await createViewRow(page, incidentId, partiesViewSchemaId, {
+    const party = await createViewRow(page, incidentId, partiesViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-PARTY"),
       "party.display_name": "browser.coordination-review Visual Party",
       "party.party_kind": "team",
-    })) as ViewRow;
-    const taskRow = (await createViewRow(
+    });
+    const taskRow = await createViewRow(
       page,
       incidentId,
       taskRequestsViewSchemaId,
@@ -3187,8 +3166,8 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         "task.task_kind": "collection",
         "task.title": "Visual task request",
       },
-    )) as ViewRow;
-    const decision = (await createViewRow(
+    );
+    const decision = await createViewRow(
       page,
       incidentId,
       decisionsViewSchemaId,
@@ -3198,8 +3177,8 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         "decision.rationale": "browser.coordination-review visual rationale",
         "decision.summary": "browser.coordination-review visual decision",
       },
-    )) as ViewRow;
-    const comm = (await createViewRow(page, incidentId, commLogViewSchemaId, {
+    );
+    const comm = await createViewRow(page, incidentId, commLogViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-COMM"),
       "comm_log.audience": "browser.coordination-review visual responders",
       "comm_log.channel_or_meeting":
@@ -3212,19 +3191,14 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         kind: "collection_actions_v1",
       },
       "comm_log.summary": "browser.coordination-review visual communication",
-    })) as ViewRow;
-    const handoff = (await createViewRow(
-      page,
-      incidentId,
-      handoffViewSchemaId,
-      {
-        client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-HANDOFF"),
-        "handoff.current_state_summary":
-          "browser.coordination-review visual handoff state",
-        "handoff.incoming_owner_user_id": owner.user_id,
-      },
-    )) as ViewRow;
-    const status = (await createViewRow(
+    });
+    const handoff = await createViewRow(page, incidentId, handoffViewSchemaId, {
+      client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-HANDOFF"),
+      "handoff.current_state_summary":
+        "browser.coordination-review visual handoff state",
+      "handoff.incoming_owner_user_id": owner.user_id,
+    });
+    const status = await createViewRow(
       page,
       incidentId,
       statusReviewViewSchemaId,
@@ -3233,11 +3207,11 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         "status_review.current_state_summary":
           "browser.coordination-review visual status review state",
       },
-    )) as ViewRow;
-    const lesson = (await createViewRow(page, incidentId, lessonViewSchemaId, {
+    );
+    const lesson = await createViewRow(page, incidentId, lessonViewSchemaId, {
       client_txn_id: uniqueTxn("VISUALCOORDINATIONREVIEW-LESSON"),
       "lesson.summary": "browser.coordination-review visual lesson",
-    })) as ViewRow;
+    });
 
     await page.goto(
       `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -3271,7 +3245,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
       { scroll: { top: 0, left: "left" } },
     );
 
-    const linkedTask = (await createViewRow(
+    const linkedTask = await createViewRow(
       page,
       incidentId,
       taskRequestsViewSchemaId,
@@ -3282,7 +3256,7 @@ test.describe("browser.coordination-review workbook visual readiness", () => {
         "task.task_kind": "follow_up",
         "task.title": "browser.coordination-review party-linked task",
       },
-    )) as ViewRow;
+    );
 
     const surfaceExpectations = [
       {
@@ -3572,7 +3546,9 @@ async function createVisualEvidenceRow(
   page: Page,
   incidentId: string,
   options: {
-    lifecycleState: string;
+    lifecycleState: NonNullable<
+      EvidenceCreateRequest["evidence.lifecycle_state"]
+    >;
     requestedAt: string;
     storageRef: string;
     title: string;

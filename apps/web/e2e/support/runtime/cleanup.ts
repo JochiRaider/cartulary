@@ -1,4 +1,4 @@
-import type { StorageState } from "../../playwrightTypes";
+import type { StorageState } from "../auth/storageState";
 import {
   cookieValueFromStorageState,
   sessionCookieName,
@@ -13,7 +13,7 @@ export type TrackedSessionSnapshot = {
   userId: string;
 };
 
-export type SessionTrackerDependencies = {
+type SessionTrackerDependencies = {
   label: string;
   revokeAllSessions: (userId: string, reason: string) => Promise<void>;
   verifyRevokedSession: (snapshot: TrackedSessionSnapshot) => Promise<void>;

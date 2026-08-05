@@ -1,3 +1,10 @@
+import type {
+  CreateIncidentMembershipResponse,
+  ListIncidentMembershipsResponse,
+  PatchRecordResponse,
+  QueryWorkbookViewResponse,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   commLogViewSchemaId,
   decisionsViewSchemaId,
@@ -7,7 +14,7 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { APIResponse, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
@@ -18,25 +25,13 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createViewRow, type ViewApiRow } from "./support/workbook/query";
-
-type PublicEnvelope<TData> = {
-  data: TData;
-  error?: never;
-  meta?: Record<string, unknown>;
-};
+import { createViewRow } from "./support/workbook/query";
 
 type PublicErrorEnvelope = {
   error: {
     code: string;
     details?: Record<string, unknown>;
   };
-};
-
-type IncidentMembershipRecord = {
-  membership_version: number;
-  role: string;
-  user_id: string;
 };
 
 type CoordinationCase = {
@@ -143,7 +138,7 @@ test("Verify coordination rows can be queried and edited through public view/row
     mfa_required: false,
   });
 
-  const seededRows = new Map<string, ViewApiRow>();
+  const seededRows = new Map<string, ViewRow>();
   for (const entry of coordinationCases) {
     const createPayload = {
       client_txn_id: uniqueTxn(`workbook-coordination-create-${entry.label}`),
@@ -172,7 +167,7 @@ test("Verify coordination rows can be queried and edited through public view/row
       userId: member.user_id,
     });
 
-    const patchedRows = new Map<string, ViewApiRow>();
+    const patchedRows = new Map<string, ViewRow>();
     for (const entry of coordinationCases) {
       const seeded = requiredSeededRow(seededRows, entry.viewSchemaId);
       const queried = await queryPublicRows(
@@ -209,10 +204,8 @@ test("Verify coordination rows can be queried and edited through public view/row
         },
       );
       expect(patchResponse.ok()).toBeTruthy();
-      const patched = await readSuccessEnvelope<{
-        change_set_id: string;
-        row: ViewApiRow;
-      }>(patchResponse);
+      const patched = ((await patchResponse.json()) as PatchRecordResponse)
+        .data;
       expect(typeof patched.change_set_id).toBe("string");
       expect(patched.row.record_id).toBe(queriedRow.record_id);
       expect(patched.row.row_version).toBeGreaterThan(queriedRow.row_version);
@@ -316,24 +309,10 @@ async function queryPublicRows(
     { data: {} },
   );
   expect(response.ok()).toBeTruthy();
-  return readSuccessEnvelope<{
-    incident_id: string;
-    rows: ViewApiRow[];
-    view_schema_id: string;
-  }>(response);
+  return ((await response.json()) as QueryWorkbookViewResponse).data;
 }
 
-async function readSuccessEnvelope<TData>(
-  response: APIResponse,
-): Promise<TData> {
-  const envelope = (await response.json()) as PublicEnvelope<TData>;
-  return envelope.data;
-}
-
-function requiredSeededRow(
-  rows: Map<string, ViewApiRow>,
-  viewSchemaId: string,
-) {
+function requiredSeededRow(rows: Map<string, ViewRow>, viewSchemaId: string) {
   const row = rows.get(viewSchemaId) ?? null;
   if (row === null) {
     throw new Error(`missing seeded row for ${viewSchemaId}`);
@@ -342,7 +321,7 @@ function requiredSeededRow(
 }
 
 function requiredQueriedRow(
-  rows: ViewApiRow[],
+  rows: ViewRow[],
   viewSchemaId: string,
   recordId: string,
 ) {
@@ -364,9 +343,7 @@ async function loadIncidentMembership(
     { headers: await csrfHeaders(page) },
   );
   expect(response.ok()).toBeTruthy();
-  const body = (await response.json()) as {
-    data: { memberships: IncidentMembershipRecord[] };
-  };
+  const body = (await response.json()) as ListIncidentMembershipsResponse;
   const membership =
     body.data.memberships.find((candidate) => candidate.user_id === userId) ??
     null;
@@ -381,7 +358,7 @@ async function patchIncidentMembershipRole(
   incidentId: string,
   options: {
     baseMembershipVersion: number;
-    role: string;
+    role: CreateIncidentMembershipResponse["data"]["role"];
     userId: string;
   },
 ) {

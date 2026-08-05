@@ -668,16 +668,6 @@ test("Verify browser command helpers for sort, filter, group, active chips, layo
   });
 });
 
-test("Verify saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload.", async ({
-  page,
-}) => {
-  await verifySavedViewPersistenceReplay(
-    page,
-    "SAVEDVIEWQUERY",
-    "Workbook query end-to-end.saved-view-query.row-01 persisted query replay",
-  );
-});
-
 test("verifies saved-view persistence, default/startup surface persistence, and query replay through /api/v1/ after reload", async ({
   page,
 }) => {

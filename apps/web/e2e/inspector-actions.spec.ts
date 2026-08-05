@@ -1,3 +1,8 @@
+import type {
+  CollectionActionsV1,
+  RecordHistoryData,
+  RecordHistoryItem,
+} from "@cartulary/protocol-ts/http";
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -45,7 +50,6 @@ import {
   collectionItems,
   hostRefsFieldKey,
   requireItemByRawText,
-  type ViewRow,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
@@ -55,6 +59,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { fetchRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
   patchRecord,
@@ -66,35 +71,13 @@ import {
 } from "./support/workbook/rowMutations";
 import { createSavedView } from "./support/workbook/savedViews";
 
-type HistoryItem = {
-  actor_user_id: string;
-  available_rollback_actions: Array<
-    "history_entry" | "change_set" | "row_restore"
-  >;
-  change_set_id: string;
-  committed_at: string;
-  diff_summary: { summary: string; units: Array<Record<string, unknown>> };
-  history_entry_ref?: string;
-  history_item_ref: string;
-  operation: string;
-  reversible: boolean;
-  revision_no?: number;
-};
-
-type HistoryData = {
-  deleted: boolean;
-  items: HistoryItem[];
-  record_id: string;
-  row_version: number;
-};
-
 type IncidentMembershipRecord = {
   membership_version: number;
   role: string;
   user_id: string;
 };
 
-function attachedEvidencePayload(recordId: string) {
+function attachedEvidencePayload(recordId: string): CollectionActionsV1 {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -107,8 +90,8 @@ function attachedEvidencePayload(recordId: string) {
 }
 
 function historyActionTestId(
-  item: HistoryItem,
-  action: HistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return rowHistoryActionTestId({
     action,
@@ -117,8 +100,8 @@ function historyActionTestId(
 }
 
 function rollbackPreviewAnchor(
-  item: HistoryItem,
-  action: HistoryItem["available_rollback_actions"][number],
+  item: RecordHistoryItem,
+  action: RecordHistoryItem["available_rollback_actions"][number],
 ) {
   return {
     action,
@@ -126,7 +109,7 @@ function rollbackPreviewAnchor(
   };
 }
 
-function requireHistoryEntryAction(history: HistoryData) {
+function requireHistoryEntryAction(history: RecordHistoryData) {
   const item =
     history.items.find(
       (candidate) =>
@@ -149,23 +132,17 @@ test("Verify history and rollback preview/action use public route contracts, pre
     uniqueIncidentKey("WORKBOOKINSPECTORINTEGRATION"),
     "integration.inspector-history.row-01 rollback public envelope",
   );
-  const evidence = (await createViewRow(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("workbook-inspector-integration-evidence"),
-      "evidence.collector_party_text":
-        "integration.inspector-history collector",
-      "evidence.title": "integration.inspector-history attached evidence",
-    },
-  )) as unknown as ViewRow;
-  const row = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("workbook-inspector-integration-evidence"),
+    "evidence.collector_party_text": "integration.inspector-history collector",
+    "evidence.title": "integration.inspector-history attached evidence",
+  });
+  const row = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("workbook-inspector-integration-row"),
     "timeline.activity_synopsis_text":
       "integration.inspector-history rollback row",
-  })) as unknown as ViewRow;
-  const linkedRow = (await patchRecord(page, row.record_id, {
+  });
+  const linkedRow = await patchRecord(page, row.record_id, {
     base_row_version: row.row_version,
     changes: [
       {
@@ -175,7 +152,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
     ],
     client_txn_id: uniqueTxn("workbook-inspector-integration-link"),
     view_schema_id: timelineViewSchemaId,
-  })) as unknown as ViewRow;
+  });
   const history = await fetchRecordHistory(page, row.record_id);
   const rollbackItem = requireHistoryEntryAction(history);
   const rollbackAnchor = rollbackPreviewAnchor(rollbackItem, "history_entry");
@@ -259,17 +236,12 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     "timeline.activity_synopsis_text":
       "end-to-end.inspector-history fallback row",
   });
-  const evidence = (await createViewRow(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-    {
-      client_txn_id: uniqueTxn("workbook-inspector-evidence"),
-      "evidence.collector_party_text": "end-to-end.inspector-history collector",
-      "evidence.title": "end-to-end.inspector-history attached evidence",
-    },
-  )) as unknown as ViewRow;
-  const target = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const evidence = await createViewRow(page, incidentId, evidenceViewSchemaId, {
+    client_txn_id: uniqueTxn("workbook-inspector-evidence"),
+    "evidence.collector_party_text": "end-to-end.inspector-history collector",
+    "evidence.title": "end-to-end.inspector-history attached evidence",
+  });
+  const target = await createViewRow(page, incidentId, timelineViewSchemaId, {
     [hostRefsFieldKey]: collectionActionsPayload([
       "end-to-end.inspector-history stable host",
     ]),
@@ -278,8 +250,8 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
       "end-to-end.inspector-history detailed inspector body",
     "timeline.activity_synopsis_text":
       "end-to-end.inspector-history selected row",
-  })) as unknown as ViewRow;
-  const linkedTarget = (await patchRecord(page, target.record_id, {
+  });
+  const linkedTarget = await patchRecord(page, target.record_id, {
     base_row_version: target.row_version,
     changes: [
       {
@@ -289,7 +261,7 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     ],
     client_txn_id: uniqueTxn("workbook-inspector-link"),
     view_schema_id: timelineViewSchemaId,
-  })) as unknown as ViewRow;
+  });
   const hostItem = requireItemByRawText(
     collectionItems(linkedTarget, hostRefsFieldKey),
     "end-to-end.inspector-history stable host",
@@ -514,7 +486,7 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     scope: "shared",
     view_schema_id: timelineViewSchemaId,
   });
-  const timelineSeed = (await createViewRow(
+  const timelineSeed = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -525,12 +497,12 @@ test("Verify default-closed inspector state, no-row state, surface switch config
       "timeline.activity_synopsis_text":
         "end-to-end.inspector-history.row-02 seed summary",
     },
-  )) as unknown as ViewRow;
-  const hostSeed = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  );
+  const hostSeed = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("workbook-history-host"),
     "host.display_name": "end-to-end.inspector-history.row-02 host",
     "host.hostname": "end-to-end.inspector-history.row-02.example.test",
-  })) as unknown as ViewRow;
+  });
 
   await openTimelineSurface(page, incidentId);
   await expect(
@@ -728,18 +700,6 @@ async function openTimelineSurface(page: Page, incidentId: string) {
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-}
-
-async function fetchRecordHistory(
-  page: Page,
-  recordId: string,
-): Promise<HistoryData> {
-  const response = await page.request.get(
-    `${apiBase}/api/v1/records/${recordId}/history`,
-    { headers: await csrfHeaders(page) },
-  );
-  expect(response.ok()).toBeTruthy();
-  return ((await response.json()) as { data: HistoryData }).data;
 }
 
 async function loadIncidentMembership(

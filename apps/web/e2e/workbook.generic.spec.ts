@@ -21,7 +21,6 @@ import {
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
-import type { ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
   uniqueIncidentKey,
@@ -39,10 +38,10 @@ test("creates and edits required workbook mutation surfaces through typed generi
     uniqueIncidentKey("GENERIC-WORKBOOK"),
     "Record relationships generic workbook mutation E2E",
   );
-  const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("generic-support"),
     "timeline.activity_synopsis_text": "Generic surface support event",
-  })) as ViewRow;
+  });
 
   await openGenericSurface(page, incidentId, partiesViewSchemaId, "Parties");
   await expectGenericCreateMinimum(page, partiesViewSchemaId, "Display name");

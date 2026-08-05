@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
@@ -21,7 +22,7 @@ import {
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
-import { collectionItems, type ViewRow } from "./support/entities/mentions";
+import { collectionItems } from "./support/entities/mentions";
 import { createAndUploadObjectBlob } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import { apiBase } from "./support/runtime/configuration";
@@ -48,7 +49,7 @@ test("attaches a screenshot to a selected Timeline row without leaving the workb
     uniqueIncidentKey("EVIDENCE-SELECTED"),
     "Evidence selected screenshot attach",
   );
-  const timelineRow = (await createViewRow(
+  const timelineRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -56,7 +57,7 @@ test("attaches a screenshot to a selected Timeline row without leaving the workb
       client_txn_id: uniqueTxn("e5-selected-timeline"),
       "timeline.activity_synopsis_text": "Selected row screenshot",
     },
-  )) as unknown as ViewRow;
+  );
   const objectUploadRoutes = collectObjectUploadRoutes(page);
 
   await openTimelineSurface(page, incidentId);
@@ -75,11 +76,11 @@ test("attaches a screenshot to a selected Timeline row without leaving the workb
   await expect
     .poll(
       async () => {
-        const rows = (await queryViewRows(
+        const rows = await queryViewRows(
           page,
           incidentId,
           timelineViewSchemaId,
-        )) as unknown as ViewRow[];
+        );
         return rows.find((row) => row.record_id === timelineRow.record_id)
           ?.cells["timeline.evidence_count"]?.value;
       },
@@ -112,11 +113,11 @@ test("persists a screenshot-only Timeline row through atomic Evidence create", a
   await expect
     .poll(
       async () => {
-        const rows = (await queryViewRows(
+        const rows = await queryViewRows(
           page,
           incidentId,
           timelineViewSchemaId,
-        )) as unknown as ViewRow[];
+        );
         return rows.find(
           (row) => row.cells["timeline.evidence_count"]?.value === 1,
         );
@@ -125,11 +126,7 @@ test("persists a screenshot-only Timeline row through atomic Evidence create", a
     )
     .not.toBeUndefined();
 
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    timelineViewSchemaId,
-  )) as unknown as ViewRow[];
+  const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
   const row = rows.find(
     (candidate) => candidate.cells["timeline.evidence_count"]?.value === 1,
   );
@@ -212,7 +209,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
     uniqueIncidentKey("EVIDENCE-LIFECYCLE"),
     "Evidence requested evidence",
   );
-  const timelineRow = (await createViewRow(
+  const timelineRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -220,7 +217,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
       client_txn_id: uniqueTxn("e5-requested-timeline"),
       "timeline.activity_synopsis_text": "Requested package tracking",
     },
-  )) as unknown as ViewRow;
+  );
 
   await openEvidenceSurface(page, incidentId);
   await setGenericCreateField(page, "evidence.title", "Requested package");
@@ -273,7 +270,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
     ),
   ).toHaveText("pending");
 
-  const linkedTimeline = (await patchRecord(page, timelineRow.record_id, {
+  const linkedTimeline = await patchRecord(page, timelineRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: timelineRow.row_version,
     client_txn_id: uniqueTxn("e5-requested-link"),
@@ -291,7 +288,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
         },
       },
     ],
-  })) as unknown as ViewRow;
+  });
   expect(
     collectionItems(linkedTimeline, "timeline.attached_evidence_ids").some(
       (item) => item.linked_record_id === requested.record_id,
@@ -301,11 +298,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   expect(linkedTimeline.cells["timeline.has_evidence"]?.value).toBe(false);
   await expect
     .poll(async () => {
-      const rows = (await queryViewRows(
-        page,
-        incidentId,
-        timelineViewSchemaId,
-      )) as unknown as ViewRow[];
+      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
       const row = rows.find(
         (candidate) => candidate.record_id === timelineRow.record_id,
       );
@@ -370,11 +363,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   ).toHaveLength(1);
   await expect
     .poll(async () => {
-      const rows = (await queryViewRows(
-        page,
-        incidentId,
-        timelineViewSchemaId,
-      )) as unknown as ViewRow[];
+      const rows = await queryViewRows(page, incidentId, timelineViewSchemaId);
       const row = rows.find(
         (candidate) => candidate.record_id === timelineRow.record_id,
       );
@@ -388,11 +377,11 @@ test("tracks requested evidence before a blob exists and later advances it", asy
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
-  const timelineRows = (await queryViewRows(
+  const timelineRows = await queryViewRows(
     page,
     incidentId,
     timelineViewSchemaId,
-  )) as unknown as ViewRow[];
+  );
   expect(
     timelineRows.filter((row) => row.record_id === timelineRow.record_id),
   ).toHaveLength(1);
@@ -407,7 +396,7 @@ test("refreshes a second live workbook from the real evidence attach stream", as
     uniqueIncidentKey("EVIDENCE-SOCKET"),
     "Evidence socket evidence refresh",
   );
-  const timelineRow = (await createViewRow(
+  const timelineRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -415,7 +404,7 @@ test("refreshes a second live workbook from the real evidence attach stream", as
       client_txn_id: uniqueTxn("e5-socket-timeline"),
       "timeline.activity_synopsis_text": "Second workbook evidence refresh",
     },
-  )) as unknown as ViewRow;
+  );
 
   const listenerContext = await browser.newContext({
     storageState: await page.context().storageState(),
@@ -444,11 +433,11 @@ test("refreshes a second live workbook from the real evidence attach stream", as
     await socketMonitor.waitForRecordChanged(timelineRow.record_id);
     await expect
       .poll(async () => {
-        const rows = (await queryViewRows(
+        const rows = await queryViewRows(
           listener,
           incidentId,
           timelineViewSchemaId,
-        )) as unknown as ViewRow[];
+        );
         const row = rows.find(
           (candidate) => candidate.record_id === timelineRow.record_id,
         );
@@ -507,11 +496,7 @@ async function waitForEvidenceRow(
 ): Promise<ViewRow> {
   const deadline = Date.now() + 5_000;
   while (Date.now() <= deadline) {
-    const rows = (await queryViewRows(
-      page,
-      incidentId,
-      evidenceViewSchemaId,
-    )) as unknown as ViewRow[];
+    const rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
     const row = rows.find(
       (candidate) => candidate.cells["evidence.title"]?.value === title,
     );
@@ -662,11 +647,11 @@ async function createUploadedEvidence(
     body: Buffer;
   },
 ) {
-  const row = (await createViewRow(page, incidentId, evidenceViewSchemaId, {
+  const row = await createViewRow(page, incidentId, evidenceViewSchemaId, {
     client_txn_id: uniqueTxn("e5-preview-evidence"),
     "evidence.title": options.title,
     "evidence.collector_party_text": "Browser evidence",
-  })) as unknown as ViewRow;
+  });
   const blob = await createAndUploadObjectBlob(page, {
     body: options.body,
     clientTxnId: uniqueTxn("e5-preview-blob"),
@@ -687,14 +672,12 @@ async function createUploadedEvidence(
     },
   );
   expect(attach.ok()).toBeTruthy();
-  const rows = (await queryViewRows(
-    page,
-    incidentId,
-    evidenceViewSchemaId,
-  )) as unknown as ViewRow[];
+  const rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
   const attached = rows.find(
     (candidate) => candidate.record_id === row.record_id,
   );
-  expect(attached).toBeTruthy();
-  return attached as ViewRow;
+  if (!attached) {
+    throw new Error(`missing attached evidence row ${row.record_id}`);
+  }
+  return attached;
 }

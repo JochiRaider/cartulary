@@ -1,10 +1,20 @@
 export type JsonRequestMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 
-export type JsonResponseLike = {
+type JsonResponseLike = {
   headers: () => Record<string, string>;
+  headersArray?: () => readonly JsonResponseHeader[];
   json: () => Promise<unknown>;
   ok: () => boolean;
   status: () => number;
+};
+
+type JsonResponseHeader = {
+  readonly name: string;
+  readonly value: string;
+};
+
+export type RepeatedHeaderJsonResponse = JsonResponseLike & {
+  headersArray: () => readonly JsonResponseHeader[];
 };
 
 export type JsonRequestContextLike = {
@@ -23,6 +33,14 @@ export type PublicJsonResult = {
   readonly headers: Readonly<Record<string, string>>;
   readonly ok: boolean;
   readonly status: number;
+};
+
+type PublicJsonOptions = {
+  readonly body?: unknown;
+  readonly headers?: Record<string, string>;
+  readonly method: JsonRequestMethod;
+  readonly path: string;
+  readonly request: JsonRequestContextLike;
 };
 
 export function atJsonOrigin(
@@ -55,13 +73,13 @@ function requireSameOriginPath(path: string): string {
   return `${parsed.pathname}${parsed.search}`;
 }
 
-export async function requestPublicJson(options: {
-  readonly body?: unknown;
-  readonly headers?: Record<string, string>;
-  readonly method: JsonRequestMethod;
-  readonly path: string;
-  readonly request: JsonRequestContextLike;
-}): Promise<PublicJsonResult> {
+export async function requestPublicJson(
+  options: PublicJsonOptions,
+): Promise<PublicJsonResult> {
+  return (await requestPublicJsonObserved(options)).result;
+}
+
+export async function requestPublicJsonObserved(options: PublicJsonOptions) {
   const path = requireSameOriginPath(options.path);
   const requestOptions: {
     data?: unknown;
@@ -76,10 +94,11 @@ export async function requestPublicJson(options: {
   }
   const response = await options.request.fetch(path, requestOptions);
   const body = await response.json();
-  return Object.freeze({
+  const result = Object.freeze({
     body,
     headers: Object.freeze({ ...response.headers() }),
     ok: response.ok(),
     status: response.status(),
   });
+  return Object.freeze({ response, result });
 }

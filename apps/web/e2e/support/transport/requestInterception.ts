@@ -1,13 +1,13 @@
 import type { Page, Route } from "@playwright/test";
 
-export type HeldBrowserRequest = {
+type HeldBrowserRequest = {
   readonly dispose: () => Promise<void>;
   readonly hitCount: () => number;
   readonly release: () => void;
   readonly waitForHit: Promise<void>;
 };
 
-export function browserRequestRoute(path: string): string {
+function browserRequestRoute(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `**${normalizedPath}`;
 }

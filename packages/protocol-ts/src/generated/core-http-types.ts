@@ -74,6 +74,21 @@ export type ImportUnitMappingRequest = {
 };
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipCreateRequest".
+ */
+export type IncidentMembershipCreateRequest =
+  | {
+      client_txn_id: string;
+      role: "viewer" | "editor" | "reviewer" | "admin";
+      user_id: string;
+    }
+  | {
+      client_txn_id: string;
+      email: string;
+      role: "viewer" | "editor" | "reviewer" | "admin";
+    };
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "JobScope".
  */
 export type JobScope = {
@@ -310,6 +325,10 @@ export interface CollectionActionsV1 {
   actions: [
     (
       | CollectionAddTokenAction
+      | CollectionAddResolvedRefAction
+      | CollectionResolveItemAction
+      | CollectionRevertToUnresolvedAction
+      | CollectionDismissItemAction
       | CollectionAddAliasAction
       | CollectionRemoveAliasAction
       | CollectionAddTagAction
@@ -323,6 +342,10 @@ export interface CollectionActionsV1 {
     ),
     ...(
       | CollectionAddTokenAction
+      | CollectionAddResolvedRefAction
+      | CollectionResolveItemAction
+      | CollectionRevertToUnresolvedAction
+      | CollectionDismissItemAction
       | CollectionAddAliasAction
       | CollectionRemoveAliasAction
       | CollectionAddTagAction
@@ -344,6 +367,40 @@ export interface CollectionActionsV1 {
 export interface CollectionAddTokenAction {
   op: "add_token";
   raw_text: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionAddResolvedRefAction".
+ */
+export interface CollectionAddResolvedRefAction {
+  op: "add_resolved_ref";
+  raw_text: string;
+  resolved_record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionResolveItemAction".
+ */
+export interface CollectionResolveItemAction {
+  item_ref: string;
+  op: "resolve_item";
+  resolved_record_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionRevertToUnresolvedAction".
+ */
+export interface CollectionRevertToUnresolvedAction {
+  item_ref: string;
+  op: "revert_to_unresolved";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CollectionDismissItemAction".
+ */
+export interface CollectionDismissItemAction {
+  item_ref: string;
+  op: "dismiss_item";
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1163,6 +1220,20 @@ export interface ImportUnitsEnvelope {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentCreateRequest".
+ */
+export interface IncidentCreateRequest {
+  client_txn_id: string;
+  current_phase?: string | null;
+  description?: string | null;
+  incident_key: string;
+  primary_external_case_ref?: string | null;
+  severity?: string | null;
+  title: string;
+  tlp?: "TLP:CLEAR" | "TLP:GREEN" | "TLP:AMBER" | "TLP:AMBER+STRICT" | "TLP:RED" | null;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "IncidentEnvelope".
  */
 export interface IncidentEnvelope {
@@ -1201,18 +1272,11 @@ export interface IncidentLifecycleRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "IncidentMembershipListEnvelope".
+ * via the `definition` "IncidentMembershipEnvelope".
  */
-export interface IncidentMembershipListEnvelope {
-  data: IncidentMembershipListData;
+export interface IncidentMembershipEnvelope {
+  data: IncidentMembershipResource;
   meta: EnvelopeMeta;
-}
-/**
- * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
- * via the `definition` "IncidentMembershipListData".
- */
-export interface IncidentMembershipListData {
-  memberships: IncidentMembershipResource[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1228,6 +1292,21 @@ export interface IncidentMembershipResource {
   updated_at: string;
   updated_by_user_id: string | null;
   user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipListEnvelope".
+ */
+export interface IncidentMembershipListEnvelope {
+  data: IncidentMembershipListData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "IncidentMembershipListData".
+ */
+export interface IncidentMembershipListData {
+  memberships: IncidentMembershipResource[];
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -1498,6 +1577,37 @@ export interface LinkedNoteCreateRequest {
   "note.body"?: string;
   "note.tags"?: CollectionActionsV1;
   "note.title"?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LocalLoginRequest".
+ */
+export interface LocalLoginRequest {
+  password: string;
+  second_factor?: {
+    assertion: {
+      code: string;
+    };
+    kind: "totp";
+  };
+  username: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LogoutEnvelope".
+ */
+export interface LogoutEnvelope {
+  data: LogoutResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "LogoutResource".
+ */
+export interface LogoutResource {
+  logged_out: true;
+  sessions_revoked: false;
+  user_id: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

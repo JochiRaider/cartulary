@@ -11,7 +11,6 @@ import {
   hostRefsFieldKey,
   identityRefsFieldKey,
   requireItemByRawText,
-  type ViewRow,
 } from "./support/entities/mentions";
 import { exerciseEntityMerge } from "./support/entities/merge";
 import { createIncident } from "./support/incidents/fixtures";
@@ -29,19 +28,19 @@ test("merges duplicate entities from the inspector and preserves survivor identi
     uniqueIncidentKey("ENTITY-MERGE"),
     "Record relationships entity-resolution",
   );
-  const survivor = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const survivor = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e403-survivor"),
     "host.display_name": "WS-023",
     "host.hostname": "ws-023.corp.example.test",
     "host.aliases": aliasCollectionActionsPayload(["Workstation 23"]),
-  })) as ViewRow;
-  const loser = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  });
+  const loser = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e403-loser"),
     "host.display_name": "WS-023 duplicate",
     "host.hostname": "ws-023-dup.corp.example.test",
     "host.aliases": aliasCollectionActionsPayload(["Workstation 23"]),
-  })) as ViewRow;
-  const identitySurvivor = (await createViewRow(
+  });
+  const identitySurvivor = await createViewRow(
     page,
     incidentId,
     identitiesViewSchemaId,
@@ -51,8 +50,8 @@ test("merges duplicate entities from the inspector and preserves survivor identi
       "identity.email": "alex.analyst@example.test",
       "identity.aliases": aliasCollectionActionsPayload(["Case Owner"]),
     },
-  )) as ViewRow;
-  const identityLoser = (await createViewRow(
+  );
+  const identityLoser = await createViewRow(
     page,
     incidentId,
     identitiesViewSchemaId,
@@ -62,8 +61,8 @@ test("merges duplicate entities from the inspector and preserves survivor identi
       "identity.email": "alex.duplicate@example.test",
       "identity.aliases": aliasCollectionActionsPayload(["Case Owner"]),
     },
-  )) as ViewRow;
-  const dependentRow = (await createViewRow(
+  );
+  const dependentRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -72,12 +71,12 @@ test("merges duplicate entities from the inspector and preserves survivor identi
       "timeline.activity_synopsis_text": "entity-resolution dependent row",
       [hostRefsFieldKey]: collectionActionsPayload(["Workstation 23"]),
     },
-  )) as ViewRow;
+  );
   const dependentMention = requireItemByRawText(
     collectionItems(dependentRow, hostRefsFieldKey),
     "Workstation 23",
   );
-  const identityDependentRow = (await createViewRow(
+  const identityDependentRow = await createViewRow(
     page,
     incidentId,
     timelineViewSchemaId,
@@ -87,7 +86,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
         "entity-resolution identity dependent row",
       [identityRefsFieldKey]: collectionActionsPayload(["Case Owner"]),
     },
-  )) as ViewRow;
+  );
   const identityDependentMention = requireItemByRawText(
     collectionItems(identityDependentRow, identityRefsFieldKey),
     "Case Owner",
@@ -104,7 +103,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
           actions: [
             {
               op: "resolve_item",
-              item_ref: dependentMention.item_ref,
+              item_ref: String(dependentMention.item_ref),
               resolved_record_id: loser.record_id,
             },
           ],
@@ -124,7 +123,7 @@ test("merges duplicate entities from the inspector and preserves survivor identi
           actions: [
             {
               op: "resolve_item",
-              item_ref: identityDependentMention.item_ref,
+              item_ref: String(identityDependentMention.item_ref),
               resolved_record_id: identityLoser.record_id,
             },
           ],

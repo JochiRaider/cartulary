@@ -1332,8 +1332,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
-            "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
-            "module.savedviews.browser_stateful.verify_saved_view_persistence_default_startup_su_3fd1edb0fd"
+            "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674"
           ],
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
@@ -1836,8 +1835,7 @@
           "runtime_profile_id": "default",
           "browser_session_group": "browser-stateful-default",
           "selected_row_ids": [
-            "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
-            "module.savedviews.browser_stateful.verify_saved_view_persistence_default_startup_su_3fd1edb0fd"
+            "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674"
           ],
           "specs": [
             "apps/web/e2e/workbook.spec.ts"

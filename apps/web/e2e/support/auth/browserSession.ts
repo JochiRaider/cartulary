@@ -1,9 +1,15 @@
-import type { APIRequestContext, APIResponse, Page } from "@playwright/test";
+import type { LoginLocalUserRequest } from "@cartulary/protocol-ts/http";
+import type { Page } from "@playwright/test";
 
-import { expect } from "@playwright/test";
-import type { StorageState } from "../../playwrightTypes";
 import { apiBase } from "../runtime/configuration";
 import { waitForPageRequestAPIReady } from "../runtime/readiness";
+import { publicHttpOperationObserved } from "../transport/publicHttpOperationClient";
+import {
+  atJsonOrigin,
+  type JsonRequestContextLike,
+  type RepeatedHeaderJsonResponse,
+} from "../transport/publicJsonClient";
+import type { StorageState } from "./storageState";
 import {
   csrfCookieName,
   csrfHeaderName,
@@ -50,27 +56,17 @@ export async function csrfHeaders(page: Page) {
 }
 
 export async function loginLocalAPIContext(
-  authRequests: APIRequestContext,
+  authRequests: JsonRequestContextLike,
   options: {
     email: string;
     password: string;
     secondFactorCode?: string | null;
   },
 ) {
-  const secondFactorCode = options.secondFactorCode?.trim() ?? "";
-  return authRequests.post("/api/v1/auth/login", {
-    data: {
-      username: options.email,
-      password: options.password,
-      ...(secondFactorCode === ""
-        ? {}
-        : {
-            second_factor: {
-              kind: "totp",
-              assertion: { code: secondFactorCode },
-            },
-          }),
-    },
+  return publicHttpOperationObserved({
+    body: localLoginRequest(options),
+    operationID: "loginLocalUser",
+    request: authRequests,
   });
 }
 
@@ -81,18 +77,25 @@ export async function loginLocalSession(
 ) {
   await page.context().clearCookies();
   await waitForPageRequestAPIReady(page);
-  const response = await page.request.post(`${apiBase}/api/v1/auth/login`, {
-    data: { username: email, password },
+  const result = await publicHttpOperationObserved({
+    body: localLoginRequest({ email, password }),
+    operationID: "loginLocalUser",
+    request: atJsonOrigin(page.request, apiBase),
   });
-  expect(response.ok()).toBeTruthy();
+  if (!result.ok) {
+    throw new Error(`local login failed with HTTP ${result.status}`);
+  }
   await applyCookies(
     page,
-    requireCookie(response, sessionCookieName),
-    requireCookie(response, csrfCookieName),
+    requireCookie(result.response, sessionCookieName),
+    requireCookie(result.response, csrfCookieName),
   );
 }
 
-export function requireCookie(response: APIResponse, name: string) {
+export function requireCookie(
+  response: RepeatedHeaderJsonResponse,
+  name: string,
+) {
   for (const header of response.headersArray()) {
     if (header.name.toLowerCase() !== "set-cookie") {
       continue;
@@ -107,4 +110,24 @@ export function requireCookie(response: APIResponse, name: string) {
     }
   }
   throw new Error(`missing ${name} cookie on response`);
+}
+
+function localLoginRequest(options: {
+  email: string;
+  password: string;
+  secondFactorCode?: string | null;
+}): LoginLocalUserRequest {
+  const secondFactorCode = options.secondFactorCode?.trim() ?? "";
+  return {
+    username: options.email,
+    password: options.password,
+    ...(secondFactorCode === ""
+      ? {}
+      : {
+          second_factor: {
+            kind: "totp" as const,
+            assertion: { code: secondFactorCode },
+          },
+        }),
+  };
 }

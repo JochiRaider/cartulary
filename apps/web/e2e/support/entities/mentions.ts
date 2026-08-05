@@ -1,3 +1,4 @@
+import type { CollectionActionsV1, ViewRow } from "@cartulary/protocol-ts/http";
 import {
   pendingQueueNoticeTestId,
   relationshipChipTestId,
@@ -12,11 +13,7 @@ import {
 import { expect, type Page, type Response } from "@playwright/test";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { readHttpOperationResponse } from "../transport/publicHttpOperationClient";
-import {
-  createViewRow,
-  readWorkbookMutation,
-  type ViewApiRow,
-} from "../workbook/query";
+import { createViewRow, readWorkbookMutation } from "../workbook/query";
 import {
   openTimelineInspector,
   waitForTimelinePatch,
@@ -24,8 +21,6 @@ import {
 
 export const hostRefsFieldKey = "timeline.host_refs";
 export const identityRefsFieldKey = "timeline.identity_refs";
-
-export type ViewRow = ViewApiRow;
 
 type CollectionItem = Record<string, unknown>;
 
@@ -116,27 +111,42 @@ function readRequestPayload(response: Response): TimelinePatchRequestPayload {
   }
 }
 
-export function collectionActionsPayload(rawTexts: string[]) {
+export function collectionActionsPayload(
+  rawTexts: readonly [string, ...string[]],
+): CollectionActionsV1 {
+  const [firstRawText, ...remainingRawTexts] = rawTexts;
   return {
     kind: "collection_actions_v1",
-    actions: rawTexts.map((rawText) => ({
-      op: "add_token",
-      raw_text: rawText,
-    })),
+    actions: [
+      { op: "add_token", raw_text: firstRawText },
+      ...remainingRawTexts.map((rawText) => ({
+        op: "add_token" as const,
+        raw_text: rawText,
+      })),
+    ],
   };
 }
 
-export function aliasCollectionActionsPayload(aliasTexts: string[]) {
+export function aliasCollectionActionsPayload(
+  aliasTexts: readonly [string, ...string[]],
+): CollectionActionsV1 {
+  const [firstAliasText, ...remainingAliasTexts] = aliasTexts;
   return {
     kind: "collection_actions_v1",
-    actions: aliasTexts.map((aliasText) => ({
-      op: "add_alias",
-      alias_text: aliasText,
-    })),
+    actions: [
+      { alias_text: firstAliasText, op: "add_alias" },
+      ...remainingAliasTexts.map((aliasText) => ({
+        alias_text: aliasText,
+        op: "add_alias" as const,
+      })),
+    ],
   };
 }
 
-export function resolvedRefPayload(rawText: string, resolvedRecordId: string) {
+export function resolvedRefPayload(
+  rawText: string,
+  resolvedRecordId: string,
+): CollectionActionsV1 {
   return {
     kind: "collection_actions_v1",
     actions: [
@@ -255,7 +265,7 @@ export async function seedHostMentionStateFixture(
     txnPrefix: string;
   },
 ) {
-  const resolvedTarget = (await createViewRow(
+  const resolvedTarget = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -264,8 +274,8 @@ export async function seedHostMentionStateFixture(
       "host.display_name": `${options.displayPrefix} Resolved Target`,
       "host.hostname": `${options.hostnamePrefix}-resolved-target.example.test`,
     },
-  )) as ViewRow;
-  const manualTarget = (await createViewRow(
+  );
+  const manualTarget = await createViewRow(
     page,
     incidentId,
     hostsViewSchemaId,
@@ -274,7 +284,7 @@ export async function seedHostMentionStateFixture(
       "host.display_name": `${options.displayPrefix} Manual Target`,
       "host.hostname": `${options.hostnamePrefix}-manual-target.example.test`,
     },
-  )) as ViewRow;
+  );
   await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn(`${options.txnPrefix}-auto-target`),
     "host.display_name": `${options.displayPrefix} Auto Target`,
@@ -294,12 +304,12 @@ export async function seedHostMentionStateFixture(
     summary: string,
     refs?: unknown,
   ) =>
-    (await createViewRow(page, incidentId, timelineViewSchemaId, {
+    await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn(`${options.txnPrefix}-${suffix}-row`),
       "timeline.activity_utc_text": occurredAt,
       "timeline.activity_synopsis_text": summary,
       ...(refs === undefined ? {} : { [hostRefsFieldKey]: refs }),
-    })) as ViewRow;
+    });
   const unresolvedRow = await createTimelineMention(
     "unresolved",
     options.occurredAt.unresolved,

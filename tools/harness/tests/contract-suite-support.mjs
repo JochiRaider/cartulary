@@ -154,7 +154,7 @@ function assertEvidenceContract(index) {
     const fixtureCounts = new Map();
     for (const row of catalog.rows) fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
     assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), catalog.rows.length);
-    assert.equal(fixtureCounts.get("browser_stack"), 146);
+    assert.equal(fixtureCounts.get("browser_stack"), 145);
   } else {
     assert.ok(catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) => catalog.rows.some((row) => row.owner_id === owner.owner_id)));
   }

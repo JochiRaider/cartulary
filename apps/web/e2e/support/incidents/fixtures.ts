@@ -1,28 +1,30 @@
+import type { CreateIncidentRequest } from "@cartulary/protocol-ts/http";
 import type { Page } from "@playwright/test";
 
-import { expect } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
-import { atJsonOrigin, requestPublicJson } from "../transport/publicJsonClient";
+import { publicHttpOperation } from "../transport/publicHttpOperationClient";
+import { atJsonOrigin } from "../transport/publicJsonClient";
 
 export async function createIncident(
   page: Page,
   incidentKey: string,
   title: string,
 ) {
-  const response = await requestPublicJson({
-    body: {
-      client_txn_id: uniqueTxn("incident"),
-      incident_key: incidentKey,
-      title,
-    },
+  const body: CreateIncidentRequest = {
+    client_txn_id: uniqueTxn("incident"),
+    incident_key: incidentKey,
+    title,
+  };
+  const response = await publicHttpOperation({
+    body,
     headers: await csrfHeaders(page),
-    method: "POST",
-    path: "/api/v1/incidents",
+    operationID: "createIncident",
     request: atJsonOrigin(page.request, apiBase),
   });
-  expect(response.ok).toBeTruthy();
-  const body = response.body as { data: { incident_id: string } };
-  return body.data.incident_id;
+  if (!response.ok) {
+    throw new Error(`create incident failed with HTTP ${response.status}`);
+  }
+  return response.payload.data.incident_id;
 }

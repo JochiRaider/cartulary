@@ -1,3 +1,8 @@
+import type {
+  QueryWorkbookViewRequest,
+  QueryWorkbookViewResponse,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import {
   scrollGridCellIntoView,
   scrollGridTargetIntoView,
@@ -54,35 +59,7 @@ const timelineSchemaFieldKeys = [
   "timeline.has_unresolved_mentions",
 ] as const;
 
-type ViewApiCell = {
-  value: unknown;
-  [key: string]: unknown;
-};
-
-type ViewApiRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, ViewApiCell>;
-  group_values?: Record<string, unknown>;
-  [key: string]: unknown;
-};
-
-type QueryEnvelope = {
-  data: {
-    incident_id: string;
-    rows: ViewApiRow[];
-    view_schema_id: string;
-  };
-  meta?: {
-    query?: {
-      filters?: unknown;
-      group_by?: unknown;
-      sort?: unknown;
-    };
-  };
-};
-
-function expectFullTimelineRow(row: ViewApiRow) {
+function expectFullTimelineRow(row: ViewRow) {
   expect(Object.keys(row.cells).sort()).toEqual(
     [...timelineSchemaFieldKeys].sort(),
   );
@@ -98,7 +75,7 @@ function expectFullTimelineRow(row: ViewApiRow) {
 async function queryTimelineEnvelope(
   page: Page,
   incidentId: string,
-  body: Record<string, unknown>,
+  body: QueryWorkbookViewRequest | { group_by: null },
 ) {
   const response = await page.request.post(
     `${apiBase}/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
@@ -107,7 +84,7 @@ async function queryTimelineEnvelope(
     },
   );
   return {
-    body: (await response.json()) as QueryEnvelope,
+    body: (await response.json()) as QueryWorkbookViewResponse,
     ok: response.ok(),
     status: response.status(),
   };
@@ -314,10 +291,10 @@ test(exactScenarioTitle, async ({ page }) => {
   ).toHaveText("2026-04-10T10:00:00.000Z");
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 
-  const invalidRow = {
+  const invalidRow: ViewRow = {
     ...alpha,
     cells: { ...alpha.cells },
-  } as ViewApiRow;
+  };
   delete invalidRow.cells["timeline.attached_evidence_ids"];
   await page.route(
     `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,

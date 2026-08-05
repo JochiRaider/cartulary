@@ -15,7 +15,7 @@ import {
   publicErrorCodeTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { APIRequestContext, Page } from "@playwright/test";
+import { type APIRequestContext, type Page, request } from "@playwright/test";
 import { expect, restoreTrackedStorageState, test } from "./fixtures";
 import { AccountSettings } from "./pages/accountSettings";
 import { AuthGateway } from "./pages/authGateway";
@@ -27,7 +27,6 @@ import { IncidentDirectory } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
-  authenticatedRequestContextFromStorageState,
   deploymentAdminMutationClient,
   loadUser,
   patchUser,
@@ -36,7 +35,10 @@ import {
   revokeAllSessions,
   withOnlyActiveDeploymentAdmin,
 } from "./support/auth/sessions";
-import { sessionCookieName } from "./support/auth/storageState";
+import {
+  authHeadersForStorageState,
+  sessionCookieName,
+} from "./support/auth/storageState";
 import {
   enrollTotpViaBootstrap,
   generateTotpCode,
@@ -545,10 +547,12 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   const targetUserVersion = (
     await loadUser(workerAdminRequest, targetUser.user_id)
   ).user_version;
-  const incidentAdminRequests =
-    await authenticatedRequestContextFromStorageState(
+  const incidentAdminRequests = await request.newContext({
+    baseURL: apiBase,
+    extraHTTPHeaders: authHeadersForStorageState(
       await page.context().storageState(),
-    );
+    ),
+  });
   try {
     await expectUnauthorizedCredentialAction(
       incidentAdminRequests,

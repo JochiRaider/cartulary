@@ -203,13 +203,13 @@ export async function seedSystemSavedView(
   return (response.body as { data: SavedViewApiResource }).data;
 }
 
-export type SavedViewSelectionState = {
+type SavedViewSelectionState = {
   readonly activeViewSchemaId: string | null;
   readonly selectedSavedViewId: string | null;
   readonly selectedSheetRefKind: string | null;
 };
 
-export type SavedViewPreferenceActionResult = {
+type SavedViewPreferenceActionResult = {
   readonly field: "default_sheet_ref" | "home_sheet_ref";
   readonly requestBody: Record<string, unknown>;
   readonly responseBody: unknown;

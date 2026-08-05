@@ -1363,6 +1363,42 @@ A helper that validates post-mutation focus or viewport continuity MUST be obser
 This requirement owns browser synchronization and evidence only. Core 03 `REQ-03-283` remains the unchanged product authority for deterministic row-local focus restoration after same-surface follow-up rendering.
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021, TH-HARNESS-AC-080
 
+**TH-HARNESS-REQ-676**
+`apps/web/e2e` is a browser-verification discovery and evidence root, not a
+product module or general support package. Its root TypeScript files MUST be
+Playwright `*.spec.ts` entrypoints, `fixtures.ts`, `fixtures.test.ts`,
+`global-setup.ts`, or `global-teardown.ts`. Support and page modules MUST live
+under their semantic subdirectories, MUST be statically reachable from those
+entrypoints or an E2E `*.test.ts` entrypoint, and MUST NOT export a declaration
+that has no importer outside its declaring module. Type-only imports count as
+reachability and use. Namespace imports and dynamic imports MUST NOT be used to
+evade exact support-module liveness accounting.
+Verified by: TH-HARNESS-AC-039, TH-HARNESS-AC-056
+
+**TH-HARNESS-REQ-677**
+Reusable E2E support clients that treat a selected public JSON operation as a
+success MUST derive its method, path, request type, accepted success status,
+and response validation from `@cartulary/protocol-ts/http`. The low-level
+`requestPublicJson` client MUST remain private to `support/transport/**`.
+Support-level raw requests are limited to readiness, the validated opaque
+upload PUT, browser-context bulk mutation or interception, repeated-header
+observation after generated success validation, and explicit owner-backed
+non-success probes. Scenario-local product tests MAY retain direct raw requests
+when the request or error bytes are the assertion target; that permission MUST
+NOT be generalized into a reusable support client.
+Verified by: TH-HARNESS-AC-039, TH-HARNESS-AC-056
+
+**TH-HARNESS-REQ-678**
+Two active browser catalog rows that resolve to the same owner, stage, project,
+verification set, helper behavior, and asserted postconditions MUST NOT be
+retained solely for title capitalization, fixture-label, historical scenario,
+or compatibility reasons. The canonical existing row and scenario identity
+MUST be retained, the duplicate MUST be removed from authored accounting, and
+generated topology MUST be refreshed through `make generate`. A distinct
+owner, postcondition, runtime profile, or behavior-sensitive fixture prevents
+deduplication.
+Verified by: TH-HARNESS-AC-082
+
 Browser E2E tests that need the authenticated incident directory MUST navigate to that surface explicitly before asserting directory UI. Tests MUST NOT assume raw authenticated `/` always renders the incident directory, because Core 01 `REQ-01-580` makes raw root cardinality-sensitive and requires the sole visible incident to auto-open.
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021
 
@@ -4627,7 +4663,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-039, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081, TH-HARNESS-AC-082 |
 | `TH-HARNESS-REQ-800..809` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091 |
 
 ## 18. Sources and Evidence Limits

@@ -1,3 +1,4 @@
+import type { ViewRow } from "@cartulary/protocol-ts/http";
 import {
   applyFilterChip,
   removeFilterChip,
@@ -24,7 +25,6 @@ import {
   expectAssessmentGridOrder,
   waitForAssessmentCreate,
 } from "./support/assessments/fixtures";
-import type { ViewRow } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
   uniqueIncidentKey,
@@ -40,15 +40,15 @@ test("creates append-only assessment history through the workbook UI", async ({
     uniqueIncidentKey("WORKBOOK-ASSESSMENTS"),
     "Record relationships assessment workbook E2E",
   );
-  const subject = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const subject = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("assessment-host"),
     "host.display_name": "Assessment Host",
     "host.hostname": "assessment-host.example.test",
-  })) as ViewRow;
-  const support = (await createViewRow(page, incidentId, timelineViewSchemaId, {
+  });
+  const support = await createViewRow(page, incidentId, timelineViewSchemaId, {
     client_txn_id: uniqueTxn("assessment-support"),
     "timeline.activity_synopsis_text": "Assessment support event",
-  })) as ViewRow;
+  });
 
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
@@ -210,12 +210,12 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
     uniqueIncidentKey("WORKBOOK-ASSESSMENT-FOLLOW-ON"),
     "Assessment follow-on workbook E2E",
   );
-  const subject = (await createViewRow(page, incidentId, hostsViewSchemaId, {
+  const subject = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("assessment-follow-on-host"),
     "host.display_name": "Follow-on Host",
     "host.hostname": "assessment-follow-on.example.test",
-  })) as ViewRow;
-  const original = (await createViewRow(
+  });
+  const original = await createViewRow(
     page,
     incidentId,
     assessmentsViewSchemaId,
@@ -228,7 +228,7 @@ test("appends a subject-only follow-on while preserving keyboard selection", asy
       "assessment.rationale": "Original assessment rationale.",
       "assessment.assessed_at": "2026-04-24T12:00:00Z",
     },
-  )) as ViewRow;
+  );
 
   await page.goto(
     `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
