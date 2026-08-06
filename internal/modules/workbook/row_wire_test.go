@@ -117,7 +117,7 @@ func TestRowWireFamilies_Unit(t *testing.T) {
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
 	patchEvidenceRecordID := appsupport.MustUUID(t, patchEvidenceRow["record_id"].(string))
-	hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 4)
+	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 4)
 	defer unsubscribe()
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
@@ -173,7 +173,7 @@ func TestRecordChangedSparsePatchPayloads_Unit(t *testing.T) {
 	})
 	partyID := appsupport.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
-	hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 16)
+	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 16)
 	defer unsubscribe()
 
 	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{

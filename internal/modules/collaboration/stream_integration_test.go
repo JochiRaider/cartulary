@@ -35,12 +35,12 @@ func TestDurableIncidentStream_Integration(t *testing.T) {
 	ctx := context.Background()
 	closeCtx, cancelClose := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelClose()
-	if err := harness.Server.Runtime.CollaborationDispatcher.Close(closeCtx); err != nil {
+	if err := harness.Collaboration.CloseDispatcher(closeCtx); err != nil {
 		t.Fatalf("stop runtime collaboration dispatcher: %v", err)
 	}
 
-	pool := harness.Server.Runtime.Postgres
-	intents := harness.Server.Runtime.CollaborationIntents
+	pool := harness.Pool
+	intents := harness.Collaboration.IntentAppender()
 	replay := collaboration.NewReplayStore(pool, nil)
 	recovery := collaboration.NewRecoveryService(pool)
 	atomicIncidentUUID := uuid.MustParse(atomicIncidentID)
@@ -210,11 +210,7 @@ SELECT replay.event_id, replay.stream_seq, intent.dispatch_state
 
 		clockNow = clockNow.Add(time.Second)
 		appendCommittedIntent(t, pool, intents, requireJobIntent(t, dispatchIncidentUUID, "no-subscribers", clockNow))
-		noSubscriberDispatcher := collaboration.NewDispatcher(
-			pool,
-			harness.Server.Runtime.CollaborationHub,
-			func() time.Time { return clockNow },
-		)
+		noSubscriberDispatcher := harness.Collaboration.NewDispatcher(pool, func() time.Time { return clockNow })
 		if _, err := noSubscriberDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("deliver with no subscribers: %v", err)
 		}
@@ -493,11 +489,7 @@ SELECT gen_random_uuid(),
 `, retentionIncidentUUID, retentionNow); err != nil {
 			t.Fatalf("seed retention events: %v", err)
 		}
-		retentionDispatcher := collaboration.NewDispatcher(
-			pool,
-			harness.Server.Runtime.CollaborationHub,
-			func() time.Time { return retentionNow },
-		)
+		retentionDispatcher := harness.Collaboration.NewDispatcher(pool, func() time.Time { return retentionNow })
 		if _, err := retentionDispatcher.RunOnce(ctx); err != nil {
 			t.Fatalf("prune retained replay events: %v", err)
 		}

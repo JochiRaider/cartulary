@@ -504,10 +504,10 @@ SELECT COUNT(*)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
-		facade := timelineFacadeWithProjectionFailure(t, harness.Server, func(mutation workbookprojection.ProjectionMutation) error {
+		facade := timelineFacadeWithProjectionFailure(t, harness, func(mutation workbookprojection.ProjectionMutation) error {
 			if rollbackEnabled && mutation.RecordID == rollbackRecordID {
 				return errors.New("forced auto-match rollback")
 			}
@@ -531,7 +531,7 @@ SELECT COUNT(*)
 			}},
 		}
 		_, err := facade.PatchRow(context.Background(), timeline.PatchRowCommand{
-			Actor:       loadTimelineTestUser(t, harness.Server, adminID),
+			Actor:       loadTimelineTestUser(t, harness, adminID),
 			RecordID:    rollbackRecordID,
 			Request:     request,
 			RequestHash: timelineadmission.PatchRequestHash(request),
@@ -610,7 +610,7 @@ SELECT COUNT(*)
 		entitytest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), entitytest.CanonicalHostRecordID, "host", "VPN Gateway")
 
 		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
-		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+		if err := harness.Projections.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 			t.Fatalf("rebuild incident timeline: %v", err)
 		}
 		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
@@ -1111,7 +1111,7 @@ UPDATE incident_memberships
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
 		resp := doJSON(

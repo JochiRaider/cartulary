@@ -84,7 +84,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 		t.Fatalf("indicator route readback mismatch: %#v", queried)
 	}
 	recordID := appsupport.MustUUID(t, row["record_id"].(string))
-	store := newIndicatorTestStore(t, harness.Server.Runtime.Postgres, harness.Server.Runtime.Revisions.Appender())
+	store := newIndicatorTestStore(t, harness.Pool, harness.Revisions.Appender())
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.RecordID)
 	timelinetest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, timelinetest.SiblingRecordID)
 	for index, sourceRecordID := range []struct {
@@ -116,7 +116,7 @@ func TestIndicatorsRoute_Integration(t *testing.T) {
 	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 		t.Fatalf("clear indicator projections: %v", err)
 	}
-	if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildIndicators(context.Background(), incidentID); err != nil {
+	if err := harness.Projections.RebuildIndicators(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild indicator projections: %v", err)
 	}
 	rowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.IndicatorsViewSchemaID, login), recordID.String())

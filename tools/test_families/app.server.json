@@ -162,34 +162,6 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "app.server.integration.replicated_model_fencing_6a57fb3221",
-      "owner_id": "app.server",
-      "family_id": "app.server.integration",
-      "collaborator_ids": [
-        "module.extensions",
-        "platform.config",
-        "platform.objectstore",
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "app.server.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/server",
-        "tests": [
-          "TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
-    },
-    {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
       "owner_id": "app.server",
       "family_id": "app.server.integration",
@@ -228,6 +200,34 @@
         "package": "./internal/platform/processlease",
         "tests": [
           "TestPostgresServingLeaseSharedExclusive_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "app.server.integration.single_active_process_fencing_6a57fb3221",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.config",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestSingleActiveProcessAndRecoveryServingFencing_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -561,7 +561,7 @@
       "selector": {
         "package": "./internal/app/serverprocess",
         "tests": [
-          "TestHarnessRuntimeRoutesDisabledByDefaultInServerProcess",
+          "TestHarnessRuntimeRoutesEnableOnlyForExactOneInServerProcess",
           "TestHarnessRuntimeRoutesFailClosedDuringServerStartup",
           "TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset"
         ]
@@ -598,6 +598,31 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831",
+      "owner_id": "app.server",
+      "family_id": "app.server.support_unit",
+      "collaborator_ids": [
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport",
+        "tests": [
+          "TestIncidentCreateCommitFaultRequiresValidatedTestRuntimeAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd",
       "owner_id": "app.server",
       "family_id": "app.server.support_unit",
@@ -614,9 +639,11 @@
           "TestServerRunnerCancellationDuringRuntimeSetupReturnsSuccess",
           "TestServerRunnerClosesRuntimeAndMapsServeFailure",
           "TestServerRunnerFailingDiagnosticsWriterDoesNotPanicOrSucceed",
+          "TestServerRunnerLogsPublicContractAdmissionWithoutRequestData",
           "TestServerRunnerMapsRuntimeSetupFailure",
           "TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad",
-          "TestServerRunnerWritesDiagnosticsAndReturnsFailure"
+          "TestServerRunnerWritesDiagnosticsAndReturnsFailure",
+          "TestServerRunnerWritesMigrationRemediationToStderr"
         ]
       },
       "evidence_class": "unit",
@@ -728,9 +755,12 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
+          "TestRuntimeApplicationProcessLeaseClosesAndRestoresAdmissionForOriginalSessionOnly",
+          "TestRuntimeRecoveryServingLeaseHasDistinctFatalOutcome",
           "TestServerRunnerFatalLossClosesAdmissionDrainsAndExitsSeventy",
-          "TestServerRunnerMapsConfirmedLeaseLossToExitSeventy",
           "TestServerRunnerMapsListenerStartupFailureToExitTwo",
+          "TestServerRunnerMapsTypedApplicationLeaseLossesToExitSeventy",
+          "TestServerRunnerMapsTypedLeaseAdmissionFailuresToExitTwo",
           "TestServerRunnerPublicationActivationFailureIsStartupFailure"
         ]
       },
@@ -757,6 +787,10 @@
       "selector": {
         "package": "./internal/app/server",
         "tests": [
+          "TestApplicationRouteContributionsAreExactCatalogProjection",
+          "TestBuiltInRouteContributionMembershipAndOrder",
+          "TestRouteContributionValidation",
+          "TestRuntimeCleanupIsReverseOrderedAndIdempotent",
           "TestRuntime_ExtensionPublication_AcknowledgmentValidation",
           "TestRuntime_ExtensionPublication_AtomicAdmissionGate",
           "TestRuntime_ExtensionPublication_CurrentAssemblyParity",
@@ -767,6 +801,7 @@
           "TestRuntime_ExtensionPublication_NoSecondPublicationPath",
           "TestRuntime_ExtensionPublication_OneServingEpoch",
           "TestRuntime_ExtensionPublication_PlanNotPersistedOrLogged",
+          "TestRuntime_ExtensionPublication_PreServingComponentLoss",
           "TestRuntime_ExtensionPublication_PreparedComponentsAreQuiescent",
           "TestRuntime_ExtensionPublication_PublishedComponentLoss",
           "TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering"

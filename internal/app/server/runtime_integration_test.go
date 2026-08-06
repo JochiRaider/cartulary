@@ -86,24 +86,24 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 
 }
 
-func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.T) {
+func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "replicated-process-model")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "single-active-process")
 	pool, err := pgxpool.New(ctx, testDB.DSN)
 	if err != nil {
-		t.Fatalf("open replicated postgres pool: %v", err)
+		t.Fatalf("open single-active postgres pool: %v", err)
 	}
 	defer pool.Close()
 
 	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(ctx, "replicated-process-model")
+	bucket, err := s3Harness.BootstrapBucket(ctx, "single-active-process")
 	if err != nil {
-		t.Fatalf("bootstrap replicated object bucket: %v", err)
+		t.Fatalf("bootstrap single-active object bucket: %v", err)
 	}
 	defer func() {
 		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Logf("cleanup replicated bucket: %v", err)
+			t.Logf("cleanup single-active bucket: %v", err)
 		}
 	}()
 	s3Env := s3Harness.Env(bucket)
@@ -116,19 +116,17 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 		Bucket:      s3Env[objectstore.BucketEnv],
 	}, objectstore.Instrumentation{})
 	if err != nil {
-		t.Fatalf("open replicated object store: %v", err)
+		t.Fatalf("open single-active object store: %v", err)
 	}
 	defer store.Close()
 
-	cfg := RuntimeConfig(t)
-	cfg.DeploymentProfile = "on_prem"
-	cfg.Application.ProcessModel = config.ProcessModelReplicated
+	loaded, err := configassembly.Admit(RuntimeConfig(t))
+	if err != nil {
+		t.Fatalf("admit single-active runtime fixture: %v", err)
+	}
+	cfg := loaded.Deployment()
+	cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds = 1
 	cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
-	cfg.Roots.DatabaseStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
-	cfg.Roots.ObjectStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
-	cfg.Roots.BackupStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "backup-primary"}
-	cfg.Roots.ReferencePackStorage = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
-	cfg.Roots.ExportOutputs = config.RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
 
 	restoreAdmission, err := processlease.Acquire(
 		ctx,
@@ -144,10 +142,11 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 	if err != nil {
 		t.Fatalf("acquire restore admission fixture: %v", err)
 	}
+	defer restoreAdmission.Close()
 	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store}); err == nil {
 		blockedRuntime.Close()
 		t.Fatal("server runtime started while restore held the exclusive serving lease")
-	} else if !errors.Is(err, processlease.ErrApplicationProcessActive) {
+	} else if !errors.Is(err, processlease.ErrRecoveryServingLeaseActive) {
 		t.Fatalf("server startup during restore failed with unexpected error: %v", err)
 	}
 	if err := restoreAdmission.Release(context.Background()); err != nil {
@@ -156,21 +155,32 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 
 	first, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
 	if err != nil {
-		t.Fatalf("start first replicated runtime: %v", err)
+		t.Fatalf("start first single-active runtime: %v", err)
 	}
-	defer first.Close()
-	second, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
-	if err != nil {
-		t.Fatalf("start overlapping replicated runtime: %v", err)
+	if first.processLease == nil || first.processLease.State() != processlease.StateHeld {
+		first.Close()
+		t.Fatal("first runtime did not hold the application-process lease")
 	}
-	defer second.Close()
-	if first.ProcessLease != nil || second.ProcessLease != nil {
-		t.Fatal("replicated runtimes acquired the single-process application lease")
+	if first.servingLease == nil || first.servingLease.State() != processlease.StateHeld {
+		first.Close()
+		t.Fatal("first runtime did not hold the application Recovery-serving lease")
 	}
-	if first.ServingLease == nil || first.ServingLease.State() != processlease.StateHeld ||
-		second.ServingLease == nil || second.ServingLease.State() != processlease.StateHeld {
-		t.Fatal("replicated runtimes did not hold shared server serving leases")
+	if first.stagedJanitor == nil {
+		first.Close()
+		t.Fatal("single-active runtime did not compose the lifecycle-owned staged-object janitor")
 	}
+
+	counters := installStartupCounters(t)
+	if second, secondErr := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store}); secondErr == nil {
+		second.Close()
+		first.Close()
+		t.Fatal("overlapping application runtime acquired the deployment-global lease")
+	} else if !errors.Is(secondErr, processlease.ErrApplicationProcessActive) {
+		first.Close()
+		t.Fatalf("overlapping application runtime failed with unexpected error: %v", secondErr)
+	}
+	counters.RequireNotStarted(t)
+
 	if _, err := processlease.Acquire(
 		ctx,
 		processlease.PostgresBackend{
@@ -182,53 +192,20 @@ func TestReplicatedProcessModelAllowsOverlappingRuntimes_Integration(t *testing.
 		20*time.Millisecond,
 		40*time.Millisecond,
 	); !errors.Is(err, processlease.ErrApplicationProcessActive) {
-		t.Fatalf("active shared serving leases did not block restore admission: %v", err)
-	}
-	if first.StagedJanitorLeader == nil || second.StagedJanitorLeader == nil {
-		t.Fatal("replicated runtimes did not compose component-fenced staged-object workers")
+		first.Close()
+		t.Fatalf("active application serving lease did not block Recovery admission: %v", err)
 	}
 	if err := first.ActivatePublication(); err != nil {
-		t.Fatalf("activate first replicated runtime: %v", err)
+		first.Close()
+		t.Fatalf("activate first single-active runtime: %v", err)
 	}
-	if err := second.ActivatePublication(); err != nil {
-		t.Fatalf("activate second replicated runtime: %v", err)
-	}
+	first.Close()
 
-	mismatched := cfg
-	mismatched.Import.Claimed = true
-	if third, err := NewRuntime(ctx, mismatched, Options{Postgres: pool, ObjectStore: store}); err == nil {
-		third.Close()
-		t.Fatal("replicated runtime admitted a conflicting publication plan")
-	} else if !strings.Contains(err.Error(), "publication-plan digest conflicts") {
-		t.Fatalf("conflicting publication plan error = %v", err)
+	later, err := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store})
+	if err != nil {
+		t.Fatalf("orderly release did not permit later acquisition: %v", err)
 	}
-
-	waitForLeader := func(t *testing.T, runtime *Runtime, want bool) {
-		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			if runtime.StagedJanitorLeader.IsLeader() == want {
-				return
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-		t.Fatalf("staged-object leader state = %v want %v", runtime.StagedJanitorLeader.IsLeader(), want)
-	}
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) &&
-		first.StagedJanitorLeader.IsLeader() == second.StagedJanitorLeader.IsLeader() {
-		time.Sleep(20 * time.Millisecond)
-	}
-	var leader, follower *Runtime
-	if first.StagedJanitorLeader.IsLeader() {
-		leader, follower = first, second
-	} else {
-		leader, follower = second, first
-	}
-	waitForLeader(t, leader, true)
-	waitForLeader(t, follower, false)
-	leader.Close()
-	waitForLeader(t, follower, true)
+	later.Close()
 }
 
 func TestFirstAdminBootstrap_Integration(t *testing.T) {
@@ -257,7 +234,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
 		defer runtime.Close()
-		if runtime.Extensions == nil || len(runtime.Extensions.RegistrySHA256()) != 64 {
+		if runtime.extensions == nil || len(runtime.extensions.RegistrySHA256()) != 64 {
 			t.Fatal("runtime did not retain the admitted immutable Extensions coordinator")
 		}
 
@@ -306,7 +283,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			t.Fatalf("activate publication after bootstrap commit: %v", err)
 		}
 
-		server := httptest.NewServer(runtime.Handler)
+		server := httptest.NewServer(runtime.HTTPHandler())
 		defer server.Close()
 		resp, err := http.Get(server.URL + "/readyz")
 		if err != nil {

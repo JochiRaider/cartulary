@@ -55,10 +55,10 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 
 	store := newTestNetworkFlowStore(
 		t,
-		harness.Server.Runtime.Postgres,
-		harness.Server.Runtime.Revisions.Appender(),
+		harness.Pool,
+		harness.Revisions.Appender(),
 	)
-	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "flows.csv")
+	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "flows.csv")
 	first := testFlowRow(1, "1")
 	first.SrcIP = "192.0.2.10"
 	second := testFlowRow(2, "2")
@@ -146,7 +146,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected rejected-row diagnostics: %#v", rejected)
 	}
 
-	invalidationMessages, unsubscribeInvalidations := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 4)
+	invalidationMessages, unsubscribeInvalidations := harness.Collaboration.SubscribeIncident(incidentID, 4)
 	defer unsubscribeInvalidations()
 
 	tablePath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID
@@ -316,10 +316,10 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 
 	store := newTestNetworkFlowStore(
 		t,
-		harness.Server.Runtime.Postgres,
-		harness.Server.Runtime.Revisions.Appender(),
+		harness.Pool,
+		harness.Revisions.Appender(),
 	)
-	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "graph-flows.csv")
+	sessionID, unitID := seedImportSessionUnit(t, harness.Pool, incidentID, adminID, "graph-flows.csv")
 	first := testFlowRow(1, "a")
 	second := testFlowRow(2, "b")
 	second.BytesCount = "100"

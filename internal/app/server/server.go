@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
@@ -51,7 +50,7 @@ type serverRuntime struct {
 	ActivatePublication  func() error
 	FatalEvents          <-chan processlifecycle.FatalSignal
 	Fatal                func(string) bool
-	ShutdownDrainSeconds int64
+	ShutdownDrainTimeout time.Duration
 	PublicHTTP           httpapi.RouteDiagnostics
 }
 
@@ -80,10 +79,10 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 				return serverRuntime{}, err
 			}
 			return serverRuntime{
-				Handler: runtime.Handler, Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
+				Handler: runtime.HTTPHandler(), Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
 				FatalEvents: runtime.FatalEvents(), Fatal: runtime.PublishedComponentLost,
-				ShutdownDrainSeconds: runtime.Settings.ShutdownDrainSeconds,
-				PublicHTTP:           runtime.PublicHTTP,
+				ShutdownDrainTimeout: runtime.ShutdownDrainTimeout(),
+				PublicHTTP:           runtime.PublicHTTPDiagnostics(),
 			}, nil
 		},
 		lookupEnv: os.LookupEnv,
@@ -111,10 +110,6 @@ func (runner serverRunner) run(ctx context.Context) int {
 	if err != nil {
 		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
 			return 0
-		}
-		if errors.Is(err, processlease.ErrLeaseLost) {
-			runner.writeFatalDiagnostic(processlifecycle.FatalSignal{ReasonCode: "application_process_lease_lost", ExitCode: 70})
-			return 70
 		}
 		var fatalStartup interface{ FatalReasonCode() string }
 		if errors.As(err, &fatalStartup) && fatalStartup.FatalReasonCode() != "" {
@@ -152,14 +147,14 @@ func (runner serverRunner) run(ctx context.Context) int {
 			Address:         address,
 			InheritedFD:     runner.profile.inheritedListenerFD(runner.lookupEnv),
 			Logger:          logger,
-			ShutdownTimeout: time.Duration(runtime.ShutdownDrainSeconds) * time.Second,
+			ShutdownTimeout: runtime.ShutdownDrainTimeout,
 			OnReady:         runtime.ActivatePublication,
 		})
 	}()
 	select {
 	case fatal := <-runtime.FatalEvents:
 		cancelServe()
-		runner.awaitDrain(serveDone, runtime.ShutdownDrainSeconds)
+		runner.awaitDrain(serveDone, runtime.ShutdownDrainTimeout)
 		runner.writeFatalDiagnostic(fatal)
 		return 70
 	case serveErr := <-serveDone:
@@ -179,11 +174,11 @@ func (runner serverRunner) run(ctx context.Context) int {
 	}
 }
 
-func (runner serverRunner) awaitDrain(serveDone <-chan error, seconds int64) {
-	if seconds <= 0 {
-		seconds = 1
+func (runner serverRunner) awaitDrain(serveDone <-chan error, timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = time.Second
 	}
-	timer := time.NewTimer(time.Duration(seconds) * time.Second)
+	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
 	case <-serveDone:

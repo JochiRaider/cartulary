@@ -495,7 +495,6 @@
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.unit",
       "collaborator_ids": [
-        "app.server",
         "platform.rootedfs"
       ],
       "verification_ids": [
@@ -503,7 +502,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/app/server",
+        "package": "./internal/app/incidentportabilityassembly",
         "tests": [
           "TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit",
           "TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"

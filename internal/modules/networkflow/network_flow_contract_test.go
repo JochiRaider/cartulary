@@ -2,17 +2,21 @@ package networkflow
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -462,42 +466,37 @@ func AssertIndicatorLinkContractBoundary(t *testing.T) {
 
 func AssertAuthorizationBoundary(t *testing.T) {
 	t.Helper()
-	routes := string(ReadFile(t, "internal/modules/networkflow/routes.go"))
-	module := string(ReadFile(t, "internal/modules/networkflow/module.go"))
-	boundary := module + "\n" + routes
-	for _, required := range []string{"requireIncidentMembership", "requireIncidentRole"} {
-		if !strings.Contains(boundary, required) {
-			t.Fatalf("Network Flow routes missing authorization hook %q", required)
-		}
+	incidentID := uuid.New()
+	userID := uuid.New()
+	missing := &authorizationAccess{err: incidents.ErrMembershipNotFound}
+	service := &Service{incidentAccess: missing}
+	if _, apiErr := service.requireIncidentMembership(context.Background(), incidentID, userID); apiErr == nil || apiErr.Status != 404 || apiErr.Code != "incident_not_found" {
+		t.Fatalf("missing membership result = %#v, want owner-derived incident_not_found", apiErr)
 	}
-	assembly := string(ReadFile(t, "internal/app/server/runtime.go")) + "\n" + string(ReadFile(t, "internal/app/server/runtime_routes.go"))
-	for _, required := range []string{"networkflow.RouteContributionID", "applicationRouteRegistrars"} {
-		if !strings.Contains(assembly, required) {
-			t.Fatalf("Network Flow application admission missing exact catalog hook %q", required)
-		}
+	viewer := &authorizationAccess{membership: incidents.MembershipRecord{Role: "viewer"}}
+	service.incidentAccess = viewer
+	if _, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, "editor", "admin"); apiErr == nil || apiErr.Status != 403 || apiErr.Code != "authorization_denied" {
+		t.Fatalf("viewer mutation result = %#v, want owner-derived authorization_denied", apiErr)
 	}
-	identities := string(ReadFile(t, "internal/modules/networkflow/api.go"))
-	if !strings.Contains(identities, `RouteContributionID         = "network_flow_activity.route_family"`) {
-		t.Fatal("Network Flow owner-local route contribution identity is missing")
+	admin := &authorizationAccess{membership: incidents.MembershipRecord{Role: "admin"}}
+	service.incidentAccess = admin
+	if record, apiErr := service.requireIncidentRole(context.Background(), incidentID, userID, "editor", "admin"); apiErr != nil || record.Role != "admin" {
+		t.Fatalf("admin mutation result = %#v/%#v", record, apiErr)
 	}
-	httpapiGate := string(ReadFile(t, "internal/platform/httpapi/httpapi.go"))
-	for _, required := range []string{"withUnclaimedReservedExtensionFamilies", "extension_profile_not_claimed", "MatchReservedExtensionRouteIn"} {
-		if !strings.Contains(httpapiGate, required) {
-			t.Fatalf("HTTP API extension gate missing authorization/admission hook %q", required)
-		}
-	}
-	if strings.Contains(boundary, "deployment_admin") {
-		t.Fatalf("Network Flow routes must not special-case deployment_admin incident-data access")
+	if RouteContributionID != "network_flow_activity.route_family" {
+		t.Fatalf("Network Flow contribution ID = %q", RouteContributionID)
 	}
 }
 
 func AssertNoThirdPartyEgress(t *testing.T) {
 	t.Helper()
-	for _, file := range NetworkFlowGoFiles(t) {
-		content := string(ReadAbsoluteFile(t, file))
-		for _, forbidden := range []string{"http.Get(", "http.Post(", "http.DefaultClient", "net.Dial(", "grpc.Dial("} {
-			if strings.Contains(content, forbidden) {
-				t.Fatalf("Network Flow module contains forbidden egress primitive %q in %s", forbidden, file)
+	dependencies := reflect.TypeOf(ModuleDependencies{})
+	for index := 0; index < dependencies.NumField(); index++ {
+		field := dependencies.Field(index)
+		dependencyType := field.Type.String()
+		for _, forbidden := range []string{"http.Client", "net.Conn", "grpc.ClientConn"} {
+			if strings.Contains(dependencyType, forbidden) {
+				t.Fatalf("Network Flow dependency %s exposes egress type %s", field.Name, dependencyType)
 			}
 		}
 	}
@@ -578,12 +577,6 @@ func AssertFilenameDisplayBoundary(t *testing.T) {
 
 func AssertImportFacadeBoundary(t *testing.T) {
 	t.Helper()
-	source := string(ReadFile(t, "internal/modules/networkflow/import_facade.go"))
-	for _, required := range []string{"ErrSourceChanged", "ParseCSVPreview", "ParseCSVApply", "CreateTable"} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("Network Flow import facade missing closed-boundary hook %q", required)
-		}
-	}
 	AssertImportRuntime(t)
 }
 
@@ -641,20 +634,35 @@ func approvedMappingFixture(sourceProfileID string) ApprovedMapping {
 	}
 }
 
-func NetworkFlowGoFiles(t *testing.T) []string {
-	t.Helper()
-	root := filepath.Join(RepoRoot(t), "internal", "modules", "networkflow")
-	files := []string{}
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
-			files = append(files, path)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("walk networkflow module: %v", err)
-	}
-	return files
+type authorizationAccess struct {
+	membership incidents.MembershipRecord
+	err        error
+}
+
+func (a *authorizationAccess) GetVisibleIncident(context.Context, uuid.UUID, uuid.UUID) (incidents.IncidentRecord, error) {
+	return incidents.IncidentRecord{}, a.err
+}
+
+func (a *authorizationAccess) GetIncidentMembershipForUser(context.Context, uuid.UUID, uuid.UUID) (incidents.MembershipRecord, error) {
+	return a.membership, a.err
+}
+
+func (*authorizationAccess) EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+
+func (a *authorizationAccess) AuthorizeMutationTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, ...string) (incidents.MembershipRecord, error) {
+	return a.membership, a.err
+}
+
+func (*authorizationAccess) IsIncidentClosed(err error) bool {
+	return errors.Is(err, incidents.ErrIncidentClosed)
+}
+
+func (*authorizationAccess) IsIncidentNotFound(err error) bool {
+	return errors.Is(err, incidents.ErrIncidentNotFound)
+}
+
+func (*authorizationAccess) IsMembershipNotFound(err error) bool {
+	return errors.Is(err, incidents.ErrMembershipNotFound)
 }

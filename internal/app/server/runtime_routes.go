@@ -36,10 +36,17 @@ type extensionRouteBinding struct {
 	baseRegistrarID string
 }
 
-func applicationRouteRegistrars(
+type applicationRouteCatalog struct {
+	publication extensionassembly.PublicationCatalog
+}
+
+func newApplicationRouteCatalog(publication extensionassembly.PublicationCatalog) applicationRouteCatalog {
+	return applicationRouteCatalog{publication: publication}
+}
+
+func (catalog applicationRouteCatalog) Bind(
 	contributions []routeContribution,
 	extensionBindings []extensionRouteBinding,
-	catalog extensionassembly.PublicationCatalog,
 ) ([]httpapi.RouteRegistrar, error) {
 	if len(contributions) != len(requiredBuiltInRouteContributionIDs) {
 		return nil, fmt.Errorf("built-in route contribution count got %d want %d", len(contributions), len(requiredBuiltInRouteContributionIDs))
@@ -55,7 +62,7 @@ func applicationRouteRegistrars(
 	if err != nil {
 		return nil, err
 	}
-	claimedRoutes := catalog.ContributionIDs("http_route_family")
+	claimedRoutes := catalog.publication.ContributionIDs("http_route_family")
 	claimed := make(map[string]struct{}, len(claimedRoutes))
 	for _, contributionID := range claimedRoutes {
 		claimed[contributionID] = struct{}{}

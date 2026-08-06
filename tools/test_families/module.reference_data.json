@@ -396,7 +396,6 @@
       "owner_id": "module.reference_data",
       "family_id": "module.reference_data.unit",
       "collaborator_ids": [
-        "app.server",
         "platform.rootedfs"
       ],
       "verification_ids": [
@@ -404,7 +403,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/app/server",
+        "package": "./internal/app/referenceassembly",
         "tests": [
           "TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit",
           "TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit"

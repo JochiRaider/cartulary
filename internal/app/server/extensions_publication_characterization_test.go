@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -305,33 +304,27 @@ func TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering(t *testin
 }
 
 func TestRuntime_ExtensionPublication_NoIndependentRederivation(t *testing.T) {
-	source, err := os.ReadFile("runtime.go")
-	if err != nil {
+	controller, _, _ := preparedPublicationController(t)
+	if err := controller.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	for _, obsolete := range []string{
-		"configuredExtensionClaimIDs",
-		"extensionHTTPProfiles",
-		"revisionExtensionClaims",
-		"switch descriptor.ProfileID",
-		"normalizedCfg.EnterpriseAuthentication.Claimed",
-	} {
-		if strings.Contains(string(source), obsolete) {
-			t.Fatalf("obsolete independent derivation %s remains", obsolete)
-		}
+	acknowledgeAllPublicationComponents(t, controller)
+	if err := controller.Serve(); err != nil {
+		t.Fatal(err)
 	}
-	for _, required := range []string{
-		"extensionassembly.ResolveClaimRequest",
-		"extensionassembly.NewPublicationCatalog",
-		"publicationHTTPProjections",
-		"provider.publication.Discovery()",
-		"provider.publication.Claims()",
-		"provider.publication.Routes()",
-		"provider.publication.Workspaces()",
-	} {
-		if !strings.Contains(string(source), required) {
-			t.Fatalf("runtime consumers are not visibly bound to the immutable publication projection %q", required)
-		}
+
+	provider := publicationHTTPProjections{publication: controller}
+	if got, want := len(provider.ExtensionDiscoveryProfiles()), len(controller.Discovery()); got != want {
+		t.Fatalf("discovery projection count got %d want %d", got, want)
+	}
+	if got, want := len(provider.ExtensionClaims()), len(controller.Claims()); got != want {
+		t.Fatalf("claim projection count got %d want %d", got, want)
+	}
+	if got, want := len(provider.ExtensionRoutes()), len(controller.Routes()); got != want {
+		t.Fatalf("route projection count got %d want %d", got, want)
+	}
+	if got, want := len(provider.ExtensionWorkspaces()), len(controller.Workspaces()); got != want {
+		t.Fatalf("workspace projection count got %d want %d", got, want)
 	}
 }
 
@@ -403,14 +396,12 @@ func TestRuntime_ExtensionPublication_PlanNotPersistedOrLogged(t *testing.T) {
 			t.Fatalf("publication plan exposes field %s", planType.Field(index).Name)
 		}
 	}
-	for _, path := range []string{"runtime.go", "publication_controller.go"} {
-		source, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, forbidden := range []string{"CanonicalJSON", "canonicalJSON", "PersistPublication", "LogPublication"} {
-			if strings.Contains(string(source), forbidden) {
-				t.Fatalf("%s contains forbidden publication byte path %s", path, forbidden)
+	controllerType := reflect.TypeOf(PublicationController{})
+	for index := 0; index < controllerType.NumField(); index++ {
+		fieldType := controllerType.Field(index).Type.String()
+		for _, forbidden := range []string{"postgres", "pgx", "objectstore", "slog.Logger", "log.Logger"} {
+			if strings.Contains(fieldType, forbidden) {
+				t.Fatalf("publication controller field %s exposes persistence/logging dependency %s", controllerType.Field(index).Name, fieldType)
 			}
 		}
 	}
@@ -459,11 +450,11 @@ func preparedPublicationController(t testing.TB) (*PublicationController, extens
 	t.Helper()
 	_, plan := generatedPublicationPlan(t)
 	lifecycle := processlifecycle.New()
-	controller := NewPublicationController(lifecycle)
-	if err := controller.Prepare(plan); err != nil {
+	orchestrator, err := preparePublicationOrchestrator(lifecycle, plan)
+	if err != nil {
 		t.Fatal(err)
 	}
-	return controller, plan, lifecycle
+	return orchestrator.PublicationController, plan, lifecycle
 }
 
 func acknowledgeAllPublicationComponents(t testing.TB, controller *PublicationController) {

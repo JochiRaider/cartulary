@@ -194,7 +194,7 @@
       "owner_id": "extensions"
     },
     {
-      "schema_id": "cartulary.extension_shared_protocol_contract_set.v3",
+      "schema_id": "cartulary.extension_shared_protocol_contract_set.v4",
       "artifact_class": "owner_input",
       "owner_id": "extensions"
     },

@@ -1,4 +1,4 @@
-package server
+package referenceassembly_test
 
 import (
 	"context"
@@ -8,15 +8,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.T) {
 	temporaryRoot := filepath.Join(t.TempDir(), "temporary")
 	publishedRoot := filepath.Join(t.TempDir(), "reference-packs")
-	storage, err := newReferencePackRootStorage(temporaryRoot, publishedRoot)
+	storage, err := referenceassembly.NewRootStorage(temporaryRoot, publishedRoot)
 	if err != nil {
-		t.Fatalf("newReferencePackRootStorage: %v", err)
+		t.Fatalf("NewRootStorage: %v", err)
 	}
 	t.Cleanup(storage.Close)
 
@@ -29,9 +30,12 @@ func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.
 	}
 	stagedPath := filepath.Join(temporaryRoot, filepath.FromSlash(staged.String()))
 	assertPrivateRegularFile(t, stagedPath, []byte("staged pack"))
-	data, err := storage.ReadStaged(staged, 1024)
+	data, err := storage.ReadStaged(staged, int64(len("staged pack")))
 	if err != nil || string(data) != "staged pack" {
 		t.Fatalf("ReadStaged = %q, %v", data, err)
+	}
+	if _, err := storage.ReadStaged(staged, int64(len("staged pack")-1)); err == nil {
+		t.Fatal("over-limit ReadStaged succeeded")
 	}
 	if err := storage.RemoveStaged(staged); err != nil {
 		t.Fatalf("RemoveStaged: %v", err)
@@ -40,7 +44,11 @@ func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.
 		t.Fatalf("RemoveStaged idempotent retry: %v", err)
 	}
 
-	published, err := storage.Publish(context.Background(), strings.Repeat("b", 64), []byte("published pack"))
+	if _, err := storage.Publish(context.Background(), "invalid", []byte("invalid")); err == nil {
+		t.Fatal("Publish accepted an invalid bundle digest")
+	}
+	bundleSHA := strings.Repeat("b", 64)
+	published, err := storage.Publish(context.Background(), bundleSHA, []byte("published pack"))
 	if err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
@@ -49,11 +57,14 @@ func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.
 	}
 	publishedPath := filepath.Join(publishedRoot, filepath.FromSlash(published.String()))
 	assertPrivateRegularFile(t, publishedPath, []byte("published pack"))
-	data, err = storage.ReadPublished(published, 1024)
+	data, err = storage.ReadPublished(published, int64(len("published pack")))
 	if err != nil || string(data) != "published pack" {
 		t.Fatalf("ReadPublished = %q, %v", data, err)
 	}
-	second, err := storage.Publish(context.Background(), strings.Repeat("b", 64), []byte("second pack"))
+	if _, err := storage.ReadPublished(published, int64(len("published pack")-1)); err == nil {
+		t.Fatal("over-limit ReadPublished succeeded")
+	}
+	second, err := storage.Publish(context.Background(), bundleSHA, []byte("second pack"))
 	if err != nil {
 		t.Fatalf("second Publish: %v", err)
 	}
@@ -68,7 +79,7 @@ func TestReferencePackRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing.
 
 func TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacement_Unit(t *testing.T) {
 	t.Run("cancellation leaves no partial publication", func(t *testing.T) {
-		storage, err := newReferencePackRootStorage(
+		storage, err := referenceassembly.NewRootStorage(
 			filepath.Join(t.TempDir(), "temporary"),
 			filepath.Join(t.TempDir(), "published"),
 		)
@@ -98,7 +109,7 @@ func TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacem
 		if err := os.Symlink(outside, filepath.Join(temporaryRoot, "reference-packs", "imports")); err != nil {
 			t.Fatal(err)
 		}
-		storage, err := newReferencePackRootStorage(temporaryRoot, publishedRoot)
+		storage, err := referenceassembly.NewRootStorage(temporaryRoot, publishedRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -127,7 +138,7 @@ func TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacem
 				t.Fatal(err)
 			}
 		}
-		storage, err := newReferencePackRootStorage(temporaryRoot, publishedRoot)
+		storage, err := referenceassembly.NewRootStorage(temporaryRoot, publishedRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,4 +153,22 @@ func TestReferencePackRootStorageFailsClosedOnCancellationSymlinkAndRootReplacem
 			t.Fatalf("Stage after root replacement error = %v; want ErrRootIdentityChanged", err)
 		}
 	})
+}
+
+func assertPrivateRegularFile(t testing.TB, path string, want []byte) {
+	t.Helper()
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
+		t.Fatalf("%s mode = %v; want private regular file", path, info.Mode())
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(want) {
+		t.Fatalf("%s bytes = %q want %q", path, data, want)
+	}
 }

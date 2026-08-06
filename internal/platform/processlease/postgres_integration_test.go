@@ -25,25 +25,23 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 	if err := warmPostgresLeaseSessions(warmCtx, pool, 2); err != nil {
 		t.Fatalf("warm postgres process lease sessions: %v", err)
 	}
-	backend := PostgresBackend{Pool: pool}
-
-	first, err := Acquire(context.Background(), backend, 100*time.Millisecond, 40*time.Millisecond)
+	first, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first process lease: %v", err)
 	}
-	if _, err := Acquire(context.Background(), backend, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
+	if _, err := AcquireApplicationProcess(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
 		t.Fatalf("overlapping process acquisition = %v", err)
 	}
 	if err := first.Release(context.Background()); err != nil {
 		t.Fatalf("release first process lease: %v", err)
 	}
 
-	crashed, err := Acquire(context.Background(), backend, 100*time.Millisecond, 40*time.Millisecond)
+	crashed, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire crash lease: %v", err)
 	}
 	crashed.Close()
-	afterCrash, err := Acquire(context.Background(), backend, 100*time.Millisecond, 40*time.Millisecond)
+	afterCrash, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("database session close did not release crash lease: %v", err)
 	}
@@ -51,18 +49,18 @@ func TestPostgresApplicationProcessLease_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lost, err := Acquire(context.Background(), backend, 100*time.Millisecond, 20*time.Millisecond)
+	lost, err := AcquireApplicationProcess(context.Background(), pool, 100*time.Millisecond, 20*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
 	monitorCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	lost.StartMonitor(monitorCtx)
-	session := lost.session.(*postgresSession)
+	session := lost.Lease.session.(*postgresSession)
 	if err := session.connection.Conn().Close(context.Background()); err != nil {
 		t.Fatalf("close lease backend session: %v", err)
 	}
-	waitForPostgresLeaseState(t, lost, StateLost)
+	waitForPostgresLeaseState(t, lost.Lease, StateLost)
 	if err := lost.Release(context.Background()); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("lost process lease was releasable/reacquirable: %v", err)
 	}
@@ -76,12 +74,6 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	sharedBackend := PostgresBackend{
-		Pool:        pool,
-		AdvisoryKey: ServingAdvisoryKey,
-		Purpose:     "server serving",
-		Mode:        LockShared,
-	}
 	exclusiveBackend := PostgresBackend{
 		Pool:        pool,
 		AdvisoryKey: ServingAdvisoryKey,
@@ -89,12 +81,12 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		Mode:        LockExclusive,
 	}
 
-	firstShared, err := Acquire(context.Background(), sharedBackend, 5*time.Second, 40*time.Millisecond)
+	firstShared, err := AcquireApplicationRecoveryServing(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire first shared serving lease: %v", err)
 	}
 	t.Cleanup(firstShared.Close)
-	secondShared, err := Acquire(context.Background(), sharedBackend, 5*time.Second, 40*time.Millisecond)
+	secondShared, err := AcquireApplicationRecoveryServing(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
 	if err != nil {
 		t.Fatalf("acquire second shared serving lease: %v", err)
 	}
@@ -114,7 +106,7 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 		t.Fatalf("acquire exclusive restore lease: %v", err)
 	}
 	t.Cleanup(exclusive.Close)
-	if _, err := Acquire(context.Background(), sharedBackend, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrApplicationProcessActive) {
+	if _, err := AcquireApplicationRecoveryServing(context.Background(), pool, 20*time.Millisecond, 40*time.Millisecond); !errors.Is(err, ErrRecoveryServingLeaseActive) {
 		t.Fatalf("server shared lease during restore = %v", err)
 	}
 	if err := exclusive.Release(context.Background()); err != nil {

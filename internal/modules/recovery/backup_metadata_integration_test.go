@@ -29,7 +29,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 		t,
 		"backup_restore-i-10-01-metadata",
 	)
-	store := recovery.NewStore(harness.Server.Runtime.Postgres)
+	store := recovery.NewStore(harness.Pool)
 	ctx := context.Background()
 	backupStorage, err := recoveryassembly.NewBackupStorage(
 		harness.Server.Config.Roots.BackupStorage.BindingKind,
@@ -62,7 +62,7 @@ func TestRealBackingStorageMetadataPersistsAndLatestLookup_Integration(t *testin
 	}
 	objectSHA := SHA256Hex(objectPayload)
 	objectBlobID := uuid.MustParse("00000000-0000-0000-0000-000000101003")
-	if _, err := harness.Server.Runtime.Postgres.Exec(ctx, `
+	if _, err := harness.Pool.Exec(ctx, `
 INSERT INTO object_blobs (
     object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
     byte_size, expected_sha256_hex, observed_size, observed_content_type, observed_sha256_hex,
@@ -75,14 +75,14 @@ INSERT INTO object_blobs (
 `, objectBlobID, incidentID, adminUserID, objectKey, int64(len(objectPayload)), objectSHA, asTime(t, "2026-05-22T13:00:00Z"), asTime(t, "2026-05-22T12:00:00Z")); err != nil {
 		t.Fatalf("insert source durable object blob row: %v", err)
 	}
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, harness.Server.Runtime.Postgres)
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, harness.Pool)
 	if err != nil {
 		t.Fatalf("capture postgres snapshot artifact: %v", err)
 	}
 	if !bytes.Contains(postgresArtifact, []byte("backup_restore-i-10-01")) {
 		t.Fatalf("postgres snapshot artifact does not contain seeded incident data: %s", postgresArtifact)
 	}
-	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(harness.Server.Runtime.Postgres))
+	blobIndex, err := recovery.AvailableBlobObjectIDsByStorageRef(ctx, recoveryprovider.New(harness.Pool))
 	if err != nil {
 		t.Fatalf("index source blob storage refs: %v", err)
 	}
@@ -164,7 +164,7 @@ INSERT INTO object_blobs (
 		t.Fatalf("latest SeaweedFS backup manifest does not prove the durable blob: %#v", decodedObjectManifest)
 	}
 
-	reopenedStore := recovery.NewStore(harness.Server.Runtime.Postgres)
+	reopenedStore := recovery.NewStore(harness.Pool)
 	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "backup_restore-i-10-01-service-backed-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {

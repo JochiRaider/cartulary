@@ -36,7 +36,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("create patch review and supersede replays stay single-write and preserve substrate", func(t *testing.T) {
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
+		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-01-replay")
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
 		incident := createIncident(t, server, adminLogin, map[string]any{
@@ -47,7 +47,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 24)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 24)
 		defer unsubscribe()
 
 		createResp := doJSON(
@@ -449,7 +449,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-01-rollback")
+		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-01-rollback")
 		defer db.Close()
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -461,10 +461,10 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 		incidentID := incident["incident_id"].(string)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 4)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 4)
 		defer unsubscribe()
 
-		facade := timelineFacadeWithProjectionFailure(t, server, func(workbookprojection.ProjectionMutation) error {
+		facade := timelineFacadeWithProjectionFailure(t, harness, func(workbookprojection.ProjectionMutation) error {
 			return errors.New("forced timeline rollback")
 		})
 		summary := "Rollback row"
@@ -473,7 +473,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 			ActivitySynopsisText: &summary,
 		}
 		_, err := facade.CreateRow(context.Background(), timeline.CreateRowCommand{
-			Actor:       loadTimelineTestUser(t, server, adminID),
+			Actor:       loadTimelineTestUser(t, harness, adminID),
 			IncidentID:  mustUUID(t, incidentID),
 			Request:     request,
 			RequestHash: timelineadmission.CreateRequestHash(request),
@@ -505,7 +505,7 @@ func TestCreatePatchReplayAndRollback_Integration(t *testing.T) {
 
 func TestRouteIdempotencyIsActorScoped(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "timeline_mutation-idempotency-actor-scope")
+	server, db, _ := startServer(t, runtime, "timeline_mutation-idempotency-actor-scope")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -649,7 +649,7 @@ SELECT COUNT(DISTINCT actor_user_id)
 
 func TestPatchSameFieldConflictEnvelope_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "timeline_mutation-i-3-04-same-field-conflict")
+	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-04-same-field-conflict")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -735,7 +735,7 @@ SELECT COUNT(*)
 
 func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "timeline_mutation-i-3-06-envelope-matrix")
+	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-06-envelope-matrix")
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -896,7 +896,7 @@ func TestRouteEnvelopeMatrix_Integration(t *testing.T) {
 
 func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "timeline_mutation-i-3-07-rough-preservation")
+	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-07-rough-preservation")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -985,7 +985,7 @@ func TestRoughUncertainCapturePreservation_Integration(t *testing.T) {
 func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
-	server, db := startServer(t, runtime, "timeline_mutation-i-3-02")
+	server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-02")
 	defer db.Close()
 
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1107,7 +1107,7 @@ func TestProjectionQueryUsesDeterministicRebuild_Integration(t *testing.T) {
 		t.Fatalf("query route must read projection rows, got %#v", emptyRows)
 	}
 
-	if err := server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
+	if err := harness.Projections.RebuildTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	rebuiltEnvelope := queryTimelineEnvelope(t, server, incidentID, adminLogin, map[string]any{})
@@ -1124,7 +1124,7 @@ func TestAuthorizationLifecycleAndSupersedeTransitions_Integration(t *testing.T)
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("authorization re-derives, reasons normalize, and supersede guards hold", func(t *testing.T) {
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-03")
+		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-03")
 		defer db.Close()
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1211,7 +1211,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, reviewerSession.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 16)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 16)
 		defer unsubscribe()
 
 		reviewDenied := doJSON(
@@ -1587,7 +1587,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {
 		rollbackEnabled := false
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-03-rollback")
+		server, db, harness := startServer(t, runtime, "timeline_mutation-i-3-03-rollback")
 		defer db.Close()
 
 		adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1611,12 +1611,12 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(db), incidentID)
 		socket := connectTimelineSocket(t, server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
-		hubChanges, unsubscribe := server.Runtime.CollaborationHub.SubscribeIncident(mustUUID(t, incidentID), 8)
+		hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(mustUUID(t, incidentID), 8)
 		defer unsubscribe()
 
 		before := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(db), incidentID, recordID)
 		rollbackEnabled = true
-		facade := timelineFacadeWithProjectionFailure(t, server, func(workbookprojection.ProjectionMutation) error {
+		facade := timelineFacadeWithProjectionFailure(t, harness, func(workbookprojection.ProjectionMutation) error {
 			if rollbackEnabled {
 				return errors.New("forced supersede rollback")
 			}
@@ -1630,7 +1630,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			ReplacementRecordID: &replacementRecordID,
 		}
 		_, err := facade.SupersedeRow(context.Background(), timeline.SupersedeCommand{
-			Actor:       loadTimelineTestUser(t, server, adminID),
+			Actor:       loadTimelineTestUser(t, harness, adminID),
 			RecordID:    mustUUID(t, recordID),
 			Request:     request,
 			RequestHash: timelineadmission.ActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID),
@@ -1669,7 +1669,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("handshake membership and presence snapshot use the canonical incident route", func(t *testing.T) {
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-05-handshake")
+		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-05-handshake")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1719,7 +1719,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 	})
 
 	t.Run("incident membership removal revokes only that incident socket", func(t *testing.T) {
-		server, db := startServer(t, runtime, "timeline_mutation-i-3-05-revocation")
+		server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-05-revocation")
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1763,7 +1763,7 @@ func TestCanonicalIncidentWebSocket_Integration(t *testing.T) {
 
 func TestTimelineTimeConversionProfile(t *testing.T) {
 	runtime := scenariotest.StartRuntime(t)
-	server, db := startServer(t, runtime, "timeline_mutation-i-3-08-time-conversion")
+	server, db, _ := startServer(t, runtime, "timeline_mutation-i-3-08-time-conversion")
 	defer db.Close()
 
 	adminLogin, adminID := provisionBootstrapAdmin(t, server)
@@ -1928,37 +1928,37 @@ func toLogin(login loginResult) flowtest.LoginResult {
 	}
 }
 
-func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+func startServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB, *scenariotest.ServerHarness) {
 	t.Helper()
 
 	harness := runtime.StartServer(t, prefix)
-	return harness.Server, harness.DB
+	return harness.Server, harness.DB, harness
 }
 
-func timelineFacadeWithProjectionFailure(t testing.TB, server *httptestx.Server, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
+func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.ServerHarness, fail func(workbookprojection.ProjectionMutation) error) *timeline.Facade {
 	t.Helper()
 
 	collaborators := timelineassembly.NewCollaborators(
-		server.Runtime.Postgres,
-		server.Runtime.Revisions.Appender(),
-		server.Runtime.CollaborationIntents,
-		evidence.NewTimelineAttachmentContribution(server.Runtime.Postgres),
+		harness.Pool,
+		harness.Revisions.Appender(),
+		harness.Collaboration.IntentAppender(),
+		evidence.NewTimelineAttachmentContribution(harness.Pool),
 	)
 	collaborators.Commit.Projection = fakeports.Projection{
 		Delegate:  collaborators.Commit.Projection,
 		FailApply: fail,
 	}
 	return timeline.NewFacade(
-		server.Runtime.Postgres,
+		harness.Pool,
 		collaborators,
 		conflicttest.NewCodec("timeline"),
 	)
 }
 
-func loadTimelineTestUser(t testing.TB, server *httptestx.Server, userID string) authn.UserRecord {
+func loadTimelineTestUser(t testing.TB, harness *scenariotest.ServerHarness, userID string) authn.UserRecord {
 	t.Helper()
 
-	user, err := authn.NewStore(server.Runtime.Postgres).GetUserByID(context.Background(), mustUUID(t, userID))
+	user, err := authn.NewStore(harness.Pool).GetUserByID(context.Background(), mustUUID(t, userID))
 	if err != nil {
 		t.Fatalf("load Timeline test user: %v", err)
 	}

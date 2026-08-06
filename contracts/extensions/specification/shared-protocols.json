@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.extension_shared_protocol_contract_set.v3",
+  "schema_id": "cartulary.extension_shared_protocol_contract_set.v4",
   "portability": {
     "export_result_schema_id": "cartulary.incident_portability_extension_export_result.v1",
     "import_result_schema_id": "cartulary.incident_portability_extension_import_result.v1",
@@ -33,22 +33,39 @@
       "acquiring",
       "held",
       "uncertain",
-      "lost"
+      "lost",
+      "released"
     ],
+    "scope": "deployment_global",
+    "holder_cardinality": 1,
+    "application_process": {
+      "identity": "application_process_lease",
+      "mode": "exclusive",
+      "active_reason": "extension_application_process_active",
+      "lost_reason": "application_process_lease_lost"
+    },
+    "recovery_serving": {
+      "identity": "recovery_serving_lease",
+      "application_mode": "shared",
+      "recovery_mode": "exclusive",
+      "active_reason": "recovery_serving_lease_active",
+      "application_lost_reason": "recovery_serving_lease_lost",
+      "recovery_loss_owner": "recovery"
+    },
     "initial_timeout_exit": 2,
     "confirmed_loss_exit": 70,
     "uncertainty_closes_admission": true,
     "recovery_proof": "original_session_only",
     "loss_irreversible": true,
-    "whole_process_scope": "single_only",
-    "replicated_scope": "component_specific"
+    "concurrent_serving": "forbidden",
+    "orderly_release": "held_to_released"
   },
   "staged_object": {
     "expiry_access": "immediate",
     "upload_abandonment": "immediate",
     "deletion_transaction": "forbidden",
     "sweep_serialization": "single",
-    "sweep_fencing": "whole_process_in_single_component_lease_in_replicated",
+    "sweep_fencing": "application_process_lease",
     "missed_interval_policy": "coalesce_one"
   },
   "restore": {

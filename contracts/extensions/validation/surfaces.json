@@ -255,19 +255,24 @@
           "surface_id": "core04.process_lease",
           "decision_rows": [
             {
-              "predicate": "single_process_model_and_initial_acquisition_timeout",
+              "predicate": "application_process_initial_acquisition_timeout",
               "outcome": "exit_2",
               "condition_id": "extension_application_lease_timeout"
             },
             {
-              "predicate": "single_process_model_and_held_session_confirmed_lost",
+              "predicate": "application_process_held_session_confirmed_lost",
               "outcome": "exit_70",
               "condition_id": "extension_application_lease_lost"
             },
             {
-              "predicate": "replicated_process_model_and_component_lease_lost",
-              "outcome": "component_unready_without_process_exit",
-              "condition_id": "extension_application_lease_lost"
+              "predicate": "recovery_holds_exclusive_serving_lease",
+              "outcome": "exit_2",
+              "condition_id": "recovery_serving_lease_active"
+            },
+            {
+              "predicate": "application_recovery_serving_lease_confirmed_lost",
+              "outcome": "exit_70",
+              "condition_id": "recovery_serving_lease_lost"
             }
           ],
           "conditions": [
@@ -287,7 +292,29 @@
               "condition_class": "dependency_unavailable",
               "phase": "process_lease",
               "path_algorithm_id": "extension_json_pointer_v1",
-              "reason_code": "extension_integrity_failure",
+              "reason_code": "application_process_lease_lost",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "recovery_serving_lease_active",
+              "condition_class": "dependency_unavailable",
+              "phase": "process_lease",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "recovery_serving_lease_active",
+              "expected_formatter_id": "diagnostic_exact_token_v1",
+              "actual_formatter_id": "diagnostic_redacted_v1",
+              "multiplicity": "single",
+              "secret_policy": "redacted"
+            },
+            {
+              "condition_id": "recovery_serving_lease_lost",
+              "condition_class": "dependency_unavailable",
+              "phase": "process_lease",
+              "path_algorithm_id": "extension_json_pointer_v1",
+              "reason_code": "recovery_serving_lease_lost",
               "expected_formatter_id": "diagnostic_exact_token_v1",
               "actual_formatter_id": "diagnostic_redacted_v1",
               "multiplicity": "single",

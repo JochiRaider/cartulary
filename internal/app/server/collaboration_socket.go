@@ -13,21 +13,25 @@ type collaborationSocket struct {
 	connection *platformws.Connection
 }
 
-func acceptCollaborationSocket(publicOrigin string) collaboration.AcceptSocket {
-	return func(w http.ResponseWriter, r *http.Request) (collaboration.Socket, error) {
-		connection, err := platformws.Accept(w, r, publicOrigin)
-		if err != nil {
-			return nil, err
-		}
-		connection.SetReadLimit(collaboration.MaximumMessageBytes)
-		return &collaborationSocket{connection: connection}, nil
-	}
+type collaborationSocketTransport struct {
+	publicOrigin string
 }
 
-func checkCollaborationBrowserOrigin(publicOrigin string) collaboration.CheckBrowserOrigin {
-	return func(w http.ResponseWriter, r *http.Request) bool {
-		return platformws.RejectUntrustedBrowserOrigin(w, r, publicOrigin)
+func newCollaborationSocketTransport(publicOrigin string) collaborationSocketTransport {
+	return collaborationSocketTransport{publicOrigin: publicOrigin}
+}
+
+func (transport collaborationSocketTransport) Accept(w http.ResponseWriter, r *http.Request) (collaboration.Socket, error) {
+	connection, err := platformws.Accept(w, r, transport.publicOrigin)
+	if err != nil {
+		return nil, err
 	}
+	connection.SetReadLimit(collaboration.MaximumMessageBytes)
+	return &collaborationSocket{connection: connection}, nil
+}
+
+func (transport collaborationSocketTransport) CheckBrowserOrigin(w http.ResponseWriter, r *http.Request) bool {
+	return platformws.RejectUntrustedBrowserOrigin(w, r, transport.publicOrigin)
 }
 
 func (s *collaborationSocket) Read(ctx context.Context) (collaboration.MessageKind, []byte, error) {

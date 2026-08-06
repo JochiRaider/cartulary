@@ -138,7 +138,7 @@ func run() error {
 		return fmt.Errorf("start source runtime: %w", err)
 	}
 	defer sourceRuntime.Close()
-	sourceServer, sourceOrigin, err := startRuntimeServer(sourceRuntime.Handler, sourceRuntime.ActivatePublication)
+	sourceServer, sourceOrigin, err := startRuntimeServer(sourceRuntime.HTTPHandler(), sourceRuntime.ActivatePublication)
 	if err != nil {
 		return fmt.Errorf("start source server: %w", err)
 	}
@@ -283,7 +283,7 @@ func run() error {
 	}
 	origin := "http://" + listener.Addr().String()
 	server := &http.Server{
-		Handler:           runtime.Handler,
+		Handler:           runtime.HTTPHandler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	serverErr := make(chan error, 1)

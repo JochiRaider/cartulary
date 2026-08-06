@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -474,7 +473,7 @@ UPDATE timeline_grid_projection
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 0, false)
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
-	if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildTimeline(context.Background(), incidentID); err != nil {
+	if err := harness.Projections.RebuildTimeline(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild timeline projection: %v", err)
 	}
 	requireTimelineProjectionStorage(t, harness, timelineRecordID, 1, true)
@@ -592,7 +591,7 @@ INSERT INTO record_links (
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identity_grid_projection SET evidence_count = 0 WHERE record_id = $1`, identityRecordID); err != nil {
 		t.Fatalf("corrupt identity evidence count: %v", err)
 	}
-	projectionRebuild := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+	projectionRebuild := harness.Projections
 	if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 		t.Fatalf("rebuild host evidence projection: %v", err)
 	}
@@ -657,11 +656,11 @@ func AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected ma
 
 func newEvidenceLifecycleTestStore(harness *appsupport.ServerHarness) *evidence.Store {
 	return evidence.NewStore(
-		harness.Server.Runtime.Postgres,
-		evidence.WithRevisionAppender(harness.Server.Runtime.Revisions.Appender()),
-		evidence.WithCollaborationIntents(harness.Server.Runtime.CollaborationIntents),
+		harness.Pool,
+		evidence.WithRevisionAppender(harness.Revisions.Appender()),
+		evidence.WithCollaborationIntents(harness.Collaboration.IntentAppender()),
 		evidence.WithProjectionPort(
-			timelineassembly.EvidenceProjectionPortFor(harness.Server.Runtime.Timeline.ProjectionCatalog),
+			harness.Projections.EvidencePort(),
 		),
 	)
 }
@@ -927,7 +926,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		}
 
 		storageKey := blobStorageKey(t, harness, objectBlobID)
-		if err := harness.Server.Runtime.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
+		if err := harness.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
 			t.Fatalf("delete object bytes: %v", err)
 		}
 		if got := countEvidenceBlobLinks(t, harness, recordID); got != 1 {
@@ -956,7 +955,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		cleanupBlobID := uuid.New()
 		cleanupKey := "evidence_lifecycle/i-04/cleanup/" + cleanupBlobID.String()
 		cleanupPayload := "evidence_lifecycle cleanup orphan bytes"
-		if err := harness.Server.Runtime.ObjectStore.PutObject(context.Background(), cleanupKey, strings.NewReader(cleanupPayload), int64(len(cleanupPayload)), "text/plain"); err != nil {
+		if err := harness.ObjectStore.PutObject(context.Background(), cleanupKey, strings.NewReader(cleanupPayload), int64(len(cleanupPayload)), "text/plain"); err != nil {
 			t.Fatalf("put cleanup candidate object: %v", err)
 		}
 		insertFailedCleanupBlob(t, harness, incidentID, adminID, cleanupBlobID, cleanupKey, now)
@@ -965,16 +964,16 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "evidence_lifecycle/i-04/expired/"+expiredBlobID.String(), now)
 
 		result, err := evidence.NewStore(
-			harness.Server.Runtime.Postgres,
-			evidence.WithRevisionAppender(harness.Server.Runtime.Revisions.Appender()),
-		).CleanupFailedUnattachedBlobBytes(context.Background(), harness.Server.Runtime.ObjectStore, now, 10)
+			harness.Pool,
+			evidence.WithRevisionAppender(harness.Revisions.Appender()),
+		).CleanupFailedUnattachedBlobBytes(context.Background(), harness.ObjectStore, now, 10)
 		if err != nil {
 			t.Fatalf("cleanup failed unattached blob bytes: %v", err)
 		}
 		if result.ExpiredPendingCount != 1 || result.CleanedBlobCount != 1 {
 			t.Fatalf("cleanup result got expired=%d cleaned=%d want 1/1", result.ExpiredPendingCount, result.CleanedBlobCount)
 		}
-		if _, err := harness.Server.Runtime.ObjectStore.StatObject(context.Background(), cleanupKey); err == nil {
+		if _, err := harness.ObjectStore.StatObject(context.Background(), cleanupKey); err == nil {
 			t.Fatalf("cleanup candidate object bytes still exist at %s", cleanupKey)
 		}
 		requireCleanedFailedBlobMetadata(t, harness, cleanupBlobID)

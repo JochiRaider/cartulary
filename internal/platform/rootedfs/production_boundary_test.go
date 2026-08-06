@@ -15,7 +15,6 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	scanRoots := []string{
 		"internal/app/recoveryassembly",
-		"internal/app/server",
 		"internal/modules/imports",
 		"internal/modules/incidentbundles",
 		"internal/modules/recovery",

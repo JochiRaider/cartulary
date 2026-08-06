@@ -14,16 +14,29 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 )
 
-func collaborationSettings(cfg configassembly.Deployment, hub *collaboration.Hub) collaboration.Settings {
+type applicationSettingsProjection struct {
+	deployment configassembly.Deployment
+}
+
+func newApplicationSettingsProjection(cfg configassembly.Deployment) applicationSettingsProjection {
+	return applicationSettingsProjection{deployment: cfg}
+}
+
+func (projection applicationSettingsProjection) Collaboration(
+	hub *collaboration.Hub,
+	transport collaborationSocketTransport,
+) collaboration.Settings {
+	cfg := projection.deployment
 	return collaboration.Settings{
-		AcceptSocket:       acceptCollaborationSocket(cfg.Application.PublicOrigin),
-		CheckBrowserOrigin: checkCollaborationBrowserOrigin(cfg.Application.PublicOrigin),
+		AcceptSocket:       transport.Accept,
+		CheckBrowserOrigin: transport.CheckBrowserOrigin,
 		Hub:                hub,
 		ServiceVersion:     cfg.Telemetry.Resource.ServiceVersion,
 	}
 }
 
-func evidenceSettings(cfg configassembly.Deployment) evidence.Settings {
+func (projection applicationSettingsProjection) Evidence() evidence.Settings {
+	cfg := projection.deployment
 	return evidence.Settings{
 		MaxBlobBytes:   cfg.Limits.ObjectBlobs.MaxDeclaredByteSize,
 		PreviewMax:     cfg.Limits.Previews.MaxPreviewablePayloadBytes,
@@ -31,7 +44,8 @@ func evidenceSettings(cfg configassembly.Deployment) evidence.Settings {
 	}
 }
 
-func importLimits(cfg configassembly.Deployment) (imports.Limits, imports.ArchiveLimits) {
+func (projection applicationSettingsProjection) Imports() (imports.Limits, imports.ArchiveLimits) {
+	cfg := projection.deployment
 	return imports.Limits{
 			MaxCSVSourceBytes:  cfg.Limits.Imports.MaxCSVSourceBytes,
 			MaxXLSXSourceBytes: cfg.Limits.Imports.MaxXLSXSourceBytes,
@@ -45,7 +59,8 @@ func importLimits(cfg configassembly.Deployment) (imports.Limits, imports.Archiv
 		}
 }
 
-func incidentBundleLimits(cfg configassembly.Deployment) incidentbundles.Limits {
+func (projection applicationSettingsProjection) IncidentBundles() incidentbundles.Limits {
+	cfg := projection.deployment
 	return incidentbundles.Limits{
 		Archives: incidentbundles.ArchiveLimits{
 			DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes,
@@ -58,7 +73,8 @@ func incidentBundleLimits(cfg configassembly.Deployment) incidentbundles.Limits 
 	}
 }
 
-func referenceDataLimits(cfg configassembly.Deployment) reference_data.Limits {
+func (projection applicationSettingsProjection) ReferenceData() reference_data.Limits {
+	cfg := projection.deployment
 	return reference_data.Limits{
 		Archives: reference_data.ArchiveLimits{
 			DefaultMaxExtractedBytes: cfg.Limits.Archives.DefaultMaxExtractedBytes,
@@ -71,18 +87,19 @@ func referenceDataLimits(cfg configassembly.Deployment) reference_data.Limits {
 	}
 }
 
-func testResetBootstrap(cfg configassembly.Deployment) func(context.Context, pgx.Tx) error {
+func (projection applicationSettingsProjection) TestResetBootstrap() func(context.Context, pgx.Tx) error {
+	cfg := projection.deployment
 	return func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, configassembly.BootstrapSettings(cfg), tx)
 	}
 }
 
-func runtimeSettings(cfg configassembly.Deployment) RuntimeSettings {
-	return RuntimeSettings{
+func (projection applicationSettingsProjection) Runtime() runtimeSettings {
+	cfg := projection.deployment
+	return runtimeSettings{
 		TelemetryFlushTimeoutMS:  cfg.Telemetry.Shutdown.FlushTimeoutMS,
 		ReconciliationSeconds:    cfg.Timeouts.Extensions.ReconciliationSeconds,
 		StagedObjectSweepSeconds: cfg.Intervals.Extensions.StagedObjectSweepSeconds,
 		ShutdownDrainSeconds:     cfg.Timeouts.Extensions.ShutdownDrainSeconds,
-		ProcessModel:             cfg.Application.ProcessModel,
 	}
 }

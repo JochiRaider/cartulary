@@ -29,11 +29,10 @@
         "internal/app/extensionassembly/**",
         "internal/app/incidentportabilityassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
-        "internal/app/server/incident_bundle_storage.go",
         "internal/app/server/extensions_publication_characterization_test.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
-        "internal/app/server/runtime.go",
+        "internal/app/server/runtime_assembly.go",
         "internal/modules/incidentbundles/**",
         "internal/modules/artifacts/incident_bundle_source_port.go",
         "internal/modules/assessments/incident_bundle_source_port.go",
@@ -66,11 +65,11 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/reference_data",
       "allowed_importers": [
         "internal/app/extensionassembly/reference_pack_jobs.go",
+        "internal/app/referenceassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/server/module_settings.go",
         "internal/app/server/module_settings_test.go",
-        "internal/app/server/reference_pack_storage.go",
-        "internal/app/server/runtime.go",
+        "internal/app/server/runtime_assembly.go",
         "internal/modules/incidentbundles/source.go",
         "internal/modules/reference_data/**"
       ]
@@ -260,6 +259,21 @@
     }
   ],
   "forbidden_go_imports": [
+    {
+      "id": "app-server-publication-no-persistence-or-logging-imports",
+      "match_kind": "subtree",
+      "imports": [
+        "log",
+        "log/slog",
+        "github.com/JochiRaider/cartulary/internal/platform/objectstore",
+        "github.com/JochiRaider/cartulary/internal/platform/postgres",
+        "github.com/jackc/pgx/v5",
+        "github.com/jackc/pgx/v5/pgxpool"
+      ],
+      "scan_paths": ["internal/app/server/publication_controller.go"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "evidence-no-timeline-implementation",
       "match_kind": "subtree",
@@ -1091,7 +1105,7 @@
       ],
       "allowed_paths": [
         "internal/app/revisionassembly/revisions_test.go",
-        "internal/app/server/runtime.go",
+        "internal/app/server/runtime_assembly.go",
         "internal/modules/revisions/delete_restore_test.go",
         "internal/testutil/appsupport/workbook.go",
         "internal/testutil/collaborationsupport/intents.go",
@@ -1206,6 +1220,13 @@
       "production_only": false
     },
     {
+      "id": "incident-create-commit-seam-not-in-production-assembly",
+      "tokens": ["IncidentCreateCommit"],
+      "scan_paths": ["cmd/**", "internal/app/**", "internal/platform/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "retired-assessments-store-definition",
       "tokens": [
         "type Store struct",
@@ -1247,6 +1268,57 @@
         "internal/modules/recovery/**",
         "internal/platform/objectstore/**"
       ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "app-server-no-raw-filesystem-effects",
+      "tokens": [
+        "os.Create(",
+        "os.CreateTemp(",
+        "os.Lstat(",
+        "os.Mkdir(",
+        "os.MkdirAll(",
+        "os.MkdirTemp(",
+        "os.Open(",
+        "os.OpenFile(",
+        "os.OpenRoot(",
+        "os.ReadDir(",
+        "os.ReadFile(",
+        "os.Remove(",
+        "os.RemoveAll(",
+        "os.Rename(",
+        "os.Stat(",
+        "os.WriteFile("
+      ],
+      "scan_paths": ["internal/app/server/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "app-server-claim-resolution-single-construction",
+      "tokens": ["extensions.NewGeneratedCoordinator("],
+      "scan_paths": ["internal/app/server/**"],
+      "allowed_paths": ["internal/app/server/runtime_assembly.go"],
+      "production_only": true
+    },
+    {
+      "id": "network-flow-no-deployment-admin-bypass",
+      "tokens": ["deployment_admin"],
+      "scan_paths": ["internal/modules/networkflow/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "network-flow-no-third-party-egress-primitives",
+      "tokens": [
+        "http.Get(",
+        "http.Post(",
+        "http.DefaultClient",
+        "net.Dial(",
+        "grpc.Dial("
+      ],
+      "scan_paths": ["internal/modules/networkflow/**"],
       "allowed_paths": [],
       "production_only": true
     },
@@ -1576,7 +1648,7 @@
       "id": "evidence-owner-runtime-only-server-constructed",
       "tokens": ["evidence.NewOwnerRuntime("],
       "scan_paths": ["internal/**"],
-      "allowed_paths": ["internal/app/server/runtime.go"],
+      "allowed_paths": ["internal/app/server/runtime_assembly.go"],
       "production_only": true
     },
     {

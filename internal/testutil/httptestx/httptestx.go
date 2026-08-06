@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,9 +12,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -21,10 +33,181 @@ import (
 )
 
 type Server struct {
-	Runtime *server.Runtime
-	Config  configassembly.Deployment
-	HTTP    *stdhttptest.Server
-	Clock   *httpapi.TestClock
+	Config configassembly.Deployment
+	HTTP   *stdhttptest.Server
+	Clock  *httpapi.TestClock
+
+	runtime       *server.Runtime
+	jobs          *JobsCapability
+	collaboration *CollaborationCapability
+	revisions     *RevisionsCapability
+	projections   *ProjectionCapability
+}
+
+type JobsCapability struct {
+	manager *jobs.Manager
+	runner  *jobs.Runner
+}
+
+func (capability *JobsCapability) Create(ctx context.Context, params jobs.CreateParams) (jobs.Resource, error) {
+	if capability == nil || capability.manager == nil {
+		return jobs.Resource{}, errors.New("jobs create capability is unavailable")
+	}
+	return capability.manager.Create(ctx, params)
+}
+
+func (capability *JobsCapability) ConfigureDequeueGate(gate jobs.DequeueGate) {
+	if capability == nil || capability.runner == nil {
+		return
+	}
+	capability.runner.ConfigureDequeueGate(gate)
+}
+
+func (capability *JobsCapability) RecoverHandler(ctx context.Context, handlerName string) error {
+	if capability == nil || capability.runner == nil {
+		return errors.New("jobs recovery capability is unavailable")
+	}
+	return capability.runner.RecoverHandler(ctx, handlerName)
+}
+
+func (capability *JobsCapability) Activate(ctx context.Context) error {
+	if capability == nil || capability.runner == nil {
+		return errors.New("jobs activation capability is unavailable")
+	}
+	return capability.runner.Activate(ctx)
+}
+
+type CollaborationCapability struct {
+	hub        *collaboration.Hub
+	dispatcher *collaboration.Dispatcher
+	intents    collaboration.IntentAppender
+}
+
+func (capability *CollaborationCapability) SubscribeIncident(incidentID uuid.UUID, buffer int) (<-chan collaboration.Message, func()) {
+	if capability == nil || capability.hub == nil {
+		return nil, func() {}
+	}
+	return capability.hub.SubscribeIncident(incidentID, buffer)
+}
+
+func (capability *CollaborationCapability) RevokeSession(sessionID uuid.UUID, reasonCode string) {
+	if capability == nil || capability.hub == nil {
+		return
+	}
+	capability.hub.RevokeSession(sessionID, reasonCode)
+}
+
+func (capability *CollaborationCapability) CloseDispatcher(ctx context.Context) error {
+	if capability == nil || capability.dispatcher == nil {
+		return errors.New("collaboration dispatcher capability is unavailable")
+	}
+	return capability.dispatcher.Close(ctx)
+}
+
+func (capability *CollaborationCapability) NewDispatcher(pool *pgxpool.Pool, now func() time.Time) *collaboration.Dispatcher {
+	if capability == nil || capability.hub == nil || pool == nil {
+		return nil
+	}
+	return collaboration.NewDispatcher(pool, capability.hub, now)
+}
+
+func (capability *CollaborationCapability) IntentAppender() collaboration.IntentAppender {
+	if capability == nil {
+		return nil
+	}
+	return capability.intents
+}
+
+type RevisionsCapability struct {
+	runtime *revisionassembly.Runtime
+}
+
+func (capability *RevisionsCapability) Appender() *revisions.Appender {
+	if capability == nil || capability.runtime == nil {
+		return nil
+	}
+	return capability.runtime.Appender()
+}
+
+type ProjectionCapability struct {
+	bundle *timelineassembly.Bundle
+}
+
+func (capability *ProjectionCapability) RebuildTimeline(ctx context.Context, incidentID uuid.UUID) error {
+	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
+		return errors.New("timeline projection rebuild capability is unavailable")
+	}
+	return capability.bundle.ProjectionCatalog.Rebuild.RebuildTimeline(ctx, incidentID)
+}
+
+func (capability *ProjectionCapability) RebuildHosts(ctx context.Context, incidentID uuid.UUID) error {
+	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
+		return errors.New("host projection rebuild capability is unavailable")
+	}
+	return capability.bundle.ProjectionCatalog.Rebuild.RebuildHosts(ctx, incidentID)
+}
+
+func (capability *ProjectionCapability) RebuildIdentities(ctx context.Context, incidentID uuid.UUID) error {
+	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
+		return errors.New("identity projection rebuild capability is unavailable")
+	}
+	return capability.bundle.ProjectionCatalog.Rebuild.RebuildIdentities(ctx, incidentID)
+}
+
+func (capability *ProjectionCapability) RebuildIndicators(ctx context.Context, incidentID uuid.UUID) error {
+	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
+		return errors.New("indicator projection rebuild capability is unavailable")
+	}
+	return capability.bundle.ProjectionCatalog.Rebuild.RebuildIndicators(ctx, incidentID)
+}
+
+func (capability *ProjectionCapability) IndicatorProjectionPort() indicators.ProjectionPort {
+	if capability == nil || capability.bundle == nil {
+		return nil
+	}
+	return capability.bundle.ProjectionCoordinator
+}
+
+func (capability *ProjectionCapability) IndicatorSourceTextPort() indicators.SourceTextPort {
+	if capability == nil || capability.bundle == nil {
+		return nil
+	}
+	return indicatorassembly.NewSourceTextPort(capability.bundle.ProjectionCoordinator)
+}
+
+func (capability *ProjectionCapability) EvidencePort() evidence.ProjectionPort {
+	if capability == nil || capability.bundle == nil {
+		return nil
+	}
+	return timelineassembly.EvidenceProjectionPortFor(capability.bundle.ProjectionCatalog)
+}
+
+func (s *Server) JobsCapability() *JobsCapability {
+	if s == nil {
+		return nil
+	}
+	return s.jobs
+}
+
+func (s *Server) CollaborationCapability() *CollaborationCapability {
+	if s == nil {
+		return nil
+	}
+	return s.collaboration
+}
+
+func (s *Server) RevisionsCapability() *RevisionsCapability {
+	if s == nil {
+		return nil
+	}
+	return s.revisions
+}
+
+func (s *Server) ProjectionCapability() *ProjectionCapability {
+	if s == nil {
+		return nil
+	}
+	return s.projections
 }
 
 type TestRouteMode string
@@ -40,6 +223,7 @@ type ServerOptions struct {
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
+	Postgres         *pgxpool.Pool
 	ObjectStore      objectstore.Store
 	TestRouteMode    TestRouteMode
 }
@@ -76,10 +260,29 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 
 	clock := httpapi.NewTestClock()
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
+	var (
+		jobsCapability          *JobsCapability
+		collaborationCapability *CollaborationCapability
+		revisionsCapability     *RevisionsCapability
+		projectionCapability    *ProjectionCapability
+	)
 	runtime, err := server.NewRuntime(context.Background(), cfg, server.Options{
 		Env:         env,
 		Now:         clock.Now,
+		Postgres:    options.Postgres,
 		ObjectStore: options.ObjectStore,
+		ObserveJobs: func(manager *jobs.Manager, runner *jobs.Runner) {
+			jobsCapability = &JobsCapability{manager: manager, runner: runner}
+		},
+		ObserveCollaboration: func(hub *collaboration.Hub, dispatcher *collaboration.Dispatcher, intents collaboration.IntentAppender) {
+			collaborationCapability = &CollaborationCapability{hub: hub, dispatcher: dispatcher, intents: intents}
+		},
+		ObserveTimeline: func(bundle *timelineassembly.Bundle) {
+			projectionCapability = &ProjectionCapability{bundle: bundle}
+		},
+		ObserveRevisions: func(runtime *revisionassembly.Runtime) {
+			revisionsCapability = &RevisionsCapability{runtime: runtime}
+		},
 		HTTP: httpapi.Options{
 			Dependencies:     options.Dependencies,
 			AdditionalRoutes: routes,
@@ -94,10 +297,14 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	}
 
 	server := &Server{
-		Runtime: runtime,
-		Config:  cfg,
-		HTTP:    stdhttptest.NewServer(runtime.Handler),
-		Clock:   clock,
+		Config:        cfg,
+		HTTP:          stdhttptest.NewServer(runtime.HTTPHandler()),
+		Clock:         clock,
+		runtime:       runtime,
+		jobs:          jobsCapability,
+		collaboration: collaborationCapability,
+		revisions:     revisionsCapability,
+		projections:   projectionCapability,
 	}
 	t.Cleanup(func() {
 		server.Close()
@@ -138,8 +345,8 @@ func (s *Server) Close() {
 	if s.HTTP != nil {
 		s.HTTP.Close()
 	}
-	if s.Runtime != nil {
-		s.Runtime.Close()
+	if s.runtime != nil {
+		s.runtime.Close()
 	}
 }
 

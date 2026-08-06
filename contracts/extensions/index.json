@@ -214,7 +214,7 @@
     },
     {
       "path": "specification/shared-protocols.json",
-      "schema_id": "cartulary.extension_shared_protocol_contract_set.v3",
+      "schema_id": "cartulary.extension_shared_protocol_contract_set.v4",
       "owner_id": "extensions",
       "artifact_class": "specification_input"
     },

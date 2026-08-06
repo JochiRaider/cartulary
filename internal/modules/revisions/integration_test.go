@@ -32,7 +32,7 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	seedHostProjection(t, harness.DB, incidentID, recordID)
 
 	indicatorID := seedIndicatorRecord(t, harness.DB, incidentID, actorID)
-	hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 16)
+	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 16)
 	defer unsubscribe()
 
 	httptestx.SetClockFixed(t, harness.Server, time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC))
@@ -515,7 +515,7 @@ func TestStaleRestoreRollbackFailsClosed_Integration(t *testing.T) {
 	}
 	asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
 	before := StateCounts(t, harness.DB, recordID)
-	hubChanges, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 4)
+	hubChanges, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 4)
 	defer unsubscribe()
 	stale := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": 1, "client_txn_id": "txn-i-7-03-stale-restore"})
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")

@@ -27,8 +27,21 @@ const (
 )
 
 var ErrApplicationProcessActive = errors.New("extension_application_process_active")
-var ErrLeaseLost = errors.New("application_process_lease_lost")
+var ErrRecoveryServingLeaseActive = errors.New("recovery_serving_lease_active")
+var ErrLeaseLost = errors.New("lease_lost")
+var ErrApplicationProcessLeaseLost = fatalLeaseError("application_process_lease_lost")
+var ErrRecoveryServingLeaseLost = fatalLeaseError("recovery_serving_lease_lost")
 var ErrInvalidTransition = errors.New("application_process_lease_invalid_transition")
+
+type fatalLeaseError string
+
+func (err fatalLeaseError) Error() string {
+	return string(err)
+}
+
+func (err fatalLeaseError) FatalReasonCode() string {
+	return string(err)
+}
 
 type Session interface {
 	Identity() string

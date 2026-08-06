@@ -1,6 +1,8 @@
 package incidents_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
@@ -117,27 +120,30 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		}
 	})
 
-	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
+	t.Run("forced final commit failure rolls back incident create atomically", func(t *testing.T) {
 		harness := runtime.StartServer(t, appsupport.ServerOptions{
-			Prefix:        "incident_membership-i-2-01-rollback",
-			Dependencies:  appsupport.IncidentCreateCommitFaultDependencies(),
-			TestRouteMode: httptestx.TestRouteModeHarnessOwned,
+			Prefix:                    "incident_membership-i-2-01-rollback",
+			TestRouteMode:             httptestx.TestRouteModeHarnessOwned,
+			IncidentCreateCommitFault: true,
 		})
 
-		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
-		createResp := httptestx.DoJSON(
-			t,
-			http.MethodPost,
-			harness.Server.HTTP.URL+"/api/v1/incidents",
-			map[string]any{
-				"client_txn_id": "txn-i-2-01-rollback",
-				"incident_key":  "IR-I201R",
-				"title":         "Rollback Incident",
-			},
-			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		_, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+		actor := storetest.LookupUserByID(t, harness.Pool, uuid.MustParse(adminID))
+		request := incidents.CreateIncidentRequest{
+			ClientTxnID: "txn-i-2-01-rollback",
+			IncidentKey: "IR-I201R",
+			Title:       "Rollback Incident",
+		}
+		err := harness.IncidentCreateCommitFault.Create(
+			context.Background(),
+			actor,
+			request,
+			"req-i-2-01-rollback",
+			harness.Server.Clock.Now(),
 		)
-		httptestx.RequireErrorEnvelope(t, createResp, http.StatusInternalServerError, "internal_error")
+		if !errors.Is(err, appsupport.ErrIncidentCreateCommitFault) {
+			t.Fatalf("incident create error = %v, want typed final commit fault", err)
+		}
 
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, "IR-I201R"); got != 0 {
 			t.Fatalf("rollback must leave no incident rows, got %d", got)
@@ -150,6 +156,9 @@ func TestIncidentCreatePersistsBootstrapStateAndRollsBackAtomically_Integration(
 		}
 		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`); got != 0 {
 			t.Fatalf("rollback must leave no user workbook preferences, got %d", got)
+		}
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents`); got != 0 {
+			t.Fatalf("rollback must leave no collaboration intents, got %d", got)
 		}
 		mutationtest.RequireNoMutationArtifacts(
 			t, mutationtest.SQLDatabase(

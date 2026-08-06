@@ -352,6 +352,8 @@ The path tree below is an intended baseline shape, not an independently verified
       /migrate                       # Migration CLI facade
       /operator                      # Recovery operator CLI facade
       /extensionassembly             # Typed extension-owner composition adapters
+      /incidentportabilityassembly   # Incident Bundle catalog and filesystem-port realization
+      /referenceassembly             # Reference Pack filesystem-port realization
       /revisionassembly              # Revision contribution aggregation
       /serverprocess                 # Test-only process evidence
     /platform
@@ -418,7 +420,7 @@ The path tree below is an intended baseline shape, not an independently verified
 
 - The backend MUST remain one root Go module.
 - The TypeScript workspace MUST remain one `pnpm` workspace rooted at the repository top level.
-- `internal/platform` owns transport, configuration, storage adapters, and cross-cutting runtime plumbing.
+- `internal/platform` owns transport, configuration, reusable storage primitives and adapters, and cross-cutting runtime plumbing. Owner-port realizations that bind those primitives to application semantics remain in cohesive `internal/app/*assembly` packages.
 - `internal/modules` owns domain and application logic.
 - `/packages/grid-adapter` MUST be the only workspace package that imports `react-data-grid`. `/apps/web` MUST consume Cartulary adapter exports. `/packages/view-contracts` remains the owner of TypeScript-consumable view-schema adapters; `/packages/grid-adapter` consumes those adapters and MUST NOT become an independent behavioral owner for field mutability, grouping, sort, filter, or write-back semantics.
 - Generated code MAY be checked in, but generated paths MUST be clearly marked and drift-checked.

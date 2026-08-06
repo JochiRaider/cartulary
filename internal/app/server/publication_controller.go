@@ -39,6 +39,28 @@ func NewPublicationController(lifecycle *processlifecycle.Controller) *Publicati
 	}
 }
 
+type publicationOrchestrator struct {
+	*PublicationController
+}
+
+func preparePublicationOrchestrator(
+	lifecycle *processlifecycle.Controller,
+	plan extensions.PublicationPlan,
+) (*publicationOrchestrator, error) {
+	controller := NewPublicationController(lifecycle)
+	if err := controller.Prepare(plan); err != nil {
+		return nil, err
+	}
+	return &publicationOrchestrator{PublicationController: controller}, nil
+}
+
+func (orchestrator *publicationOrchestrator) HTTPProjections() publicationHTTPProjections {
+	if orchestrator == nil {
+		return publicationHTTPProjections{}
+	}
+	return publicationHTTPProjections{publication: orchestrator.PublicationController}
+}
+
 func (c *PublicationController) Prepare(plan extensions.PublicationPlan) error {
 	if c == nil {
 		return errors.New("extension_publication_failed")

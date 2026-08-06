@@ -1,4 +1,4 @@
-package server
+package referenceassembly
 
 import (
 	"bytes"
@@ -12,18 +12,23 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
 var referencePackSHA256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
-type referencePackRootStorage struct {
+// RootStorage realizes the Reference Data storage port with admitted,
+// descriptor-anchored filesystem roots.
+type RootStorage struct {
 	temporary *rootedfs.Root
 	published *rootedfs.Root
 }
 
-func newReferencePackRootStorage(temporaryRoot string, publishedRoot string) (*referencePackRootStorage, error) {
+var _ reference_data.Storage = (*RootStorage)(nil)
+
+// NewRootStorage opens the temporary and published-pack root capabilities.
+// The caller owns the returned storage and must close it.
+func NewRootStorage(temporaryRoot string, publishedRoot string) (*RootStorage, error) {
 	temporary, err := rootedfs.OpenOrCreate(temporaryRoot)
 	if err != nil {
 		return nil, fmt.Errorf("open reference pack temporary capability: %w", err)
@@ -33,10 +38,10 @@ func newReferencePackRootStorage(temporaryRoot string, publishedRoot string) (*r
 		_ = temporary.Close()
 		return nil, fmt.Errorf("open reference pack storage capability: %w", err)
 	}
-	return &referencePackRootStorage{temporary: temporary, published: published}, nil
+	return &RootStorage{temporary: temporary, published: published}, nil
 }
 
-func (storage *referencePackRootStorage) Close() {
+func (storage *RootStorage) Close() {
 	if storage == nil {
 		return
 	}
@@ -44,7 +49,7 @@ func (storage *referencePackRootStorage) Close() {
 	_ = storage.temporary.Close()
 }
 
-func (storage *referencePackRootStorage) Stage(ctx context.Context, fileSHA string, data []byte) (reference_data.StagingRef, error) {
+func (storage *RootStorage) Stage(ctx context.Context, fileSHA string, data []byte) (reference_data.StagingRef, error) {
 	if storage == nil || storage.temporary == nil {
 		return reference_data.StagingRef{}, errors.New("reference pack temporary storage is unavailable")
 	}
@@ -71,7 +76,7 @@ func (storage *referencePackRootStorage) Stage(ctx context.Context, fileSHA stri
 	return reference, nil
 }
 
-func (storage *referencePackRootStorage) Publish(ctx context.Context, bundleSHA string, data []byte) (reference_data.StorageRef, error) {
+func (storage *RootStorage) Publish(ctx context.Context, bundleSHA string, data []byte) (reference_data.StorageRef, error) {
 	if storage == nil || storage.published == nil {
 		return reference_data.StorageRef{}, errors.New("reference pack published storage is unavailable")
 	}
@@ -97,28 +102,28 @@ func (storage *referencePackRootStorage) Publish(ctx context.Context, bundleSHA 
 	return reference, nil
 }
 
-func (storage *referencePackRootStorage) ReadStaged(reference reference_data.StagingRef, maxBytes int64) ([]byte, error) {
+func (storage *RootStorage) ReadStaged(reference reference_data.StagingRef, maxBytes int64) ([]byte, error) {
 	if storage == nil || storage.temporary == nil {
 		return nil, errors.New("reference pack temporary storage is unavailable")
 	}
 	return readReferencePackRegular(storage.temporary, reference.String(), maxBytes)
 }
 
-func (storage *referencePackRootStorage) ReadPublished(reference reference_data.StorageRef, maxBytes int64) ([]byte, error) {
+func (storage *RootStorage) ReadPublished(reference reference_data.StorageRef, maxBytes int64) ([]byte, error) {
 	if storage == nil || storage.published == nil {
 		return nil, errors.New("reference pack published storage is unavailable")
 	}
 	return readReferencePackRegular(storage.published, reference.String(), maxBytes)
 }
 
-func (storage *referencePackRootStorage) RemoveStaged(reference reference_data.StagingRef) error {
+func (storage *RootStorage) RemoveStaged(reference reference_data.StagingRef) error {
 	if storage == nil || storage.temporary == nil {
 		return errors.New("reference pack temporary storage is unavailable")
 	}
 	return removeReferencePackRegular(storage.temporary, reference.String())
 }
 
-func (storage *referencePackRootStorage) RemovePublished(reference reference_data.StorageRef) error {
+func (storage *RootStorage) RemovePublished(reference reference_data.StorageRef) error {
 	if storage == nil || storage.published == nil {
 		return errors.New("reference pack published storage is unavailable")
 	}
@@ -152,75 +157,4 @@ func referencePackBytesWriter(data []byte) rootedfs.WriteFunc {
 		_, err := io.Copy(destination, bytes.NewReader(immutable))
 		return err
 	}
-}
-
-type sharedReferencePackStorage struct {
-	bytes sharedPublicationBytes
-}
-
-func newSharedReferencePackStorage(store objectstore.Store) reference_data.Storage {
-	return &sharedReferencePackStorage{bytes: sharedPublicationBytes{store: store}}
-}
-
-func (storage *sharedReferencePackStorage) Stage(
-	ctx context.Context,
-	fileSHA string,
-	data []byte,
-) (reference_data.StagingRef, error) {
-	namePrefix := fileSHA
-	if !referencePackSHA256Pattern.MatchString(namePrefix) {
-		namePrefix = uuid.NewString()
-	}
-	reference, err := reference_data.ParseStagingRef(
-		"reference-packs/imports/" + namePrefix + "-" + uuid.NewString() + ".bundle",
-	)
-	if err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	if err := storage.bytes.put(ctx, reference.String(), data, "application/octet-stream"); err != nil {
-		return reference_data.StagingRef{}, err
-	}
-	return reference, nil
-}
-
-func (storage *sharedReferencePackStorage) Publish(
-	ctx context.Context,
-	bundleSHA string,
-	data []byte,
-) (reference_data.StorageRef, error) {
-	if !referencePackSHA256Pattern.MatchString(bundleSHA) {
-		return reference_data.StorageRef{}, errors.New("reference pack bundle digest is invalid")
-	}
-	reference, err := reference_data.ParseStorageRef(
-		"reference-packs/bundles/" + bundleSHA + "-" + uuid.NewString() + ".bundle",
-	)
-	if err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	if err := storage.bytes.put(ctx, reference.String(), data, "application/octet-stream"); err != nil {
-		return reference_data.StorageRef{}, err
-	}
-	return reference, nil
-}
-
-func (storage *sharedReferencePackStorage) ReadStaged(
-	reference reference_data.StagingRef,
-	maxBytes int64,
-) ([]byte, error) {
-	return storage.bytes.read(reference.String(), maxBytes)
-}
-
-func (storage *sharedReferencePackStorage) ReadPublished(
-	reference reference_data.StorageRef,
-	maxBytes int64,
-) ([]byte, error) {
-	return storage.bytes.read(reference.String(), maxBytes)
-}
-
-func (storage *sharedReferencePackStorage) RemoveStaged(reference reference_data.StagingRef) error {
-	return storage.bytes.remove(reference.String())
-}
-
-func (storage *sharedReferencePackStorage) RemovePublished(reference reference_data.StorageRef) error {
-	return storage.bytes.remove(reference.String())
 }

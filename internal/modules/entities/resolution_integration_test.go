@@ -143,7 +143,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, entitytest.CanonicalHostRecordID); err != nil {
 			t.Fatalf("corrupt resolved host linked-event count: %v", err)
 		}
-		if err := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild.RebuildHosts(context.Background(), incidentID); err != nil {
+		if err := harness.Projections.RebuildHosts(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild resolved host projection: %v", err)
 		}
 		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewtest.HostsViewSchemaID, viewLogin), entitytest.CanonicalHostRecordID.String())
@@ -367,7 +367,7 @@ UPDATE incident_memberships
 		}
 
 		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
-		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
+		otherIncident := appsupport.CreateIncidentInStore(t, harness.Pool, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, entitytest.DuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 
 		hiddenResp := appsupport.DoJSON(
@@ -858,7 +858,7 @@ SELECT COUNT(*)
 		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM identity_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
 			t.Fatalf("clear identity projection rows: %v", err)
 		}
-		projectionRebuild := harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+		projectionRebuild := harness.Projections
 		if err := projectionRebuild.RebuildHosts(context.Background(), incidentID); err != nil {
 			t.Fatalf("rebuild host projections: %v", err)
 		}
@@ -1129,7 +1129,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 		}
 
 		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
-		otherIncident := appsupport.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
+		otherIncident := appsupport.CreateIncidentInStore(t, harness.Pool, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
 		hiddenLoserID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
 

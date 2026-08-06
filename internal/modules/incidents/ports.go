@@ -12,6 +12,14 @@ type PreferenceBootstrapPort interface {
 	BootstrapIncidentPreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
 }
 
+// IncidentCreateCommitPort owns the final commit boundary for incident create.
+// Implementations are invoked only after the incident, creator membership,
+// workbook preferences, audit events, and idempotency result have been staged
+// in the same transaction.
+type IncidentCreateCommitPort interface {
+	CommitIncidentCreate(context.Context, pgx.Tx) error
+}
+
 type IncidentBundleImportFinalizationParams struct {
 	IncidentID        uuid.UUID
 	SubmittedByUserID uuid.UUID
@@ -30,7 +38,8 @@ type CollaborationSessionPort interface {
 }
 
 type ApplicationOptions struct {
-	PreferenceBootstrap PreferenceBootstrapPort
+	PreferenceBootstrap  PreferenceBootstrapPort
+	IncidentCreateCommit IncidentCreateCommitPort
 }
 
 type RouteOptions struct {

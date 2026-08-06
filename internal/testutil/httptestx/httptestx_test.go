@@ -3,6 +3,7 @@ package httptestx
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -11,6 +12,22 @@ import (
 )
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
+	serverType := reflect.TypeOf(Server{})
+	wantExportedFields := map[string]struct{}{"Clock": {}, "Config": {}, "HTTP": {}}
+	for index := 0; index < serverType.NumField(); index++ {
+		field := serverType.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		if _, expected := wantExportedFields[field.Name]; !expected {
+			t.Fatalf("httptestx.Server unexpectedly exports field %q", field.Name)
+		}
+		delete(wantExportedFields, field.Name)
+	}
+	if len(wantExportedFields) != 0 {
+		t.Fatalf("httptestx.Server is missing exported fields: %#v", wantExportedFields)
+	}
+
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "httptestx")
 

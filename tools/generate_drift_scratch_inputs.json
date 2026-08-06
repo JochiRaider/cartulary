@@ -57,6 +57,7 @@
     "tools/test_catalog_owner.json",
     "tools/test_families",
     "tools/test_runner_registry.json",
+    "tools/toolchain_pins.json",
     "tools/contractgen",
     "tools/openapi-assemble",
     "tools/openapi-compatibility",

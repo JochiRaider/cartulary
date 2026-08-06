@@ -2,8 +2,10 @@ package processlease
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -25,6 +27,63 @@ type PostgresBackend struct {
 	AdvisoryKey int64
 	Purpose     string
 	Mode        LockMode
+}
+
+// ApplicationProcessLease is the typed application-owned, deployment-global
+// exclusive lease. Its concrete session mechanics remain private to this
+// package so callers cannot accidentally change its lock identity or mode.
+type ApplicationProcessLease struct {
+	*Lease
+}
+
+// ApplicationRecoveryServingLease is the typed application side of the
+// Recovery serving exclusion. Recovery owns the exclusive counterpart.
+type ApplicationRecoveryServingLease struct {
+	*Lease
+}
+
+func AcquireApplicationProcess(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	acquireTimeout time.Duration,
+	lossDetection time.Duration,
+) (*ApplicationProcessLease, error) {
+	lease, err := Acquire(
+		ctx,
+		PostgresBackend{Pool: pool},
+		acquireTimeout,
+		lossDetection,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &ApplicationProcessLease{Lease: lease}, nil
+}
+
+func AcquireApplicationRecoveryServing(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	acquireTimeout time.Duration,
+	lossDetection time.Duration,
+) (*ApplicationRecoveryServingLease, error) {
+	lease, err := Acquire(
+		ctx,
+		PostgresBackend{
+			Pool:        pool,
+			AdvisoryKey: ServingAdvisoryKey,
+			Purpose:     "application recovery serving",
+			Mode:        LockShared,
+		},
+		acquireTimeout,
+		lossDetection,
+	)
+	if err != nil {
+		if errors.Is(err, ErrApplicationProcessActive) {
+			return nil, ErrRecoveryServingLeaseActive
+		}
+		return nil, err
+	}
+	return &ApplicationRecoveryServingLease{Lease: lease}, nil
 }
 
 func (b PostgresBackend) Open(ctx context.Context) (Session, error) {

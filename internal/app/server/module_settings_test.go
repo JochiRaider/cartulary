@@ -37,21 +37,22 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 			Previews:        config.PreviewLimits{MaxPreviewablePayloadBytes: 61, MaxTextInlineBytes: 62},
 		},
 	}
+	projection := newApplicationSettingsProjection(cfg)
 
 	hub := collaboration.NewHub()
-	collaborationConfig := collaborationSettings(cfg, hub)
+	collaborationConfig := projection.Collaboration(hub, newCollaborationSocketTransport(cfg.Application.PublicOrigin))
 	if collaborationConfig.AcceptSocket == nil ||
 		collaborationConfig.CheckBrowserOrigin == nil ||
 		collaborationConfig.Hub != hub ||
 		collaborationConfig.ServiceVersion != "2026.7.25" {
 		t.Fatalf("collaboration settings = %#v", collaborationConfig)
 	}
-	if got, want := evidenceSettings(cfg), (evidence.Settings{
+	if got, want := projection.Evidence(), (evidence.Settings{
 		MaxBlobBytes: 11, PreviewMax: 61, TextPreviewMax: 62,
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("evidence settings = %#v, want %#v", got, want)
 	}
-	importOwner, importArchive := importLimits(cfg)
+	importOwner, importArchive := projection.Imports()
 	if want := (imports.Limits{
 		MaxCSVSourceBytes: 21, MaxXLSXSourceBytes: 22, MaxRows: 23, MaxColumns: 24, MaxCells: 25,
 	}); !reflect.DeepEqual(importOwner, want) {
@@ -62,7 +63,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 	}); !reflect.DeepEqual(importArchive, want) {
 		t.Fatalf("import archive limits = %#v, want %#v", importArchive, want)
 	}
-	if got, want := incidentBundleLimits(cfg), (incidentbundles.Limits{
+	if got, want := projection.IncidentBundles(), (incidentbundles.Limits{
 		Archives: incidentbundles.ArchiveLimits{
 			DefaultMaxExtractedBytes: 31, MaxCompressionRatio: 32, MaxMembers: 33,
 		},
@@ -70,7 +71,7 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("incident-bundle limits = %#v, want %#v", got, want)
 	}
-	if got, want := referenceDataLimits(cfg), (reference_data.Limits{
+	if got, want := projection.ReferenceData(), (reference_data.Limits{
 		Archives: reference_data.ArchiveLimits{
 			DefaultMaxExtractedBytes: 31, MaxCompressionRatio: 32, MaxMembers: 33,
 		},
@@ -78,12 +79,11 @@ func TestModuleSettingsProjection_Unit(t *testing.T) {
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("reference-data limits = %#v, want %#v", got, want)
 	}
-	if got, want := runtimeSettings(cfg), (RuntimeSettings{
+	if got, want := projection.Runtime(), (runtimeSettings{
 		TelemetryFlushTimeoutMS:  71,
 		ReconciliationSeconds:    72,
 		ShutdownDrainSeconds:     73,
 		StagedObjectSweepSeconds: 74,
-		ProcessModel:             cfg.Application.ProcessModel,
 	}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("runtime settings = %#v, want %#v", got, want)
 	}

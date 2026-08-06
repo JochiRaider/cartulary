@@ -435,7 +435,7 @@ func TestDownloadHandleBlobMissingDoesNotConsumeHandle_Integration(t *testing.T)
 	missingResp := appsupport.DoJSON(t, http.MethodGet, downloadURL, nil, appsupport.WithCookies(login.SessionCookie))
 	requireEvidenceAccessUnavailableReason(t, missingResp, "blob_missing")
 
-	if err := harness.Server.Runtime.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+	if err := harness.ObjectStore.PutObject(context.Background(), originalStorageKey, bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("restore blob object: %v", err)
 	}
 	downloadBody := redeemHandle(t, downloadURL, login)
@@ -584,7 +584,7 @@ INSERT INTO object_blobs (
 
 func deleteBlobObject(t *testing.T, harness *appsupport.ServerHarness, storageKey string) {
 	t.Helper()
-	if err := harness.Server.Runtime.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
+	if err := harness.ObjectStore.DeleteObject(context.Background(), storageKey); err != nil {
 		t.Fatalf("delete blob object: %v", err)
 	}
 }

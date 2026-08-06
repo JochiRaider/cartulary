@@ -24,19 +24,26 @@ type Runtime struct {
 }
 
 type ServerHarness struct {
-	Server *httptestx.Server
-	DB     *sql.DB
-	Pool   *pgxpool.Pool
+	Server                    *httptestx.Server
+	DB                        *sql.DB
+	Pool                      *pgxpool.Pool
+	ObjectStore               objectstore.Store
+	Jobs                      *httptestx.JobsCapability
+	Collaboration             *httptestx.CollaborationCapability
+	Revisions                 *httptestx.RevisionsCapability
+	Projections               *httptestx.ProjectionCapability
+	IncidentCreateCommitFault *IncidentCreateCommitFaultCapability
 }
 
 type ServerOptions struct {
-	Prefix           string
-	Database         *pgtest.TestDatabase
-	Env              map[string]string
-	Dependencies     httpapi.DependencySet
-	AdditionalRoutes []httpapi.RouteRegistrar
-	ObjectStore      objectstore.Store
-	TestRouteMode    httptestx.TestRouteMode
+	Prefix                    string
+	Database                  *pgtest.TestDatabase
+	Env                       map[string]string
+	Dependencies              httpapi.DependencySet
+	AdditionalRoutes          []httpapi.RouteRegistrar
+	ObjectStore               objectstore.Store
+	TestRouteMode             httptestx.TestRouteMode
+	IncidentCreateCommitFault bool
 }
 
 func StartRuntime(t testing.TB) *Runtime {
@@ -53,7 +60,7 @@ func StartServer(t testing.TB, prefix string) *ServerHarness {
 		Prefix:        prefix,
 		Dependencies:  httpapi.DependencySet{},
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func StartServerWithDependencies(
@@ -66,7 +73,7 @@ func StartServerWithDependencies(
 		Prefix:        prefix,
 		Dependencies:  dependencies,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func StartServerWithConfig(
@@ -112,7 +119,7 @@ func (r *Runtime) StartServerWithDependencies(
 		Prefix:        prefix,
 		Dependencies:  dependencies,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func (r *Runtime) StartDefaultServer(
@@ -149,7 +156,7 @@ func (r *Runtime) StartServerWithDatabaseAndDependencies(
 		Database:      database,
 		Dependencies:  dependencies,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func (r *Runtime) StartServerWithConfig(
@@ -183,12 +190,22 @@ func (r *Runtime) StartServerWithConfig(
 	if mutate != nil {
 		mutate(&cfg)
 	}
+	pool := openServerPool(t, testDB)
+	store, err := OpenObjectStore(context.Background(), cfg, env)
+	if err != nil {
+		t.Fatalf("open object store: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
 		Config:        cfg,
 		Env:           env,
+		Postgres:      pool,
+		ObjectStore:   store,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-	return serverHarnessForDatabase(t, testDB, server, false)
+	return serverHarnessForDatabase(t, testDB, server, pool, store)
 }
 
 func (r *Runtime) StartServerWithObjectStore(
@@ -201,7 +218,7 @@ func (r *Runtime) StartServerWithObjectStore(
 		Prefix:        prefix,
 		ObjectStore:   store,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func (r *Runtime) StartServerWithDatabaseAndObjectStore(
@@ -216,18 +233,17 @@ func (r *Runtime) StartServerWithDatabaseAndObjectStore(
 		Database:      database,
 		ObjectStore:   store,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
-	}, false)
+	})
 }
 
 func (r *Runtime) StartServer(t testing.TB, options ServerOptions) *ServerHarness {
 	t.Helper()
-	return r.startServer(t, options, true)
+	return r.startServer(t, options)
 }
 
 func (r *Runtime) startServer(
 	t testing.TB,
 	options ServerOptions,
-	openPool bool,
 ) *ServerHarness {
 	t.Helper()
 	if options.Prefix == "" {
@@ -242,33 +258,72 @@ func (r *Runtime) startServer(
 		testDB = r.PrepareIsolatedDatabase(t, options.Prefix)
 	}
 	env := testDB.Env()
-	if options.ObjectStore == nil {
+	store := options.ObjectStore
+	if store == nil {
 		bucket := r.S3.PreparePackageBucketT(t, options.Prefix)
 		for key, value := range r.S3.Env(bucket) {
 			env[key] = value
 		}
+		var err error
+		store, err = objectstore.Setup(context.Background(), objectstore.Settings{
+			BindingKind: "managed_service",
+			Endpoint:    r.S3.Endpoint,
+			AccessKey:   r.S3.AccessKey,
+			SecretKey:   r.S3.SecretKey,
+			Secure:      r.S3.Secure,
+			Bucket:      bucket,
+		}, objectstore.Instrumentation{})
+		if err != nil {
+			t.Fatalf("open object store: %v", err)
+		}
+		t.Cleanup(func() {
+			_ = store.Close()
+		})
 	}
 	for key, value := range options.Env {
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+	pool := openServerPool(t, testDB)
+	var incidentCreateCommitFault *IncidentCreateCommitFaultCapability
+	if options.IncidentCreateCommitFault {
+		var err error
+		incidentCreateCommitFault, err = newIncidentCreateCommitFaultCapability(env, options.TestRouteMode, pool)
+		if err != nil {
+			t.Fatalf("install incident create commit fault: %v", err)
+		}
+	}
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
 		Env:              env,
 		Dependencies:     options.Dependencies,
 		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), options.AdditionalRoutes...),
-		ObjectStore:      options.ObjectStore,
+		Postgres:         pool,
+		ObjectStore:      store,
 		TestRouteMode:    options.TestRouteMode,
 	})
 
-	return serverHarnessForDatabase(t, testDB, server, openPool)
+	harness := serverHarnessForDatabase(t, testDB, server, pool, store)
+	harness.IncidentCreateCommitFault = incidentCreateCommitFault
+	return harness
+}
+
+func openServerPool(t testing.TB, testDB *pgtest.TestDatabase) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), testDB.DSN)
+	if err != nil {
+		t.Fatalf("open postgres pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
 }
 
 func serverHarnessForDatabase(
 	t testing.TB,
 	testDB *pgtest.TestDatabase,
 	server *httptestx.Server,
-	openPool bool,
+	pool *pgxpool.Pool,
+	store objectstore.Store,
 ) *ServerHarness {
 	t.Helper()
 	db, err := sql.Open("pgx", testDB.DSN)
@@ -278,14 +333,14 @@ func serverHarnessForDatabase(
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
-	var pool *pgxpool.Pool
-	if openPool {
-		pool, err = pgxpool.New(context.Background(), testDB.DSN)
-		if err != nil {
-			t.Fatalf("open postgres pool: %v", err)
-		}
-		t.Cleanup(pool.Close)
+	return &ServerHarness{
+		Server:        server,
+		DB:            db,
+		Pool:          pool,
+		ObjectStore:   store,
+		Jobs:          server.JobsCapability(),
+		Collaboration: server.CollaborationCapability(),
+		Revisions:     server.RevisionsCapability(),
+		Projections:   server.ProjectionCapability(),
 	}
-
-	return &ServerHarness{Server: server, DB: db, Pool: pool}
 }

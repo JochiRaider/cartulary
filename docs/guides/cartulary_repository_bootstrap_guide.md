@@ -23,8 +23,12 @@ Keep the modular-monolith boundaries explicit:
 - `cmd/*` packages are binary composition roots only.
 - `internal/app/server`, `internal/app/migrate`, and `internal/app/operator` are
   the application facades for their commands.
-- `internal/platform/*` owns transport, configuration, storage adapters, auth
-  primitives, runtime plumbing, and job shells.
+- `internal/platform/*` owns transport, configuration, reusable storage
+  primitives and adapters, auth primitives, runtime plumbing, and job shells.
+- Cohesive `internal/app/*assembly` packages realize owner ports with admitted
+  platform capabilities; `incidentportabilityassembly` owns the Incident Bundle
+  filesystem realization and `referenceassembly` owns the Reference Pack
+  filesystem realization, while `server` constructs, owns, and injects both.
 - `internal/modules/*` owns domain and application behavior.
 - `internal/testutil/*` owns reusable backend harnesses and fixtures.
 - `contracts/*` is the derived repo-local contract layer.

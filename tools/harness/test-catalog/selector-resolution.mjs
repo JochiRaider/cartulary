@@ -3,6 +3,41 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "
 import path from "node:path";
 
 const sourceTitleCache = new Map();
+const goBuildContextCache = new Map();
+
+const goOperatingSystems = new Set([
+  "aix",
+  "android",
+  "darwin",
+  "dragonfly",
+  "freebsd",
+  "illumos",
+  "ios",
+  "js",
+  "linux",
+  "netbsd",
+  "openbsd",
+  "plan9",
+  "solaris",
+  "wasip1",
+  "windows",
+]);
+const goArchitectures = new Set([
+  "386",
+  "amd64",
+  "arm",
+  "arm64",
+  "loong64",
+  "mips",
+  "mips64",
+  "mips64le",
+  "mipsle",
+  "ppc64",
+  "ppc64le",
+  "riscv64",
+  "s390x",
+  "wasm",
+]);
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -375,27 +410,161 @@ function packageDirectory(root, packagePath, approvedRoots, label) {
   return lexical;
 }
 
-function goSymbols(directory) {
-  const counts = new Map();
+function goRunnerBuildContext(root) {
+  const cacheKey = realpathSync(root);
+  if (goBuildContextCache.has(cacheKey)) return goBuildContextCache.get(cacheKey);
+  const pins = JSON.parse(readFileSync(path.join(root, "tools/toolchain_pins.json"), "utf8"));
+  const version = /^(\d+)\.(\d+)$/u.exec(String(pins.go_version ?? ""));
+  if (!version || version[1] !== "1") {
+    throw new Error("tools/toolchain_pins.json.go_version must be a Go 1.x release");
+  }
+  const releaseMinor = Number(version[2]);
+  const tags = new Set(["amd64", "amd64.v1", "gc", "linux", "unix"]);
+  for (let minor = 1; minor <= releaseMinor; minor += 1) tags.add(`go1.${minor}`);
+  const context = Object.freeze({
+    goarch: "amd64",
+    goos: "linux",
+    label: `linux/amd64 Go ${pins.go_version} with no custom build tags`,
+    tags,
+  });
+  goBuildContextCache.set(cacheKey, context);
+  return context;
+}
+
+function fileNameMatchesGoBuildContext(fileName, context) {
+  const stem = fileName.replace(/_test\.go$/u, "");
+  const segments = stem.split("_");
+  const last = segments.at(-1);
+  const previous = segments.at(-2);
+  if (goOperatingSystems.has(previous) && goArchitectures.has(last)) {
+    return previous === context.goos && last === context.goarch;
+  }
+  if (goOperatingSystems.has(last)) return last === context.goos;
+  if (goArchitectures.has(last)) return last === context.goarch;
+  return true;
+}
+
+function tokenizeGoBuildExpression(expression, label) {
+  const tokens = [];
+  let cursor = 0;
+  while (cursor < expression.length) {
+    if (/\s/u.test(expression[cursor])) {
+      cursor += 1;
+      continue;
+    }
+    const operator = expression.slice(cursor, cursor + 2);
+    if (operator === "&&" || operator === "||") {
+      tokens.push(operator);
+      cursor += 2;
+      continue;
+    }
+    if (expression[cursor] === "!" || expression[cursor] === "(" || expression[cursor] === ")") {
+      tokens.push(expression[cursor]);
+      cursor += 1;
+      continue;
+    }
+    const match = /^[A-Za-z0-9_.]+/u.exec(expression.slice(cursor));
+    if (!match) throw new Error(`${label} contains invalid Go build constraint syntax`);
+    tokens.push(match[0]);
+    cursor += match[0].length;
+  }
+  return tokens;
+}
+
+function evaluateGoBuildExpression(expression, context, label) {
+  const tokens = tokenizeGoBuildExpression(expression, label);
+  let cursor = 0;
+  const current = () => tokens[cursor];
+  const consume = () => tokens[cursor++];
+  const parseUnary = () => {
+    if (current() === "!") {
+      consume();
+      return !parseUnary();
+    }
+    if (current() === "(") {
+      consume();
+      const value = parseOr();
+      if (consume() !== ")") throw new Error(`${label} has an unmatched parenthesis`);
+      return value;
+    }
+    const tag = consume();
+    if (!tag || ["&&", "||", ")"].includes(tag)) {
+      throw new Error(`${label} contains an incomplete Go build constraint`);
+    }
+    return context.tags.has(tag);
+  };
+  const parseAnd = () => {
+    let value = parseUnary();
+    while (current() === "&&") {
+      consume();
+      const right = parseUnary();
+      value = value && right;
+    }
+    return value;
+  };
+  const parseOr = () => {
+    let value = parseAnd();
+    while (current() === "||") {
+      consume();
+      const right = parseAnd();
+      value = value || right;
+    }
+    return value;
+  };
+  if (tokens.length === 0) throw new Error(`${label} has an empty Go build constraint`);
+  const result = parseOr();
+  if (cursor !== tokens.length) throw new Error(`${label} contains trailing Go build constraint tokens`);
+  return result;
+}
+
+function sourceMatchesGoBuildContext(source, context, label) {
+  const expressions = [...source.matchAll(/^\/\/go:build[ \t]+(.+)$/gmu)].map((match) => match[1].trim());
+  if (expressions.length > 1) throw new Error(`${label} contains multiple //go:build lines`);
+  if (expressions.length === 1) {
+    return evaluateGoBuildExpression(expressions[0], context, label);
+  }
+  if (/^\/\/ \+build[ \t]+/mu.test(source)) {
+    throw new Error(`${label} uses unsupported legacy // +build syntax`);
+  }
+  return true;
+}
+
+function goSymbols(root, directory) {
+  const context = goRunnerBuildContext(root);
+  const activeCounts = new Map();
+  const excludedFiles = new Map();
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith("_test.go")) {
       continue;
     }
     const source = readFileSync(path.join(directory, entry.name), "utf8");
+    const active = fileNameMatchesGoBuildContext(entry.name, context) &&
+      sourceMatchesGoBuildContext(source, context, entry.name);
     for (const match of source.matchAll(/^func\s+(Test[A-Za-z0-9_]+)\s*\(/gmu)) {
-      counts.set(match[1], (counts.get(match[1]) ?? 0) + 1);
+      if (active) activeCounts.set(match[1], (activeCounts.get(match[1]) ?? 0) + 1);
+      else {
+        const files = excludedFiles.get(match[1]) ?? [];
+        files.push(entry.name);
+        excludedFiles.set(match[1], files);
+      }
     }
   }
-  return counts;
+  return { activeCounts, context, excludedFiles };
 }
 
 export function resolveRowSelector({ root, row, runner, taskSurfaceCommandIDs }) {
   const label = `${row.row_id}.selector`;
   if (row.runner === "go") {
     const directory = packageDirectory(root, row.selector.package, runner.approved_roots, `${label}.package`);
-    const symbols = goSymbols(directory);
+    const symbols = goSymbols(root, directory);
     for (const symbol of row.selector.tests) {
-      if ((symbols.get(symbol) ?? 0) !== 1) {
+      if ((symbols.activeCounts.get(symbol) ?? 0) === 0 && symbols.excludedFiles.has(symbol)) {
+        throw new Error(
+          `${label}.tests ${symbol} is excluded from the Go runner build context ` +
+          `${symbols.context.label}: ${symbols.excludedFiles.get(symbol).sort(asciiCompare).join(", ")}`,
+        );
+      }
+      if ((symbols.activeCounts.get(symbol) ?? 0) !== 1) {
         throw new Error(`${label}.tests ${symbol} must resolve exactly once`);
       }
     }

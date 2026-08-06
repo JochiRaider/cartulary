@@ -7,6 +7,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -69,7 +70,7 @@ func TestBuiltInRouteContributionMembershipAndOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registrars, err := applicationRouteRegistrars(contributions, nil, catalog)
+	registrars, err := newApplicationRouteCatalog(catalog).Bind(contributions, nil)
 	if err != nil {
 		t.Fatalf("built-in route contributions rejected: %v", err)
 	}
@@ -78,12 +79,12 @@ func TestBuiltInRouteContributionMembershipAndOrder(t *testing.T) {
 	}
 
 	omitted := append([]routeContribution(nil), contributions[:len(contributions)-1]...)
-	if _, err := applicationRouteRegistrars(omitted, nil, catalog); err == nil {
+	if _, err := newApplicationRouteCatalog(catalog).Bind(omitted, nil); err == nil {
 		t.Fatal("expected omitted built-in route contribution to fail")
 	}
 	reordered := append([]routeContribution(nil), contributions...)
 	reordered[0], reordered[1] = reordered[1], reordered[0]
-	if _, err := applicationRouteRegistrars(reordered, nil, catalog); err == nil {
+	if _, err := newApplicationRouteCatalog(catalog).Bind(reordered, nil); err == nil {
 		t.Fatal("expected reordered built-in route contribution to fail")
 	}
 }
@@ -116,27 +117,34 @@ func TestApplicationRouteContributionsAreExactCatalogProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	routeIDs := catalog.ContributionIDs("http_route_family")
+	networkFlowRouteCount := 0
 	bindings := make([]extensionRouteBinding, 0, len(routeIDs))
 	for _, contributionID := range routeIDs {
+		if contributionID == networkflow.RouteContributionID {
+			networkFlowRouteCount++
+		}
 		bindings = append(bindings, extensionRouteBinding{
 			id:              contributionID,
 			contributionIDs: []string{contributionID},
 			registrar:       registrar,
 		})
 	}
-	registrars, err := applicationRouteRegistrars(base, bindings, catalog)
+	if networkFlowRouteCount != 1 {
+		t.Fatalf("Network Flow route contribution count got %d want 1", networkFlowRouteCount)
+	}
+	registrars, err := newApplicationRouteCatalog(catalog).Bind(base, bindings)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, want := len(registrars), len(base)+len(routeIDs); got != want {
 		t.Fatalf("registrar count got %d want %d", got, want)
 	}
-	if _, err := applicationRouteRegistrars(base, bindings[:len(bindings)-1], catalog); err == nil {
+	if _, err := newApplicationRouteCatalog(catalog).Bind(base, bindings[:len(bindings)-1]); err == nil {
 		t.Fatal("expected missing claimed contribution binding to fail")
 	}
 	duplicate := append([]extensionRouteBinding(nil), bindings...)
 	duplicate = append(duplicate, bindings[0])
-	if _, err := applicationRouteRegistrars(base, duplicate, catalog); err == nil {
+	if _, err := newApplicationRouteCatalog(catalog).Bind(base, duplicate); err == nil {
 		t.Fatal("expected duplicate claimed contribution binding to fail")
 	}
 }

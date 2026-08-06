@@ -12,10 +12,40 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
 
-func TestHarnessRuntimeRoutesDisabledByDefaultInServerProcess(t *testing.T) {
-	server := startHarnessRuntimeServerProcess(t, "test-runtime-disabled", nil)
+func TestHarnessRuntimeRoutesEnableOnlyForExactOneInServerProcess(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{name: "omitted"},
+		{name: "non-exact-true", value: "true"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			routeEnv := map[string]string{
+				"CARTULARY_TEST_RUNTIME_MARKER": "harness-owned",
+				"CARTULARY_TEST_ROUTE_TOKEN":    httptestx.TestRouteToken,
+			}
+			if tc.value != "" {
+				routeEnv["CARTULARY_ENABLE_TEST_ROUTES"] = tc.value
+			}
+			server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-"+tc.name, routeEnv)
+			requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, "", "", "", http.StatusNotFound)
+		})
+	}
 
-	requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, "", "", "", http.StatusNotFound)
+	t.Run("exact-one", func(t *testing.T) {
+		addr := reserveHarnessRuntimeProcessAddress(t)
+		publicOrigin := "http://127.0.0.1:4173"
+		server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-exact-one", map[string]string{
+			"CARTULARY_HTTP_ADDR":             addr,
+			"CARTULARY_ENABLE_TEST_ROUTES":    "1",
+			"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
+			"CARTULARY_TEST_ROUTE_TOKEN":      httptestx.TestRouteToken,
+			"CARTULARY_WEB_E2E_API_ORIGIN":    "http://" + addr,
+			"CARTULARY_WEB_E2E_PUBLIC_ORIGIN": publicOrigin,
+		})
+		requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, httptestx.TestRouteToken, publicOrigin, "", http.StatusOK)
+	})
 }
 
 func TestHarnessRuntimeRoutesFailClosedDuringServerStartup(t *testing.T) {

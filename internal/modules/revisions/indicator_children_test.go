@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
@@ -24,10 +23,10 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	store, err := indicators.NewStore(indicators.StoreDependencies{
-		Postgres:    harness.Server.Runtime.Postgres,
-		Revisions:   harness.Server.Runtime.Revisions.Appender(),
-		Projections: harness.Server.Runtime.Timeline.ProjectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(harness.Server.Runtime.Timeline.ProjectionCoordinator),
+		Postgres:    harness.Pool,
+		Revisions:   harness.Revisions.Appender(),
+		Projections: harness.Projections.IndicatorProjectionPort(),
+		SourceText:  harness.Projections.IndicatorSourceTextPort(),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -76,7 +75,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 			t.Fatalf("release affected Indicator lock: %v", err)
 		}
 		asserttest.AwaitIncidentStreamIdle(t, asserttest.SQLDatabase(harness.DB), incidentID.String())
-		changes, unsubscribe := harness.Server.Runtime.CollaborationHub.SubscribeIncident(incidentID, 8)
+		changes, unsubscribe := harness.Collaboration.SubscribeIncident(incidentID, 8)
 		defer unsubscribe()
 		httptestx.SetClockFixed(t, harness.Server, createdAt.Add(time.Minute))
 		body := map[string]any{

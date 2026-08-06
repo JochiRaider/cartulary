@@ -25,6 +25,7 @@ import {
   WorkGraphCompiler,
 } from "../scheduler/work-graph/index.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { resolveRowSelector } from "../test-catalog/selector-resolution.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -141,7 +142,55 @@ function assertCommandSurfaceContract(index) {
   }
 }
 
-function assertEvidenceContract(index) {
+function assertGoSelectorBuildContextContract() {
+  const fixtureRoot = mkdtempSync(path.join(root, "internal/selector-resolution-contract."));
+  const relativePackage = `./${path.relative(root, fixtureRoot).replaceAll("\\", "/")}`;
+  const runner = { approved_roots: ["internal"] };
+  const row = (testName) => ({
+    row_id: "harness.test_catalog.behavior.fixture",
+    runner: "go",
+    selector: { package: relativePackage, tests: [testName] },
+  });
+  try {
+    writeFileSync(path.join(fixtureRoot, "ordinary_test.go"), "package fixture\nfunc TestOrdinary() {}\n");
+    writeFileSync(
+      path.join(fixtureRoot, "applicable_linux_amd64_test.go"),
+      "//go:build linux && amd64\n\npackage fixture\nfunc TestApplicablePlatform() {}\n",
+    );
+    writeFileSync(
+      path.join(fixtureRoot, "private_test.go"),
+      "//go:build cartulary_harness\n\npackage fixture\nfunc TestPrivateProfile() {}\n",
+    );
+    writeFileSync(
+      path.join(fixtureRoot, "excluded_windows_test.go"),
+      "//go:build windows\n\npackage fixture\nfunc TestExcludedPlatform() {}\n",
+    );
+    assert.deepEqual(
+      resolveRowSelector({ root, row: row("TestOrdinary"), runner, taskSurfaceCommandIDs: new Set() }),
+      [`go:${relativePackage}:TestOrdinary`],
+    );
+    assert.deepEqual(
+      resolveRowSelector({ root, row: row("TestApplicablePlatform"), runner, taskSurfaceCommandIDs: new Set() }),
+      [`go:${relativePackage}:TestApplicablePlatform`],
+    );
+    assert.throws(
+      () => resolveRowSelector({ root, row: row("TestPrivateProfile"), runner, taskSurfaceCommandIDs: new Set() }),
+      /TestPrivateProfile is excluded from the Go runner build context linux\/amd64/u,
+    );
+    assert.throws(
+      () => resolveRowSelector({ root, row: row("TestExcludedPlatform"), runner, taskSurfaceCommandIDs: new Set() }),
+      /TestExcludedPlatform is excluded from the Go runner build context linux\/amd64/u,
+    );
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+function assertEvidenceContract(index, entry) {
+  if (entry.current_name === "runner selector resolvers preserve exact closed shapes across all runners") {
+    assertGoSelectorBuildContextContract();
+    return;
+  }
   const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, catalog.rows.filter((row) => row.minimum_tier === tier).length]));
   if (index % 4 === 0) {
     assert.deepEqual(Object.keys(tierCounts), tiers);
@@ -400,7 +449,7 @@ export function runContractSuite(suite) {
   entries.forEach((entry, index) => {
     test(entry.current_name, async () => {
       assertGeneralContract(index);
-      await assertions[suite](index);
+      await assertions[suite](index, entry);
     });
   });
 }

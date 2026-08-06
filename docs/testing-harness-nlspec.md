@@ -473,6 +473,17 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-065, TH-HARNESS-AC-069
 | `playwright` | One repository-relative file, one project ID, one stage, nonempty stable scenario IDs, and matching diagnostic titles. |
 | `shell` | One stable registered command ID; raw shell, argv, executable paths, and row-defined environment are forbidden. |
 
+Go selector resolution uses the current ordinary Go-runner build context:
+Linux, `amd64`, the repository-pinned Go release tags, the `gc` compiler tag,
+and no private or caller-supplied build tags. Filename constraints and
+`//go:build` expressions are part of selector resolution. A `Test...` symbol
+that exists only in a file excluded by that context has zero resolution.
+`runtime_profile_id` selects harness runtime configuration; it does not add Go
+build tags. In particular, `cartulary_harness` code is verified through the
+declared `server-harness` runtime binary, not through an ordinary Go catalog
+row. A future tagged Go-test context requires an adopted runner-registry and
+NLSpec revision before a catalog or runner implementation may admit it.
+
 Playwright stage is exactly one of `webserver_backed`, `stateful`, `support`, `visual`, `accessibility`, or `measurement`. Before setup, selector validation MUST reject zero resolution, multiple resolution, overlap between active rows, globs, regular expressions, missing paths, symlink escape, paths outside approved roots, and shell command IDs absent from the task-surface registry.
 
 A later runner requires an adopted runner-registry and NLSpec revision, selector and result schemas, an allowlisted checked-in adapter, and positive and negative contract fixtures. Dynamic package, plugin, or executable loading is outside the current profile.
@@ -965,6 +976,9 @@ The harness profile is selected only by the Make-owned build target and the priv
 MUST reject either key before application runtime construction or listener
 acquisition. Product HTTP, WebSocket, authorization, diagnostics, and packaged-asset
 behavior shared by the two profiles remain owned by Core 00 through Core 04.
+Cataloged Go tests MUST exercise this profile only as black-box consumers of the
+declared `server-harness` runtime binary. The private build tag is not an
+ordinary Go-test selector context.
 
 All black-box consumers MUST receive a declared runtime binary from the topology
 runtime-binary registry. The injected file MUST be a scheduler-produced regular,

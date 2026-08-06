@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/securefile"
 )
@@ -37,6 +38,8 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	originalNewCollaborationHub := newCollaborationHub
 	originalNewHTTPHandler := newHTTPHandler
 	originalReadSecureFile := readSecureFile
+	originalAcquireApplicationProcessLease := acquireApplicationProcessLease
+	originalAcquireRecoveryServingLease := acquireRecoveryServingLease
 	t.Cleanup(func() {
 		newJobsManager = originalNewJobsManager
 		setupPostgres = originalSetupPostgres
@@ -46,6 +49,8 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		newCollaborationHub = originalNewCollaborationHub
 		newHTTPHandler = originalNewHTTPHandler
 		readSecureFile = originalReadSecureFile
+		acquireApplicationProcessLease = originalAcquireApplicationProcessLease
+		acquireRecoveryServingLease = originalAcquireRecoveryServingLease
 	})
 
 	var jobsCalls int
@@ -57,6 +62,12 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	var postgresCalls int
 	setupPostgres = func(ctx context.Context, settings postgres.Settings) (*pgxpool.Pool, error) {
 		postgresCalls++
+		return nil, nil
+	}
+	acquireApplicationProcessLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationProcessLease, error) {
+		return nil, nil
+	}
+	acquireRecoveryServingLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationRecoveryServingLease, error) {
 		return nil, nil
 	}
 	ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {

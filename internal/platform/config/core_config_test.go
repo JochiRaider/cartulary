@@ -364,12 +364,7 @@ func TestRuntimeRoots_Unit(t *testing.T) {
 						return
 					}
 
-					reasonCode := "profile_incompatible_binding"
-					if profile != "disconnected" &&
-						(rootName == "reference_pack_storage" || rootName == "export_outputs") {
-						reasonCode = "process_model_incompatible_binding"
-					}
-					requireDiagnostic(t, err, "roots."+rootName+".binding_kind", reasonCode)
+					requireDiagnostic(t, err, "roots."+rootName+".binding_kind", "profile_incompatible_binding")
 				})
 			}
 		}
@@ -605,43 +600,20 @@ func TestResourceLimits_Unit(t *testing.T) {
 	})
 }
 
-func TestApplicationProcessModels_Unit(t *testing.T) {
-	t.Run("omission defaults to the fenced single-process model", func(t *testing.T) {
-		cfg := BaseConfig(t)
-		if cfg.Application.ProcessModel != ProcessModelSingle {
-			t.Fatalf("default process model = %q want %q", cfg.Application.ProcessModel, ProcessModelSingle)
-		}
+func TestApplicationProcessModelIsNotConfigurable_Unit(t *testing.T) {
+	fixture := string(fixtures.MustRead("config", "valid.toml"))
+
+	t.Run("file key is unknown", func(t *testing.T) {
+		content := strings.Replace(fixture, "[application]\n", "[application]\nprocess_model = \"replicated\"\n", 1)
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "application.process_model", "unknown_key")
 	})
 
-	t.Run("replicated requires shared durable bindings and one publication object service", func(t *testing.T) {
-		cfg := bootstrapDeploymentProfileConfig(t, "on_prem")
-		cfg.Application.ProcessModel = ProcessModelReplicated
-		cfg.Roots.DatabaseStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "postgres-primary"}
-		cfg.Roots.ObjectStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
-		cfg.Roots.BackupStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "backup-primary"}
-		cfg.Roots.ReferencePackStorage = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
-		cfg.Roots.ExportOutputs = RootBinding{BindingKind: "managed_service", ServiceRef: "object-primary"}
-		if _, err := validate(cfg); err != nil {
-			t.Fatalf("validate replicated process model: %v", err)
-		}
-
-		cfg.Roots.ExportOutputs = RootBinding{BindingKind: "filesystem_root", Path: "/srv/cartulary/exports"}
-		_, err := validate(cfg)
-		requireDiagnostic(t, err, "roots.export_outputs.binding_kind", "replicated_shared_binding_required")
-	})
-
-	t.Run("replicated is rejected for disconnected deployments", func(t *testing.T) {
-		cfg := bootstrapDeploymentProfileConfig(t, "disconnected")
-		cfg.Application.ProcessModel = ProcessModelReplicated
-		_, err := validate(cfg)
-		requireDiagnostic(t, err, "application.process_model", "profile_incompatible_process_model")
-	})
-
-	t.Run("rejects unknown process models", func(t *testing.T) {
-		cfg := BaseConfig(t)
-		cfg.Application.ProcessModel = "best_effort"
-		_, err := validate(cfg)
-		requireDiagnostic(t, err, "application.process_model", "invalid_enum")
+	t.Run("overlay key is unknown", func(t *testing.T) {
+		err := loadInvalidConfig(t, fixture, map[string]string{
+			"CARTULARY__APPLICATION__PROCESS_MODEL": "replicated",
+		})
+		requireDiagnostic(t, err, "application.process_model", "unknown_key")
 	})
 }
 

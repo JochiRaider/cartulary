@@ -44,7 +44,7 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 		"role":          "viewer",
 	})
 
-	job, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
+	job, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: viewerUser.ID,
 		Cancelable:        true,
@@ -86,7 +86,7 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
 	otherCookies, otherCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, otherUser.Email, otherPassword, nil)
 
-	job, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
+	job, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		SubmittedByUserID: submitterUser.ID,
 		Cancelable:        true,
@@ -153,7 +153,7 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 		"role":          "admin",
 	})
 
-	readJob, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
+	readJob, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: submitterUser.ID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
@@ -191,7 +191,7 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	}, httptestx.WithCookies(deploymentViewerCookies, deploymentViewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, deploymentViewerCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, viewerAdminCancel, http.StatusOK)
 
-	demotedJob, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
+	demotedJob, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: submitterUser.ID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,

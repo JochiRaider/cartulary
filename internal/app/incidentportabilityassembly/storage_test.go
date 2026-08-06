@@ -1,4 +1,4 @@
-package server
+package incidentportabilityassembly_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
 
@@ -19,9 +20,9 @@ func TestIncidentBundleRootStorageEnforcesReferencesAndLifecycle_Unit(t *testing
 			t.Fatal(err)
 		}
 	}
-	storage, err := newIncidentBundleRootStorage(temporaryRoot, exportRoot)
+	storage, err := incidentportabilityassembly.NewRootStorage(temporaryRoot, exportRoot)
 	if err != nil {
-		t.Fatalf("newIncidentBundleRootStorage: %v", err)
+		t.Fatalf("NewRootStorage: %v", err)
 	}
 	t.Cleanup(storage.Close)
 
@@ -73,7 +74,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 				t.Fatal(err)
 			}
 		}
-		storage, err := newIncidentBundleRootStorage(temporaryRoot, exportRoot)
+		storage, err := incidentportabilityassembly.NewRootStorage(temporaryRoot, exportRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +108,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 		if err := os.Symlink(outside, filepath.Join(temporaryRoot, "incident-bundles", "imports")); err != nil {
 			t.Fatal(err)
 		}
-		storage, err := newIncidentBundleRootStorage(temporaryRoot, exportRoot)
+		storage, err := incidentportabilityassembly.NewRootStorage(temporaryRoot, exportRoot)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,7 +137,7 @@ func TestIncidentBundleRootStorageFailsClosedOnCancellationSymlinkAndRootReplace
 				t.Fatal(err)
 			}
 		}
-		storage, err := newIncidentBundleRootStorage(temporaryRoot, exportRoot)
+		storage, err := incidentportabilityassembly.NewRootStorage(temporaryRoot, exportRoot)
 		if err != nil {
 			t.Fatal(err)
 		}

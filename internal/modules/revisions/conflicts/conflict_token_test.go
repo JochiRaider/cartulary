@@ -83,7 +83,8 @@ func TestConflictTokenV3SealsClaimsAndRejectsInvalidTokens(t *testing.T) {
 	if err != nil || second == token {
 		t.Fatalf("fresh nonce not reflected in second token: err=%v", err)
 	}
-	tampered := token[:len(token)-1] + alternateTokenByte(token[len(token)-1])
+	tamperIndex := len(token) / 2
+	tampered := token[:tamperIndex] + alternateTokenByte(token[tamperIndex]) + token[tamperIndex+1:]
 	for name, candidate := range map[string]string{
 		"tampered":    tampered,
 		"truncated":   token[:len(token)-1],

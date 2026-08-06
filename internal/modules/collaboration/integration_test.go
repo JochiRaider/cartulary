@@ -117,7 +117,7 @@ func TestIncidentSocketRevocationSources(t *testing.T) {
 			Presence:         timelinePresence(),
 		})
 		sessionID := uuid.MustParse(sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
-		harness.Server.Runtime.CollaborationHub.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
+		harness.Collaboration.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
 		incidentwstest.ExpectSessionRevoked(t, concurrencySocket, authn.ConcurrencyLimitReasonCode)
 	})
 

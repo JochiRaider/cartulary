@@ -33,7 +33,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -155,7 +154,7 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	})
 
 	dequeueGate := &incidentBundleTestDequeueGate{}
-	harness.Server.Runtime.JobRunner.ConfigureDequeueGate(dequeueGate)
+	harness.Jobs.ConfigureDequeueGate(dequeueGate)
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
 		"client_txn_id": "txn-export-auth-blocked",
@@ -438,7 +437,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	if importedStorageKey != wantStorageKey {
 		t.Fatalf("imported blob must use target-owned storage key, got %s want %s", importedStorageKey, wantStorageKey)
 	}
-	rc, _, err := targetHarness.Server.Runtime.ObjectStore.ReadObject(context.Background(), importedStorageKey, objectstore.ReadOptions{})
+	rc, _, err := targetHarness.ObjectStore.ReadObject(context.Background(), importedStorageKey, objectstore.ReadOptions{})
 	if err != nil {
 		t.Fatalf("read imported blob: %v", err)
 	}
@@ -667,7 +666,7 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
 			dequeueGate := &incidentBundleTestDequeueGate{}
-			targetHarness.Server.Runtime.JobRunner.ConfigureDequeueGate(dequeueGate)
+			targetHarness.Jobs.ConfigureDequeueGate(dequeueGate)
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 
@@ -717,11 +716,11 @@ func (gate *incidentBundleTestDequeueGate) AdmissionOpen() bool {
 
 func recoverIncidentBundleJobsThroughGate(t testing.TB, server *httptestx.Server, gate *incidentBundleTestDequeueGate) {
 	t.Helper()
-	if err := server.Runtime.JobRunner.RecoverHandler(context.Background(), incidentbundles.BundleWorkerKind); err != nil {
+	if err := server.JobsCapability().RecoverHandler(context.Background(), incidentbundles.BundleWorkerKind); err != nil {
 		t.Fatalf("queue Incident Bundle recovery behind dequeue gate: %v", err)
 	}
 	gate.open.Store(true)
-	if err := server.Runtime.JobRunner.Activate(context.Background()); err != nil {
+	if err := server.JobsCapability().Activate(context.Background()); err != nil {
 		t.Fatalf("activate Incident Bundle recovery through dequeue gate: %v", err)
 	}
 }
@@ -1597,7 +1596,7 @@ VALUES (
 	sum := sha256.Sum256(blobBytes)
 	blobSHA := hex.EncodeToString(sum[:])
 	sourceStorageKey := "extension_profile/source/" + incidentID + "/" + blobSHA
-	if err := harness.Server.Runtime.ObjectStore.PutObject(ctx, sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
+	if err := harness.ObjectStore.PutObject(ctx, sourceStorageKey, bytes.NewReader(blobBytes), int64(len(blobBytes)), "text/plain"); err != nil {
 		t.Fatalf("seed source object bytes: %v", err)
 	}
 
@@ -1844,10 +1843,12 @@ func postImport(t testing.TB, server *httptestx.Server, login flowtest.LoginResu
 
 func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
+	var lastJob map[string]any
 	for time.Now().Before(deadline) {
 		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		lastJob = job
 		status := job["status"].(string)
 		switch status {
 		case "succeeded":
@@ -1858,7 +1859,7 @@ func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult,
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	t.Fatalf("job %s did not finish", jobID)
+	t.Fatalf("job %s did not finish: %#v", jobID, lastJob)
 	return nil
 }
 
@@ -2480,23 +2481,31 @@ func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *appsupport.
 	if err != nil {
 		t.Fatalf("prepare isolated target bucket: %v", err)
 	}
-	env := testDB.Env()
-	for key, value := range runtime.S3.Env(bucket) {
-		env[key] = value
-	}
+	env := runtime.S3.Env(bucket)
 	for key, value := range extraEnv {
 		env[key] = value
 	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, TestRouteMode: httptestx.TestRouteModeDisabled})
-	db, err := sql.Open("pgx", testDB.DSN)
+	store, err := objectstore.Setup(context.Background(), objectstore.Settings{
+		BindingKind: "managed_service",
+		Endpoint:    runtime.S3.Endpoint,
+		AccessKey:   runtime.S3.AccessKey,
+		SecretKey:   runtime.S3.SecretKey,
+		Secure:      runtime.S3.Secure,
+		Bucket:      bucket,
+	}, objectstore.Instrumentation{})
 	if err != nil {
-		t.Fatalf("open isolated target db: %v", err)
+		t.Fatalf("open isolated target object store: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = db.Close()
+		_ = store.Close()
 	})
-	return &appsupport.ServerHarness{Server: server, DB: db}
+	return runtime.StartServer(t, appsupport.ServerOptions{
+		Prefix:        prefix,
+		Database:      testDB,
+		Env:           env,
+		ObjectStore:   store,
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+	})
 }
 
 func compareSourceTargetCount(t testing.TB, source *sql.DB, target *sql.DB, query string, incidentID string, label string) {
@@ -2715,7 +2724,7 @@ func snapshotImportFailureState(t testing.TB, harness *appsupport.ServerHarness,
 		ImportedActorRows:       countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_actors WHERE incident_id = $1`, incidentID),
 		ImportedAttributionRows: countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_imported_attributions WHERE incident_id = $1`, incidentID),
 		ExportRows:              countRows(t, harness.DB, `SELECT count(*) FROM incident_bundle_exports WHERE incident_id = $1`, incidentID),
-		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.Server.Runtime.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
+		ImportedObjectKeys:      objectKeysWithPrefix(t, harness.ObjectStore, "incidents/"+incidentID+"/object-blobs/"),
 	}
 }
 

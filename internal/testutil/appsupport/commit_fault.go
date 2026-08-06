@@ -3,65 +3,77 @@ package appsupport
 import (
 	"context"
 	"errors"
-	"strings"
+	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/app/server"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
-func IncidentCreateCommitFaultDependencies() httpapi.DependencySet {
-	return server.DependencySetWithPostgresDBDecoratorForTesting(func(base postgres.DB) postgres.DB {
-		return incidentCreateCommitFaultDB{DB: base}
-	})
+var ErrIncidentCreateCommitFault = errors.New("forced incident create final commit failure")
+
+// IncidentCreateCommitFaultCapability is the only test-support installation
+// surface for the Incidents-owned final-create-commit seam.
+type IncidentCreateCommitFaultCapability struct {
+	application *incidents.Application
 }
 
-type incidentCreateCommitFaultDB struct {
-	postgres.DB
-}
-
-func (db incidentCreateCommitFaultDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
-	tx, err := db.DB.BeginTx(ctx, options)
-	if err != nil {
-		return nil, err
+func (c *IncidentCreateCommitFaultCapability) Create(
+	ctx context.Context,
+	actor authn.UserRecord,
+	request incidents.CreateIncidentRequest,
+	requestID string,
+	now time.Time,
+) error {
+	if c == nil || c.application == nil {
+		return errors.New("incident create commit-fault capability is not installed")
 	}
-	return &incidentCreateCommitFaultTx{Tx: tx}, nil
+	_, err := c.application.CreateIncident(
+		ctx,
+		actor,
+		request,
+		incidents.IncidentCreateRequestHash(request),
+		requestID,
+		now,
+	)
+	return err
 }
 
-type incidentCreateCommitFaultTx struct {
-	pgx.Tx
-	incidentCreate bool
+type incidentCreateCommitFault struct{}
+
+func (incidentCreateCommitFault) CommitIncidentCreate(ctx context.Context, tx pgx.Tx) error {
+	_ = tx.Rollback(ctx)
+	return ErrIncidentCreateCommitFault
 }
 
-func (tx *incidentCreateCommitFaultTx) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
-	tx.observe(query)
-	return tx.Tx.Exec(ctx, query, args...)
-}
-
-func (tx *incidentCreateCommitFaultTx) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
-	tx.observe(query)
-	return tx.Tx.Query(ctx, query, args...)
-}
-
-func (tx *incidentCreateCommitFaultTx) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
-	tx.observe(query)
-	return tx.Tx.QueryRow(ctx, query, args...)
-}
-
-func (tx *incidentCreateCommitFaultTx) Commit(ctx context.Context) error {
-	if !tx.incidentCreate {
-		return tx.Tx.Commit(ctx)
+func newIncidentCreateCommitFaultCapability(
+	env map[string]string,
+	mode httptestx.TestRouteMode,
+	db postgres.DB,
+) (*IncidentCreateCommitFaultCapability, error) {
+	if mode != httptestx.TestRouteModeHarnessOwned && mode != httptestx.TestRouteModeCustomEnv {
+		return nil, fmt.Errorf("incident create commit fault requires an admitted test-runtime mode, got %q", mode)
 	}
-	_ = tx.Tx.Rollback(ctx)
-	return errors.New("forced incident create commit failure")
-}
-
-func (tx *incidentCreateCommitFaultTx) observe(query string) {
-	normalized := strings.ToLower(query)
-	if strings.Contains(normalized, "insert into incidents") {
-		tx.incidentCreate = true
+	admissionEnv := make(map[string]string, len(env)+3)
+	for key, value := range env {
+		admissionEnv[key] = value
 	}
+	if mode == httptestx.TestRouteModeHarnessOwned {
+		admissionEnv[httpapi.TestRoutesEnabledEnv] = "1"
+		admissionEnv[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
+		admissionEnv[httpapi.TestRouteTokenEnv] = httptestx.TestRouteToken
+	}
+	if _, err := httpapi.NewTestRouteGuard(admissionEnv); err != nil {
+		return nil, fmt.Errorf("incident create commit fault requires validated test-runtime admission: %w", err)
+	}
+	return &IncidentCreateCommitFaultCapability{
+		application: incidents.NewApplicationWithOptions(db, incidents.ApplicationOptions{
+			IncidentCreateCommit: incidentCreateCommitFault{},
+		}),
+	}, nil
 }

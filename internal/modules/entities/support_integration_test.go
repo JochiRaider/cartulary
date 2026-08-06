@@ -589,7 +589,7 @@ func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte) *h
 func (s *SupportScenario) rebuildBaseProjections(t *testing.T) {
 	t.Helper()
 
-	rebuild := s.harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+	rebuild := s.harness.Projections
 	if err := rebuild.RebuildTimeline(context.Background(), s.IncidentID); err != nil {
 		t.Fatalf("rebuild timeline projections: %v", err)
 	}
@@ -706,7 +706,7 @@ func (s *SupportScenario) queryAffectedRow(t *testing.T, route workbookscenariot
 func (s *SupportScenario) rebuildProjection(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	rebuild := s.harness.Server.Runtime.Timeline.ProjectionCatalog.Rebuild
+	rebuild := s.harness.Projections
 	var err error
 	switch route.ProjectionTarget {
 	case workbookscenariotest.RouteProjectionHosts:

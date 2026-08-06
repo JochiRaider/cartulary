@@ -206,7 +206,7 @@ func (a *Application) CreateIncident(
 		return CreateIncidentResult{}, fmt.Errorf("insert incident idempotency: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := a.incidentCreateCommit.CommitIncidentCreate(ctx, tx); err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("commit incident create transaction: %w", err)
 	}
 	return CreateIncidentResult{

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
@@ -26,7 +27,7 @@ func testRuntime(handler http.Handler, closeRuntime func()) serverRuntime {
 		ActivatePublication:  func() error { return nil },
 		FatalEvents:          make(chan processlifecycle.FatalSignal),
 		Fatal:                func(string) bool { return true },
-		ShutdownDrainSeconds: 1,
+		ShutdownDrainTimeout: time.Second,
 	}
 }
 
@@ -203,18 +204,56 @@ func TestServerRunnerMapsFatalRuntimeSetupFailureToExitSeventy(t *testing.T) {
 	}
 }
 
-func TestServerRunnerMapsConfirmedLeaseLossToExitSeventy(t *testing.T) {
-	var stderr bytes.Buffer
-	runner := newServerRunner(io.Discard, &stderr)
-	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
-	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-		return serverRuntime{}, processlease.ErrLeaseLost
+func TestServerRunnerMapsTypedApplicationLeaseLossesToExitSeventy(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err        error
+		reasonCode string
+	}{
+		"application process": {
+			err:        processlease.ErrApplicationProcessLeaseLost,
+			reasonCode: "application_process_lease_lost",
+		},
+		"recovery serving": {
+			err:        processlease.ErrRecoveryServingLeaseLost,
+			reasonCode: "recovery_serving_lease_lost",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			runner := newServerRunner(io.Discard, &stderr)
+			runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+				return serverRuntime{}, tc.err
+			}
+			if exitCode := runner.run(context.Background()); exitCode != 70 {
+				t.Fatalf("exit code got %d want 70", exitCode)
+			}
+			if !strings.Contains(stderr.String(), `"reason_code":"`+tc.reasonCode+`"`) {
+				t.Fatalf("missing lease-loss fatal diagnostic: %q", stderr.String())
+			}
+		})
 	}
-	if exitCode := runner.run(context.Background()); exitCode != 70 {
-		t.Fatalf("exit code got %d want 70", exitCode)
-	}
-	if !strings.Contains(stderr.String(), `"reason_code":"application_process_lease_lost"`) {
-		t.Fatalf("missing lease-loss fatal diagnostic: %q", stderr.String())
+}
+
+func TestServerRunnerMapsTypedLeaseAdmissionFailuresToExitTwo(t *testing.T) {
+	for name, admissionErr := range map[string]error{
+		"application process": processlease.ErrApplicationProcessActive,
+		"recovery serving":    processlease.ErrRecoveryServingLeaseActive,
+	} {
+		t.Run(name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			runner := newServerRunner(&stdout, io.Discard)
+			runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+			runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+				return serverRuntime{}, admissionErr
+			}
+			if exitCode := runner.run(context.Background()); exitCode != 2 {
+				t.Fatalf("exit code got %d want 2", exitCode)
+			}
+			if !strings.Contains(stdout.String(), admissionErr.Error()) {
+				t.Fatalf("missing lease-admission reason %q: %q", admissionErr, stdout.String())
+			}
+		})
 	}
 }
 
