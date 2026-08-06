@@ -21,10 +21,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
-func TestMigrationEvidenceCommand_Unit(t *testing.T) {
+func TestMigrationEvidenceTransport_Unit(t *testing.T) {
 	t.Run("parse and validate CLI flags", runMigrationEvidenceCaptureArgsParseAndValidate)
 	t.Run("reject invalid CLI inputs", runMigrationEvidenceCaptureArgsRejectsInvalidInputs)
-	t.Run("emit redacted evidence-only JSON", runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON)
+	t.Run("emit one redacted JSON object and close the pool", runMigrationEvidenceCaptureTransport)
+}
+
+func TestMigrationEvidenceSemantics_Unit(t *testing.T) {
+	t.Run("audit embedded sources without authorizing rewrite", runMigrationEvidenceCaptureProjectionSemantics)
 	t.Run("emit evidence when goose metadata is missing", runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload)
 }
 
@@ -103,7 +107,15 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
-func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testing.T) {
+type migrationEvidenceUnitCapture struct {
+	stdout  string
+	stderr  string
+	payload migrationevidence.Result
+	pool    *migrationEvidenceFakePool
+}
+
+func captureMigrationEvidenceUnit(t *testing.T) migrationEvidenceUnitCapture {
+	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
@@ -111,19 +123,20 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
-		stdout: &stdout,
-		stderr: &stderr,
-		loadConfig: func(path string) (configassembly.Loaded, error) {
-			if path != "/etc/cartulary/config.toml" {
-				t.Fatalf("unexpected source config path: %q", path)
-			}
-			return migrationEvidenceTestDeployment(t), nil
-		},
-		setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
-			return pool, nil
-		},
-		now: func() time.Time {
-			return collectedAt
+		migrationEvidence: migrationEvidenceExecutor{
+			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			loadConfig: func(path string) (configassembly.Loaded, error) {
+				if path != "/etc/cartulary/config.toml" {
+					t.Fatalf("unexpected source config path: %q", path)
+				}
+				return migrationEvidenceTestDeployment(t), nil
+			},
+			setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+				return pool, nil
+			},
+			now: func() time.Time {
+				return collectedAt
+			},
 		},
 	}
 
@@ -140,11 +153,29 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 	if exitCode != 0 {
 		t.Fatalf("migration-evidence capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout.String(), stderr.String())
 	}
-	if stderr.Len() != 0 {
-		t.Fatalf("expected no stderr on success, got %s", stderr.String())
+
+	var payload migrationevidence.Result
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
 	}
-	if got := strings.Count(stdout.String(), "\n"); got != 1 {
-		t.Fatalf("operator JSON must be one object followed by LF, got %d newlines: %s", got, stdout.String())
+	return migrationEvidenceUnitCapture{
+		stdout:  stdout.String(),
+		stderr:  stderr.String(),
+		payload: payload,
+		pool:    pool,
+	}
+}
+
+func runMigrationEvidenceCaptureTransport(t *testing.T) {
+	capture := captureMigrationEvidenceUnit(t)
+	if !capture.pool.closed {
+		t.Fatal("migration-evidence capture did not close its acquired Postgres pool")
+	}
+	if capture.stderr != "" {
+		t.Fatalf("expected no stderr on success, got %s", capture.stderr)
+	}
+	if got := strings.Count(capture.stdout, "\n"); got != 1 {
+		t.Fatalf("operator JSON must be one object followed by LF, got %d newlines: %s", got, capture.stdout)
 	}
 	for _, forbidden := range []string{
 		"postgres://cartulary:secret@db.example.test/cartulary",
@@ -152,15 +183,17 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 		"db.example.test",
 		"/srv/cartulary/secrets/postgres",
 	} {
-		if strings.Contains(stdout.String(), forbidden) {
-			t.Fatalf("migration evidence leaked forbidden value %q in stdout %s", forbidden, stdout.String())
+		if strings.Contains(capture.stdout, forbidden) {
+			t.Fatalf("migration evidence leaked forbidden value %q in stdout %s", forbidden, capture.stdout)
 		}
 	}
-
-	var payload migrationevidence.Result
-	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
-		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
+	if capture.payload.SchemaID != migrationevidence.SchemaID {
+		t.Fatalf("unexpected schema_id: %q", capture.payload.SchemaID)
 	}
+}
+
+func runMigrationEvidenceCaptureProjectionSemantics(t *testing.T) {
+	payload := captureMigrationEvidenceUnit(t).payload
 	if payload.SchemaID != migrationevidence.SchemaID {
 		t.Fatalf("unexpected schema_id: %q", payload.SchemaID)
 	}
@@ -186,16 +219,17 @@ func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePay
 	pool := newMigrationEvidenceFakePool(false, nil)
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	runner := operatorRunner{
-		stdout: &stdout,
-		stderr: &stderr,
-		loadConfig: func(string) (configassembly.Loaded, error) {
-			return migrationEvidenceTestDeployment(t), nil
-		},
-		setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
-			return pool, nil
-		},
-		now: func() time.Time {
-			return time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
+		migrationEvidence: migrationEvidenceExecutor{
+			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			loadConfig: func(string) (configassembly.Loaded, error) {
+				return migrationEvidenceTestDeployment(t), nil
+			},
+			setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+				return pool, nil
+			},
+			now: func() time.Time {
+				return time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
+			},
 		},
 	}
 
@@ -207,6 +241,9 @@ func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePay
 	})
 	if exitCode != 0 {
 		t.Fatalf("migration-evidence capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout.String(), stderr.String())
+	}
+	if !pool.closed {
+		t.Fatal("migration-evidence capture did not close its acquired Postgres pool")
 	}
 
 	var payload migrationevidence.Result

@@ -26,6 +26,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/operator"
 	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
@@ -37,6 +38,37 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
+
+func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
+	s3Harness := s3test.Start(t)
+	bucket := fmt.Sprintf("mvp-object-store-init-transport-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Logf("cleanup bucket: %v", err)
+		}
+	})
+
+	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary")
+	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
+	operatorBin := injectedOperatorBinary(t)
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env, "object-store", "init", "-config", configFixture.path)
+	if exitCode != 0 {
+		t.Fatalf("object-store init failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode object-store init JSON: %v\nstdout=%s", err, stdout)
+	}
+	if payload["schema_id"] != operator.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
+		t.Fatalf("unexpected object-store init payload: %#v", payload)
+	}
+	if strings.Count(stdout, "\n") != 1 || stderr != "" {
+		t.Fatalf("object-store init transport must emit one JSON object plus LF and empty stderr: stdout=%q stderr=%q", stdout, stderr)
+	}
+	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) || strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {
+		t.Fatalf("object-store init exposed storage details: stdout=%s stderr=%s", stdout, stderr)
+	}
+}
 
 func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	ctx := context.Background()
@@ -65,22 +97,135 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("object-store init failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode object-store init JSON: %v\nstdout=%s", err, stdout)
-	}
-	if payload["schema_id"] != operator.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
-		t.Fatalf("unexpected object-store init payload: %#v", payload)
-	}
-	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) || strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {
-		t.Fatalf("object-store init exposed storage details: stdout=%s stderr=%s", stdout, stderr)
-	}
 
 	store, err := appsupport.OpenObjectStore(ctx, cfg, env)
 	if err != nil {
 		t.Fatalf("object-store setup failed after init: %v", err)
 	}
 	_ = store.Close()
+}
+
+func TestOperatorCollaborationRequeueV2_Process(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "operator-collaboration-requeue-v2")
+	configFixture := operatorExplicitConfig(t, testDB.DSN)
+	actorID := seedOperatorUser(t, testDB.DSN, "operator-collaboration-requeue@example.test", true, true)
+	incidentID := uuid.New()
+	seededAt := time.Now().UTC().Add(-time.Minute)
+	db, err := sql.Open("pgx", testDB.DSN)
+	if err != nil {
+		t.Fatalf("open collaboration operator database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO incidents (
+    id, incident_key, incident_key_canonical, title, status,
+    created_by_user_id, updated_by_user_id, created_at, updated_at
+) VALUES ($1, $2, $2, 'Operator collaboration requeue', 'active', $3, $3, $4, $4)
+`, incidentID, "operator-collaboration-"+incidentID.String(), actorID, seededAt); err != nil {
+		t.Fatalf("insert collaboration operator incident: %v", err)
+	}
+	intent, err := collaboration.NewEventIntent(
+		"job_progress:operator-collaboration-requeue",
+		incidentID,
+		collaboration.EventFamilyJobProgress,
+		collaboration.NewIncidentJobProgressPayload(
+			"operator-collaboration-requeue",
+			incidentID,
+			collaboration.JobStatusQueued,
+			collaboration.JobProgress{Completed: 0},
+			seededAt,
+		),
+		"job:operator-collaboration-requeue",
+		0,
+		seededAt,
+	)
+	if err != nil {
+		t.Fatalf("construct collaboration operator intent: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO collaboration_event_intents (
+    intent_key, incident_id, event_family, canonical_payload, source_identity,
+    mutation_ordinal, attempt_count, next_attempt_at, last_error_code,
+    created_at, updated_at
+) VALUES ($1, $2, $3, $4::jsonb, $5, 0, 12, $6, 'invalid_event_payload', $6, $6)
+`, intent.IntentKey, intent.IncidentID, intent.EventFamily, intent.CanonicalPayload, intent.SourceIdentity, seededAt); err != nil {
+		t.Fatalf("insert collaboration operator intent: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO collaboration_incident_stream_cursors (
+    incident_id, high_water_stream_seq, failure_count, quarantined_at,
+    quarantine_reason, updated_at
+) VALUES ($1, 0, 12, $2, 'invalid_event_payload', $2)
+`, incidentID, seededAt); err != nil {
+		t.Fatalf("insert collaboration operator cursor: %v", err)
+	}
+
+	operatorBin := injectedOperatorBinary(t)
+	stdout, stderr, exitCode := runOperatorBinary(
+		t,
+		operatorBin,
+		operatorRecoveryEnv(),
+		"collaboration",
+		"requeue",
+		"--incident-id",
+		incidentID.String(),
+		"--config",
+		configFixture.path,
+		"--timeout-seconds",
+		"30",
+	)
+	if exitCode != 0 || stderr != "" || strings.Count(stdout, "\n") != 1 {
+		t.Fatalf("collaboration requeue process failed: exit=%d stdout=%q stderr=%q", exitCode, stdout, stderr)
+	}
+	var payload operator.OperatorCollaborationRequeueResult
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode collaboration requeue v2 process result: %v\nstdout=%s", err, stdout)
+	}
+	if payload.SchemaID != operator.OperatorCollaborationRequeueResultSchemaID || payload.Result != "succeeded" || payload.IncidentID == nil || *payload.IncidentID != incidentID.String() || payload.RequeuedIntentCount == nil || *payload.RequeuedIntentCount != 1 || payload.Error != nil {
+		t.Fatalf("unexpected collaboration requeue process payload: %#v", payload)
+	}
+	var (
+		quarantinedAt    *time.Time
+		attemptCount     int
+		lastErrorCode    *string
+		dispatchState    string
+		payloadPreserved bool
+		journalCount     int
+		journalOperation string
+	)
+	if err := db.QueryRowContext(ctx, `
+SELECT cursor.quarantined_at,
+       intent.attempt_count,
+	   intent.last_error_code,
+	   intent.dispatch_state,
+	   intent.canonical_payload = $2::jsonb,
+       (
+           SELECT count(*)
+             FROM deployment_admin_audit_events AS audit
+            WHERE audit.incident_id = cursor.incident_id
+              AND audit.event_source = 'operator'
+              AND audit.event_kind = 'collaboration_incident_requeued'
+	   ),
+	   (
+	       SELECT client_txn_id
+	         FROM deployment_admin_audit_events AS audit
+	        WHERE audit.incident_id = cursor.incident_id
+	          AND audit.event_source = 'operator'
+	          AND audit.event_kind = 'collaboration_incident_requeued'
+	   )
+  FROM collaboration_incident_stream_cursors AS cursor
+  JOIN collaboration_event_intents AS intent
+    ON intent.incident_id = cursor.incident_id
+ WHERE cursor.incident_id = $1
+`, incidentID, intent.CanonicalPayload).Scan(&quarantinedAt, &attemptCount, &lastErrorCode, &dispatchState, &payloadPreserved, &journalCount, &journalOperation); err != nil {
+		t.Fatalf("load collaboration requeue process state: %v", err)
+	}
+	if quarantinedAt != nil || attemptCount != 0 || lastErrorCode != nil || dispatchState != "pending" ||
+		!payloadPreserved || journalCount != 1 || journalOperation != payload.OperationID {
+		t.Fatalf("unexpected collaboration requeue process state: quarantine=%v attempt=%d last_error=%v dispatch=%q journal=%d operation=%q", quarantinedAt, attemptCount, lastErrorCode, dispatchState, journalCount, journalOperation)
+	}
 }
 
 func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {

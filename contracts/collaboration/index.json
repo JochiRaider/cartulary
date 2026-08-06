@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.collaboration_contract_index.v2",
+  "family_id": "collaboration",
+  "contract_major": 2,
+  "owner_requirements": [
+    "REQ-00-068",
+    "REQ-01-655",
+    "REQ-03-307",
+    "REQ-04-151"
+  ],
+  "current_schema_ids": [
+    "cartulary.operator.collaboration_requeue_result.v2"
+  ],
+  "historical_reader_schema_ids": [],
+  "contract_files": {
+    "operator_requeue_registry": "contracts/collaboration/operator-requeue-registry.v2.json",
+    "operator_requeue_result_schema": "contracts/collaboration/operator-requeue-result.v2.schema.json"
+  },
+  "fixtures": {
+    "success": "contracts/collaboration/fixtures/operator-requeue-result.v2.success.json",
+    "failure": "contracts/collaboration/fixtures/operator-requeue-result.v2.failure.json",
+    "negative": "contracts/collaboration/fixtures/operator-requeue-negative.v2.json"
+  },
+  "compatibility_policy": {
+    "v1_reader": false,
+    "parser_aliases": false,
+    "dual_output": false
+  }
+}

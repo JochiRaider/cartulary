@@ -3,6 +3,32 @@
   "owner_id": "platform.postgres",
   "rows": [
     {
+      "row_id": "platform.postgres.integration.migration_evidence_database_semantics_86249968df",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.integration",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract",
+        "platform.postgres.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestMigrationEvidenceSemantics_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "platform.postgres.integration.real_postgre_sql_bootstrap_creates_the_required_b4fa366b90",
       "owner_id": "platform.postgres",
       "family_id": "platform.postgres.integration",
@@ -69,6 +95,32 @@
           "TestMigrateRunnerPrintsMigrationRemediationReport",
           "TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration",
           "TestMigrateRunnerRunPassesContextToMigration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "platform.postgres.support_unit.migration_evidence_projection_semantics_130d030c9a",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.support_unit",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract",
+        "platform.postgres.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestMigrationEvidenceSemantics_Unit"
         ]
       },
       "evidence_class": "unit",

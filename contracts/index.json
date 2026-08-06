@@ -167,11 +167,24 @@
       "description": "Recovery state ownership, backup, restore, verification, target-safety, and private evidence contracts."
     },
     {
+      "family_id": "collaboration",
+      "contract_root": "contracts/collaboration",
+      "generation_status": "active",
+      "go_name": "CollaborationArtifacts",
+      "output_order": 9,
+      "generated_outputs": [
+        "internal/gen/contractcollaboration/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Deployment-local Collaboration requeue v2 grammar, result, error, exit, and conformance fixtures."
+    },
+    {
       "family_id": "revisions",
       "contract_root": "contracts/revisions",
       "generation_status": "active",
       "go_name": "RevisionsArtifacts",
-      "output_order": 9,
+      "output_order": 10,
       "generated_outputs": [
         "internal/gen/contractrevisions/artifacts_gen.go"
       ],
@@ -184,7 +197,7 @@
       "contract_root": "contracts/view-inspector",
       "generation_status": "active",
       "go_name": "ViewInspectorArtifacts",
-      "output_order": 10,
+      "output_order": 11,
       "generated_outputs": [
         "internal/gen/contractviewinspector/artifacts_gen.go",
         "packages/protocol-ts/src/generated/view-inspector-registry.ts"

@@ -1,0 +1,35 @@
+{
+  "schema_id": "cartulary.operator.collaboration_requeue_negative_fixtures.v2",
+  "grammar_cases": [
+    { "case_id": "missing_incident_id", "args": [], "reason_code": "missing_required_flag" },
+    { "case_id": "single_dash_flag", "args": ["-incident-id", "20000000-0000-0000-0000-000000000002"], "reason_code": "unknown_flag" },
+    { "case_id": "duplicate_flag", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--incident-id", "30000000-0000-0000-0000-000000000003"], "reason_code": "duplicate_flag" },
+    { "case_id": "option_terminator", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--"], "reason_code": "unexpected_argument" },
+    { "case_id": "positional_argument", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "extra"], "reason_code": "unexpected_argument" },
+    { "case_id": "unknown_flag", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--retry"], "reason_code": "unknown_flag" },
+    { "case_id": "empty_value", "args": ["--incident-id="], "reason_code": "invalid_flag_value" },
+    { "case_id": "zero_uuid", "args": ["--incident-id", "00000000-0000-0000-0000-000000000000"], "reason_code": "invalid_flag_value" },
+    { "case_id": "uppercase_uuid", "args": ["--incident-id", "20000000-0000-0000-0000-00000000000A"], "reason_code": "invalid_flag_value" },
+    { "case_id": "compact_uuid", "args": ["--incident-id", "20000000000000000000000000000002"], "reason_code": "invalid_flag_value" },
+    { "case_id": "urn_uuid", "args": ["--incident-id", "urn:uuid:20000000-0000-0000-0000-000000000002"], "reason_code": "invalid_flag_value" },
+    { "case_id": "braced_uuid", "args": ["--incident-id", "{20000000-0000-0000-0000-000000000002}"], "reason_code": "invalid_flag_value" },
+    { "case_id": "relative_config", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--config", "config.toml"], "reason_code": "invalid_flag_value" },
+    { "case_id": "dot_segment_config", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--config", "/etc/../cartulary.toml"], "reason_code": "invalid_flag_value" },
+    { "case_id": "timeout_below_minimum", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--timeout-seconds", "0"], "reason_code": "invalid_flag_value" },
+    { "case_id": "timeout_above_maximum", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--timeout-seconds", "301"], "reason_code": "invalid_flag_value" },
+    { "case_id": "timeout_not_integer", "args": ["--incident-id", "20000000-0000-0000-0000-000000000002", "--timeout-seconds", "30.5"], "reason_code": "invalid_flag_value" },
+    { "case_id": "help_mixed", "args": ["--help", "--incident-id", "20000000-0000-0000-0000-000000000002"], "reason_code": "unexpected_argument" }
+  ],
+  "result_cases": [
+    { "case_id": "v1_schema_rejected", "mutation": "schema_id_v1" },
+    { "case_id": "extra_member_rejected", "mutation": "add_unknown_member" },
+    { "case_id": "success_null_count_rejected", "mutation": "success_count_null" },
+    { "case_id": "success_error_rejected", "mutation": "success_error_non_null" },
+    { "case_id": "failure_count_rejected", "mutation": "failure_count_non_null" },
+    { "case_id": "failure_error_null_rejected", "mutation": "failure_error_null" },
+    { "case_id": "unknown_code_rejected", "mutation": "unknown_error_code" },
+    { "case_id": "mismatched_reason_rejected", "mutation": "reason_not_allowed_for_code" },
+    { "case_id": "noncanonical_operation_id_rejected", "mutation": "operation_id_noncanonical" },
+    { "case_id": "non_utc_timestamp_rejected", "mutation": "timestamp_not_utc" }
+  ]
+}

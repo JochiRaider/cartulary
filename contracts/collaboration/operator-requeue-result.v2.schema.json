@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.operator.collaboration_requeue_result.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "operation_id",
+    "operation",
+    "result",
+    "started_at",
+    "completed_at",
+    "incident_id",
+    "requeued_intent_count",
+    "error"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.operator.collaboration_requeue_result.v2"
+    },
+    "operation_id": {
+      "$ref": "#/$defs/nonzero_canonical_uuid"
+    },
+    "operation": {
+      "const": "collaboration_requeue"
+    },
+    "result": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "started_at": {
+      "$ref": "#/$defs/utc_timestamp"
+    },
+    "completed_at": {
+      "$ref": "#/$defs/utc_timestamp"
+    },
+    "incident_id": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonzero_canonical_uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requeued_intent_count": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "result": {
+          "const": "succeeded"
+        },
+        "incident_id": {
+          "$ref": "#/$defs/nonzero_canonical_uuid"
+        },
+        "requeued_intent_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "result": {
+          "const": "failed"
+        },
+        "requeued_intent_count": {
+          "type": "null"
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonzero_canonical_uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason_code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_operator_request",
+            "collaboration_requeue_rejected",
+            "collaboration_requeue_failed",
+            "operation_timed_out",
+            "operation_cancelled"
+          ]
+        },
+        "reason_code": {
+          "enum": [
+            "missing_required_flag",
+            "invalid_flag_value",
+            "duplicate_flag",
+            "unknown_flag",
+            "unexpected_argument",
+            "local_config_invalid",
+            "incident_not_quarantined",
+            "repair_not_verified",
+            "postgres_unavailable",
+            "transaction_failed",
+            "commit_outcome_unknown",
+            "timeout_elapsed",
+            "caller_cancelled"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "invalid_operator_request"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "missing_required_flag",
+                  "invalid_flag_value",
+                  "duplicate_flag",
+                  "unknown_flag",
+                  "unexpected_argument",
+                  "local_config_invalid"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "collaboration_requeue_rejected"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "incident_not_quarantined",
+                  "repair_not_verified"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "collaboration_requeue_failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "postgres_unavailable",
+                  "transaction_failed",
+                  "commit_outcome_unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "operation_timed_out"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "const": "timeout_elapsed"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "operation_cancelled"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "const": "caller_cancelled"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

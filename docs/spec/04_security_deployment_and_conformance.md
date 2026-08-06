@@ -245,6 +245,57 @@ Operator output, progress records, logs, recovery journal records, and administr
 Profiles: base
 Verified by: AC-402, AC-427, AC-428
 
+**REQ-04-151**
+The Collaboration stream-quarantine requeue interface is a deployment-local
+CLI only. Invocation authority is possession of deployment-local OS execution
+permission and access to the effective deployment configuration and required
+Postgres secret references. Browser sessions, incident roles,
+`deployment_admin`, CSRF tokens, browser `Origin`, cookies, bearer tokens,
+common-job authorization, and WebSocket authorization neither authorize nor
+deny this operation. The interface MUST create no listener, public route,
+browser or workbook action, WebSocket action, incident action, or public
+administrative-audit projection.
+
+Explicit and discovered configuration paths MUST pass the literal absolute
+path and discovery rules in Core 01 REQ-01-655. Configuration and secret
+resolution MUST fail closed. The command-specific timeout covers dependency
+setup and the semantic transaction. Caller cancellation and timeout MUST
+remain distinguishable, and every acquired pool, transaction, row iterator,
+or other resource MUST close on every terminal path. Cancellation or timeout
+before commit MUST emit no success claim and leave no partial semantic effect.
+
+The raw journal row required by Core 03 REQ-03-307 is operator-private,
+append-only administrative evidence. It MUST be written through the existing
+raw administrative-audit journal boundary without a corresponding public
+projection or new public action-code registry entry. Its safe prior summary is
+limited to the presence of quarantine, prior failure count, prior safe reason
+code or JSON `null`, and prior quarantine timestamp. Its terminal summary is
+limited to result token, mutation timestamp, and requeued-intent count. The row
+MAY additionally carry the operation ID and incident ID in their dedicated
+identity fields. Omission behavior: it contains no other before/after member.
+
+Collaboration requeue stdout, stderr, logs, typed errors, and raw journal rows
+MUST NOT contain credentials, secret references, raw DSNs, endpoint hosts,
+database names, SQL, relation or constraint names, stack traces, event
+payloads, record content, object keys, storage paths, or upstream error text.
+Diagnostic messages are fixed safe text selected by typed code and reason, not
+by interpolating a cause. The sole post-commit delivery diagnostic contains
+only the operation ID and `result_delivery_failed` as allowed by Core 01.
+Profiles: base
+Verified by: AC-535
+
+**REQ-04-152**
+`operator object-store init` is deployment-local tooling with the same local
+OS/configuration authority boundary and negative browser, HTTP, WebSocket,
+session, bearer, CSRF, and common-job surfaces as REQ-04-151. Success and
+failure output MUST NOT disclose an endpoint host, bucket name, object key,
+storage reference, credential, secret reference, raw DSN, raw path, constraint
+name, or upstream error text. Only typed configuration diagnostics and typed
+Object Store adapter failures may select a specific safe reason. Every unknown
+failure uses `dependency_unavailable`; error-message matching is forbidden.
+Profiles: base
+Verified by: AC-536
+
 **REQ-04-113**
 The deployment recovery-operation exclusion boundary is a deployment-local mutual-exclusion boundary over admitted mutating recovery operations. `backup_create`, `restore_latest`, `restore_verify_latest`, and each selected verification inside `restore_verify_due` MUST acquire this boundary before candidate allocation, source backup publication work, target database mutation, or target object-namespace mutation. `backup_inspect_latest` is non-mutating and MUST NOT require this boundary. `restore_verify_due` with no due backups returns `no_op` and need not acquire this boundary. If the boundary is unavailable, the operation MUST fail before mutation with `code='recovery_operation_in_progress'`, `reason_code='operation_lock_unavailable'`, and exit code `3` under REQ-01-595.
 
@@ -2308,6 +2359,10 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-570, REQ-04-106
 - **AC-428**: Operator recovery conformance evidence maps the implementation-owned executable or wrapper to exactly the five logical commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`; proves `operator backup create` follows the Core 01 admission/publication algorithm, acquires the recovery-operation exclusion boundary, and maps Postgres artifact failure, object-store artifact failure, integrity-proof failure, artifact-readback failure, attestation-write failure, publication failure, journal-write failure, and timeout to the closed operator result and error vocabulary; proves failed `backup_create` results before candidate allocation emit `backup_set_id=null` and `consistency_point_at=null`; proves failed `backup_create` results after candidate allocation identify any allocated candidate only as diagnostic state and never make it selectable for restore, inspection, restore verification, or latest-successful-retained backup selection; proves `--output` omission defaults to `json` and any non-`json` value fails; proves stdout emits exactly one `cartulary.operator_recovery_result.v1` JSON object followed by LF with no extra stdout bytes; proves omitted `--progress` emits no progress records and `--progress=jsonl` emits only `cartulary.operator_recovery_progress.v1` JSONL records on stderr with operation-closed phase tokens; proves timeout defaults, allowed ranges, per-verification `restore_verify_due` behavior, `operation_timed_out`, and exit codes `0`, `2`, `3`, and `4`; proves required `--target-config-file` handling, absolute-path validation, and `restore_latest` `--confirm-backup-set-id` equality against the selected latest retained backup; proves invalid invocation, unknown flags, interactive confirmation, operator-supplied timestamp restore, unsupported backup selectors, and any operator-supplied backup scheduler flag fail closed with the required operator error codes and reason codes; proves `restore_verify_due` orders due backups by `consistency_point_at ASC, backup_set_id ASC` and returns deterministic `no_op` output when none are due; proves restore-target preflight rejects shared database bindings, shared object-store bindings, non-fresh target database or object namespace, target listeners serving traffic, missing or invalid target markers, missing recovery keys, missing artifacts, and failed integrity proofs before target mutation; proves timed-out restore targets remain not-ready and require reinitialization; proves admitted mutating recovery operations append encrypted operator recovery journal records; proves a writable database receives the safe administrative-audit summary; and proves outputs, progress, logs, journal records, and audit summaries omit credentials, secret references, raw DSNs, endpoint hosts, bucket names, object keys, raw storage paths, recovery keys, and incident content.
   - Verifies: REQ-01-593..REQ-01-595, REQ-01-596, REQ-04-106, REQ-04-113
+- **AC-535**: Collaboration requeue conformance maps exactly one implementation-owned command to `operator collaboration requeue`; proves the strict long-flag grammar, canonical non-zero UUID rule, literal absolute config path rule, config discovery precedence, timeout default/range, help-only exception, exact v2 member set/order/LF, closed code/reason/exit registry, caller-cancelled versus timeout behavior, and post-commit delivery exception; proves no v1 or parser alias remains; locks and validates the quarantined cursor and every pending intent; rejects an unrepaired payload without mutation; resets only the declared retry/quarantine fields; preserves payload/event/dispatch/sequencing identity; appends one safe raw non-public operator journal row atomically; rolls back all effects on journal or transaction failure; reports commit failure as outcome unknown; permits exactly one concurrent winner; makes a second invocation reject; closes all resources; and exposes no public route, browser, workbook, WebSocket, job, incident action, public audit projection, secret, raw DSN, endpoint, SQL, constraint, payload, record content, object key, storage path, or upstream error text.
+  - Verifies: REQ-00-068, REQ-01-655, REQ-03-307, REQ-04-151
+- **AC-536**: Object Store initialization conformance preserves the existing logical command and successful v1 schema, creates or confirms only the configured bucket, maps known typed configuration and adapter failures deterministically, maps every untyped failure to `dependency_unavailable`, contains no error-string classifier, closes acquired resources, and emits no endpoint, host, bucket, key, storage reference, credential, secret reference, raw DSN, path, constraint, or upstream error text.
+  - Verifies: REQ-01-656, REQ-04-152
 - **AC-403**: `roots.backup_storage` is present in the effective deployment configuration; the disconnected binding uses `binding_kind='filesystem_root'`; the on-prem or cloud binding uses only `filesystem_root` or `managed_service`; `/var/lib/cartulary/backups` is the canonical disconnected example path; `roots.export_outputs` and `roots.temporary_work` are not treated as authoritative backup roots; and backup artifacts or restore-verification extracts that carry incident data remain on encrypted storage, with the current filesystem-backed realization proving this through authenticated encrypted artifact envelopes and fail-closed missing-key behavior.
   - Verifies: REQ-04-053, REQ-04-058, REQ-04-071..REQ-04-073, REQ-04-076, REQ-04-107..REQ-04-108
 

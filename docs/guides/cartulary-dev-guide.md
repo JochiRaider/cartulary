@@ -1076,12 +1076,26 @@ pre-contract snapshot only when the affected contract explicitly requires
 snapshot rollback.
 
 Collaboration quarantines only the incident whose deterministic payload fails
-twelve sequencing attempts. Repair the owner payload or data first, then run
-`operator collaboration requeue --incident-id <uuid> [-config <path>]`.
-Requeue is rejected when the incident is not quarantined and never skips the
-failed event. Monitor queue depth and oldest age, sequence lag, replay resets,
-quarantine count, retry count, pruning, and slow-consumer disconnects without
-placing incident or record identifiers in metric labels.
+twelve sequencing attempts. Repair every pending owner payload first, then run
+`operator collaboration requeue --incident-id <canonical-uuid> [--config
+<absolute-path>] [--timeout-seconds <seconds>]`. Use only double-dash flag
+names; the UUID must be lowercase and hyphenated, and an explicit config path
+must be a literal absolute path. The timeout defaults to 30 seconds and accepts
+1 through 300 seconds.
+
+The command emits one v2 JSON result on stdout and ordinarily leaves stderr
+empty. Exit `2` means the request or local config is invalid, exit `3` means the
+incident is not quarantined or payload repair was not verified, and exit `4`
+means dependency, transaction, timeout, cancellation, or delivery failure.
+Automation must branch on `error.code` and `error.reason_code`, not message
+text. A `commit_outcome_unknown` result must be investigated by checking the
+private operator journal and current quarantine state before any retry; do not
+assume rollback. A post-commit `result_delivery_failed` stderr diagnostic also
+requires journal/state inspection because the mutation already committed.
+Requeue never skips or deletes the failed event. Monitor queue depth and oldest
+age, sequence lag, replay resets, quarantine count, retry count, pruning, and
+slow-consumer disconnects without placing incident or record identifiers in
+metric labels.
 
 ### 7.4 Test strategy
 

@@ -47,6 +47,31 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "full"
+    },
+    {
+      "row_id": "platform.objectstore.support_integration.object_store_init_durable_effect_578bf55fdf",
+      "owner_id": "platform.objectstore",
+      "family_id": "platform.objectstore.support_integration",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "platform.objectstore.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestMVPObjectStoreInitOperatorCreatesConfiguredBucket"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
     }
   ]
 }

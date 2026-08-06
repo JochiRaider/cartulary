@@ -19,23 +19,32 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
-func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
+type recoveryExecutor struct {
+	transport        operatorTransport
+	loadConfig       func(string) (configassembly.Loaded, error)
+	setupPostgres    func(context.Context, postgres.Settings) (operatorPostgresPool, error)
+	setupObjectStore func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
+	newBackupStorage func(string, string) (recovery.BackupStorage, error)
+	now              func() time.Time
+}
+
+func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (bool, int) {
 	extensionBackups, err := extensionassembly.GeneratedRecoveryCatalog()
 	if err != nil {
-		runner.logger().Error("extension recovery catalog is invalid", "error", err)
+		executor.transport.logger().Error("extension recovery catalog is invalid", "error", err)
 		return true, 1
 	}
 	recoveryStateCatalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
 	if err != nil {
-		runner.logger().Error("recovery state catalog is invalid", "error", err)
+		executor.transport.logger().Error("recovery state catalog is invalid", "error", err)
 		return true, 1
 	}
 	return recoverycli.Runner{
-		Stdout: runner.stdout,
-		Stderr: runner.stderr,
-		Now:    runner.now,
+		Stdout: executor.transport.stdout,
+		Stderr: executor.transport.stderr,
+		Now:    executor.now,
 		Facade: application.Service{
-			LoadDeployment: runner.loadRecoveryDeployment,
+			LoadDeployment: executor.loadDeployment,
 			ReadTargetMarker: func(bindingKind string, rootPath string) (application.TargetMarkerMaterial, error) {
 				if bindingKind != "filesystem_root" {
 					return application.TargetMarkerMaterial{}, application.ErrTargetMarkerRequiresFilesystemStorage
@@ -93,13 +102,13 @@ func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) 
 					inventories,
 				)
 			},
-			Now: runner.now,
+			Now: executor.now,
 		},
 	}.Run(ctx, args)
 }
 
-func (runner operatorRunner) loadRecoveryDeployment(path string) (application.Deployment, error) {
-	loaded, err := runner.loadConfig(path)
+func (executor recoveryExecutor) loadDeployment(path string) (application.Deployment, error) {
+	loaded, err := executor.loadConfig(path)
 	if err != nil {
 		return application.Deployment{}, err
 	}
@@ -131,13 +140,13 @@ func (runner operatorRunner) loadRecoveryDeployment(path string) (application.De
 		PostgresSettings: postgresSettings,
 		ObjectSettings:   objectSettings,
 		OpenPostgres: func(ctx context.Context) (application.PostgresPool, error) {
-			return runner.setupPostgres(ctx, postgresSettings)
+			return executor.setupPostgres(ctx, postgresSettings)
 		},
 		OpenObjectStore: func(ctx context.Context) (objectstore.Store, error) {
-			return runner.setupObjectStore(ctx, objectSettings, configassembly.ObjectStoreInstrumentation(cfg))
+			return executor.setupObjectStore(ctx, objectSettings, configassembly.ObjectStoreInstrumentation(cfg))
 		},
 		OpenBackup: func() (recovery.BackupStorage, error) {
-			return runner.newBackupStorage(
+			return executor.newBackupStorage(
 				cfg.Roots.BackupStorage.BindingKind,
 				cfg.Roots.BackupStorage.Path,
 			)

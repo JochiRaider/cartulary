@@ -900,6 +900,56 @@ When the client continues a pageable workbook surface with `cursor_token`, it MU
 Profiles: base
 Verified by: AC-231
 
+#### 4.3.3 Deployment-local stream-quarantine requeue transition
+
+**REQ-03-307**
+The Collaboration stream-quarantine requeue semantic operation accepts one
+request containing a non-zero operation UUID, a non-zero incident UUID, and
+one UTC mutation timestamp. It returns the exact number of pending intents
+admitted for requeue. Its typed failure kinds distinguish incident not
+quarantined, repair not verified, storage or transaction failure, commit
+outcome unknown, caller cancellation, and timeout. Transport codes, messages,
+JSON, and exit selection remain owned by Core 01 REQ-01-655.
+
+The operation MUST perform exactly one transaction with these ordered effects:
+
+1. Lock the incident stream cursor only when `quarantined_at` is non-null.
+   A missing cursor and a present non-quarantined cursor both return
+   `incident_not_quarantined` without mutation.
+2. Lock every `dispatch_state='pending'` intent for the incident in stable
+   `intent_key ASC` order and validate each intent's current canonical payload
+   against its declared event-family contract. Any invalid pending payload
+   returns `repair_not_verified` without mutation.
+3. Set the locked cursor's `failure_count=0`, `quarantined_at=null`, and
+   `quarantine_reason=null`, and set its `updated_at` to the request timestamp.
+4. For the locked pending intents only, set `attempt_count=0`,
+   `next_attempt_at` to the request timestamp, `last_error_code=null`, and
+   `updated_at` to the request timestamp.
+5. Append exactly one raw, non-public administrative-audit journal row in the
+   same transaction. The row records operator source, operation ID, incident
+   ID, a safe prior-quarantine summary, a safe terminal summary, and the exact
+   requeued-intent count under Core 04 REQ-04-151.
+6. Commit once. Journal failure rolls back every preceding effect. A failed
+   commit attempt returns the typed commit-outcome-unknown failure and MUST NOT
+   be represented as a proven rollback.
+
+Requeue MUST NOT change an intent's canonical payload, intent key, event
+family, incident identity, source identity, dispatch state, event ID, stream
+sequence, creation timestamp, or other sequencing identity. It MUST NOT skip,
+delete, replace, or synthesize an event. It MUST NOT create an incident
+revision, public administrative-audit projection, browser action, HTTP route,
+WebSocket action, common job, event selector, or idempotency alias.
+
+The quarantined-cursor lock is the single-winner boundary. Of concurrent
+attempts against one quarantine instance, exactly one may commit; every later
+or losing attempt returns `incident_not_quarantined` and creates no duplicate
+intent reset or journal row. A second invocation after a committed success is
+therefore a deliberate non-idempotent rejection. Cancellation or timeout
+before commit rolls back; the result-delivery exception after commit belongs
+to Core 01 and does not reverse the committed transition.
+Profiles: base
+Verified by: AC-535
+
 ### 4.4 Local pending queue
 
 **REQ-03-099**

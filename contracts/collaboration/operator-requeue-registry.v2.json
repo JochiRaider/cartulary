@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.operator.collaboration_requeue_registry.v2",
+  "operation": "collaboration_requeue",
+  "command_tokens": [
+    "operator",
+    "collaboration",
+    "requeue"
+  ],
+  "usage": "operator collaboration requeue --incident-id <canonical-uuid> [--config <absolute-path>] [--timeout-seconds <seconds>]",
+  "value_forms": [
+    "--name=value",
+    "--name value"
+  ],
+  "flags": [
+    {
+      "name": "incident-id",
+      "required": true,
+      "value_contract": "canonical_nonzero_uuid"
+    },
+    {
+      "name": "config",
+      "required": false,
+      "value_contract": "literal_absolute_path"
+    },
+    {
+      "name": "timeout-seconds",
+      "required": false,
+      "value_contract": "integer_decimal",
+      "default": 30,
+      "minimum": 1,
+      "maximum": 300
+    }
+  ],
+  "help": {
+    "accepted_args": [
+      "--help"
+    ],
+    "stdout_object": false,
+    "stderr_usage": true,
+    "exit": 0
+  },
+  "rejected_grammar": [
+    "duplicate_flag",
+    "empty_value",
+    "help_mixed_with_action",
+    "missing_value",
+    "option_terminator",
+    "positional_argument",
+    "single_dash_flag",
+    "unknown_flag"
+  ],
+  "config_discovery": [
+    "explicit_config_flag",
+    "CARTULARY_CONFIG_FILE",
+    "/etc/cartulary/config.toml"
+  ],
+  "result_schema_id": "cartulary.operator.collaboration_requeue_result.v2",
+  "result_member_order": [
+    "schema_id",
+    "operation_id",
+    "operation",
+    "result",
+    "started_at",
+    "completed_at",
+    "incident_id",
+    "requeued_intent_count",
+    "error"
+  ],
+  "success_exit": 0,
+  "failures": [
+    {
+      "code": "invalid_operator_request",
+      "exit": 2,
+      "reason_codes": [
+        "missing_required_flag",
+        "invalid_flag_value",
+        "duplicate_flag",
+        "unknown_flag",
+        "unexpected_argument",
+        "local_config_invalid"
+      ]
+    },
+    {
+      "code": "collaboration_requeue_rejected",
+      "exit": 3,
+      "reason_codes": [
+        "incident_not_quarantined",
+        "repair_not_verified"
+      ]
+    },
+    {
+      "code": "collaboration_requeue_failed",
+      "exit": 4,
+      "reason_codes": [
+        "postgres_unavailable",
+        "transaction_failed",
+        "commit_outcome_unknown"
+      ]
+    },
+    {
+      "code": "operation_timed_out",
+      "exit": 4,
+      "reason_codes": [
+        "timeout_elapsed"
+      ]
+    },
+    {
+      "code": "operation_cancelled",
+      "exit": 4,
+      "reason_codes": [
+        "caller_cancelled"
+      ]
+    }
+  ],
+  "delivery_exception": {
+    "token": "result_delivery_failed",
+    "exit": 4,
+    "operation_id_required": true,
+    "rollback_claim_forbidden": true
+  }
+}

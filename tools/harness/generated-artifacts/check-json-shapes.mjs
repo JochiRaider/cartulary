@@ -1052,6 +1052,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("recovery")) {
     throw new Error(`${file}.families must declare recovery`);
   }
+  if (!familyIDs.includes("collaboration")) {
+    throw new Error(`${file}.families must declare collaboration`);
+  }
   if (!familyIDs.includes("revisions")) {
     throw new Error(`${file}.families must declare revisions`);
   }
@@ -1068,6 +1071,7 @@ function validateContractFamilyRegistryShape(file) {
     "audit",
     "imports",
     "recovery",
+    "collaboration",
     "revisions",
     "view-inspector",
   ];

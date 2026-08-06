@@ -6455,7 +6455,7 @@ orchestrate only the frozen catalog; it MUST NOT discover another owner's
 authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
-The current vNext catalog accounts for exactly 109 authored public base tables.
+The current vNext catalog accounts for exactly 110 authored public base tables.
 Exactly 82 are `authoritative_required`. All five `graph_projection_*` tables
 are `excluded_rebuildable`; all four `collaboration_*` stream tables and
 `enterprise_auth_transactions` are `excluded_security_state` and MUST be
@@ -6821,6 +6821,95 @@ maps to the existing operation-specific `journal_write_failed` reason.
 
 Profiles: base
 Verified by: AC-428
+
+### 12.2.2 Deployment-local Collaboration requeue CLI contract
+
+**REQ-01-655**
+The current Base Profile defines exactly this deployment-local logical command:
+
+```text
+operator collaboration requeue --incident-id <canonical-uuid> [--config <absolute-path>] [--timeout-seconds <seconds>]
+```
+
+Only double-dash long flag names are accepted. A flag value MAY use either
+`--name value` or `--name=value`, and flags MAY appear in any order. Duplicate
+flags, single-dash forms, positional arguments, `--` option termination,
+unknown flags, missing or empty flag values, and a help flag mixed with action
+flags are invalid. `--help` is accepted only as the sole argument following
+`operator collaboration requeue`; it writes usage to stderr, exits `0`, and
+emits no operation result object.
+
+`--incident-id` is required. Its value MUST be exactly a non-zero canonical
+UUID: lowercase hexadecimal, hyphenated `8-4-4-4-12`, with no URN, braces,
+whitespace, or compact spelling. `--config`, when explicitly supplied, MUST be
+a literal absolute path with no NUL, `~`, shell-variable syntax, or lexical `.`
+or `..` segment. When omitted, configuration discovery first uses
+`CARTULARY_CONFIG_FILE` when nonempty and otherwise uses
+`/etc/cartulary/config.toml`. `--timeout-seconds` defaults to `30`; a supplied
+value MUST be an integer decimal in the inclusive range `1..300`. The resulting
+deadline covers Postgres setup and the transactional semantic operation.
+Caller cancellation remains distinct from deadline expiry.
+
+Every matched non-help invocation MUST attempt to emit exactly one UTF-8 JSON
+object conforming to
+`cartulary.operator.collaboration_requeue_result.v2`, followed by LF, on
+stdout. Ordinary stderr is empty. The object contains exactly these members in
+this serialized order: `schema_id`, `operation_id`, `operation`, `result`,
+`started_at`, `completed_at`, `incident_id`, `requeued_intent_count`, and
+`error`.
+
+| Member | Contract |
+| --- | --- |
+| `schema_id` | Exact string `cartulary.operator.collaboration_requeue_result.v2`. |
+| `operation_id` | Non-zero canonical UUID generated once for this invocation before action validation. |
+| `operation` | Exact string `collaboration_requeue`. |
+| `result` | Exact token `succeeded` or `failed`. |
+| `started_at` | RFC 3339 UTC timestamp for invocation start. |
+| `completed_at` | RFC 3339 UTC terminal timestamp, not earlier than `started_at`. |
+| `incident_id` | Canonical UUID when a valid incident ID was admitted; otherwise JSON `null`. |
+| `requeued_intent_count` | Non-negative integer on success; JSON `null` on failure. |
+| `error` | JSON `null` on success; otherwise an object containing exactly `code`, `reason_code`, and `message` in that order. |
+
+`message` is secret-safe diagnostic text for a local operator and is not an
+automation comparison key. Automation MUST compare only `code` and
+`reason_code`. The closed failure and exit registry is:
+
+| `code` | Allowed `reason_code` values | Exit |
+| --- | --- | ---: |
+| `invalid_operator_request` | `missing_required_flag`, `invalid_flag_value`, `duplicate_flag`, `unknown_flag`, `unexpected_argument`, `local_config_invalid` | `2` |
+| `collaboration_requeue_rejected` | `incident_not_quarantined`, `repair_not_verified` | `3` |
+| `collaboration_requeue_failed` | `postgres_unavailable`, `transaction_failed`, `commit_outcome_unknown` | `4` |
+| `operation_timed_out` | `timeout_elapsed` | `4` |
+| `operation_cancelled` | `caller_cancelled` | `4` |
+
+A successful operation exits `0`. No v1 decoder, v1 output mode, parser alias,
+dual-output mode, or compatibility reader is current-profile behavior. A
+stdout write failure after commit is the sole result-delivery exception: the
+process exits `4`, MUST NOT claim rollback, and writes only a secret-safe
+stderr diagnostic containing the canonical operation ID and exact token
+`result_delivery_failed`.
+Profiles: base
+Verified by: AC-535
+
+**REQ-01-656**
+`operator object-store init` retains its current deployment-local command
+grammar and successful `cartulary.operator.object_store_init_result.v1`
+contract. A successful result contains exactly `schema_id`, `result`,
+`created`, and `already_exists`; `result` is `created` or `already_exists`, and
+the two booleans MUST describe the same outcome without exposing storage
+details.
+
+Failure classification MUST inspect only typed deployment-configuration
+diagnostics and typed Object Store adapter errors. A known typed diagnostic or
+adapter reason maps deterministically to its safe reason code. Every untyped
+or otherwise unrecognized error maps to the exact generic reason
+`dependency_unavailable`. The Operator facade MUST NOT inspect, tokenize,
+lowercase, pattern-match, or perform substring matching on error message text
+to select a reason code. No endpoint, host, bucket, key, storage reference,
+credential, raw DSN, path, constraint, payload, or upstream error string may
+appear in stdout or stderr.
+Profiles: base
+Verified by: AC-536
 
 ### 12.3 Incident portability
 

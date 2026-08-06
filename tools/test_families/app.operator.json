@@ -3,10 +3,37 @@
   "owner_id": "app.operator",
   "rows": [
     {
-      "row_id": "app.operator.integration.against_real_postgre_sql_migration_history_evide_ba00088f03",
+      "row_id": "app.operator.integration.collaboration_requeue_v2_process_contract_c1e6d7ba96",
       "owner_id": "app.operator",
       "family_id": "app.operator.integration",
-      "collaborator_ids": [],
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestOperatorCollaborationRequeueV2_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "app.operator.integration.migration_evidence_transport_and_resource_lifecy_6f6f81a872",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
       "verification_ids": [
         "app.operator.verification.behavior_contract"
       ],
@@ -14,7 +41,7 @@
       "selector": {
         "package": "./internal/app/operator",
         "tests": [
-          "TestMigrationEvidenceCommand_Integration"
+          "TestMigrationEvidenceTransport_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -26,7 +53,32 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "app.operator.unit.collaboration_requeue_args_6a57fb3221",
+      "row_id": "app.operator.integration.object_store_init_process_transport_c19d4d6cf0",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.integration",
+      "collaborator_ids": [
+        "platform.objectstore"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestMVPObjectStoreInitOperatorTransport"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "app.operator.unit.collaboration_requeue_v2_transport_contract_11562cd85f",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",
       "collaborator_ids": [
@@ -39,7 +91,9 @@
       "selector": {
         "package": "./internal/app/operator",
         "tests": [
-          "TestOperatorCollaborationRequeueArgs_U_RequireExactIncident"
+          "TestOperatorCollaborationRequeueArgs_U_RejectsClosedGrammarMatrix",
+          "TestOperatorCollaborationRequeueArgs_U_StrictCanonicalGrammar",
+          "TestOperatorCollaborationRequeueCommand_U_V2DeliveryAndClosure"
         ]
       },
       "evidence_class": "unit",
@@ -51,7 +105,59 @@
       "minimum_tier": "fast"
     },
     {
-      "row_id": "app.operator.unit.migration_history_evidence_parsing_audits_embedd_e6e8ea0237",
+      "row_id": "app.operator.unit.migration_evidence_cli_transport_and_redaction_906768574c",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestMigrationEvidenceTransport_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "app.operator.unit.object_store_init_typed_failure_transport_5cee6a5190",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [
+        "platform.objectstore"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult",
+          "TestOperatorObjectStoreInitCommand_U_RedactsFailure",
+          "TestOperatorObjectStoreInitCommand_U_UsesOnlyTypedFailureClassification"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "app.operator.unit.operator_registry_eight_paths_and_collaboration_01217009b8",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",
       "collaborator_ids": [],
@@ -62,7 +168,10 @@
       "selector": {
         "package": "./internal/app/operator",
         "tests": [
-          "TestMigrationEvidenceCommand_Unit"
+          "TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths",
+          "TestOperatorCommandRegistryRejectsDuplicateAndPrefixAmbiguousPaths",
+          "TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures",
+          "TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand"
         ]
       },
       "evidence_class": "unit",

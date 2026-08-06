@@ -68,3 +68,35 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 		t.Fatalf("global usage did not reject retired top-level name cleanly: %q", stderr.String())
 	}
 }
+
+func TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths(t *testing.T) {
+	registry, err := (operatorRunner{}).commandRegistry()
+	if err != nil {
+		t.Fatalf("build operator registry: %v", err)
+	}
+	want := []string{
+		"backup inspect latest",
+		"backup create",
+		"restore latest",
+		"restore-verify latest",
+		"restore-verify due",
+		"migration-evidence capture",
+		"object-store init",
+		"collaboration requeue",
+	}
+	if len(registry.commands) != len(want) {
+		t.Fatalf("operator command count got %d want %d", len(registry.commands), len(want))
+	}
+	for index, command := range registry.commands {
+		if got := strings.Join(command.Tokens, " "); got != want[index] {
+			t.Fatalf("operator command %d got %q want %q", index, got, want[index])
+		}
+	}
+	usage := registry.usage()
+	if strings.Count(usage, "\n  operator ") != len(want) {
+		t.Fatalf("operator usage does not contain exactly eight command lines: %q", usage)
+	}
+	if !strings.Contains(usage, "\n  "+collaborationRequeueUsage) || strings.Contains(usage, "collaboration requeue --incident-id <uuid> [-config") {
+		t.Fatalf("operator usage does not expose only the strict Collaboration v2 grammar: %q", usage)
+	}
+}

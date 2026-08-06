@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.operator.collaboration_requeue_result.v2",
+  "operation_id": "10000000-0000-0000-0000-000000000001",
+  "operation": "collaboration_requeue",
+  "result": "failed",
+  "started_at": "2026-08-06T17:00:00Z",
+  "completed_at": "2026-08-06T17:00:01Z",
+  "incident_id": "20000000-0000-0000-0000-000000000002",
+  "requeued_intent_count": null,
+  "error": {
+    "code": "collaboration_requeue_rejected",
+    "reason_code": "repair_not_verified",
+    "message": "Pending collaboration payload repair could not be verified."
+  }
+}

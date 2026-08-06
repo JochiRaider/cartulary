@@ -259,29 +259,6 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.recovery.process.the_standalone_operator_initializes_the_configur_03834eb65a",
-      "owner_id": "module.recovery",
-      "family_id": "module.recovery.process",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.recovery.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/recovery/operatortest",
-        "tests": [
-          "TestMVPObjectStoreInitOperatorCreatesConfiguredBucket"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
-    },
-    {
       "row_id": "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.store",
@@ -401,6 +378,32 @@
           "TestDueAttemptMustStopOnlyForUnsafeContinuation",
           "TestExecuteDueVerificationBatchStopsOnAttemptTimeout",
           "TestExecuteDueVerificationBatchUsesIndependentAttemptsAndReturnsFirstFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.recovery.unit.exact_recovery_state_catalog_and_synthetic_goose_774b28fd25",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/recoverystate",
+        "tests": [
+          "TestRecoveryCatalogRejectsEveryExactSetAndClassificationMutation",
+          "TestRecoveryCatalogRequiresExactlyOneSeparateSyntheticGooseTable"
         ]
       },
       "evidence_class": "unit",

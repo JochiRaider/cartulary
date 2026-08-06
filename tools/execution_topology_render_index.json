@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:bdcc9e1baa79c126eddd220464330d1a3aaef9524bf54db3e0cdf1794d1c4e4f",
+  "input_digest": "sha256:50b0e28e72a280f2b9dcd47645e30cc1c679fa836f268d3db45fd9613f2efa64",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -497,7 +497,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:aecd2e5666de164c8989b7af342687d4c1a554bd91969141ac69e3ad0684327b"
+      "hash": "sha256:9e5f1436117a3ad26981a5365824a69b5ba43605ed49657447f03bb4048249cf"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -777,7 +777,7 @@
     {
       "path": "tools/test_families/app.operator.json",
       "role": "test_family_manifest",
-      "hash": "sha256:85b9e578447f8e5889f675cd2ed122c7ca17ce0f17e93751d1e5111ffa9c4a04"
+      "hash": "sha256:91261e73055375b4fed956ab7bda781878d3bac833675913b3e91d1fefc50354"
     },
     {
       "path": "tools/test_families/app.server.json",
@@ -912,7 +912,7 @@
     {
       "path": "tools/test_families/module.recovery.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5d0bacdd034c81ec0cd81fc2b0aaf2687b2c250c83c1aac8b11dfc72f38ce631"
+      "hash": "sha256:c5cd9bd14ff234fde64486feb1f7883b5172eb80e0a6321097a1a934a01afd51"
     },
     {
       "path": "tools/test_families/module.reference_data.json",
@@ -1012,7 +1012,7 @@
     {
       "path": "tools/test_families/platform.objectstore.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c88ff0e013e1f4b12f3404f2180086c8402e7daeb00ec646dc2756e9affeaaa5"
+      "hash": "sha256:38e70f8a3f12d8ce0658596b08cde7dfeffeac0db27d080544505c48c14377db"
     },
     {
       "path": "tools/test_families/platform.openapi.json",
@@ -1022,7 +1022,7 @@
     {
       "path": "tools/test_families/platform.postgres.json",
       "role": "test_family_manifest",
-      "hash": "sha256:ca8131792933efb896c0a8062c7f01728726fd0da3a4ca90c6b70cf24a133f1c"
+      "hash": "sha256:69928e9bc74318e81466a253b89fd11aa2e19dff852865985ffcee8c48c5316d"
     },
     {
       "path": "tools/test_families/platform.rootedfs.json",
