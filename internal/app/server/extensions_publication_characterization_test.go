@@ -16,43 +16,43 @@ import (
 
 func TestRuntime_ExtensionPublication_OneServingEpoch(t *testing.T) {
 	controller, plan, lifecycle := preparedPublicationController(t)
-	if _, installed := controller.Summary(); installed ||
-		len(controller.Discovery()) != 0 ||
-		len(controller.Claims()) != 0 ||
-		len(controller.Routes()) != 0 ||
-		len(controller.Workspaces()) != 0 ||
-		len(controller.Workers()) != 0 ||
-		len(controller.JobKindContracts()) != 0 ||
-		len(controller.Contributions()) != 0 ||
-		len(controller.ImplementationBindings()) != 0 {
+	if _, installed := controller.summary(); installed ||
+		len(controller.discovery()) != 0 ||
+		len(controller.claims()) != 0 ||
+		len(controller.routes()) != 0 ||
+		len(controller.workspaces()) != 0 ||
+		len(controller.workers()) != 0 ||
+		len(controller.jobKindContracts()) != 0 ||
+		len(controller.contributions()) != 0 ||
+		len(controller.implementationBindings()) != 0 {
 		t.Fatal("prepared plan became visible before commit")
 	}
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
-	summary, installed := controller.Summary()
+	summary, installed := controller.summary()
 	if !installed || summary != plan.Summary() {
 		t.Fatalf("installed epoch = %#v/%t; want %#v", summary, installed, plan.Summary())
 	}
-	if len(controller.Routes()) == 0 ||
-		len(controller.Workspaces()) == 0 ||
-		len(controller.Workers()) == 0 ||
-		len(controller.JobKindContracts()) == 0 ||
-		len(controller.Contributions()) == 0 ||
-		len(controller.ImplementationBindings()) == 0 {
+	if len(controller.routes()) == 0 ||
+		len(controller.workspaces()) == 0 ||
+		len(controller.workers()) == 0 ||
+		len(controller.jobKindContracts()) == 0 ||
+		len(controller.contributions()) == 0 ||
+		len(controller.implementationBindings()) == 0 {
 		t.Fatal("committed plan projections are incomplete")
 	}
 	if lifecycle.AdmissionOpen() {
 		t.Fatal("committed epoch opened admission before serving")
 	}
-	if err := controller.Serve(); err != nil {
+	if err := controller.serve(); err != nil {
 		t.Fatal(err)
 	}
-	if controller.State() != PublicationServing || !lifecycle.AdmissionOpen() {
-		t.Fatalf("serving state = %s/%t", controller.State(), lifecycle.AdmissionOpen())
+	if controller.currentState() != publicationServing || !lifecycle.AdmissionOpen() {
+		t.Fatalf("serving state = %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
 	}
-	if err := controller.Serve(); err == nil {
+	if err := controller.serve(); err == nil {
 		t.Fatal("second serving path was accepted")
 	}
 }
@@ -173,25 +173,25 @@ func TestRuntime_ExtensionPublication_MixedClaimProfileDomains(t *testing.T) {
 
 func TestRuntime_ExtensionPublication_PreparedComponentsAreQuiescent(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if controller.State() != PublicationPrepared || lifecycle.AdmissionOpen() {
-		t.Fatalf("prepared components are not quiescent: %s/%t", controller.State(), lifecycle.AdmissionOpen())
+	if controller.currentState() != publicationPrepared || lifecycle.AdmissionOpen() {
+		t.Fatalf("prepared components are not quiescent: %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
 	}
-	if _, installed := controller.Summary(); installed || len(controller.Routes()) != 0 ||
-		len(controller.Workspaces()) != 0 || len(controller.Workers()) != 0 {
+	if _, installed := controller.summary(); installed || len(controller.routes()) != 0 ||
+		len(controller.workspaces()) != 0 || len(controller.workers()) != 0 {
 		t.Fatal("prepared publication exposed an epoch projection")
 	}
 }
 
 func TestRuntime_ExtensionPublication_AtomicAdmissionGate(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
 	if lifecycle.AdmissionOpen() {
 		t.Fatal("commit opened admission")
 	}
-	if err := controller.Serve(); err != nil {
+	if err := controller.serve(); err != nil {
 		t.Fatal(err)
 	}
 	if !lifecycle.AdmissionOpen() || lifecycle.State() != processlifecycle.StateRunning {
@@ -201,65 +201,65 @@ func TestRuntime_ExtensionPublication_AtomicAdmissionGate(t *testing.T) {
 
 func TestRuntime_ExtensionPublication_AcknowledgmentValidation(t *testing.T) {
 	t.Run("early", func(t *testing.T) {
-		controller := NewPublicationController(processlifecycle.New())
-		if err := controller.Acknowledge("http", strings.Repeat("a", 64), nil); err == nil || controller.State() != PublicationFailed {
-			t.Fatalf("early acknowledgment = %v/%s", err, controller.State())
+		controller := newPublicationController(processlifecycle.New())
+		if err := controller.acknowledge("http", strings.Repeat("a", 64), nil); err == nil || controller.currentState() != publicationFailed {
+			t.Fatalf("early acknowledgment = %v/%s", err, controller.currentState())
 		}
 	})
 	t.Run("before commit", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		digest := controller.ExpectedComponents()["http"]
-		if err := controller.Acknowledge("http", digest, nil); err == nil || controller.State() != PublicationFailed {
-			t.Fatalf("pre-commit acknowledgment = %v/%s", err, controller.State())
+		digest := controller.expectedComponents()["http"]
+		if err := controller.acknowledge("http", digest, nil); err == nil || controller.currentState() != publicationFailed {
+			t.Fatalf("pre-commit acknowledgment = %v/%s", err, controller.currentState())
 		}
 	})
 	t.Run("unknown", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		if err := controller.Commit(); err != nil {
+		if err := controller.commit(); err != nil {
 			t.Fatal(err)
 		}
-		if err := controller.Acknowledge("unknown", strings.Repeat("a", 64), nil); err == nil {
+		if err := controller.acknowledge("unknown", strings.Repeat("a", 64), nil); err == nil {
 			t.Fatal("unknown acknowledgment accepted")
 		}
 	})
 	t.Run("duplicate", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		if err := controller.Commit(); err != nil {
+		if err := controller.commit(); err != nil {
 			t.Fatal(err)
 		}
-		digest := controller.ExpectedComponents()["http"]
-		if err := controller.Acknowledge("http", digest, nil); err != nil {
+		digest := controller.expectedComponents()["http"]
+		if err := controller.acknowledge("http", digest, nil); err != nil {
 			t.Fatal(err)
 		}
-		if err := controller.Acknowledge("http", digest, nil); err == nil {
+		if err := controller.acknowledge("http", digest, nil); err == nil {
 			t.Fatal("duplicate acknowledgment accepted")
 		}
 	})
 	t.Run("failed", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		if err := controller.Commit(); err != nil {
+		if err := controller.commit(); err != nil {
 			t.Fatal(err)
 		}
-		digest := controller.ExpectedComponents()["http"]
-		if err := controller.Acknowledge("http", digest, errors.New("prepare failed")); err == nil {
+		digest := controller.expectedComponents()["http"]
+		if err := controller.acknowledge("http", digest, errors.New("prepare failed")); err == nil {
 			t.Fatal("failed acknowledgment accepted")
 		}
 	})
 	t.Run("digest mismatch", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		if err := controller.Commit(); err != nil {
+		if err := controller.commit(); err != nil {
 			t.Fatal(err)
 		}
-		if err := controller.Acknowledge("http", strings.Repeat("0", 64), nil); err == nil {
+		if err := controller.acknowledge("http", strings.Repeat("0", 64), nil); err == nil {
 			t.Fatal("mismatched acknowledgment accepted")
 		}
 	})
 	t.Run("missing", func(t *testing.T) {
 		controller, _, _ := preparedPublicationController(t)
-		if err := controller.Commit(); err != nil {
+		if err := controller.commit(); err != nil {
 			t.Fatal(err)
 		}
-		if err := controller.Serve(); err == nil {
+		if err := controller.serve(); err == nil {
 			t.Fatal("missing acknowledgments accepted")
 		}
 	})
@@ -305,80 +305,80 @@ func TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering(t *testin
 
 func TestRuntime_ExtensionPublication_NoIndependentRederivation(t *testing.T) {
 	controller, _, _ := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
-	if err := controller.Serve(); err != nil {
+	if err := controller.serve(); err != nil {
 		t.Fatal(err)
 	}
 
 	provider := publicationHTTPProjections{publication: controller}
-	if got, want := len(provider.ExtensionDiscoveryProfiles()), len(controller.Discovery()); got != want {
+	if got, want := len(provider.ExtensionDiscoveryProfiles()), len(controller.discovery()); got != want {
 		t.Fatalf("discovery projection count got %d want %d", got, want)
 	}
-	if got, want := len(provider.ExtensionClaims()), len(controller.Claims()); got != want {
+	if got, want := len(provider.ExtensionClaims()), len(controller.claims()); got != want {
 		t.Fatalf("claim projection count got %d want %d", got, want)
 	}
-	if got, want := len(provider.ExtensionRoutes()), len(controller.Routes()); got != want {
+	if got, want := len(provider.ExtensionRoutes()), len(controller.routes()); got != want {
 		t.Fatalf("route projection count got %d want %d", got, want)
 	}
-	if got, want := len(provider.ExtensionWorkspaces()), len(controller.Workspaces()); got != want {
+	if got, want := len(provider.ExtensionWorkspaces()), len(controller.workspaces()); got != want {
 		t.Fatalf("workspace projection count got %d want %d", got, want)
 	}
 }
 
 func TestRuntime_ExtensionPublication_FailureNoExposure(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
-	digest := controller.ExpectedComponents()["http"]
-	if err := controller.Acknowledge("http", digest, errors.New("failed")); err == nil {
+	digest := controller.expectedComponents()["http"]
+	if err := controller.acknowledge("http", digest, errors.New("failed")); err == nil {
 		t.Fatal("preparation failure was accepted")
 	}
-	if controller.State() != PublicationFailed || lifecycle.AdmissionOpen() {
-		t.Fatalf("failed publication exposure = %s/%t", controller.State(), lifecycle.AdmissionOpen())
+	if controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
+		t.Fatalf("failed publication exposure = %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
 	}
-	if _, installed := controller.Summary(); installed || len(controller.Discovery()) != 0 {
+	if _, installed := controller.summary(); installed || len(controller.discovery()) != 0 {
 		t.Fatal("failed publication retained its plan")
 	}
 }
 
 func TestRuntime_ExtensionPublication_PublishedComponentLoss(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
-	if err := controller.Serve(); err != nil {
+	if err := controller.serve(); err != nil {
 		t.Fatal(err)
 	}
-	if !controller.ComponentLost("http") {
+	if !controller.componentLost("http") {
 		t.Fatal("published component loss did not enter the fatal lifecycle")
 	}
 	signal := <-lifecycle.FatalEvents()
 	if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" ||
-		controller.State() != PublicationFailed || lifecycle.AdmissionOpen() {
-		t.Fatalf("component-loss result = %#v/%s/%t", signal, controller.State(), lifecycle.AdmissionOpen())
+		controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
+		t.Fatalf("component-loss result = %#v/%s/%t", signal, controller.currentState(), lifecycle.AdmissionOpen())
 	}
-	if _, installed := controller.Summary(); installed {
+	if _, installed := controller.summary(); installed {
 		t.Fatal("component-loss path retained a rebuildable plan")
 	}
 }
 
 func TestRuntime_ExtensionPublication_PreServingComponentLoss(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
-	if !controller.ComponentLost("http") {
+	if !controller.componentLost("http") {
 		t.Fatal("committed component loss was ignored")
 	}
-	if controller.State() != PublicationFailed || lifecycle.AdmissionOpen() {
-		t.Fatalf("pre-serving component loss = %s/%t", controller.State(), lifecycle.AdmissionOpen())
+	if controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
+		t.Fatalf("pre-serving component loss = %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
 	}
-	if _, installed := controller.Summary(); installed {
+	if _, installed := controller.summary(); installed {
 		t.Fatal("pre-serving component loss retained the installed epoch")
 	}
 	select {
@@ -396,7 +396,10 @@ func TestRuntime_ExtensionPublication_PlanNotPersistedOrLogged(t *testing.T) {
 			t.Fatalf("publication plan exposes field %s", planType.Field(index).Name)
 		}
 	}
-	controllerType := reflect.TypeOf(PublicationController{})
+	controllerType := reflect.TypeOf(publicationController{})
+	if controllerType.NumMethod() != 0 || reflect.TypeOf((*publicationController)(nil)).NumMethod() != 0 {
+		t.Fatal("publication controller unexpectedly exposes package API methods")
+	}
 	for index := 0; index < controllerType.NumField(); index++ {
 		fieldType := controllerType.Field(index).Type.String()
 		for _, forbidden := range []string{"postgres", "pgx", "objectstore", "slog.Logger", "log.Logger"} {
@@ -409,14 +412,14 @@ func TestRuntime_ExtensionPublication_PlanNotPersistedOrLogged(t *testing.T) {
 
 func TestRuntime_ExtensionPublication_NoSecondPublicationPath(t *testing.T) {
 	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.Commit(); err != nil {
+	if err := controller.commit(); err != nil {
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
 	if lifecycle.AdmissionOpen() {
-		t.Fatal("a path other than PublicationController.Serve opened admission")
+		t.Fatal("a path other than the publication controller serving gate opened admission")
 	}
-	if err := controller.Serve(); err != nil {
+	if err := controller.serve(); err != nil {
 		t.Fatal(err)
 	}
 	if err := lifecycle.Publish(); err == nil {
@@ -446,7 +449,7 @@ func generatedPublicationPlan(t testing.TB) (*extensions.Coordinator, extensions
 	return coordinator, plan
 }
 
-func preparedPublicationController(t testing.TB) (*PublicationController, extensions.PublicationPlan, *processlifecycle.Controller) {
+func preparedPublicationController(t testing.TB) (*publicationController, extensions.PublicationPlan, *processlifecycle.Controller) {
 	t.Helper()
 	_, plan := generatedPublicationPlan(t)
 	lifecycle := processlifecycle.New()
@@ -454,13 +457,13 @@ func preparedPublicationController(t testing.TB) (*PublicationController, extens
 	if err != nil {
 		t.Fatal(err)
 	}
-	return orchestrator.PublicationController, plan, lifecycle
+	return orchestrator.controller, plan, lifecycle
 }
 
-func acknowledgeAllPublicationComponents(t testing.TB, controller *PublicationController) {
+func acknowledgeAllPublicationComponents(t testing.TB, controller *publicationController) {
 	t.Helper()
-	for componentID, digest := range controller.ExpectedComponents() {
-		if err := controller.Acknowledge(componentID, digest, nil); err != nil {
+	for componentID, digest := range controller.expectedComponents() {
+		if err := controller.acknowledge(componentID, digest, nil); err != nil {
 			t.Fatalf("acknowledge %s: %v", componentID, err)
 		}
 	}

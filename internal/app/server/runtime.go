@@ -7,8 +7,8 @@ import (
 )
 
 // NewRuntime is the repository-internal construction facade. The private
-// runtimeAssembly owns ordered composition and cleanup; callers receive the
-// existing Runtime surface until the dedicated caller-migration slice.
+// runtimeAssembly owns ordered composition and cleanup; Runtime exposes only
+// the lifecycle capabilities needed by its repository callers.
 func NewRuntime(ctx context.Context, deployment configassembly.Deployment, options Options) (*Runtime, error) {
 	loaded, err := configassembly.Admit(deployment)
 	if err != nil {
@@ -18,5 +18,18 @@ func NewRuntime(ctx context.Context, deployment configassembly.Deployment, optio
 }
 
 func newRuntime(ctx context.Context, loaded configassembly.Loaded, options Options) (*Runtime, error) {
-	return (runtimeAssembly{loadedConfiguration: loaded, options: options}).build(ctx)
+	return newRuntimeWithDependencies(ctx, loaded, options, productionRuntimeDependencies())
+}
+
+func newRuntimeWithDependencies(
+	ctx context.Context,
+	loaded configassembly.Loaded,
+	options Options,
+	dependencies runtimeDependencies,
+) (*Runtime, error) {
+	return (runtimeAssembly{
+		loadedConfiguration: loaded,
+		options:             options,
+		dependencies:        dependencies,
+	}).build(ctx)
 }

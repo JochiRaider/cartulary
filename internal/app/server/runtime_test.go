@@ -30,78 +30,58 @@ import (
 )
 
 func TestFailClosedStartup_Unit(t *testing.T) {
-	originalNewJobsManager := newJobsManager
-	originalSetupPostgres := setupPostgres
-	originalEnsureSchemaReady := ensureSchemaReady
-	originalSetupObjectStore := setupObjectStore
-	originalRunBootstrap := runBootstrap
-	originalNewCollaborationHub := newCollaborationHub
-	originalNewHTTPHandler := newHTTPHandler
-	originalReadSecureFile := readSecureFile
-	originalAcquireApplicationProcessLease := acquireApplicationProcessLease
-	originalAcquireRecoveryServingLease := acquireRecoveryServingLease
-	t.Cleanup(func() {
-		newJobsManager = originalNewJobsManager
-		setupPostgres = originalSetupPostgres
-		ensureSchemaReady = originalEnsureSchemaReady
-		setupObjectStore = originalSetupObjectStore
-		runBootstrap = originalRunBootstrap
-		newCollaborationHub = originalNewCollaborationHub
-		newHTTPHandler = originalNewHTTPHandler
-		readSecureFile = originalReadSecureFile
-		acquireApplicationProcessLease = originalAcquireApplicationProcessLease
-		acquireRecoveryServingLease = originalAcquireRecoveryServingLease
-	})
+	dependencies := productionRuntimeDependencies()
 
 	var jobsCalls int
-	newJobsManager = func() *jobs.Manager {
+	dependencies.newJobsManager = func() *jobs.Manager {
 		jobsCalls++
 		return &jobs.Manager{}
 	}
 
 	var postgresCalls int
-	setupPostgres = func(ctx context.Context, settings postgres.Settings) (*pgxpool.Pool, error) {
+	dependencies.setupPostgres = func(ctx context.Context, settings postgres.Settings) (*pgxpool.Pool, error) {
 		postgresCalls++
 		return nil, nil
 	}
-	acquireApplicationProcessLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationProcessLease, error) {
+	dependencies.acquireApplicationProcessLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationProcessLease, error) {
 		return nil, nil
 	}
-	acquireRecoveryServingLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationRecoveryServingLease, error) {
+	dependencies.acquireRecoveryServingLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationRecoveryServingLease, error) {
 		return nil, nil
 	}
-	ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+	dependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 		return nil
 	}
 
 	var objectStoreCalls int
 	var setupStore objectstore.Store
-	setupObjectStore = func(ctx context.Context, settings objectstore.Settings, instrumentation objectstore.Instrumentation) (objectstore.Store, error) {
+	dependencies.setupObjectStore = func(ctx context.Context, settings objectstore.Settings, instrumentation objectstore.Instrumentation) (objectstore.Store, error) {
 		objectStoreCalls++
 		return setupStore, nil
 	}
 
 	var wsHubCalls int
-	newCollaborationHub = func() *collaboration.Hub {
+	dependencies.newCollaborationHub = func() *collaboration.Hub {
 		wsHubCalls++
 		return collaboration.NewHub()
 	}
 
 	var handlerCalls int
-	newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
+	dependencies.newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
 		handlerCalls++
 		return http.NewServeMux(), nil
 	}
 
 	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
-		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies := dependencies
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 			t.Fatal("invalid config reached schema readiness")
 			return nil
 		}
 		cfg := RuntimeConfig(t)
 		cfg.Roots.DatabaseStorage.Path = "relative/postgres"
 
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected invalid config to fail closed")
 		}
@@ -128,7 +108,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, dependencies)
 		diagnostics, ok := config.DiagnosticsFromError(err)
 		if !ok || len(diagnostics) != 1 ||
 			diagnostics[0].Path != "revisions.conflict_token_key_ring_manifest_path.keys[0].secret_ref" ||
@@ -141,13 +121,13 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("inactive extension configuration stops before dependency wiring", func(t *testing.T) {
-		t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+		testDependencies := dependencies
 		cfg := RuntimeConfig(t)
 		cfg.EnterpriseAuthentication.Claimed = false
 		cfg.EnterpriseAuthentication.ProviderManifestPath = "/do-not-read/provider.json"
 
 		var secureFileReads int
-		readSecureFile = func(string, int64) (securefile.Document, error) {
+		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
 			secureFileReads++
 			t.Fatal("inactive Enterprise Authentication configuration reached secure file work")
 			return securefile.Document{}, nil
@@ -157,7 +137,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		objectStoreCalls = 0
 		wsHubCalls = 0
 		handlerCalls = 0
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected inactive extension configuration to fail closed")
 		}
@@ -173,13 +153,13 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("unclaimed Network Flow configuration stops before active validation or file work", func(t *testing.T) {
-		t.Cleanup(func() { readSecureFile = originalReadSecureFile })
+		testDependencies := dependencies
 		cfg := RuntimeConfig(t)
 		cfg.NetworkFlowActivity.Claimed = false
 		cfg.NetworkFlowActivity.KeyRingManifestPath = "relative/must-not-be-read.json"
 
 		var secureFileReads int
-		readSecureFile = func(string, int64) (securefile.Document, error) {
+		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
 			secureFileReads++
 			t.Fatal("unclaimed Network Flow configuration reached secure file work")
 			return securefile.Document{}, nil
@@ -189,7 +169,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		objectStoreCalls = 0
 		wsHubCalls = 0
 		handlerCalls = 0
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected inactive Network Flow configuration to fail closed")
 		}
@@ -220,10 +200,11 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("schema readiness failures stop before object store, bootstrap, jobs, websocket, and handler construction", func(t *testing.T) {
+		testDependencies := dependencies
 		cfg := RuntimeConfig(t)
 
 		var schemaReadinessCalls int
-		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 			schemaReadinessCalls++
 			return config.NewDiagnosticsError(config.Diagnostic{
 				Path:       "database.schema_version",
@@ -238,12 +219,12 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 		var bootstrapCalls int
-		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
+		testDependencies.runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			bootstrapCalls++
 			return nil
 		}
 
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected schema readiness failure")
 		}
@@ -267,13 +248,14 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("bootstrap preflight failures stop before jobs, websocket, and handler construction", func(t *testing.T) {
-		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies := dependencies
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
 
 		var bootstrapCalls int
-		runBootstrap = func(ctx context.Context, settings bootstrap.Settings, pool *pgxpool.Pool) error {
+		testDependencies.runBootstrap = func(ctx context.Context, settings bootstrap.Settings, pool *pgxpool.Pool) error {
 			bootstrapCalls++
 			return config.NewDiagnosticsError(config.Diagnostic{
 				Path:       "bootstrap.first_admin_manifest_path",
@@ -288,7 +270,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		wsHubCalls = 0
 		handlerCalls = 0
 
-		_, err := NewRuntime(context.Background(), cfg, Options{})
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
 		if err == nil {
 			t.Fatal("expected bootstrap preflight to fail closed")
 		}
@@ -312,17 +294,18 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("startup failure closes owned object store exactly once", func(t *testing.T) {
-		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies := dependencies
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
 		ownedStore := &CloseTrackingStore{}
 		setupStore = ownedStore
-		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
+		testDependencies.runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
-		if _, err := NewRuntime(context.Background(), cfg, Options{}); err == nil {
+		if _, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies); err == nil {
 			t.Fatal("expected forced startup failure")
 		}
 		if ownedStore.closeCalls != 1 {
@@ -331,17 +314,18 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	})
 
 	t.Run("startup failure leaves borrowed object store open", func(t *testing.T) {
-		ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies := dependencies
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
 		borrowedStore := &CloseTrackingStore{}
 		setupStore = nil
-		runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
+		testDependencies.runBootstrap = func(context.Context, bootstrap.Settings, *pgxpool.Pool) error {
 			return config.NewDiagnosticsError(config.Diagnostic{Path: "bootstrap", ReasonCode: "forced_failure", Message: "forced failure"})
 		}
 
-		if _, err := NewRuntime(context.Background(), cfg, Options{ObjectStore: borrowedStore}); err == nil {
+		if _, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ObjectStore: borrowedStore}, testDependencies); err == nil {
 			t.Fatal("expected forced startup failure")
 		}
 		if borrowedStore.closeCalls != 0 {
@@ -351,24 +335,20 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 }
 
 func TestEnterpriseAuthenticationManifestPreflight_Unit(t *testing.T) {
-	originalReadSecureFile := readSecureFile
-	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
-
 	t.Run("unclaimed configuration performs no file work", func(t *testing.T) {
 		var reads int
-		readSecureFile = func(string, int64) (securefile.Document, error) {
+		readDocument := func(string, int64) (securefile.Document, error) {
 			reads++
 			return securefile.Document{}, nil
 		}
 		definitions, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
 			ProviderManifestPath: "/must/not/be/read",
-		}, nil)
+		}, nil, readDocument)
 		if err != nil || definitions != nil || reads != 0 {
 			t.Fatalf("unclaimed preflight = definitions %#v, reads %d, error %v", definitions, reads, err)
 		}
 	})
 
-	readSecureFile = securefile.Read
 	root := t.TempDir()
 	malformed := filepath.Join(root, "malformed.json")
 	if err := os.WriteFile(malformed, []byte(`{"provider_manifest_schema_id":`), 0o600); err != nil {
@@ -397,7 +377,7 @@ func TestEnterpriseAuthenticationManifestPreflight_Unit(t *testing.T) {
 			_, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
 				Claimed:              true,
 				ProviderManifestPath: testCase.path,
-			}, nil)
+			}, nil, securefile.Read)
 			requireEnterpriseManifestDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", testCase.wantReason)
 			if strings.Contains(err.Error(), root) || strings.Contains(err.Error(), testCase.path) {
 				t.Fatalf("manifest error disclosed host path: %v", err)
@@ -429,7 +409,7 @@ func TestEnterpriseAuthenticationManifestPreflight_Unit(t *testing.T) {
 			_, err := loadEnterpriseProviderManifest(enterpriseauth.Configuration{
 				Claimed:              true,
 				ProviderManifestPath: manifestPath,
-			}, nil)
+			}, nil, securefile.Read)
 			requireEnterpriseManifestDiagnostic(
 				t,
 				err,
@@ -470,12 +450,9 @@ func requireEnterpriseManifestDiagnostic(t testing.TB, err error, wantPath strin
 }
 
 func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
-	originalReadSecureFile := readSecureFile
-	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
-
 	t.Run("unclaimed configuration performs no file work", func(t *testing.T) {
 		var reads int
-		readSecureFile = func(string, int64) (securefile.Document, error) {
+		readDocument := func(string, int64) (securefile.Document, error) {
 			reads++
 			return securefile.Document{}, nil
 		}
@@ -484,13 +461,13 @@ func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
 			nil,
 			time.Time{},
 			secretpurpose.NewRegistry(),
+			readDocument,
 		)
 		if err != nil || rings != nil || reads != 0 {
 			t.Fatalf("unclaimed preflight = rings %v, reads %d, error %v", rings, reads, err)
 		}
 	})
 
-	readSecureFile = securefile.Read
 	root := t.TempDir()
 	malformed := filepath.Join(root, "malformed.json")
 	if err := os.WriteFile(malformed, []byte(`{"schema_id":`), 0o600); err != nil {
@@ -521,6 +498,7 @@ func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
 				nil,
 				time.Now().UTC(),
 				secretpurpose.NewRegistry(),
+				securefile.Read,
 			)
 			diagnostics, ok := config.DiagnosticsFromError(err)
 			if !ok || len(diagnostics) != 1 ||
@@ -536,10 +514,6 @@ func TestNetworkFlowManifestPreflight_Unit(t *testing.T) {
 }
 
 func TestRevisionsConflictTokenManifestPreflight_Unit(t *testing.T) {
-	originalReadSecureFile := readSecureFile
-	t.Cleanup(func() { readSecureFile = originalReadSecureFile })
-	readSecureFile = securefile.Read
-
 	root := t.TempDir()
 	malformed := filepath.Join(root, "malformed.json")
 	if err := os.WriteFile(malformed, []byte(`{"schema_id":`), 0o600); err != nil {
@@ -573,6 +547,7 @@ func TestRevisionsConflictTokenManifestPreflight_Unit(t *testing.T) {
 				env,
 				time.Now().UTC(),
 				secretpurpose.NewRegistry(),
+				securefile.Read,
 			)
 			diagnostics, ok := config.DiagnosticsFromError(err)
 			if !ok || len(diagnostics) != 1 ||

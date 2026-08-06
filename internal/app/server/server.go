@@ -80,9 +80,9 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 			}
 			return serverRuntime{
 				Handler: runtime.HTTPHandler(), Close: runtime.Close, ActivatePublication: runtime.ActivatePublication,
-				FatalEvents: runtime.FatalEvents(), Fatal: runtime.PublishedComponentLost,
-				ShutdownDrainTimeout: runtime.ShutdownDrainTimeout(),
-				PublicHTTP:           runtime.PublicHTTPDiagnostics(),
+				FatalEvents: runtime.fatalEvents(), Fatal: runtime.publishedComponentLost,
+				ShutdownDrainTimeout: runtime.drainTimeout(),
+				PublicHTTP:           runtime.publicHTTPDiagnostics(),
 			}, nil
 		},
 		lookupEnv: os.LookupEnv,

@@ -10,19 +10,40 @@ import (
 
 func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	runtimeType := reflect.TypeOf(Runtime{})
+	wantFields := map[string]struct{}{
+		"handler":                 {},
+		"stagedJanitor":           {},
+		"jobRunner":               {},
+		"collaborationDispatcher": {},
+		"processLease":            {},
+		"servingLease":            {},
+		"lifecycle":               {},
+		"publication":             {},
+		"publicHTTP":              {},
+		"shutdownDrainTimeout":    {},
+		"reconciliationTimeout":   {},
+		"stagedObjectSweepPeriod": {},
+		"closeOnce":               {},
+		"publicationOnce":         {},
+		"cleanups":                {},
+		"stagedJanitorContext":    {},
+	}
+	if runtimeType.NumField() != len(wantFields) {
+		t.Fatalf("server Runtime field count = %d, want %d", runtimeType.NumField(), len(wantFields))
+	}
 	for index := 0; index < runtimeType.NumField(); index++ {
-		if runtimeType.Field(index).IsExported() {
-			t.Fatalf("server Runtime field %q must remain private", runtimeType.Field(index).Name)
+		field := runtimeType.Field(index)
+		if field.IsExported() {
+			t.Fatalf("server Runtime field %q must remain private", field.Name)
+		}
+		if _, present := wantFields[field.Name]; !present {
+			t.Fatalf("server Runtime retains construction-only field %q", field.Name)
 		}
 	}
 	wantMethods := map[string]struct{}{
-		"ActivatePublication":    {},
-		"Close":                  {},
-		"FatalEvents":            {},
-		"HTTPHandler":            {},
-		"PublicHTTPDiagnostics":  {},
-		"PublishedComponentLost": {},
-		"ShutdownDrainTimeout":   {},
+		"ActivatePublication": {},
+		"Close":               {},
+		"HTTPHandler":         {},
 	}
 	pointerType := reflect.TypeOf((*Runtime)(nil))
 	if pointerType.NumMethod() != len(wantMethods) {
@@ -36,9 +57,8 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	if _, exposed := runtimeType.FieldByName("EvidenceStore"); exposed {
 		t.Fatal("server Runtime unexpectedly exposes a production Evidence store")
 	}
-	ownerField, present := runtimeType.FieldByName("evidenceOwner")
-	if !present || ownerField.Type != reflect.TypeOf((*evidence.OwnerRuntime)(nil)) {
-		t.Fatalf("server Runtime Evidence owner field = %#v, want private *evidence.OwnerRuntime", ownerField)
+	if _, retained := runtimeType.FieldByName("evidenceOwner"); retained {
+		t.Fatal("server Runtime retains the construction-only Evidence owner")
 	}
 
 	timelineBundleType := reflect.TypeOf(timelineassembly.Bundle{})

@@ -7,14 +7,14 @@
 | Target path | internal/app/server |
 | Target label | app-server, normalized from the target path as lowercase kebab case |
 | Output path | docs/handoffs/app-server-module-refactor-tracker.md |
-| Planning status | COMPLETE: S-00 through S-09 are closed under the strict ledger in Section 13 |
-| Allowed change | No remaining workstream; any successor requires a separately authorized scope |
+| Planning status | COMPLETE: S-00 through S-09 remain complete historical prerequisites; S-10 production hardening is implemented and verified in Section 14 |
+| Allowed change | No remaining S-10 workstream. Observer retirement or further application-composition redesign requires separate authorization. |
 | Non-goals | No active-active compatibility layer, Reference Pack NLSpec adoption, public HTTP/WS redesign, or unrelated repository change |
 | Implementation authority | The user authorized S-00 through S-09 on 2026-08-05; each slice remains bounded by its tracker entry and adopted owners |
 | Repository baseline | main at 86be49ce9500a64f023a48c0f2ce440b9ad3eef6; worktree clean before this tracker was created |
 | Prior handoff posture | The prior tracker was renamed to docs/archive/app-server-module-refactor-tracker.md at the current commit. Its Section 10 chronology and resolved blocker identities are retained below as historical evidence, not current-state authority. |
 
-The target exists and contains 20 Go files. It is the configuration-driven application facade and composition edge consumed by cmd/server. Its existence does not prove that app-server is a durable domain-module boundary. The live package combines legitimate process and composition responsibilities with lifecycle mechanics; its characterized filesystem adapters now live in cohesive application assemblies and its generic production-facing test seam is gone.
+The target exists and contains 22 Go files. It is the configuration-driven application facade and composition edge consumed by cmd/server. Its existence does not prove that app-server is a durable domain-module boundary. The live package combines legitimate process and composition responsibilities with lifecycle mechanics; its characterized filesystem adapters now live in cohesive application assemblies and its generic production-facing test seam is gone.
 
 The source hierarchy used here is:
 
@@ -51,14 +51,13 @@ Repository evidence inspected:
 - Current process-model configuration, validation, extension shared-protocol projections, and their tests.
 - The historical tracker under docs/archive.
 
-Implementation proceeds only through Section 13. The original planning findings
-remain useful evidence, but Section 13 controls execution order, compatibility
-decisions, and checkpoint requirements where an older row still says
-`BLOCKED`, `DEFERRED`, or `requires later authorization`.
+Sections 13 and 14 record the completed implementation sequence. The original
+planning findings remain useful evidence, but their historical `BLOCKED`,
+`DEFERRED`, or authorization wording does not reopen a completed transaction.
 
 ## 2. Current-State Repository Inventory
 
-All 20 files directly under internal/app/server are inventoried; none is excluded.
+All 22 files directly under internal/app/server are inventoried; none is excluded.
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -69,9 +68,11 @@ All 20 files directly under internal/app/server are inventoried; none is exclude
 | internal/app/server/module_settings.go | Projects one admitted deployment snapshot into Collaboration, Evidence, Imports, Incident Bundles, Reference Data, bootstrap, and runtime settings. | Private immutable applicationSettingsProjection with owner-specific methods. | runtime_assembly.go. | configassembly, named modules, bootstrap. | module_settings_test.go. | Configuration projections indirectly. | Application composition edge. | Medium | One narrow projection seam retains DTO translation without acquiring owner validation or behavior. |
 | internal/app/server/module_settings_test.go | Verifies exact configuration-to-module projections. | Test only. | app.server support-unit row. | module_settings.go and config types. | Self. | None. | app.server unit evidence. | Medium | Extend only when composition settings change. |
 | internal/app/server/openapi_contract_test.go | Compares generated OpenAPI operations with the runtime catalog and excludes test, WebSocket, and Network Flow leakage. | Test helpers and test function only. | platform.openapi and app-server accounting. | contracttest and httpapi. | Self. | Generated OpenAPI operation catalog. | app.server/platform OpenAPI parity evidence. | Critical | Any route movement must retain exact operation IDs, availability, security, and statuses. |
-| internal/app/server/publication_controller.go | Owns the in-memory Prepare, Commit, Acknowledge, Serve, failure, component-loss, and publication-projection gate. | PublicationState, PublicationController, private publicationOrchestrator preparation/projection seam, lifecycle and projection methods. | runtime_assembly.go and publication characterization tests. | Extensions and process lifecycle. | extensions_publication_characterization_test.go and server runner tests. | Generated extension publication facts indirectly. | Application publication orchestration. | Critical | Runtime construction now consumes the orchestrator while preserving one immutable serving epoch and one admission gate. |
+| internal/app/server/publication_controller.go | Owns the in-memory Prepare, Commit, Acknowledge, Serve, failure, component-loss, and publication-projection gate. | Private publication state, controller, orchestrator, lifecycle methods, and projection methods. | runtime_assembly.go and publication characterization tests. | Extensions and process lifecycle. | extensions_publication_characterization_test.go and server runner tests. | Generated extension publication facts indirectly. | Application publication orchestration. | Critical | The controller has no exported type or method; runtime construction preserves one immutable serving epoch and one admission gate. |
 | internal/app/server/runtime.go | Admits configuration and delegates ordered construction to the private runtime assembly coordinator. | NewRuntime and private newRuntime. | server.go, httptestx, and recovery browser tooling through the narrow lifecycle API. | configassembly and runtime_assembly.go. | Runtime, publication, route, process, and module integration suites. | None directly. | Thin server construction facade. | High | S-05 removed all cross-package state access; construction behavior and product contracts are unchanged. |
-| internal/app/server/runtime_assembly.go | Privately assembles the exclusive application-process lease, distinct application Recovery-serving lease, filesystem publication storage, telemetry, extensions, modules, routes, lifecycle-owned workers, publication, readiness, and ordered cleanup. | Options, Runtime, NewRuntime lifecycle methods, and private runtimeAssembly.build/runtimeSettings. Runtime has no exported fields; its methods are HTTPHandler, ActivatePublication, FatalEvents, PublishedComponentLost, ShutdownDrainTimeout, PublicHTTPDiagnostics, and Close. | runtime.go, server.go, httptestx, and recovery tooling through construction, lifecycle, and narrowly observed test capabilities. | Most application assemblies, domain modules, and platform packages. | Runtime, lease, publication, route, storage, process, serverprocess, test-harness API, and affected module integration suites. | Extension shared-protocol v4, OpenAPI, view-schema, web-asset, protocol, and harness contracts indirectly. | Private application assembly coordinator with a lifecycle-only facade. | Critical | S-05 and S-06 are complete; runtime assembly has neither broad state exposure nor a production-facing generic test seam. |
+| internal/app/server/runtime_assembly.go | Privately assembles the exclusive application-process lease, distinct application Recovery-serving lease, filesystem publication storage, telemetry, extensions, modules, routes, lifecycle-owned workers, publication, readiness, and ordered cleanup. | Options, Runtime, and private runtimeAssembly.build/runtimeSettings. Runtime has no exported fields and exposes only HTTPHandler, ActivatePublication, and Close. | runtime.go, server.go, httptestx, and recovery tooling through construction, lifecycle, and narrowly observed test capabilities. | Most application assemblies, domain modules, and platform packages. | Runtime, lease, publication, route, storage, process, serverprocess, test-harness API, and affected module integration suites. | Extension shared-protocol v4, OpenAPI, view-schema, web-asset, protocol, and harness contracts indirectly. | Private application assembly coordinator with a lifecycle-only facade. | Critical | Runtime retains only post-build lifecycle state; created resources are captured in reverse-order cleanup closures and borrowed resources remain open. |
+| internal/app/server/runtime_dependencies.go | Defines the complete by-value production construction dependency set. | Private runtimeDependencies, secureDocumentReader, and productionRuntimeDependencies. | runtime.go, runtime_assembly.go, and same-package tests. | Platform constructors, storage setup, bootstrap, Collaboration, HTTP API, and leases. | runtime_dependencies_test.go plus startup/failure unit and integration rows. | None. | Private application construction seam. | High | Exactly ten constructor dependencies are instance-scoped; this file is not a public DI container. |
+| internal/app/server/runtime_dependencies_test.go | Admits a deployment and constructs a runtime with a copied private dependency value. | Test-only private helper. | Same-package startup and failure tests. | configassembly and runtime construction. | Self and runtime tests. | None. | app.server test construction support. | Medium | Each test begins from complete production defaults and overrides only its local copy. |
 | internal/app/server/runtime_integration_test.go | Exercises real Postgres/object-store startup, bootstrap, single-active exclusion, orderly lease release, Recovery exclusion, lifecycle-owned janitor composition, and fail-closed behavior. | Test-only helpers such as StartupCounters, IntegrationEnv, BindPostgres, and BucketName. | app.server integration rows. | Testcontainers-backed Postgres/S3 support, bootstrap, config, runtime. | Self. | Extension lease and configuration projections indirectly. | app.server integration evidence; reusable setup may belong in testsupport. | Critical | The former overlap-success row is now an owner-conformant negative with Stage-1 effect counters. |
 | internal/app/server/runtime_lease_test.go | Verifies admission closure, original-session-only recovery, recreated-session rejection, irreversible loss, and distinct application/Recovery-serving fatal outcomes. | Test-only lease backend/session helpers. | app.server lifecycle unit row. | processlease and processlifecycle. | Self. | Extension shared-protocol v4 indirectly. | app.server lifecycle evidence. | Critical | Keeps generic lease mechanics separate from application-owned failure vocabulary. |
 | internal/app/server/runtime_routes.go | Validates exact built-in route order and binds claimed extension route contributions. | Private applicationRouteCatalog, routeContribution, extensionRouteBinding, and registrar helper. | runtime_assembly.go. | extensionassembly and httpapi. | runtime_routes_test.go and Network Flow owner tests. | Generated route and extension catalogs indirectly. | Application route-composition edge. | Critical | Runtime consumes one catalog-bound collaborator; exact evidence proves Network Flow admission once without source reads. |
@@ -404,3 +405,148 @@ After every workstream and before its successor:
 | 2026-08-06T02:24:12-04:00 | S-08 boundary/accounting stabilization — failed checkpoint | Network Flow authorization/import/egress evidence, RootedFS production scan, app-server publication reflection evidence, authored backend boundary rules, app-server selector coverage, generated topology render index, and this tracker. | Format passed at `.cartulary/test-results/20260806T061822Z-p4130413` and `.cartulary/test-results/20260806T062153Z-p4138843`; exact Network Flow rows passed 3/3 at `.cartulary/test-results/20260806T061849Z-p4133653`; exact RootedFS row passed 1/1 at `.cartulary/test-results/20260806T061849Z-p4133660`; boundary passed at `.cartulary/test-results/20260806T061849Z-p4133797`; generation passed at `.cartulary/test-results/20260806T062156Z-p4141803`; full RootedFS focused passed 2/2 at `.cartulary/test-results/20260806T062228Z-p4144489`. App-server focused then failed 43/44 at `.cartulary/test-results/20260806T062228Z-p4144477`; the failing row was `app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd`, classified by retained evidence as infrastructure/preflight `missing_selector_result`. Concurrent Network Flow focused was intentionally cancelled 63/70 at `.cartulary/test-results/20260806T062228Z-p4144479` after the controlling failure. | No product implementation or compatibility change occurred in S-08. Root cause is accounting-related: `TestHarnessServerProfileEnablesTestRoutesOnlyForExactOne` has the `cartulary_harness` build tag but was added to a default-profile support-unit row, so the selector produced no result. S-08 is not DONE and no broad pass may be inferred from earlier exact checks. Preserve all completed S-00 through S-06 transactions. The S-08 rollback unit is its test/boundary/selector/generated-index transaction; it remains present for diagnosis, with the known repair being compatible harness-profile accounting before any rerun. | STOP. Do not start S-09; resume S-08 only after explicit continuation. |
 | 2026-08-06T09:04:45-04:00 | S-08 boundary/accounting stabilization — completed repair | Testing Harness NLSpec; Go selector resolver and contract fixture; generate-drift scratch inputs; black-box serverprocess route matrix; deleted tagged profile test; app-server family and generated topology; retained semantic publication, Network Flow, RootedFS, and backend-boundary changes; this tracker. | Format passed at `.cartulary/test-results/20260806T125837Z-p94430`; catalog owner 1/1 at `.cartulary/test-results/20260806T125900Z-p99843`; harness contract 2/2 at `.cartulary/test-results/20260806T125900Z-p99999`; exact support row 1/1 at `.cartulary/test-results/20260806T125900Z-p99856`; exact process row 7/7 at `.cartulary/test-results/20260806T125909Z-p101083`; exact Network Flow 3/3 at `.cartulary/test-results/20260806T125950Z-p120413`; exact RootedFS 1/1 at `.cartulary/test-results/20260806T125950Z-p120421`; full app server 44/44, Network Flow 70/70, and RootedFS 2/2 at `.cartulary/test-results/20260806T130003Z-p121345`, `.cartulary/test-results/20260806T130003Z-p121381`, and `.cartulary/test-results/20260806T130003Z-p121411`; service-backed app server 35/35 at `.cartulary/test-results/20260806T130133Z-p179079`; boundary 3/3 at `.cartulary/test-results/20260806T130209Z-p201529`; final generation at `.cartulary/test-results/20260806T130312Z-p226769`; drift 4/4 at `.cartulary/test-results/20260806T130323Z-p229036`; generated policy and JSON shape 3/3 at `.cartulary/test-results/20260806T130336Z-p231832` and `.cartulary/test-results/20260806T130336Z-p231843`; production and harness builds at `.cartulary/test-results/20260806T130209Z-p201856` and `.cartulary/test-results/20260806T130209Z-p201922`; whitespace passed and Markdown passed at `.cartulary/test-results/20260806T130336Z-p232083`. | No product, HTTP, environment-key, persistence, data, or public API change. Invalid Go selectors excluded by the ordinary pinned Linux/amd64/no-custom-tag context now fail before child execution; tagged support would require a separately adopted runner contract. Historical evidence for revised semantic digests cannot close the new rows. An initial drift rerun failed as harness/infrastructure input-closure at `.cartulary/test-results/20260806T130209Z-p201157`; adding the already-authoritative pin file to the hermetic scratch manifest fixed it. The failed 43/44 root remains diagnostic history only. Rollback is the S-08 specification, selector, process evidence, authored accounting, generated topology, and semantic-boundary transaction together; S-00 through S-07 remain preserved. | Begin S-09 cleanup and broad validation. |
 | 2026-08-06T09:34:58-04:00 | S-09 cleanup, broad validation, and final handoff | Final obsolete-path audit; lowercase test-capability diagnostics in `internal/testutil/httptestx/httptestx.go`; final tracker closure. No additional compatibility wrapper or obsolete implementation was retained. | Static audit found no live agreement/leadership/shared-storage or generic Postgres-decorator identifiers, stale server storage paths, exported Runtime fields/service locator, or source-reading probes in the remediated boundaries. `make test-fast` passed 348/348 at `.cartulary/test-results/20260806T130607Z-p236783`; initial and final `make agent-finalize` passed 1/1 at `.cartulary/test-results/20260806T130818Z-p297167` and `.cartulary/test-results/20260806T133424Z-p687272`, both with `RESULTS_DIR` unset; final format passed at `.cartulary/test-results/20260806T131902Z-p519584`; narrow `make lint-go` passed; capacity-bounded `make check` passed 598/598 at `.cartulary/test-results/20260806T131931Z-p529906`; `git diff --check` passed and Markdown passed at `.cartulary/test-results/20260806T133559Z-p690420`. | No product, HTTP/WS, public Go application API, configuration, persistence, data, or deployment change. The first broad check failed 697/715 as infrastructure-only tmpfs exhaustion at `.cartulary/test-results/20260806T130834Z-p299814`; 3,583 inactive `/tmp/go-build*` compiler-work directories totaling 2.0 GiB were deleted and are not recoverable or evidentiary. The first two-lane retry failed 597/598 at `.cartulary/test-results/20260806T131432Z-p417086` on six Staticcheck ST1005 findings; lowercasing those internal test-helper errors preserved semantics and the final narrow/full gates pass. The successful check records the repository-owned two-lane capacity fixture in its manifest. Retained-run maintenance was skipped because no successful full warm-check `RESULTS_DIR` was supplied. Rollback is only the independent S-09 diagnostic-string cleanup and handoff closure; validated S-00 through S-08 transactions remain intact. | Ledger closed. No unresolved blocker or authorized successor remains. |
+
+## 14. Completed S-10 Production Hardening
+
+### 14.1 Authorization, scope, and compatibility posture
+
+This section records the completed successor to the S-00 through S-09
+transactions. It does not reopen, reconstruct, or supersede their evidence.
+S-10 was authorized by the implementation request and completed as the bounded
+internal hardening transaction recorded below.
+
+S-10 changed only `internal/app/server`, its same-package tests, and this
+tracker. It changed no product HTTP or WebSocket behavior, configuration key,
+persistence, data, deployment behavior, server profile, public Make target,
+adopted specification, test-accounting input, or generated artifact.
+`docs/domain.md` remains unchanged.
+
+The repository-internal construction surface retained by S-10 is `NewRuntime`,
+`Options`, `Runtime.HTTPHandler`, `Runtime.ActivatePublication`, and
+`Runtime.Close`. Four same-package runner methods and the publication
+controller implementation are now private. This is an intentional internal Go
+API narrowing, not a product or deployment compatibility change; no shim or
+deprecation stage was warranted because no cross-package consumer existed.
+
+### 14.2 Live-state inventory and decisions
+
+| Finding | Live state | S-10 decision | Completion evidence |
+| --- | --- | --- | --- |
+| Instance-scoped assembly constructors | `runtimeDependencies` carries complete production defaults for the ten constructor functions by value. Unit and integration tests copy the value and override only the dependency needed by that runtime. | Completed. No global alias or public DI surface was retained. | Static audit finds no package-level mutable constructor or save/restore mutation; startup-failure and stage-counter evidence passes. |
+| Runtime construction-only values | Extension coordination, storage resources, telemetry, transaction services, owner assemblies, and observer-only capabilities remain local during construction. Created resources are captured by concrete value in cleanup closures; borrowed Postgres and object-store values are never registered for cleanup. | Completed. Runtime is a lifecycle facade rather than a retained object graph. | Reflection, cleanup, borrowed-resource, activation, lease, and capability evidence passes. |
+| Runtime method surface | The only exported methods are `HTTPHandler`, `ActivatePublication`, and `Close`. Runner-only access uses `drainTimeout`, `publicHTTPDiagnostics`, `publishedComponentLost`, and `fatalEvents`. | Completed. The supported caller boundary now matches actual consumers. | Repository-wide search finds no stale public caller and characterization requires exactly three exports. |
+| Publication implementation | `publicationState`, its constants, `publicationController`, its constructor, and all controller methods are private. `publicationOrchestrator` names its controller field instead of embedding it. | Completed without changing the state machine. | Publication characterization and process-lifecycle evidence passes; controller value and pointer method sets expose zero public methods. |
+| Runtime facade comment | `runtime.go` describes the current narrow lifecycle boundary and resource ownership. | Completed. | No stale caller-migration wording remains. |
+| Assembly coordinator size | No size-only split or pass-through abstraction was introduced. The sole new production file is the cohesive dependency-value definition. | Completed. | Navigation follows construction dependency ownership rather than filename size. |
+| Named observer callbacks | `Options.ObserveJobs`, `ObserveCollaboration`, `ObserveTimeline`, and `ObserveRevisions` remain the only observers. Their direct consumer is `internal/testutil/httptestx`, which supplies the named capabilities used by downstream owner integration tests. | Retained as a bounded continuing-value exception. Retirement remains separately scoped. | All four callbacks receive the identical locally constructed objects only after successful assembly. |
+
+The final post-construction `Runtime` allowlist has exactly 16 fields:
+`handler`, `stagedJanitor`, `jobRunner`, `collaborationDispatcher`,
+`processLease`, `servingLease`, `lifecycle`, `publication`,
+`publicHTTP`, `shutdownDrainTimeout`, `reconciliationTimeout`,
+`stagedObjectSweepPeriod`, `closeOnce`, `publicationOnce`, `cleanups`,
+and `stagedJanitorContext`. Every field has a post-build lifecycle reader.
+Configuration-derived timing is retained as typed `time.Duration` values, not
+as the broader construction settings object.
+
+### 14.3 Gap remediation matrix
+
+| ID | Remediation and areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- |
+| APR-G01 | **Implementation/tests:** introduce a private `runtimeDependencies` value with production defaults, pass it through private runtime construction, and make tests copy and override that value per runtime instance. Delete mutable globals and save/restore cleanup blocks. | Instance-scoped dependencies remove cross-test shared state, make failure injection deterministic, and permit safe future parallelism without expanding the public facade. | No product or caller behavior changes. Same-package tests migrate atomically; no compatibility alias remains. | Parallel tests or future assembly growth can race, leak overrides, or become order-dependent. | All ten globals and assignments are absent; each affected failure path passes with explicit dependencies. |
+| APR-G02 | **Implementation/tests:** complete a field-read liveness audit, move construction-only values to locals, and capture owned resources in reverse-ordered cleanup closures. Keep observer identities as locals through successful construction. | Runtime becomes a lifecycle object instead of an object graph/service locator, reducing retained memory, incidental coupling, and future pressure to expose internals. | Private struct shape changes only. Borrowed Postgres and object-store ownership, cleanup order, activation, and observer timing remain exact. | Dead references encourage new coupling and can accidentally extend resource lifetimes or public access. | Every retained field has a post-build reader; cleanup, borrowed-resource, activation, lease, and capability tests pass. |
+| APR-G03 | **Implementation/tests/documentation:** make the four runner-only Runtime methods private, make the publication controller surface private, update callers and characterization, and remove stale migration wording. | The package API states the actual application boundary and prevents future callers from treating internal diagnostics or publication mechanics as supported capabilities. | Intentional repository-internal Go API narrowing. Current searches show no cross-package caller, so no shim or staged deprecation is warranted. | Unnecessary exports harden incidental design into compatibility burden and invite bypass of the server facade. | Runtime exposes exactly `HTTPHandler`, `ActivatePublication`, and `Close`; publication and runner-only surfaces are private; exact rows pass. |
+| APR-G04 | **Tests/accounting:** retain behavior, reflection, and existing semantic selectors; change authored rows only if a test name must change, and regenerate only through Make when authored accounting changes. | Stable semantic evidence should verify lifecycle and boundaries without creating filename or source-text dependencies. | Expected to require no catalog, topology, schema, or generated change. Any unavoidable selector change invalidates only the affected semantic digest. | An unnecessary accounting rewrite could create missing-selector failures or erase valid retained evidence. | Existing selectors resolve, no `missing_selector_result` occurs, and generated drift remains clean. |
+| APR-G05 | **Handoff:** retain named observers and defer observer retirement and broad assembly redesign to separately authorized successors with their own owner evidence. | The callbacks have current users; removing them here would mix production-state cleanup with a 24-file cross-owner test redesign and obscure rollback. | No test-support API migration in S-10. The deferral is explicit, not an indefinite compatibility promise. | Treating live infrastructure as dead would produce a high-churn migration; treating the deferral as permanent could retain test coupling indefinitely. | Final audit confirms only the four named callbacks remain, records their consumers, and names observer retirement as deferred rather than complete. |
+
+### 14.4 Strict implementation sequence
+
+| Order | Workstream | Status | Depends on | Transaction and rollback | Exit criteria |
+| --- | --- | --- | --- | --- | --- |
+| 1 | S-10A baseline and liveness freeze | DONE | Completed S-09 | Documentation, static inventory, and fresh baseline evidence only; no production rollback. | Focused 44/44, service-backed 35/35, and the black-box harness-route row 7/7 passed; every Runtime field was classified. |
+| 2 | S-10B instance-scoped assembly dependencies | DONE | S-10A | Dependency value, private construction path, and migrated unit/integration tests form one rollback unit. | No mutable constructor global or test reassignment remains; affected failure-path rows pass. |
+| 3 | S-10C Runtime state minimization | DONE | S-10B | Runtime field removals, local assembly values, cleanup captures, and observer identity updates form one rollback unit. | Runtime matches the 16-field allowlist; cleanup, ownership, activation, and observer parity pass. |
+| 4 | S-10D package API and stale-artifact cleanup | DONE | S-10A, S-10C | Runtime/publication renames, same-package callers, characterization, and comments form one rollback unit. | Runtime has exactly three exported methods, publication mechanics are private, and no stale wording or external caller remains. |
+| 5 | S-10E cleanup, broad validation, and handoff | DONE | S-10B, S-10C, S-10D | Obsolete imports/comments/test cleanup plus tracker closure are independently reversible; validated earlier S-10 transactions remain intact. | The full ladder passes, all failures are classified, and result roots and rollback posture are recorded. |
+
+Any failure stops progression before the next workstream. An implementation
+checkpoint must name the failing target and result root, classify product versus
+infrastructure impact, and preserve previously completed independent
+transactions. No workstream may use a compatibility wrapper to keep a removed
+private or unused surface alive.
+
+### 14.5 Successor task ledger
+
+| ID | Work item | Status | Depends on | Evidence or artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- |
+| APR-001 | Freeze S-10 authority, product behavior, and historical ledger | DONE | S-09 | Sections 14.1 and 14.2 | Scope remained internal and Sections 1 through 13 remain historical prerequisites. |
+| APR-002 | Record mutable-dependency and Runtime-field liveness baseline | DONE | APR-001 | S-10A checkpoint | Ten dependencies and every Runtime field have an explicit classification. |
+| APR-003 | Replace mutable dependency globals | DONE | APR-002 | S-10B implementation and exact tests | Dependencies are instance-scoped and no test mutates package state. |
+| APR-004 | Minimize retained Runtime state | DONE | APR-003 | S-10C implementation and lifecycle evidence | Only the exact post-build lifecycle state remains on Runtime. |
+| APR-005 | Narrow package API and publication implementation | DONE | APR-002, APR-004 | S-10D implementation and characterization | Runtime and publication exports match actual callers without shims. |
+| APR-006 | Verify accounting and generated drift | DONE | APR-003, APR-005 | Existing selectors and unchanged authored accounting | Every selected row resolves, no `missing_selector_result` occurs, and generated drift is clean. |
+| APR-007 | Run broad verification and close the handoff | DONE | APR-003 through APR-006 | S-10E result roots and tracker checkpoint | The full ladder passes and deferred observer work is explicit. |
+
+### 14.6 Validation record
+
+| Validation | Result |
+| --- | --- |
+| Fresh S-10A focused baseline | 44/44 at `.cartulary/test-results/20260806T143818Z-p715503` |
+| Fresh S-10A harness-route baseline | 7/7 at `.cartulary/test-results/20260806T143818Z-p715522` |
+| Fresh S-10A service-backed baseline | 35/35 at `.cartulary/test-results/20260806T143910Z-p781161` |
+| Final five exact affected rows | 5/5 at `.cartulary/test-results/20260806T144909Z-p820604` |
+| Final black-box harness-route row | 7/7 at `.cartulary/test-results/20260806T144943Z-p821726` |
+| Final focused app-server owner | 44/44 at `.cartulary/test-results/20260806T145009Z-p841159` |
+| Final service-backed app-server owner | 35/35 at `.cartulary/test-results/20260806T145045Z-p866982` |
+| Backend module boundary | 3/3 at `.cartulary/test-results/20260806T145118Z-p888984` |
+| Harness contract | 2/2 at `.cartulary/test-results/20260806T145119Z-p889378` |
+| Production server build | Pass at `.cartulary/test-results/20260806T145123Z-p889892` |
+| Harness server build | Pass at `.cartulary/test-results/20260806T145134Z-p900507` |
+| Generated drift | 4/4 at `.cartulary/test-results/20260806T145143Z-p910754` |
+| Generated-artifact policy | 3/3 at `.cartulary/test-results/20260806T145150Z-p913406` |
+| JSON shape | 3/3 at `.cartulary/test-results/20260806T145151Z-p913801` |
+| Initial agent finalization | 1/1 at `.cartulary/test-results/20260806T145203Z-p914267`; `RESULTS_DIR` was unset because no successful full warm-check root existed yet |
+| Browser E2E support | 20/20 at `.cartulary/test-results/20260806T145222Z-p916986` |
+| Fast suite | 348/348 at `.cartulary/test-results/20260806T145310Z-p943366` |
+| Full check | 715/715 at `.cartulary/test-results/20260806T145951Z-p1142951` |
+| Final retained-evidence maintenance | 1/1 at `.cartulary/test-results/20260806T150753Z-p1308682`, using the successful full-check root |
+
+`make format` passed after each authored Go checkpoint. No test symbol,
+accounting input, or generated artifact changed, so `make generate` was
+correctly skipped; the required drift and policy checks passed.
+
+Three failures were retained and classified. The first concurrent baseline
+service-backed run failed at
+`.cartulary/test-results/20260806T143818Z-p715502` because two independent
+Make graphs raced on the same warm-stamp temporary file; it was
+infrastructure/accounting-harness only and the isolated rerun passed 35/35. An
+intermediate exact row failed to compile at
+`.cartulary/test-results/20260806T144255Z-p807602` because the dependency
+migration left one unused import; it was implementation-related and corrected
+before the exact row passed. The first full check failed 714/715 at
+`.cartulary/test-results/20260806T145511Z-p998542` because privatization made
+one controller helper unused; the dead method was removed, narrow lint and the
+publication row passed, and the full check retry passed 715/715.
+
+### 14.7 Deferred work and final exit
+
+The following are explicitly outside S-10:
+
+- retiring the four named observer callbacks or redesigning their 24
+  integration-test consumers;
+- decomposing `runtime_assembly.go` solely because of file length;
+- changing runtime behavior, extension publication semantics, leases, routes,
+  configuration, persistence, or deployment contracts;
+- introducing a public dependency-injection API, service locator, compatibility
+  wrapper, new runner/profile, or generated schema.
+
+S-10A through S-10E and APR-002 through APR-007 are `DONE`. The Runtime
+allowlist is exact, no mutable constructor global or unnecessary export
+remains, the observer deferral is accurate, and the complete validation ladder
+has fresh successful evidence.
+
+### 14.8 Implementation checkpoint and rollback posture
+
+| Time | Workstream | Files changed | Compatibility, risk, and rollback | Final status |
+| --- | --- | --- | --- | --- |
+| 2026-08-06T11:07:53-04:00 | S-10A through S-10E | New `runtime_dependencies.go` and `runtime_dependencies_test.go`; runtime construction, assembly, runner, publication controller, unit/integration characterization, and this tracker. No specification, domain, route, configuration, persistence, accounting, schema, or generated file changed. | No product or deployment migration. The four unused public Runtime accessors and publication mechanics were intentionally narrowed with no compatibility shim because their callers were same-package only. Rollback units remain: dependency value/construction/tests; Runtime fields/local wiring/cleanup/tests; API renames/publication characterization/comments; tracker closure. S-00 through S-09 and the repaired S-08 harness row remain independent and must be preserved. | COMPLETE: all selectors resolved in their declared build context, no `missing_selector_result` occurred, both server profiles built, generated drift stayed clean, and broad validation passed. |

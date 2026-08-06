@@ -50,7 +50,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/viewschemas"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/extensionstore"
@@ -68,19 +67,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
-var (
-	newJobsManager                 = jobs.NewManager
-	setupPostgres                  = postgres.Setup
-	ensureSchemaReady              = postgres.EnsureSchemaReady
-	setupObjectStore               = objectstore.Setup
-	runBootstrap                   = bootstrap.Preflight
-	newCollaborationHub            = collaboration.NewHub
-	newHTTPHandler                 = httpapi.NewHandler
-	readSecureFile                 = securefile.Read
-	acquireApplicationProcessLease = processlease.AcquireApplicationProcess
-	acquireRecoveryServingLease    = processlease.AcquireApplicationRecoveryServing
-)
-
 type Options struct {
 	Env                  map[string]string
 	HTTP                 httpapi.Options
@@ -94,36 +80,22 @@ type Options struct {
 }
 
 type Runtime struct {
-	settings                runtimeSettings
 	handler                 http.Handler
-	extensions              *extensions.Coordinator
-	extensionState          *extensions.StateRuntime
-	extensionJobFinalizer   *extensionstore.OwnerFinalizer
-	stagedObjects           *stagedobjects.Service
 	stagedJanitor           *stagedobjects.Janitor
-	stagedHealth            *stagedobjects.Health
-	crossOwnerTransactions  *crossownertransaction.Coordinator
-	postgres                *pgxpool.Pool
-	objectStore             objectstore.Store
-	jobs                    *jobs.Manager
-	jobTransactions         *jobs.TransactionService
 	jobRunner               *jobs.Runner
-	collaborationHub        *collaboration.Hub
 	collaborationDispatcher *collaboration.Dispatcher
-	collaborationIntents    collaboration.IntentAppender
-	timeline                *timelineassembly.Bundle
-	revisions               *revisionassembly.Runtime
-	telemetry               *telemetry.Runtime
 	processLease            *processlease.ApplicationProcessLease
 	servingLease            *processlease.ApplicationRecoveryServingLease
 	lifecycle               *processlifecycle.Controller
-	publication             *PublicationController
+	publication             *publicationController
 	publicHTTP              httpapi.RouteDiagnostics
+	shutdownDrainTimeout    time.Duration
+	reconciliationTimeout   time.Duration
+	stagedObjectSweepPeriod time.Duration
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
 	cleanups             []func()
-	evidenceOwner        *evidence.OwnerRuntime
 	stagedJanitorContext context.Context
 }
 
@@ -139,11 +111,13 @@ type runtimeSettings struct {
 type runtimeAssembly struct {
 	loadedConfiguration configassembly.Loaded
 	options             Options
+	dependencies        runtimeDependencies
 }
 
 func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	loadedConfiguration := assembly.loadedConfiguration
 	options := assembly.options
+	dependencies := assembly.dependencies
 	extensionCoordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
 		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
@@ -161,38 +135,40 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	normalizedCfg := loadedConfiguration.Deployment()
 	settingsProjection := newApplicationSettingsProjection(normalizedCfg)
+	runtimeSettings := settingsProjection.Runtime()
 	socketTransport := newCollaborationSocketTransport(normalizedCfg.Application.PublicOrigin)
 
 	runtime := &Runtime{
-		settings:  settingsProjection.Runtime(),
-		lifecycle: processlifecycle.New(),
+		lifecycle:               processlifecycle.New(),
+		shutdownDrainTimeout:    time.Duration(runtimeSettings.ShutdownDrainSeconds) * time.Second,
+		reconciliationTimeout:   time.Duration(runtimeSettings.ReconciliationSeconds) * time.Second,
+		stagedObjectSweepPeriod: time.Duration(runtimeSettings.StagedObjectSweepSeconds) * time.Second,
 	}
 	now := options.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 
-	if options.Postgres != nil {
-		runtime.postgres = options.Postgres
-	} else {
+	postgresPool := options.Postgres
+	if postgresPool == nil {
 		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), options.Env)
 		if settingsErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", settingsErr)
 		}
-		pool, err := setupPostgres(ctx, postgresSettings)
+		pool, err := dependencies.setupPostgres(ctx, postgresSettings)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", err)
 		}
-		runtime.postgres = pool
+		postgresPool = pool
 		if pool != nil {
 			runtime.own(pool.Close)
 		}
 	}
-	lease, leaseErr := acquireApplicationProcessLease(
+	lease, leaseErr := dependencies.acquireApplicationProcessLease(
 		ctx,
-		runtime.postgres,
+		postgresPool,
 		time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second,
 		time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds)*time.Second,
 	)
@@ -217,9 +193,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		go runtime.watchProcessLease(monitorCtx)
 	}
 
-	servingLease, servingLeaseErr := acquireRecoveryServingLease(
+	servingLease, servingLeaseErr := dependencies.acquireRecoveryServingLease(
 		ctx,
-		runtime.postgres,
+		postgresPool,
 		min(
 			time.Duration(normalizedCfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds)*time.Second,
 			serverServingLeaseAcquireMax,
@@ -384,9 +360,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	runtime.publication = publication.PublicationController
+	runtime.publication = publication.controller
 	resolvedClaims := extensionPlan.ResolvedClaims()
-	runtime.extensions = extensionCoordinator
 
 	secretPurposes := secretpurpose.NewRegistry()
 	if err := authn.RegisterMasterSecretPurpose(secretPurposes, options.Env); err != nil {
@@ -399,7 +374,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	var enterpriseProviderDefinitions []authn.EnterpriseAuthProviderDefinition
 	if enterpriseAuthenticationAdmitted {
-		enterpriseProviderDefinitions, err = loadEnterpriseProviderManifest(enterpriseAuthenticationConfiguration, options.Env)
+		enterpriseProviderDefinitions, err = loadEnterpriseProviderManifest(
+			enterpriseAuthenticationConfiguration,
+			options.Env,
+			dependencies.readSecureFile,
+		)
 		if err != nil {
 			runtime.Close()
 			return nil, err
@@ -414,6 +393,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		options.Env,
 		now(),
 		secretPurposes,
+		dependencies.readSecureFile,
 	)
 	if err != nil {
 		runtime.Close()
@@ -427,20 +407,20 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	runtime.telemetry = telemetryRuntime
+	telemetryFlushTimeout := time.Duration(runtimeSettings.TelemetryFlushTimeoutMS) * time.Millisecond
 	runtime.own(func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(runtime.settings.TelemetryFlushTimeoutMS)*time.Millisecond)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
 		defer cancel()
-		_ = runtime.telemetry.Shutdown(shutdownCtx)
+		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	})
 
-	if err := ensureSchemaReady(ctx, runtime.postgres, dbmigrations.Source()); err != nil {
+	if err := dependencies.ensureSchemaReady(ctx, postgresPool, dbmigrations.Source()); err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	var extensionStateStore *extensionstore.Store
-	if runtime.postgres != nil {
-		stateStore, stateStoreErr := extensionstore.New(runtime.postgres, networkflow.ExtensionStateFamilyCounters())
+	if postgresPool != nil {
+		stateStore, stateStoreErr := extensionstore.New(postgresPool, networkflow.ExtensionStateFamilyCounters())
 		if stateStoreErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension state store: %w", stateStoreErr)
@@ -488,7 +468,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("admit extension state: %w", stateAdmissionErr)
 		}
-		runtime.extensionState = stateRuntime
 		extensionStateStore = stateStore
 	}
 	if extensionStateStore != nil {
@@ -518,8 +497,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 
+	var objectStore objectstore.Store
 	if options.ObjectStore != nil {
-		runtime.objectStore = instrumentedObjectStore(
+		objectStore = instrumentedObjectStore(
 			normalizedCfg.Telemetry.Enabled,
 			normalizedCfg.Telemetry.Resource.ServiceVersion,
 			options.ObjectStore,
@@ -530,23 +510,25 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", settingsErr)
 		}
-		client, err := setupObjectStore(ctx, objectStoreSettings, configassembly.ObjectStoreInstrumentation(normalizedCfg))
+		client, err := dependencies.setupObjectStore(ctx, objectStoreSettings, configassembly.ObjectStoreInstrumentation(normalizedCfg))
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", err)
 		}
-		runtime.objectStore = client
+		objectStore = client
 		if client != nil {
 			runtime.own(func() { _ = client.Close() })
 		}
 	}
-	if extensionStateStore != nil && runtime.objectStore != nil {
+	var stagedObjectService *stagedobjects.Service
+	var stagedHealth *stagedobjects.Health
+	if extensionStateStore != nil && objectStore != nil {
 		stagedRepository, stagedRepositoryErr := extensionassembly.NewStagedObjectRepository(extensionStateStore)
 		if stagedRepositoryErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object repository: %w", stagedRepositoryErr)
 		}
-		stagedBytes, stagedBytesErr := extensionassembly.NewStagedObjectBytes(runtime.objectStore)
+		stagedBytes, stagedBytesErr := extensionassembly.NewStagedObjectBytes(objectStore)
 		if stagedBytesErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object byte store: %w", stagedBytesErr)
@@ -563,7 +545,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object service: %w", stagedServiceErr)
 		}
-		stagedHealth := stagedobjects.NewHealth()
+		stagedObjectService = stagedService
+		stagedHealth = stagedobjects.NewHealth()
 		janitor, janitorErr := stagedobjects.NewJanitor(stagedobjects.JanitorOptions{
 			Repository:       stagedRepository,
 			Bytes:            stagedBytes,
@@ -579,9 +562,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose staged-object janitor: %w", janitorErr)
 		}
-		runtime.stagedObjects = stagedService
 		runtime.stagedJanitor = janitor
-		runtime.stagedHealth = stagedHealth
 		cleanupCtx, cancelCleanup := context.WithTimeout(ctx, time.Duration(normalizedCfg.Timeouts.Extensions.StagedObjectCleanupSeconds)*time.Second)
 		cleanupErr := janitor.Sweep(cleanupCtx)
 		cancelCleanup()
@@ -596,10 +577,10 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	postgresHandle := instrumentedPostgres(
 		normalizedCfg.Telemetry.Enabled,
 		normalizedCfg.Telemetry.Resource.ServiceVersion,
-		runtime.postgres,
+		postgresPool,
 	)
 
-	if err := runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), runtime.postgres); err != nil {
+	if err := dependencies.runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), postgresPool); err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -609,7 +590,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, deploymentEnterpriseAuthenticationError(err)
 		}
 	}
-	networkFlowKeyRings, err := loadNetworkFlowKeyRings(networkFlowConfiguration, options.Env, now(), secretPurposes)
+	networkFlowKeyRings, err := loadNetworkFlowKeyRings(
+		networkFlowConfiguration,
+		options.Env,
+		now(),
+		secretPurposes,
+		dependencies.readSecureFile,
+	)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -621,13 +608,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			ArchiveLimits:     referenceLimits.Archives,
 			ReferenceLimits:   referenceLimits.ReferencePacks,
 			Storage:           referencePackStorage,
-		}, runtime.postgres, now()); err != nil {
+		}, postgresPool, now()); err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
 	}
-	runtime.jobs = newJobsManager()
-	runtime.jobs.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
+	jobManager := dependencies.newJobsManager()
+	jobManager.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	runtime.jobRunner = jobs.NewRunner()
 	runtime.jobRunner.ConfigureDequeueGate(runtime.lifecycle)
 	jobRunner := runtime.jobRunner
@@ -636,10 +623,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		defer cancel()
 		_ = jobRunner.Close(ctx)
 	})
-	hub := newCollaborationHub()
-	runtime.collaborationHub = hub
+	hub := dependencies.newCollaborationHub()
 	intentAppender := collaboration.NewIntentAppender()
-	runtime.collaborationIntents = intentAppender
 	runtime.collaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
 	dispatcher := runtime.collaborationDispatcher
 	runtime.own(func() {
@@ -648,26 +633,27 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		_ = dispatcher.Close(closeCtx)
 	})
 	intentAdapters := newCollaborationIntentTranslator(intentAppender)
-	runtime.jobTransactions, err = jobs.NewTransactionService(intentAdapters)
+	jobTransactions, err := jobs.NewTransactionService(intentAdapters)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)
 	}
-	runtime.jobs.Configure(runtime.postgres, runtime.jobTransactions, now)
+	jobManager.Configure(postgresPool, jobTransactions, now)
 	extensionJobContracts, err := extensionassembly.JobContracts(publicationCatalog)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose extension job contracts: %w", err)
 	}
-	if err := runtime.jobs.ConfigureExtensionContracts(extensionJobContracts); err != nil {
+	if err := jobManager.ConfigureExtensionContracts(extensionJobContracts); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("configure extension job contracts: %w", err)
 	}
+	var extensionJobFinalizer *extensionstore.OwnerFinalizer
 	if extensionStateStore != nil {
-		extensionJobFinalizer, err := extensionstore.NewOwnerFinalizer(
+		extensionJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore,
-			runtime.jobs,
-			runtime.jobTransactions,
+			jobManager,
+			jobTransactions,
 			now,
 			func(error) {
 				runtime.lifecycle.Fatal("indeterminate_database_commit")
@@ -677,9 +663,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			runtime.Close()
 			return nil, fmt.Errorf("compose extension job finalizer: %w", err)
 		}
-		runtime.extensionJobFinalizer = extensionJobFinalizer
 	}
-	runtime.jobRunner.Configure(runtime.jobs)
+	runtime.jobRunner.Configure(jobManager)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
 
@@ -720,7 +705,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Revisions runtime: %w", err)
 	}
-	runtime.revisions = revisionRuntime
 	workbookConflictTokens, err := conflicttokens.NewConflictTokenCodec(
 		revisionsConflictTokenKeyRing,
 		conflicttokens.WithClock(now),
@@ -735,12 +719,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		intentAppender,
-		runtime.objectStore,
+		objectStore,
 		revisionRuntime.ConflictFieldResolver(),
 		workbookassembly.NewConflictIdempotencyPort(postgresHandle),
 		evidence.WithProjectionPort(timelineProjection.EvidenceProjectionPort()),
 	)
-	runtime.evidenceOwner = evidenceOwner
 	timelineBundle := timelineassembly.NewBundleWithProjection(
 		postgresHandle,
 		workbookConflictTokens,
@@ -749,7 +732,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		timelineProjection,
 		evidenceOwner.TimelineAttachmentContribution(),
 	)
-	runtime.timeline = timelineBundle
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    postgresHandle,
 		Revisions:   revisionRuntime.Appender(),
@@ -773,9 +755,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	revisionRoutes := revisionshttpapi.RegisterRoutes(revisionCommands)
 	importStore := imports.NewStore(
-		runtime.postgres,
+		postgresPool,
 		revisionRuntime.Appender(),
-		runtime.jobTransactions,
+		jobTransactions,
 	)
 	timelineFacade := timelineBundle.Facade
 	networkFlowModule, err := networkflow.NewModule(networkflow.ModuleDependencies{
@@ -794,8 +776,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Network Flow module: %w", err)
 	}
 	incidentBundleImportTransactions, err := incidentbundles.NewImportTransactionProvider(
-		runtime.postgres,
-		runtime.objectStore,
+		postgresPool,
+		objectStore,
 		incidentBundleImportFinalizer,
 		timelineBundle.ProjectionCatalog.Rebuild,
 		historicalIntentPolicy,
@@ -828,7 +810,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("install Network Flow cross-owner transactions: %w", err)
 	}
-	runtime.crossOwnerTransactions = crossOwnerCoordinator
 	networkFlowPortabilityState, err := networkflow.NewPortabilityStateBinding(postgresHandle)
 	if err != nil {
 		runtime.Close()
@@ -843,7 +824,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		extensionassembly.IncidentPortabilityPolicies(extensionCoordinator.PortabilityPolicies(), resolvedClaims),
 		portabilityPresence,
 		nil,
-		runtime.stagedObjects,
+		stagedObjectService,
 	)
 	if err != nil {
 		runtime.Close()
@@ -859,7 +840,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		incidentbundles.WithLimits(settingsProjection.IncidentBundles()),
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
 		incidentbundles.WithJobSuccessFinalizer(
-			extensionassembly.NewIncidentBundleJobSuccessFinalizer(runtime.extensionJobFinalizer, now),
+			extensionassembly.NewIncidentBundleJobSuccessFinalizer(extensionJobFinalizer, now),
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
 		incidentbundles.WithProjectionRebuild(timelineBundle.ProjectionCatalog.Rebuild),
@@ -889,9 +870,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return profileID == networkflow.ProfileID && networkFlowRouteAdmitted
 		}),
 		imports.WithJobSuccessFinalizer(extensionassembly.NewImportJobSuccessFinalizer(
-			runtime.extensionJobFinalizer,
+			extensionJobFinalizer,
 			postgresHandle,
-			runtime.jobTransactions,
+			jobTransactions,
 			now,
 		)),
 	)
@@ -899,7 +880,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		reference_data.WithStorage(referencePackStorage),
 		reference_data.WithLimits(settingsProjection.ReferenceData()),
 		reference_data.WithJobSuccessFinalizer(
-			extensionassembly.NewReferencePackJobSuccessFinalizer(runtime.extensionJobFinalizer),
+			extensionassembly.NewReferencePackJobSuccessFinalizer(extensionJobFinalizer),
 		),
 	)
 	var renderExportInvoker reporting.RenderExportInvoker
@@ -915,7 +896,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 	}
 	reportingRoutes := reporting.RegisterRoutes(reporting.RouteOptions{
-		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(runtime.extensionJobFinalizer),
+		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			tasksdecisions.NewReportingContribution(),
@@ -923,7 +904,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	})
 	var compositionPreviewJobs reportcomposition.PreviewJobPort
 	if snapshotReportingRoutesAdmitted {
-		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.jobRunner, runtime.jobTransactions)
+		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.jobRunner, jobTransactions)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose Report Composition preview job port: %w", err)
@@ -1048,21 +1029,21 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	httpOptions.AdditionalRoutes = append(builtInRoutes, httpOptions.AdditionalRoutes...)
 	httpOptions.ValidatePublicRoutes = true
 	readinessProbes := []httpapi.DependencyReadinessProbe{}
-	if runtime.stagedHealth != nil {
-		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: runtime.stagedHealth})
+	if stagedHealth != nil {
+		readinessProbes = append(readinessProbes, stagedCleanupReadinessProbe{health: stagedHealth})
 	}
-	publicationProjections := publication.HTTPProjections()
+	publicationProjections := publication.httpProjections()
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Telemetry:           httpapi.TelemetrySettings{Enabled: normalizedCfg.Telemetry.Enabled, ServiceVersion: normalizedCfg.Telemetry.Resource.ServiceVersion},
 		Env:                 options.Env,
-		Postgres:            runtime.postgres,
+		Postgres:            postgresPool,
 		PostgresDB:          postgresHandle,
-		ObjectStore:         runtime.objectStore,
-		Jobs:                runtime.jobs,
-		JobTransactions:     runtime.jobTransactions,
+		ObjectStore:         objectStore,
+		Jobs:                jobManager,
+		JobTransactions:     jobTransactions,
 		JobRunner:           runtime.jobRunner,
 		CursorCodec:         cursorCodec,
-		Readiness:           httpapi.NewDependencyReadinessChecker(runtime.postgres, runtime.objectStore, readinessProbes...),
+		Readiness:           httpapi.NewDependencyReadinessChecker(postgresPool, objectStore, readinessProbes...),
 		Admission:           runtime.lifecycle,
 		PublicErrorFaults:   testRuntimeDeps.PublicErrorFaults,
 		TestResetBootstrap:  settingsProjection.TestResetBootstrap(),
@@ -1074,7 +1055,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Now:                 now,
 	}
 
-	if err := publication.Commit(); err != nil {
+	if err := publication.controller.commit(); err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -1087,7 +1068,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("initialize public route registry: %w", err)
 		}
 	}
-	handler, err := newHTTPHandler(httpOptions)
+	handler, err := dependencies.newHTTPHandler(httpOptions)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("setup http handler: %w", err)
@@ -1095,16 +1076,16 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 
 	runtime.handler = handler
 	runtime.publicHTTP = httpOptions.Dependencies.PublicRoutes.Diagnostics()
-	if err := publication.Acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
+	if err := publication.controller.acknowledge("websocket", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
 	}
-	if err := publication.Acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
+	if err := publication.controller.acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
 	}
 	for _, worker := range extensionPlan.Workers() {
-		if err := publication.Acknowledge(
+		if err := publication.controller.acknowledge(
 			"worker:"+worker.ProfileID+":"+worker.WorkerKind,
 			extensionPlan.Summary().WorkerPlanSHA256,
 			nil,
@@ -1113,7 +1094,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, err
 		}
 	}
-	if err := publication.Acknowledge("http", listenerPlanSHA256, nil); err != nil {
+	if err := publication.controller.acknowledge("http", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -1126,16 +1107,16 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, processlease.ErrRecoveryServingLeaseLost
 	}
 	if options.ObserveJobs != nil {
-		options.ObserveJobs(runtime.jobs, runtime.jobRunner)
+		options.ObserveJobs(jobManager, runtime.jobRunner)
 	}
 	if options.ObserveCollaboration != nil {
-		options.ObserveCollaboration(runtime.collaborationHub, runtime.collaborationDispatcher, runtime.collaborationIntents)
+		options.ObserveCollaboration(hub, runtime.collaborationDispatcher, intentAppender)
 	}
 	if options.ObserveTimeline != nil {
-		options.ObserveTimeline(runtime.timeline)
+		options.ObserveTimeline(timelineBundle)
 	}
 	if options.ObserveRevisions != nil {
-		options.ObserveRevisions(runtime.revisions)
+		options.ObserveRevisions(revisionRuntime)
 	}
 	return runtime, nil
 }
@@ -1145,11 +1126,12 @@ func loadNetworkFlowKeyRings(
 	env map[string]string,
 	now time.Time,
 	registry *secretpurpose.Registry,
+	readDocument secureDocumentReader,
 ) (*networkflow.KeyRings, error) {
 	if !configuration.Claimed {
 		return nil, nil
 	}
-	document, err := readSecureFile(configuration.KeyRingManifestPath, networkflow.KeyRingManifestMaximumSize)
+	document, err := readDocument(configuration.KeyRingManifestPath, networkflow.KeyRingManifestMaximumSize)
 	if err != nil {
 		failure := networkflow.ManifestUnreadable
 		var secureError *securefile.Error
@@ -1175,8 +1157,9 @@ func loadRevisionsConflictTokenKeyRing(
 	env map[string]string,
 	now time.Time,
 	registry *secretpurpose.Registry,
+	readDocument secureDocumentReader,
 ) (*conflicttokens.ConflictTokenKeyRing, error) {
-	document, err := readSecureFile(configuration.ConflictTokenKeyRingManifestPath, conflicttokens.ConflictTokenKeyRingManifestMaximumSize)
+	document, err := readDocument(configuration.ConflictTokenKeyRingManifestPath, conflicttokens.ConflictTokenKeyRingManifestMaximumSize)
 	if err != nil {
 		failure := conflicttokens.ManifestUnreadable
 		var secureError *securefile.Error
@@ -1207,21 +1190,24 @@ func runtimeEnvironmentValue(env map[string]string, key string) string {
 	return os.Getenv(key)
 }
 
-type enterpriseDocumentReader struct{}
+type enterpriseDocumentReader struct {
+	readDocument secureDocumentReader
+}
 
 func loadEnterpriseProviderManifest(
 	configuration enterpriseauth.Configuration,
 	env map[string]string,
+	readDocument secureDocumentReader,
 ) ([]authn.EnterpriseAuthProviderDefinition, error) {
-	definitions, err := enterpriseauth.LoadProviderManifest(configuration, env, enterpriseDocumentReader{})
+	definitions, err := enterpriseauth.LoadProviderManifest(configuration, env, enterpriseDocumentReader{readDocument: readDocument})
 	if err != nil {
 		return nil, deploymentEnterpriseAuthenticationError(err)
 	}
 	return definitions, nil
 }
 
-func (enterpriseDocumentReader) ReadDocument(absolutePath string, maximumBytes int64) ([]byte, enterpriseauth.DocumentReadFailure) {
-	document, err := readSecureFile(absolutePath, maximumBytes)
+func (reader enterpriseDocumentReader) ReadDocument(absolutePath string, maximumBytes int64) ([]byte, enterpriseauth.DocumentReadFailure) {
+	document, err := reader.readDocument(absolutePath, maximumBytes)
 	if err == nil {
 		return document.Bytes(), ""
 	}
@@ -1346,21 +1332,21 @@ func publicationHTTPProfiles(discovery []extensions.DiscoveryProfile) []httpapi.
 }
 
 type publicationHTTPProjections struct {
-	publication *PublicationController
+	publication *publicationController
 }
 
 func (provider publicationHTTPProjections) ExtensionDiscoveryProfiles() []httpapi.ExtensionProfile {
 	if provider.publication == nil {
 		return nil
 	}
-	return publicationHTTPProfiles(provider.publication.Discovery())
+	return publicationHTTPProfiles(provider.publication.discovery())
 }
 
 func (provider publicationHTTPProjections) ExtensionClaims() []httpapi.ExtensionClaim {
 	if provider.publication == nil {
 		return nil
 	}
-	publication := provider.publication.Claims()
+	publication := provider.publication.claims()
 	claims := make([]httpapi.ExtensionClaim, 0, len(publication))
 	for _, claim := range publication {
 		claims = append(claims, httpapi.ExtensionClaim{ProfileID: claim.ProfileID, Claimed: claim.Claimed})
@@ -1372,7 +1358,7 @@ func (provider publicationHTTPProjections) ExtensionRoutes() []httpapi.Extension
 	if provider.publication == nil {
 		return nil
 	}
-	publication := provider.publication.Routes()
+	publication := provider.publication.routes()
 	routes := make([]httpapi.ExtensionRoute, 0, len(publication))
 	for _, route := range publication {
 		routes = append(routes, httpapi.ExtensionRoute{
@@ -1386,7 +1372,7 @@ func (provider publicationHTTPProjections) ExtensionWorkspaces() []httpapi.Exten
 	if provider.publication == nil {
 		return nil
 	}
-	publication := provider.publication.Workspaces()
+	publication := provider.publication.workspaces()
 	workspaces := make([]httpapi.ExtensionWorkspacePublication, 0, len(publication))
 	for _, workspace := range publication {
 		workspaces = append(workspaces, httpapi.ExtensionWorkspacePublication{
@@ -1425,14 +1411,14 @@ func (r *Runtime) HTTPHandler() http.Handler {
 	return r.handler
 }
 
-func (r *Runtime) ShutdownDrainTimeout() time.Duration {
+func (r *Runtime) drainTimeout() time.Duration {
 	if r == nil {
 		return 0
 	}
-	return time.Duration(r.settings.ShutdownDrainSeconds) * time.Second
+	return r.shutdownDrainTimeout
 }
 
-func (r *Runtime) PublicHTTPDiagnostics() httpapi.RouteDiagnostics {
+func (r *Runtime) publicHTTPDiagnostics() httpapi.RouteDiagnostics {
 	if r == nil {
 		return httpapi.RouteDiagnostics{}
 	}
@@ -1451,20 +1437,20 @@ func (r *Runtime) ActivatePublication() error {
 	if r.servingLease != nil && r.servingLease.State() != processlease.StateHeld {
 		return fmt.Errorf("extension_publication_failed")
 	}
-	if err := r.publication.Serve(); err != nil {
+	if err := r.publication.serve(); err != nil {
 		return err
 	}
 	if r.jobRunner != nil {
-		recoveryCtx, cancel := context.WithTimeout(context.Background(), time.Duration(r.settings.ReconciliationSeconds)*time.Second)
+		recoveryCtx, cancel := context.WithTimeout(context.Background(), r.reconciliationTimeout)
 		defer cancel()
 		if err := r.jobRunner.Activate(recoveryCtx); err != nil {
-			r.publication.ComponentLost("job_dequeue")
+			r.publication.componentLost("job_dequeue")
 			return fmt.Errorf("activate extension job recovery: %w", err)
 		}
 	}
 	if r.collaborationDispatcher != nil {
 		if err := r.collaborationDispatcher.Start(context.Background()); err != nil {
-			r.publication.ComponentLost("collaboration_dispatcher")
+			r.publication.componentLost("collaboration_dispatcher")
 			return fmt.Errorf("activate collaboration dispatcher: %w", err)
 		}
 	}
@@ -1473,11 +1459,11 @@ func (r *Runtime) ActivatePublication() error {
 			go func() {
 				defer func() {
 					if recovered := recover(); recovered != nil && r.lifecycle != nil {
-						r.publication.ComponentLost("staged_object_janitor")
+						r.publication.componentLost("staged_object_janitor")
 					}
 				}()
-				if err := r.stagedJanitor.Run(r.stagedJanitorContext, time.Duration(r.settings.StagedObjectSweepSeconds)*time.Second); err != nil && r.lifecycle != nil {
-					r.publication.ComponentLost("staged_object_janitor")
+				if err := r.stagedJanitor.Run(r.stagedJanitorContext, r.stagedObjectSweepPeriod); err != nil && r.lifecycle != nil {
+					r.publication.componentLost("staged_object_janitor")
 				}
 			}()
 		}
@@ -1485,14 +1471,14 @@ func (r *Runtime) ActivatePublication() error {
 	return nil
 }
 
-func (r *Runtime) PublishedComponentLost(componentID string) bool {
+func (r *Runtime) publishedComponentLost(componentID string) bool {
 	if r == nil || r.publication == nil {
 		return false
 	}
-	return r.publication.ComponentLost(componentID)
+	return r.publication.componentLost(componentID)
 }
 
-func (r *Runtime) FatalEvents() <-chan processlifecycle.FatalSignal {
+func (r *Runtime) fatalEvents() <-chan processlifecycle.FatalSignal {
 	if r == nil || r.lifecycle == nil {
 		return nil
 	}
@@ -1560,7 +1546,7 @@ func (r *Runtime) Close() {
 	}
 	r.closeOnce.Do(func() {
 		if r.publication != nil {
-			r.publication.AbortStartup()
+			r.publication.abortStartup()
 		}
 		if r.lifecycle != nil {
 			r.lifecycle.MarkTerminating()

@@ -75,10 +75,10 @@ func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			counters := installStartupCounters(t)
+			counters, dependencies := installStartupCounters()
 			cfg := BindPostgres(t, tc.mutate(RuntimeConfig(t)), env)
 
-			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 		})
@@ -170,8 +170,8 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatal("single-active runtime did not compose the lifecycle-owned staged-object janitor")
 	}
 
-	counters := installStartupCounters(t)
-	if second, secondErr := NewRuntime(ctx, cfg, Options{Postgres: pool, ObjectStore: store}); secondErr == nil {
+	counters, dependencies := installStartupCounters()
+	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: pool, ObjectStore: store}, dependencies); secondErr == nil {
 		second.Close()
 		first.Close()
 		t.Fatal("overlapping application runtime acquired the deployment-global lease")
@@ -234,9 +234,6 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
 		defer runtime.Close()
-		if runtime.extensions == nil || len(runtime.extensions.RegistrySHA256()) != 64 {
-			t.Fatal("runtime did not retain the admitted immutable Extensions coordinator")
-		}
 
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM users WHERE is_active = true AND is_deployment_admin = true`, 1)
 		requireCountSQL(t, db, `SELECT COUNT(*) FROM deployment_bootstrap_state`, 1)
@@ -325,8 +322,8 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
-		counters := installStartupCounters(t)
-		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+		counters, dependencies := installStartupCounters()
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -471,8 +468,8 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath(t)
 			}
 
-			counters := installStartupCounters(t)
-			_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+			counters, dependencies := installStartupCounters()
+			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
@@ -588,8 +585,8 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
 		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
 
-		counters := installStartupCounters(t)
-		_, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+		counters, dependencies := installStartupCounters()
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
 		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 
@@ -617,34 +614,26 @@ type AuditEvent struct {
 	After        map[string]any
 }
 
-func installStartupCounters(t testing.TB) *StartupCounters {
-	t.Helper()
-
+func installStartupCounters() (*StartupCounters, runtimeDependencies) {
 	counters := &StartupCounters{}
-	originalJobsManager := newJobsManager
-	originalCollaborationHub := newCollaborationHub
-	originalHTTPHandler := newHTTPHandler
+	dependencies := productionRuntimeDependencies()
+	originalJobsManager := dependencies.newJobsManager
+	originalHTTPHandler := dependencies.newHTTPHandler
 
-	newJobsManager = func() *jobs.Manager {
+	dependencies.newJobsManager = func() *jobs.Manager {
 		counters.jobsManager++
 		return originalJobsManager()
 	}
-	newCollaborationHub = func() *collaboration.Hub {
+	dependencies.newCollaborationHub = func() *collaboration.Hub {
 		counters.wsHub++
 		return collaboration.NewHub()
 	}
-	newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
+	dependencies.newHTTPHandler = func(options ...httpapi.Options) (http.Handler, error) {
 		counters.httpHandler++
 		return originalHTTPHandler(options...)
 	}
 
-	t.Cleanup(func() {
-		newJobsManager = originalJobsManager
-		newCollaborationHub = originalCollaborationHub
-		newHTTPHandler = originalHTTPHandler
-	})
-
-	return counters
+	return counters, dependencies
 }
 
 func (c *StartupCounters) RequireNotStarted(t testing.TB) {

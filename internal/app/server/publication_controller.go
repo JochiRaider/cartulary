@@ -10,64 +10,64 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
-type PublicationState string
+type publicationState string
 
 const (
-	PublicationUnpublished PublicationState = "unpublished"
-	PublicationPrepared    PublicationState = "prepared"
-	PublicationCommitted   PublicationState = "committed"
-	PublicationServing     PublicationState = "serving"
-	PublicationFailed      PublicationState = "failed"
+	publicationUnpublished publicationState = "unpublished"
+	publicationPrepared    publicationState = "prepared"
+	publicationCommitted   publicationState = "committed"
+	publicationServing     publicationState = "serving"
+	publicationFailed      publicationState = "failed"
 )
 
-type PublicationController struct {
+type publicationController struct {
 	mu            sync.RWMutex
 	lifecycle     *processlifecycle.Controller
-	state         PublicationState
+	state         publicationState
 	preparedPlan  *extensions.PublicationPlan
 	installedPlan *extensions.PublicationPlan
 	expected      map[string]string
 	acknowledged  map[string]struct{}
 }
 
-func NewPublicationController(lifecycle *processlifecycle.Controller) *PublicationController {
-	return &PublicationController{
+func newPublicationController(lifecycle *processlifecycle.Controller) *publicationController {
+	return &publicationController{
 		lifecycle:    lifecycle,
-		state:        PublicationUnpublished,
+		state:        publicationUnpublished,
 		expected:     map[string]string{},
 		acknowledged: map[string]struct{}{},
 	}
 }
 
 type publicationOrchestrator struct {
-	*PublicationController
+	controller *publicationController
 }
 
 func preparePublicationOrchestrator(
 	lifecycle *processlifecycle.Controller,
 	plan extensions.PublicationPlan,
 ) (*publicationOrchestrator, error) {
-	controller := NewPublicationController(lifecycle)
-	if err := controller.Prepare(plan); err != nil {
+	controller := newPublicationController(lifecycle)
+	if err := controller.prepare(plan); err != nil {
 		return nil, err
 	}
-	return &publicationOrchestrator{PublicationController: controller}, nil
+	return &publicationOrchestrator{controller: controller}, nil
 }
 
-func (orchestrator *publicationOrchestrator) HTTPProjections() publicationHTTPProjections {
+func (orchestrator *publicationOrchestrator) httpProjections() publicationHTTPProjections {
 	if orchestrator == nil {
 		return publicationHTTPProjections{}
 	}
-	return publicationHTTPProjections{publication: orchestrator.PublicationController}
+	return publicationHTTPProjections{publication: orchestrator.controller}
 }
 
-func (c *PublicationController) Prepare(plan extensions.PublicationPlan) error {
+func (c *publicationController) prepare(plan extensions.PublicationPlan) error {
 	if c == nil {
 		return errors.New("extension_publication_failed")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationUnpublished || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
+	if c.state != publicationUnpublished || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
 		return c.failLocked("invalid_prepare_state")
 	}
 	summary := plan.Summary()
@@ -101,17 +101,17 @@ func (c *PublicationController) Prepare(plan extensions.PublicationPlan) error {
 	c.installedPlan = nil
 	c.expected = expected
 	c.acknowledged = map[string]struct{}{}
-	c.state = PublicationPrepared
+	c.state = publicationPrepared
 	return nil
 }
 
-func (c *PublicationController) Acknowledge(componentID string, planSHA256 string, preparationErr error) error {
+func (c *publicationController) acknowledge(componentID string, planSHA256 string, preparationErr error) error {
 	if c == nil {
 		return errors.New("extension_publication_failed")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationCommitted || c.installedPlan == nil {
+	if c.state != publicationCommitted || c.installedPlan == nil {
 		return c.failLocked("early_acknowledgment")
 	}
 	expectedDigest, known := c.expected[componentID]
@@ -128,24 +128,24 @@ func (c *PublicationController) Acknowledge(componentID string, planSHA256 strin
 	return nil
 }
 
-func (c *PublicationController) Commit() error {
+func (c *publicationController) commit() error {
 	if c == nil {
 		return errors.New("extension_publication_failed")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationPrepared || c.preparedPlan == nil || c.installedPlan != nil ||
+	if c.state != publicationPrepared || c.preparedPlan == nil || c.installedPlan != nil ||
 		c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
 		return c.failLocked("invalid_commit_state")
 	}
 	installed := *c.preparedPlan
 	c.installedPlan = &installed
 	c.preparedPlan = nil
-	c.state = PublicationCommitted
+	c.state = publicationCommitted
 	return nil
 }
 
-func (c *PublicationController) missingAcknowledgmentsLocked() []string {
+func (c *publicationController) missingAcknowledgmentsLocked() []string {
 	if len(c.acknowledged) == len(c.expected) {
 		return nil
 	}
@@ -159,13 +159,13 @@ func (c *PublicationController) missingAcknowledgmentsLocked() []string {
 	return missing
 }
 
-func (c *PublicationController) Serve() error {
+func (c *publicationController) serve() error {
 	if c == nil {
 		return errors.New("extension_publication_failed")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state != PublicationCommitted || c.installedPlan == nil || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
+	if c.state != publicationCommitted || c.installedPlan == nil || c.lifecycle == nil || c.lifecycle.AdmissionOpen() {
 		return c.failLocked("invalid_serving_state")
 	}
 	if missing := c.missingAcknowledgmentsLocked(); len(missing) > 0 {
@@ -174,28 +174,28 @@ func (c *PublicationController) Serve() error {
 	if err := c.lifecycle.Publish(); err != nil {
 		return c.failLocked("admission_gate_failed")
 	}
-	c.state = PublicationServing
+	c.state = publicationServing
 	return nil
 }
 
-func (c *PublicationController) AbortStartup() {
+func (c *publicationController) abortStartup() {
 	if c == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.state == PublicationServing || c.state == PublicationFailed {
+	if c.state == publicationServing || c.state == publicationFailed {
 		return
 	}
 	_ = c.failLocked("startup_aborted")
 }
 
-func (c *PublicationController) ComponentLost(componentID string) bool {
+func (c *publicationController) componentLost(componentID string) bool {
 	if c == nil || componentID == "" {
 		return false
 	}
 	c.mu.Lock()
-	if c.lifecycle == nil || (c.state != PublicationPrepared && c.state != PublicationCommitted && c.state != PublicationServing) {
+	if c.lifecycle == nil || (c.state != publicationPrepared && c.state != publicationCommitted && c.state != publicationServing) {
 		c.mu.Unlock()
 		return false
 	}
@@ -203,8 +203,8 @@ func (c *PublicationController) ComponentLost(componentID string) bool {
 		c.mu.Unlock()
 		return false
 	}
-	wasServing := c.state == PublicationServing
-	c.state = PublicationFailed
+	wasServing := c.state == publicationServing
+	c.state = publicationFailed
 	c.preparedPlan = nil
 	c.installedPlan = nil
 	c.expected = nil
@@ -217,16 +217,16 @@ func (c *PublicationController) ComponentLost(componentID string) bool {
 	return true
 }
 
-func (c *PublicationController) State() PublicationState {
+func (c *publicationController) currentState() publicationState {
 	if c == nil {
-		return PublicationFailed
+		return publicationFailed
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.state
 }
 
-func (c *PublicationController) ExpectedComponents() map[string]string {
+func (c *publicationController) expectedComponents() map[string]string {
 	if c == nil {
 		return nil
 	}
@@ -239,7 +239,7 @@ func (c *PublicationController) ExpectedComponents() map[string]string {
 	return result
 }
 
-func (c *PublicationController) Discovery() []extensions.DiscoveryProfile {
+func (c *publicationController) discovery() []extensions.DiscoveryProfile {
 	if c == nil {
 		return nil
 	}
@@ -251,7 +251,7 @@ func (c *PublicationController) Discovery() []extensions.DiscoveryProfile {
 	return c.installedPlan.Discovery()
 }
 
-func (c *PublicationController) Claims() []extensions.ClaimPublication {
+func (c *publicationController) claims() []extensions.ClaimPublication {
 	if c == nil {
 		return nil
 	}
@@ -263,7 +263,7 @@ func (c *PublicationController) Claims() []extensions.ClaimPublication {
 	return c.installedPlan.Claims()
 }
 
-func (c *PublicationController) Routes() []extensions.RouteDispatch {
+func (c *publicationController) routes() []extensions.RouteDispatch {
 	if c == nil {
 		return nil
 	}
@@ -275,7 +275,7 @@ func (c *PublicationController) Routes() []extensions.RouteDispatch {
 	return c.installedPlan.Routes()
 }
 
-func (c *PublicationController) Workspaces() []extensions.WorkspacePublication {
+func (c *publicationController) workspaces() []extensions.WorkspacePublication {
 	if c == nil {
 		return nil
 	}
@@ -287,7 +287,7 @@ func (c *PublicationController) Workspaces() []extensions.WorkspacePublication {
 	return c.installedPlan.Workspaces()
 }
 
-func (c *PublicationController) Workers() []extensions.WorkerPublication {
+func (c *publicationController) workers() []extensions.WorkerPublication {
 	if c == nil {
 		return nil
 	}
@@ -299,7 +299,7 @@ func (c *PublicationController) Workers() []extensions.WorkerPublication {
 	return c.installedPlan.Workers()
 }
 
-func (c *PublicationController) JobKindContracts() []extensions.JobKindContract {
+func (c *publicationController) jobKindContracts() []extensions.JobKindContract {
 	if c == nil {
 		return nil
 	}
@@ -311,7 +311,7 @@ func (c *PublicationController) JobKindContracts() []extensions.JobKindContract 
 	return c.installedPlan.JobKindContracts()
 }
 
-func (c *PublicationController) Contributions() []extensions.ContributionPublication {
+func (c *publicationController) contributions() []extensions.ContributionPublication {
 	if c == nil {
 		return nil
 	}
@@ -323,7 +323,7 @@ func (c *PublicationController) Contributions() []extensions.ContributionPublica
 	return c.installedPlan.Contributions()
 }
 
-func (c *PublicationController) ImplementationBindings() []extensions.ImplementationBindingPublication {
+func (c *publicationController) implementationBindings() []extensions.ImplementationBindingPublication {
 	if c == nil {
 		return nil
 	}
@@ -335,19 +335,7 @@ func (c *PublicationController) ImplementationBindings() []extensions.Implementa
 	return c.installedPlan.ImplementationBindings()
 }
 
-func (c *PublicationController) ResolvedClaims() extensions.ResolvedClaimSet {
-	if c == nil {
-		return extensions.ResolvedClaimSet{}
-	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.installedPlan == nil {
-		return extensions.ResolvedClaimSet{}
-	}
-	return c.installedPlan.ResolvedClaims()
-}
-
-func (c *PublicationController) Summary() (extensions.PublicationPlanSummary, bool) {
+func (c *publicationController) summary() (extensions.PublicationPlanSummary, bool) {
 	if c == nil {
 		return extensions.PublicationPlanSummary{}, false
 	}
@@ -359,9 +347,9 @@ func (c *PublicationController) Summary() (extensions.PublicationPlanSummary, bo
 	return c.installedPlan.Summary(), true
 }
 
-func (c *PublicationController) failLocked(reason string) error {
-	wasServing := c.state == PublicationServing
-	c.state = PublicationFailed
+func (c *publicationController) failLocked(reason string) error {
+	wasServing := c.state == publicationServing
+	c.state = publicationFailed
 	c.preparedPlan = nil
 	c.installedPlan = nil
 	c.expected = nil
