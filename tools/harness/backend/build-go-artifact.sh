@@ -9,6 +9,7 @@ target="${CARTULARY_TEST_TARGET:?CARTULARY_TEST_TARGET is required}"
 run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 go_cache_dir="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 go_mod_cache_dir="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+go_tmp_dir="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 go_build_tags="${GO_BUILD_TAGS:-}"
 
 go_build_args=(-buildvcs=false)
@@ -16,8 +17,8 @@ if [[ -n "$go_build_tags" ]]; then
   go_build_args+=(-tags "$go_build_tags")
 fi
 
-mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir"
+mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir"
 CARTULARY_TEST_TARGET="$target" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   "$run_step" "$label" -- \
-  env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" \
+  env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" build "${go_build_args[@]}" -o "$output" "$package"

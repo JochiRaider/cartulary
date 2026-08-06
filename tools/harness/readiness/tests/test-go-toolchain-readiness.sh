@@ -58,6 +58,8 @@ if [[ "\${1:-}" == "version" ]]; then
     exit 0
   fi
   printf 'selected:%s\n' "\${GOTOOLCHAIN:-}" >>"${dir}/selected.log"
+  printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\n' \
+    "\${GOCACHE:-}" "\${GOMODCACHE:-}" "\${GOTMPDIR:-}" >>"${dir}/machine-state.log"
   if [[ "${selected_status}" != "0" ]]; then
     printf 'simulated download failure\n' >&2
     exit "${selected_status}"
@@ -66,6 +68,8 @@ if [[ "\${1:-}" == "version" ]]; then
   exit 0
 fi
 if [[ "\${1:-}" == "install" ]]; then
+  printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\n' \
+    "\${GOCACHE:-}" "\${GOMODCACHE:-}" "\${GOTMPDIR:-}" >>"${dir}/machine-state.log"
   if [[ "${install_status}" != "0" ]]; then
     printf 'simulated install failure\n' >&2
     exit "${install_status}"
@@ -90,6 +94,7 @@ run_readiness() {
   GOTOOLCHAIN=go1.99.9 \
   GO_CACHE_DIR="$cache_root/build" \
   GO_MOD_CACHE_DIR="$cache_root/mod" \
+  GO_TMP_DIR="$cache_root/tmp" \
     "$READINESS_SCRIPT" "$mode"
 }
 
@@ -115,6 +120,7 @@ doctor_output="$({
   GO_TOOLCHAIN=go1.26.5 \
   GO_CACHE_DIR="$missing_dir/cache/build" \
   GO_MOD_CACHE_DIR="$missing_dir/cache/mod" \
+  GO_TMP_DIR="$missing_dir/cache/tmp" \
   NODE_BIN="$missing_dir/no-node" \
   PNPM="$missing_dir/no-pnpm" \
   SHELLCHECK_BIN="$missing_dir/no-shellcheck" \
@@ -165,6 +171,10 @@ make_fake_go "$ensure_dir/bin" go1.26.4 go1.26.5 0
 ensure_output="$(run_readiness ensure "$ensure_dir/bin/go" "$ensure_dir/cache")"
 assert_contains "$ensure_output" "effective=go1.26.5 source=selected" "ensure selects exact toolchain"
 assert_file_contents "$ensure_dir/bin/selected.log" "selected:go1.26.5" "ensure GOTOOLCHAIN pin"
+ensure_machine_state="$(cat "$ensure_dir/bin/machine-state.log")"
+assert_contains "$ensure_machine_state" "GOCACHE=$ensure_dir/cache/build" "ensure GOCACHE"
+assert_contains "$ensure_machine_state" "GOMODCACHE=$ensure_dir/cache/mod" "ensure GOMODCACHE"
+assert_contains "$ensure_machine_state" "GOTMPDIR=$ensure_dir/cache/tmp" "ensure GOTMPDIR"
 
 mismatch_dir="$scratch/mismatch"
 make_fake_go "$mismatch_dir/bin" go1.26.4 go1.26.6 0
@@ -198,6 +208,7 @@ bootstrap_readiness_output="$({
   TOOL_BINARY_NAME=fake-tool \
   GO_CACHE_DIR="$bootstrap_readiness_dir/cache/build" \
   GO_MOD_CACHE_DIR="$bootstrap_readiness_dir/cache/mod" \
+  GO_TMP_DIR="$bootstrap_readiness_dir/cache/tmp" \
   RUN_STEP_SCRIPT=/bin/false \
     "$BOOTSTRAP_SCRIPT"
 } 2>&1)"
@@ -233,6 +244,7 @@ bootstrap_failure_output="$({
   TOOL_LABEL='bootstrap fake tool' \
   GO_CACHE_DIR="$bootstrap_failure_dir/cache/build" \
   GO_MOD_CACHE_DIR="$bootstrap_failure_dir/cache/mod" \
+  GO_TMP_DIR="$bootstrap_failure_dir/cache/tmp" \
   RUN_STEP_SCRIPT="$run_step" \
     "$BOOTSTRAP_SCRIPT"
 } 2>&1)"
@@ -258,6 +270,7 @@ TOOL_BINARY_NAME=fake-tool \
 TOOL_LABEL='bootstrap fake tool' \
 GO_CACHE_DIR="$bootstrap_success_dir/cache/build" \
 GO_MOD_CACHE_DIR="$bootstrap_success_dir/cache/mod" \
+  GO_TMP_DIR="$bootstrap_success_dir/cache/tmp" \
 RUN_STEP_SCRIPT="$run_step" \
   "$BOOTSTRAP_SCRIPT"
 assert_file_contents "$bootstrap_success_dir/toolbin/fake-tool-v1" "go1.26.5" "successful bootstrap replaces output"
@@ -279,6 +292,7 @@ run_concurrent_bootstrap() {
   TOOL_BINARY_NAME=fake-tool \
   GO_CACHE_DIR="$concurrent_dir/cache/build" \
   GO_MOD_CACHE_DIR="$concurrent_dir/cache/mod" \
+  GO_TMP_DIR="$concurrent_dir/cache/tmp" \
   RUN_STEP_SCRIPT="$run_step" \
   FAKE_TOOL_CONTENT="$content" \
     "$BOOTSTRAP_SCRIPT" >/dev/null
@@ -296,3 +310,5 @@ if find "$concurrent_dir/toolbin" -mindepth 1 -maxdepth 1 -type d -name '.fake-t
 fi
 
 printf 'go toolchain readiness checks passed\n'
+"${ROOT_DIR}/tmp/node-runtime/bin/node" \
+  "${ROOT_DIR}/tools/harness/contract/tests/test-machine-state-config.mjs"

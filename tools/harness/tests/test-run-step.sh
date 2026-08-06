@@ -466,6 +466,43 @@ assert_equals "$(json_field "$browser_start_failure_tool_summary" "exit_code")" 
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_class")" "infra" "browser start target summary class"
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_reason")" "service_start_error" "browser start target summary reason"
 
+capacity_results="$(mktemp -d "$ROOT_DIR/tmp/capacity-conflict.XXXXXX")"
+cleanup_paths+=("$capacity_results")
+capacity_path="$capacity_results/go-tmp/go-build-fixture"
+mkdir -p "$(dirname "$capacity_path")"
+set +e
+capacity_output="$({
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$capacity_results" \
+  CARTULARY_TEST_RUN_ID="capacity-conflict" \
+  CARTULARY_TEST_TARGET="build-server" \
+  GO_TMP_DIR="$(dirname "$capacity_path")" \
+    "$HELPER" "build server" -- bash -lc "echo 'mkdir $capacity_path: no space left on device (ENOSPC)' >&2; exit 1"
+} 2>&1)"
+capacity_status=$?
+set -e
+assert_equals "$capacity_status" "1" "capacity conflict child status"
+assert_contains "$capacity_output" "failure_class=infra" "capacity conflict class"
+assert_contains "$capacity_output" "reason=resource_conflict" "capacity conflict reason"
+capacity_step_summary="$capacity_results/capacity-conflict/build-server/build-server/step-summary.json"
+assert_equals "$(json_field "$capacity_step_summary" "failure_class")" "infra" "capacity step class"
+assert_equals "$(json_field "$capacity_step_summary" "failure_reason")" "resource_conflict" "capacity step reason"
+capacity_message="$(json_field "$capacity_step_summary" "failures.0.message")"
+assert_contains "$capacity_message" "filesystem_capacity path=$(dirname "$capacity_path")" "capacity path diagnostic"
+assert_contains "$capacity_message" "available_bytes=" "capacity byte diagnostic"
+set +e
+capacity_target_output="$({
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="$capacity_results" \
+  CARTULARY_TEST_RUN_ID="capacity-conflict" \
+    "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary build-server fail
+} 2>&1)"
+capacity_target_status=$?
+set -e
+assert_equals "$capacity_target_status" "0" "capacity target summary writer status"
+capacity_tool_summary="$capacity_results/capacity-conflict/build-server/tool-run-summary.json"
+assert_equals "$(json_field "$capacity_tool_summary" "exit_code")" "4" "capacity conflict public exit"
+
 browser_resource_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/browser-resource-conflict.XXXXXX")"
 cleanup_paths+=("$browser_resource_conflict_results")
 browser_resource_conflict_session="$browser_resource_conflict_results/browser-resource-conflict/_shared/test-services/suite-test/browser-sessions/session-test"

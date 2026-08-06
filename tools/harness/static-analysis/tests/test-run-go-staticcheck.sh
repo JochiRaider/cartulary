@@ -44,6 +44,9 @@ assert_not_contains() {
 }
 
 scratch="$(cartulary_harness_mktemp_dir go-staticcheck.XXXXXX)"
+export GO_CACHE_DIR="$scratch/go-cache"
+export GO_MOD_CACHE_DIR="$scratch/go-mod-cache"
+export GO_TMP_DIR="$scratch/go-tmp"
 cleanup_paths+=("$scratch")
 
 fake_go="$scratch/go"
@@ -80,13 +83,14 @@ env_log="$scratch/staticcheck-env.log"
 cat >"$fake_staticcheck" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"${FAKE_STATICCHECK_ARGS_LOG:?}"
-printf 'GOCACHE=%s\nGOMODCACHE=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" >"${FAKE_STATICCHECK_ENV_LOG:?}"
+printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${GOTMPDIR:-}" >"${FAKE_STATICCHECK_ENV_LOG:?}"
 EOF
 chmod +x "$fake_staticcheck"
 
 GO="$fake_go" \
   GO_CACHE_DIR="$scratch/go-cache" \
   GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
   STATICCHECK_BIN="$fake_staticcheck" \
   FAKE_STATICCHECK_ARGS_LOG="$args_log" \
   FAKE_STATICCHECK_ENV_LOG="$env_log" \
@@ -105,10 +109,12 @@ assert_not_contains "$args" "-checks=" "staticcheck default inherits root config
 env_output="$(cat "$env_log")"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "staticcheck GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "staticcheck GOMODCACHE"
+assert_contains "$env_output" "GOTMPDIR=$scratch/go-tmp" "staticcheck GOTMPDIR"
 
 GO="$fake_go" \
   GO_CACHE_DIR="$scratch/go-cache" \
   GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
   STATICCHECK_BIN="$fake_staticcheck" \
   STATICCHECK_CHECKS="SA*" \
   FAKE_STATICCHECK_ARGS_LOG="$args_log" \

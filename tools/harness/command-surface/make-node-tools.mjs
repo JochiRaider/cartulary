@@ -14,6 +14,9 @@ const retiredPublicPassthroughEnvNames = Object.freeze([
   "CARTULARY_TASK_SURFACE_MANIFEST",
   "CHECK_RESULTS_DIR",
   "EXECUTION_TOPOLOGY_MANIFEST",
+  "GOCACHE",
+  "GOMODCACHE",
+  "GOTMPDIR",
   "SCHEDULER_MANIFEST",
   "TASK_SURFACE_MANIFEST",
   "VITEST_FLAGS",
@@ -419,11 +422,14 @@ function publicContractInputNames(env = process.env) {
   if (!manifest?.targets) {
     return [];
   }
-  return manifest.targets.flatMap((entry) =>
-    entry?.target_class === "public"
-      ? (entry.input_contract?.inputs ?? []).map((input) => input.name)
-      : [],
-  );
+  return [
+    ...(manifest.global_inputs ?? []).map((input) => input.name),
+    ...manifest.targets.flatMap((entry) =>
+      entry?.target_class === "public"
+        ? (entry.input_contract?.inputs ?? []).map((input) => input.name)
+        : [],
+    ),
+  ];
 }
 
 function resultDirMakeEnvVars(resultDir) {

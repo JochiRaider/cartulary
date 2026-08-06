@@ -131,6 +131,8 @@ copy_minimal_repo() {
   done
   git -C "${dest}" init --quiet
   git -C "${dest}" add --all
+  git -C "${dest}" -c user.name=Cartulary -c user.email=cartulary@example.invalid \
+    commit --quiet -m 'minimal harness fixture'
 }
 
 replace_text() {
@@ -348,10 +350,14 @@ set -e
 if [[ "${preflight_status}" -eq 0 ]]; then
   fail "check toolchain drift mismatch: expected failure; see ${preflight_log}"
 fi
-"${NODE_BIN}" "${ROOT_DIR}/tools/harness/test-support/harness-artifact-assert.mjs" \
+if ! "${NODE_BIN}" "${ROOT_DIR}/tools/harness/test-support/harness-artifact-assert.mjs" \
   --repo-root "${preflight_dir}" \
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \
   --target "toolchain-drift" \
   --needle "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
-  --label "Make toolchain-drift diagnostic"
+  --label "Make toolchain-drift diagnostic"; then
+  printf '%s\n' 'toolchain-drift Make output:' >&2
+  sed -n '1,240p' "${preflight_log}" >&2
+  exit 1
+fi

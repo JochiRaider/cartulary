@@ -1,5 +1,63 @@
 {
   "schema_id": "cartulary.task_surface_owner.v2",
+  "global_inputs": [
+    {
+      "name": "CARTULARY_MACHINE_CACHE_DIR",
+      "type": "machine_cache_root",
+      "allowed_sources": [
+        "make_command_line",
+        "environment",
+        "makefile_default"
+      ],
+      "default": "xdg_cache_home_then_home",
+      "empty_string": "invalid",
+      "normalization": "absolute_external_path",
+      "invalid_reason": "configuration_error",
+      "summary_emission": "source_and_value"
+    },
+    {
+      "name": "GO_CACHE_DIR",
+      "type": "machine_cache_path",
+      "allowed_sources": [
+        "make_command_line",
+        "environment",
+        "makefile_default"
+      ],
+      "default": "CARTULARY_MACHINE_CACHE_DIR/go/build",
+      "empty_string": "invalid",
+      "normalization": "absolute_external_path",
+      "invalid_reason": "configuration_error",
+      "summary_emission": "source_and_value"
+    },
+    {
+      "name": "GO_MOD_CACHE_DIR",
+      "type": "machine_cache_path",
+      "allowed_sources": [
+        "make_command_line",
+        "environment",
+        "makefile_default"
+      ],
+      "default": "CARTULARY_MACHINE_CACHE_DIR/go/mod",
+      "empty_string": "invalid",
+      "normalization": "absolute_external_path",
+      "invalid_reason": "configuration_error",
+      "summary_emission": "source_and_value"
+    },
+    {
+      "name": "GO_TMP_DIR",
+      "type": "machine_cache_path",
+      "allowed_sources": [
+        "make_command_line",
+        "environment",
+        "makefile_default"
+      ],
+      "default": "CARTULARY_MACHINE_CACHE_DIR/go/tmp",
+      "empty_string": "invalid",
+      "normalization": "absolute_external_path",
+      "invalid_reason": "configuration_error",
+      "summary_emission": "source_and_value"
+    }
+  ],
   "observability_policy": {
     "scope": "cartulary.harness.execution",
     "required_targets": [
@@ -1096,6 +1154,7 @@
         "GO_TOOLCHAIN": "$(GO_TOOLCHAIN)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "NODE_BIN": "$(NODE_BIN)",
         "NODE_VERSION": "$(NODE_VERSION)",
         "PNPM": "$(PNPM)",
@@ -1117,7 +1176,8 @@
         "GO": "$(GO)",
         "GO_TOOLCHAIN": "$(GO_TOOLCHAIN)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
-        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)"
       },
       "command": [
         "bash",
@@ -1127,6 +1187,27 @@
     },
     "bootstrap": {
       "prerequisites": [
+        "bootstrap-tool-installations"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "command": [
+        "mkdir",
+        "-p",
+        "$(GO_CACHE_DIR)",
+        "$(GO_MOD_CACHE_DIR)",
+        "$(GO_TMP_DIR)"
+      ]
+    },
+    "bootstrap-tool-installations": {
+      "prerequisites": [
+        "frontend-install"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "command": [
+        "$(MAKE)",
+        "--no-print-directory",
         "$(SQLC_BIN)",
         "$(GOOSE_BIN)",
         "$(STATICCHECK_BIN)",
@@ -1135,16 +1216,7 @@
         "$(CYCLONEDX_GOMOD_BIN)",
         "$(SYFT_BIN)",
         "$(SHELLCHECK_BIN)",
-        "frontend-install",
         "playwright-install"
-      ],
-      "type": "step_command",
-      "mode": "command",
-      "command": [
-        "mkdir",
-        "-p",
-        "$(GO_CACHE_DIR)",
-        "$(GO_MOD_CACHE_DIR)"
       ]
     },
     "otel-conformance": {
@@ -1217,7 +1289,8 @@
         "GO": "$(GO)",
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
-        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)"
       },
       "command": [
         "bash",
@@ -1236,6 +1309,7 @@
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "CARTULARY_DESTRUCTIVE_CONFIRM": "$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)"
       },
       "command": [
@@ -1331,6 +1405,7 @@
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
         "PNPM": "$(PNPM)"
       },
@@ -1384,6 +1459,7 @@
     },
     "generate": {
       "prerequisites": [
+        "$(FOUNDATION_SCHEMA_VALIDATORS)",
         "codegen-toolchain"
       ],
       "type": "step_command",
@@ -1405,6 +1481,7 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "NODE_BIN": "$(NODE_BIN)",
         "RUN_STEP_SCRIPT": "$(RUN_STEP_SCRIPT)",
         "SQLC_BIN": "$(SQLC_BIN)"
@@ -1699,7 +1776,8 @@
         "FIXTURE": "$(FIXTURE)",
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
-        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)"
       },
       "command": [
         "bash",
@@ -2396,6 +2474,7 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "STATICCHECK_BIN": "$(STATICCHECK_BIN)"
       },
       "command": [
@@ -2417,6 +2496,7 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
         "GOVULNCHECK_DB": "$(GOVULNCHECK_DB)",
         "GOVULNCHECK_FLAGS": "-test -json",
@@ -2441,6 +2521,7 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "GOSEC_BIN": "$(GOSEC_BIN)",
         "GOSEC_RULES": "G602,G124,G112,G114",
         "GOSEC_FLAGS": "-exclude-generated",
@@ -2467,6 +2548,7 @@
         "GO": "$(GO)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "GOSEC_BIN": "$(GOSEC_BIN)",
         "GOSEC_AUDIT_RUNTIME_RULES": "G118,G122,G301,G302,G303,G304,G305,G306,G307",
         "GOSEC_AUDIT_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
@@ -2604,8 +2686,10 @@
         "GO": "$(GO)",
         "GOCACHE": "$(GO_CACHE_DIR)",
         "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR": "$(GO_TMP_DIR)",
         "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
         "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+        "GO_TMP_DIR": "$(GO_TMP_DIR)",
         "OBJECT_STORE_PROFILE_ID": "local_dev",
         "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
       },
@@ -2930,6 +3014,12 @@
       "backing_scripts": [
         "tools/harness/readiness/go-toolchain-readiness.sh"
       ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "bootstrap-tool-installations",
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
@@ -3976,6 +4066,7 @@
           "file_families": [
             "contract-derived generated code",
             "sqlc generated code",
+            "foundation schema validators",
             "task-surface generated Make outputs",
             "scheduler and browser topology manifests",
             "execution topology render index"
@@ -3992,6 +4083,7 @@
       "name": "generate-artifacts",
       "backing_scripts": [
         "tools/harness/generated-artifacts/generate-artifacts.sh",
+        "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs",
         "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
         "tools/protocol-ts/generate-protocol-types.mjs"
       ],
@@ -12963,6 +13055,8 @@
         "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
+        "harness-smoke-cleanup-contract",
+        "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
@@ -13021,6 +13115,8 @@
         "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
+        "harness-smoke-cleanup-contract",
+        "harness-smoke-capacity-failure-contract",
         "harness-smoke-lint-shell",
         "harness-smoke-build-input-discovery",
         "harness-smoke-check-migrations",
@@ -13075,13 +13171,17 @@
         "tools/harness/readiness/tests/test-go-toolchain-readiness.sh",
         "tools/harness/readiness/go-toolchain-readiness.sh",
         "tools/harness/readiness/bootstrap-go-tool.sh",
-        "tools/harness/readiness/check-doctor.sh"
+        "tools/harness/readiness/check-doctor.sh",
+        "tools/harness/contract/tests/test-machine-state-config.mjs"
       ]
     },
     {
       "name": "harness-smoke-bootstrap-node-runtime",
       "backing_scripts": [
-        "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh"
+        "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh",
+        "tools/harness/readiness/tests/test-frontend-install-self-hosting.sh",
+        "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
+        "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
       ]
     },
     {
@@ -13098,6 +13198,26 @@
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/tests/test-build-go-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-cleanup-contract",
+      "backing_scripts": [
+        "tools/harness/contract/tests/test-cleanup.mjs"
+      ],
+      "command": [
+        "$(NODE_BIN)",
+        "tools/harness/contract/tests/test-cleanup.mjs"
+      ]
+    },
+    {
+      "name": "harness-smoke-capacity-failure-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-capacity-failure-contract.sh"
+      ],
+      "command": [
+        "bash",
+        "tools/harness/tests/test-capacity-failure-contract.sh"
       ]
     },
     {

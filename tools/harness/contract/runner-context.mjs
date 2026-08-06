@@ -2,7 +2,10 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { resolveOutputMode as resolveHarnessOutputMode } from "./harness-contract.mjs";
+import {
+  resolveMachineStatePaths,
+  resolveOutputMode as resolveHarnessOutputMode,
+} from "./harness-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -35,14 +38,17 @@ export function createRunnerContext(options = {}) {
   const repoRoot = options.repoRoot ? path.resolve(options.repoRoot) : defaultRepoRoot;
   const nodeRuntimeDir = envPath("NODE_RUNTIME_DIR", "tmp/node-runtime", repoRoot);
   const nodeBin = resolveNodeBin(repoRoot);
+  const machineState = resolveMachineStatePaths(process.env, { root: repoRoot });
 
   return {
     repoRoot,
     nodeRuntimeDir,
     nodeBin,
     goBin: process.env.GO || "go",
-    goCacheDir: process.env.GO_CACHE_DIR || "/tmp/cartulary-go-build",
-    goModCacheDir: process.env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
+    machineCacheDir: machineState.CARTULARY_MACHINE_CACHE_DIR.value,
+    goCacheDir: machineState.GO_CACHE_DIR.value,
+    goModCacheDir: machineState.GO_MOD_CACHE_DIR.value,
+    goTmpDir: machineState.GO_TMP_DIR.value,
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
     runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/execution/cartulary-runner-cli.mjs", repoRoot),
     runStepScript: envPath("RUN_STEP_SCRIPT", "tools/harness/execution/run-step.sh", repoRoot),
@@ -74,8 +80,10 @@ export function runnerEnv(context, extra = {}) {
     MAKE: context.makeBin,
     NODE_BIN: context.nodeBin,
     GO: context.goBin,
+    CARTULARY_MACHINE_CACHE_DIR: context.machineCacheDir,
     GO_CACHE_DIR: context.goCacheDir,
     GO_MOD_CACHE_DIR: context.goModCacheDir,
+    GO_TMP_DIR: context.goTmpDir,
     TEST_OUTPUT_SCRIPT: context.testOutputScript,
     TASK_SURFACE_MANIFEST: context.taskSurfaceManifest,
     CARTULARY_RUNNER_SCRIPT: context.runnerScript,

@@ -26,8 +26,9 @@ OBJECT_STORE_CORS_PROXY_UPSTREAM="${OBJECT_STORE_CORS_PROXY_UPSTREAM:-http://127
 SEAWEEDFS_S3_IMAGE="${SEAWEEDFS_S3_IMAGE:-docker.io/chrislusf/seaweedfs:4.17}"
 SEAWEEDFS_S3_IMAGE_DIGEST="${SEAWEEDFS_S3_IMAGE_DIGEST:-sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9}"
 GO_BIN="${GO:-go}"
-GO_CACHE="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
-GO_MOD_CACHE="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
+GO_CACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 RUNTIME_DIR="${CARTULARY_RUNTIME_DIR:-$ROOT_DIR/.cartulary/runtime}"
 OBJECT_STORE_CORS_PROXY_PID_FILE="${OBJECT_STORE_CORS_PROXY_PID_FILE:-$RUNTIME_DIR/seaweedfs-s3-cors-proxy.pid}"
 OBJECT_STORE_CORS_PROXY_STATE_DIR="${OBJECT_STORE_CORS_PROXY_STATE_DIR:-$RUNTIME_DIR/object-store-proxy}"
@@ -116,7 +117,7 @@ probe_object_store() {
   local mode="${1:-probe}"
 
   cd "$ROOT_DIR"
-  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" \
+  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" GOTMPDIR="$GO_TMP" \
     "$GO_BIN" run ./tools/objectstoreprobe \
       --mode "$mode" \
       --endpoint "$OBJECT_STORE_ENDPOINT" \
@@ -145,7 +146,7 @@ proxy_command() {
 
 build_object_store_proxy() {
   cd "$ROOT_DIR"
-  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" \
+  env GOCACHE="$GO_CACHE" GOMODCACHE="$GO_MOD_CACHE" GOTMPDIR="$GO_TMP" \
     "$GO_BIN" build -o "$OBJECT_STORE_CORS_PROXY_BIN" ./tools/s3corsproxy
 }
 
@@ -391,13 +392,14 @@ db_up() {
 run_local_migrate() {
   local go_bin="${GO:-go}"
   local config_file="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
-  local go_cache="${GOCACHE:-${GO_CACHE_DIR:-/tmp/cartulary-go-build}}"
-  local go_mod_cache="${GOMODCACHE:-${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}}"
+  local go_cache="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+  local go_mod_cache="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+  local go_tmp="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 
   cd "$ROOT_DIR"
   env CARTULARY_CONFIG_FILE="$config_file" \
     CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="$POSTGRES_PRIMARY_DSN" \
-    GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" \
+    GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" GOTMPDIR="$go_tmp" \
     "$go_bin" run ./cmd/migrate up
 }
 

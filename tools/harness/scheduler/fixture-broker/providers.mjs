@@ -59,6 +59,14 @@ function commandSucceeded(command, args, options) {
   return !result.error && result.status === 0;
 }
 
+function requiredEnvironment(name) {
+  const value = process.env[name];
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${name} is required for Make-owned Go work`);
+  }
+  return value;
+}
+
 function objectStoreNamespaceProvider({ root, runRoot, suiteController }) {
   const proxyRoot = path.join(runRoot, "_shared", "object-store-proxy");
   const proxyBinary = path.join(proxyRoot, "s3corsproxy");
@@ -73,8 +81,9 @@ function objectStoreNamespaceProvider({ root, runRoot, suiteController }) {
         run(process.env.GO || "go", ["build", "-o", proxyBinary, "./tools/s3corsproxy"], {
           cwd: root,
           environment: {
-            GOCACHE: process.env.GOCACHE || process.env.GO_CACHE_DIR || "/tmp/cartulary-go-build",
-            GOMODCACHE: process.env.GOMODCACHE || process.env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
+            GOCACHE: requiredEnvironment("GO_CACHE_DIR"),
+            GOMODCACHE: requiredEnvironment("GO_MOD_CACHE_DIR"),
+            GOTMPDIR: requiredEnvironment("GO_TMP_DIR"),
           },
         });
         binaryReady = true;

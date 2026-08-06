@@ -44,6 +44,9 @@ assert_not_contains() {
 }
 
 scratch="$(cartulary_harness_mktemp_dir go-govulncheck.XXXXXX)"
+export GO_CACHE_DIR="$scratch/go-cache"
+export GO_MOD_CACHE_DIR="$scratch/go-mod-cache"
+export GO_TMP_DIR="$scratch/go-tmp"
 cleanup_paths+=("$scratch")
 
 fake_go="$scratch/go"
@@ -103,7 +106,7 @@ cat >"$fake_govulncheck" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$@" >"${FAKE_GOVULNCHECK_ARGS_LOG:?}"
-printf 'GOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >"${FAKE_GOVULNCHECK_ENV_LOG:?}"
+printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${GOTMPDIR:-}" "${PATH:-}" >"${FAKE_GOVULNCHECK_ENV_LOG:?}"
 cat <<'JSON'
 {
   "config": {
@@ -176,6 +179,7 @@ chmod +x "$fake_govulncheck"
 GO="$fake_go" \
   GO_CACHE_DIR="$scratch/go-cache" \
   GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
   GOVULNCHECK_BIN="$fake_govulncheck" \
   GOVULNCHECK_FLAGS="-test -json" \
   GOVULNCHECK_DB="file://$scratch/vulndb" \
@@ -209,6 +213,7 @@ assert_not_contains "$args" "github.com/JochiRaider/cartulary/tmp/" "govulncheck
 env_output="$(cat "$govulncheck_env_log")"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "govulncheck GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "govulncheck GOMODCACHE"
+assert_contains "$env_output" "GOTMPDIR=$scratch/go-tmp" "govulncheck GOTMPDIR"
 assert_contains "$env_output" "PATH=$scratch:" "govulncheck PATH includes GO directory"
 
 step_artifact_dir="$scratch/step-artifacts"
@@ -217,6 +222,7 @@ output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
     GOVULNCHECK_BIN="$fake_govulncheck" \
     GOVULNCHECK_FLAGS="-test -json" \
     CARTULARY_STEP_ARTIFACT_DIR="$step_artifact_dir" \
@@ -241,6 +247,7 @@ output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
     GOVULNCHECK_BIN="$fake_govulncheck" \
     GOVULNCHECK_FLAGS="-test -json" \
     CARTULARY_STEP_ARTIFACT_DIR="$malformed_artifact_dir" \

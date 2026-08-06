@@ -2,13 +2,10 @@
 set -euo pipefail
 
 stamp="${FRONTEND_INSTALL_STAMP:?FRONTEND_INSTALL_STAMP is required}"
-run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 pnpm="${PNPM:?PNPM is required}"
 
 expected_store_dir=".pnpm-store"
 expected_confirm_modules_purge="false"
-script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-
 pnpm_flags=()
 if [[ -n "${PNPM_INSTALL_FLAGS:-}" ]]; then
   # The Make-owned flag string is a controlled list of CLI switches.
@@ -42,11 +39,6 @@ run_install_child() {
   return "$status"
 }
 
-if [[ "${1:-}" == "--run-install" ]]; then
-  run_install_child
-  exit "$?"
-fi
-
 store_dir="$("$pnpm" config get store-dir)"
 if [[ "$store_dir" != "$expected_store_dir" ]]; then
   echo "pnpm store-dir must be ${expected_store_dir}; got ${store_dir:-<unset>}" >&2
@@ -60,10 +52,7 @@ if [[ "$confirm_modules_purge" != "$expected_confirm_modules_purge" ]]; then
 fi
 
 mkdir -p "$(dirname "$stamp")"
-CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-frontend-install}" \
-  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-  "$run_step" "frontend install" -- \
-  bash "$script_path" --run-install
+run_install_child
 printf 'node_path=%s\nnode_version=v%s\npnpm_path=%s\npnpm_version=%s\npnpm_store_dir=%s\n' \
   "${NODE_BIN:?NODE_BIN is required}" \
   "${NODE_VERSION:?NODE_VERSION is required}" \

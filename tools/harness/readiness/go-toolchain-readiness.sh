@@ -14,12 +14,49 @@ go_bin="${GO:-}"
 expected_toolchain="${GO_TOOLCHAIN:-}"
 go_cache_dir="${GO_CACHE_DIR:-}"
 go_mod_cache_dir="${GO_MOD_CACHE_DIR:-}"
+go_tmp_dir="${GO_TMP_DIR:-}"
 
-for required_name in GO GO_TOOLCHAIN GO_CACHE_DIR GO_MOD_CACHE_DIR; do
+for required_name in GO GO_TOOLCHAIN GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR; do
   if [[ -z "${!required_name:-}" ]]; then
     printf '%s is required for Go toolchain readiness\n' "$required_name" >&2
     exit 2
   fi
+done
+
+repo_root="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd -P)"
+canonical_machine_path() {
+  local name="$1"
+  local value="$2"
+  if [[ "$value" != /* ]]; then
+    printf '%s must be absolute: %s\n' "$name" "$value" >&2
+    exit 2
+  fi
+  realpath -m -- "$value"
+}
+
+go_cache_dir="$(canonical_machine_path GO_CACHE_DIR "$go_cache_dir")"
+go_mod_cache_dir="$(canonical_machine_path GO_MOD_CACHE_DIR "$go_mod_cache_dir")"
+go_tmp_dir="$(canonical_machine_path GO_TMP_DIR "$go_tmp_dir")"
+for state_path in "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir"; do
+  case "$state_path" in
+    "$repo_root"|"$repo_root"/*)
+      printf 'Go machine-state path must be outside the repository: %s\n' "$state_path" >&2
+      exit 2
+      ;;
+  esac
+done
+machine_paths=("$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir")
+for ((left_index = 0; left_index < ${#machine_paths[@]}; left_index += 1)); do
+  for ((right_index = left_index + 1; right_index < ${#machine_paths[@]}; right_index += 1)); do
+    left="${machine_paths[$left_index]}"
+    right="${machine_paths[$right_index]}"
+    case "$left/" in "$right/"*) overlap=1 ;; *) overlap=0 ;; esac
+    case "$right/" in "$left/"*) overlap=1 ;; esac
+    if [[ "$overlap" == "1" ]]; then
+      printf 'Go machine-state paths must be distinct and non-overlapping: %s, %s\n' "$left" "$right" >&2
+      exit 2
+    fi
+  done
 done
 
 if [[ ! "$expected_toolchain" =~ ^go[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]]; then
@@ -37,7 +74,7 @@ if [[ ! -x "$go_bin" ]]; then
 fi
 
 local_version_output=""
-if ! local_version_output="$(env GOTOOLCHAIN=local GOTELEMETRY=off "$go_bin" version 2>&1)"; then
+if ! local_version_output="$(env GOTOOLCHAIN=local GOTELEMETRY=off GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" "$go_bin" version 2>&1)"; then
   printf 'Go launcher failed: %s\n' "$local_version_output" >&2
   exit 2
 fi
@@ -49,7 +86,7 @@ if [[ "$local_prefix" != "go" || "$local_word" != "version" || -z "$local_toolch
 fi
 
 platform_output=""
-if ! platform_output="$(env GOTOOLCHAIN=local GOTELEMETRY=off "$go_bin" env GOOS GOARCH 2>&1)"; then
+if ! platform_output="$(env GOTOOLCHAIN=local GOTELEMETRY=off GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" "$go_bin" env GOOS GOARCH 2>&1)"; then
   printf 'Go launcher platform query failed: %s\n' "$platform_output" >&2
   exit 2
 fi
@@ -69,6 +106,22 @@ source_marker="${toolchain_dir}/src/_go.mod"
 activation_marker="${toolchain_dir}/src/go.mod"
 cached_go="${toolchain_dir}/bin/go"
 
+ensure_machine_state_paths() {
+  if ! mkdir -p "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir"; then
+    printf 'cannot prepare Go machine-state paths %s, %s, and %s\n' \
+      "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir" >&2
+    exit 2
+  fi
+  for state_path in "$go_cache_dir" "$go_mod_cache_dir" "$go_tmp_dir"; do
+    probe=""
+    if ! probe="$(mktemp "${state_path}/.cartulary-write-probe.XXXXXX")"; then
+      printf 'Go machine-state path is not writable: %s\n' "$state_path" >&2
+      exit 2
+    fi
+    rm -f -- "$probe"
+  done
+}
+
 print_corruption_diagnostic() {
   local reason="$1"
   printf 'corrupt Go automatic-toolchain cache: %s\n' "$reason" >&2
@@ -83,6 +136,9 @@ markers_match() {
 }
 
 if [[ "$local_toolchain" == "$expected_toolchain" ]]; then
+  if [[ "$mode" == "ensure" ]]; then
+    ensure_machine_state_paths
+  fi
   printf 'ok go: launcher=%s effective=%s source=local\n' "$local_toolchain" "$expected_toolchain"
   exit 0
 fi
@@ -96,6 +152,10 @@ if [[ -d "$toolchain_dir" ]]; then
     print_corruption_diagnostic "incomplete or inconsistent ${toolchain_dir}"
     exit 2
   fi
+fi
+
+if [[ "$mode" == "ensure" ]]; then
+  ensure_machine_state_paths
 fi
 
 if [[ "$mode" == "diagnose" ]]; then
@@ -120,12 +180,8 @@ if [[ "$mode" == "diagnose" ]]; then
   exit 0
 fi
 
-if ! mkdir -p "$go_cache_dir" "$go_mod_cache_dir"; then
-  printf 'cannot prepare Go cache paths %s and %s\n' "$go_cache_dir" "$go_mod_cache_dir" >&2
-  exit 2
-fi
 effective_output=""
-if ! effective_output="$(env GOTOOLCHAIN="$expected_toolchain" GOTELEMETRY=off GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" "$go_bin" version 2>&1)"; then
+if ! effective_output="$(env GOTOOLCHAIN="$expected_toolchain" GOTELEMETRY=off GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" "$go_bin" version 2>&1)"; then
   if [[ -d "$toolchain_dir" && ! -f "$source_marker" ]]; then
     print_corruption_diagnostic "missing ${source_marker}"
   else

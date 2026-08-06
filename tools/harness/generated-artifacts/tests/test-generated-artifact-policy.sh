@@ -400,6 +400,7 @@ chmod +x "$fake_go"
 GO="$fake_go" \
   GO_CACHE_DIR="$vet_scratch/go-cache" \
   GO_MOD_CACHE_DIR="$vet_scratch/go-mod-cache" \
+  GO_TMP_DIR="$vet_scratch/go-tmp" \
   FAKE_GO_VET_ARGS_LOG="$vet_args_log" \
   bash "$VET_WRAPPER"
 

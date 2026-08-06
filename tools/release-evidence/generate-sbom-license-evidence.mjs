@@ -108,6 +108,7 @@ function goReadOnlyEnv() {
       GOFLAGS: "-mod=readonly",
       GOCACHE: process.env.GO_CACHE_DIR,
       GOMODCACHE: process.env.GO_MOD_CACHE_DIR,
+      GOTMPDIR: process.env.GO_TMP_DIR,
     }).filter(([, value]) => value),
   );
 }

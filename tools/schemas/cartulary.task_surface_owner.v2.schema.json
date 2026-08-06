@@ -4,9 +4,32 @@
   "title": "Cartulary authored graph-backed task-surface owner",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_id", "observability_policy", "compact_help", "help_tiers", "sequences", "make_recipes", "targets", "harness_tiers", "harness_checks"],
+  "required": ["schema_id", "global_inputs", "observability_policy", "compact_help", "help_tiers", "sequences", "make_recipes", "targets", "harness_tiers", "harness_checks"],
   "properties": {
     "schema_id": { "const": "cartulary.task_surface_owner.v2" },
+    "global_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type", "allowed_sources", "default", "empty_string", "normalization", "invalid_reason", "summary_emission"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "type": { "enum": ["machine_cache_root", "machine_cache_path"] },
+          "allowed_sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["make_command_line", "environment", "makefile_default"] }
+          },
+          "default": { "type": "string", "minLength": 1 },
+          "empty_string": { "const": "invalid" },
+          "normalization": { "const": "absolute_external_path" },
+          "invalid_reason": { "const": "configuration_error" },
+          "summary_emission": { "const": "source_and_value" }
+        }
+      }
+    },
     "observability_policy": { "type": "object" },
     "compact_help": { "type": "object" },
     "help_tiers": { "type": "array" },

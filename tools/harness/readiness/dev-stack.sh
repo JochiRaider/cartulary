@@ -6,8 +6,9 @@ source "${ROOT_DIR}/tools/harness/readiness/process-lifecycle.sh"
 
 GO_BIN="${GO:-go}"
 CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/configs/dev/config.toml}"
-GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
+GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 DEV_ARTIFACT_DIR="${CARTULARY_DEV_STACK_ARTIFACT_DIR:-${ROOT_DIR}/tmp/dev-stack}"
@@ -309,6 +310,7 @@ main() {
     CARTULARY_S3_OBJECT_PRIMARY_BUCKET="${OBJECT_STORE_BUCKET}" \
     GOCACHE="${GO_CACHE_DIR}" \
     GOMODCACHE="${GO_MOD_CACHE_DIR}" \
+    GOTMPDIR="${GO_TMP_DIR}" \
     "${backend_command[@]}"
 
   echo "backend log: ${SERVER_LOG}"

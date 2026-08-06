@@ -1163,8 +1163,9 @@ main() {
     CARTULARY__ROOTS__TEMPORARY_WORK__PATH="${RUNTIME_ROOT_BASE}/temporary-work" \
     CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="${RUNTIME_ROOT_BASE}/export-outputs" \
     "${runtime_profile_env[@]}" \
-    GOCACHE=/tmp/cartulary-go-build \
-    GOMODCACHE=/tmp/cartulary-go-mod \
+    GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+    GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+    GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
     "${backend_listen_command[@]}"
 
   CARTULARY_STEP_TIMING_BUCKET=server_startup run_step_command "browser-e2e startup backend ready" browser_wait_backend_ready

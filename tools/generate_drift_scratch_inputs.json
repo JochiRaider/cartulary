@@ -26,6 +26,7 @@
     "packages/ui-contracts/src/generated",
     "tools/browser_e2e_batch_manifest.json",
     "tools/execution_topology_render_index.json",
+    "tools/harness/contract/generated/foundation-schema-validators.cjs",
     "tools/scheduler_manifest.json",
     "tools/task_surface.generated.mk",
     "tools/task_surface.runtime.generated.mk",

@@ -16,7 +16,7 @@ import {
   validateRootScriptPathPolicy,
   validateSummaryGroups,
 } from "./recipe-validation.mjs";
-import { validatePublicInputContract } from "./input-validation.mjs";
+import { validateGlobalInputContract, validatePublicInputContract } from "./input-validation.mjs";
 
 const validTargetClasses = new Set([
   "public",
@@ -189,6 +189,8 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
     errors.push("targets[] must be a non-empty array");
     return errors;
   }
+
+  validateGlobalInputContract(errors, manifest);
 
   const targets = new Map();
   const commandIDs = new Map();

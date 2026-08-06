@@ -25,6 +25,8 @@ cat >"$fake_go" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$@" >"${FAKE_GO_ARGS_LOG:?}"
+printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\n' \
+  "${GOCACHE:-}" "${GOMODCACHE:-}" "${GOTMPDIR:-}" >"${FAKE_GO_ENV_LOG:?}"
 output=""
 while [[ "$#" -gt 0 ]]; do
   if [[ "$1" == "-o" ]]; then
@@ -49,6 +51,7 @@ SH
 chmod +x "$fake_go" "$fake_run_step"
 
 FAKE_GO_ARGS_LOG="$args_log" \
+FAKE_GO_ENV_LOG="$TMP_DIR/go-env.log" \
 GO="$fake_go" \
 GO_BUILD_TAGS="cartulary_harness" \
 BUILD_OUTPUT="$output" \
@@ -58,6 +61,7 @@ CARTULARY_TEST_TARGET="build-server-harness" \
 RUN_STEP_SCRIPT="$fake_run_step" \
 GO_CACHE_DIR="$TMP_DIR/go-cache" \
 GO_MOD_CACHE_DIR="$TMP_DIR/go-mod-cache" \
+GO_TMP_DIR="$TMP_DIR/go-tmp" \
   "$SCRIPT"
 
 [[ -f "$output" ]] || fail "build helper did not create the declared output"
@@ -66,5 +70,8 @@ grep -Fxq -- "-buildvcs=false" "$args_log" || fail "cached Go build retained und
 grep -Fxq -- "-tags" "$args_log" || fail "build helper omitted declared build tags"
 grep -Fxq -- "cartulary_harness" "$args_log" || fail "build helper omitted the harness tag value"
 grep -Fxq -- "./cmd/server" "$args_log" || fail "build helper omitted the declared package"
+grep -Fxq -- "GOCACHE=$TMP_DIR/go-cache" "$TMP_DIR/go-env.log" || fail "build helper omitted GOCACHE"
+grep -Fxq -- "GOMODCACHE=$TMP_DIR/go-mod-cache" "$TMP_DIR/go-env.log" || fail "build helper omitted GOMODCACHE"
+grep -Fxq -- "GOTMPDIR=$TMP_DIR/go-tmp" "$TMP_DIR/go-env.log" || fail "build helper omitted GOTMPDIR"
 
 echo "Go build artifact tests passed"

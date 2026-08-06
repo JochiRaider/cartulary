@@ -229,8 +229,9 @@ make -C "$scratch" --no-print-directory generate-artifacts \
 	CARTULARY_TEST_TARGET=generate-artifacts \
 	SQLC_BIN="$sqlc_bin" \
 	GO="${GO:-go}" \
-	GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \
-	GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}" \
+	GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+	GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+	GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
 	NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/tmp/node-runtime}" \
 	CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/tmp/node-archives}" \
 	NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \

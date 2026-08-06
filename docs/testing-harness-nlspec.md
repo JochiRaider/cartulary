@@ -1326,7 +1326,41 @@ Every Make-owned public wrapper that is not `interactive_raw` MUST execute this 
 
 A target MAY skip a step only when its output class or target row explicitly declares that the step does not apply. A skipped step MUST NOT be implemented as an implicit child-command side effect.
 
-When a public Make wrapper recipe directly invokes repo-owned Node tooling before delegating to child or scheduled work, the wrapper MUST make pinned repo-local Node readiness an explicit precondition before semantic behavior begins. The current Make binding satisfies this with a `$(NODE_BIN)` prerequisite rendered from owner inputs. If the pinned Node runtime cannot be resolved, installed, downloaded, verified, or executed, the wrapper MUST fail before semantic work with `failure_class=config`, `failure_reason=configuration_error`, and public exit code `2`; it MUST NOT surface a raw shell, raw `curl`, or `env` executable-not-found failure as the public target result. Node runtime bootstrap MUST serialize mutation of the repo-local runtime and archive paths, download into temporary files, publish an archive only after checksum verification, remove corrupt or partial archive candidates, and use bounded retry for transient download failures.
+Every public Make wrapper whose lifecycle invokes repo-owned Node tooling,
+including the shared public preflight, MUST make pinned repo-local Node readiness
+an explicit generated precondition before semantic behavior begins. The sole
+exception is `bootstrap-node-runtime`, which MUST install or validate that
+runtime before invoking any repo-owned Node module. If the pinned Node runtime
+cannot be resolved, installed, downloaded, verified, or executed, the wrapper
+MUST fail before semantic work with `failure_class=config`,
+`failure_reason=configuration_error`, and public exit code `2`; it MUST NOT
+surface a raw shell, raw `curl`, or `env` executable-not-found failure as the
+public target result. Node runtime bootstrap MUST serialize mutation of the
+repo-local runtime and archive paths, download into temporary files, publish an
+archive only after checksum verification, remove corrupt or partial archive
+candidates, and use bounded retry for transient download failures.
+
+**TH-HARNESS-REQ-055**
+Foundational public-wrapper schemas needed before frontend dependency readiness
+MUST have generated, dependency-free validators committed as governed generated
+artifacts. `cartulary.tool_run_summary.v5` is foundational in the current
+profile. Its validator MUST execute with the pinned Node runtime when
+`node_modules` is absent, MUST retain the exact schema's pass/fail behavior, and
+MUST be regenerated from the registered schema rather than hand-maintained.
+General schema validation MAY continue to use the pinned frontend AJV
+dependency after frontend dependency readiness.
+Verified by: TH-HARNESS-AC-092
+
+Frontend dependency installation is itself foundational bootstrap work and
+MUST NOT invoke a harness runner or schema validator supplied by the dependency
+tree it is creating. The enclosing public wrapper MAY use only the pinned Node
+runtime and dependency-free foundational validator until that install has
+completed. `bootstrap` MUST model frontend dependency readiness as a distinct
+first stage and MUST place all AJV-dependent tool-install and browser-install
+work behind an explicit generated dependency edge from that stage. Textual
+prerequisite order alone is insufficient because bootstrap MUST retain the same
+ordering under parallel Make execution and as later phases are added.
+Verified by: TH-HARNESS-AC-092
 
 ### 4.6 Public Target Lifecycle
 
@@ -1473,6 +1507,15 @@ Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-071
 
 **TH-HARNESS-REQ-123**
 Any Make command-line input not declared by the selected target MUST fail before child work as `usage_error`; an undeclared inherited environment value MUST be ignored and MUST NOT reach child environments, as required by TH-HARNESS-REQ-112.
+
+**TH-HARNESS-REQ-124**
+Inputs that apply uniformly to every public target MUST be declared once in the
+authored task-surface global-input registry and projected into the generated
+manifest and Make preflight input set. A global input MUST NOT be copied into
+every target-local input contract or admitted through an implementation-only
+allowlist. Target-local declarations remain authoritative for inputs that do
+not apply to every public target.
+Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-092
 Verified by: TH-HARNESS-AC-064, TH-HARNESS-AC-070
 
 ### 5.1 Precedence
@@ -1660,7 +1703,9 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 | `CI`                                                                                            | global                  | exact `1` marks CI environment                                                                                        | false                                                                                     | env, default                                    | false                                                   | exact string compare                                                                                          | non-`1` ignored as false                                                           | boolean source when true                           |
 | Scheduler resource limits                                                                       | scheduler               | positive integer `1..256` unless resource row declares narrower bound                                                 | resource registry default                                                                 | CLI flag, Make variable, env, manifest, default | omitted                                                 | decimal parse with no separators                                                                              | `configuration_error`, exit `2`                                                    | normalized limit and source                        |
 | `--resource-limit name=value`                                                                   | scheduler               | declared resource name and positive integer value                                                                     | none                                                                                      | CLI flag only                                   | invalid                                                 | name exact; value decimal                                                                                     | `usage_error` for malformed flag, `configuration_error` for invalid declared value | normalized override                                |
-| `GO`, `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, `GOCACHE`, `GOMODCACHE`                               | toolchain               | executable path or filesystem path                                                                                    | Go launcher auto-discovered; external caches `/tmp/cartulary-go-build` and `/tmp/cartulary-go-mod` | Make variable, env, default                     | invalid for paths, omitted for executable               | path normalization by target helper                                                                           | `configuration_error`, exit `2`                                                    | launcher path and cache path unless redacted       |
+| `CARTULARY_MACHINE_CACHE_DIR`                                                                  | global machine state    | absolute filesystem path outside the repository                                                                       | `$XDG_CACHE_HOME/cartulary` when `XDG_CACHE_HOME` is absolute and nonempty; otherwise `$HOME/.cache/cartulary`; no `/tmp` or repository fallback | Make variable, env, default | invalid | realpath-aware normalization against the repository boundary | `configuration_error`, exit `2` | normalized root and source |
+| `GO`, `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, `GO_TMP_DIR`                                         | toolchain               | executable path for `GO`; absolute external filesystem paths for the three state directories                          | Go launcher auto-discovered; `<machine-cache>/go/build`, `<machine-cache>/go/mod`, and `<machine-cache>/go/tmp` | Make variable, env, default | invalid for paths, omitted for executable | realpath-aware path normalization; state directories must be outside the repository and pairwise non-overlapping | `configuration_error`, exit `2` | launcher and normalized state paths unless redacted |
+| `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`                                                            | toolchain child env     | exact projections of the resolved Cartulary path variables                                                            | resolved `GO_CACHE_DIR`, `GO_MOD_CACHE_DIR`, and `GO_TMP_DIR` | internal child environment only | invalid | no caller alias translation or fallback | caller Make override is `usage_error`, exit `2`; inherited values are stripped or overwritten | omitted |
 | `GO_TOOLCHAIN`, `GOTOOLCHAIN`                                                                  | toolchain               | exact reviewed Go toolchain token                                                                                     | `go1.26.5`, projected from `tools/toolchain_pins.json` and `go.mod`                       | internal Make projection only                  | invalid                                                 | exact token; `GOTOOLCHAIN` is forced to the repository pin for Make-owned Go work                            | `configuration_error`, exit `2`                                                    | launcher version, exact effective version, and source |
 | `NODE_VERSION`, `PNPM_VERSION`, `NODE_RUNTIME_DIR`, `NODE_BIN`, `PNPM`, `COREPACK_HOME`, `PATH` | toolchain               | version token or filesystem path                                                                                      | Node `24.15.0`, pnpm `10.33.0`, repo-local `tmp/node-runtime`                             | Make variable, env, default                     | invalid for paths/versions unless row-specific optional | exact version token; path normalization                                                                       | `configuration_error`, exit `2`                                                    | version and runtime path                           |
 | `CARTULARY_READINESS_CACHE_DIR`, `CARTULARY_READINESS_DISABLE_CACHE`, `CARTULARY_FORCE_REINSTALL` | harness cache           | repo-local path for cache dir; exact `1` for disable or force reinstall                                                | `.cache/cartulary/readiness`; false; false                                                 | Make variable, env, default                     | invalid for path; false for boolean flags                | path normalization; exact string compare for flags                                                           | invalid path is `configuration_error`; non-`1` flags are false                     | cache state and record path only                   |
@@ -2534,7 +2579,7 @@ Failure classification uses two layers:
 | `service_start_error`         | `infra`       | Backing service or browser process fails to start                  |                                                 `3` |
 | `service_readiness_timeout`   | `infra`       | Started service fails readiness before deadline                    |                                                 `3` |
 | `fixture_error`               | `harness`     | DB/bucket/template/reset/janitor/fixture operation or shape validation fails |                                      `3` |
-| `resource_conflict`           | `infra`       | Logical resource, port, lock, DB/bucket name, or host conflict     |                                                 `4` |
+| `resource_conflict`           | `infra`       | Logical resource, port, lock, DB/bucket name, host conflict, or confirmed filesystem capacity exhaustion (`ENOSPC`) | `4` |
 | `test_assertion_failure`      | `product`     | Test runner assertion fails after harness setup                    |                                                `10` |
 | `security_finding`            | `security`    | Blocking Govulncheck vulnerability or enforcing Gosec finding after scanner setup; Fallow uses this reason only if a later adopted security-scan profile selects it |                         `1` |
 | `child_target_failure`        | `harness`     | Aggregate child exits nonzero                                      |                         normalized child class exit |
@@ -3952,7 +3997,7 @@ Cleanup is destructive. Cleanup commands MUST delete only paths or resources sat
 Verified by: TH-HARNESS-AC-009, TH-HARNESS-AC-010
 
 **TH-HARNESS-REQ-501**
-External Go build and module caches are borrowed machine state. No public or
+External Go build, module, and temporary-work caches are borrowed machine state. No public or
 private harness target, including `doctor`, `clean`, and `distclean`, may
 delete, rename, quarantine, synthesize markers in, or broadly repair those
 caches. A recognized automatic-toolchain corruption MUST fail closed and name
@@ -4027,7 +4072,14 @@ A child path under a protected root MAY be removed only when Section 13.2 or ano
 | Service-suite cleanup |        only suite-owned artifacts |                                           no |                                             no |                          no |                             no |
 | Stale janitor         |        proof-gated resources only |                                           no |                                             no |                          no |                             no |
 
-`make distclean` owns removal of `.pnpm-store`, the repository-root `node_modules` directory, workspace package `node_modules` directories under `apps/web` and `packages/*`, and default repo-local cache roots under `.cache/cartulary/`. Missing workspace dependency roots or cache roots are not cleanup failures.
+`make distclean` owns removal of `.pnpm-store`, the repository-root `node_modules` directory, workspace package `node_modules` directories under `apps/web` and `packages/*`, and default repo-local cache roots under `.cache/cartulary/`. It MUST NOT name `.cache` itself as a cleanup candidate. Missing workspace dependency roots or cache roots are not cleanup failures.
+
+After a candidate has passed the Section 13.1 containment and symlink checks,
+cleanup MAY add owner read, write, and search permission to traversed real
+directories inside that candidate when required to remove read-only generated
+or downloaded descendants. It MUST NOT follow a symlink, change a symlink
+target, change a preserved child, or change permissions outside the validated
+candidate tree.
 
 ### 13.2.1 Local Service And Data Reset Scope
 
@@ -4095,6 +4147,18 @@ Make mirror before child work. The private readiness boundary has two modes:
   corruption or a non-exact effective version before child work.
 
 Both mismatch and readiness failure map to `configuration_error`, exit `2`.
+Before either mode invokes selected Go work, the harness MUST resolve the
+machine-state root and the build, module, and temporary-work directories using
+Section 5.5. `diagnose` validates and reports these paths without creating or
+probing them mutably. `ensure` creates missing directories, verifies they are
+writable, and passes them to all Make-owned Go work as `GOCACHE`, `GOMODCACHE`,
+and `GOTMPDIR`. No helper may restore a literal `/tmp/cartulary-go-*` fallback
+or treat native Go variables as a second public configuration interface.
+`doctor` MUST report each resolved path, its backing filesystem identity, and
+available capacity without enforcing an arbitrary minimum. Existing legacy
+`/tmp/cartulary-go-*` directories MAY produce a manual-cleanup advisory but
+MUST NOT be migrated, removed, or reused automatically.
+
 Go-tool bootstrap MUST complete readiness before opening a private staging
 directory, install only into that unique directory, validate the expected
 executable, and atomically replace the versioned destination. Failure and
@@ -4692,7 +4756,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |
-| TH-HARNESS-AC-092 | Sections 4.1A, 13, 14 | Exact Go readiness and failure-atomic bootstrap | Exact local launcher, older launcher with valid or absent isolated cache, missing marker, mismatched effective version, offline failure, custom paths, failed and successful install fixtures | Scratch-only fake Go launcher and isolated cache/installation tests plus pin-drift validation | Diagnose is read-only; ensure selects exactly the pin or exits `2`; corruption names only version/platform entries; install failure preserves the old executable; success atomically replaces it and removes private staging | Bounded readiness summary | Bounded configuration diagnostic with exact repair scope | Pin projection and isolated filesystem observations | Doctor downloads or mutates, corruption reaches child work, ambient selection wins, broad cache repair is attempted, or failed install removes the old executable | isolated scratch state removed; external cache unchanged |
+| TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, and pin-drift validation | Public preflight obtains pinned Node first; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure passes exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, and isolated filesystem observations | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, or failed install removes the old executable | isolated scratch removed; borrowed machine state and symlink targets unchanged |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 

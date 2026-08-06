@@ -69,12 +69,17 @@ without downloading or changing a cache. Go-consuming Make targets may let Go's
 checksum-verified downloader populate an absent exact-version cache, but the
 harness never repairs a recognized corrupt external cache automatically.
 
+The machine-state root defaults to `$XDG_CACHE_HOME/cartulary` when
+`XDG_CACHE_HOME` is absolute and otherwise to `$HOME/.cache/cartulary`. Go build,
+module, and temporary work state live below `go/build`, `go/mod`, and `go/tmp`.
+`make doctor` prints the exact resolved paths, filesystem, and available bytes.
+
 For the current Linux x86_64 profile, a Go 1.26.5 automatic-toolchain cache is
-recognized as corrupt when this installation marker is missing while the
-extracted directory exists:
+recognized as corrupt when the following installation marker below the
+reported `GO_MOD_CACHE_DIR` is missing while the extracted directory exists:
 
 ```text
-/tmp/cartulary-go-mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/src/_go.mod
+<GO_MOD_CACHE_DIR>/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/src/_go.mod
 ```
 
 This is launcher/cache readiness failure, not a failure of SQLC or another Go
@@ -85,11 +90,12 @@ active:
 ```sh
 pgrep -af '(^|/)(go|make)([[:space:]]|$)' || true
 
-quarantine_dir="$(mktemp -d /tmp/cartulary-go-toolchain-quarantine.XXXXXX)"
+quarantine_dir="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-go-toolchain-quarantine.XXXXXX")"
+go_mod_cache_dir="<copy GO_MOD_CACHE_DIR from make doctor>"
 mkdir -p "$quarantine_dir/cache-download"
-mv -- /tmp/cartulary-go-mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64 \
+mv -- "$go_mod_cache_dir/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64" \
   "$quarantine_dir/"
-mv -- /tmp/cartulary-go-mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.5.linux-amd64.ziphash \
+mv -- "$go_mod_cache_dir/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.5.linux-amd64.ziphash" \
   "$quarantine_dir/cache-download/"
 printf 'quarantine: %s\n' "$quarantine_dir"
 ```
@@ -97,19 +103,16 @@ printf 'quarantine: %s\n' "$quarantine_dir"
 Move only those computed version/platform entries. Do not edit `go.mod`, create
 `src/_go.mod`, disable checksum verification, or delete a broader shared Go
 cache. Keep the quarantine until validation succeeds. Validate the effective
-toolchain through the same caches Make uses, then regenerate:
+toolchain through the same machine-state paths Make uses, then regenerate:
 
 ```sh
-env GOTOOLCHAIN=go1.26.5 \
-  GOCACHE=/tmp/cartulary-go-build \
-  GOMODCACHE=/tmp/cartulary-go-mod \
-  /usr/local/go/bin/go version
+make bootstrap
 make generate
 ```
 
-The first command must report `go1.26.5`, and generation must progress beyond
-`codegen-toolchain`. An unqualified `go version` is not equivalent when it uses
-a different launcher or module cache. On managed hosts, an administrator may
+The readiness command must report `go1.26.5`, and generation must progress
+beyond `codegen-toolchain`. An unqualified `go version` is not equivalent when
+it uses a different launcher or module cache. On managed hosts, an administrator may
 instead install Go 1.26.5 directly after verifying the distribution against
 the publisher's SHA-256 checksum; the repository pin and validation remain
 unchanged.

@@ -111,8 +111,13 @@ import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-const { collectTaskSurfaceManifestErrors, helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
+const { collectTaskSurfaceManifestErrors, helpAllLines, renderTaskSurfaceMake, renderTaskSurfaceMakeRuntime } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
+assert.deepEqual(
+  manifest.global_inputs.map((input) => input.name),
+  ["CARTULARY_MACHINE_CACHE_DIR", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"],
+  "machine-state overrides must be declared once as global task-surface inputs",
+);
 for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
   assert.ok(target.input_contract, `${target.name} must declare an input contract`);
   assert.equal(
@@ -171,12 +176,25 @@ assert.equal(
   "frontend-typecheck must keep its explicit pass summary",
 );
 assert.deepEqual(
+  manifest.make_recipes.bootstrap.prerequisites,
+  ["bootstrap-tool-installations"],
+  "bootstrap must admit later tool installations through one staged dependency",
+);
+assert.deepEqual(
+  manifest.make_recipes["bootstrap-tool-installations"].prerequisites,
+  ["frontend-install"],
+  "bootstrap tool installation must depend structurally on frontend dependency readiness",
+);
+assert.deepEqual(
   {
     prerequisites: manifest.make_recipes["migration-drift"].prerequisites,
     jobs: manifest.make_recipes["migration-drift"].prerequisite_jobs,
   },
-  { prerequisites: ["$(MIGRATE_BIN)", "$(GOOSE_BIN)"], jobs: 2 },
-  "migration drift must admit its two independent artifact producers together",
+  {
+    prerequisites: ["go-toolchain-readiness", "$(MIGRATE_BIN)", "$(GOOSE_BIN)"],
+    jobs: 2,
+  },
+  "migration drift must establish Go readiness and admit its two independent artifact producers together",
 );
 assert.deepEqual(
   {
@@ -190,6 +208,12 @@ assert.deepEqual(
   "deployable shape must let the unified graph own admission",
 );
 const renderedMake = renderTaskSurfaceMake(manifest);
+const renderedRuntime = renderTaskSurfaceMakeRuntime(manifest);
+assert.match(
+  renderedRuntime,
+  /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)"/,
+  "generated runtime must forward the resolved machine-state configuration after stripping public inputs",
+);
 for (const target of manifest.targets.filter((entry) =>
   entry.target_class === "public" && entry.output_policy.artifact_policy !== "none")) {
   const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -221,18 +245,23 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /^help:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
-  "help recipe must be generated",
+  /^help:\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
+  "help recipe must establish Node readiness before its generated preflight",
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
-  "test_target self must render target-specific export and graph-owned artifact prerequisite admission",
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(NODE_BIN\); fi\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD:-0\}" = "1" \] \|\| \[ "\$\$\{CARTULARY_HARNESS_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  "test_target self must render Node readiness, target-specific export, and graph-owned artifact prerequisite admission",
 );
 assert.match(
   renderedMake,
-  /migration-drift:[\s\S]*?\$\(MAKE\) --silent --no-print-directory --jobs=2 \$\(MIGRATE_BIN\) \$\(GOOSE_BIN\); fi/,
+  /migration-drift:[\s\S]*?\$\(MAKE\) --silent --no-print-directory --jobs=2 go-toolchain-readiness \$\(MIGRATE_BIN\) \$\(GOOSE_BIN\); fi/,
   "migration drift must render a bounded parallel prerequisite graph",
+);
+assert.match(
+  renderedMake,
+  /^bootstrap-tool-installations: frontend-install\n\t\$\(Q\)env[\s\S]*?\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install$/m,
+  "bootstrap tool installation must run only after the frontend-install dependency edge",
 );
 assert.match(
   renderedMake,

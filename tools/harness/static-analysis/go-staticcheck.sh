@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
-GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
+GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.7.0}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
@@ -29,6 +30,7 @@ cd "$ROOT_DIR"
 mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
     "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
     cartulary_filter_authored_go_packages
 )
@@ -45,4 +47,5 @@ fi
 
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
   "$STATICCHECK_BIN" "${staticcheck_args[@]}" "${packages[@]}"

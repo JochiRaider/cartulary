@@ -15,6 +15,7 @@ if go_diagnostic="$(
   GO_TOOLCHAIN="${GO_TOOLCHAIN:-}" \
   GO_CACHE_DIR="${GO_CACHE_DIR:-}" \
   GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-}" \
+  GO_TMP_DIR="${GO_TMP_DIR:-}" \
     "$ROOT_DIR/tools/harness/readiness/go-toolchain-readiness.sh" diagnose 2>&1
 )"; then
   printf '%s\n' "$go_diagnostic"
@@ -22,6 +23,36 @@ else
   printf '%s\n' "$go_diagnostic"
   fail=2
 fi
+
+machine_state_diagnostic() {
+  local name="$1"
+  local configured="$2"
+  local existing="$configured"
+  if [[ -z "$configured" ]]; then
+    printf 'missing %s: resolved machine-state path is empty\n' "$name"
+    fail=2
+    return
+  fi
+  while [[ ! -e "$existing" && "$existing" != "/" ]]; do
+    existing="$(dirname -- "$existing")"
+  done
+  local filesystem="unknown"
+  local available_bytes="unknown"
+  filesystem="$(stat -f -c '%T' -- "$existing" 2>/dev/null || true)"
+  available_bytes="$(df -Pk -- "$existing" 2>/dev/null | awk 'NR == 2 { printf "%.0f", $4 * 1024 }' || true)"
+  printf 'ok machine-state: %s=%s filesystem=%s available_bytes=%s\n' \
+    "$name" "$configured" "${filesystem:-unknown}" "${available_bytes:-unknown}"
+}
+
+machine_state_diagnostic GO_CACHE_DIR "${GO_CACHE_DIR:-}"
+machine_state_diagnostic GO_MOD_CACHE_DIR "${GO_MOD_CACHE_DIR:-}"
+machine_state_diagnostic GO_TMP_DIR "${GO_TMP_DIR:-}"
+
+for legacy_cache in /tmp/cartulary-go-build /tmp/cartulary-go-mod; do
+  if [[ -e "$legacy_cache" ]]; then
+    printf 'advisory legacy machine-state: %s is not used or removed automatically; stop active Go/Make jobs before manual cleanup\n' "$legacy_cache"
+  fi
+done
 
 node_path=""
 if [[ -x "${NODE_BIN:-}" ]]; then

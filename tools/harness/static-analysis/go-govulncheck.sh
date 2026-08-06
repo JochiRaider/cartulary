@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
-GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
+GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 GOVULNCHECK_BIN="${GOVULNCHECK_BIN:-$ROOT_DIR/tmp/toolbin/govulncheck-v1.3.0}"
 GOVULNCHECK_FLAGS="${GOVULNCHECK_FLAGS:--test -json}"
 GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
@@ -73,6 +74,7 @@ read -r -a patterns <<<"$GOVULNCHECK_PATTERNS"
 mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
     "$GO_BIN" list "${patterns[@]}" |
     cartulary_filter_authored_go_packages
 )
@@ -98,6 +100,7 @@ trap 'if [[ -n "$tmp_dir" ]]; then rm -rf "$tmp_dir"; fi' EXIT
 set +e
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
   PATH="$(dirname "$GO_BIN"):$PATH" \
   "$GOVULNCHECK_BIN" "${args[@]}" "${packages[@]}" >"$raw_output"
 scan_status=$?

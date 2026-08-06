@@ -54,6 +54,13 @@
         ".mk"
       ],
       "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/harness/contract/generated/foundation-schema-validators.cjs",
+      "allowed_extensions": [
+        ".cjs"
+      ],
+      "required_marker": "^// Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

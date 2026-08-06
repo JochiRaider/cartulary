@@ -110,6 +110,32 @@ assert_equals "${wrong_target_status}" "2" "wrong-target Make variable status"
 assert_contains "$(cat "${wrong_target_stderr}")" "CARTULARY_MAKE_INPUT_SOURCES contains unknown input UNDECLARED_INPUT" "wrong-target Make variable diagnostic"
 assert_equals "$(cat "${wrong_target_stdout}")" "" "wrong-target Make variable stdout"
 
+machine_state_root="${tmp_dir}/machine-state"
+machine_state_stdout="${tmp_dir}/machine-state.stdout"
+machine_state_stderr="${tmp_dir}/machine-state.stderr"
+machine_state_status="$(
+  run_make_capture "${machine_state_stdout}" "${machine_state_stderr}" \
+    make --no-print-directory help \
+      CARTULARY_MACHINE_CACHE_DIR="${machine_state_root}" \
+      GO_CACHE_DIR="${machine_state_root}/go/build" \
+      GO_MOD_CACHE_DIR="${machine_state_root}/go/mod" \
+      GO_TMP_DIR="${machine_state_root}/go/tmp"
+)"
+assert_equals "${machine_state_status}" "0" "global machine-state Make inputs status"
+assert_contains "$(cat "${machine_state_stdout}")" "Cartulary compact workflow task surface" "global machine-state Make inputs output"
+assert_equals "$(cat "${machine_state_stderr}")" "" "global machine-state Make inputs stderr"
+[[ ! -e "${machine_state_root}" ]] || fail "public preflight created machine-state paths"
+
+native_alias_stdout="${tmp_dir}/native-alias.stdout"
+native_alias_stderr="${tmp_dir}/native-alias.stderr"
+native_alias_status="$(
+  run_make_capture "${native_alias_stdout}" "${native_alias_stderr}" \
+    make --no-print-directory help GOCACHE="${machine_state_root}/native"
+)"
+assert_equals "${native_alias_status}" "2" "retired native Go cache alias status"
+assert_contains "$(cat "${native_alias_stderr}")" "GOCACHE is not declared for target help" "retired native Go cache alias diagnostic"
+assert_equals "$(cat "${native_alias_stdout}")" "" "retired native Go cache alias stdout"
+
 internal_stdout="${tmp_dir}/internal.stdout"
 internal_stderr="${tmp_dir}/internal.stderr"
 internal_status="$(

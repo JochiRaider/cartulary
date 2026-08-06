@@ -9,6 +9,7 @@ module="${TOOL_MODULE:?TOOL_MODULE is required}"
 binary_name="${TOOL_BINARY_NAME:?TOOL_BINARY_NAME is required}"
 go_cache_dir="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 go_mod_cache_dir="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+go_tmp_dir="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 run_step="${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}"
 label="${TOOL_LABEL:-bootstrap ${binary_name} tool}"
 readiness_script="${GO_TOOLCHAIN_READINESS_SCRIPT:-$(unset CDPATH && cd -- "$(dirname "$0")" && pwd)/go-toolchain-readiness.sh}"
@@ -18,6 +19,7 @@ if [[ "${GO_TOOLCHAIN_READY:-}" != "1" ]]; then
   GO_TOOLCHAIN="$go_toolchain" \
   GO_CACHE_DIR="$go_cache_dir" \
   GO_MOD_CACHE_DIR="$go_mod_cache_dir" \
+  GO_TMP_DIR="$go_tmp_dir" \
     "$readiness_script" ensure
 fi
 
@@ -31,7 +33,7 @@ trap cleanup EXIT
 
 "$run_step" "$label" -- \
   env GOBIN="$staging_dir" GOTOOLCHAIN="$go_toolchain" GOTELEMETRY=off \
-  GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" \
+  GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" GOTMPDIR="$go_tmp_dir" \
   "$go_bin" install "$module"
 
 staged_output="${staging_dir}/${binary_name}"

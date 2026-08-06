@@ -44,6 +44,9 @@ assert_equals() {
 }
 
 scratch="$(cartulary_harness_mktemp_dir go-gosec-audit.XXXXXX)"
+export GO_CACHE_DIR="$scratch/go-cache"
+export GO_MOD_CACHE_DIR="$scratch/go-mod-cache"
+export GO_TMP_DIR="$scratch/go-tmp"
 cleanup_paths+=("$scratch")
 
 fake_go="$scratch/go"
@@ -69,7 +72,7 @@ env_log="$scratch/gosec-env.log"
 cat >"$fake_gosec" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "--call--" "$@" >>"${FAKE_GOSEC_ARGS_LOG:?}"
-printf 'GOMAXPROCS=%s\nGOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOMAXPROCS:-}" "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
+printf 'GOMAXPROCS=%s\nGOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\nPATH=%s\n' "${GOMAXPROCS:-}" "${GOCACHE:-}" "${GOMODCACHE:-}" "${GOTMPDIR:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
 if [[ " $* " != *" -no-fail "* ]]; then
   echo "missing -no-fail" >&2
   exit 96
@@ -83,6 +86,7 @@ output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
     GOSEC_BIN="$fake_gosec" \
     GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
@@ -112,4 +116,5 @@ env_output="$(cat "$env_log")"
 assert_equals "$(grep -c '^GOMAXPROCS=4$' "$env_log")" "1" "gosec audit bounded worker CPUs"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "gosec audit GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "gosec audit GOMODCACHE"
+assert_contains "$env_output" "GOTMPDIR=$scratch/go-tmp" "gosec audit GOTMPDIR"
 assert_contains "$env_output" "PATH=$scratch:" "gosec audit PATH includes GO directory"

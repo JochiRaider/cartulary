@@ -22,6 +22,7 @@
         "path": { "type": "string", "pattern": "^tools/schemas/cartulary\\.[A-Za-z0-9_.-]+\\.v[0-9]+\\.schema\\.json$" },
         "classification": { "enum": ["public_contract", "shared_component", "owner_input"] },
         "producer": { "type": "string", "minLength": 1 },
+        "foundation_runtime": { "type": "boolean" },
         "validation": { "const": "json-shape-check" }
       }
     }

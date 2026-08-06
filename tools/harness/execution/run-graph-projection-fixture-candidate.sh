@@ -21,8 +21,9 @@ fi
 
 go_bin="${GO:-go}"
 exec env \
-  GOCACHE="${GO_CACHE_DIR:-}" \
-  GOMODCACHE="${GO_MOD_CACHE_DIR:-}" \
+  GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+  GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+  GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
   GRAPH_PROJECTION_FIXTURE="${fixture_id}" \
   "${go_bin}" test ./internal/modules/graphprojection \
   -run '^TestGraphProjectionFixtureCandidate$' \

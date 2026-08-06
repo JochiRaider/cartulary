@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   readdirSync,
@@ -111,10 +112,6 @@ const exactOneBooleans = Object.freeze([
 ]);
 const optionalPathVariables = Object.freeze([
   "GO",
-  "GO_CACHE_DIR",
-  "GO_MOD_CACHE_DIR",
-  "GOCACHE",
-  "GOMODCACHE",
   "NODE_RUNTIME_DIR",
   "NODE_BIN",
   "PNPM",
@@ -209,6 +206,9 @@ const retiredPublicMakeVariables = Object.freeze([
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",
   "CHECK_RESULTS_DIR",
+  "GOCACHE",
+  "GOMODCACHE",
+  "GOTMPDIR",
 ]);
 const makeInputSourcesEnv = "CARTULARY_MAKE_INPUT_SOURCES";
 const makeCommandLineOrigins = new Set(["cli"]);
@@ -668,6 +668,101 @@ function validateOptionalPaths(env) {
   return resolved;
 }
 
+function canonicalPotentialPath(candidate) {
+  let existing = candidate;
+  const suffix = [];
+  while (!existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    suffix.unshift(path.basename(existing));
+    existing = parent;
+  }
+  const canonicalExisting = existsSync(existing)
+    ? realpathSync(existing)
+    : path.resolve(existing);
+  return path.resolve(canonicalExisting, ...suffix);
+}
+
+function machineCacheDefaultRoot(env) {
+  const xdgCacheHome = String(env.XDG_CACHE_HOME ?? "").trim();
+  if (xdgCacheHome !== "" && path.isAbsolute(xdgCacheHome)) {
+    return path.join(xdgCacheHome, "cartulary");
+  }
+  const home = String(env.HOME ?? "").trim();
+  if (home !== "" && path.isAbsolute(home)) {
+    return path.join(home, ".cache", "cartulary");
+  }
+  throw new HarnessConfigError(
+    "CARTULARY_MACHINE_CACHE_DIR requires an absolute override, absolute XDG_CACHE_HOME, or absolute HOME",
+  );
+}
+
+function machinePathSource(env, name, fallbackSource) {
+  if (!Object.hasOwn(env, name)) return fallbackSource;
+  const origin = makeOrigin(env, name);
+  if (isMakeCommandLineOrigin(origin)) return "make_command_line";
+  if (isMakeEnvironmentOrigin(origin)) return "environment";
+  return origin === "file" ? "makefile_default" : "environment";
+}
+
+export function resolveMachineStatePaths(env = process.env, options = {}) {
+  const repository = canonicalPotentialPath(path.resolve(options.root ?? repoRoot));
+  const rootRaw = Object.hasOwn(env, "CARTULARY_MACHINE_CACHE_DIR")
+    ? validatePathToken("CARTULARY_MACHINE_CACHE_DIR", env.CARTULARY_MACHINE_CACHE_DIR)
+    : machineCacheDefaultRoot(env);
+  if (!path.isAbsolute(rootRaw)) {
+    throw new HarnessConfigError("CARTULARY_MACHINE_CACHE_DIR must be absolute");
+  }
+  const root = canonicalPotentialPath(path.resolve(rootRaw));
+  const definitions = [
+    ["GO_CACHE_DIR", "build"],
+    ["GO_MOD_CACHE_DIR", "mod"],
+    ["GO_TMP_DIR", "tmp"],
+  ];
+  const values = { CARTULARY_MACHINE_CACHE_DIR: root };
+  const sources = {
+    CARTULARY_MACHINE_CACHE_DIR: machinePathSource(
+      env,
+      "CARTULARY_MACHINE_CACHE_DIR",
+      "host_default",
+    ),
+  };
+  for (const [name, suffix] of definitions) {
+    const raw = Object.hasOwn(env, name)
+      ? validatePathToken(name, env[name])
+      : path.join(root, "go", suffix);
+    if (!path.isAbsolute(raw)) {
+      throw new HarnessConfigError(`${name} must be absolute`);
+    }
+    values[name] = canonicalPotentialPath(path.resolve(raw));
+    sources[name] = machinePathSource(env, name, "machine_cache_default");
+  }
+  for (const [name, value] of Object.entries(values)) {
+    if (value === repository || isUnderPath(repository, value)) {
+      throw new HarnessConfigError(`${name} must be outside the repository: ${value}`);
+    }
+  }
+  for (let leftIndex = 0; leftIndex < definitions.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < definitions.length; rightIndex += 1) {
+      const leftName = definitions[leftIndex][0];
+      const rightName = definitions[rightIndex][0];
+      const left = values[leftName];
+      const right = values[rightName];
+      if (isUnderPath(left, right) || isUnderPath(right, left)) {
+        throw new HarnessConfigError(
+          `${leftName} and ${rightName} must be distinct and non-overlapping: ${left}, ${right}`,
+        );
+      }
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [
+      name,
+      { value, source: sources[name], summary_emission: "source_and_value" },
+    ]),
+  );
+}
+
 function validateVersionTokens(env) {
   const resolved = {};
   for (const name of versionVariables) {
@@ -740,6 +835,14 @@ function inputRows(entry) {
   return inputContract(entry).inputs ?? [];
 }
 
+function globalInputRows(manifest) {
+  return manifest.global_inputs ?? [];
+}
+
+function globalInputRowMap(manifest) {
+  return new Map(globalInputRows(manifest).map((input) => [input.name, input]));
+}
+
 function inputRowMap(entry) {
   return new Map(inputRows(entry).map((input) => [input.name, input]));
 }
@@ -750,6 +853,7 @@ function publicInputNames(manifest) {
     ...nonCanonicalPublicMakeVariables,
     ...retiredPublicMakeVariables,
   ]);
+  for (const input of globalInputRows(manifest)) names.add(input.name);
   for (const entry of manifest.targets ?? []) {
     if (entry?.target_class !== "public") {
       continue;
@@ -1022,6 +1126,7 @@ function resolveDeclaredTargetInputs(target, entry, manifest, env) {
 
 function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
   const declared = inputRowMap(entry);
+  const global = globalInputRowMap(manifest);
   const knownNames = new Set(publicInputNames(manifest));
   for (const name of makeInputSources(env).keys()) {
     if (!knownNames.has(name)) {
@@ -1039,7 +1144,7 @@ function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
         { reason: "configuration_error" },
       );
     }
-    if (!declared.has(name)) {
+    if (!declared.has(name) && !global.has(name)) {
       throw new HarnessConfigError(
         `${name} is not declared for target ${target}`,
         { reason: "usage_error" },
@@ -1057,6 +1162,9 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
   const preparedArtifactIdentity = validatePreparedArtifactIdentity(target, env, options);
   rejectUndeclaredPublicInputs(target, entry, manifest, env);
   const targetInputs = resolveDeclaredTargetInputs(target, entry, manifest, env);
+  const globalInputs = resolveMachineStatePaths(env, {
+    root: options.root ?? repoRoot,
+  });
   const outputMode = resolveOutputModeRecord(env, target);
   const outputClass = entry.output_policy?.output_class ?? "";
   if (outputMode.value === "machine" && machineRejectedOutputClasses.has(outputClass)) {
@@ -1102,6 +1210,7 @@ export function resolveHarnessConfig(target, env = process.env, options = {}) {
     run_id_source: runId.source,
     generated_run_id: runId.source === "default",
     variables: {
+      global_inputs: globalInputs,
       target_inputs: targetInputs,
       booleans: validateExactOneBooleans(env),
       paths: validateOptionalPaths(env),
@@ -1177,6 +1286,24 @@ function loadRedactionManifest() {
 
 let redactionRules = null;
 const syncValidatorCache = new Map();
+let foundationValidatorRegistry = null;
+
+function foundationValidator(schemaID) {
+  if (schemaID !== "cartulary.tool_run_summary.v5") return null;
+  if (foundationValidatorRegistry === null) {
+    const generated = requireFromHarness(
+      "./generated/foundation-schema-validators.cjs",
+    );
+    foundationValidatorRegistry = generated.foundationSchemaValidators ?? {};
+  }
+  return foundationValidatorRegistry[schemaID] ?? null;
+}
+
+function standaloneErrorText(errors) {
+  return (errors ?? [])
+    .map((error) => `${error.instancePath || "/"} ${error.message || "is invalid"}`)
+    .join("\n  ");
+}
 
 function compiledRedactionRules() {
   if (redactionRules) {
@@ -1309,6 +1436,14 @@ function normalizeCleanupCandidate(candidate, { root = repoRoot } = {}) {
   if (resolved === root || !isUnderPath(root, resolved)) {
     return { status: "reject", identity: raw, reason: "outside_repo" };
   }
+  const canonicalRoot = canonicalPotentialPath(path.resolve(root));
+  const finalIsSymlink = lstatExists(resolved) && lstatSync(resolved).isSymbolicLink();
+  const canonicalCandidate = canonicalPotentialPath(
+    finalIsSymlink ? path.dirname(resolved) : resolved,
+  );
+  if (!isUnderPath(canonicalRoot, canonicalCandidate)) {
+    return { status: "reject", identity: raw, reason: "symlink_escape" };
+  }
   const identity = path.relative(root, resolved).replaceAll("\\", "/");
   if (protectedCleanupIdentities.has(identity)) {
     return { status: "reject", identity, reason: "protected_root" };
@@ -1354,7 +1489,7 @@ function removeCandidate(entry) {
   if (!entry.path || (!existsSync(entry.path) && !lstatExists(entry.path))) {
     return false;
   }
-  assertCleanupTraversalSafe(entry);
+  prepareCleanupTraversal(entry);
   const stat = lstatSync(entry.path);
   if (stat.isSymbolicLink()) {
     unlinkSync(entry.path);
@@ -1364,7 +1499,7 @@ function removeCandidate(entry) {
   return true;
 }
 
-function assertCleanupTraversalSafe(entry) {
+function prepareCleanupTraversal(entry) {
   const candidateRoot = entry.path;
   const stat = lstatSync(candidateRoot);
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
@@ -1384,6 +1519,9 @@ function assertCleanupTraversalSafe(entry) {
     if (!isUnderPath(rootRealPath, currentRealPath)) {
       throw new HarnessConfigError(`cleanup traversal escapes candidate root: ${current}`);
     }
+    if ((currentStat.mode & 0o700) !== 0o700) {
+      chmodSync(current, currentStat.mode | 0o700);
+    }
     for (const name of readdirNames(current)) {
       visit(path.join(current, name));
     }
@@ -1402,19 +1540,22 @@ function lstatExists(file) {
 
 export function runCleanup({
   scope,
-  candidates,
+  candidates = [],
   includeTmp = true,
-  embeddedWebAssetsDir = path.join(repoRoot, "internal", "platform", "httpapi", "webassets", "dist"),
+  root = repoRoot,
+  embeddedWebAssetsDir = path.join(root, "internal", "platform", "httpapi", "webassets", "dist"),
   dryRun = process.env.CARTULARY_CLEANUP_DRY_RUN === "1",
   stdout = process.stdout,
 } = {}) {
-  const plan = candidates.map((candidate) => normalizeCleanupCandidate(candidate));
+  const plan = candidates.map((candidate) =>
+    normalizeCleanupCandidate(candidate, { root }),
+  );
   if (includeTmp) {
-    plan.push(...cleanupTmpPlan());
+    plan.push(...cleanupTmpPlan({ root }));
   }
   if (scope === "clean" || scope === "distclean") {
     plan.push({
-      ...normalizeCleanupCandidate(embeddedWebAssetsDir),
+      ...normalizeCleanupCandidate(embeddedWebAssetsDir, { root }),
       action: "remove-children",
       proof: "registered_embedded_web_assets_preserve_keep",
       preserve: ".keep",
@@ -1444,12 +1585,22 @@ function removeChildren(entry) {
   if (!entry.path || !existsSync(entry.path)) {
     return;
   }
-  assertCleanupTraversalSafe(entry);
+  const parentStat = lstatSync(entry.path);
+  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) {
+    throw new HarnessConfigError(
+      `refusing remove-children for non-directory ${entry.identity}`,
+    );
+  }
+  if ((parentStat.mode & 0o700) !== 0o700) {
+    chmodSync(entry.path, parentStat.mode | 0o700);
+  }
   for (const name of readdirNames(entry.path)) {
     if (name === entry.preserve) {
       continue;
     }
-    rmSync(path.join(entry.path, name), { recursive: true, force: true });
+    removeCandidate({
+      path: path.join(entry.path, name),
+    });
   }
 }
 
@@ -1505,6 +1656,15 @@ export async function validateSchema(schemaID, value) {
 }
 
 export function validateSchemaSync(schemaID, value) {
+  const foundation = foundationValidator(schemaID);
+  if (foundation) {
+    if (!foundation(value)) {
+      throw new Error(
+        `${schemaID} validation failed:\n  ${standaloneErrorText(foundation.errors)}`,
+      );
+    }
+    return;
+  }
   if (syncValidatorCache.has(schemaID)) {
     const cached = syncValidatorCache.get(schemaID);
     if (!cached(value)) {

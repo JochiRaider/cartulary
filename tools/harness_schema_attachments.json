@@ -671,6 +671,7 @@
       "path": "tools/schemas/cartulary.tool_run_summary.v5.schema.json",
       "classification": "public_contract",
       "producer": "centralized wrappers",
+      "foundation_runtime": true,
       "validation": "json-shape-check"
     },
     {

@@ -44,6 +44,9 @@ assert_equals() {
 }
 
 scratch="$(cartulary_harness_mktemp_dir go-gosec-targeted.XXXXXX)"
+export GO_CACHE_DIR="$scratch/go-cache"
+export GO_MOD_CACHE_DIR="$scratch/go-mod-cache"
+export GO_TMP_DIR="$scratch/go-tmp"
 cleanup_paths+=("$scratch")
 
 fake_go="$scratch/go"
@@ -69,7 +72,7 @@ env_log="$scratch/gosec-env.log"
 cat >"$fake_gosec" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "--call--" "$@" >>"${FAKE_GOSEC_ARGS_LOG:?}"
-printf 'GOCACHE=%s\nGOMODCACHE=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
+printf 'GOCACHE=%s\nGOMODCACHE=%s\nGOTMPDIR=%s\nPATH=%s\n' "${GOCACHE:-}" "${GOMODCACHE:-}" "${GOTMPDIR:-}" "${PATH:-}" >>"${FAKE_GOSEC_ENV_LOG:?}"
 if [[ " $* " == *" -no-fail "* ]]; then
   echo "targeted gosec profile must remain blocking" >&2
   exit 96
@@ -81,6 +84,7 @@ output="$(
   GO="$fake_go" \
     GO_CACHE_DIR="$scratch/go-cache" \
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
+  GO_TMP_DIR="$scratch/go-tmp" \
     GOSEC_BIN="$fake_gosec" \
     GOSEC_RULES="G602,G124,G112,G114" \
     GOSEC_FLAGS="-exclude-generated -quiet" \
@@ -117,6 +121,7 @@ fi
 env_output="$(cat "$env_log")"
 assert_contains "$env_output" "GOCACHE=$scratch/go-cache" "gosec GOCACHE"
 assert_contains "$env_output" "GOMODCACHE=$scratch/go-mod-cache" "gosec GOMODCACHE"
+assert_contains "$env_output" "GOTMPDIR=$scratch/go-tmp" "gosec GOTMPDIR"
 assert_contains "$env_output" "PATH=$scratch:" "gosec PATH includes GO directory"
 
 failing_gosec="$scratch/failing-gosec"

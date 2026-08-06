@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statfsSync,
   statSync,
 } from "node:fs";
 import path from "node:path";
@@ -342,6 +343,13 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
   ) {
     return { failure_class: "infra", failure_reason: "service_start_error" };
   }
+  if (text.includes("enospc") || text.includes("no space left on device")) {
+    return {
+      failure_class: "infra",
+      failure_reason: "resource_conflict",
+      capacity_diagnostic: filesystemCapacityDiagnostic(text),
+    };
+  }
   if (isSecurityScannerFindingFailure(context, text)) {
     return {
       failure_class: "security",
@@ -367,6 +375,29 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
       context.command,
     ),
   };
+}
+
+function filesystemCapacityDiagnostic(text) {
+  const configuredPaths = [
+    process.env.GO_TMP_DIR,
+    process.env.GO_CACHE_DIR,
+    process.env.GO_MOD_CACHE_DIR,
+  ].filter((value) => typeof value === "string" && path.isAbsolute(value));
+  const mentionedConfigured = configuredPaths.find((value) => text.includes(value.toLowerCase()));
+  const absolutePaths = text.match(/\/[A-Za-z0-9._+@%=-]+(?:\/[A-Za-z0-9._+@%=-]+)+/gu) ?? [];
+  const affectedPath = mentionedConfigured ?? absolutePaths[0] ?? configuredPaths[0] ?? "/tmp";
+  let existing = affectedPath;
+  while (!existsSync(existing) && path.dirname(existing) !== existing) {
+    existing = path.dirname(existing);
+  }
+  try {
+    const filesystem = statfsSync(existing);
+    const availableBytes = Number(filesystem.bavail) * Number(filesystem.bsize);
+    const device = statSync(existing).dev;
+    return `filesystem_capacity path=${affectedPath} filesystem_dev=${device} available_bytes=${availableBytes}`;
+  } catch {
+    return `filesystem_capacity path=${affectedPath} filesystem_dev=unknown available_bytes=unknown`;
+  }
 }
 
 function firstStructuredToolFailureLine(context) {
@@ -539,7 +570,7 @@ export function handleShellStep() {
     firstActionableLine(stdoutLines) ||
     `command exited with status ${context.exitStatus}`;
   const failureNote = optionalEnv("CARTULARY_STEP_FAILURE_NOTE");
-  const message =
+  let message =
     failureNote === ""
       ? messageBase
       : `${messageBase} | remediation: ${failureNote}`;
@@ -549,6 +580,9 @@ export function handleShellStep() {
     stderrLines,
     message,
   );
+  if (failureDetails.capacity_diagnostic) {
+    message = `${message} | ${failureDetails.capacity_diagnostic}`;
+  }
   return finalizeShellStep(context, stdoutLog, stderrLog, {
     status: "fail",
     step: catalogOwnerFromEnvironment(),

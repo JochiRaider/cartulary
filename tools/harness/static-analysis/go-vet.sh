@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
-GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
+GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 
 # shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
@@ -15,6 +16,7 @@ cd "$ROOT_DIR"
 mapfile -t packages < <(
   GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
     "$GO_BIN" list ./cmd/... ./internal/... ./db/... ./tools/... |
     cartulary_filter_authored_go_packages
 )
@@ -26,4 +28,5 @@ fi
 
 env GOCACHE="$GO_CACHE_DIR" \
   GOMODCACHE="$GO_MOD_CACHE_DIR" \
+  GOTMPDIR="$GO_TMP_DIR" \
   "$GO_BIN" vet "${packages[@]}"

@@ -105,6 +105,17 @@ export function validateSchemaAttachmentPolicy(root) {
   assertSorted(schemaIDs, `${registryFile}.attachments`);
   assertUnique(schemaIDs, `${registryFile}.attachments.schema_id`);
   assertUnique(registeredPaths, `${registryFile}.attachments.path`);
+  const foundationSchemaIDs = registry.attachments
+    .filter((entry) => entry.foundation_runtime === true)
+    .map((entry) => entry.schema_id);
+  if (
+    JSON.stringify(foundationSchemaIDs) !==
+    JSON.stringify(["cartulary.tool_run_summary.v5"])
+  ) {
+    throw new Error(
+      `${registryFile}.attachments foundation runtime set must be cartulary.tool_run_summary.v5`,
+    );
+  }
 
   const schemaDir = path.join(root, "tools/schemas");
   const discoveredPaths = [];

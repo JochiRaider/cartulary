@@ -50,6 +50,9 @@ export const retiredPublicMakeVariables = Object.freeze([
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",
   "CHECK_RESULTS_DIR",
+  "GOCACHE",
+  "GOMODCACHE",
+  "GOTMPDIR",
 ]);
 
 export function resolveRepoPath(value) {
@@ -62,6 +65,10 @@ export function readJSON(file) {
 
 export function targetEntries(manifest) {
   return manifest.targets ?? [];
+}
+
+export function globalInputEntries(manifest) {
+  return manifest.global_inputs ?? [];
 }
 
 export function targetEntryMap(manifest) {

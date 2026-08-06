@@ -218,6 +218,10 @@ assert_equals "$(cat "${download_fail_dir}/curl.count")" "2" "download failure r
 assert_file_absent "${download_fail_dir}/archives/node-v24.15.0-linux-x64.tar.xz" "download failure archive cleanup"
 assert_file_absent "${download_fail_dir}/runtime/bin/node" "download failure extraction guard"
 
+"${ROOT_DIR}/tmp/node-runtime/bin/node" \
+  "${ROOT_DIR}/tools/harness/contract/tests/test-foundation-schema-validator.mjs"
+bash "${ROOT_DIR}/tools/harness/readiness/tests/test-frontend-install-self-hosting.sh"
+
 concurrent_dir="$(mktemp -d "${ROOT_DIR}/tmp/bootstrap-node-concurrent.XXXXXX")"
 cleanup_paths+=("${concurrent_dir}")
 concurrent_archive="${concurrent_dir}/valid-node.tar.xz"

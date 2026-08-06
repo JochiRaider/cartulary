@@ -1,6 +1,6 @@
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import {
-  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
+  canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
 } from "./model.mjs";
 
 const helpTargetColumnWidth = 30;
@@ -63,9 +63,10 @@ export function renderTaskSurfaceMakeRuntime(manifest) {
     "TASK_SURFACE_COMMAND_LINE_INPUT_NAMES = $(filter-out GNUMAKEFLAGS MAKEFLAGS MFLAGS MAKEOVERRIDES,$(foreach name,$(.VARIABLES),$(if $(findstring command line,$(origin $(name))),$(name))))",
     "TASK_SURFACE_PREFLIGHT_INPUT_NAMES = $(sort $(TASK_SURFACE_PUBLIC_INPUT_NAMES) $(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES))",
     "TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = $(foreach name,$(TASK_SURFACE_PUBLIC_INPUT_NAMES),-u $(name))",
+    'TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="$(CARTULARY_MACHINE_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)"',
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-    'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
-    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 CARTULARY_TEST_TARGET="$(1)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)',
+    'TASK_SURFACE_GO_ENV = GO="$(GO)" $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)"',
+    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_IDENTITY_PREPARED=1 CARTULARY_TEST_TARGET="$(1)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)',
     'RUN_PUBLIC_PREFLIGHT = env CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" $(RUN_HARNESS_PREFLIGHT) $(1)',
     "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) CARTULARY_TARGET_EVIDENCE_FINALIZE=1 $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
     "RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)",
@@ -334,7 +335,7 @@ function renderPreflightPrelude(recipe, entry = null, manifest = null) {
 function renderNodeReadinessPrelude(recipe, entry = null) {
   if (
     entry?.target_class !== "public" ||
-    !(recipe.prerequisites ?? []).includes("$(NODE_BIN)")
+    recipe.target === "bootstrap-node-runtime"
   ) {
     return [];
   }
@@ -407,6 +408,7 @@ function publicMakeInputNames(manifest) {
     ...restrictedInternalMakeVariables,
     ...nonCanonicalPublicMakeVariables,
     ...retiredPublicMakeVariables,
+    ...globalInputEntries(manifest).map((input) => input.name),
   ]);
   for (const entry of targetEntries(manifest ?? { targets: [] })) {
     if (entry.target_class !== "public") {
@@ -471,7 +473,12 @@ function envStripArgsForTarget() {
 }
 
 function envCommandPrefixForTarget(entry = null, manifest = null, env = []) {
-  return ["env", envStripArgsForTarget(entry, manifest), ...env]
+  return [
+    "env",
+    envStripArgsForTarget(entry, manifest),
+    "$(TASK_SURFACE_MACHINE_STATE_ENV)",
+    ...env,
+  ]
     .filter((part) => part && part.trim() !== "")
     .join(" ");
 }

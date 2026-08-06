@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GO_BIN="${GO:-go}"
-GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
-GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
+GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
+GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
 NODE_BIN="${NODE_BIN:-node}"
 SUPPORT_PROFILE_SCRIPT="$ROOT_DIR/tools/harness/static-analysis/support-inventory-profiles.mjs"
@@ -77,6 +78,7 @@ run_profile() {
   printf 'go-gosec-targeted %s profile rules=%s patterns=%s\n' "$label" "$rules" "$patterns_value"
   env GOCACHE="$GO_CACHE_DIR" \
     GOMODCACHE="$GO_MOD_CACHE_DIR" \
+    GOTMPDIR="$GO_TMP_DIR" \
     PATH="$(dirname "$GO_BIN"):$PATH" \
     "$GOSEC_BIN" "${args[@]}" "${patterns[@]}"
 }

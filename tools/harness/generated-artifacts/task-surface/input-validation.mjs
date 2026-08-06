@@ -43,6 +43,74 @@ const validInputChildForwarding = new Set([
   "argv_and_runtime_env",
 ]);
 const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/;
+const validGlobalInputTypes = new Set([
+  "machine_cache_root",
+  "machine_cache_path",
+]);
+const expectedGlobalInputs = Object.freeze([
+  ["CARTULARY_MACHINE_CACHE_DIR", "machine_cache_root", "xdg_cache_home_then_home"],
+  ["GO_CACHE_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/build"],
+  ["GO_MOD_CACHE_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/mod"],
+  ["GO_TMP_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/tmp"],
+]);
+
+export function validateGlobalInputContract(errors, manifest) {
+  const inputs = manifest.global_inputs;
+  if (!Array.isArray(inputs)) {
+    errors.push("global_inputs must be an array");
+    return;
+  }
+  const actualNames = inputs.map((input) => input?.name);
+  const expectedNames = expectedGlobalInputs.map(([name]) => name);
+  if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
+    errors.push(`global_inputs must be the exact ordered set ${expectedNames.join(", ")}`);
+  }
+  const allowedKeys = new Set([
+    "name",
+    "type",
+    "allowed_sources",
+    "default",
+    "empty_string",
+    "normalization",
+    "invalid_reason",
+    "summary_emission",
+  ]);
+  for (const [index, input] of inputs.entries()) {
+    const label = `global_inputs[${index + 1}]`;
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    for (const key of Object.keys(input)) {
+      if (!allowedKeys.has(key)) errors.push(`${label} has unknown key ${key}`);
+    }
+    const expected = expectedGlobalInputs[index];
+    if (!validGlobalInputTypes.has(input.type)) {
+      errors.push(`${label}.type has invalid value ${JSON.stringify(input.type)}`);
+    }
+    if (expected && (input.type !== expected[1] || input.default !== expected[2])) {
+      errors.push(`${label} must declare type=${expected[1]} default=${expected[2]}`);
+    }
+    const sources = input.allowed_sources;
+    if (
+      !Array.isArray(sources) ||
+      JSON.stringify(sources) !==
+        JSON.stringify(["make_command_line", "environment", "makefile_default"])
+    ) {
+      errors.push(`${label}.allowed_sources must declare command line, environment, and Make default precedence`);
+    }
+    if (input.empty_string !== "invalid") errors.push(`${label}.empty_string must be invalid`);
+    if (input.normalization !== "absolute_external_path") {
+      errors.push(`${label}.normalization must be absolute_external_path`);
+    }
+    if (input.invalid_reason !== "configuration_error") {
+      errors.push(`${label}.invalid_reason must be configuration_error`);
+    }
+    if (input.summary_emission !== "source_and_value") {
+      errors.push(`${label}.summary_emission must be source_and_value`);
+    }
+  }
+}
 
 export function validatePublicInputContract(errors, entry) {
   const contract = entry.input_contract;
