@@ -6,25 +6,21 @@ fail=0
 
 print_missing() {
   printf 'missing %s: %s\n' "$1" "$2"
-  fail=1
+  fail=2
 }
 
-go_path="${GO:-}"
-if [[ -n "$go_path" && ! -x "$go_path" ]] && command -v "$go_path" >/dev/null 2>&1; then
-  go_path="$(command -v "$go_path")"
-fi
-if [[ -n "$go_path" && -x "$go_path" ]]; then
-  go_version_line="$("$go_path" version)"
-  go_version="${go_version_line#go version }"
-  go_version="${go_version%% *}"
-  if [[ "$go_version" == go1.26* ]]; then
-    printf 'ok go: %s %s\n' "$go_path" "$go_version"
-  else
-    printf 'missing go: expected Go 1.26, found %s at %s\n' "$go_version" "$go_path"
-    fail=1
-  fi
+go_diagnostic=""
+if go_diagnostic="$(
+  GO="${GO:-}" \
+  GO_TOOLCHAIN="${GO_TOOLCHAIN:-}" \
+  GO_CACHE_DIR="${GO_CACHE_DIR:-}" \
+  GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-}" \
+    "$ROOT_DIR/tools/harness/readiness/go-toolchain-readiness.sh" diagnose 2>&1
+)"; then
+  printf '%s\n' "$go_diagnostic"
 else
-  print_missing go "install Go 1.26 or set GO=/path/to/go"
+  printf '%s\n' "$go_diagnostic"
+  fail=2
 fi
 
 node_path=""
@@ -37,7 +33,7 @@ if [[ -n "$node_path" ]]; then
     printf 'ok node: %s %s\n' "$node_path" "$node_version"
   else
     printf 'missing node: expected v%s, found %s at %s\n' "${NODE_VERSION:-}" "$node_version" "$node_path"
-    fail=1
+    fail=2
   fi
 else
   print_missing node "run make bootstrap-node-runtime"
@@ -45,7 +41,7 @@ fi
 
 if [[ -n "$node_path" ]]; then
   if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/diagnose-inotify.mjs" --advisory; then
-    fail=1
+    fail=2
   fi
 fi
 
@@ -59,7 +55,7 @@ if [[ -n "$pnpm_path" ]]; then
     printf 'ok pnpm: %s %s\n' "$pnpm_path" "$pnpm_version"
   else
     printf 'missing pnpm: expected %s, found %s at %s\n' "${PNPM_VERSION:-}" "${pnpm_version:-unusable}" "$pnpm_path"
-    fail=1
+    fail=2
   fi
 else
   print_missing pnpm "run make frontend-toolchain"
@@ -75,7 +71,7 @@ if [[ -n "$shellcheck_path" ]]; then
     printf 'ok shellcheck: %s %s\n' "$shellcheck_path" "$shellcheck_version"
   else
     printf 'missing shellcheck: expected %s, found %s at %s\n' "${SHELLCHECK_VERSION:-}" "${shellcheck_version:-unusable}" "$shellcheck_path"
-    fail=1
+    fail=2
   fi
 else
   print_missing shellcheck "run make shell-lint-toolchain"

@@ -244,6 +244,10 @@ mutate_go_toolchain() {
   replace_text "$1/go.mod" "toolchain $go_toolchain" "toolchain $go_toolchain_alt"
 }
 
+mutate_make_go_toolchain() {
+  replace_text "$1/Makefile" "override GO_TOOLCHAIN := $go_toolchain" "override GO_TOOLCHAIN := $go_toolchain_alt"
+}
+
 mutate_go_testcontainers() {
   replace_text "$1/go.mod" "github.com/testcontainers/testcontainers-go $testcontainers_go_version" "github.com/testcontainers/testcontainers-go $testcontainers_go_version_alt"
 }
@@ -283,6 +287,10 @@ expect_drift "package-manager" \
 expect_drift "go-toolchain" \
   "go.mod: toolchain mismatch: expected $go_toolchain, got $go_toolchain_alt" \
   mutate_go_toolchain
+
+expect_drift "make-go-toolchain" \
+  "Makefile: GO_TOOLCHAIN mismatch: expected $go_toolchain, got $go_toolchain_alt" \
+  mutate_make_go_toolchain
 
 expect_drift "go-testcontainers" \
   "go.mod: github.com/testcontainers/testcontainers-go mismatch: expected $testcontainers_go_version, got $testcontainers_go_version_alt" \

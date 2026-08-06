@@ -1035,6 +1035,8 @@ Acquisition begins only from `unacquired`; explicit release is permitted only fr
 
 The runtime MUST detect confirmed lease loss within `timeouts.extensions.process_lease_loss_detection_seconds`. Lease loss while starting or serving is fatal condition `application_process_lease_lost`; it MUST close readiness, stop admitting HTTP, WebSocket, and job work, and execute EXT-REQ-193 with exit code `70`. Release or process crash MUST release the underlying lease. Browser sessions, incident roles, `deployment_admin`, and profile claim state MUST NOT authorize or replace the lease. A PostgreSQL advisory lease MAY implement this contract but is not normative and MUST preserve the exact session identity and transitions above.
 
+Before listener startup, the process MUST also acquire the application side of Core 04's recovery serving lease. Active Recovery exclusivity MUST keep listener startup closed, report `recovery_serving_lease_active`, and exit `2`. Confirmed loss of the application's recovery serving lease while starting or serving is fatal condition `recovery_serving_lease_lost`; readiness and every admission gate MUST close immediately, EXT-REQ-193 MUST run, and the process MUST exit `70` without in-process reacquisition. The application-process lease and recovery serving lease retain distinct typed identities, lock identifiers, modes, owners, and failure vocabularies even when typed wrappers reuse owner-neutral lease mechanics. Recovery's exclusive target-lease loss retains the Recovery owner mapping and MUST NOT use either application failure token.
+
 Profiles: base
 Verified by: EXT-AC-104, EXT-AC-151
 
@@ -2927,6 +2929,7 @@ The extension framework MUST initiate fatal integrity shutdown only after detect
 - an in-memory canonical-registry, registry-integrity, or resolved-claim-set digest mismatch;
 - a committed extension migration-ledger version or digest that does not match committed extension state metadata;
 - confirmed loss of the deployment-global application-process lease while the process is starting or serving;
+- confirmed loss of the application's recovery serving lease while the process is starting or serving, classified as `recovery_serving_lease_lost`;
 - unexpected termination of a mandatory publication listener, job-dequeue gate, or worker after it was prepared or published, classified as `published_component_lost`;
 - a staged-object digest, storage-identity, publication-state, or authoritative-reference contradiction, including a committed authoritative object reference whose staging record is not `published`, or a `published` staging record whose committed object reference is absent or digest-inconsistent.
 
@@ -2963,6 +2966,8 @@ For fatal detection while `running`, the imported contract MUST:
 A repeated signal for the same or another fatal condition MUST be idempotent: it MUST NOT reopen admission, duplicate the safe diagnostic, duplicate a WebSocket terminal event, restart a timeout, or change the selected exit code. A startup configuration or ordinary admission failure MUST start no public listener and exit with code `2`; it MUST NOT use fatal shutdown. Core 04 MUST reserve these exact exit codes and readiness/health behaviors before coordinated adoption. A fatal diagnostic MUST NOT contain a secret, incident value, storage identifier, SQL, or raw cryptographic detail.
 
 For `published_component_lost`, the same lifecycle MUST close readiness and admission immediately, drain under the existing deadline, preserve every committed state and queued durable job, and exit `70`. The process MUST NOT return to `running`, rebuild the publication plan, or restart the listener, dequeue gate, or worker in-process; recovery belongs to the external supervisor starting a new process.
+
+For `recovery_serving_lease_lost`, the same lifecycle MUST close readiness and every admission gate immediately, drain under the existing deadline, preserve committed state and durable queued work, and exit `70`. The process MUST NOT reacquire the lease or return to serving in-process. Recovery's loss of its exclusive target lease is not this fatal condition and remains governed by the Recovery owner contract.
 
 Profiles: base
 Verified by: EXT-AC-090, EXT-AC-137, EXT-AC-158
@@ -3511,7 +3516,7 @@ Profiles: base
 Verified by: EXT-AC-138
 
 **EXT-REQ-159**
-Core 04 MUST add the startup-admission reason codes in Table 26-A under top-level `error.code='invalid_deployment_config'`. The three rows explicitly owned by transaction, backup/restore, and readiness use their stated non-startup envelopes. The fatal runtime reason `extension_integrity_failure` uses the Core runtime `service_unavailable` and fatal-readiness envelopes defined in §22. Profile-local startup codes MAY replace a generic code only under EXT-REQ-186.
+Core 04 MUST add the extension configuration and claim startup-admission reason codes in Table 26-A under top-level `error.code='invalid_deployment_config'`. `recovery_serving_lease_active` is instead a Core 04 process-lifecycle admission reason: it MUST start no listener and exit `2`, and MUST NOT be represented as invalid deployment configuration. The three rows explicitly owned by transaction, backup/restore, and readiness use their stated non-startup envelopes. The fatal runtime reason `extension_integrity_failure` uses the Core runtime `service_unavailable` and fatal-readiness envelopes defined in §22. Profile-local startup codes MAY replace a generic code only under EXT-REQ-186.
 
 Profiles: base
 Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-016, EXT-AC-018, EXT-AC-028, EXT-AC-084
@@ -3542,6 +3547,7 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `extension_reconciliation_timeout` | Inactive-profile reconciliation exceeded its configured timeout. |
 | `extension_unclaim_reconciliation_failed` | Nonterminal extension work cannot be reconciled safely while inactive. |
 | `extension_application_process_active` | Another application process owns the deployment-global serving lease. |
+| `recovery_serving_lease_active` | Recovery owns the exclusive target serving lease, so application listener startup is prohibited. |
 | `extension_publication_failed` | Stage 6 could not reach the externally visible `serving` state. |
 | `extension_transaction_timeout` | Cross-owner transaction deadline expired and absence of commit was proven; HTTP `503`, `error.code='service_unavailable'`, and `retryable=true`. |
 | `backup_binding_codec_unsupported` | Backup metadata names a codec ID and digest that are not explicitly packaged for the binding; fail before restore mutation. |
@@ -3560,7 +3566,7 @@ Verified by: EXT-AC-005, EXT-AC-009, EXT-AC-010, EXT-AC-012, EXT-AC-013, EXT-AC-
 | `phase` | Exactly one current execution phase: dependency/owner input, configuration, descriptor/registry generation, collision admission, claim, process lease, binding/dependency validation, preflight, migration/state validation, probe, transaction, backup/restore, reconciliation, cleanup, or publication. |
 | `collision_class` | Exactly one `collision_class` token from Table 13-A; owner-input completeness and unrecognized-profile failures are not collision classes. |
 | Migration-timeout `operation_kind` | Exactly `migration_step` or `profile_migration`. |
-| `fatal_condition` | Exactly `indeterminate_database_commit`, `in_memory_contract_digest_mismatch`, `migration_ledger_state_mismatch`, `application_process_lease_lost`, or `staged_object_publication_mismatch`. |
+| `fatal_condition` | Exactly `indeterminate_database_commit`, `in_memory_contract_digest_mismatch`, `migration_ledger_state_mismatch`, `application_process_lease_lost`, `recovery_serving_lease_lost`, `published_component_lost`, or `staged_object_publication_mismatch`. |
 
 `staged_object_publication_mismatch` is the single safe classification for every digest, storage-identity, publication-state, or authoritative-reference contradiction in Table 20-B; it MUST NOT disclose the physical identity or select another fatal token.
 
@@ -3596,6 +3602,7 @@ Verified by: EXT-AC-069, EXT-AC-084
 | `extension_reconciliation_timeout` | `Inactive extension job reconciliation exceeded its timeout.` | `profile_id`, `timeout_seconds`. |
 | `extension_unclaim_reconciliation_failed` | `Extension-owned nonterminal work could not be reconciled safely.` | `profile_id`, `job_id`; `job_id` is nullable. |
 | `extension_application_process_active` | `Another Cartulary application process is active for this deployment.` | `timeout_seconds`. |
+| `recovery_serving_lease_active` | `Recovery is active for this deployment; application listener startup is closed.` | None; `details` is exactly `{}`. |
 | `extension_publication_failed` | `Extension publication did not reach the serving state.` | `phase`, `timeout_seconds`. |
 | `extension_transaction_timeout` | `The extension transaction did not complete before its deadline.` | `operation_id`, `timeout_seconds`. |
 | `backup_binding_codec_unsupported` | `The backup binding codec is not supported by this build.` | `profile_id`, `binding_id`, `backup_codec_id`, `backup_codec_sha256`. |
@@ -3861,7 +3868,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-087` | Unclaimed and recognized-unclaimable profiles satisfy every Table 21-B row; syntax-only values remain inert, local availability checks never run, and generic job reconciliation remains shared-owner behavior. |
 | `EXT-AC-088` | Valid commit proof takes precedence over cancellation, the exact stored original success is replayed once, absent proof fails or cancels as specified, and contradictory proof blocks startup. |
 | `EXT-AC-089` | Authoritative non-database bytes are durable before database publication, become queryable exactly at final database commit, reject different-byte replay, and orphan within the required interval. |
-| `EXT-AC-090` | Every closed fatal condition imports Core 04 `fatal_integrity_shutdown_v1`, preserves committed state and durable jobs, is idempotent under repeated signals, emits no unadmitted WebSocket event, and exits `70`; ordinary admission failure exits `2`. |
+| `EXT-AC-090` | Every closed fatal condition, including both application-owned lease-loss tokens, imports Core 04 `fatal_integrity_shutdown_v1`, preserves committed state and durable jobs, is idempotent under repeated signals, emits no unadmitted WebSocket event, and exits `70`; ordinary admission failure exits `2`. |
 | `EXT-AC-091` | Current discovery producers emit no extra member; compatible consumers ignore additive unknown members but reject malformed known members and never execute unknown data. |
 | `EXT-AC-092` | Discovery retains the existing three Core fields, adds exactly the four generic fields, and no Network Flow profile-local discovery item remains normative or emitted. |
 | `EXT-AC-093` | Every compatibility-matrix row causes the required document, contract, state, schema, or algorithm action; unsupported majors and unknown values follow their exact client outcomes. |
@@ -3875,7 +3882,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-101` | Descriptor-source instances remain ephemeral and are never persisted, hashed, packaged, logged, drift-checked, or consumed at runtime. |
 | `EXT-AC-102` | Every profile-local configuration key has a value schema, omission policy, inactive policy, resolution kind, diagnostic policy, and bound; claimed normalization produces the exact configuration view. |
 | `EXT-AC-103` | Inactive and retired configuration performs only JSON-shape, scalar/reference-grammar, byte, and depth checks and never performs resolution, existence checks, DNS, connection validation, egress, or profile code. |
-| `EXT-AC-104` | Exactly one application process owns the deployment serving lease; a concurrent process performs no mutation or listener start, and confirmed lease loss enters fatal shutdown. |
+| `EXT-AC-104` | Exactly one application process owns the deployment-global application lease; a concurrent process performs no mutation or listener start; active Recovery exclusivity reports `recovery_serving_lease_active` and exits `2`; and confirmed loss of either application-owned lease reports its distinct fatal condition and exits `70`. |
 | `EXT-AC-105` | Stage 6 exposes no route, workspace, job dequeue, WebSocket subscription, or readiness success before every mandatory component reaches the atomic `serving` transition. |
 | `EXT-AC-106` | Every declared timeout uses the exact monotonic start/end points, included queue/lock work, cancellation checkpoint, grace, late-result discard, rollback/lock behavior, and final-commit outcome classification. |
 | `EXT-AC-107` | Every Base public path namespace appears exactly once in the canonical Base route-reservation registry, and exact/descendant overlap with every extension route family is deterministic. |
@@ -3908,7 +3915,7 @@ The implementation and coordinated specification set are conformant only when ev
 | `EXT-AC-134` | Participant operation ordering and every state/claim invocation-matrix row are exact. |
 | `EXT-AC-135` | Backup codec framing, bounds, ordering, empty state, digest, historical-codec, and unsupported-codec behavior are exact. |
 | `EXT-AC-136` | Build verifies generator-source bytes while runtime needs only packaged artifacts and the embedded root digest. |
-| `EXT-AC-137` | Fatal conditions during startup and serving use the imported Core lifecycle and the correct idempotent exit-code behavior. |
+| `EXT-AC-137` | Fatal conditions during startup and serving use the imported Core lifecycle and the correct idempotent exit-code behavior; application-process, recovery-serving, and Recovery target-lease failures retain distinct owner mappings. |
 | `EXT-AC-138` | Every new or reused scalar satisfies its exact grammar, bound, secrecy, derivation, owner-import, and replay rule. |
 | `EXT-AC-139` | Workbook startup carries no-store availability; stale responses cannot render; `client_instance_id` and every Base/transport identity remain stable through epoch rollover. |
 | `EXT-AC-140` | Every affected owner has compatible successful full-owner v2 evidence, all evidence-class gates pass, and one evidence audit closes every required owner/target/row partition without subset, broad-target, stale-root, or historical fallback. |
@@ -3965,7 +3972,7 @@ Verified by: EXT-AC-001, EXT-AC-072, EXT-AC-075, EXT-AC-128
 | `EXT-GATE-020` | Every active Extensions verification routes to a real test or public target, and no mapping-only or static-pass row is counted as evidence. |
 | `EXT-GATE-021` | The packaged browser assets include one digest-bound client support registry whose profile majors, workspaces, capabilities, and public schemas pass registry parity. |
 | `EXT-GATE-022` | The canonical Base route-reservation registry covers every Base public path namespace exactly once and passes parity against packaged Base handlers without capturing an extension-owned namespace. |
-| `EXT-GATE-023` | Exact v2 catalog selectors prove second-process denial and crash release, plus lease loss before bind, after bind before serving, and while serving under the imported fatal lifecycle. |
+| `EXT-GATE-023` | Exact v2 catalog selectors prove second-process denial and crash release; Recovery-exclusive startup denial; application-process and recovery-serving lease loss before bind, after bind before serving, and while serving; and preservation of the distinct Recovery target-lease failure mapping. |
 | `EXT-GATE-024` | Exact v2 catalog selectors prove empty/algorithm initialization, scoped access, pending-state validation, rollback, exact-once final validation, resumability, and fresh/current/migrated/restored outcomes. |
 | `EXT-GATE-025` | Exact v2 catalog selectors inject failure or cancellation at every ordered transaction position and prove input/result/key limits, deadline, lock order, no retry, exact conflict/timeout/commit outcomes, and no partial effects. |
 | `EXT-GATE-026` | Exact v2 catalog selectors prove multi-batch staged-object cutoff sweeping, access denial at expiry independently of cleanup, every deletion outcome, deterministic retry, no exposure, readiness degradation, and fatal contradictions. |

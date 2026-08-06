@@ -92,7 +92,10 @@ function matchLine(text, regex) {
 
 function parseMakeVariable(makefile, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return matchLine(makefile, new RegExp(`^${escaped}\\s*(?:\\?=|:=)\\s*(\\S+)\\s*$`, "m"));
+  return matchLine(
+    makefile,
+    new RegExp(`^(?:override\\s+)?${escaped}\\s*(?:\\?=|:=)\\s*(\\S+)\\s*$`, "m"),
+  );
 }
 
 function checkEqual(mismatches, file, field, expectedValue, actualValue) {
@@ -104,6 +107,13 @@ function checkEqual(mismatches, file, field, expectedValue, actualValue) {
 function checkMakefile(root, mismatches, expected) {
   const file = "Makefile";
   const makefile = readRepoFile(root, file);
+  checkEqual(
+    mismatches,
+    file,
+    "GO_TOOLCHAIN",
+    expected.goToolchain,
+    parseMakeVariable(makefile, "GO_TOOLCHAIN"),
+  );
   checkEqual(
     mismatches,
     file,

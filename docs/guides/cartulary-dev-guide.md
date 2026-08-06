@@ -1043,22 +1043,26 @@ The pre-release incident-bundle and Reference Pack storage-reference cutovers do
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 
-### 7.3.1 Process models and Timeline migration operations
+### 7.3.1 Single-active process and Timeline migration operations
 
-`application.process_model` accepts exactly `single` or `replicated`; omission
-selects `single`. Single mode retains the whole-process Postgres lease and
-filesystem publication roots. Replicated mode is rejected unless database,
-object, backup, Reference Pack, and export publication bindings are shared
-managed services using one publication object service. Replica-local temporary
-work remains namespaced by `service.instance.id` and is never durable state.
+Contract major `1` is unconditionally single-active. Deployment tooling may
+provision stopped replacement or standby instances, but exactly one
+application process may hold the deployment-global application-process lease
+and enter migration, publication, listener, readiness, worker, or job-dequeue
+stages. Active-active serving, mixed-build serving, and component-scoped
+failover require a future contract major and are not deployment options in the
+current line.
 
-Enable replicated mode only after copying existing durable publication objects
-to the admitted shared service, verifying their content hashes and descriptor
-references, and draining the old binary. All replicas must agree on the
-publication-plan digest. A staged-object janitor leader must be visible in
-readiness. To roll back, drain replicas, scale to one process, restore
-`process_model = "single"`, and use the verified pre-cutover bindings; do not
-serve both models concurrently.
+`application.process_model` is not an admitted file or environment-overlay
+key. A deployment that used the unsupported replicated path must perform an
+offline cutover: stop every application process, remove the key (including
+`CARTULARY__APPLICATION__PROCESS_MODEL`), restore and verify required durable
+publication content under supported filesystem bindings, and ensure
+`roots.reference_pack_storage`, `roots.temporary_work`, and
+`roots.export_outputs` use `binding_kind='filesystem_root'` before starting the
+new binary. Do not dual-read shared publication objects or serve during the
+cutover. Legacy publication-plan markers may be deleted offline; the current
+runtime ignores them and they neither authorize nor block startup.
 
 Apply Timeline migrations `00042` through `00048` in order. Expand migrations
 `00042`, `00045`, and `00047` precede their backfill or stream cutover.

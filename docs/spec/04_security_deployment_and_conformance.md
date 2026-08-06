@@ -268,9 +268,22 @@ release it only after those listeners are closed. A recovery target admission
 MUST acquire and hold the exclusive counterpart before freshness checks and
 through every target mutation, validation, rebuild, journal/attestation
 decision, and reset. A server startup racing an admitted restore therefore
-waits or fails before listeners start. Lease loss makes mutation outcome
-indeterminate, leaves readiness false, stops due-verification batching, and
-requires target reinitialization.
+MUST keep listener startup closed, report `recovery_serving_lease_active`, and
+exit `2`. If an application process loses its shared serving lease while
+starting or serving, it MUST close readiness and every admission gate
+immediately, report fatal condition `recovery_serving_lease_lost`, run the
+idempotent fatal drain in REQ-04-146, and exit `70`. It MUST NOT reacquire the
+lease or return to serving in-process. Loss of Recovery's exclusive target
+lease remains an owner-specific indeterminate mutation outcome: it leaves
+readiness false, stops due-verification batching, requires target
+reinitialization, and retains the existing Recovery error mapping.
+
+The application-process lease, the application's shared recovery serving
+lease, and Recovery's exclusive target lease MUST retain distinct typed
+identities, modes, semantic owners, and failure vocabularies. Their
+implementations MAY reuse owner-neutral session, advisory-lock, renewal, and
+continuity mechanics, but MUST NOT reuse one lock identifier or translate one
+owner's failure token into another's.
 
 `restore_latest` markers use `purpose='restore_target'`.
 `restore_verify_latest` and each verification admitted by
@@ -324,7 +337,7 @@ existing `journal_write_failed` transport reason. Historical journal rows
 remain readable forensic evidence and MUST NOT be rewritten. Neither record
 may contain the forbidden values in REQ-04-106.
 Profiles: base
-Verified by: AC-428
+Verified by: AC-428, AC-534
 
 **REQ-04-030**
 Incident membership create, role-change, and delete routes remain incident-scoped authorization decisions. In the base profile, those routes MUST require current incident role `admin`; `deployment_admin` alone MUST NOT bypass that requirement.
@@ -1111,8 +1124,10 @@ The timed or fixture-sensitive criteria below define observable implementation o
 
 These criteria provide direct runtime-family verification for substantive base-profile behavior that MUST NOT rely only on aggregate claim gates.
 
-- **AC-404**: Base-profile topology is conformant only when one application deployable unit, optionally replicated without responsibility split, owns the browser-facing UI, the authenticated `/api/v1/*` surface, the incident-scoped `GET /ws/v1/incidents/{incident_id}` WebSocket subscription surface, and background-job execution; reverse proxies, TLS terminators, managed ingress, and load balancers MAY front that deployable unit but MUST NOT satisfy the application responsibilities themselves; and any deployment that splits those responsibilities across distinct application deployable units is non-conformant.
-  - Verifies: REQ-01-001..REQ-01-003
+- **AC-404**: Base-profile topology is conformant only when one application deployable unit owns the browser-facing UI, the authenticated `/api/v1/*` surface, the incident-scoped `GET /ws/v1/incidents/{incident_id}` WebSocket subscription surface, and background-job execution; infrastructure MAY provision multiple instances of that unit for stopped replacement or standby, but exactly one process holds the deployment-global exclusive application-process lease and is active, ready, or serving; reverse proxies, TLS terminators, managed ingress, and load balancers MAY front the deployable unit but MUST NOT satisfy application responsibilities or permit concurrent active processes; and any deployment that splits those responsibilities across distinct application deployable units or serves active-active is non-conformant under the current contract major.
+  - Verifies: REQ-01-001..REQ-01-003, REQ-04-145, EXT-REQ-213
+- **AC-534**: When Recovery holds the exclusive target serving lease, an application process starts no HTTP or WebSocket listener, reports `recovery_serving_lease_active`, and exits `2`; when an application process loses its shared recovery serving lease, readiness and all admission close immediately, fatal drain runs once, `recovery_serving_lease_lost` is reported, and the process exits `70`; Recovery's exclusive target-lease loss retains its existing Recovery error mapping and does not use either application failure token.
+  - Verifies: REQ-04-113, REQ-04-146
 - **AC-405**: Attaching a binary evidence payload commits one evidence row whose structured incident state contains metadata and object-reference state only; preview or download of that payload succeeds only while the authoritative object-store payload remains available; loss of object-store availability after commit leaves previously committed structured incident rows intact while preview or download fails closed as unavailable; and a Postgres logical backup or logical dump of the authoritative structured data store taken after attachment exposes no inline copy of that binary evidence payload.
   - Verifies: REQ-01-002, REQ-01-278..REQ-01-280
 - **AC-406**: A row created from rough input with unresolved host or account text, unstructured `details`, or unstructured `source_text` can later be normalized, resolved, or canonically linked without overwriting the original rough input; after that later normalization, the original unresolved text, `details`, or `source_text` remains recoverable through the authoritative row, mention, or history surfaces.
@@ -2811,13 +2826,13 @@ Profiles: base
 Verified by: EXT-AC-143, EXT-AC-147, EXT-AC-152
 
 **REQ-04-145**
-Before extension claim resolution, the process MUST acquire one crash-released deployment lease through exactly `unacquired -> acquiring -> held`; orderly shutdown may release from `held`. Loss of ownership proof transitions immediately `held -> uncertain`, closes readiness and all admission, and permits `uncertain -> held` only when the original underlying session proves continuous ownership. Confirmed loss or detection-deadline expiry transitions to irreversible `lost`; in-process reacquisition is forbidden. Initial acquisition timeout mutates no profile state, starts no listener or dequeuer, emits `extension_application_process_active`, and exits `2`. Confirmed loss invokes fatal `application_process_lease_lost` and exits `70`. The storage mechanism is non-normative but must preserve session identity.
+Before extension claim resolution, the process MUST acquire one crash-released, deployment-global, exclusive application-process lease through exactly `unacquired -> acquiring -> held`; orderly shutdown may release from `held`. The lease permits exactly one active application process for the deployment even when infrastructure has provisioned multiple stopped, starting, or standby instances. Loss of ownership proof transitions immediately `held -> uncertain`, closes readiness and all admission, and permits `uncertain -> held` only when the original underlying session proves continuous ownership. Confirmed loss or detection-deadline expiry transitions to irreversible `lost`; in-process reacquisition is forbidden. Initial acquisition timeout mutates no profile state, starts no listener or dequeuer, emits `extension_application_process_active`, and exits `2`. Confirmed loss invokes fatal `application_process_lease_lost` and exits `70`. The storage mechanism is non-normative but must preserve session identity. This lease is distinct from the shared recovery serving lease in REQ-04-113; typed wrappers MAY share owner-neutral mechanics but MUST retain distinct lock identifiers, modes, owners, and failure vocabularies.
 
 Stage 6 installs one immutable six-stage publication plan while admission remains closed and opens HTTP, WebSocket, job dequeue, readiness, discovery claim state, and workspace availability through one atomic gate only after every mandatory component acknowledges readiness.
 Profiles: base
 Verified by: EXT-AC-151, EXT-AC-158
 
 **REQ-04-146**
-Core 04's fatal lifecycle admits `published_component_lost` when a required publication listener, WebSocket gate, job-dequeue gate, or worker terminates unexpectedly before bind, between bind and serving, or while serving. A handled request or job failure is not component loss. Fatal detection closes readiness and admission, rejects new work, drains no longer than the configured shutdown deadline, preserves committed state and durable queued jobs, emits one secret-safe diagnostic, and exits `70`; it MUST NOT restart the component, rebuild the plan, or return to serving. Startup admission failures exit `2`. Lease loss, component loss, registry/state integrity contradictions, and indeterminate commits use the same idempotent fatal lifecycle; ordinary isolated operation failure does not.
+Core 04's fatal lifecycle admits `published_component_lost` when a required publication listener, WebSocket gate, job-dequeue gate, or worker terminates unexpectedly before bind, between bind and serving, or while serving. It also admits `application_process_lease_lost` and `recovery_serving_lease_lost` for confirmed loss of their distinct application-owned leases while starting or serving. A handled request or job failure is not component loss. Fatal detection closes readiness and admission, rejects new work, drains no longer than the configured shutdown deadline, preserves committed state and durable queued jobs, emits one secret-safe diagnostic, and exits `70`; it MUST NOT restart the component, reacquire a lost lease, rebuild the plan, or return to serving. Startup admission failures, including `extension_application_process_active` and `recovery_serving_lease_active`, start no listener and exit `2`. Lease loss, component loss, registry/state integrity contradictions, and indeterminate commits use the same idempotent fatal lifecycle; ordinary isolated operation failure does not. Recovery's exclusive target-lease loss remains governed by REQ-04-113 and the Recovery owner mapping rather than `recovery_serving_lease_lost`.
 Profiles: base
-Verified by: EXT-AC-151, EXT-AC-158
+Verified by: AC-534, EXT-AC-104, EXT-AC-151, EXT-AC-158

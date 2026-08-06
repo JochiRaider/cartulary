@@ -1093,6 +1093,9 @@
       "mode": "command",
       "env": {
         "GO": "$(GO)",
+        "GO_TOOLCHAIN": "$(GO_TOOLCHAIN)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
         "NODE_BIN": "$(NODE_BIN)",
         "NODE_VERSION": "$(NODE_VERSION)",
         "PNPM": "$(PNPM)",
@@ -1104,6 +1107,22 @@
       "command": [
         "bash",
         "./tools/harness/readiness/check-doctor.sh"
+      ]
+    },
+    "go-toolchain-readiness": {
+      "prerequisites": [],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "GO": "$(GO)",
+        "GO_TOOLCHAIN": "$(GO_TOOLCHAIN)",
+        "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+        "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/readiness/go-toolchain-readiness.sh",
+        "ensure"
       ]
     },
     "bootstrap": {
@@ -1189,7 +1208,9 @@
       ]
     },
     "db-migrate": {
-      "prerequisites": [],
+      "prerequisites": [
+        "go-toolchain-readiness"
+      ],
       "type": "step_command",
       "mode": "command",
       "env": {
@@ -1205,7 +1226,9 @@
       ]
     },
     "db-reset": {
-      "prerequisites": [],
+      "prerequisites": [
+        "go-toolchain-readiness"
+      ],
       "type": "step_command",
       "mode": "command",
       "env": {
@@ -1297,6 +1320,7 @@
     },
     "dev": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)"
       ],
@@ -1372,6 +1396,7 @@
     },
     "generate-artifacts": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "step_command",
@@ -1449,6 +1474,7 @@
     },
     "migration-drift": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(MIGRATE_BIN)",
         "$(GOOSE_BIN)"
       ],
@@ -1486,6 +1512,7 @@
     },
     "openapi-compatibility-check": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "codegen-toolchain"
       ],
       "type": "step_command",
@@ -1509,6 +1536,7 @@
     },
     "migration-scratch-apply": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "build-migrate",
         "$(GOOSE_BIN)"
       ],
@@ -1643,6 +1671,7 @@
     },
     "test-slice": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1651,6 +1680,7 @@
     },
     "service-backed-test-slice": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1659,7 +1689,9 @@
       "test_target": "self"
     },
     "graph-projection-fixture-candidate": {
-      "prerequisites": [],
+      "prerequisites": [
+        "go-toolchain-readiness"
+      ],
       "type": "step_command",
       "mode": "command",
       "env": {
@@ -1676,6 +1708,7 @@
     },
     "backend-unit": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1684,6 +1717,7 @@
     },
     "backend-store": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1692,6 +1726,7 @@
     },
     "backend-integration": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1700,6 +1735,7 @@
     },
     "backend-integration-support": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -1708,6 +1744,7 @@
     },
     "backend-process": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2285,6 +2322,7 @@
     },
     "test-fast": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2293,6 +2331,7 @@
     },
     "test": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2316,7 +2355,9 @@
       "type": "aggregate"
     },
     "lint-go-format": {
-      "prerequisites": [],
+      "prerequisites": [
+        "go-toolchain-readiness"
+      ],
       "type": "step_command",
       "mode": "run_step",
       "step_label": "lint gofmt",
@@ -2330,7 +2371,9 @@
       "failure_note": "run make format to apply authored Go formatting"
     },
     "lint-go-vet": {
-      "prerequisites": [],
+      "prerequisites": [
+        "go-toolchain-readiness"
+      ],
       "type": "step_command",
       "mode": "run_step",
       "step_label": "lint go-vet",
@@ -2343,6 +2386,7 @@
     },
     "lint-go-staticcheck": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "go-lint-toolchain"
       ],
       "type": "step_command",
@@ -2363,6 +2407,7 @@
     },
     "go-vulncheck": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "govulncheck-toolchain"
       ],
       "type": "step_command",
@@ -2386,6 +2431,7 @@
     },
     "go-gosec-targeted": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "gosec-toolchain"
       ],
       "type": "step_command",
@@ -2411,6 +2457,7 @@
     },
     "go-gosec-audit": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "gosec-toolchain"
       ],
       "type": "step_command",
@@ -2437,6 +2484,7 @@
     },
     "check": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2462,6 +2510,7 @@
     },
     "ci": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2473,6 +2522,7 @@
     },
     "release-check": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "type": "work_graph",
@@ -2544,6 +2594,7 @@
     },
     "seaweedfs-compatibility": {
       "prerequisites": [
+        "go-toolchain-readiness",
         "test-service-images"
       ],
       "type": "step_command",
@@ -2823,7 +2874,8 @@
     {
       "name": "doctor",
       "backing_scripts": [
-        "tools/harness/readiness/check-doctor.sh"
+        "tools/harness/readiness/check-doctor.sh",
+        "tools/harness/readiness/go-toolchain-readiness.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2874,6 +2926,15 @@
       }
     },
     {
+      "name": "go-toolchain-readiness",
+      "backing_scripts": [
+        "tools/harness/readiness/go-toolchain-readiness.sh"
+      ],
+      "target_class": "internal_helper",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
       "name": "bootstrap",
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2920,12 +2981,13 @@
           "class": "tool_install",
           "owner_section": "Section 5",
           "install_roots": [
-            "tmp/toolchain",
+            "tmp/toolbin",
             "tmp/node-runtime",
             "node_modules",
-            "browser cache"
+            "browser cache",
+            "configured external GOMODCACHE exact automatic-toolchain module when absent"
           ],
-          "cleanup": "repo-local clean and distclean policies preserve or remove roots according to Section 13"
+          "cleanup": "repo-local clean and distclean policies preserve or remove owned roots according to Section 13; the external Go cache remains borrowed and is never cleanup-owned"
         }
       ],
       "input_contract": {
@@ -12897,6 +12959,7 @@
         "harness-smoke-work-graph-fast",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
+        "harness-smoke-go-toolchain-readiness",
         "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
@@ -12954,6 +13017,7 @@
         "harness-smoke-work-graph-fast",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
+        "harness-smoke-go-toolchain-readiness",
         "harness-smoke-bootstrap-node-runtime",
         "harness-smoke-bootstrap-shellcheck",
         "harness-smoke-cache-artifact",
@@ -13003,6 +13067,15 @@
       "name": "harness-smoke-toolchain-pins",
       "backing_scripts": [
         "tools/harness/readiness/tests/test-check-toolchain-pins.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-go-toolchain-readiness",
+      "backing_scripts": [
+        "tools/harness/readiness/tests/test-go-toolchain-readiness.sh",
+        "tools/harness/readiness/go-toolchain-readiness.sh",
+        "tools/harness/readiness/bootstrap-go-tool.sh",
+        "tools/harness/readiness/check-doctor.sh"
       ]
     },
     {

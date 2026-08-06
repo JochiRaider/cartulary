@@ -56,6 +56,60 @@ The canonical Go module path is `github.com/JochiRaider/cartulary`. The pnpm
 workspace owns `apps/web` and shared packages. Tool versions live in
 `tools/toolchain_pins.json`; mirrored version text must pass drift validation.
 
+### Go launcher, effective toolchain, and cache recovery
+
+The installed `GO` executable is a launcher; it is not necessarily the Go
+toolchain that repository work executes. Make selects the exact reviewed
+effective version from the repository pin. `make doctor` diagnoses that state
+without downloading or changing a cache. Go-consuming Make targets may let Go's
+checksum-verified downloader populate an absent exact-version cache, but the
+harness never repairs a recognized corrupt external cache automatically.
+
+For the current Linux x86_64 profile, a Go 1.26.5 automatic-toolchain cache is
+recognized as corrupt when this installation marker is missing while the
+extracted directory exists:
+
+```text
+/tmp/cartulary-go-mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64/src/_go.mod
+```
+
+This is launcher/cache readiness failure, not a failure of SQLC or another Go
+tool that happened to trigger toolchain selection. Repair it only after
+reviewing the process check and confirming that no other Go or Make job is
+active:
+
+```sh
+pgrep -af '(^|/)(go|make)([[:space:]]|$)' || true
+
+quarantine_dir="$(mktemp -d /tmp/cartulary-go-toolchain-quarantine.XXXXXX)"
+mkdir -p "$quarantine_dir/cache-download"
+mv -- /tmp/cartulary-go-mod/golang.org/toolchain@v0.0.1-go1.26.5.linux-amd64 \
+  "$quarantine_dir/"
+mv -- /tmp/cartulary-go-mod/cache/download/golang.org/toolchain/@v/v0.0.1-go1.26.5.linux-amd64.ziphash \
+  "$quarantine_dir/cache-download/"
+printf 'quarantine: %s\n' "$quarantine_dir"
+```
+
+Move only those computed version/platform entries. Do not edit `go.mod`, create
+`src/_go.mod`, disable checksum verification, or delete a broader shared Go
+cache. Keep the quarantine until validation succeeds. Validate the effective
+toolchain through the same caches Make uses, then regenerate:
+
+```sh
+env GOTOOLCHAIN=go1.26.5 \
+  GOCACHE=/tmp/cartulary-go-build \
+  GOMODCACHE=/tmp/cartulary-go-mod \
+  /usr/local/go/bin/go version
+make generate
+```
+
+The first command must report `go1.26.5`, and generation must progress beyond
+`codegen-toolchain`. An unqualified `go version` is not equivalent when it uses
+a different launcher or module cache. On managed hosts, an administrator may
+instead install Go 1.26.5 directly after verifying the distribution against
+the publisher's SHA-256 checksum; the repository pin and validation remain
+unchanged.
+
 ## Local Services
 
 The development environment provides real PostgreSQL and an S3-compatible object
