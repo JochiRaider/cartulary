@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 HELPER="$ROOT_DIR/tools/harness/execution/run-vitest-step.sh"
 cleanup_paths=()
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
 
@@ -74,8 +76,11 @@ artifact_abs_path() {
   printf '%s\n' "$ROOT_DIR/$value"
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-vitest-step-smoke.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "run-vitest-step-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
+unset CARTULARY_HARNESS_IDENTITY_PREPARED CARTULARY_TEST_TARGET
+export CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-default"
+export CARTULARY_TEST_RUN_ID="run-vitest-step-default"
 fake_vitest="$tmp_dir/fake-vitest.sh"
 cat >"$fake_vitest" <<'EOF'
 #!/usr/bin/env bash

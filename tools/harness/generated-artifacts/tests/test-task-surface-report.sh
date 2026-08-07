@@ -216,7 +216,7 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[^\n]*work-graph\/runner-cli\.mjs --selection owner --target test-slice/,
+  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?work-graph\/runner-cli\.mjs --selection owner --target test-slice/,
   "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
 );
 for (const target of manifest.targets.filter((entry) =>
@@ -464,6 +464,22 @@ writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_script_output="$(assert_fails "missing backing script" run_report_copy)"
 assert_contains "$missing_script_output" "backing script missing: tools/harness/generated-artifacts/tests/missing-task-surface-helper.mjs" "missing backing script output"
+
+cp "$ROOT_DIR/Makefile" "$makefile_copy"
+cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
+cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
+"$NODE_BIN" - "$manifest_copy" <<'EOF'
+const { readFileSync, writeFileSync } = require("node:fs");
+const manifestPath = process.argv[2];
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+manifest.harness_checks.push({
+  name: "unreachable-harness-check",
+  backing_scripts: ["tools/harness/generated-artifacts/tests/test-task-surface-report.sh"]
+});
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+unreachable_check_output="$(assert_fails "unreachable harness check" run_report_copy)"
+assert_contains "$unreachable_check_output" "harness check unreachable-harness-check is not reachable from any harness tier" "unreachable harness check output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

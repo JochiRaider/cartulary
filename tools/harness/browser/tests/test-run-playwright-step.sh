@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 HELPER="$ROOT_DIR/tools/harness/browser/run-playwright-step.sh"
 cleanup_paths=()
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
 
@@ -40,8 +42,11 @@ assert_empty() {
   fi
 }
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-playwright-step-smoke.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "run-playwright-step-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
+unset CARTULARY_HARNESS_IDENTITY_PREPARED CARTULARY_TEST_TARGET
+export CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-default"
+export CARTULARY_TEST_RUN_ID="run-playwright-step-default"
 attachment_file="$tmp_dir/trace.zip"
 touch "$attachment_file"
 fake_playwright="$tmp_dir/fake-playwright.sh"

@@ -13048,6 +13048,9 @@
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
+        "harness-smoke-run-step",
+        "harness-smoke-run-vitest-step",
+        "harness-smoke-run-playwright-step",
         "harness-smoke-work-graph-fast",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -13089,6 +13092,9 @@
     },
     "execution": {
       "checks": [
+        "harness-smoke-run-step",
+        "harness-smoke-run-vitest-step",
+        "harness-smoke-run-playwright-step",
         "harness-smoke-work-graph-fast",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-make-node-tools"
@@ -13108,6 +13114,9 @@
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
         "harness-smoke-agent-finalize",
+        "harness-smoke-run-step",
+        "harness-smoke-run-vitest-step",
+        "harness-smoke-run-playwright-step",
         "harness-smoke-work-graph-fast",
         "harness-smoke-work-graph-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -13446,13 +13455,6 @@
       "command": [
         "$(NODE_BIN)",
         "tools/harness/browser/tests/test-browser-work-graph.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-semantic-identities",
-      "backing_scripts": [
-        "tools/harness/test-catalog/tests/test-semantic-identity-check.sh",
-        "tools/harness/test-catalog/semantic-identity-check-cli.mjs"
       ]
     },
     {

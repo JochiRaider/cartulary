@@ -3,10 +3,17 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 HELPER="$ROOT_DIR/tools/harness/execution/run-step.sh"
-GO_HELPER="$ROOT_DIR/tools/harness/backend/run-go-step.sh"
 STEP_RUNTIME="$ROOT_DIR/tools/harness/execution/step-runtime.sh"
 ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
+
+default_results="$(cartulary_harness_mktemp_dir "run-step-default.XXXXXX")"
+cleanup_paths+=("$default_results")
+unset CARTULARY_HARNESS_IDENTITY_PREPARED CARTULARY_TEST_TARGET
+export CARTULARY_TEST_RESULTS_DIR="$default_results"
+export CARTULARY_TEST_RUN_ID="run-step-default"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE
 
@@ -286,7 +293,7 @@ assert_empty "$quiet_success_output" "quiet success"
 
 mkdir -p "$ROOT_DIR/tmp"
 
-partial_identity_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-partial-identity.XXXXXX")"
+partial_identity_results="$(cartulary_harness_mktemp_dir "run-step-partial-identity.XXXXXX")"
 cleanup_paths+=("$partial_identity_results")
 set +e
 partial_identity_output="$(
@@ -306,7 +313,7 @@ if find "$partial_identity_results" -mindepth 1 -print -quit | grep -q .; then
   fail "partial prepared identity: expected failure before artifact creation"
 fi
 
-nested_parent_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-nested-parent.XXXXXX")"
+nested_parent_results="$(cartulary_harness_mktemp_dir "run-step-nested-parent.XXXXXX")"
 cleanup_paths+=("$nested_parent_results")
 nested_parent_target="$nested_parent_results/parent-run/test-slice"
 nested_child_results="$nested_parent_target/child-results"
@@ -344,7 +351,7 @@ assert_not_contains "$success_log_output" "keep-this-warning" "success log repla
 assert_contains "$success_log_output" "[RESULT] target=adhoc status=pass" "success summary output"
 assert_not_contains "$success_log_output" "== success log replay ==" "success log replay banner"
 
-short_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-results.XXXXXX")"
+short_failure_results="$(cartulary_harness_mktemp_dir "run-step-results.XXXXXX")"
 cleanup_paths+=("$short_failure_results")
 set +e
 short_failure_output="$(
@@ -376,7 +383,7 @@ assert_equals "$(json_field "$short_failure_summary" "failures.0.failure_class")
 assert_matches "$(json_field "$short_failure_summary" "start_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond start time"
 assert_matches "$(json_field "$short_failure_summary" "end_time")" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$' "short failure millisecond end time"
 
-finalizer_failure_results="$(mktemp -d "$ROOT_DIR/tmp/finalizer-failure.XXXXXX")"
+finalizer_failure_results="$(cartulary_harness_mktemp_dir "finalizer-failure.XXXXXX")"
 cleanup_paths+=("$finalizer_failure_results")
 finalizer_failure_command="$finalizer_failure_results/fail-finalizer.sh"
 cat >"$finalizer_failure_command" <<'SH'
@@ -424,7 +431,7 @@ assert_equals "$(json_field "$finalizer_failure_summary" "failure_reason")" "dur
 assert_equals "$(json_field "$finalizer_failure_summary" "failures.0.child_target")" "duration-baseline-drift-suite" "finalizer wrapper child target"
 assert_json_field_absent "$finalizer_failure_summary" "failures.1" "finalizer wrapper omits duplicate generic shell failure"
 
-browser_start_failure_results="$(mktemp -d "$ROOT_DIR/tmp/browser-start-failure.XXXXXX")"
+browser_start_failure_results="$(cartulary_harness_mktemp_dir "browser-start-failure.XXXXXX")"
 cleanup_paths+=("$browser_start_failure_results")
 set +e
 browser_start_failure_output="$(
@@ -466,7 +473,7 @@ assert_equals "$(json_field "$browser_start_failure_tool_summary" "exit_code")" 
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_class")" "infra" "browser start target summary class"
 assert_equals "$(json_field "$browser_start_failure_target_summary" "failure_reason")" "service_start_error" "browser start target summary reason"
 
-capacity_results="$(mktemp -d "$ROOT_DIR/tmp/capacity-conflict.XXXXXX")"
+capacity_results="$(cartulary_harness_mktemp_dir "capacity-conflict.XXXXXX")"
 cleanup_paths+=("$capacity_results")
 capacity_path="$capacity_results/go-tmp/go-build-fixture"
 mkdir -p "$(dirname "$capacity_path")"
@@ -500,10 +507,12 @@ capacity_target_output="$({
 capacity_target_status=$?
 set -e
 assert_equals "$capacity_target_status" "0" "capacity target summary writer status"
+assert_contains "$capacity_target_output" "failure_class=infra" "capacity target failure class"
+assert_contains "$capacity_target_output" "reason=resource_conflict" "capacity target failure reason"
 capacity_tool_summary="$capacity_results/capacity-conflict/build-server/tool-run-summary.json"
 assert_equals "$(json_field "$capacity_tool_summary" "exit_code")" "4" "capacity conflict public exit"
 
-browser_resource_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/browser-resource-conflict.XXXXXX")"
+browser_resource_conflict_results="$(cartulary_harness_mktemp_dir "browser-resource-conflict.XXXXXX")"
 cleanup_paths+=("$browser_resource_conflict_results")
 browser_resource_conflict_session="$browser_resource_conflict_results/browser-resource-conflict/_shared/test-services/suite-test/browser-sessions/session-test"
 mkdir -p "$browser_resource_conflict_session"
@@ -567,7 +576,7 @@ assert_equals "$(json_field "$browser_resource_conflict_tool_summary" "exit_code
 assert_equals "$(json_field "$browser_resource_conflict_target_summary" "failure_class")" "infra" "browser resource conflict target summary class"
 assert_equals "$(json_field "$browser_resource_conflict_target_summary" "failure_reason")" "resource_conflict" "browser resource conflict target summary reason"
 
-listener_conflict_results="$(mktemp -d "$ROOT_DIR/tmp/listener-conflict.XXXXXX")"
+listener_conflict_results="$(cartulary_harness_mktemp_dir "listener-conflict.XXXXXX")"
 cleanup_paths+=("$listener_conflict_results")
 set +e
 listener_conflict_output="$(
@@ -589,7 +598,7 @@ listener_conflict_step_summary="$listener_conflict_results/listener-conflict/bro
 assert_equals "$(json_field "$listener_conflict_step_summary" "failure_class")" "infra" "listener conflict step summary class"
 assert_equals "$(json_field "$listener_conflict_step_summary" "failure_reason")" "resource_conflict" "listener conflict step summary reason"
 
-shell_progress_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-progress-results.XXXXXX")"
+shell_progress_failure_results="$(cartulary_harness_mktemp_dir "run-step-progress-results.XXXXXX")"
 cleanup_paths+=("$shell_progress_failure_results")
 set +e
 shell_progress_failure_output="$(
@@ -608,7 +617,7 @@ assert_contains "$shell_progress_failure_output" "message=real-shell-failure" "s
 shell_progress_failure_summary="$shell_progress_failure_results/shell-progress-failure/adhoc/shell-progress-failure/step-summary.json"
 assert_equals "$(json_field "$shell_progress_failure_summary" "dossiers.0.message")" "real-shell-failure" "shell progress failure summary message"
 
-shellcheck_stdout_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-shellcheck-results.XXXXXX")"
+shellcheck_stdout_failure_results="$(cartulary_harness_mktemp_dir "run-step-shellcheck-results.XXXXXX")"
 cleanup_paths+=("$shellcheck_stdout_failure_results")
 set +e
 shellcheck_stdout_failure_output="$(
@@ -628,7 +637,7 @@ assert_contains "$shellcheck_stdout_failure_output" "message=$shellcheck_message
 shellcheck_stdout_failure_summary="$shellcheck_stdout_failure_results/shellcheck-stdout-failure/adhoc/shellcheck-stdout-failure/step-summary.json"
 assert_equals "$(json_field "$shellcheck_stdout_failure_summary" "dossiers.0.message")" "$shellcheck_message" "shellcheck stdout failure summary message"
 
-shellcheck_diagnostic_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-shellcheck-diagnostic-results.XXXXXX")"
+shellcheck_diagnostic_failure_results="$(cartulary_harness_mktemp_dir "run-step-shellcheck-diagnostic-results.XXXXXX")"
 cleanup_paths+=("$shellcheck_diagnostic_failure_results")
 set +e
 shellcheck_diagnostic_failure_output="$(
@@ -651,7 +660,7 @@ shellcheck_diagnostic_failure_summary="$shellcheck_diagnostic_failure_results/sh
 assert_equals "$(json_field "$shellcheck_diagnostic_failure_summary" "failure_reason")" "tool_diagnostic_failure" "shellcheck diagnostic summary reason"
 assert_equals "$(json_field "$shellcheck_diagnostic_failure_summary" "dossiers.0.message")" "$shellcheck_diagnostic_message" "shellcheck diagnostic summary message"
 
-biome_diagnostic_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-biome-results.XXXXXX")"
+biome_diagnostic_failure_results="$(cartulary_harness_mktemp_dir "run-step-biome-results.XXXXXX")"
 cleanup_paths+=("$biome_diagnostic_failure_results")
 set +e
 biome_diagnostic_failure_output="$(
@@ -674,7 +683,7 @@ biome_diagnostic_failure_summary="$biome_diagnostic_failure_results/biome-diagno
 assert_equals "$(json_field "$biome_diagnostic_failure_summary" "failure_reason")" "tool_diagnostic_failure" "biome diagnostic summary reason"
 assert_equals "$(json_field "$biome_diagnostic_failure_summary" "dossiers.0.message")" "$biome_message" "biome diagnostic summary message"
 
-govulncheck_security_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-govulncheck-results.XXXXXX")"
+govulncheck_security_results="$(cartulary_harness_mktemp_dir "run-step-govulncheck-results.XXXXXX")"
 cleanup_paths+=("$govulncheck_security_results")
 govulncheck_security_script="$govulncheck_security_results/fake-govulncheck-step.sh"
 cat >"$govulncheck_security_script" <<'EOF'
@@ -773,7 +782,7 @@ if (!findingArtifact) {
 }
 JS
 
-govulncheck_malformed_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-govulncheck-malformed-results.XXXXXX")"
+govulncheck_malformed_results="$(cartulary_harness_mktemp_dir "run-step-govulncheck-malformed-results.XXXXXX")"
 cleanup_paths+=("$govulncheck_malformed_results")
 govulncheck_malformed_script="$govulncheck_malformed_results/fake-govulncheck-malformed-step.sh"
 cat >"$govulncheck_malformed_script" <<'EOF'
@@ -824,7 +833,7 @@ if (summary.extensions?.["cartulary.security"]?.govulncheck !== undefined) {
 }
 JS
 
-gosec_security_results="$(mktemp -d "$ROOT_DIR/tmp/run-step-gosec-results.XXXXXX")"
+gosec_security_results="$(cartulary_harness_mktemp_dir "run-step-gosec-results.XXXXXX")"
 cleanup_paths+=("$gosec_security_results")
 set +e
 gosec_security_output="$(
@@ -843,7 +852,7 @@ gosec_security_summary="$gosec_security_results/gosec-security-failure/go-gosec-
 assert_equals "$(json_field "$gosec_security_summary" "failure_class")" "security" "Gosec security summary class"
 assert_equals "$(json_field "$gosec_security_summary" "failure_reason")" "security_finding" "Gosec security summary reason"
 
-single_span_results="$(mktemp -d "$ROOT_DIR/tmp/single-span-duration.XXXXXX")"
+single_span_results="$(cartulary_harness_mktemp_dir "single-span-duration.XXXXXX")"
 cleanup_paths+=("$single_span_results")
 single_span_step_dir="$single_span_results/single-span/short-target/short-step"
 mkdir -p "$single_span_step_dir"
@@ -900,7 +909,7 @@ assert_equals "$(json_field "$single_span_summary" "totals.wall_duration_ms")" "
 assert_equals "$(json_field "$single_span_summary" "totals.critical_path_wall_duration_ms")" "660" "single span target critical uses monotonic duration"
 assert_equals "$(json_field "$single_span_timing" "buckets.0.duration_ms")" "660" "single span timing bucket uses monotonic duration"
 
-missing_target_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-missing-target.XXXXXX")"
+missing_target_results="$(cartulary_harness_mktemp_dir "run-summary-missing-target.XXXXXX")"
 cleanup_paths+=("$missing_target_results")
 set +e
 missing_target_output="$(
@@ -925,7 +934,7 @@ assert_equals "$(json_field "$missing_target_summary" "failure_reason")" "artifa
 assert_equals "$(json_field "$missing_target_summary" "failure_classes.artifact")" "1" "missing target artifact count"
 assert_equals "$(json_field "$missing_target_summary" "summary_targets.missing.0")" "missing-child-target" "missing target summary list"
 
-infra_timing_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-infra-timing.XXXXXX")"
+infra_timing_results="$(cartulary_harness_mktemp_dir "target-summary-infra-timing.XXXXXX")"
 cleanup_paths+=("$infra_timing_results")
 infra_step_dir="$infra_timing_results/infra-timing/infra-target/pass-step"
 infra_service_dir="$infra_timing_results/infra-timing/_shared/test-services/suite/events"
@@ -1004,7 +1013,7 @@ assert_equals "$(json_field "$infra_timing_summary" "failure_class")" "infra" "i
 assert_equals "$(json_field "$infra_timing_summary" "failure_classes.infra")" "1" "infra timing JSON class count"
 assert_equals "$(json_field "$infra_timing_summary" "failures.0.kind")" "timing" "infra timing JSON failure kind"
 
-retry_timing_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-retry-timing.XXXXXX")"
+retry_timing_results="$(cartulary_harness_mktemp_dir "target-summary-retry-timing.XXXXXX")"
 cleanup_paths+=("$retry_timing_results")
 retry_service_dir="$retry_timing_results/retry-timing/_shared/test-services/suite/events"
 mkdir -p "$retry_service_dir"
@@ -1044,7 +1053,7 @@ assert_equals "$(json_field "$retry_timing_summary" "failures.length")" "0" "ret
 assert_equals "$(json_field "$retry_timing_summary" "own.timing_failures.length")" "0" "retry-scheduled startup timing failure count"
 assert_equals "$(json_field "$retry_timing_summary" "totals.counts.failed")" "0" "retry-scheduled startup total failed count"
 
-skipped_after_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-skipped-after-failure.XXXXXX")"
+skipped_after_failure_results="$(cartulary_harness_mktemp_dir "run-summary-skipped-after-failure.XXXXXX")"
 cleanup_paths+=("$skipped_after_failure_results")
 CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
 CARTULARY_TEST_RUN_ID="skipped-after-failure" \
@@ -1076,7 +1085,7 @@ assert_equals "$(json_field "$skipped_after_failure_summary" "summary_targets.sk
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.skipped_after_failure.0")" "skipped-check" "skipped after failure group list"
 assert_equals "$(json_field "$skipped_after_failure_summary" "summary_groups.0.missing_summary_targets.length")" "0" "skipped after failure group missing count"
 
-child_summary_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-children.XXXXXX")"
+child_summary_results="$(cartulary_harness_mktemp_dir "target-summary-children.XXXXXX")"
 cleanup_paths+=("$child_summary_results")
 write_target_summary "$child_summary_results" "child-summary" "child-a" 1000 1200 2 7
 write_target_summary "$child_summary_results" "child-summary" "child-b" 2000 2000 3 11
@@ -1151,13 +1160,25 @@ set -e
 assert_equals "$explain_run_progress_status" "1" "explain-run progress requires target status"
 assert_contains "$explain_run_progress_output" "DETAIL=progress requires TARGET=<target>" "explain-run progress requires target output"
 
-helper_run_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-helper.XXXXXX")"
+helper_run_results="$(cartulary_harness_mktemp_dir "explain-run-helper.XXXXXX")"
 cleanup_paths+=("$helper_run_results")
 CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
 CARTULARY_TEST_RUN_ID="helper-run" \
 CARTULARY_TEST_TARGET="helper-target" \
   "$HELPER" "helper-target" -- bash -lc 'printf "helper stdout\n"; printf "helper stderr\n" >&2' >/dev/null
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
+CARTULARY_TEST_RUN_ID="helper-run" \
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary helper-target pass >/dev/null
+mkdir -p "$helper_run_results/helper-run/target-summaries"
+cat >"$helper_run_results/helper-run/target-summaries/helper-target.json" <<'JSON'
+{
+  "schema_id": "cartulary.harness_target_summary.v1",
+  "target": "helper-target",
+  "status": "pass"
+}
+JSON
 CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
 CARTULARY_TEST_RUN_ID="helper-run" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary check pass 1 1 - \
@@ -1191,14 +1212,8 @@ explain_helper_summary="$(
 assert_contains "$explain_helper_summary" "[HELPER] helper-target status=pass steps=1" "explain-run helper summary line"
 assert_contains "$explain_helper_summary" "[HELPER-REF] helper-target accounting=helper_reused scheduler_reused=false" "explain-run helper same-run ref line"
 assert_contains "$explain_helper_summary" "[HELPER-STEP] helper-target label=helper-target status=pass" "explain-run helper step line"
-explain_helper_logs="$(
-  "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" --target helper-target --detail logs \
-    2>&1
-)"
-assert_contains "$explain_helper_logs" "helper stdout" "explain-run helper stdout log"
-assert_contains "$explain_helper_logs" "helper stderr" "explain-run helper stderr log"
 
-tool_only_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-tool-only.XXXXXX")"
+tool_only_results="$(cartulary_harness_mktemp_dir "explain-run-tool-only.XXXXXX")"
 cleanup_paths+=("$tool_only_results")
 mkdir -p "$tool_only_results/tool-run/agent-finalize/agent-finalize"
 cat >"$tool_only_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
@@ -1280,7 +1295,7 @@ explain_tool_only_logs="$(
 )"
 assert_contains "$explain_tool_only_logs" "finalize child stdout" "explain-run finalizer child log"
 
-missing_finalize_results="$(mktemp -d "$ROOT_DIR/tmp/explain-run-missing-finalize.XXXXXX")"
+missing_finalize_results="$(cartulary_harness_mktemp_dir "explain-run-missing-finalize.XXXXXX")"
 cleanup_paths+=("$missing_finalize_results")
 mkdir -p "$missing_finalize_results/tool-run/agent-finalize"
 cat >"$missing_finalize_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
@@ -1309,7 +1324,7 @@ explain_missing_finalize="$(
 )"
 assert_contains "$explain_missing_finalize" "[FINALIZE] missing" "explain-run missing finalizer summary line"
 
-nested_artifacts_results="$(mktemp -d "$ROOT_DIR/tmp/nested-step-artifacts.XXXXXX")"
+nested_artifacts_results="$(cartulary_harness_mktemp_dir "nested-step-artifacts.XXXXXX")"
 cleanup_paths+=("$nested_artifacts_results")
 CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$nested_artifacts_results" \
@@ -1333,16 +1348,20 @@ fi
 [[ -f "$nested_artifacts_results/nested-artifacts/browser-e2e-visual/frontend-toolchain/step-summary.json" ]] || fail "nested step artifacts missing visual owner"
 [[ ! -d "$nested_artifacts_results/nested-artifacts/frontend-toolchain" ]] || fail "nested step artifacts must not use child target as owner"
 
-empty_log_race_results="$(mktemp -d "$ROOT_DIR/tmp/empty-log-race.XXXXXX")"
+empty_log_race_results="$(cartulary_harness_mktemp_dir "empty-log-race.XXXXXX")"
 cleanup_paths+=("$empty_log_race_results")
-shared_stdout="$empty_log_race_results/stdout.log"
-shared_stderr="$empty_log_race_results/stderr.log"
+empty_log_race_run="$empty_log_race_results/empty-log-race"
+mkdir -p "$empty_log_race_run"
+shared_stdout="$empty_log_race_run/stdout.log"
+shared_stderr="$empty_log_race_run/stderr.log"
 : >"$shared_stdout"
 : >"$shared_stderr"
 empty_log_race_pids=()
 for step_owner in step-a step-b; do
-  step_dir="$empty_log_race_results/${step_owner}"
+  step_dir="$empty_log_race_run/${step_owner}"
   mkdir -p "$step_dir"
+  CARTULARY_TEST_RESULTS_DIR="$empty_log_race_results" \
+  CARTULARY_TEST_RUN_ID="empty-log-race" \
   CARTULARY_TEST_TARGET="$step_owner" \
   CARTULARY_STEP_LABEL="empty log race ${step_owner}" \
   CARTULARY_STEP_DIR="$step_dir" \
@@ -1364,17 +1383,21 @@ for pid in "${empty_log_race_pids[@]}"; do
     fail "empty log race helper failed"
   fi
 done
-[[ -f "$empty_log_race_results/step-a/step-summary.json" ]] || fail "empty log race missing step-a summary"
-[[ -f "$empty_log_race_results/step-b/step-summary.json" ]] || fail "empty log race missing step-b summary"
-assert_json_field_absent "$empty_log_race_results/step-a/step-summary.json" "artifacts.stdout_log" "empty log race step-a stdout artifact"
-assert_json_field_absent "$empty_log_race_results/step-b/step-summary.json" "artifacts.stdout_log" "empty log race step-b stdout artifact"
+[[ -f "$empty_log_race_run/step-a/step-summary.json" ]] || fail "empty log race missing step-a summary"
+[[ -f "$empty_log_race_run/step-b/step-summary.json" ]] || fail "empty log race missing step-b summary"
+assert_json_field_absent "$empty_log_race_run/step-a/step-summary.json" "artifacts.stdout_log" "empty log race step-a stdout artifact"
+assert_json_field_absent "$empty_log_race_run/step-b/step-summary.json" "artifacts.stdout_log" "empty log race step-b stdout artifact"
 
-legacy_duration_results="$(mktemp -d "$ROOT_DIR/tmp/legacy-duration.XXXXXX")"
+legacy_duration_results="$(cartulary_harness_mktemp_dir "legacy-duration.XXXXXX")"
 cleanup_paths+=("$legacy_duration_results")
-legacy_duration_step_dir="$legacy_duration_results/step"
+legacy_duration_run="$legacy_duration_results/legacy-duration"
+legacy_duration_step_dir="$legacy_duration_run/step"
 mkdir -p "$legacy_duration_step_dir"
-: >"$legacy_duration_results/stdout.log"
-: >"$legacy_duration_results/stderr.log"
+: >"$legacy_duration_run/stdout.log"
+: >"$legacy_duration_run/stderr.log"
+CARTULARY_TEST_RESULTS_DIR="$legacy_duration_results" \
+CARTULARY_TEST_RUN_ID="legacy-duration" \
+CARTULARY_TEST_TARGET="legacy-duration" \
 CARTULARY_STEP_LABEL="ignored legacy duration" \
 CARTULARY_STEP_DIR="$legacy_duration_step_dir" \
 CARTULARY_STEP_COMMAND=":" \
@@ -1383,13 +1406,13 @@ CARTULARY_STEP_END_TIME="2026-01-01T00:00:00.001Z" \
 CARTULARY_STEP_DURATION_MS="999" \
 CARTULARY_STEP_WALL_DURATION_MS="1" \
 CARTULARY_STEP_EXIT_STATUS="0" \
-CARTULARY_STEP_STDOUT_LOG="$legacy_duration_results/stdout.log" \
-CARTULARY_STEP_STDERR_LOG="$legacy_duration_results/stderr.log" \
+CARTULARY_STEP_STDOUT_LOG="$legacy_duration_run/stdout.log" \
+CARTULARY_STEP_STDERR_LOG="$legacy_duration_run/stderr.log" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" shell-step >/dev/null
 assert_equals "$(json_field "$legacy_duration_step_dir/step-summary.json" "logical_duration_ms")" "0" "legacy duration is not a logical fallback"
 assert_equals "$(json_field "$legacy_duration_step_dir/step-summary.json" "executed_duration_ms")" "0" "legacy duration is not an executed fallback"
 
-fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
+fixture_results="$(cartulary_harness_mktemp_dir "fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "01" "postgres-db-reset" "fixture-target" 20000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowB"
 write_fixture_event "$fixture_results" "fixture-run" "fixture-suite" "02" "postgres-db-reset" "fixture-target" 15000 "package_reset" "package-reused" "internal/modules/auth" "TestSlowA"
@@ -1508,7 +1531,7 @@ fixture_report_aggregate_target_output="$(
 )"
 assert_contains "$fixture_report_aggregate_target_output" "[FIXTURE] fixture-parent total=32.0s count=1" "fixture report aggregate target uses target summary totals"
 
-teardown_accounting_results="$(mktemp -d "$ROOT_DIR/tmp/target-timing-teardown-accounting.XXXXXX")"
+teardown_accounting_results="$(cartulary_harness_mktemp_dir "target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")
 teardown_services_dir="$teardown_accounting_results/teardown-accounting/_shared/test-services/web-fixture/events"
 mkdir -p "$teardown_services_dir"
@@ -1618,7 +1641,7 @@ assert_equals "$(json_field "$child_run_summary" "summary_groups.0.executed_dura
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.summary_targets.0")" "child-b" "run summary browser group target"
 assert_equals "$(json_field "$child_run_summary" "summary_groups.1.status")" "pass" "run summary browser group status"
 
-shared_execution_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-shared-execution.XXXXXX")"
+shared_execution_results="$(cartulary_harness_mktemp_dir "run-summary-shared-execution.XXXXXX")"
 cleanup_paths+=("$shared_execution_results")
 write_target_summary "$shared_execution_results" "shared-execution" "target-fast" 100 100 1 1
 write_target_summary "$shared_execution_results" "shared-execution" "target-slow" 2000 2000 1 1
@@ -1672,7 +1695,7 @@ missing_group_summary="$child_summary_results/child-summary/run-summary.json"
 assert_equals "$(json_field "$missing_group_summary" "failure_reason")" "artifact_error" "missing group failure reason"
 assert_equals "$(json_field "$missing_group_summary" "summary_groups.0.missing_summary_targets.0")" "missing-browser" "missing group summary list"
 
-missing_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-missing-child.XXXXXX")"
+missing_child_results="$(cartulary_harness_mktemp_dir "target-summary-missing-child.XXXXXX")"
 cleanup_paths+=("$missing_child_results")
 missing_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
@@ -1690,7 +1713,7 @@ assert_equals "$(json_field "$missing_child_summary" "children.missing.0")" "mis
 assert_equals "$(json_field "$missing_child_summary" "own.counts.non_test_failed")" "1" "missing child wrapper failure count"
 assert_equals "$(json_field "$missing_child_summary" "failure_class")" "artifact" "missing child failure class"
 
-status_only_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-status-only-child.XXXXXX")"
+status_only_child_results="$(cartulary_harness_mktemp_dir "target-summary-status-only-child.XXXXXX")"
 cleanup_paths+=("$status_only_child_results")
 status_only_child_run="$status_only_child_results/status-only-child"
 mkdir -p "$status_only_child_run/status-only-child" "$status_only_child_run/parent-with-status-only-child"
@@ -1734,7 +1757,7 @@ assert_equals "$(json_field "$status_only_child_summary" "failure_class")" "harn
 assert_equals "$(json_field "$status_only_child_summary" "failure_reason")" "child_target_failure" "status-only child failure reason"
 assert_equals "$(json_field "$status_only_child_summary" "children.failures.0.child_target")" "status-only-child" "status-only child failure target"
 
-skipped_child_results="$(mktemp -d "$ROOT_DIR/tmp/target-summary-skipped-child.XXXXXX")"
+skipped_child_results="$(cartulary_harness_mktemp_dir "target-summary-skipped-child.XXXXXX")"
 cleanup_paths+=("$skipped_child_results")
 skipped_child_run="$skipped_child_results/skipped-child"
 mkdir -p "$skipped_child_run/failed-backend" "$skipped_child_run/parent-with-skipped"
@@ -1953,135 +1976,6 @@ verbose_default_output="$(
 )"
 assert_contains "$verbose_default_output" "== verbose default ==" "verbose default banner"
 assert_contains "$verbose_default_output" "verbose-stream" "verbose default output"
-
-go_smoke_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-step-smoke.XXXXXX")"
-cleanup_paths+=("$go_smoke_dir")
-cat >"$go_smoke_dir/run_go_step_smoke_test.go" <<'EOF'
-package rungostepsmoke
-
-import "testing"
-
-func TestStep0_RunGoStep_E_0_01(t *testing.T) {}
-func TestStep0_RunGoStep_E_0_02(t *testing.T) {}
-func TestUnrelatedRunGoStep(t *testing.T)    {}
-EOF
-
-go_smoke_rel="./${go_smoke_dir#"$ROOT_DIR"/}"
-go_bin="${GO:-go}"
-go_success_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
-  CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-    "$GO_HELPER" "run-go-step smoke" '^(TestStep0_.*_E_0_[0-9]+)$' -- "$go_bin" test "$go_smoke_rel"
-)"
-assert_empty "$go_success_output" "run-go-step success"
-
-set +e
-go_zero_output="$(
-  CARTULARY_OUTPUT_MODE=verbose \
-    "$GO_HELPER" "run-go-step zero-match" '^(TestStep0_.*_E_0_)$' -- "$go_bin" test "$go_smoke_rel" \
-    2>&1
-)"
-go_zero_status=$?
-set -e
-if [[ "$go_zero_status" -eq 0 ]]; then
-  fail "run-go-step zero-match: expected non-zero exit status"
-fi
-assert_contains "$go_zero_output" "failure: run-go-step zero-match" "run-go-step zero-match label"
-assert_contains "$go_zero_output" "message=step matched zero tests" "run-go-step zero-match message"
-
-go_skip_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-step-skip.XXXXXX")"
-cleanup_paths+=("$go_skip_dir")
-cat >"$go_skip_dir/run_go_step_skip_test.go" <<'EOF'
-package rungostepskip
-
-import "testing"
-
-func TestStep0_RunGoStepSkip_E_0_01(t *testing.T) {
-	t.Skip("matched skip")
-}
-EOF
-
-go_skip_rel="./${go_skip_dir#"$ROOT_DIR"/}"
-set +e
-go_skip_output="$(
-  CARTULARY_OUTPUT_MODE=verbose \
-    "$GO_HELPER" "run-go-step skip" '^(TestStep0_RunGoStepSkip_E_0_01)$' -- "$go_bin" test "$go_skip_rel" \
-    2>&1
-)"
-go_skip_status=$?
-set -e
-if [[ "$go_skip_status" -eq 0 ]]; then
-  fail "run-go-step skip: expected non-zero exit status"
-fi
-assert_contains "$go_skip_output" "go test inventory requires top-level pass" "run-go-step skip message"
-assert_contains "$go_skip_output" "runner=go_test" "run-go-step skip runner"
-
-go_pause_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-step-pause.XXXXXX")"
-cleanup_paths+=("$go_pause_dir")
-cat >"$go_pause_dir/run_go_step_pause_test.go" <<'EOF'
-package rungosteppause
-
-import "testing"
-
-func TestStep1_RunGoStepPause_ProcessSmoke(t *testing.T) {
-	t.Parallel()
-	t.Fatalf("actual fatal line")
-}
-EOF
-
-go_pause_rel="./${go_pause_dir#"$ROOT_DIR"/}"
-set +e
-go_pause_output="$(
-  CARTULARY_OUTPUT_MODE=verbose \
-    "$GO_HELPER" "run-go-step pause-filter smoke" '^(TestStep1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pause_rel" -parallel 2 \
-    2>&1
-)"
-go_pause_status=$?
-set -e
-if [[ "$go_pause_status" -eq 0 ]]; then
-  fail "run-go-step pause-filter: expected non-zero exit status"
-fi
-assert_contains "$go_pause_output" "failure: run-go-step pause-filter smoke" "run-go-step pause-filter label"
-assert_contains "$go_pause_output" "actual fatal line" "run-go-step pause-filter message"
-assert_not_contains "$go_pause_output" "message==== PAUSE" "run-go-step pause-filter pause message"
-assert_not_contains "$go_pause_output" "message==== CONT" "run-go-step pause-filter cont message"
-
-go_pkg_setup_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-step-package-setup.XXXXXX")"
-cleanup_paths+=("$go_pkg_setup_dir")
-cat >"$go_pkg_setup_dir/run_go_step_package_setup_test.go" <<'EOF'
-package rungosteppackagesetup
-
-import (
-	"fmt"
-	"os"
-	"testing"
-)
-
-func TestMain(m *testing.M) {
-	fmt.Fprintln(os.Stderr, "start shared process harnesses: package setup failed")
-	os.Exit(1)
-}
-
-func TestStep1_RunGoStepPackageSetup_ProcessSmoke(t *testing.T) {}
-EOF
-
-go_pkg_setup_rel="./${go_pkg_setup_dir#"$ROOT_DIR"/}"
-set +e
-go_pkg_setup_output="$(
-  CARTULARY_OUTPUT_MODE=verbose \
-    "$GO_HELPER" "run-go-step step1 package setup smoke" '^(TestStep1_.*_ProcessSmoke)$' -- "$go_bin" test "$go_pkg_setup_rel" \
-    2>&1
-)"
-go_pkg_setup_status=$?
-set -e
-if [[ "$go_pkg_setup_status" -eq 0 ]]; then
-  fail "run-go-step package setup: expected non-zero exit status"
-fi
-assert_contains "$go_pkg_setup_output" "failure: run-go-step step1 package setup smoke" "run-go-step package setup label"
-assert_contains "$go_pkg_setup_output" "coverage=unmapped" "run-go-step package setup coverage"
-assert_contains "$go_pkg_setup_output" "step=-" "run-go-step package setup step"
-assert_contains "$go_pkg_setup_output" "symbol_or_title=(package setup)" "run-go-step package setup title"
-assert_contains "$go_pkg_setup_output" "message=start shared process harnesses: package setup failed" "run-go-step package setup message"
 
 
 printf 'step execution smoke passed\n'

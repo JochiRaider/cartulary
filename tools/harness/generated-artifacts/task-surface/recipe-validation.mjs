@@ -568,6 +568,7 @@ export function validateHarnessTiers(errors, harnessChecks, tiers) {
     return;
   }
   const fastChecks = new Set();
+  const selectedChecks = new Set();
   for (const [name, tier] of Object.entries(tiers)) {
     const checks = tier?.checks;
     if (!Array.isArray(checks) || checks.length === 0) {
@@ -586,6 +587,7 @@ export function validateHarnessTiers(errors, harnessChecks, tiers) {
         );
       }
       seen.add(check);
+      selectedChecks.add(check);
       if (!harnessChecks.has(check)) {
         errors.push(
           `harness_tiers.${name}.checks references unknown harness check ${check}`,
@@ -594,6 +596,11 @@ export function validateHarnessTiers(errors, harnessChecks, tiers) {
       if (name === "fast") {
         fastChecks.add(check);
       }
+    }
+  }
+  for (const check of harnessChecks.keys()) {
+    if (!selectedChecks.has(check)) {
+      errors.push(`harness check ${check} is not reachable from any harness tier`);
     }
   }
   validateFastHarnessGateSmokeRoles(errors, harnessChecks, fastChecks);
