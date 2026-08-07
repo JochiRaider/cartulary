@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +23,16 @@ import (
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
 const httpListenFDEnv = "CARTULARY_HTTP_LISTEN_FD"
 const serverHarnessBinEnv = "CARTULARY_SERVER_HARNESS_BIN"
+
+const (
+	readinessDeadline       = 15 * time.Second
+	readinessRequestTimeout = 500 * time.Millisecond
+	readinessPollInterval   = 200 * time.Millisecond
+	exitDeadline            = 15 * time.Second
+	statusRequestTimeout    = 2 * time.Second
+	stopDeadline            = 5 * time.Second
+	refusalRequestTimeout   = 500 * time.Millisecond
+)
 
 type Server struct {
 	Address string
@@ -103,8 +114,8 @@ func repoRoot() string {
 func (s *Server) WaitForReady(t testing.TB) {
 	t.Helper()
 
-	client := &http.Client{Timeout: 500 * time.Millisecond}
-	deadline := time.Now().Add(15 * time.Second)
+	client := &http.Client{Timeout: readinessRequestTimeout}
+	deadline := time.Now().Add(readinessDeadline)
 	for time.Now().Before(deadline) {
 		select {
 		case err := <-s.done:
@@ -124,7 +135,7 @@ func (s *Server) WaitForReady(t testing.TB) {
 			}
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(readinessPollInterval)
 	}
 
 	t.Fatalf("timed out waiting for readiness\nstdout:\n%s\nstderr:\n%s", s.stdout.String(), s.stderr.String())
@@ -136,7 +147,7 @@ func (s *Server) WaitForExit(t testing.TB) error {
 	select {
 	case err := <-s.done:
 		return err
-	case <-time.After(15 * time.Second):
+	case <-time.After(exitDeadline):
 		t.Fatalf("timed out waiting for cmd/server exit\nstdout:\n%s\nstderr:\n%s", s.stdout.String(), s.stderr.String())
 		return nil
 	}
@@ -154,7 +165,7 @@ func (s *Server) Stop(t testing.TB) {
 	}
 	select {
 	case <-s.done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(stopDeadline):
 		t.Fatalf("timed out stopping cmd/server\nstdout:\n%s\nstderr:\n%s", s.stdout.String(), s.stderr.String())
 	}
 }
@@ -162,7 +173,7 @@ func (s *Server) Stop(t testing.TB) {
 func (s *Server) RequireStatus(t testing.TB, path string, want int) {
 	t.Helper()
 
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := &http.Client{Timeout: statusRequestTimeout}
 	resp, err := client.Get(s.BaseURL + path)
 	if err != nil {
 		t.Fatalf("request %s: %v", path, err)
@@ -176,7 +187,7 @@ func (s *Server) RequireStatus(t testing.TB, path string, want int) {
 func (s *Server) RequireConnectionRefused(t testing.TB, path string) {
 	t.Helper()
 
-	client := &http.Client{Timeout: 500 * time.Millisecond}
+	client := &http.Client{Timeout: refusalRequestTimeout}
 	if resp, err := client.Get(s.BaseURL + path); err == nil {
 		resp.Body.Close()
 		t.Fatalf("expected %s to be unreachable, got HTTP %d", path, resp.StatusCode)
@@ -273,16 +284,24 @@ func envPairs(env map[string]string) []string {
 
 func serverCommand(t testing.TB) (string, []string) {
 	t.Helper()
-	configured := strings.TrimSpace(os.Getenv(serverHarnessBinEnv))
+	configured, err := resolveServerCommand(os.Getenv(serverHarnessBinEnv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return configured, nil
+}
+
+func resolveServerCommand(rawConfigured string) (string, error) {
+	configured := strings.TrimSpace(rawConfigured)
 	if configured == "" {
-		t.Fatalf("%s is required; run the owning public Make target", serverHarnessBinEnv)
+		return "", fmt.Errorf("%s is required; run the owning public Make target", serverHarnessBinEnv)
 	}
 	info, err := os.Lstat(configured)
 	if err != nil {
-		t.Fatalf("%s is not usable: %v", serverHarnessBinEnv, err)
+		return "", fmt.Errorf("%s is not usable: %w", serverHarnessBinEnv, err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {
-		t.Fatalf("%s must name a regular executable file: %s", serverHarnessBinEnv, configured)
+		return "", fmt.Errorf("%s must name a regular executable file: %s", serverHarnessBinEnv, configured)
 	}
 	return configured, nil
 }

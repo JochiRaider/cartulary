@@ -96,7 +96,7 @@ func PatchRecord(t testing.TB, server *processtest.Server, login loginResult, re
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func RequireTimelineEvidenceCount(t testing.TB, server *processtest.Server, login loginResult, incidentID string, recordID string, wantCount int, wantHasEvidence bool) {
+func RequireTimelineEvidenceCount(t testing.TB, server *processtest.Server, login loginResult, incidentID string, recordID string, wantCount int, wantHasEvidence bool) map[string]any {
 	t.Helper()
 	resp := DoJSON(t, server, http.MethodPost, "/api/v1/incidents/"+incidentID+"/views/cartulary.view.timeline.v2/query", map[string]any{}, withCookies(login.sessionCookie, login.csrfCookie), withHeader(authn.CSRFHeaderName, login.csrfCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
@@ -111,9 +111,10 @@ func RequireTimelineEvidenceCount(t testing.TB, server *processtest.Server, logi
 		if gotCount != wantCount || gotHasEvidence != wantHasEvidence {
 			t.Fatalf("timeline evidence projection got count=%d has=%v want count=%d has=%v", gotCount, gotHasEvidence, wantCount, wantHasEvidence)
 		}
-		return
+		return row
 	}
 	t.Fatalf("timeline row %s not found in query result", recordID)
+	return nil
 }
 
 func PutObject(t testing.TB, baseURL string, href string, payload []byte, contentType string) {

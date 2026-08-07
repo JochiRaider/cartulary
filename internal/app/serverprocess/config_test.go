@@ -10,7 +10,7 @@ import (
 )
 
 func TestEffectiveConfigBackupRoot_Process(t *testing.T) {
-	const websocketPath = "/ws/v1/incidents/00000000-0000-0000-0000-000000000000/views/cartulary.view.timeline.v2/changes"
+	const websocketPath = "/ws/v1/incidents/00000000-0000-0000-0000-000000000000"
 
 	validConfig := string(fixtures.MustRead("config", "valid.toml"))
 	cases := []struct {

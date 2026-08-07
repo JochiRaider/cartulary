@@ -259,6 +259,33 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.process",
+      "collaborator_ids": [
+        "app.server",
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestFreshEnvironmentRestoreWorkbookConsistency_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.store",
@@ -310,6 +337,36 @@
       "status": "active",
       "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.recovery.support_unit.recovery_test_support_preserves_copied_inputs_sa_ef57aa0762",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.support_unit",
+      "collaborator_ids": [
+        "platform.rootedfs"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/testsupport",
+        "tests": [
+          "TestCaptureInputRequiresExplicitIdentityAndBorrowedDependencies_Unit",
+          "TestCaptureParamsPreservesExplicitAnchorsAndDefaultsMissingAnchors_Unit",
+          "TestEvidenceArtifactUsesPrivatePermissions_Unit",
+          "TestEvidenceLocationRejectsNestedExecutionSegments_Unit",
+          "TestSnapshotDigestIsStableAcrossTableAndRowOrder_Unit",
+          "TestTargetFixtureCopiesCallerEnvironment_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     },
     {
       "row_id": "module.recovery.unit.authored_public_route_inventory_exposes_no_api_v_bb82dec1de",

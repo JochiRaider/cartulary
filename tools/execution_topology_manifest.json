@@ -279,9 +279,16 @@
         ]
       },
       {
+        "family_id": "module.networkflow.process",
+        "runtime_binary_ids": [
+          "server-harness"
+        ]
+      },
+      {
         "family_id": "module.recovery.process",
         "runtime_binary_ids": [
-          "operator"
+          "operator",
+          "server-harness"
         ]
       }
     ],

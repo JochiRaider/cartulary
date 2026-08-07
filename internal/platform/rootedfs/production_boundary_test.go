@@ -25,6 +25,11 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 		"internal/platform/postgres",
 	}
 	allowedRawEffects := map[string]map[string]bool{
+		"internal/modules/recovery/testsupport/recovery.go": {
+			"MkdirAll":  true,
+			"ReadFile":  true,
+			"WriteFile": true,
+		},
 		"internal/platform/postgres/migrationevidence/evidence.go": {
 			"ReadFile": true,
 		},

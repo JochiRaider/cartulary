@@ -458,29 +458,6 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "app.server.process.restoring_the_latest_successful_retained_backup_6456371896",
-      "owner_id": "app.server",
-      "family_id": "app.server.process",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "app.server.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/serverprocess",
-        "tests": [
-          "TestFreshEnvironmentRestoreWorkbookConsistency_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
-    },
-    {
       "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
       "owner_id": "app.server",
       "family_id": "app.server.process",
@@ -516,29 +493,6 @@
         "package": "./internal/app/serverprocess",
         "tests": [
           "TestServerEmbeddedFrontendAssets_ProcessSmoke"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
-    },
-    {
-      "row_id": "app.server.process.the_standalone_server_composes_the_network_flow_3d2a5564ba",
-      "owner_id": "app.server",
-      "family_id": "app.server.process",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "app.server.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/app/serverprocess",
-        "tests": [
-          "TestNetworkFlowHarnessRuntimeRouteServerProcessContribution"
         ]
       },
       "evidence_class": "integration",

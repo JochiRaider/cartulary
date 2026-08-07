@@ -2,10 +2,12 @@ package processtest
 
 import (
 	"context"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -30,11 +32,24 @@ func TestStartServerAssignsAddressAndReachesReady(t *testing.T) {
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
 	env := processEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+	originalEnv := maps.Clone(env)
 
 	server := StartServer(t, ServerOptions{Env: env})
+	stopped := false
 	t.Cleanup(func() {
-		server.Stop(t)
+		if !stopped {
+			server.Stop(t)
+		}
 	})
+	if !maps.Equal(env, originalEnv) {
+		t.Fatalf("StartServer mutated caller environment: got %#v want %#v", env, originalEnv)
+	}
+	if server.cmd == nil || server.cmd.Process == nil || server.cmd.Process.Pid <= 0 {
+		t.Fatalf("StartServer did not create a real child process: %#v", server.cmd)
+	}
+	if got, want := server.cmd.Path, os.Getenv(serverHarnessBinEnv); got != want {
+		t.Fatalf("StartServer child command got %q want %q", got, want)
+	}
 
 	if server.Address == "" || server.BaseURL == "" {
 		t.Fatalf("expected assigned process address, got address=%q base_url=%q", server.Address, server.BaseURL)
@@ -43,6 +58,53 @@ func TestStartServerAssignsAddressAndReachesReady(t *testing.T) {
 	server.WaitForReady(t)
 	server.RequireStatus(t, "/healthz", 200)
 	server.RequireStatus(t, "/readyz", 200)
+	server.Stop(t)
+	stopped = true
+	server.RequireConnectionRefused(t, "/healthz")
+}
+
+func TestServerProcessContractDefaults(t *testing.T) {
+	if readinessDeadline != 15*time.Second ||
+		readinessRequestTimeout != 500*time.Millisecond ||
+		readinessPollInterval != 200*time.Millisecond ||
+		exitDeadline != 15*time.Second ||
+		statusRequestTimeout != 2*time.Second ||
+		stopDeadline != 5*time.Second ||
+		refusalRequestTimeout != 500*time.Millisecond {
+		t.Fatalf("unexpected process contract deadlines")
+	}
+}
+
+func TestResolveServerCommandRequiresRegularExecutable(t *testing.T) {
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "server-harness")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatalf("write executable fixture: %v", err)
+	}
+	nonExecutable := filepath.Join(dir, "not-executable")
+	if err := os.WriteFile(nonExecutable, []byte("fixture"), 0o600); err != nil {
+		t.Fatalf("write non-executable fixture: %v", err)
+	}
+	symlink := filepath.Join(dir, "server-harness-link")
+	if err := os.Symlink(executable, symlink); err != nil {
+		t.Fatalf("write symlink fixture: %v", err)
+	}
+
+	if got, err := resolveServerCommand("  " + executable + "  "); err != nil || got != executable {
+		t.Fatalf("resolve executable got %q err=%v", got, err)
+	}
+	for name, configured := range map[string]string{
+		"missing":        "",
+		"unknown":        filepath.Join(dir, "missing"),
+		"non executable": nonExecutable,
+		"symlink":        symlink,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := resolveServerCommand(configured); err == nil {
+				t.Fatalf("resolveServerCommand(%q) unexpectedly succeeded", configured)
+			}
+		})
+	}
 }
 
 func TestStartServerExitsBeforeReadyAndParsesDiagnostics(t *testing.T) {

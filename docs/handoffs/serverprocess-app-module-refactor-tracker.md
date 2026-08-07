@@ -9,21 +9,21 @@
 | Target path | `internal/app/serverprocess` |
 | Target label | `serverprocess-app`, normalized to lowercase kebab case |
 | Output path | `docs/handoffs/serverprocess-app-module-refactor-tracker.md` |
-| Current task | Planning and documentation only; this tracker is the only permitted source change. |
-| Later work | Production, test, contract, harness, topology, generated, or configuration changes require a separately authorized implementation task. |
-| Repository baseline | `main` at `04af1d2c77e817be3bcebfa23829fcd3d2a6891a`; the tracker is an untracked workspace file carried forward from the preceding planning session. |
-| Prior history | The 2026-08-06T22:20:53-04:00 handoff rows are retained. This revision appends the 2026-08-06T23:00:58-04:00 session. |
+| Current task | Completed implementation of S-00 through S-08 under this controlling tracker; every slice has a completed checkpoint and retained evidence. |
+| Later work | Product behavior changes or adopted-owner changes outside S-00 through S-08 require separate authorization. |
+| Repository baseline | `main` at `04af1d2c77e817be3bcebfa23829fcd3d2a6891a`; at S-00 start this tracker is staged as an added file and is the only source/worktree change. |
+| Prior history | The 2026-08-06T22:20:53-04:00 and 2026-08-06T23:00:58-04:00 planning handoff rows are retained. The authorized implementation session began at 2026-08-06T23:18:00-04:00. |
 
-This tracker is a prescriptive implementation plan subordinate to adopted
-owners. It is not an adopted product NLSpec, a production contract, an
-executable harness input, or proof of repository conformance. Requirements in
-this tracker constrain only a later authorized refactor. When this tracker
+This tracker is the completed implementation plan and handoff subordinate to
+adopted owners. It is not an adopted product NLSpec, a production contract, an
+executable harness input, or independent proof of repository conformance.
+Requirements in this tracker constrained this authorized refactor. When it
 conflicts with an adopted owner, the owner controls and implementation MUST
 stop with `BLOCKED: owner contradiction`.
 
 Normative terms have these meanings:
 
-- **MUST** and **MUST NOT** define binary requirements for the later refactor.
+- **MUST** and **MUST NOT** define binary requirements for the refactor.
 - **SHOULD** defines a requirement that may be waived only by recording the
   owner-backed reason and replacement evidence in Section 10.
 - **MAY** grants intentional implementation freedom.
@@ -130,7 +130,6 @@ separate non-overlapping owner row independently proves their postcondition.
 
 | Field | Network Flow replacement | Recovery replacement |
 | --- | --- | --- |
-| Retired row | `app.server.process.the_standalone_server_composes_the_network_flow_3d2a5564ba` | `app.server.process.restoring_the_latest_successful_retained_backup_6456371896` |
 | New row | `module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` | `module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e` |
 | `owner_id` | `module.networkflow` | `module.recovery` |
 | `family_id` | `module.networkflow.process` | `module.recovery.process` |
@@ -155,16 +154,6 @@ The Recovery process family already supplies the operator binary to its
 operator-process selectors. The required sorted binary union is intentional;
 the refactor MUST NOT invent a row-level binary override or new topology schema
 to avoid that shared prerequisite.
-
-### 3.2 Temporary migration crosswalk
-
-This table is documentation-only implementation evidence. It MUST NOT be read
-by harness code, used as a selector, or retained after final reconciliation.
-
-| Old immutable row ID | New immutable row ID | Current disposition |
-| --- | --- | --- |
-| `app.server.process.the_standalone_server_composes_the_network_flow_3d2a5564ba` | `module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` | Planned; old row remains live until an authorized atomic catalog migration. |
-| `app.server.process.restoring_the_latest_successful_retained_backup_6456371896` | `module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e` | Planned; old row remains live until an authorized atomic catalog migration. |
 
 ## 4. Public Contract and Behavior Freeze Map
 
@@ -284,6 +273,29 @@ caller-owned lifecycle, fixture, runtime, security, failure, and evidence
 parity; and introduces no catch-all cross-owner dependency. An unproven field
 means `not_reusable` and the helper remains local.
 
+### 5.3.1 Completed S-01 caller matrix
+
+The following rows are exhaustive for the candidates reviewed in S-01. The
+compressed `Semantics` column records inputs and defaults, runtime identity,
+side effects, resource ownership, fixture capability, security, failure
+behavior, and observability in that order.
+
+| Candidate and current definitions | Callers | Boundary | Semantics | Destination | Decision |
+| --- | --- | --- | --- | --- | --- |
+| `processtest.StartServer`, readiness, exit, stop, refusal, and diagnostics | All `serverprocess` process scenarios and `processtest` self-tests | `subprocess` | Explicit copied env; default `127.0.0.1:0` and inherited FD 3; actual server-harness child; network/process/output effects; helper owns listener and child while caller owns env; managed-process or Postgres-dedicated fixtures; no secret logging and structured stderr preserved; fatal test failure with bounded cleanup; readiness, status, exit, and output remain observable. | `internal/testutil/processtest` | `equivalent`: existing canonical owner-neutral process protocol; no duplicate movement required. |
+| `ServerEnv` and analogous browser/operator environment builders | Every serverprocess startup scenario; browser restore tool; Recovery operator tests | `subprocess` | Caller-supplied database/object/config/bootstrap inputs with package-specific defaults; three different runtime identities; environment/config and temporary-root effects; each caller owns its map and fixtures; fixture capabilities differ; secrets remain process-local; failures and emitted evidence differ; only resulting runtime behavior is shared. | Local to each runtime | `not_reusable`: environment meaning and fixture ownership are not equivalent. |
+| `CreateIncident` and similarly named incident fixtures | Incident, Evidence, Recovery, and Auth process scenarios plus owner-local module tests | `owner_semantic` | Authenticated cookies, CSRF, owner payload, and actual server required; public mutation and database effects; caller owns server/session; Postgres-dedicated fixture; authorization and hidden-resource ordering are material; HTTP envelope failures are evidence; returned incident identity is observed. | Local serverprocess support | `not_reusable`: process-auth choreography is part of the evidence. |
+| `CreateViewRow`, `PatchRecord`, `PutObject`, and `RequireTimelineEvidenceCount` | Evidence process scenario and Recovery sentinel | `owner_semantic` | Explicit server/login/incident/record/view inputs; actual server and upload target; record, revision, projection, object, and network effects; caller owns sessions and process while upload target is ephemeral; Postgres/S3 fixture; cookie, CSRF, and scoped-upload security are material; HTTP failure terminates the test; public envelopes and projection cells are observed. | Local Evidence/Timeline process support | `partially_reusable`: two callers share transport, but owner semantics and public-process evidence stay visible locally. |
+| Shared Postgres/S3 `TestMain` and `sharedProcessHarnesses` | Every serverprocess scenario | `fixture_lifecycle` | Package-global explicit harnesses with no defaults outside `TestMain`; no product runtime; container/database/bucket effects; package creates, resets, and closes resources; capabilities vary by row; credentials stay inside fixture env; setup failure exits the package; lifecycle diagnostics are package evidence. | Local serverprocess package | `not_reusable`: package-wide isolation and reset ownership cannot move. |
+| Direct SQL readiness/session/change-set observations | Startup, Auth, and Recovery process scenarios | `owner_semantic` | Explicit borrowed pool or DSN and owner query; actual server or restored target; read-only database observation; caller owns pool; Postgres-dedicated fixture; no query result enters public diagnostics; SQL failure terminates the test; exact durable state is observed. | Local caller | `not_reusable`: no generic persistence facade may replace stronger process-edge observation. |
+| Recovery capture, selection, restore, verification, artifact proof/write, and consistency helpers in `recovery_sentinel_test.go` | Packaged-server Recovery sentinel; browser/operator flows are independent comparison callers | `owner_semantic` | Required prefix and borrowed Postgres/S3/object stores, optional as-of default returned to caller, explicit evidence location and copied target env; Recovery runtime plus final separate server child; backup/database/object/evidence-file effects; support cleans only resources it creates; Postgres-dedicated fixture; `0700`/`0600`, redaction, and no retained secrets required; typed errors become test failures with cleanup; selected identities, consistency, artifact references, and readiness are observed. | `internal/modules/recovery/testsupport` for Recovery mechanics; final server edge local | `partially_reusable`: one safety-critical protocol benefits from centralization, but browser/operator runtime and final subprocess semantics are not interchangeable. |
+| Pure `appsupport` platform settings and in-process composition | Existing appsupport callers; `OpenObjectStore` is used by the Recovery sentinel | `in_process` | Explicit config and env; in-process adapters only; borrowed dependency creation/close returned to caller; fixture capability supplied by caller; config redaction remains platform-owned; errors are returned; no process evidence or Recovery artifact semantics. | `internal/testutil/appsupport` | `equivalent` only for existing pure helpers; no process or Recovery helper is admitted. |
+
+The Recovery browser helper composes `server.Runtime` in-process and the
+operator rows execute the operator binary. Neither starts the packaged
+server-harness binary against the restored target, so neither can replace the
+sentinel selected by the Recovery replacement row.
+
 ### 5.4 Recovery-owned support interface
 
 Private Go names and internal decomposition are intentionally unspecified. The
@@ -323,8 +335,8 @@ paths while keeping environment lookup outside generalized support.
 
 ## 7. Proposed Refactor Slice Plan
 
-Every slice requires later authorization. Product behavior change is outside
-these slices and requires separate owner adoption.
+S-00 through S-08 are authorized for the current implementation session.
+Product behavior change outside these slices requires separate owner adoption.
 
 | Slice | Depends on | Exact intended change | Likely authored scope | Contract risk | Required tests/evidence | Validation | Rollback | Completion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -340,35 +352,39 @@ these slices and requires separate owner adoption.
 
 ## 8. Validation Plan
 
-### 8.1 Current documentation revision
+### 8.1 Final implementation state
 
 | Layer | Command | Required result |
 | --- | --- | --- |
 | Markdown | `make lint-markdown` | Pass after the final tracker edit. |
-| Whitespace | `git diff --check -- docs/handoffs/serverprocess-app-module-refactor-tracker.md` | No output and exit `0`. |
-| Scope | `git status --short` and `git diff --name-only` | Only this tracker is a source/worktree change. |
+| Whitespace | `git diff --check` | No output and exit `0`. |
+| Scope | `git status --short`, `git diff --name-only`, and untracked-file inventory | Exactly the sixteen paths in §12.2; ignored Recovery runtime evidence remains untouched. |
 
-### 8.2 Later authorized implementation
+### 8.2 Executed implementation validation
 
-The later implementation MUST run in this order and MUST record every result
-root. A broad pass does not prove that an affected exact row executed.
+S-08 ran in this order and recorded every result root in Section 10. A broad
+pass does not replace the affected exact-row evidence.
 
 | Order | Command | Purpose |
 | --- | --- | --- |
-| 1 | Current exact owner/service-backed rows from S-00 | Baseline before mutation. |
-| 2 | `make test-catalog-check` | Owner, family, verification, collaborator, identity, and selector integrity. |
-| 3 | `make json-shape-check` | Authored manifest and topology shape. |
-| 4 | `make generate` | Refresh generated topology through the public generator. |
-| 5 | `make generate-drift` | Prove authored/generated equivalence. |
-| 6 | `make generated-artifact-policy-check` | Prove generated-root edit policy. |
-| 7 | `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` | Exact migrated Network Flow process evidence. |
-| 8 | `make service-backed-test-slice OWNER=module.recovery ROWS=module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e` | Exact migrated Recovery process evidence. |
-| 9 | `make service-backed-test-slice OWNER=app.server` | Remaining app.server process evidence after re-ownership. |
-| 10 | `make backend-module-boundary-check` | Import and explicit allowance integrity. |
-| 11 | `make backend-process` | Canonical aggregate process topology. |
-| 12 | `make harness-contract` | Harness contract, catalog, and topology closure. |
-| 13 | `make agent-finalize` | Finalizer and retained-run maintenance; record when `RESULTS_DIR` is unset. |
-| 14 | `make check` | Broad developer gate after all narrow evidence passes. |
+| 1 | `make test-catalog-check` | Owner, family, verification, collaborator, identity, and selector integrity. |
+| 2 | `make json-shape-check` | Authored manifest and topology shape. |
+| 3 | `make generate` | Refresh generated topology through the public generator. |
+| 4 | `make generate-drift` | Prove authored/generated equivalence. |
+| 5 | `make generated-artifact-policy-check` | Prove generated-root edit policy. |
+| 6 | `make test-slice OWNER=module.networkflow` | Complete focused Network Flow owner evidence. |
+| 7 | Exact service-backed Network Flow replacement row | Unique packaged-server Network Flow evidence. |
+| 8 | `make test-slice OWNER=module.recovery` | Complete focused Recovery owner evidence. |
+| 9 | Exact service-backed Recovery replacement row | Unique packaged-server AC-399 evidence. |
+| 10 | `make test-slice OWNER=app.server` | Remaining focused app.server evidence. |
+| 11 | `make service-backed-test-slice OWNER=app.server` | Remaining service-backed app.server evidence. |
+| 12 | `make backend-module-boundary-check` | Import and explicit allowance integrity. |
+| 13 | `make backend-process` | Canonical aggregate process topology. |
+| 14 | `make harness-contract` | Harness contract, catalog, and topology closure. |
+| 15 | `make agent-finalize` | Finalizer; `RESULTS_DIR` was unset, so retained-run maintenance was skipped and recorded. |
+| 16 | `make check` | Broad developer gate after all narrow evidence passes. |
+| 17 | `make lint-markdown` | Final tracker structure. |
+| 18 | `git diff --check`, diff audit, and `git status --short` | Whitespace and exact final scope. |
 
 `make browser-e2e` is not required unless a later slice changes packaged
 frontend behavior. The duplicate-evidence review does not itself authorize a
@@ -382,17 +398,31 @@ browser change.
 | SPT-002 | Close Network Flow owner and identity decision | WF-03 | DONE | SPT-001 | Section 3 exact mapping | No architectural decision remains; implementation is S-03. |
 | SPT-003 | Close Recovery owner, uniqueness, and identity decision | WF-02/WF-03 | DONE | SPT-001 | Sections 3 and 4 | No ownership question remains; implementation is S-02/S-04. |
 | SPT-004 | Close helper classification decision | WF-02/WF-04 | DONE | SPT-001 | Section 5 | Default, destinations, matrix, and output boundary are exact. |
-| SPT-005 | Establish current exact baseline | WF-01 | TODO | later authorization | S-00 | Before roots are retained. |
-| SPT-006 | Complete characterization and AC-399 gaps | WF-02 | TODO | SPT-005 | S-01/S-02 | Matrices and assertions pass. |
-| SPT-007 | Migrate Network Flow catalog/topology | WF-03 | TODO | SPT-006 | S-03 | Exact new row is active and old row absent. |
-| SPT-008 | Migrate Recovery catalog/topology | WF-03 | TODO | SPT-006 | S-04 | Exact new row is active and old row absent. |
-| SPT-009 | Extract admitted Recovery helpers | WF-04 | TODO | SPT-007, SPT-008 | S-05 | Recovery support and final subprocess edge satisfy Section 5. |
-| SPT-010 | Normalize refusal literal and remove obsolete wrappers | WF-05 | TODO | SPT-007, SPT-008 | S-06 | Behavior is unchanged and no stale path remains. |
-| SPT-011 | Reconcile and remove temporary crosswalk | WF-06 | TODO | SPT-009, SPT-010 | S-07 | Final retained report exists and no alias remains. |
-| SPT-012 | Run final implementation verification | WF-06 | TODO | SPT-011 | S-08 | All affected and broad gates pass or are accurately blocked. |
+| SPT-005 | Establish current exact baseline | WF-01 | DONE | authorized implementation | S-00 | Exact old-row and full app.server before roots are retained. |
+| SPT-006 | Complete characterization and AC-399 gaps | WF-02 | DONE | SPT-005 | S-01/S-02 | Concrete matrix and explicit AC-399 assertions pass. |
+| SPT-007 | Migrate Network Flow catalog/topology | WF-03 | DONE | SPT-006 | S-03 | Exact new row is active and old row absent. |
+| SPT-008 | Migrate Recovery catalog/topology | WF-03 | DONE | SPT-006 | S-04 | Exact new row is active and old row absent. |
+| SPT-009 | Extract admitted Recovery helpers | WF-04 | DONE | SPT-007, SPT-008 | S-05 | Recovery support and final subprocess edge satisfy Section 5. |
+| SPT-010 | Normalize refusal literal and remove obsolete wrappers | WF-05 | DONE | SPT-007, SPT-008 | S-06 | Behavior is unchanged and no stale path remains. |
+| SPT-011 | Reconcile and remove temporary crosswalk | WF-06 | DONE | SPT-009, SPT-010 | S-07 | Final retained report exists and no alias remains. |
+| SPT-012 | Run final implementation verification | WF-06 | DONE | SPT-011 | S-08 | All affected and broad gates pass; the related lint failure and retry are retained. |
 | SPT-013 | Revise this tracker in NLSpec voice | WF-00 | DONE | SPT-001 through SPT-004 | This file and lint root `.cartulary/test-results/20260807T030530Z-p382756` | Markdown, whitespace, and sole-file scope checks pass. |
 
 ## 10. Session Handoff Log
+
+### Authorized implementation workstreams
+
+| Slice | Started | Completed | Status | Files changed | Commands and retained evidence | Outcome and rollback | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S-00 | 2026-08-06T23:18:00-04:00 | 2026-08-06T23:19:17-04:00 | DONE | Tracker only. | Live baseline: `main` at `04af1d2c77e817be3bcebfa23829fcd3d2a6891a`; tracker staged as added; fifteen ignored Recovery evidence files observed without reading or mutation. Exact old rows passed at `.cartulary/test-results/20260807T031823Z-p395339`; full app.server service-backed slice passed at `.cartulary/test-results/20260807T031845Z-p414291`; tracker lint passed at `.cartulary/test-results/20260807T031931Z-p436514`. | Baseline is trustworthy; no unexplained source diff; no rollback applicable. | Begin S-01 characterization. |
+| S-01 | 2026-08-06T23:20:00-04:00 | 2026-08-06T23:26:12-04:00 | DONE | Tracker; `internal/testutil/processtest/processtest.go`; `internal/testutil/processtest/processtest_test.go`. | Completed §5.3.1 matrix; `make format` passed at `.cartulary/test-results/20260807T032053Z-p438573`. Initial app.server owner slice had an infrastructure-only browser cleanup failure at `.cartulary/test-results/20260807T032213Z-p441949` after its selected browser row passed; exact retry passed at `.cartulary/test-results/20260807T032316Z-p468358`. Recovery owner slice passed at `.cartulary/test-results/20260807T032346Z-p490553`; Network Flow owner slice passed at `.cartulary/test-results/20260807T032426Z-p525284`; `make backend-process` passed at `.cartulary/test-results/20260807T032548Z-p557671`. | Characterization freezes executable validation, env ownership, child identity, deadlines, shutdown, and refusal. Failure was transient harness cleanup and did not recur; no rollback applied. | Begin S-02 AC-399 assertions. |
+| S-02 | 2026-08-06T23:27:00-04:00 | 2026-08-06T23:34:00-04:00 | DONE | Tracker; `internal/app/serverprocess/evidence_process_test.go`; `internal/app/serverprocess/recovery_sentinel_test.go`. | Added source/restored identity, row-version, canonical snapshot/change-set/blob digest, count, lifecycle, byte-hash, step-order, readiness, manifest, and v2 workbook-probe equality. First strengthened run at `.cartulary/test-results/20260807T032954Z-p593817` correctly rejected a test assumption that encrypted artifact SHA equaled canonical snapshot SHA; the test was repaired to derive the owner algorithm independently. Exact old row passed at `.cartulary/test-results/20260807T033216Z-p617114`; Recovery service-backed slice passed at `.cartulary/test-results/20260807T033244Z-p636437`; app.server service-backed slice passed at `.cartulary/test-results/20260807T033324Z-p670494`. | Failure was caused by the new assertion implementation, not product behavior; no assertion was weakened and no product rollback applied. AC-401 cadence, due-selection, basis-change, and attestation behavior remain excluded. | Begin S-03 Network Flow migration. |
+| S-03 | 2026-08-06T23:35:00-04:00 | 2026-08-06T23:37:32-04:00 | DONE | Tracker; app.server and Network Flow authored family manifests; authored topology; generated topology render index. | Old row removed; exact `module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27` row and `server-harness` mapping added. Pre-generation JSON shape correctly reported stale generated inputs at `.cartulary/test-results/20260807T033504Z-p697560`; `make generate` passed at `.cartulary/test-results/20260807T033514Z-p698225`, JSON shape at `.cartulary/test-results/20260807T033521Z-p700516`, drift at `.cartulary/test-results/20260807T033524Z-p700914`, and policy at `.cartulary/test-results/20260807T033531Z-p703609`. Exact new row passed at `.cartulary/test-results/20260807T033541Z-p704143`; remaining app.server service-backed rows at `.cartulary/test-results/20260807T033602Z-p723196`; backend-process at `.cartulary/test-results/20260807T033635Z-p747826`; owner fault-control row at `.cartulary/test-results/20260807T033719Z-p778312`. | The stale-input failure was expected migration ordering evidence and cleared after public generation; no rollback applied. One active owner-local selector remains. | Begin S-04 Recovery migration. |
+| S-04 | 2026-08-06T23:38:00-04:00 | 2026-08-06T23:42:01-04:00 | DONE | Tracker; app.server and Recovery authored family manifests; authored topology; generated topology render index. | Old row removed; exact `module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e` row added; Recovery process binary union is `operator, server-harness`. Generate passed at `.cartulary/test-results/20260807T033829Z-p782093`, JSON shape at `.cartulary/test-results/20260807T033837Z-p784359`, drift at `.cartulary/test-results/20260807T033839Z-p784761`, and policy at `.cartulary/test-results/20260807T033846Z-p787460`. Exact new sentinel passed at `.cartulary/test-results/20260807T033853Z-p787918`; existing operator rows at `.cartulary/test-results/20260807T033918Z-p817536`; remaining app.server rows at `.cartulary/test-results/20260807T033951Z-p847372`; backend-process at `.cartulary/test-results/20260807T034022Z-p871936`; boundary check at `.cartulary/test-results/20260807T034155Z-p902334`. | Atomic transaction passes with both prerequisites and no duplicate selector; no rollback applied. | Begin S-05 Recovery testsupport extraction. |
+| S-05 | 2026-08-06T23:43:00-04:00 | 2026-08-07T00:01:25-04:00 | DONE | Tracker; Recovery sentinel; new `internal/modules/recovery/testsupport`; Recovery family manifest and test-support inventory; rooted-filesystem boundary test. | Recovery capture, selection, restore, consistency, and verification-artifact mechanics now use typed copied inputs and explicit borrowed dependencies; source/public-route seeding and the final server-harness/login/query/shutdown remain local. Format passed at `.cartulary/test-results/20260807T035153Z-p907566`, `.cartulary/test-results/20260807T035421Z-p960652`, `.cartulary/test-results/20260807T035656Z-p1043763`, and `.cartulary/test-results/20260807T035814Z-p1077447`; JSON shape passed at `.cartulary/test-results/20260807T035424Z-p963636`. The first fast suite found the undeclared filesystem boundary at `.cartulary/test-results/20260807T035202Z-p910714`; after registering owner-local runtime-excluded support and its exact effects, it passed at `.cartulary/test-results/20260807T035430Z-p964189`. The first exact sentinel compile exposed a missing explicit Evidence provider at `.cartulary/test-results/20260807T035613Z-p1013559`; the dependency was made explicit and the row passed at `.cartulary/test-results/20260807T035700Z-p1046760`. Catalog check passed; the new support-unit row passed at `.cartulary/test-results/20260807T035818Z-p1080750`; full Recovery focused and service-backed slices passed at `.cartulary/test-results/20260807T035827Z-p1081171` and `.cartulary/test-results/20260807T035913Z-p1116420`; app.server focused and service-backed slices passed at `.cartulary/test-results/20260807T035947Z-p1149119` and `.cartulary/test-results/20260807T040024Z-p1174665`; backend-process and boundary checks passed at `.cartulary/test-results/20260807T040055Z-p1196736` and `.cartulary/test-results/20260807T040117Z-p1226905`. | Both failures were related extraction defects and were corrected structurally without weakening assertions. Support reads no environment, starts no process, closes no borrowed resource, emits only caller-located artifacts, and enforces `0700`/`0600`; no rollback applied. | Begin S-06 mechanical cleanup. |
+| S-06 | 2026-08-07T00:02:15-04:00 | 2026-08-07T00:03:45-04:00 | DONE | Tracker; `internal/app/serverprocess/config_test.go`; `internal/app/serverprocess/e2e_test.go`. | Replaced all four refusal-only view-specific literals with `/ws/v1/incidents/00000000-0000-0000-0000-000000000000`. No remaining wrapper was zero-caller: target construction, object-store composition, Recovery catalog, encrypted backup storage, and evidence-location resolution remain semantically meaningful local adapters. The three exact config/bootstrap rows passed together at `.cartulary/test-results/20260807T040243Z-p1229473`; backend-process passed at `.cartulary/test-results/20260807T040308Z-p1249187`. | Connection-refused behavior and process diagnostics are unchanged; repository scan finds no stale literal and no wrapper rollback was needed. | Begin S-07 reconciliation. |
+| S-07 | 2026-08-07T00:04:10-04:00 | 2026-08-07T00:06:20-04:00 | DONE | Tracker; all authored family manifests and topology inspected; generated topology render index regenerated from authored inputs. | Reconciliation scan found neither retired ID in active source/input roots. Exactly one row selects each migrated process test with exact owner, family, collaborators, verifier, and selector; topology resolves Network Flow to `server-harness` and Recovery to `operator, server-harness`. Catalog check passed. Pre-generation JSON shape correctly reported the newly added support row as stale at `.cartulary/test-results/20260807T040512Z-p1283796`; `make generate` passed at `.cartulary/test-results/20260807T040525Z-p1284464`, JSON shape at `.cartulary/test-results/20260807T040532Z-p1286732`, drift at `.cartulary/test-results/20260807T040535Z-p1287130`, and policy at `.cartulary/test-results/20260807T040542Z-p1289849`. Harness contract, backend-process, and boundary reconciliation passed at `.cartulary/test-results/20260807T040547Z-p1290357`, `.cartulary/test-results/20260807T040550Z-p1290787`, and `.cartulary/test-results/20260807T040609Z-p1320490`. | Generated change is policy-declared and attributable to the authored Recovery support-unit row. The documentation crosswalk and retired-row target mapping were removed; no executable alias exists and no rollback applied. | Begin S-08 ordered final validation. |
+| S-08 | 2026-08-07T00:07:40-04:00 | 2026-08-07T00:28:26-04:00 | DONE | All sixteen paths inventoried in §12.2; generated render index changed only through Make; tracker completed. | In order: catalog check passed without a retained root; JSON shape `.cartulary/test-results/20260807T040745Z-p1323194`; generate `.cartulary/test-results/20260807T040747Z-p1323582`; drift `.cartulary/test-results/20260807T040755Z-p1325841`; policy `.cartulary/test-results/20260807T040802Z-p1328545`; Network Flow owner `.cartulary/test-results/20260807T040806Z-p1328995`; exact Network Flow `.cartulary/test-results/20260807T040927Z-p1361412`; Recovery owner `.cartulary/test-results/20260807T040947Z-p1380476`; exact Recovery `.cartulary/test-results/20260807T041024Z-p1415002`; app.server owner `.cartulary/test-results/20260807T041048Z-p1444487`; app.server service-backed `.cartulary/test-results/20260807T041122Z-p1468129`; boundary `.cartulary/test-results/20260807T041155Z-p1490152`; backend-process `.cartulary/test-results/20260807T041156Z-p1490477`; harness-contract `.cartulary/test-results/20260807T041215Z-p1520075`; agent-finalize `.cartulary/test-results/20260807T041222Z-p1520528`. `RESULTS_DIR` was unset, so retained-run maintenance was skipped. The first check reached 715/716 and failed related Go lint at `.cartulary/test-results/20260807T041236Z-p1523196`; error capitalization was fixed, format passed at `.cartulary/test-results/20260807T041726Z-p1680903`, focused Go lint passed, and check passed at `.cartulary/test-results/20260807T041740Z-p1687871`. The final audit then made copied-environment cleanup explicitly idempotent: format `.cartulary/test-results/20260807T042258Z-p1849377`, support-unit `.cartulary/test-results/20260807T042302Z-p1852373`, exact Recovery `.cartulary/test-results/20260807T042304Z-p1852756`, agent-finalize `.cartulary/test-results/20260807T042333Z-p1882686`, and definitive check `.cartulary/test-results/20260807T042344Z-p1885318`. Final Markdown passed at `.cartulary/test-results/20260807T043042Z-p2046148`; whitespace/diff/status audit passed. | The only broad failure was related staticcheck style in new support and was corrected without rollback or behavior change. All 716 check units pass, no check was skipped except inapplicable retained-run maintenance, no unexplained diff remains, and no runtime alias was introduced. | Handoff complete; no follow-on remediation is required. |
 
 ### Scope and authority
 
@@ -450,9 +480,9 @@ resolved decisions and their implementation preconditions.
 
 | ID | Resolved decision | Why it matters | Required implementation evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Network Flow owns the exact replacement process row; app.server is its collaborator; only Network Flow verification IDs are valid. | Satisfies TH-HARNESS-REQ-658/667 without treating the process package as owner. | S-03 catalog/topology transaction and exact new-row result root. | RESOLVED DECISION — IMPLEMENTATION PENDING |
-| RB-002 | Recovery owns the exact replacement process row; app.server, Evidence, and Timeline are collaborators; the packaged-server sentinel is unique. | Assigns the AC-399-class aggregate postcondition to Recovery without losing real-process proof. | S-02 assertions, S-04 migration, and exact Recovery result root. | RESOLVED DECISION — IMPLEMENTATION PENDING |
-| RB-003 | Default helper disposition is local; only a complete equivalence matrix can admit movement to processtest, appsupport, or Recovery testsupport. | Prevents in-process substitution, lifecycle drift, and a new catch-all helper package. | S-01 matrix and S-05 per-family before/after evidence. | RESOLVED DECISION — IMPLEMENTATION PENDING |
+| RB-001 | Network Flow owns the exact replacement process row; app.server is its collaborator; only Network Flow verification IDs are valid. | Satisfies TH-HARNESS-REQ-658/667 without treating the process package as owner. | S-03 catalog/topology transaction and exact new-row result root. | RESOLVED AND IMPLEMENTED |
+| RB-002 | Recovery owns the exact replacement process row; app.server, Evidence, and Timeline are collaborators; the packaged-server sentinel is unique. | Assigns the AC-399-class aggregate postcondition to Recovery without losing real-process proof. | S-02 assertions, S-04 migration, and exact Recovery result root. | RESOLVED AND IMPLEMENTED |
+| RB-003 | Default helper disposition is local; only a complete equivalence matrix can admit movement to processtest, appsupport, or Recovery testsupport. | Prevents in-process substitution, lifecycle drift, and a new catch-all helper package. | S-01 matrix and S-05 per-family before/after evidence. | RESOLVED AND IMPLEMENTED |
 
 ## 12. Binary Completion Criteria
 
@@ -460,34 +490,47 @@ resolved decisions and their implementation preconditions.
 
 | Acceptance | Requirement | Binary criterion | Current state |
 | --- | --- | --- | --- |
-| SPT-AC-001 | SPT-REQ-001 | No owner contradiction is present; no Core 00-04 edit is proposed; authority order is explicit. | PASS for planning |
-| SPT-AC-002 | SPT-REQ-002 | No production Go file exists in target and every future slice retains actual child-process evidence. | PASS for planning |
-| SPT-AC-003 | SPT-REQ-003 | Section 4 maps every discovered observable contract to an owner, evidence, characterization, and frozen outcome. | PASS for planning |
-| SPT-AC-004 | SPT-REQ-004 | Exactly one active row selects the Network Flow test; it has the exact new ID, owner, family, collaborator, verification, profiles, fixture, tier, and posture in Section 3. | PENDING S-03 |
-| SPT-AC-005 | SPT-REQ-005 | Exactly one active row selects the Recovery test; it has the exact new ID and mapping in Section 3, and no browser/operator row replaces its packaged-server proof. | PENDING S-04 |
-| SPT-AC-006 | SPT-REQ-006 | Row IDs reproduce through the recorded authoring commands and topology supplies server-harness to Network Flow process and operator plus server-harness to Recovery process. | PENDING S-03/S-04 |
-| SPT-AC-007 | SPT-REQ-007 | Old IDs are absent from active catalogs and runtime inputs; no selector overlaps; final reconciliation is retained; temporary crosswalk is removed. | PENDING S-07 |
-| SPT-AC-008 | SPT-REQ-008 | Every AC-399 matrix row passes with explicit equality where required, and the row carries no AC-401 claim. | PENDING S-02 |
-| SPT-AC-009 | SPT-REQ-009 | Every candidate helper has the exact destination or local disposition in Section 5; no unadmitted helper moves. | PENDING S-01/S-05 |
-| SPT-AC-010 | SPT-REQ-010 | Every moved helper has a complete matrix row for every caller and satisfies all admission predicates. | PENDING S-05 |
-| SPT-AC-011 | SPT-REQ-011 | Process-support tests prove required binary, real child identity, listener/readiness defaults, bounded exit/stop, and diagnostics behavior. | PENDING affected S-05 evidence |
-| SPT-AC-012 | SPT-REQ-012 | Recovery support returns every required semantic output, preserves permissions/redaction/ownership, and cannot start the final server sentinel. | PENDING S-05 |
-| SPT-AC-013 | SPT-REQ-013 | All Section 8 implementation commands pass in order with exact roots, or a failure is recorded with relation and rollback; generated roots have no hand edit. | PENDING S-08 |
-| SPT-AC-014 | SPT-REQ-014 | Each completed slice has a current handoff row, no unexplained diff, and no unreported skipped check. | PASS for planning; pending implementation handoffs |
+| SPT-AC-001 | SPT-REQ-001 | No owner contradiction is present; no Core 00-04 edit is proposed; authority order is explicit. | PASS in S-00 through S-08 |
+| SPT-AC-002 | SPT-REQ-002 | No production Go file exists in target and every future slice retains actual child-process evidence. | PASS in S-01 through S-08 |
+| SPT-AC-003 | SPT-REQ-003 | Section 4 maps every discovered observable contract to an owner, evidence, characterization, and frozen outcome. | PASS in S-01/S-02/S-08 |
+| SPT-AC-004 | SPT-REQ-004 | Exactly one active row selects the Network Flow test; it has the exact new ID, owner, family, collaborator, verification, profiles, fixture, tier, and posture in Section 3. | PASS in S-03 |
+| SPT-AC-005 | SPT-REQ-005 | Exactly one active row selects the Recovery test; it has the exact new ID and mapping in Section 3, and no browser/operator row replaces its packaged-server proof. | PASS in S-04 |
+| SPT-AC-006 | SPT-REQ-006 | Row IDs reproduce through the recorded authoring commands and topology supplies server-harness to Network Flow process and operator plus server-harness to Recovery process. | PASS in S-03/S-04 |
+| SPT-AC-007 | SPT-REQ-007 | Old IDs are absent from active catalogs and runtime inputs; no selector overlaps; final reconciliation is retained; temporary crosswalk is removed. | PASS in S-07 |
+| SPT-AC-008 | SPT-REQ-008 | Every AC-399 matrix row passes with explicit equality where required, and the row carries no AC-401 claim. | PASS in S-02 |
+| SPT-AC-009 | SPT-REQ-009 | Every candidate helper has the exact destination or local disposition in Section 5; no unadmitted helper moves. | PASS in S-01/S-05 |
+| SPT-AC-010 | SPT-REQ-010 | Every moved helper has a complete matrix row for every caller and satisfies all admission predicates. | PASS in S-05 |
+| SPT-AC-011 | SPT-REQ-011 | Process-support tests prove required binary, real child identity, listener/readiness defaults, bounded exit/stop, and diagnostics behavior. | PASS in S-01/S-05 |
+| SPT-AC-012 | SPT-REQ-012 | Recovery support returns every required semantic output, preserves permissions/redaction/ownership, and cannot start the final server sentinel. | PASS in S-05 |
+| SPT-AC-013 | SPT-REQ-013 | All Section 8 implementation commands pass in order with exact roots, or a failure is recorded with relation and rollback; generated roots have no hand edit. | PASS in S-08 |
+| SPT-AC-014 | SPT-REQ-014 | Each completed slice has a current handoff row, no unexplained diff, and no unreported skipped check. | PASS in S-00 through S-08 |
 
-### 12.2 Tracker revision completion
+### 12.2 Final changed-file inventory
 
-This documentation revision is complete only when:
+The completed implementation changes exactly these sixteen source paths:
 
-- all ten tracked files and fifteen ignored runtime-evidence files remain
-  inventoried;
-- every exact mapping, default, interface, workflow, rollback, and acceptance
-  criterion above is present without contradiction;
-- RB-001 through RB-003 remain decision-resolved and implementation-pending;
-- the preceding handoff history and the new session rows are both retained;
-- `make lint-markdown` and `git diff --check` pass on the final text; and
-- this tracker is the only changed repository source path.
+- `docs/handoffs/serverprocess-app-module-refactor-tracker.md`
+- `internal/app/serverprocess/config_test.go`
+- `internal/app/serverprocess/e2e_test.go`
+- `internal/app/serverprocess/evidence_process_test.go`
+- `internal/app/serverprocess/recovery_sentinel_test.go`
+- `internal/modules/recovery/testsupport/recovery.go`
+- `internal/modules/recovery/testsupport/recovery_test.go`
+- `internal/platform/rootedfs/production_boundary_test.go`
+- `internal/testutil/processtest/processtest.go`
+- `internal/testutil/processtest/processtest_test.go`
+- `tools/execution_topology_manifest.json`
+- `tools/execution_topology_render_index.json`
+- `tools/test_families/app.server.json`
+- `tools/test_families/module.networkflow.json`
+- `tools/test_families/module.recovery.json`
+- `tools/test_support_inventory.json`
 
-Completion of this tracker MUST NOT be interpreted as authorization for any
-production refactor, test movement, catalog edit, topology edit, generation,
-or behavioral change.
+The generated render index is attributable to authored topology/catalog input
+and was changed only by `make generate`. Core 00 through Core 04,
+`docs/domain.md`, public product contracts, frontend sources, dependency locks,
+and the fifteen ignored Recovery runtime-evidence files were not modified.
+Prior planning history and every implementation checkpoint remain retained.
+All acceptance criteria pass; there is no open architectural question,
+rollback, runtime compatibility alias, skipped applicable check, or follow-on
+remediation.

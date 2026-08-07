@@ -92,6 +92,15 @@
       "rationale": "Current-envelope seed and assertion helpers without service-starting entrypoints."
     },
     {
+      "path": "internal/modules/recovery/testsupport",
+      "owner": "recovery",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Recovery capture, restore, verification, consistency, and safe-artifact helpers; final packaged-server startup remains at the process edge."
+    },
+    {
       "path": "internal/modules/timeline/testsupport",
       "owner": "timeline",
       "posture": "owner_local",

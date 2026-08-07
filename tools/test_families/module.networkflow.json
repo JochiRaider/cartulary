@@ -539,6 +539,31 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.process",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/serverprocess",
+        "tests": [
+          "TestNetworkFlowHarnessRuntimeRouteServerProcessContribution"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
+    },
+    {
       "row_id": "module.networkflow.store.network_flow_selector_covers_only_active_and_sof_400db83232",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.store",
