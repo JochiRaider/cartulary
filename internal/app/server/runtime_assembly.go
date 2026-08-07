@@ -122,18 +122,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("admit packaged extension registry: %w", err)
 	}
-	enterpriseAuthenticationConfiguration, err := loadedConfiguration.EnterpriseAuthentication()
-	if err != nil {
-		return nil, fmt.Errorf("project Enterprise Authentication configuration: %w", err)
-	}
-	networkFlowConfiguration, err := loadedConfiguration.NetworkFlow()
-	if err != nil {
-		return nil, fmt.Errorf("project Network Flow configuration: %w", err)
-	}
 	if err := loadedConfiguration.ValidateForStartup(); err != nil {
 		return nil, err
 	}
 	normalizedCfg := loadedConfiguration.Deployment()
+	enterpriseAuthenticationConfiguration := normalizedCfg.EnterpriseAuthentication
+	networkFlowConfiguration := normalizedCfg.NetworkFlowActivity
 	settingsProjection := newApplicationSettingsProjection(normalizedCfg)
 	runtimeSettings := settingsProjection.Runtime()
 	socketTransport := newCollaborationSocketTransport(normalizedCfg.Application.PublicOrigin)
@@ -258,23 +252,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("bind packaged browser contracts: %w", err)
 		}
 	}
-	descriptors := extensionCoordinator.Descriptors()
-	claimPaths, err := extensionassembly.ClaimConfigurationPaths(descriptors)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("project extension claim configuration: %w", err)
-	}
-	claimValues, err := loadedConfiguration.BooleanValuesAtPaths(claimPaths)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("project extension claim configuration: %w", err)
-	}
-	requestedClaims, err := extensionassembly.ResolveClaimRequest(descriptors, claimValues)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("materialize extension claim request: %w", err)
-	}
-	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims)
+	requestedClaims := loadedConfiguration.RequestedClaims()
+	claimResolution, err := extensionCoordinator.ResolveClaims(requestedClaims.ProfileIDs())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("resolve extension claims: %w", err)

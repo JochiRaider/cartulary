@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -63,11 +62,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 		stdout: normalizeServerWriter(stdout),
 		stderr: normalizeServerWriter(stderr),
 		loadConfig: func() (configassembly.Loaded, error) {
-			policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
-			if err != nil {
-				return configassembly.Loaded{}, err
-			}
-			loaded, err := configassembly.Load(config.LoadOptions{InactivePolicy: policy})
+			loaded, err := configassembly.Load(config.LoadOptions{})
 			if err != nil {
 				return configassembly.Loaded{}, err
 			}

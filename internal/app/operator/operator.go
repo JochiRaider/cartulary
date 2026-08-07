@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -34,11 +33,7 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 	stderr = normalizeOperatorWriter(stderr)
 	transport := operatorTransport{stdout: stdout, stderr: stderr}
 	loadConfig := func(path string) (configassembly.Loaded, error) {
-		policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
-		if err != nil {
-			return configassembly.Loaded{}, err
-		}
-		options := config.LoadOptions{InactivePolicy: policy}
+		options := config.LoadOptions{}
 		if strings.TrimSpace(path) == "" {
 			loaded, err := configassembly.Load(options)
 			if err != nil {

@@ -25,8 +25,11 @@ func (catalog Catalog) materialize(cfg document) (Snapshot, error) {
 	diagnostics := make([]Diagnostic, 0)
 	source := documentSource{document: cloneConfig(cfg)}
 	for _, entry := range catalog.entries {
-		value, findings := entry.project(source)
+		value, findings := entry.project(&cfg, source)
 		diagnostics = append(diagnostics, findings...)
+		if value == nil {
+			continue
+		}
 		values[entry.id] = snapshotValue{
 			valueType: entry.valueType,
 			value:     entry.clone(value),
@@ -57,7 +60,11 @@ func LoadSnapshotWithOptions(options LoadOptions, catalog Catalog) (Snapshot, er
 // deployment artifact. Application assembly uses this for composition tests;
 // production startup uses LoadSnapshotWithOptions and its selected file.
 func LoadSnapshotFromTOML(data []byte, options LoadOptions, catalog Catalog) (Snapshot, error) {
-	cfg, err := decodeDocumentWithCatalog(append([]byte(nil), data...), options, catalog)
+	claims, err := newClaimCatalog(options.ExtensionPolicy)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	cfg, err := decodeDocumentWithCatalog(append([]byte(nil), data...), options, catalog, claims)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -70,9 +77,10 @@ func (snapshot Snapshot) Decode(path string, destination any) error {
 	return documentSource{document: cloneConfig(snapshot.core)}.Decode(path, destination)
 }
 
-// SnapshotBooleanValuesAtPaths projects exact normalized Boolean paths.
-func SnapshotBooleanValuesAtPaths(snapshot Snapshot, paths []string) (map[string]bool, error) {
-	return booleanValuesAtPaths(snapshot.core, paths)
+// RequestedClaimRegistrationIDs returns only registered claims whose admitted
+// effective value is true. The returned identity list is defensive and sorted.
+func RequestedClaimRegistrationIDs(snapshot Snapshot) []string {
+	return requestedClaimRegistrationIDs(snapshot.core)
 }
 
 // ValidateSnapshotForStartup verifies canonical root readiness without exposing the
@@ -106,10 +114,16 @@ func Value[T any](snapshot Snapshot, key Key[T]) (T, error) {
 
 func cloneConfig(cfg document) document {
 	cloned := cfg
-	if cfg.Telemetry.Exporter.Headers != nil {
-		cloned.Telemetry.Exporter.Headers = make(map[string]telemetrySecretDocument, len(cfg.Telemetry.Exporter.Headers))
-		for name, reference := range cfg.Telemetry.Exporter.Headers {
-			cloned.Telemetry.Exporter.Headers[name] = reference
+	if cfg.claims != nil {
+		cloned.claims = make(map[string]registeredClaim, len(cfg.claims))
+		for path, claim := range cfg.claims {
+			cloned.claims[path] = claim
+		}
+	}
+	if cfg.namespaces != nil {
+		cloned.namespaces = make(map[string]any, len(cfg.namespaces))
+		for namespace, value := range cfg.namespaces {
+			cloned.namespaces[namespace] = cloneReflectValue(reflect.ValueOf(value)).Interface()
 		}
 	}
 	return cloned

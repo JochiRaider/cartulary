@@ -1,12 +1,37 @@
 package configassembly
 
 import (
+	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
+
+func TestInMemoryAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
+	deployment := validProjectionDeployment(t)
+	wantLimits := deployment.Limits
+	deployment.Limits = config.LimitConfig{}
+
+	loaded, err := Admit(deployment)
+	if err != nil {
+		t.Fatalf("admit deployment with omitted limits: %v", err)
+	}
+	if got := loaded.Deployment().Limits; !reflect.DeepEqual(got, wantLimits) {
+		t.Fatalf("omitted in-memory limits = %#v, want %#v", got, wantLimits)
+	}
+	for _, profileID := range loaded.RequestedClaims().ProfileIDs() {
+		if profileID == "enterprise_authentication" || profileID == "network_flow_activity" {
+			t.Fatalf("unexpected contributed claim %q", profileID)
+		}
+	}
+
+	first := loaded.Deployment()
+	first.Telemetry.Exporter.Headers["mutated"] = first.Telemetry.Attribute.HMACSecretRef
+	if _, retained := loaded.Deployment().Telemetry.Exporter.Headers["mutated"]; retained {
+		t.Fatal("Deployment returned mutable telemetry owner state")
+	}
+}
 
 func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 	t.Run("claimed configuration is owner-validated before preflight", func(t *testing.T) {
@@ -29,18 +54,15 @@ func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Admit: %v", err)
 		}
-		configuration, err := loaded.EnterpriseAuthentication()
-		if err != nil {
-			t.Fatalf("EnterpriseAuthentication: %v", err)
-		}
+		configuration := loaded.Deployment().EnterpriseAuthentication
 		const expected = "/etc/cartulary/enterprise-auth-providers.json"
 		if !configuration.Claimed || configuration.ProviderManifestPath != expected {
 			t.Fatalf("owner configuration = %#v", configuration)
 		}
 		configuration.ProviderManifestPath = "/mutated"
-		again, err := loaded.EnterpriseAuthentication()
-		if err != nil || again.ProviderManifestPath != expected {
-			t.Fatalf("snapshot owner value was mutable: %#v / %v", again, err)
+		again := loaded.Deployment().EnterpriseAuthentication
+		if again.ProviderManifestPath != expected {
+			t.Fatalf("snapshot owner value was mutable: %#v", again)
 		}
 		if projection := loaded.Deployment(); projection.EnterpriseAuthentication.ProviderManifestPath != expected {
 			t.Fatalf("application projection did not use owner value: %#v", projection.EnterpriseAuthentication)
@@ -66,14 +88,14 @@ func TestRevisionsConfigurationProjection_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("admit Revisions configuration: %v", err)
 	}
-	configuration, err := loaded.Revisions()
-	if err != nil || configuration.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
-		t.Fatalf("Revisions configuration projection = %#v / %v", configuration, err)
+	configuration := loaded.Deployment().Revisions
+	if configuration.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
+		t.Fatalf("Revisions configuration projection = %#v", configuration)
 	}
 	configuration.ConflictTokenKeyRingManifestPath = "/mutated"
-	again, err := loaded.Revisions()
-	if err != nil || again.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
-		t.Fatalf("Revisions configuration snapshot was mutable: %#v / %v", again, err)
+	again := loaded.Deployment().Revisions
+	if again.ConflictTokenKeyRingManifestPath != "/etc/cartulary/revisions-conflict-token-key-ring.json" {
+		t.Fatalf("Revisions configuration snapshot was mutable: %#v", again)
 	}
 }
 
@@ -99,18 +121,15 @@ func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Admit: %v", err)
 		}
-		configuration, err := loaded.NetworkFlow()
-		if err != nil {
-			t.Fatalf("NetworkFlow: %v", err)
-		}
+		configuration := loaded.Deployment().NetworkFlowActivity
 		const expected = "/etc/cartulary/network-flow-key-rings.json"
 		if !configuration.Claimed || configuration.KeyRingManifestPath != expected {
 			t.Fatalf("owner configuration = %#v", configuration)
 		}
 		configuration.KeyRingManifestPath = "/mutated"
-		again, err := loaded.NetworkFlow()
-		if err != nil || again.KeyRingManifestPath != expected {
-			t.Fatalf("snapshot owner value was mutable: %#v / %v", again, err)
+		again := loaded.Deployment().NetworkFlowActivity
+		if again.KeyRingManifestPath != expected {
+			t.Fatalf("snapshot owner value was mutable: %#v", again)
 		}
 		if projection := loaded.Deployment(); projection.NetworkFlowActivity.KeyRingManifestPath != expected {
 			t.Fatalf("application projection did not use owner value: %#v", projection.NetworkFlowActivity)
@@ -120,13 +139,8 @@ func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 
 func validProjectionDeployment(t testing.TB) Deployment {
 	t.Helper()
-	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
-	if err != nil {
-		t.Fatalf("build inactive configuration policy: %v", err)
-	}
 	loaded, err := Load(config.LoadOptions{
-		Path:           fixtures.Path("config", "valid.toml"),
-		InactivePolicy: policy,
+		Path: fixtures.Path("config", "valid.toml"),
 	})
 	if err != nil {
 		t.Fatalf("load valid deployment fixture: %v", err)

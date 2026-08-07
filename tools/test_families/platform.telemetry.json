@@ -60,6 +60,90 @@
       "minimum_tier": "release"
     },
     {
+      "row_id": "platform.telemetry.unit.configuration_defaults_closed_namespace",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": ["platform.config"],
+      "verification_ids": [
+        "platform.telemetry.verification.configuration_defaults_namespace"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": ["TestOpenTelemetryConfigDefaultsAndClosedNamespace"]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "platform.telemetry.unit.configuration_environment_binding",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": ["platform.config"],
+      "verification_ids": [
+        "platform.telemetry.verification.configuration_environment_parser"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": ["TestOpenTelemetryEnvironmentBindingParser"]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "platform.telemetry.unit.configuration_secret_references",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": ["platform.config"],
+      "verification_ids": [
+        "platform.telemetry.verification.configuration_secret_references"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": ["TestOpenTelemetrySecretReferences"]
+      },
+      "evidence_class": "security",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "release"
+    },
+    {
+      "row_id": "platform.telemetry.unit.configuration_validation",
+      "owner_id": "platform.telemetry",
+      "family_id": "platform.telemetry.unit",
+      "collaborator_ids": ["platform.config"],
+      "verification_ids": [
+        "platform.telemetry.verification.configuration_validation"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/telemetry",
+        "tests": ["TestOpenTelemetryConfigValidation"]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "platform.telemetry.unit.exporter_failure_invariance",
       "owner_id": "platform.telemetry",
       "family_id": "platform.telemetry.unit",

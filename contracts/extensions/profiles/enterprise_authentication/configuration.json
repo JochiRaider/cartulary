@@ -13,6 +13,7 @@
       "inactive_policy": "forbidden",
       "resolution_kind": "regular_file_ref",
       "diagnostic_policy": "name_only",
+      "value_schema_id": "cartulary.enterprise_authentication_provider_manifest_path.v1",
       "inactive_value_schema_id": null
     }
   ]

@@ -4,12 +4,31 @@ import (
 	"errors"
 	"fmt"
 	pathpkg "path"
+	"strconv"
 	"strings"
 )
 
 type Configuration struct {
 	Claimed             bool   `toml:"claimed,omitempty"`
 	KeyRingManifestPath string `toml:"key_ring_manifest_path,omitempty"`
+}
+
+// ApplyConfigurationOverlay parses one owner-scoped environment binding.
+func ApplyConfigurationOverlay(configuration Configuration, path []string, raw string) (Configuration, *ConfigurationFinding) {
+	joined := strings.Join(path, ".")
+	switch joined {
+	case "network_flow_activity.claimed":
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			return configuration, &ConfigurationFinding{Path: joined, ReasonCode: "type_mismatch", Message: fmt.Sprintf("parse boolean overlay: %v", err)}
+		}
+		configuration.Claimed = value
+	case keyRingConfigPath:
+		configuration.KeyRingManifestPath = raw
+	default:
+		return configuration, &ConfigurationFinding{Path: joined, ReasonCode: "unknown_key", Message: "unknown Network Flow configuration overlay"}
+	}
+	return configuration, nil
 }
 
 type ConfigurationFinding struct {

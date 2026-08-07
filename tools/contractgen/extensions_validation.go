@@ -472,8 +472,11 @@ func sortedUniqueStringArray(value any, label string, allowEmpty bool) ([]string
 
 func validateExtensionDependencyDeclarations(object map[string]any) error {
 	allowed := stringSet("schema_id", "dependencies")
-	if err := requireAllowedKeys(object, allowed, "extension dependency declarations"); err != nil {
+	if err := requireExtensionExactKeys(object, allowed, "extension dependency declarations"); err != nil {
 		return err
+	}
+	if object["schema_id"] != "cartulary.extension_dependency_declaration_set.v3" {
+		return fmt.Errorf("extension dependency declarations have an invalid schema_id")
 	}
 	dependencies, err := objectArray(object["dependencies"], "dependencies")
 	if err != nil {
@@ -485,7 +488,7 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 	rowKeys := stringSet("dependency_id", "imported_schema_ids", "imported_algorithm_ids", "imported_artifacts")
 	for index, dependency := range dependencies {
 		label := fmt.Sprintf("dependencies[%d]", index)
-		if err := requireAllowedKeys(dependency, rowKeys, label); err != nil {
+		if err := requireExtensionExactKeys(dependency, rowKeys, label); err != nil {
 			return err
 		}
 		dependencyID, err := requiredString(dependency, "dependency_id", label)
@@ -495,19 +498,57 @@ func validateExtensionDependencyDeclarations(object map[string]any) error {
 		if dependencyID != requiredExtensionDependencies[index] {
 			return fmt.Errorf("dependencies must contain the exact sorted Table 1-B identities")
 		}
-		for _, key := range []string{"imported_schema_ids", "imported_algorithm_ids", "imported_artifacts"} {
-			_, ok := dependency[key].([]any)
-			if !ok {
-				return fmt.Errorf("%s.%s must be a present non-null array", label, key)
+		importedSchemas, err := sortedUniqueStringArray(dependency["imported_schema_ids"], label+".imported_schema_ids", true)
+		if err != nil {
+			return err
+		}
+		if _, err := sortedUniqueStringArray(dependency["imported_algorithm_ids"], label+".imported_algorithm_ids", true); err != nil {
+			return err
+		}
+		artifacts, err := objectArrayAllowEmpty(dependency["imported_artifacts"], label+".imported_artifacts")
+		if err != nil {
+			return err
+		}
+		previousArtifact := ""
+		for artifactIndex, artifact := range artifacts {
+			artifactLabel := fmt.Sprintf("%s.imported_artifacts[%d]", label, artifactIndex)
+			if err := requireExtensionExactKeys(artifact, stringSet("artifact_id", "schema_id", "artifact_sha256", "safe_ref"), artifactLabel); err != nil {
+				return err
 			}
+			artifactID, err := requiredString(artifact, "artifact_id", artifactLabel)
+			if err != nil {
+				return err
+			}
+			schemaID, err := requiredString(artifact, "schema_id", artifactLabel)
+			if err != nil {
+				return err
+			}
+			digest, err := requiredString(artifact, "artifact_sha256", artifactLabel)
+			if err != nil || !isLowerSHA256(digest) {
+				return fmt.Errorf("%s.artifact_sha256 must be lowercase SHA-256", artifactLabel)
+			}
+			if artifact["safe_ref"] != "artifact:"+artifactID {
+				return fmt.Errorf("%s.safe_ref must derive from artifact_id", artifactLabel)
+			}
+			if !containsString(importedSchemas, schemaID) {
+				return fmt.Errorf("%s.schema_id must be declared in imported_schema_ids", artifactLabel)
+			}
+			identity := artifactID + "\x00" + schemaID + "\x00" + digest
+			if previousArtifact != "" && previousArtifact >= identity {
+				return fmt.Errorf("%s.imported_artifacts must be sorted and unique", label)
+			}
+			previousArtifact = identity
 		}
 	}
 	return nil
 }
 
 func validateExtensionOwnerFragment(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "owner_fragment_id", "owner_id", "facts"), relativePath); err != nil {
+	if err := requireExtensionExactKeys(object, stringSet("schema_id", "owner_fragment_id", "owner_id", "facts"), relativePath); err != nil {
 		return err
+	}
+	if object["schema_id"] != "cartulary.extension_owner_fragment.v3" {
+		return fmt.Errorf("%s.schema_id must be cartulary.extension_owner_fragment.v3", relativePath)
 	}
 	for _, key := range []string{"owner_fragment_id", "owner_id"} {
 		if _, err := requiredString(object, key, relativePath); err != nil {
@@ -532,6 +573,18 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 			return fmt.Errorf("%s capability facts are prohibited in contract major 1", label)
 		}
 		switch fact["fact_kind"] {
+		case "claim_configuration":
+			if err := requireExtensionExactKeys(fact, stringSet("fact_kind", "profile_id", "claim_config_key", "configuration_contract_sha256"), label); err != nil {
+				return err
+			}
+			profileID := stringValue(fact["profile_id"])
+			if fact["claim_config_key"] != profileID+".claimed" {
+				return fmt.Errorf("%s.claim_config_key is not canonical", label)
+			}
+			digest, err := requiredString(fact, "configuration_contract_sha256", label)
+			if err != nil || !isLowerSHA256(digest) {
+				return fmt.Errorf("%s.configuration_contract_sha256 must be lowercase SHA-256", label)
+			}
 		case "job_kind":
 			contract, ok := fact["job_kind_contract"].(map[string]any)
 			if !ok {
@@ -618,32 +671,76 @@ func validateExtensionJobKindContract(object map[string]any, profileID, label st
 }
 
 func validateExtensionConfigurationContract(object map[string]any, relativePath string) error {
-	if err := requireAllowedKeys(object, stringSet("schema_id", "configuration_contract_id", "profile_id", "configuration_contract_major", "namespace_schema_id", "keys"), relativePath); err != nil {
+	if err := requireExtensionExactKeys(object, stringSet("schema_id", "configuration_contract_id", "profile_id", "configuration_contract_major", "namespace_schema_id", "keys"), relativePath); err != nil {
 		return err
 	}
-	for _, key := range []string{"configuration_contract_id", "profile_id", "namespace_schema_id"} {
-		if _, err := requiredString(object, key, relativePath); err != nil {
-			return err
-		}
+	if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" {
+		return fmt.Errorf("%s.schema_id must be cartulary.extension_profile_configuration_contract.v3", relativePath)
 	}
-	if _, err := positiveJSONInt(object["configuration_contract_major"], relativePath+".configuration_contract_major"); err != nil {
+	profileID, err := requiredString(object, "profile_id", relativePath)
+	if err != nil {
 		return err
+	}
+	major, err := positiveJSONInt(object["configuration_contract_major"], relativePath+".configuration_contract_major")
+	if err != nil {
+		return err
+	}
+	if object["configuration_contract_id"] != fmt.Sprintf("%s.configuration.v%d", profileID, major) {
+		return fmt.Errorf("%s.configuration_contract_id must match profile_id and configuration_contract_major", relativePath)
+	}
+	if object["namespace_schema_id"] != fmt.Sprintf("cartulary.%s.configuration_namespace.v%d", profileID, major) {
+		return fmt.Errorf("%s.namespace_schema_id must match the profile namespace and contract major", relativePath)
 	}
 	keys, ok := object["keys"].([]any)
-	if !ok {
-		return fmt.Errorf("%s.keys must be a present non-null array", relativePath)
+	if !ok || len(keys) > 256 {
+		return fmt.Errorf("%s.keys must be a present non-null array with at most 256 rows", relativePath)
 	}
+	previousKey := ""
 	for index, rawKey := range keys {
 		key, ok := rawKey.(map[string]any)
 		if !ok {
 			return fmt.Errorf("%s.keys[%d] must be an object", relativePath, index)
 		}
 		label := fmt.Sprintf("%s.keys[%d]", relativePath, index)
-		if err := requireAllowedKeys(key, stringSet(
+		if err := requireExtensionExactKeys(key, stringSet(
 			"key", "omission_policy", "inactive_policy", "resolution_kind",
 			"diagnostic_policy", "value_schema_id", "inactive_value_schema_id",
 		), label); err != nil {
 			return err
+		}
+		keyPath, err := requiredString(key, "key", label)
+		if err != nil || !strings.HasPrefix(keyPath, profileID+".") || keyPath == profileID+".claimed" {
+			return fmt.Errorf("%s.key must be a non-claim key inside the profile namespace", label)
+		}
+		if previousKey != "" && previousKey >= keyPath {
+			return fmt.Errorf("%s.keys must be sorted and unique by key", relativePath)
+		}
+		previousKey = keyPath
+		if _, err := requiredString(key, "value_schema_id", label); err != nil {
+			return err
+		}
+		omission, ok := key["omission_policy"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s.omission_policy must be an object", label)
+		}
+		omissionKind, err := requiredString(omission, "kind", label+".omission_policy")
+		if err != nil {
+			return err
+		}
+		switch omissionKind {
+		case "required", "absent":
+			if err := requireExtensionExactKeys(omission, stringSet("kind"), label+".omission_policy"); err != nil {
+				return err
+			}
+		case "default":
+			if err := requireExtensionExactKeys(omission, stringSet("kind", "value"), label+".omission_policy"); err != nil {
+				return err
+			}
+			if omission["value"] == nil {
+				return fmt.Errorf("%s.omission_policy default value must be non-null", label)
+			}
+		default:
+			return fmt.Errorf("%s.omission_policy.kind is invalid", label)
 		}
 		policy, err := requiredString(key, "inactive_policy", label)
 		if err != nil {
@@ -654,8 +751,33 @@ func validateExtensionConfigurationContract(object map[string]any, relativePath 
 			if !hasRef || ref == nil {
 				return fmt.Errorf("%s syntax_only requires a non-null inactive_value_schema_id", label)
 			}
+			if _, ok := ref.(string); !ok || ref == "" {
+				return fmt.Errorf("%s inactive_value_schema_id must be a nonempty string", label)
+			}
 		} else if policy == "forbidden" && (!hasRef || ref != nil) {
 			return fmt.Errorf("%s forbidden requires explicit null inactive_value_schema_id", label)
+		} else if policy != "forbidden" {
+			return fmt.Errorf("%s.inactive_policy is invalid", label)
+		}
+		if resolution, err := requiredString(key, "resolution_kind", label); err != nil ||
+			(resolution != "plain" && resolution != "secret_ref" && resolution != "regular_file_ref" && resolution != "trust_material_ref") {
+			return fmt.Errorf("%s.resolution_kind is invalid", label)
+		}
+		if diagnostic, err := requiredString(key, "diagnostic_policy", label); err != nil ||
+			(diagnostic != "name_only" && diagnostic != "safe_value") {
+			return fmt.Errorf("%s.diagnostic_policy is invalid", label)
+		}
+	}
+	return nil
+}
+
+func requireExtensionExactKeys(object map[string]any, expected map[string]struct{}, label string) error {
+	if err := requireAllowedKeys(object, expected, label); err != nil {
+		return err
+	}
+	for key := range expected {
+		if _, ok := object[key]; !ok {
+			return fmt.Errorf("%s is missing required key %s", label, key)
 		}
 	}
 	return nil
@@ -921,6 +1043,7 @@ func validateExtensionSupportingContractParity(indexed map[string]map[string]any
 func validateExtensionProfileFactClosure(indexed map[string]map[string]any) error {
 	counts := map[string]map[string]int{}
 	configDigests := map[string]string{}
+	claimConfigDigests := map[string]string{}
 	for _, profileID := range requiredExtensionProfiles {
 		counts[profileID] = map[string]int{}
 	}
@@ -952,6 +1075,7 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 				if fact["claim_config_key"] != profileID+".claimed" {
 					return fmt.Errorf("profile %s has invalid claim_config_key", profileID)
 				}
+				claimConfigDigests[profileID] = stringValue(fact["configuration_contract_sha256"])
 			}
 		}
 	}
@@ -967,12 +1091,63 @@ func validateExtensionProfileFactClosure(indexed map[string]map[string]any) erro
 		if _, ok := configDigests[profileID]; !ok {
 			return fmt.Errorf("profile %s is missing its configuration contract", profileID)
 		}
+		if claimConfigDigests[profileID] != configDigests[profileID] {
+			return fmt.Errorf("profile %s claim configuration has a stale contract digest", profileID)
+		}
+	}
+	return nil
+}
+
+func validateExtensionConfigurationReferences(indexed map[string]map[string]any) error {
+	schemaIDs := map[string]struct{}{}
+	inactiveSchemaIDs := map[string]struct{}{}
+	if definitions := indexed["specification/contract-definitions.json"]; definitions != nil {
+		rows, _ := objectArray(definitions["definitions"], "extension contract definitions")
+		for _, row := range rows {
+			schemaIDs[stringValue(row["schema_id"])] = struct{}{}
+		}
+	}
+	if dependencies := indexed["dependencies.json"]; dependencies != nil {
+		rows, _ := objectArray(dependencies["dependencies"], "extension dependencies")
+		for _, row := range rows {
+			for _, schemaID := range anyToStrings(row["imported_schema_ids"]) {
+				schemaIDs[schemaID] = struct{}{}
+			}
+		}
+	}
+	if inactiveSet := indexed["specification/inactive-value-schemas.json"]; inactiveSet != nil {
+		rows, _ := objectArray(inactiveSet["schemas"], "inactive value schemas")
+		for _, row := range rows {
+			inactiveSchemaIDs[stringValue(row["inactive_value_schema_id"])] = struct{}{}
+		}
+	}
+	for relativePath, object := range indexed {
+		if object["schema_id"] != "cartulary.extension_profile_configuration_contract.v3" {
+			continue
+		}
+		keys, _ := objectArrayAllowEmpty(object["keys"], relativePath+".keys")
+		for index, key := range keys {
+			label := fmt.Sprintf("%s.keys[%d]", relativePath, index)
+			valueSchemaID := stringValue(key["value_schema_id"])
+			if _, ok := schemaIDs[valueSchemaID]; !ok {
+				return fmt.Errorf("%s.value_schema_id %s is unresolved", label, valueSchemaID)
+			}
+			if key["inactive_policy"] == "syntax_only" {
+				inactiveSchemaID := stringValue(key["inactive_value_schema_id"])
+				if _, ok := inactiveSchemaIDs[inactiveSchemaID]; !ok {
+					return fmt.Errorf("%s.inactive_value_schema_id %s is unresolved", label, inactiveSchemaID)
+				}
+			}
+		}
 	}
 	return nil
 }
 
 func validateExtensionOperationalBindings(indexed map[string]map[string]any) error {
 	if err := validateExtensionProfileFactClosure(indexed); err != nil {
+		return err
+	}
+	if err := validateExtensionConfigurationReferences(indexed); err != nil {
 		return err
 	}
 	return validateExtensionSupportingContractParity(indexed)

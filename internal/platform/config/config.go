@@ -14,33 +14,33 @@ import (
 )
 
 const (
-	DefaultConfigPath           = "/etc/cartulary/config.toml"
+	defaultConfigPath           = "/etc/cartulary/config.toml"
 	ConfigFileEnv               = "CARTULARY_CONFIG_FILE"
 	InvalidDeploymentConfigCode = "invalid_deployment_config"
 	overlayPrefix               = "CARTULARY__"
 	expectedConfigSchemaID      = "cartulary.deployment_config.v2"
 
-	DefaultObjectBlobMaxDeclaredByteSize         int64 = 536870912
-	DefaultImportMaxCSVSourceBytes               int64 = 33554432
-	DefaultImportMaxXLSXSourceBytes              int64 = 67108864
-	DefaultImportMaxRows                         int64 = 100000
-	DefaultImportMaxColumns                      int64 = 256
-	DefaultImportMaxCells                        int64 = 5000000
-	DefaultArchiveMaxExtractedBytes              int64 = 2147483648
-	DefaultArchiveMaxCompressionRatio            int64 = 100
-	DefaultArchiveMaxMembers                     int64 = 10000
-	DefaultReferencePackMaxExtractedBytes        int64 = 536870912
-	DefaultIncidentBundleMaxExtractedBytes       int64 = 68719476736
-	DefaultPreviewMaxPreviewablePayloadBytes     int64 = 33554432
-	DefaultPreviewMaxTextInlineBytes             int64 = 1048576
-	DefaultExtensionStagedObjectCleanupBatch     int64 = 1000
-	DefaultExtensionMaxNonterminalJobsPerProfile int64 = 100000
+	defaultObjectBlobMaxDeclaredByteSize         int64 = 536870912
+	defaultImportMaxCSVSourceBytes               int64 = 33554432
+	defaultImportMaxXLSXSourceBytes              int64 = 67108864
+	defaultImportMaxRows                         int64 = 100000
+	defaultImportMaxColumns                      int64 = 256
+	defaultImportMaxCells                        int64 = 5000000
+	defaultArchiveMaxExtractedBytes              int64 = 2147483648
+	defaultArchiveMaxCompressionRatio            int64 = 100
+	defaultArchiveMaxMembers                     int64 = 10000
+	defaultReferencePackMaxExtractedBytes        int64 = 536870912
+	defaultIncidentBundleMaxExtractedBytes       int64 = 68719476736
+	defaultPreviewMaxPreviewablePayloadBytes     int64 = 33554432
+	defaultPreviewMaxTextInlineBytes             int64 = 1048576
+	defaultExtensionStagedObjectCleanupBatch     int64 = 1000
+	defaultExtensionMaxNonterminalJobsPerProfile int64 = 100000
 )
 
 type LoadOptions struct {
-	Path           string
-	Env            map[string]string
-	InactivePolicy InactivePolicy
+	Path            string
+	Env             map[string]string
+	ExtensionPolicy ExtensionPolicy
 }
 
 type Diagnostic struct {
@@ -56,23 +56,17 @@ type DiagnosticsError struct {
 }
 
 type document struct {
-	ConfigSchemaID           string                           `toml:"config_schema_id"`
-	DeploymentProfile        string                           `toml:"deployment_profile"`
-	Application              ApplicationConfig                `toml:"application"`
-	Roots                    RootBindings                     `toml:"roots"`
-	Bootstrap                BootstrapConfig                  `toml:"bootstrap"`
-	EnterpriseAuthentication enterpriseAuthenticationDocument `toml:"enterprise_authentication"`
-	Import                   ClaimConfig                      `toml:"import"`
-	IncidentPortability      ClaimConfig                      `toml:"incident_portability"`
-	NetworkFlowActivity      networkFlowActivityDocument      `toml:"network_flow_activity"`
-	ReferencePack            ClaimConfig                      `toml:"reference_pack"`
-	Revisions                revisionsDocument                `toml:"revisions"`
-	SnapshotReporting        ClaimConfig                      `toml:"snapshot_reporting"`
-	Timeouts                 TimeoutConfig                    `toml:"timeouts"`
-	Intervals                IntervalConfig                   `toml:"intervals"`
-	Limits                   LimitConfig                      `toml:"limits"`
-	Telemetry                telemetryDocument                `toml:"telemetry"`
-	presence                 configPresence
+	ConfigSchemaID    string            `toml:"config_schema_id"`
+	DeploymentProfile string            `toml:"deployment_profile"`
+	Application       ApplicationConfig `toml:"application"`
+	Roots             RootBindings      `toml:"roots"`
+	Bootstrap         BootstrapConfig   `toml:"bootstrap"`
+	Timeouts          TimeoutConfig     `toml:"timeouts"`
+	Intervals         IntervalConfig    `toml:"intervals"`
+	Limits            LimitConfig       `toml:"limits"`
+	presence          configPresence
+	namespaces        map[string]any
+	claims            map[string]registeredClaim
 }
 
 type ApplicationConfig struct {
@@ -98,43 +92,9 @@ type BootstrapConfig struct {
 	FirstAdminManifestPath string `toml:"first_admin_manifest_path"`
 }
 
-type enterpriseAuthenticationDocument struct {
-	Claimed              bool   `toml:"claimed"`
-	ProviderManifestPath string `toml:"provider_manifest_path"`
-}
-
-type networkFlowActivityDocument struct {
-	Claimed             bool   `toml:"claimed"`
-	KeyRingManifestPath string `toml:"key_ring_manifest_path"`
-}
-
-type ClaimConfig struct {
-	Claimed bool `toml:"claimed"`
-}
-
-type revisionsDocument struct {
-	ConflictTokenKeyRingManifestPath string `toml:"conflict_token_key_ring_manifest_path"`
-}
-
-// BooleanValuesAtPaths projects normalized configuration without teaching
-// application composition about concrete profile fields. Every requested path
-// must resolve to one Boolean field.
-func booleanValuesAtPaths(cfg document, paths []string) (map[string]bool, error) {
-	values := make(map[string]bool, len(paths))
-	for _, path := range paths {
-		if path == "" {
-			return nil, fmt.Errorf("configuration Boolean path is required")
-		}
-		if _, duplicate := values[path]; duplicate {
-			return nil, fmt.Errorf("duplicate configuration Boolean path %q", path)
-		}
-		value, present := configBoolAtPath(&cfg, path)
-		if !present {
-			return nil, fmt.Errorf("configuration Boolean path %q is unresolved", path)
-		}
-		values[path] = value
-	}
-	return values, nil
+type registeredClaim struct {
+	id    string
+	value bool
 }
 
 type TimeoutConfig struct {
@@ -288,24 +248,24 @@ func resolvePathWithOptions(options LoadOptions) (string, error) {
 		return override, nil
 	}
 
-	return DefaultConfigPath, nil
-}
-
-func loadWithOptions(options LoadOptions) (document, error) {
-	return loadWithOptionsAndCatalog(options, Catalog{})
+	return defaultConfigPath, nil
 }
 
 func loadWithOptionsAndCatalog(options LoadOptions, catalog Catalog) (document, error) {
+	claims, err := newClaimCatalog(options.ExtensionPolicy)
+	if err != nil {
+		return document{}, err
+	}
 	path, err := resolvePathWithOptions(options)
 	if err != nil {
 		return document{}, err
 	}
 
 	options.Path = path
-	return loadFromOptions(options, catalog)
+	return loadFromOptions(options, catalog, claims)
 }
 
-func loadFromOptions(options LoadOptions, catalog Catalog) (document, error) {
+func loadFromOptions(options LoadOptions, catalog Catalog, claims claimCatalog) (document, error) {
 	data, err := os.ReadFile(options.Path)
 	if err != nil {
 		reasonCode := "config_parse_error"
@@ -318,10 +278,10 @@ func loadFromOptions(options LoadOptions, catalog Catalog) (document, error) {
 			Message:    fmt.Sprintf("read config: %v", err),
 		}})
 	}
-	return decodeDocumentWithCatalog(data, options, catalog)
+	return decodeDocumentWithCatalog(data, options, catalog, claims)
 }
 
-func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog) (document, error) {
+func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog, claims claimCatalog) (document, error) {
 	var cfg document
 	diagnostics := make([]Diagnostic, 0)
 	md, err := toml.Decode(string(data), &cfg)
@@ -340,6 +300,9 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 			Message:    rawErr.Error(),
 		}})
 	}
+	ownerUndecoded, ownerDecodeDiagnostics := catalog.decodeNamespaces(&cfg, rawConfig)
+	diagnostics = append(diagnostics, ownerDecodeDiagnostics...)
+	diagnostics = append(diagnostics, claims.collect(&cfg, rawConfig)...)
 
 	overlayKeys := sortedOverlayKeys(options.Env)
 	appliedClaimOverlays := map[string]struct{}{}
@@ -348,7 +311,17 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		if !strings.HasSuffix(path, ".claimed") {
 			continue
 		}
-		if diagnostic := applyOverlay(&cfg, catalog, key, lookupEnvValue(options.Env, key)); diagnostic != nil {
+		segments := overlaySegments(key)
+		handled, diagnostic := claims.applyOverlay(&cfg, segments, lookupEnvValue(options.Env, key))
+		if !handled {
+			continue
+		}
+		if diagnostic == nil {
+			if ownerHandled, ownerDiagnostic := catalog.applyOverlay(&cfg, segments, lookupEnvValue(options.Env, key)); ownerHandled {
+				diagnostic = ownerDiagnostic
+			}
+		}
+		if diagnostic != nil {
 			diagnostics = append(diagnostics, *diagnostic)
 		} else {
 			appliedClaimOverlays[key] = struct{}{}
@@ -359,21 +332,32 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		&cfg,
 		rawConfig,
 		options.Env,
-		options.InactivePolicy,
+		options.ExtensionPolicy,
 	)
 	diagnostics = append(diagnostics, inactiveDiagnostics...)
 
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
 		for _, key := range undecoded {
-			if pathIsConsumedInactive(strings.Join(key, "."), consumedInactivePaths) {
+			path := strings.Join(key, ".")
+			if catalog.ownsNamespacePath(path) || claims.ownsPath(path) || pathIsConsumedInactive(path, consumedInactivePaths) {
 				continue
 			}
 			diagnostics = append(diagnostics, Diagnostic{
-				Path:       strings.Join(key, "."),
+				Path:       path,
 				ReasonCode: "unknown_key",
 				Message:    "unknown config key",
 			})
 		}
+	}
+	for _, path := range ownerUndecoded {
+		if pathIsConsumedInactive(path, consumedInactivePaths) {
+			continue
+		}
+		diagnostics = append(diagnostics, Diagnostic{
+			Path:       path,
+			ReasonCode: "unknown_key",
+			Message:    "unknown config key",
+		})
 	}
 
 	for _, key := range overlayKeys {
@@ -388,7 +372,7 @@ func decodeDocumentWithCatalog(data []byte, options LoadOptions, catalog Catalog
 		}
 	}
 
-	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.InactivePolicy)...)
+	diagnostics = append(diagnostics, validateConfigStructure(&cfg, newConfigPresence(md, options.Env), options.ExtensionPolicy)...)
 	if len(diagnostics) > 0 {
 		return document{}, newDiagnosticsError(diagnostics)
 	}
@@ -400,7 +384,7 @@ func discardUndecodedInactiveExtensionValues(
 	cfg *document,
 	rawConfig map[string]any,
 	env map[string]string,
-	policy InactivePolicy,
+	policy ExtensionPolicy,
 ) (map[string]struct{}, map[string]struct{}, []Diagnostic) {
 	consumedPaths := map[string]struct{}{}
 	consumedOverlays := map[string]struct{}{}
@@ -410,7 +394,7 @@ func discardUndecodedInactiveExtensionValues(
 	}
 	for _, key := range policy.Keys() {
 		claimKey, known := policy.ClaimKey(key)
-		claimed, claimExists := configBoolAtPath(cfg, claimKey)
+		claimed, claimExists := booleanFieldAtPath(cfg, claimKey)
 		if !known || !claimExists || claimed {
 			continue
 		}
@@ -565,7 +549,7 @@ func findTaggedField(value reflect.Value, segment string) (reflect.Value, bool) 
 	valueType := value.Type()
 	for i := 0; i < value.NumField(); i++ {
 		structField := valueType.Field(i)
-		tag := structField.Tag.Get("toml")
+		tag := strings.Split(structField.Tag.Get("toml"), ",")[0]
 		if tag == "" {
 			tag = strings.ToLower(structField.Name)
 		}

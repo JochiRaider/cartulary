@@ -714,7 +714,7 @@ function sqlTableReferences(content) {
   return Array.from(tables).sort();
 }
 
-function assertRecordsBoundaryFixtures(manifest) {
+function assertBoundaryFixtures(manifest) {
   const recordsRule = manifest.sqlTableAccess.find(
     (rule) => rule.id === "records-current-envelope-access",
   );
@@ -813,6 +813,66 @@ function assertRecordsBoundaryFixtures(manifest) {
       throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
     }
   }
+
+  const configImportRule = manifest.goImportAllowlists.find(
+    (rule) => rule.id === "platform-config-kernel-internal-imports",
+  );
+  if (!configImportRule) {
+    throw new Error("platform-config-kernel-internal-imports boundary rule is required");
+  }
+  const configImportFixtures = [
+    {
+      label: "platform-neutral external import",
+      imported: "github.com/BurntSushi/toml",
+      wantViolation: false,
+    },
+    {
+      label: "application import",
+      imported: "github.com/JochiRaider/cartulary/internal/app/configassembly",
+      wantViolation: true,
+    },
+    {
+      label: "module owner import",
+      imported: "github.com/JochiRaider/cartulary/internal/modules/extensions",
+      wantViolation: true,
+    },
+    {
+      label: "platform owner import",
+      imported: "github.com/JochiRaider/cartulary/internal/platform/telemetry",
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of configImportFixtures) {
+    const file = {
+      relative: "internal/platform/config/fixture.go",
+      content: `package config\nimport "${fixture.imported}"`,
+    };
+    const violations = checkGoImportAllowlists([file], [configImportRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} config-kernel boundary fixture produced an unexpected result`);
+    }
+  }
+
+  const configRegistryRule = manifest.forbiddenSourceTokens.find(
+    (rule) => rule.id === "platform-config-no-owner-profile-registry",
+  );
+  if (!configRegistryRule) {
+    throw new Error("platform-config-no-owner-profile-registry boundary rule is required");
+  }
+  const profileRegistry = {
+    relative: "internal/platform/config/fixture.go",
+    content: 'package config\nvar claimPaths = []string{"import.claimed"}',
+  };
+  const profileRegistryViolations = checkForbiddenSourceTokens(
+    [profileRegistry],
+    [configRegistryRule],
+  );
+  if (
+    profileRegistryViolations.length !== 1 ||
+    profileRegistryViolations[0].code !== "forbidden_source_token"
+  ) {
+    throw new Error("platform config profile-registry boundary fixture must fail closed");
+  }
 }
 
 function checkForbiddenGoCalls(files, rules) {
@@ -899,7 +959,7 @@ function main() {
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
   const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
-  assertRecordsBoundaryFixtures(manifest);
+  assertBoundaryFixtures(manifest);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),

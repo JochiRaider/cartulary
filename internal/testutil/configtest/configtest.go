@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -49,13 +48,8 @@ func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[stri
 	t.Helper()
 	EnsureRevisionsConflictTokenTestEnvironment(overlays)
 
-	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
-	if err != nil {
-		t.Fatalf("build inactive configuration policy: %v", err)
-	}
 	loaded, err := configassembly.Load(config.LoadOptions{
-		Env:            EffectiveConfigEnv(fixtureParts, overlays),
-		InactivePolicy: policy,
+		Env: EffectiveConfigEnv(fixtureParts, overlays),
 	})
 	if err != nil {
 		t.Fatalf("load config fixture: %v", err)
@@ -67,13 +61,8 @@ func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[stri
 func LoadInvalidFixture(t testing.TB, fixtureParts []string, overlays map[string]string) error {
 	t.Helper()
 
-	policy, policyErr := extensionassembly.GeneratedInactiveConfigurationPolicy()
-	if policyErr != nil {
-		t.Fatalf("build inactive configuration policy: %v", policyErr)
-	}
 	_, err := configassembly.Load(config.LoadOptions{
-		Env:            EffectiveConfigEnv(fixtureParts, overlays),
-		InactivePolicy: policy,
+		Env: EffectiveConfigEnv(fixtureParts, overlays),
 	})
 	if err == nil {
 		t.Fatalf("expected invalid config fixture %v to fail", fixtureParts)

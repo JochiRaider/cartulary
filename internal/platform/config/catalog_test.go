@@ -7,8 +7,8 @@ import (
 
 func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	type ownerSettings struct {
-		Enabled bool
-		Labels  map[string]string
+		Enabled bool              `toml:"enabled"`
+		Labels  map[string]string `toml:"labels"`
 	}
 
 	keyA, err := NewKey[ownerSettings]("owner.alpha")
@@ -26,9 +26,18 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 		Key:       keyB,
 		Namespace: "beta",
 		Paths:     []string{"beta.value"},
-		Project: func(Source) (string, []Diagnostic) {
+		Decode: func(decoder NamespaceDecoder) (string, []Diagnostic) {
+			var wire struct {
+				Value string `toml:"value"`
+			}
+			if err := decoder.Decode(&wire); err != nil {
+				return "", []Diagnostic{{Path: "beta", ReasonCode: "type_mismatch", Message: err.Error()}}
+			}
+			return wire.Value, nil
+		},
+		Project: func(value string, _ Source) (string, []Diagnostic) {
 			order = append(order, "owner.beta")
-			return "beta", nil
+			return value, nil
 		},
 		Clone: func(value string) string { return value },
 	}); err != nil {
@@ -38,10 +47,12 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 		Key:       keyA,
 		Namespace: "alpha",
 		Paths:     []string{"alpha.enabled", "alpha.claimed"},
-		ClaimPath: "alpha.claimed",
-		Project: func(Source) (ownerSettings, []Diagnostic) {
+		Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
+			return decodeTestNamespace[ownerSettings](decoder, "alpha")
+		},
+		Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) {
 			order = append(order, "owner.alpha")
-			return ownerSettings{Enabled: true, Labels: map[string]string{"mode": "strict"}}, nil
+			return value, nil
 		},
 		Clone: func(value ownerSettings) ownerSettings {
 			cloned := value
@@ -58,10 +69,22 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build catalog: %v", err)
 	}
-	if got, want := catalog.IDs(), []string{"owner.alpha", "owner.beta"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("catalog order: got %v want %v", got, want)
+	cfg := document{}
+	unknown, findings := catalog.decodeNamespaces(&cfg, map[string]any{
+		"alpha": map[string]any{"enabled": true, "labels": map[string]any{"mode": "strict"}},
+		"beta":  map[string]any{"value": "beta"},
+	})
+	if len(unknown) > 0 || len(findings) > 0 {
+		t.Fatalf("decode fixture owner namespaces: unknown=%v findings=%v", unknown, findings)
 	}
-	snapshot, err := catalog.materialize(document{})
+	unknownDocument := document{}
+	unknown, findings = catalog.decodeNamespaces(&unknownDocument, map[string]any{
+		"alpha": map[string]any{"unexpected": true},
+	})
+	if !reflect.DeepEqual(unknown, []string{"alpha.unexpected"}) || len(findings) != 0 {
+		t.Fatalf("fixture-owner namespace was not closed: unknown=%v findings=%v", unknown, findings)
+	}
+	snapshot, err := catalog.materialize(cfg)
 	if err != nil {
 		t.Fatalf("materialize snapshot: %v", err)
 	}
@@ -74,6 +97,9 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	}
 	if !settings.Enabled {
 		t.Fatal("typed value was not retained")
+	}
+	if requested := RequestedClaimRegistrationIDs(snapshot); len(requested) != 0 {
+		t.Fatalf("unregistered owner Boolean leaked into claim requests: %#v", requested)
 	}
 	settings.Labels["mode"] = "mutated"
 	again, err := Value(snapshot, keyA)
@@ -94,8 +120,11 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 				Key:       keyA,
 				Namespace: "alpha",
 				Paths:     []string{"alpha.enabled"},
-				Project:   func(Source) (ownerSettings, []Diagnostic) { return ownerSettings{}, nil },
-				Clone:     func(value ownerSettings) ownerSettings { return value },
+				Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
+					return decodeTestNamespace[ownerSettings](decoder, "alpha")
+				},
+				Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) { return value, nil },
+				Clone:   func(value ownerSettings) ownerSettings { return value },
 			}); err != nil {
 				t.Fatalf("register duplicate candidate: %v", err)
 			}
@@ -115,8 +144,11 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			Key:       keyA,
 			Namespace: "alpha",
 			Paths:     []string{"alpha.enabled"},
-			Project:   func(Source) (ownerSettings, []Diagnostic) { return ownerSettings{}, nil },
-			Clone:     func(value ownerSettings) ownerSettings { return value },
+			Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
+				return decodeTestNamespace[ownerSettings](decoder, "alpha")
+			},
+			Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) { return value, nil },
+			Clone:   func(value ownerSettings) ownerSettings { return value },
 		}); err != nil {
 			t.Fatalf("register parent: %v", err)
 		}
@@ -124,8 +156,15 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			Key:       childKey,
 			Namespace: "alpha.child",
 			Paths:     []string{"alpha.child.value"},
-			Project:   func(Source) (string, []Diagnostic) { return "", nil },
-			Clone:     func(value string) string { return value },
+			Decode: func(decoder NamespaceDecoder) (string, []Diagnostic) {
+				var value string
+				if err := decoder.Decode(&value); err != nil {
+					return "", []Diagnostic{{Path: "alpha.child", ReasonCode: "type_mismatch", Message: err.Error()}}
+				}
+				return value, nil
+			},
+			Project: func(value string, _ Source) (string, []Diagnostic) { return value, nil },
+			Clone:   func(value string) string { return value },
 		}); err != nil {
 			t.Fatalf("register child: %v", err)
 		}
@@ -144,7 +183,16 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			Key:       diagnosticKey,
 			Namespace: "diagnostics",
 			Paths:     []string{"diagnostics.value"},
-			Project: func(Source) (string, []Diagnostic) {
+			Decode: func(decoder NamespaceDecoder) (string, []Diagnostic) {
+				var wire struct {
+					Value string `toml:"value"`
+				}
+				if err := decoder.Decode(&wire); err != nil {
+					return "", []Diagnostic{{Path: "diagnostics", ReasonCode: "type_mismatch", Message: err.Error()}}
+				}
+				return wire.Value, nil
+			},
+			Project: func(_ string, _ Source) (string, []Diagnostic) {
 				return "", []Diagnostic{
 					{Path: "z", ReasonCode: "b", Message: "second"},
 					{Path: "a", ReasonCode: "a", Message: "first"},
@@ -158,7 +206,9 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("build diagnostic catalog: %v", err)
 		}
-		_, err = diagnosticCatalog.materialize(document{})
+		diagnosticDocument := document{}
+		_, _ = diagnosticCatalog.decodeNamespaces(&diagnosticDocument, map[string]any{"diagnostics": map[string]any{"value": ""}})
+		_, err = diagnosticCatalog.materialize(diagnosticDocument)
 		diagnostics, ok := DiagnosticsFromError(err)
 		if !ok {
 			t.Fatalf("materialize did not return diagnostics: %v", err)
@@ -167,8 +217,12 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			t.Fatalf("diagnostics are not sorted: %+v", diagnostics)
 		}
 	})
+}
 
-	if got, want := ValidationPhases(), validationPhases; !reflect.DeepEqual(got, want) {
-		t.Fatalf("validation phase copy: got %v want %v", got, want)
+func decodeTestNamespace[T any](decoder NamespaceDecoder, path string) (T, []Diagnostic) {
+	var value T
+	if err := decoder.Decode(&value); err != nil {
+		return value, []Diagnostic{{Path: path, ReasonCode: "type_mismatch", Message: err.Error()}}
 	}
+	return value, nil
 }

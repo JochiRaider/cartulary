@@ -2,7 +2,7 @@
   "facts": [
     {
       "claim_config_key": "enterprise_authentication.claimed",
-      "configuration_contract_sha256": "f27fba2b719b19cd189f36ea467170fe655db98c13d6c03e49fc275e8adc9f29",
+      "configuration_contract_sha256": "0aefbfe19a7010488f256a24743227fd58a53d17d0e8e88efc7b72ffc442a9fc",
       "fact_kind": "claim_configuration",
       "profile_id": "enterprise_authentication"
     },
@@ -20,7 +20,6 @@
     },
     {
       "claim_config_key": "network_flow_activity.claimed",
-      "configuration_schema_id": "cartulary.extension_profile_configuration_contract.v3",
       "configuration_contract_sha256": "87120eca07a31d0fc78ba73821683b9ca9962112f0ecc92280359b427e84af49",
       "fact_kind": "claim_configuration",
       "profile_id": "network_flow_activity"

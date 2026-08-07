@@ -679,11 +679,14 @@
       "selector": {
         "package": "./internal/app/extensionassembly",
         "tests": [
+          "TestConfigurationPolicyRejectsMalformedCatalog_Unit",
+          "TestConfigurationPolicySupportsFutureProfileWithoutKernelChange_Unit",
+          "TestGeneratedConfigurationPolicyHasExactClaimRegistrationParity_Unit",
           "TestPublicationCatalog_ExactGeneratedSets_Unit",
           "TestPublicationCatalog_RejectsParticipantMismatch_Unit",
           "TestRenderExportInvokerRequiresExactAdmittedContract_Unit",
-          "TestResolveClaimRequestRejectsIncompleteOrExtraProjection_Unit",
-          "TestResolveClaimRequestUsesGeneratedClaimKeys_Unit"
+          "TestRequestedClaimsRejectUnknownOrDuplicateRegistration_Unit",
+          "TestRequestedClaimsRemainDistinctAfterDependencyFailure_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -26,6 +26,16 @@ type ConfigurationError struct {
 	Finding ConfigurationFinding
 }
 
+// ApplyConfigurationOverlay parses one owner-scoped environment binding.
+func ApplyConfigurationOverlay(configuration Configuration, path []string, raw string) (Configuration, *ConfigurationFinding) {
+	joined := strings.Join(path, ".")
+	if joined != conflictTokenKeyRingConfigPath {
+		return configuration, &ConfigurationFinding{Path: joined, ReasonCode: "unknown_key", Message: "unknown Revisions configuration overlay"}
+	}
+	configuration.ConflictTokenKeyRingManifestPath = raw
+	return configuration, nil
+}
+
 func (err *ConfigurationError) Error() string {
 	return fmt.Sprintf("%s: %s: %s", err.Finding.Path, err.Finding.ReasonCode, err.Finding.Message)
 }

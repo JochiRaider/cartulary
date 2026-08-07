@@ -592,6 +592,14 @@
   ],
   "go_import_allowlists": [
     {
+      "id": "platform-config-kernel-internal-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/platform/config/**"],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": []
+    },
+    {
       "id": "tasks-decisions-delete-restore-provider-exact-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/",
       "scan_paths": ["internal/modules/tasksdecisions/internal/providers/deleterestore/**"],
@@ -1123,6 +1131,21 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "platform-config-no-owner-profile-registry",
+      "tokens": [
+        "configBoolAtPath",
+        "enterprise_authentication.claimed\"",
+        "import.claimed\"",
+        "incident_portability.claimed\"",
+        "network_flow_activity.claimed\"",
+        "reference_pack.claimed\"",
+        "snapshot_reporting.claimed\""
+      ],
+      "scan_paths": ["internal/platform/config/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "workbook-assembly-no-evidence-construction",
       "tokens": [

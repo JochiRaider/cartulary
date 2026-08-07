@@ -2402,6 +2402,15 @@ Core 04 owns the deployment-configuration artifact, discovery, environment-overl
 
 Before adoption, a proposed subsystem NLSpec does not alter the accepted deployment-configuration schema. Unknown keys outside Core 04 keys and adopted subsystem namespaces remain invalid. Environment overlays for adopted subsystem namespaces MUST use the Core 04 `CARTULARY__` overlay grammar and MUST remain subject to unknown-key rejection. Implementation-support guides, drafts, examples, and appendices MUST NOT widen the deployment-configuration schema.
 
+The implementation MUST realize this ownership as an owner-neutral configuration kernel.
+Core 04 mechanics parse the artifact, apply overlays, reject unknown keys, order
+diagnostics, and admit an immutable snapshot. Each adopted namespace owner supplies its
+closed paths, wire decoder, overlay application, semantic validation, projection, and
+clone behavior through an explicit statically assembled contribution. Core 04 MUST NOT
+embed owner-specific wire DTOs or semantic switches. Package initialization, mutable
+global registration, runtime or source-tree scanning, reflection-based owner discovery,
+and dynamic plugin loading are forbidden.
+
 For adopted subsystem namespaces that need deployment-local secret material, Core 04 owns the reusable `secret_ref_v1` deployment-configuration primitive. A `secret_ref_v1` value MUST be an object with exactly `kind` and `name`. `kind` MUST be exactly `env` in the current profile. `name` MUST match `[A-Za-z0-9][A-Za-z0-9_.-]{0,63}`. The normalized environment suffix MUST uppercase ASCII letters, retain digits, replace every non-alphanumeric run with one underscore, trim leading and trailing underscores, and reject an empty normalized result. For `kind='env'`, the normalized suffix `<REF>` selects exactly `CARTULARY_SECRET_<REF>`. `secret_ref_v1` values are deployment-local secret references, not secret values; they MUST NOT be accepted from browser state, incident records, workbook rows, public API requests, OTel SDK environment variables, declarative config, or generated test fixtures outside a harness-owned runtime. Resolution MUST occur after deployment-configuration parsing and before readiness for any subsystem that requires the secret. Missing, empty, syntactically invalid, or unresolved secret references MUST fail closed before readiness with `invalid_deployment_config`; diagnostics MAY include the safe reference `name` and config path, but MUST NOT include raw environment variable values, transformed secret values, endpoint credentials, header values, HMAC keys, or derived secret material.
 Profiles: base
 Verified by: AC-294, AC-298, AC-320
@@ -2867,7 +2876,12 @@ This section is active through the atomic adoption of the Extensions NLSpec and 
 For the adopted Extensions companion manifest, this owner document has `owner_document_schema_id='cartulary.core04.current.v1'` and `owner_document_version='extensions-adoption-1'`.
 
 **REQ-04-143**
-Every recognized profile uses the Boolean startup-only key `<profile_id>.claimed`, omitted as `false` and rejecting explicit `null` or non-Boolean values. Each profile-local configuration row MUST declare `inactive_policy` and `inactive_value_schema_ref`; the reference is non-null exactly for `syntax_only`. An unclaimed `syntax_only` value is checked only for the closed inert structural vocabulary in EXT-REQ-207. Core 04 applies no required/default omission policy, creates no configuration view, retains no accepted value, resolves no secret/file/trust/reference, performs no DNS or egress, and invokes no profile code. An omitted key is accepted without defaulting; an accepted explicit value is discarded before the next phase.
+Every recognized profile uses the Boolean startup-only key `<profile_id>.claimed`, omitted as `false` and rejecting explicit `null` or non-Boolean values. Claim-key recognition MUST derive from the digest-validated current Extensions descriptor and configuration catalog; a separately maintained profile switch or path list is invalid. Each profile-local configuration row MUST declare `inactive_policy` and `inactive_value_schema_id`; the schema ID is non-null exactly for `syntax_only`. An unclaimed `syntax_only` value is checked only for the closed inert structural vocabulary in EXT-REQ-207. Core 04 applies no required/default omission policy, creates no configuration view, retains no accepted value, resolves no secret/file/trust/reference, performs no DNS or egress, and invokes no profile code. An omitted key is accepted without defaulting; an accepted explicit value is discarded before the next phase.
+
+The effective `true` values form only a typed immutable requested-claim set. They MUST
+NOT be treated as claimed, published, or substituted for the resolved claim set. The
+Extensions admission boundary alone produces the resolved claim set after all admission
+stages succeed, and telemetry identity derives only from that resolved set.
 
 Every other unclaimed profile-local key fails before startup with top-level `error.code='invalid_deployment_config'`. Core 04 imports the Extensions diagnostic `extension_config_without_claim`, message `Extension configuration is present while the profile is inactive.`, and safe details `profile_id` and `config_path`. It translates the finding into one deployment-config `items[]` entry whose `path` is the dotted configuration key and whose `reason_code` and `message` are the imported Extensions values. Multiple findings use the ordinary deployment-config ordering by `path`, `reason_code`, and `message`. Profile-local replacement codes and compatibility aliases are forbidden.
 Profiles: base

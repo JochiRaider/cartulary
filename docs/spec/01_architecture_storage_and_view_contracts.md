@@ -7877,6 +7877,14 @@ Verified by: AC-030, AC-033, AC-046, AC-129, AC-169, AC-231
 
 **REQ-01-455**
 The application runtime MUST obtain database storage, object storage, reference-pack storage, temporary-work, and export-output roots from the deployment configuration contract owned by Core 04 §12. Core 01 does not define the operator-facing configuration artifact, discovery precedence, key registry, default locations, or validation error contract.
+
+Application composition MUST construct one closed deterministic catalog of the Core 04
+configuration contribution and every adopted source-owner namespace contribution. Each
+source owner constructs its contribution or an application adapter that delegates to
+the owner; application composition supplies dependencies and performs the static join.
+Domain modules, transport handlers, and storage adapters MUST consume admitted typed
+settings rather than the raw deployment document or snapshot. Contribution discovery by
+package initialization, reflection, filesystem scanning, or runtime plugins is forbidden.
 Profiles: base, reference_pack
 Verified by: AC-051, AC-055, AC-169, AC-231, AC-234, AC-294, AC-295, AC-297
 

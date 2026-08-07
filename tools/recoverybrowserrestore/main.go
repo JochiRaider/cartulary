@@ -657,18 +657,6 @@ func targetConfig(root string, origin string) configassembly.Deployment {
 		},
 		Bootstrap: config.BootstrapConfig{FirstAdminManifestPath: filepath.Join(root, "bootstrap-admin.json")},
 		Revisions: conflicts.Configuration{ConflictTokenKeyRingManifestPath: filepath.Join(root, "revisions-conflict-token-key-ring.json")},
-		Limits: config.LimitConfig{
-			ObjectBlobs:     config.ObjectBlobLimits{MaxDeclaredByteSize: config.DefaultObjectBlobMaxDeclaredByteSize},
-			Imports:         config.ImportLimits{MaxCSVSourceBytes: config.DefaultImportMaxCSVSourceBytes, MaxXLSXSourceBytes: config.DefaultImportMaxXLSXSourceBytes, MaxRows: config.DefaultImportMaxRows, MaxColumns: config.DefaultImportMaxColumns, MaxCells: config.DefaultImportMaxCells},
-			Archives:        config.ArchiveLimits{DefaultMaxExtractedBytes: config.DefaultArchiveMaxExtractedBytes, MaxCompressionRatio: config.DefaultArchiveMaxCompressionRatio, MaxMembers: config.DefaultArchiveMaxMembers},
-			ReferencePacks:  config.ReferencePackLimits{MaxExtractedBytes: config.DefaultReferencePackMaxExtractedBytes},
-			IncidentBundles: config.IncidentBundleLimits{MaxExtractedBytes: config.DefaultIncidentBundleMaxExtractedBytes},
-			Previews:        config.PreviewLimits{MaxPreviewablePayloadBytes: config.DefaultPreviewMaxPreviewablePayloadBytes, MaxTextInlineBytes: config.DefaultPreviewMaxTextInlineBytes},
-			Extensions: config.ExtensionLimits{
-				StagedObjectCleanupBatch:     config.DefaultExtensionStagedObjectCleanupBatch,
-				MaxNonterminalJobsPerProfile: config.DefaultExtensionMaxNonterminalJobsPerProfile,
-			},
-		},
 	}
 }
 

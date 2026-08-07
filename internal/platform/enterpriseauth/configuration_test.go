@@ -3,6 +3,20 @@ package enterpriseauth
 import "testing"
 
 func TestConfigurationNormalizationAndValidation_Unit(t *testing.T) {
+	t.Run("owner parses only its closed overlay paths", func(t *testing.T) {
+		configuration, finding := ApplyConfigurationOverlay(Configuration{}, []string{"enterprise_authentication", "claimed"}, "true")
+		if finding != nil || !configuration.Claimed {
+			t.Fatalf("claim overlay = %#v, finding %#v", configuration, finding)
+		}
+		configuration, finding = ApplyConfigurationOverlay(configuration, []string{"enterprise_authentication", "provider_manifest_path"}, "/etc/cartulary/providers.json")
+		if finding != nil || configuration.ProviderManifestPath != "/etc/cartulary/providers.json" {
+			t.Fatalf("manifest overlay = %#v, finding %#v", configuration, finding)
+		}
+		if _, finding := ApplyConfigurationOverlay(configuration, []string{"enterprise_authentication", "unknown"}, "value"); finding == nil || finding.ReasonCode != "unknown_key" {
+			t.Fatalf("unknown overlay finding = %#v", finding)
+		}
+	})
+
 	t.Run("unclaimed configuration discards owner value without preflight", func(t *testing.T) {
 		normalized, findings := NormalizeAndValidateConfiguration(Configuration{
 			ProviderManifestPath: "relative/must-not-be-read.json",

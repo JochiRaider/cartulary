@@ -346,7 +346,7 @@ When `telemetry.enabled=false`, the telemetry bootstrap boundary MUST install no
 
 ## 6. Configuration contract
 
-Telemetry configuration lives in the Cartulary deployment configuration surface. Core 04 owns the operator-facing deployment configuration artifact, discovery precedence, binding keys, and fail-closed startup validation; this NLSpec adds telemetry keys under that same surface rather than defining a second configuration model.
+Telemetry configuration lives in the Cartulary deployment configuration surface. Core 04 owns the operator-facing deployment configuration artifact, discovery precedence, generic overlay and unknown-key mechanics, diagnostic envelope, and fail-closed admission; this NLSpec adds telemetry keys under that same surface rather than defining a second configuration model. This NLSpec owns the exact telemetry wire DTO, defaults, environment-binding interpretation, secret-reference constraints, cross-key semantics, validation, and immutable clone/projection behavior. The telemetry owner MUST supply those behaviors as one explicit namespace contribution and Core 04 MUST NOT duplicate or special-case them.
 
 ### 6.1 Configuration keys
 

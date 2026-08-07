@@ -9,6 +9,20 @@ import (
 )
 
 func TestNetworkFlowConfigurationContribution_Unit(t *testing.T) {
+	t.Run("owner parses only its closed overlay paths", func(t *testing.T) {
+		configuration, finding := ApplyConfigurationOverlay(Configuration{}, []string{"network_flow_activity", "claimed"}, "true")
+		if finding != nil || !configuration.Claimed {
+			t.Fatalf("claim overlay = %#v, finding %#v", configuration, finding)
+		}
+		configuration, finding = ApplyConfigurationOverlay(configuration, []string{"network_flow_activity", "key_ring_manifest_path"}, "/etc/cartulary/network-flow-key-rings.json")
+		if finding != nil || configuration.KeyRingManifestPath != "/etc/cartulary/network-flow-key-rings.json" {
+			t.Fatalf("manifest overlay = %#v, finding %#v", configuration, finding)
+		}
+		if _, finding := ApplyConfigurationOverlay(configuration, []string{"network_flow_activity", "unknown"}, "value"); finding == nil || finding.ReasonCode != "unknown_key" {
+			t.Fatalf("unknown overlay finding = %#v", finding)
+		}
+	})
+
 	t.Run("unclaimed is inert and clears owner-local path material", func(t *testing.T) {
 		configuration, findings := NormalizeAndValidateConfiguration(Configuration{
 			KeyRingManifestPath: "/must/not/be/read",

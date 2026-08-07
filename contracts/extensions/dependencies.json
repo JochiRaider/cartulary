@@ -39,7 +39,9 @@
     },
     {
       "dependency_id": "core04",
-      "imported_schema_ids": [],
+      "imported_schema_ids": [
+        "cartulary.enterprise_authentication_provider_manifest_path.v1"
+      ],
       "imported_algorithm_ids": [],
       "imported_artifacts": []
     },
@@ -49,7 +51,8 @@
         "cartulary.extension_profile_configuration_contract.v3",
         "cartulary.extension_state_blocking_predicate.v1",
         "cartulary.extension_state_initialization_definition.v1",
-        "cartulary.extension_state_presence_manifest.v1"
+        "cartulary.extension_state_presence_manifest.v1",
+        "cartulary.network_flow_key_ring_manifest_path.v1"
       ],
       "imported_algorithm_ids": [
         "network_flow_activity.validate_state_v1"
@@ -88,8 +91,8 @@
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",
         "cartulary.test_family_manifest.v3",
-        "cartulary.test_owner_registry.v1",
         "cartulary.test_owner_explanation.v3",
+        "cartulary.test_owner_registry.v1",
         "cartulary.test_runner_registry.v1",
         "cartulary.verification_contract.v3",
         "cartulary.verification_registry.v3"

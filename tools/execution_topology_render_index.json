@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:fa189756996e709ed221b6f38e18b6f4a60789deeb00de70666282d458b8a854",
+  "input_digest": "sha256:006651ed79fed63843a44dba451aac4e553c463c6d8f64161d21082958ab5d40",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -237,7 +237,7 @@
     {
       "path": "contracts/verification/owners/platform.config.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:5e27dfddd027055ecf3dd15dfd41564bdfe9051b495cfcc3384c5fe8c861fc4a"
+      "hash": "sha256:29413dd229c489da2253d8793e357f19e64f5771faf6d44a88632a9c4b9378b2"
     },
     {
       "path": "contracts/verification/owners/platform.httpruntime.json",
@@ -267,7 +267,7 @@
     {
       "path": "contracts/verification/owners/platform.telemetry.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:201026044c5197698912463f8db47edc0feadd0dfd43fa7d6f34138414cf9bd9"
+      "hash": "sha256:0ed7539452941c41a9e774a9d6ac3fa2d26d810c95cd6ef2149c32897522584b"
     },
     {
       "path": "contracts/verification/owners/platform.viewquery.json",
@@ -787,7 +787,7 @@
     {
       "path": "tools/test_families/app.server.json",
       "role": "test_family_manifest",
-      "hash": "sha256:e96d506a94274e52ba8b465e158d96b2cf37ec1b87e43c590461059f719ceab4"
+      "hash": "sha256:398bae4ea66784264f0c92e53b787fbaa1742fe533e02a2e6bde611f31f1844c"
     },
     {
       "path": "tools/test_families/harness.browser.json",
@@ -1007,7 +1007,7 @@
     {
       "path": "tools/test_families/platform.config.json",
       "role": "test_family_manifest",
-      "hash": "sha256:20aaeb1f565be1e1350c11c0c1b407952adf6809f7c133075f5e90cd76c4fcfa"
+      "hash": "sha256:ec3132fcf5a4ac38da274061c18e658f94f6d3a5848e17c731e15a22e8b080b1"
     },
     {
       "path": "tools/test_families/platform.httpruntime.json",
@@ -1037,7 +1037,7 @@
     {
       "path": "tools/test_families/platform.telemetry.json",
       "role": "test_family_manifest",
-      "hash": "sha256:967836f4b9d7239d86dccf8e398d4bfd39f3b7a3775cbfd1a424e75d549e3940"
+      "hash": "sha256:e7fa53c44a736cfdbe9fc18ba877f360edfd52aabb507b4c020aab0ede4b6e6b"
     },
     {
       "path": "tools/test_families/platform.viewquery.json",

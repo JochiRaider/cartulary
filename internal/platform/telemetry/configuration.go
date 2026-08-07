@@ -8,7 +8,7 @@ import (
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 )
 
-var ConfigurationKey = mustConfigurationKey()
+var configurationKey = mustConfigurationKey()
 
 func mustConfigurationKey() config.Key[telemetryconfiguration.Config] {
 	key, err := config.NewKey[telemetryconfiguration.Config]("platform.telemetry")
@@ -23,7 +23,7 @@ func mustConfigurationKey() config.Key[telemetryconfiguration.Config] {
 // overlay, normalization, and structural findings through the owner policy.
 func RegisterConfigurationContribution(builder *config.CatalogBuilder) error {
 	return config.Register(builder, config.Definition[telemetryconfiguration.Config]{
-		Key:       ConfigurationKey,
+		Key:       configurationKey,
 		Namespace: "telemetry",
 		Paths: []string{
 			"telemetry.attribute.hmac_secret_ref",
@@ -65,6 +65,17 @@ func RegisterConfigurationContribution(builder *config.CatalogBuilder) error {
 			"telemetry.traces.sample_ratio",
 			"telemetry.traces.sampler_profile",
 		},
+		Decode: func(decoder config.NamespaceDecoder) (telemetryconfiguration.Config, []config.Diagnostic) {
+			var settings telemetryconfiguration.Config
+			if err := decoder.Decode(&settings); err != nil {
+				return telemetryconfiguration.Config{}, []config.Diagnostic{{
+					Path:       "telemetry",
+					ReasonCode: "invalid_telemetry_config",
+					Message:    err.Error(),
+				}}
+			}
+			return settings, nil
+		},
 		ApplyOverlay: func(settings telemetryconfiguration.Config, segments []string, raw string) (telemetryconfiguration.Config, *config.Diagnostic) {
 			finding := telemetryconfiguration.ApplyOverlay(&settings, segments, raw)
 			if finding == nil {
@@ -76,15 +87,7 @@ func RegisterConfigurationContribution(builder *config.CatalogBuilder) error {
 				Message:    finding.Message,
 			}
 		},
-		Project: func(source config.Source) (telemetryconfiguration.Config, []config.Diagnostic) {
-			var settings telemetryconfiguration.Config
-			if err := source.Decode("telemetry", &settings); err != nil {
-				return telemetryconfiguration.Config{}, []config.Diagnostic{{
-					Path:       "telemetry",
-					ReasonCode: "invalid_telemetry_config",
-					Message:    err.Error(),
-				}}
-			}
+		Project: func(settings telemetryconfiguration.Config, source config.Source) (telemetryconfiguration.Config, []config.Diagnostic) {
 			normalized, findings := telemetryconfiguration.NormalizeAndValidate(settings, source)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -135,7 +138,7 @@ func configurationDiagnosticsError(findings []telemetryconfiguration.Finding) er
 }
 
 func ConfigurationValue(snapshot config.Snapshot) (telemetryconfiguration.Config, error) {
-	settings, err := config.Value(snapshot, ConfigurationKey)
+	settings, err := config.Value(snapshot, configurationKey)
 	if err != nil {
 		return telemetryconfiguration.Config{}, fmt.Errorf("project telemetry configuration: %w", err)
 	}

@@ -72,19 +72,124 @@ func TestValidateExtensionOwnerFragmentRejectsCapabilities(t *testing.T) {
 }
 
 func TestValidateExtensionConfigurationRequiresInertSchemaReference(t *testing.T) {
-	contract := map[string]any{
+	contract := validExtensionConfigurationContract()
+	contract["keys"].([]any)[0].(map[string]any)["inactive_policy"] = "syntax_only"
+	requireErrorContains(t, validateExtensionConfigurationContract(contract, "configuration.json"), "syntax_only requires a non-null inactive_value_schema_id")
+}
+
+func TestValidateExtensionConfigurationRequiresClosedCanonicalRows(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(map[string]any)
+		expects string
+	}{
+		{
+			name: "missing value schema",
+			mutate: func(contract map[string]any) {
+				delete(contract["keys"].([]any)[0].(map[string]any), "value_schema_id")
+			},
+			expects: "missing required key value_schema_id",
+		},
+		{
+			name: "wrong namespace schema",
+			mutate: func(contract map[string]any) {
+				contract["namespace_schema_id"] = "cartulary.other.configuration_namespace.v1"
+			},
+			expects: "namespace_schema_id must match",
+		},
+		{
+			name: "unknown omission member",
+			mutate: func(contract map[string]any) {
+				contract["keys"].([]any)[0].(map[string]any)["omission_policy"].(map[string]any)["value"] = "unexpected"
+			},
+			expects: "unknown key value",
+		},
+		{
+			name: "unsorted keys",
+			mutate: func(contract map[string]any) {
+				second := cloneJSONMap(t, contract["keys"].([]any)[0].(map[string]any))
+				second["key"] = "test.alpha"
+				contract["keys"] = append(contract["keys"].([]any), second)
+			},
+			expects: "keys must be sorted and unique",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			contract := validExtensionConfigurationContract()
+			test.mutate(contract)
+			requireErrorContains(t, validateExtensionConfigurationContract(contract, "configuration.json"), test.expects)
+		})
+	}
+}
+
+func TestValidateExtensionConfigurationReferencesRejectsUnresolvedSchema(t *testing.T) {
+	contract := validExtensionConfigurationContract()
+	indexed := map[string]map[string]any{
+		"profiles/test/configuration.json": contract,
+		"specification/contract-definitions.json": {
+			"definitions": []any{},
+		},
+		"specification/inactive-value-schemas.json": {
+			"schemas": []any{},
+		},
+	}
+	requireErrorContains(t, validateExtensionConfigurationReferences(indexed), "value_schema_id cartulary.test_value.v1 is unresolved")
+}
+
+func TestValidateExtensionProfileFactClosureRejectsStaleConfigurationDigest(t *testing.T) {
+	indexed := map[string]map[string]any{}
+	for _, profileID := range requiredExtensionProfiles {
+		contract := map[string]any{
+			"schema_id":                    "cartulary.extension_profile_configuration_contract.v3",
+			"configuration_contract_id":    profileID + ".configuration.v1",
+			"profile_id":                   profileID,
+			"configuration_contract_major": json.Number("1"),
+			"namespace_schema_id":          "cartulary." + profileID + ".configuration_namespace.v1",
+			"keys":                         []any{},
+		}
+		digest, err := extensionCanonicalDigest(contract)
+		if err != nil {
+			t.Fatalf("digest configuration contract: %v", err)
+		}
+		if profileID == requiredExtensionProfiles[0] {
+			digest = strings.Repeat("0", 64)
+		}
+		facts := make([]any, 0, len(requiredProfileScalarFacts))
+		for _, factKind := range requiredProfileScalarFacts {
+			fact := map[string]any{"fact_kind": factKind, "profile_id": profileID}
+			if factKind == "claim_configuration" {
+				fact["claim_config_key"] = profileID + ".claimed"
+				fact["configuration_contract_sha256"] = digest
+			}
+			facts = append(facts, fact)
+		}
+		indexed["profiles/"+profileID+"/configuration.json"] = contract
+		indexed["fragments/"+profileID+".json"] = map[string]any{
+			"schema_id": "cartulary.extension_owner_fragment.v3",
+			"facts":     facts,
+		}
+	}
+	requireErrorContains(t, validateExtensionProfileFactClosure(indexed), "stale contract digest")
+}
+
+func validExtensionConfigurationContract() map[string]any {
+	return map[string]any{
 		"schema_id":                    "cartulary.extension_profile_configuration_contract.v3",
 		"configuration_contract_id":    "test.configuration.v1",
 		"profile_id":                   "test",
 		"configuration_contract_major": json.Number("1"),
-		"namespace_schema_id":          "test.configuration.v1",
+		"namespace_schema_id":          "cartulary.test.configuration_namespace.v1",
 		"keys": []any{map[string]any{
 			"key":                      "test.value",
-			"inactive_policy":          "syntax_only",
+			"value_schema_id":          "cartulary.test_value.v1",
+			"omission_policy":          map[string]any{"kind": "required"},
+			"inactive_policy":          "forbidden",
+			"resolution_kind":          "plain",
+			"diagnostic_policy":        "name_only",
 			"inactive_value_schema_id": nil,
 		}},
 	}
-	requireErrorContains(t, validateExtensionConfigurationContract(contract, "configuration.json"), "syntax_only requires a non-null inactive_value_schema_id")
 }
 
 func TestExtensionCanonicalDigestIncludesRequiredFinalLF(t *testing.T) {

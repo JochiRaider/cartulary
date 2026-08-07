@@ -1,13 +1,15 @@
-package config
+package telemetry_test
 
 import (
-	"fmt"
-	"reflect"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/platform/config"
 	telemetryconfiguration "github.com/JochiRaider/cartulary/internal/platform/telemetry/configuration"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
@@ -220,7 +222,7 @@ func TestOpenTelemetryConfigValidation(t *testing.T) {
 kind = "otlp_http"
 endpoint = "https://collector.example.test:4318/otel"
 `
-		if _, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, validHTTP)}); err != nil {
+		if _, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, validHTTP)}); err != nil {
 			t.Fatalf("load valid OTLP/HTTP endpoint: %v", err)
 		}
 
@@ -229,7 +231,7 @@ endpoint = "https://collector.example.test:4318/otel"
 kind = "otlp_grpc"
 endpoint = "http://collector.example.test:4317/"
 `
-		if _, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, validGRPC)}); err != nil {
+		if _, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, validGRPC)}); err != nil {
 			t.Fatalf("load valid OTLP/gRPC endpoint: %v", err)
 		}
 
@@ -546,97 +548,28 @@ func fixturesConfigValid(t testing.TB) []byte {
 	return fixtures.MustRead("config", "valid.toml")
 }
 
-func mustLoadTelemetryConfig(t testing.TB, content string, env map[string]string) document {
+func mustLoadTelemetryConfig(t testing.TB, content string, env map[string]string) configassembly.Deployment {
 	t.Helper()
-	cfg, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, content), Env: env})
+	loaded, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
 	if err != nil {
 		t.Fatalf("load telemetry configuration: %v", err)
 	}
-	return cfg
+	return loaded.Deployment()
 }
 
 func loadInvalidTelemetryConfig(t testing.TB, content string, env map[string]string) error {
 	t.Helper()
-	_, err := loadTelemetryWithOptions(LoadOptions{Path: writeTempConfig(t, content), Env: env})
+	_, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
 	if err == nil {
 		t.Fatal("expected invalid telemetry configuration")
 	}
 	return err
 }
 
-func loadTelemetryWithOptions(options LoadOptions) (document, error) {
-	catalog, key, err := telemetryTestCatalog()
-	if err != nil {
-		return document{}, err
-	}
-	cfg, err := loadWithOptionsAndCatalog(options, catalog)
-	if err != nil {
-		return document{}, err
-	}
-	snapshot, err := catalog.materialize(cfg)
-	if err != nil {
-		return document{}, err
-	}
-	settings, err := Value(snapshot, key)
-	if err != nil {
-		return document{}, err
-	}
-	target, present := configFieldAtPath(&cfg, "telemetry")
-	if !present {
-		return document{}, fmt.Errorf("telemetry document namespace is unresolved")
-	}
-	if err := copyConfigurationValue(target, reflect.ValueOf(settings)); err != nil {
-		return document{}, err
-	}
-	return cfg, nil
-}
-
-func telemetryTestCatalog() (Catalog, Key[telemetryconfiguration.Config], error) {
-	key, err := NewKey[telemetryconfiguration.Config]("platform.telemetry.test")
-	if err != nil {
-		return Catalog{}, Key[telemetryconfiguration.Config]{}, err
-	}
-	builder := &CatalogBuilder{}
-	err = Register(builder, Definition[telemetryconfiguration.Config]{
-		Key:       key,
-		Namespace: "telemetry",
-		Paths:     []string{"telemetry"},
-		ApplyOverlay: func(settings telemetryconfiguration.Config, segments []string, raw string) (telemetryconfiguration.Config, *Diagnostic) {
-			finding := telemetryconfiguration.ApplyOverlay(&settings, segments, raw)
-			if finding == nil {
-				return settings, nil
-			}
-			return settings, &Diagnostic{
-				Path:       finding.Path,
-				ReasonCode: finding.ReasonCode,
-				Message:    finding.Message,
-			}
-		},
-		Project: func(source Source) (telemetryconfiguration.Config, []Diagnostic) {
-			var settings telemetryconfiguration.Config
-			if err := source.Decode("telemetry", &settings); err != nil {
-				return telemetryconfiguration.Config{}, []Diagnostic{{
-					Path:       "telemetry",
-					ReasonCode: "invalid_telemetry_config",
-					Message:    err.Error(),
-				}}
-			}
-			normalized, findings := telemetryconfiguration.NormalizeAndValidate(settings, source)
-			return normalized, telemetryFindingsToTestDiagnostics(findings)
-		},
-		Clone: telemetryconfiguration.Clone,
-	})
-	if err != nil {
-		return Catalog{}, Key[telemetryconfiguration.Config]{}, err
-	}
-	catalog, err := builder.Build()
-	return catalog, key, err
-}
-
-func telemetryFindingsToTestDiagnostics(findings []telemetryconfiguration.Finding) []Diagnostic {
-	diagnostics := make([]Diagnostic, len(findings))
+func telemetryFindingsToTestDiagnostics(findings []telemetryconfiguration.Finding) []config.Diagnostic {
+	diagnostics := make([]config.Diagnostic, len(findings))
 	for index, finding := range findings {
-		diagnostics[index] = Diagnostic{
+		diagnostics[index] = config.Diagnostic{
 			Path:       finding.Path,
 			ReasonCode: finding.ReasonCode,
 			Message:    finding.Message,
@@ -645,16 +578,35 @@ func telemetryFindingsToTestDiagnostics(findings []telemetryconfiguration.Findin
 	return diagnostics
 }
 
-func resolveTelemetrySecretReferencesForTest(cfg document, env map[string]string) error {
-	var settings telemetryconfiguration.Config
-	if err := (documentSource{document: cfg}).Decode("telemetry", &settings); err != nil {
-		return err
-	}
-	_, findings := telemetryconfiguration.ResolveSecrets(settings, env)
+func resolveTelemetrySecretReferencesForTest(cfg configassembly.Deployment, env map[string]string) error {
+	_, findings := telemetryconfiguration.ResolveSecrets(cfg.Telemetry, env)
 	if len(findings) == 0 {
 		return nil
 	}
-	return newDiagnosticsError(telemetryFindingsToTestDiagnostics(findings))
+	return config.NewDiagnosticsError(telemetryFindingsToTestDiagnostics(findings)...)
+}
+
+func writeTelemetryTempConfig(t testing.TB, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write temporary telemetry configuration: %v", err)
+	}
+	return path
+}
+
+func requireDiagnostic(t testing.TB, err error, wantPath string, wantReason string) {
+	t.Helper()
+	diagnostics, ok := config.DiagnosticsFromError(err)
+	if !ok {
+		t.Fatalf("expected diagnostics error, got %T", err)
+	}
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Path == wantPath && diagnostic.ReasonCode == wantReason {
+			return
+		}
+	}
+	t.Fatalf("missing diagnostic path=%q reason=%q in %#v", wantPath, wantReason, diagnostics)
 }
 
 func requireTelemetryUUIDV4(t testing.TB, value string) {

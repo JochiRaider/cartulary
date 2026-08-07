@@ -20,10 +20,10 @@ type filesystemRoot struct {
 const limitRegistryMaxInt64 = int64(^uint64(0) >> 1)
 
 func validate(cfg document) (document, error) {
-	return validateWithInactivePolicy(cfg, nil)
+	return validateWithExtensionPolicy(cfg, nil)
 }
 
-func validateWithInactivePolicy(cfg document, policy InactivePolicy) (document, error) {
+func validateWithExtensionPolicy(cfg document, policy ExtensionPolicy) (document, error) {
 	normalized := cfg
 	diagnostics := validateConfigStructure(&normalized, configPresence{}, policy)
 	if len(diagnostics) > 0 {
@@ -33,11 +33,11 @@ func validateWithInactivePolicy(cfg document, policy InactivePolicy) (document, 
 }
 
 func validateForStartup(cfg document) (document, error) {
-	return validateForStartupWithInactivePolicy(cfg, nil)
+	return validateForStartupWithExtensionPolicy(cfg, nil)
 }
 
-func validateForStartupWithInactivePolicy(cfg document, policy InactivePolicy) (document, error) {
-	normalized, err := validateWithInactivePolicy(cfg, policy)
+func validateForStartupWithExtensionPolicy(cfg document, policy ExtensionPolicy) (document, error) {
+	normalized, err := validateWithExtensionPolicy(cfg, policy)
 	if err != nil {
 		return document{}, err
 	}
@@ -50,7 +50,7 @@ func validateForStartupWithInactivePolicy(cfg document, policy InactivePolicy) (
 	return normalized, nil
 }
 
-func validateConfigStructure(cfg *document, presence configPresence, inactivePolicy InactivePolicy) []Diagnostic {
+func validateConfigStructure(cfg *document, presence configPresence, inactivePolicy ExtensionPolicy) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	cfg.presence = presence
 
@@ -304,14 +304,14 @@ func validateBootstrapManifestPath(bootstrap *BootstrapConfig, presence configPr
 	}
 }
 
-func validateAndDiscardInactiveExtensionConfiguration(cfg *document, presence configPresence, policy InactivePolicy) []Diagnostic {
+func validateAndDiscardInactiveExtensionConfiguration(cfg *document, presence configPresence, policy ExtensionPolicy) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	if policy == nil {
 		return diagnostics
 	}
 	for _, key := range policy.Keys() {
 		claimKey, known := policy.ClaimKey(key)
-		claimed, claimExists := configBoolAtPath(cfg, claimKey)
+		claimed, claimExists := booleanFieldAtPath(cfg, claimKey)
 		if !known || !claimExists || claimed {
 			continue
 		}
@@ -340,31 +340,37 @@ func validateAndDiscardInactiveExtensionConfiguration(cfg *document, presence co
 	return diagnostics
 }
 
-func configBoolAtPath(cfg *document, path string) (bool, bool) {
+func booleanFieldAtPath(cfg *document, path string) (bool, bool) {
 	if cfg == nil {
 		return false, false
 	}
-	switch path {
-	case "enterprise_authentication.claimed":
-		return cfg.EnterpriseAuthentication.Claimed, true
-	case "import.claimed":
-		return cfg.Import.Claimed, true
-	case "incident_portability.claimed":
-		return cfg.IncidentPortability.Claimed, true
-	case "network_flow_activity.claimed":
-		return cfg.NetworkFlowActivity.Claimed, true
-	case "reference_pack.claimed":
-		return cfg.ReferencePack.Claimed, true
-	case "snapshot_reporting.claimed":
-		return cfg.SnapshotReporting.Claimed, true
-	default:
+	if claim, present := cfg.claims[path]; present {
+		return claim.value, true
+	}
+	field, present := configFieldAtPath(cfg, path)
+	if !present || field.Kind() != reflect.Bool {
 		return false, false
 	}
+	return field.Bool(), true
 }
 
 func configFieldAtPath(cfg *document, path string) (reflect.Value, bool) {
+	segments := strings.Split(path, ".")
+	if cfg == nil || len(segments) == 0 {
+		return reflect.Value{}, false
+	}
 	value := reflect.ValueOf(cfg).Elem()
-	for _, segment := range strings.Split(path, ".") {
+	if namespace, present := cfg.namespaces[segments[0]]; present {
+		value = reflect.ValueOf(namespace)
+		for value.Kind() == reflect.Pointer {
+			if value.IsNil() {
+				return reflect.Value{}, false
+			}
+			value = value.Elem()
+		}
+		segments = segments[1:]
+	}
+	for _, segment := range segments {
 		field, ok := findTaggedField(value, segment)
 		if !ok {
 			return reflect.Value{}, false
@@ -375,19 +381,19 @@ func configFieldAtPath(cfg *document, path string) (reflect.Value, bool) {
 }
 
 func applyDefaultLimitValues(cfg *document, presence configPresence) {
-	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")
-	applyDefaultInt64(&cfg.Limits.Imports.MaxCSVSourceBytes, DefaultImportMaxCSVSourceBytes, presence, "limits", "imports", "max_csv_source_bytes")
-	applyDefaultInt64(&cfg.Limits.Imports.MaxXLSXSourceBytes, DefaultImportMaxXLSXSourceBytes, presence, "limits", "imports", "max_xlsx_source_bytes")
-	applyDefaultInt64(&cfg.Limits.Imports.MaxRows, DefaultImportMaxRows, presence, "limits", "imports", "max_rows")
-	applyDefaultInt64(&cfg.Limits.Imports.MaxColumns, DefaultImportMaxColumns, presence, "limits", "imports", "max_columns")
-	applyDefaultInt64(&cfg.Limits.Imports.MaxCells, DefaultImportMaxCells, presence, "limits", "imports", "max_cells")
-	applyDefaultInt64(&cfg.Limits.Archives.DefaultMaxExtractedBytes, DefaultArchiveMaxExtractedBytes, presence, "limits", "archives", "default_max_extracted_bytes")
-	applyDefaultInt64(&cfg.Limits.Archives.MaxCompressionRatio, DefaultArchiveMaxCompressionRatio, presence, "limits", "archives", "max_compression_ratio")
-	applyDefaultInt64(&cfg.Limits.Archives.MaxMembers, DefaultArchiveMaxMembers, presence, "limits", "archives", "max_members")
-	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxExtractedBytes, DefaultReferencePackMaxExtractedBytes, presence, "limits", "reference_packs", "max_extracted_bytes")
-	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, DefaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
-	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, DefaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
-	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
+	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, defaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxCSVSourceBytes, defaultImportMaxCSVSourceBytes, presence, "limits", "imports", "max_csv_source_bytes")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxXLSXSourceBytes, defaultImportMaxXLSXSourceBytes, presence, "limits", "imports", "max_xlsx_source_bytes")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxRows, defaultImportMaxRows, presence, "limits", "imports", "max_rows")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxColumns, defaultImportMaxColumns, presence, "limits", "imports", "max_columns")
+	applyDefaultInt64(&cfg.Limits.Imports.MaxCells, defaultImportMaxCells, presence, "limits", "imports", "max_cells")
+	applyDefaultInt64(&cfg.Limits.Archives.DefaultMaxExtractedBytes, defaultArchiveMaxExtractedBytes, presence, "limits", "archives", "default_max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.Archives.MaxCompressionRatio, defaultArchiveMaxCompressionRatio, presence, "limits", "archives", "max_compression_ratio")
+	applyDefaultInt64(&cfg.Limits.Archives.MaxMembers, defaultArchiveMaxMembers, presence, "limits", "archives", "max_members")
+	applyDefaultInt64(&cfg.Limits.ReferencePacks.MaxExtractedBytes, defaultReferencePackMaxExtractedBytes, presence, "limits", "reference_packs", "max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.IncidentBundles.MaxExtractedBytes, defaultIncidentBundleMaxExtractedBytes, presence, "limits", "incident_bundles", "max_extracted_bytes")
+	applyDefaultInt64(&cfg.Limits.Previews.MaxPreviewablePayloadBytes, defaultPreviewMaxPreviewablePayloadBytes, presence, "limits", "previews", "max_previewable_payload_bytes")
+	applyDefaultInt64(&cfg.Limits.Previews.MaxTextInlineBytes, defaultPreviewMaxTextInlineBytes, presence, "limits", "previews", "max_text_inline_bytes")
 }
 
 func applyDefaultExtensionRuntimeValues(cfg *document, presence configPresence) {
@@ -408,8 +414,8 @@ func applyDefaultExtensionRuntimeValues(cfg *document, presence configPresence) 
 	applyDefaultInt64(&timeouts.SnapshotReportingParticipantSeconds, 300, presence, "timeouts", "extensions", "snapshot_reporting_participant_seconds")
 	applyDefaultInt64(&timeouts.BackupRestoreParticipantSeconds, 900, presence, "timeouts", "extensions", "backup_restore_participant_seconds")
 	applyDefaultInt64(&cfg.Intervals.Extensions.StagedObjectSweepSeconds, 300, presence, "intervals", "extensions", "staged_object_sweep_seconds")
-	applyDefaultInt64(&cfg.Limits.Extensions.StagedObjectCleanupBatch, DefaultExtensionStagedObjectCleanupBatch, presence, "limits", "extensions", "staged_object_cleanup_batch")
-	applyDefaultInt64(&cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, DefaultExtensionMaxNonterminalJobsPerProfile, presence, "limits", "extensions", "max_nonterminal_jobs_per_profile")
+	applyDefaultInt64(&cfg.Limits.Extensions.StagedObjectCleanupBatch, defaultExtensionStagedObjectCleanupBatch, presence, "limits", "extensions", "staged_object_cleanup_batch")
+	applyDefaultInt64(&cfg.Limits.Extensions.MaxNonterminalJobsPerProfile, defaultExtensionMaxNonterminalJobsPerProfile, presence, "limits", "extensions", "max_nonterminal_jobs_per_profile")
 }
 
 func validateExtensionRuntimeValues(cfg document, diagnostics *[]Diagnostic) {

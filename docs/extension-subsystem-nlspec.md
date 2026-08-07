@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.7.1
+document_version: 0.7.2
 contract_major: 2
 ---
 
@@ -12,12 +12,13 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.7.1` coordinates the Core-owned analytical
-import binding shape with target-owned exact payload schemas and requires every analytical
-`import_target` contribution to name its binding. Its coordinated owner repair is adopted with
-Core 00/Core 01, Core 03/Core 04, Domain vocabulary, and Network Flow Activity `2.0.3`; the
-machine projection and implementation evidence remain governed by the controlling remediation
-tracker.
+This document is `status: adopted/current`. Version `0.7.2` makes the breaking projection
+versions declared in Section 1.1 authoritative throughout this document, without a compatibility
+reader. It also coordinates the Core-owned analytical import binding shape with target-owned exact
+payload schemas and requires every analytical `import_target` contribution to name its binding.
+Its coordinated owner repair is adopted with Core 00/Core 01, Core 03/Core 04, Domain vocabulary,
+and Network Flow Activity `2.0.3`; the machine projection and implementation evidence remain
+governed by the controlling remediation tracker.
 
 ## 1.1 Current projection and evidence boundary
 
@@ -142,7 +143,7 @@ Verified by: EXT-AC-004, EXT-AC-005, EXT-AC-072, EXT-AC-076
 
 | Artifact class | Examples | Authority rule |
 | --- | --- | --- |
-| Owner-authored normative input | Adopted owner document and separately stored `cartulary.extension_owner_fragment.v1` explicitly adopted by that document | Normative only for the exact facts allocated to that owner. |
+| Owner-authored normative input | Adopted owner document and separately stored `cartulary.extension_owner_fragment.v3` explicitly adopted by that document | Normative only for the exact facts allocated to that owner. |
 | Generated normalized input | Dependency snapshot and owner-input registry | Derived from owner-authored input; cannot add or override behavior. |
 | Generated runtime input | Descriptor, registry, registry-integrity object, conformance-manifest index | Runtime and conformance input; cannot override owner facts. |
 | Build-time implementation declaration | `cartulary.extension_implementation_binding.v1` | Declares packaged support; cannot widen the descriptor or owner contract. |
@@ -295,7 +296,7 @@ Verified by: EXT-AC-001, EXT-AC-040
 | `claimed profile` | A claimable profile whose claim request passed every admission stage and is present in the canonical resolved claim set. |
 | `unclaimed profile` | A claimable profile whose claim key is omitted or false. |
 | `recognized unclaimable profile` | A recognized profile for which Core 00 reports `claimable=false`. |
-| `owner fragment` | Separately stored, closed `cartulary.extension_owner_fragment.v1` object explicitly adopted by one owner document and containing only facts allocated to that owner. |
+| `owner fragment` | Separately stored, closed `cartulary.extension_owner_fragment.v3` object explicitly adopted by one owner document and containing only facts allocated to that owner. |
 | `dependency snapshot` | Canonical digest-bound list of exact adopted owner documents, anchors, schemas, and algorithms imported by this NLSpec revision. |
 | `owner-input registry` | Canonical joined collection of the dependency snapshot and every adopted owner fragment used to derive descriptors. |
 | `descriptor source` | Generated intermediate object that permits omission only for explicitly defaultable members. |
@@ -380,7 +381,7 @@ Verified by: EXT-AC-017, EXT-AC-024, EXT-AC-029
 # 5. Owner inputs and derived-artifact boundary
 
 **EXT-REQ-024**
-The canonical descriptor for one profile MUST be derived only from validated `cartulary.extension_owner_fragment.v1` objects joined through `cartulary.extension_owner_input_registry.v1`. A missing required owner fact is a registry error. The generator MUST NOT infer it from prose, code, routes, configuration, database schema, package structure, generated output, or runtime behavior.
+The canonical descriptor for one profile MUST be derived only from validated `cartulary.extension_owner_fragment.v3` objects joined through `cartulary.extension_owner_input_registry.v2`. A missing required owner fact is a registry error. The generator MUST NOT infer it from prose, code, routes, configuration, database schema, package structure, generated output, or runtime behavior.
 
 Profiles: base
 Verified by: EXT-AC-003, EXT-AC-005, EXT-AC-006, EXT-AC-072, EXT-AC-076
@@ -413,7 +414,7 @@ Profiles: base
 Verified by: owner-input shape, catalog containment, fact-closure, and deterministic-generation tests
 
 **EXT-REQ-026**
-The descriptor and registry generator MUST consume only explicit normalized owner facts from `cartulary.extension_owner_input_registry.v1`. Repository search results, Markdown tables, headings, prose, implementation package discovery, route enumeration from a running server, database introspection, generated contract scanning, and source-code reflection MAY be used as drift evidence but MUST NOT create, alter, default, or select a missing owner fact. Omission behavior: when these secondary checks are not used, owner-derived generation behavior is unchanged.
+The descriptor and registry generator MUST consume only explicit normalized owner facts from `cartulary.extension_owner_input_registry.v2`. Repository search results, Markdown tables, headings, prose, implementation package discovery, route enumeration from a running server, database introspection, generated contract scanning, and source-code reflection MAY be used as drift evidence but MUST NOT create, alter, default, or select a missing owner fact. Omission behavior: when these secondary checks are not used, owner-derived generation behavior is unchanged.
 
 Profiles: base
 Verified by: EXT-AC-005, EXT-AC-072, EXT-AC-076
@@ -539,10 +540,15 @@ Explicit JSON `null` is invalid for every optional source member. No required so
 1. validate that the decoded source value is an object and contains no duplicate or unknown member;
 2. validate every present member's JSON type category;
 3. materialize every Table 7-A omission default;
-4. replace `schema_id` with `cartulary.extension_profile_descriptor.v1`;
+4. replace `schema_id` with `cartulary.extension_profile_descriptor.v3`;
 5. validate every scalar, collection, variant, limit, and cross-field invariant;
 6. sort every set-like array under Table 7-F;
 7. emit one closed canonical descriptor containing every Table 7-B member exactly once.
+
+The algorithm identifier retains `v1` because its materialization steps and omission
+semantics are unchanged. Its output schema is exclusively
+`cartulary.extension_profile_descriptor.v3`; the algorithm identifier MUST NOT be used
+to infer or accept a v1 descriptor.
 
 Default materialization MUST occur before canonical serialization, descriptor digest calculation, collision detection, or registry construction. Explicit `null` MUST never invoke a default.
 
@@ -557,11 +563,11 @@ A descriptor-source instance is an ephemeral derivation intermediate with no can
 Profiles: base
 Verified by: EXT-AC-101
 
-**Table 7-B. `cartulary.extension_profile_descriptor.v1`**
+**Table 7-B. `cartulary.extension_profile_descriptor.v3`**
 
 | Member | Type | Canonical rule |
 | --- | --- | --- |
-| `schema_id` | String | Required; exactly `cartulary.extension_profile_descriptor.v1`. |
+| `schema_id` | String | Required; exactly `cartulary.extension_profile_descriptor.v3`. |
 | `profile_id` | String | Required; Table 4-B. |
 | `claimable` | Boolean | Required. |
 | `contract_major` | Integer or `null` | Required; conditional nullability in EXT-REQ-039 and EXT-REQ-040. |
@@ -648,7 +654,7 @@ Profiles: base
 Verified by: EXT-AC-016, EXT-AC-018, EXT-AC-019, EXT-AC-083
 
 **EXT-REQ-037**
-`prestage_config_keys[]` MUST be derived as the exact sorted set of configuration-contract keys whose `inactive_policy='syntax_only'`. The array MUST NOT be independently authored in an owner fragment, descriptor source, implementation binding, or deployment configuration. Every item MUST be an exact fully qualified key inside the profile namespace, MUST NOT equal the claim key, and MUST resolve to one key row in the digest-bound `cartulary.extension_profile_configuration_contract.v1`. `[]` means no profile-local key other than the claim key is valid while the profile is unclaimed.
+`prestage_config_keys[]` MUST be derived as the exact sorted set of configuration-contract keys whose `inactive_policy='syntax_only'`. The array MUST NOT be independently authored in an owner fragment, descriptor source, implementation binding, or deployment configuration. Every item MUST be an exact fully qualified key inside the profile namespace, MUST NOT equal the claim key, and MUST resolve to one key row in the digest-bound `cartulary.extension_profile_configuration_contract.v3`. `[]` means no profile-local key other than the claim key is valid while the profile is unclaimed.
 
 Profiles: base
 Verified by: EXT-AC-012, EXT-AC-013, EXT-AC-087, EXT-AC-102
@@ -726,7 +732,7 @@ Verified by: EXT-AC-004, EXT-AC-007, EXT-AC-079
 **EXT-REQ-043**
 `derive_extension_registry_v1` MUST execute these steps in order:
 
-1. load and validate the canonical `cartulary.extension_owner_input_registry.v1` bytes and digest;
+1. load and validate the canonical `cartulary.extension_owner_input_registry.v2` bytes and digest;
 2. require exactly one normalized `recognized_profile` fact per recognized profile;
 3. join every other owner fact by exact `profile_id` and fact identity key;
 4. reject a recognized profile missing a required fact;
@@ -754,16 +760,16 @@ Profiles: base
 Verified by: EXT-AC-004, EXT-AC-079
 
 **EXT-REQ-179**
-Coordinated generation MUST emit one closed `cartulary.extension_registry_integrity.v1` object containing exactly the members in Table 8-A.
+Coordinated generation MUST emit one closed `cartulary.extension_registry_integrity.v2` object containing exactly the members in Table 8-A.
 
 Profiles: base
 Verified by: EXT-AC-079, EXT-AC-136
 
-**Table 8-A. `cartulary.extension_registry_integrity.v1`**
+**Table 8-A. `cartulary.extension_registry_integrity.v2`**
 
 | Member | Required rule |
 | --- | --- |
-| `schema_id` | Exactly `cartulary.extension_registry_integrity.v1`. |
+| `schema_id` | Exactly `cartulary.extension_registry_integrity.v2`. |
 | `canonicalization_algorithm_id` | Exactly `extension_registry_canonical_json_v1`. |
 | `dependency_snapshot_sha256` | Canonical dependency-snapshot digest. |
 | `owner_input_registry_sha256` | `extension_owner_input_registry_sha256_v1`. |
@@ -849,28 +855,28 @@ Profiles: base
 Verified by: EXT-AC-012, EXT-AC-013, EXT-AC-087, EXT-AC-102
 
 **EXT-REQ-207**
-Every `claim_configuration` fact MUST resolve to one closed canonical `cartulary.extension_profile_configuration_contract.v1` object containing exactly:
+Every `claim_configuration` fact MUST resolve to one closed canonical `cartulary.extension_profile_configuration_contract.v3` object containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_profile_configuration_contract.v1`;
+- `schema_id`, exactly `cartulary.extension_profile_configuration_contract.v3`;
 - `profile_id`;
 - `configuration_contract_id`;
 - `configuration_contract_major`;
 - `namespace_schema_id`;
 - `keys[]`.
 
-`configuration_contract_id` MUST equal `<profile_id>.configuration.v<configuration_contract_major>`. `configuration_contract_major` MUST be a JSON integer in `1..2147483647`. `namespace_schema_id` MUST satisfy the public schema-ID scalar contract. The contract's canonical digest MUST equal the `configuration_contract_sha256` in the owner fact, and `configuration_contract_ref` MUST resolve to the exact schema declaration under `owner_locator_v1`.
+`configuration_contract_id` MUST equal `<profile_id>.configuration.v<configuration_contract_major>`. `configuration_contract_major` MUST be a JSON integer in `1..2147483647`. `namespace_schema_id` MUST satisfy the public schema-ID scalar contract. The contract's canonical digest MUST equal the `configuration_contract_sha256` in the owner fact, and the artifact index MUST resolve that digest to exactly one configuration-contract artifact for the same profile.
 
 Each `keys[]` row MUST contain exactly:
 
 - `key`;
-- `value_schema_ref`;
-- `inactive_value_schema_ref`;
+- `value_schema_id`;
+- `inactive_value_schema_id`;
 - `omission_policy`;
 - `inactive_policy`;
 - `resolution_kind`;
 - `diagnostic_policy`.
 
-`key` MUST be one fully qualified key inside the profile namespace and MUST NOT equal the claim key. `value_schema_ref` MUST use `anchor-kind='schema'` and resolve in the profile owner contract. `inactive_policy` MUST equal `forbidden` or `syntax_only`. `inactive_value_schema_ref` MUST be a non-null `owner_locator_v1` with `anchor-kind='schema'` exactly when `inactive_policy='syntax_only'` and MUST be `null` when `inactive_policy='forbidden'`. The inactive schema vocabulary is closed to JSON type, object-member grammar, required presence of explicitly structural members, scalar grammar, collection length, string byte length, and nesting depth; it MUST NOT declare a default, semantic format, external reference existence, value substitution, conditional execution, profile algorithm, view, secret, file, trust material, DNS, endpoint, or egress behavior. `resolution_kind` MUST equal `plain`, `secret_ref`, `regular_file_ref`, or `trust_material_ref`. `diagnostic_policy` MUST equal `name_only` or `safe_value`.
+`key` MUST be one fully qualified key inside the profile namespace and MUST NOT equal the claim key. `value_schema_id` MUST be a non-empty public schema ID and resolve through the typed schema registry. `inactive_policy` MUST equal `forbidden` or `syntax_only`. `inactive_value_schema_id` MUST be a non-null public schema ID resolving through the inert-schema registry exactly when `inactive_policy='syntax_only'` and MUST be `null` when `inactive_policy='forbidden'`. The inactive schema vocabulary is closed to JSON type, object-member grammar, required presence of explicitly structural members, scalar grammar, collection length, string byte length, and nesting depth; it MUST NOT declare a default, semantic format, external reference existence, value substitution, conditional execution, profile algorithm, view, secret, file, trust material, DNS, endpoint, or egress behavior. `resolution_kind` MUST equal `plain`, `secret_ref`, `regular_file_ref`, or `trust_material_ref`. `diagnostic_policy` MUST equal `name_only` or `safe_value`.
 
 `omission_policy` MUST be exactly one closed variant:
 
@@ -892,7 +898,7 @@ The meanings are exact:
 - `absent`: omission produces no normalized key/value row and no implied value;
 - `default`: omission materializes the declared value before cross-field validation.
 
-Explicit JSON `null` is invalid for every profile-local configuration key in contract major `1`; an optional value is omitted rather than represented by `null`. A default value MUST validate under `value_schema_ref`, contain at most `16384` canonical bytes, have nesting depth at most `16`, and contain no secret, resolved reference, absolute path, environment-specific endpoint, credential, or trust-store bytes.
+Explicit JSON `null` is invalid for every profile-local configuration key in contract major `1`; an optional value is omitted rather than represented by `null`. A default value MUST validate under `value_schema_id`, contain at most `16384` canonical bytes, have nesting depth at most `16`, and contain no secret, resolved reference, absolute path, environment-specific endpoint, credential, or trust-store bytes.
 
 `keys[]` MUST contain `0..256` rows, reject duplicate keys, and sort by ascending UTF-8 bytes of `key`. The count of rows with `inactive_policy='syntax_only'` MUST be `0..32`. The complete contract MUST contain `1..1048576` canonical bytes. A configuration-contract major change, key removal, key rename, changed default, changed omission, changed explicit-null behavior, changed value schema, changed inactive policy, changed resolution kind, or changed diagnostic policy is a public configuration compatibility change and MUST follow Table 14-B.
 
@@ -916,7 +922,7 @@ Core 04 processing MUST execute in this order:
 3. materialize the claim key default;
 4. load and digest-validate the exact configuration contract;
 5. for a claimed profile, apply omission policies, validate every value schema, classify references, and construct the complete normalized view;
-6. for an unclaimed profile, reject every `forbidden` key and validate each explicitly present `syntax_only` value only against its inert `inactive_value_schema_ref`, without applying defaults or omission requirements, constructing a configuration view, retaining the value, resolving a reference or secret, reading a file, loading trust material, opening a connection, invoking profile code, or performing egress;
+6. for an unclaimed profile, reject every `forbidden` key and validate each explicitly present `syntax_only` value only against its inert `inactive_value_schema_id`, without applying defaults or omission requirements, constructing a configuration view, retaining the value, resolving a reference or secret, reading a file, loading trust material, opening a connection, invoking profile code, or performing egress;
 7. for a recognized unclaimable profile, recognize keys only from the retained last-adopted configuration-contract digest, apply each row's `forbidden` or `syntax_only` policy exactly, and keep every syntax-only value inert without semantic value validation, reference resolution, logging, diagnostics containing the value, profile code, or egress.
 
 Required failure classes are `unknown_key`, `inactive_key_forbidden`, `explicit_null_not_allowed`, `missing_required_key`, `value_schema_mismatch`, `configuration_contract_digest_mismatch`, and `configuration_contract_major_unsupported`. Their exact diagnostic mapping MUST come from EXT-REQ-224.
@@ -1559,9 +1565,9 @@ Profiles: base
 Verified by: EXT-AC-022, EXT-AC-023
 
 **EXT-REQ-210**
-Core 01 MUST produce one canonical `cartulary.base_route_reservation_registry.v1` object containing exactly:
+Core 01 MUST produce one canonical `cartulary.base_route_reservation_registry.v3` object containing exactly:
 
-- `schema_id`, exactly `cartulary.base_route_reservation_registry.v1`;
+- `schema_id`, exactly `cartulary.base_route_reservation_registry.v3`;
 - `reservations[]`.
 
 Each `reservations[]` row MUST contain exactly:
@@ -2288,9 +2294,9 @@ Profiles: base
 Verified by: EXT-AC-004, EXT-AC-058
 
 **EXT-REQ-219**
-Every cross-owner final commit MUST use the shared typed transaction-participant protocol. A `cross_owner_transaction_participant` contribution MUST resolve to one canonical `cartulary.extension_transaction_participant_contract.v1` containing exactly:
+Every cross-owner final commit MUST use the shared typed transaction-participant protocol. A `cross_owner_transaction_participant` contribution MUST resolve to one canonical `cartulary.extension_transaction_participant_contract.v3` containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_transaction_participant_contract.v1`;
+- `schema_id`, exactly `cartulary.extension_transaction_participant_contract.v3`;
 - `participant_id`;
 - `owner_profile_id`, a profile ID or `null` for a Core-owned participant;
 - `participant_input_schema_id`;
@@ -3053,9 +3059,9 @@ Profiles: base
 Verified by: EXT-AC-116, EXT-AC-132, EXT-AC-135
 
 **EXT-REQ-235**
-Every physical-state binding MUST resolve to one canonical `cartulary.extension_backup_binding_codec.v1` object containing exactly:
+Every physical-state binding MUST resolve to one canonical `cartulary.extension_backup_binding_codec.v3` object containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_backup_binding_codec.v1`;
+- `schema_id`, exactly `cartulary.extension_backup_binding_codec.v3`;
 - `backup_codec_id`;
 - `binding_id`;
 - `storage_kind`;
@@ -3127,9 +3133,9 @@ Profiles: base
 Verified by: EXT-AC-034, EXT-AC-066, EXT-AC-073, EXT-AC-094
 
 **EXT-REQ-232**
-Every `incident_portability_participant`, `snapshot_reporting_participant`, and `backup_restore_participant` contribution MUST resolve to one canonical `cartulary.extension_participant_specialization.v1` containing exactly:
+Every `incident_portability_participant`, `snapshot_reporting_participant`, and `backup_restore_participant` contribution MUST resolve to one canonical `cartulary.extension_participant_specialization.v3` containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_participant_specialization.v1`;
+- `schema_id`, exactly `cartulary.extension_participant_specialization.v3`;
 - `profile_id`;
 - `participant_id`;
 - `participant_kind`;

@@ -198,6 +198,13 @@ func TestConflictTokenKeyRingValidationAndSecretIsolation(t *testing.T) {
 }
 
 func TestConflictTokenConfigurationRequiresSecureManifestPath(t *testing.T) {
+	overlay, finding := conflicts.ApplyConfigurationOverlay(conflicts.Configuration{}, []string{"revisions", "conflict_token_key_ring_manifest_path"}, "/etc/cartulary/key-ring.json")
+	if finding != nil || overlay.ConflictTokenKeyRingManifestPath != "/etc/cartulary/key-ring.json" {
+		t.Fatalf("Revisions overlay = %#v, finding %#v", overlay, finding)
+	}
+	if _, finding := conflicts.ApplyConfigurationOverlay(overlay, []string{"revisions", "unknown"}, "value"); finding == nil || finding.ReasonCode != "unknown_key" {
+		t.Fatalf("unknown Revisions overlay finding = %#v", finding)
+	}
 	for _, configuration := range []conflicts.Configuration{
 		{},
 		{ConflictTokenKeyRingManifestPath: "relative/key-ring.json"},

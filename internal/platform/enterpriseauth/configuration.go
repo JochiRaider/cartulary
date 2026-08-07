@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	pathpkg "path"
+	"strconv"
 	"strings"
 )
 
@@ -20,6 +21,24 @@ const (
 type Configuration struct {
 	Claimed              bool   `toml:"claimed,omitempty"`
 	ProviderManifestPath string `toml:"provider_manifest_path,omitempty"`
+}
+
+// ApplyConfigurationOverlay parses one owner-scoped environment binding.
+func ApplyConfigurationOverlay(configuration Configuration, path []string, raw string) (Configuration, *ConfigurationFinding) {
+	joined := strings.Join(path, ".")
+	switch joined {
+	case "enterprise_authentication.claimed":
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			return configuration, &ConfigurationFinding{Path: joined, ReasonCode: "type_mismatch", Message: fmt.Sprintf("parse boolean overlay: %v", err)}
+		}
+		configuration.Claimed = value
+	case providerManifestPathKey:
+		configuration.ProviderManifestPath = raw
+	default:
+		return configuration, &ConfigurationFinding{Path: joined, ReasonCode: "unknown_key", Message: "unknown enterprise authentication overlay"}
+	}
+	return configuration, nil
 }
 
 type ConfigurationFinding struct {

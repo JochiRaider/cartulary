@@ -24,12 +24,18 @@ var (
 
 // Loaded is a structurally admitted deployment-configuration snapshot.
 type Loaded struct {
-	snapshot   config.Snapshot
-	deployment Deployment
+	snapshot        config.Snapshot
+	deployment      Deployment
+	requestedClaims extensionassembly.RequestedClaims
 }
 
 // Load builds the application catalog and materializes one immutable snapshot.
 func Load(options config.LoadOptions) (Loaded, error) {
+	policy, err := extensionassembly.GeneratedConfigurationPolicy()
+	if err != nil {
+		return Loaded{}, err
+	}
+	options.ExtensionPolicy = policy
 	catalog, err := applicationCatalog()
 	if err != nil {
 		return Loaded{}, err
@@ -38,17 +44,7 @@ func Load(options config.LoadOptions) (Loaded, error) {
 	if err != nil {
 		return Loaded{}, err
 	}
-	return loadedFromSnapshot(snapshot)
-}
-
-// LoadPath selects an explicit deployment artifact with the generated
-// Extensions-owned inactive-key policy.
-func LoadPath(path string) (Loaded, error) {
-	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
-	if err != nil {
-		return Loaded{}, err
-	}
-	return Load(config.LoadOptions{Path: path, InactivePolicy: policy})
+	return loadedFromSnapshot(snapshot, policy)
 }
 
 // Admit strictly parses and materializes an in-memory application projection.
@@ -59,7 +55,7 @@ func Admit(deployment Deployment) (Loaded, error) {
 	if err != nil {
 		return Loaded{}, err
 	}
-	policy, err := extensionassembly.GeneratedInactiveConfigurationPolicy()
+	policy, err := extensionassembly.GeneratedConfigurationPolicy()
 	if err != nil {
 		return Loaded{}, err
 	}
@@ -69,21 +65,25 @@ func Admit(deployment Deployment) (Loaded, error) {
 	}
 	snapshot, err := config.LoadSnapshotFromTOML(
 		encoded.Bytes(),
-		config.LoadOptions{InactivePolicy: policy},
+		config.LoadOptions{ExtensionPolicy: policy},
 		catalog,
 	)
 	if err != nil {
 		return Loaded{}, err
 	}
-	return loadedFromSnapshot(snapshot)
+	return loadedFromSnapshot(snapshot, policy)
 }
 
-func loadedFromSnapshot(snapshot config.Snapshot) (Loaded, error) {
-	deployment, err := deploymentFromSnapshot(snapshot)
+func loadedFromSnapshot(snapshot config.Snapshot, policy extensionassembly.ConfigurationPolicy) (Loaded, error) {
+	requestedClaims, err := policy.MaterializeRequestedClaims(config.RequestedClaimRegistrationIDs(snapshot))
+	if err != nil {
+		return Loaded{}, fmt.Errorf("materialize requested extension claims: %w", err)
+	}
+	deployment, err := deploymentFromSnapshot(snapshot, requestedClaims)
 	if err != nil {
 		return Loaded{}, fmt.Errorf("project deployment configuration: %w", err)
 	}
-	return Loaded{snapshot: snapshot, deployment: deployment}, nil
+	return Loaded{snapshot: snapshot, deployment: deployment, requestedClaims: requestedClaims}, nil
 }
 
 func applicationCatalog() (config.Catalog, error) {
@@ -110,15 +110,25 @@ func registerRevisionsConfigurationContribution(builder *config.CatalogBuilder) 
 		Paths: []string{
 			"revisions.conflict_token_key_ring_manifest_path",
 		},
-		Project: func(source config.Source) (conflicts.Configuration, []config.Diagnostic) {
+		Decode: func(decoder config.NamespaceDecoder) (conflicts.Configuration, []config.Diagnostic) {
 			var configuration conflicts.Configuration
-			if err := source.Decode("revisions", &configuration); err != nil {
+			if err := decoder.Decode(&configuration); err != nil {
 				return conflicts.Configuration{}, []config.Diagnostic{{
 					Path:       "revisions",
 					ReasonCode: "revisions_conflict_token_manifest_invalid",
 					Message:    err.Error(),
 				}}
 			}
+			return configuration, nil
+		},
+		ApplyOverlay: func(configuration conflicts.Configuration, segments []string, raw string) (conflicts.Configuration, *config.Diagnostic) {
+			updated, finding := conflicts.ApplyConfigurationOverlay(configuration, segments, raw)
+			if finding == nil {
+				return updated, nil
+			}
+			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
+		},
+		Project: func(configuration conflicts.Configuration, _ config.Source) (conflicts.Configuration, []config.Diagnostic) {
 			normalized, findings := conflicts.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -138,16 +148,25 @@ func registerEnterpriseAuthenticationConfigurationContribution(builder *config.C
 			"enterprise_authentication.claimed",
 			"enterprise_authentication.provider_manifest_path",
 		},
-		ClaimPath: "enterprise_authentication.claimed",
-		Project: func(source config.Source) (enterpriseauth.Configuration, []config.Diagnostic) {
+		Decode: func(decoder config.NamespaceDecoder) (enterpriseauth.Configuration, []config.Diagnostic) {
 			var configuration enterpriseauth.Configuration
-			if err := source.Decode("enterprise_authentication", &configuration); err != nil {
+			if err := decoder.Decode(&configuration); err != nil {
 				return enterpriseauth.Configuration{}, []config.Diagnostic{{
 					Path:       "enterprise_authentication",
 					ReasonCode: "invalid_enterprise_authentication_config",
 					Message:    err.Error(),
 				}}
 			}
+			return configuration, nil
+		},
+		ApplyOverlay: func(configuration enterpriseauth.Configuration, segments []string, raw string) (enterpriseauth.Configuration, *config.Diagnostic) {
+			updated, finding := enterpriseauth.ApplyConfigurationOverlay(configuration, segments, raw)
+			if finding == nil {
+				return updated, nil
+			}
+			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
+		},
+		Project: func(configuration enterpriseauth.Configuration, _ config.Source) (enterpriseauth.Configuration, []config.Diagnostic) {
 			normalized, findings := enterpriseauth.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -173,16 +192,25 @@ func registerNetworkFlowConfigurationContribution(builder *config.CatalogBuilder
 			"network_flow_activity.claimed",
 			"network_flow_activity.key_ring_manifest_path",
 		},
-		ClaimPath: "network_flow_activity.claimed",
-		Project: func(source config.Source) (networkflow.Configuration, []config.Diagnostic) {
+		Decode: func(decoder config.NamespaceDecoder) (networkflow.Configuration, []config.Diagnostic) {
 			var configuration networkflow.Configuration
-			if err := source.Decode("network_flow_activity", &configuration); err != nil {
+			if err := decoder.Decode(&configuration); err != nil {
 				return networkflow.Configuration{}, []config.Diagnostic{{
 					Path:       "network_flow_activity",
 					ReasonCode: "invalid_network_flow_config",
 					Message:    err.Error(),
 				}}
 			}
+			return configuration, nil
+		},
+		ApplyOverlay: func(configuration networkflow.Configuration, segments []string, raw string) (networkflow.Configuration, *config.Diagnostic) {
+			updated, finding := networkflow.ApplyConfigurationOverlay(configuration, segments, raw)
+			if finding == nil {
+				return updated, nil
+			}
+			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
+		},
+		Project: func(configuration networkflow.Configuration, _ config.Source) (networkflow.Configuration, []config.Diagnostic) {
 			normalized, findings := networkflow.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -213,25 +241,14 @@ func (loaded Loaded) Deployment() Deployment {
 	return cloneDeployment(loaded.deployment)
 }
 
-func (loaded Loaded) Revisions() (conflicts.Configuration, error) {
-	return config.Value(loaded.snapshot, revisionsConfigurationKey)
-}
-
 // ValidateForStartup performs the root-readiness phase on the retained
 // immutable snapshot.
 func (loaded Loaded) ValidateForStartup() error {
 	return config.ValidateSnapshotForStartup(loaded.snapshot)
 }
 
-// BooleanValuesAtPaths returns the exact generated claim projection.
-func (loaded Loaded) BooleanValuesAtPaths(paths []string) (map[string]bool, error) {
-	return config.SnapshotBooleanValuesAtPaths(loaded.snapshot, paths)
-}
-
-func (loaded Loaded) EnterpriseAuthentication() (enterpriseauth.Configuration, error) {
-	return config.Value(loaded.snapshot, enterpriseAuthenticationConfigurationKey)
-}
-
-func (loaded Loaded) NetworkFlow() (networkflow.Configuration, error) {
-	return config.Value(loaded.snapshot, networkFlowConfigurationKey)
+// RequestedClaims returns an immutable typed request distinct from coordinator
+// resolution and the published resolved-claim-set identity.
+func (loaded Loaded) RequestedClaims() extensionassembly.RequestedClaims {
+	return loaded.requestedClaims
 }

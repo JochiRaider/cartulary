@@ -17,38 +17,6 @@
       "evidence_kinds": [
         "go_test"
       ]
-    },
-    {
-      "verification_id": "platform.config.verification.telemetry_defaults_namespace",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ]
-    },
-    {
-      "verification_id": "platform.config.verification.telemetry_environment_parser",
-      "behavior_class": "security",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ]
-    },
-    {
-      "verification_id": "platform.config.verification.telemetry_secret_references",
-      "behavior_class": "security",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ]
-    },
-    {
-      "verification_id": "platform.config.verification.telemetry_validation",
-      "behavior_class": "architecture",
-      "profile": "base",
-      "evidence_kinds": [
-        "go_test"
-      ]
     }
   ]
 }

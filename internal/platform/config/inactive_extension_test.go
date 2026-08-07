@@ -8,29 +8,29 @@ import (
 )
 
 func TestInactiveExtensionConfiguration_Unit(t *testing.T) {
-	policy := syntaxOnlyTestInactivePolicy()
+	policy := syntaxOnlyTestExtensionPolicy()
 
 	t.Run("validates and discards an authored syntax-only table", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[future_profile.syntax]\nmode = \"strict\"\n"
-		cfg, loadErr := loadWithOptions(LoadOptions{
-			Path:           writeTempConfig(t, content),
-			InactivePolicy: policy,
+		cfg, loadErr := loadWithTestCatalog(t, LoadOptions{
+			Path:            writeTempConfig(t, content),
+			ExtensionPolicy: policy,
 		})
 		if loadErr != nil {
 			t.Fatalf("load inert syntax-only configuration: %v", loadErr)
 		}
-		if cfg.EnterpriseAuthentication.Claimed {
+		if testOwnerValue[testEnterpriseConfiguration](t, cfg, "enterprise_authentication").Claimed {
 			t.Fatal("inactive syntax-only configuration changed claim state")
 		}
 	})
 
 	t.Run("validates and discards a syntax-only overlay", func(t *testing.T) {
-		_, loadErr := loadWithOptions(LoadOptions{
+		_, loadErr := loadWithTestCatalog(t, LoadOptions{
 			Path: writeTempConfig(t, string(fixtures.MustRead("config", "valid.toml"))),
 			Env: map[string]string{
 				"CARTULARY__FUTURE_PROFILE__SYNTAX": `{"mode":"relaxed"}`,
 			},
-			InactivePolicy: policy,
+			ExtensionPolicy: policy,
 		})
 		if loadErr != nil {
 			t.Fatalf("load inert syntax-only overlay: %v", loadErr)
@@ -44,9 +44,9 @@ func TestInactiveExtensionConfiguration_Unit(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			content := string(fixtures.MustRead("config", "valid.toml")) + suffix
-			_, loadErr := loadWithOptions(LoadOptions{
-				Path:           writeTempConfig(t, content),
-				InactivePolicy: policy,
+			_, loadErr := loadWithTestCatalog(t, LoadOptions{
+				Path:            writeTempConfig(t, content),
+				ExtensionPolicy: policy,
 			})
 			if loadErr == nil {
 				t.Fatal("invalid inactive configuration was accepted")

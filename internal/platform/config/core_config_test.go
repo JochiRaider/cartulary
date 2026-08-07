@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,8 +16,8 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolve path: %v", err)
 		}
-		if path != DefaultConfigPath {
-			t.Fatalf("unexpected default path: got %q want %q", path, DefaultConfigPath)
+		if path != defaultConfigPath {
+			t.Fatalf("unexpected default path: got %q want %q", path, defaultConfigPath)
 		}
 	})
 
@@ -34,7 +35,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 			t.Fatalf("unexpected override path: got %q want %q", path, alternate)
 		}
 
-		cfg, err := loadWithOptions(LoadOptions{
+		cfg, err := loadWithTestCatalog(t, LoadOptions{
 			Env: map[string]string{
 				ConfigFileEnv: alternate,
 			},
@@ -59,7 +60,7 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("applies nested overlays after file load", func(t *testing.T) {
-		cfg, err := loadWithOptions(LoadOptions{
+		cfg, err := loadWithTestCatalog(t, LoadOptions{
 			Path: fixtureConfigPath(),
 			Env: map[string]string{
 				"CARTULARY__ROOTS__BACKUP_STORAGE__PATH": "/srv/cartulary/backups",
@@ -102,14 +103,15 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 	})
 
 	t.Run("applies the Revisions key-ring path overlay", func(t *testing.T) {
-		cfg, err := loadWithOptions(LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{
+		cfg, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath(), Env: map[string]string{
 			"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "/run/secrets/revisions-key-ring.json",
 		}})
 		if err != nil {
 			t.Fatalf("load Revisions key-ring overlay: %v", err)
 		}
-		if cfg.Revisions.ConflictTokenKeyRingManifestPath != "/run/secrets/revisions-key-ring.json" {
-			t.Fatalf("Revisions key-ring overlay = %q", cfg.Revisions.ConflictTokenKeyRingManifestPath)
+		revisions := testOwnerValue[testRevisionsConfiguration](t, cfg, "revisions")
+		if revisions.ConflictTokenKeyRingManifestPath != "/run/secrets/revisions-key-ring.json" {
+			t.Fatalf("Revisions key-ring overlay = %q", revisions.ConflictTokenKeyRingManifestPath)
 		}
 	})
 
@@ -144,11 +146,12 @@ func TestConfigDiscovery_Unit(t *testing.T) {
 func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 	t.Run("defaults to unclaimed without provider manifest", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
-		if cfg.EnterpriseAuthentication.Claimed {
+		owner := testOwnerValue[testEnterpriseConfiguration](t, cfg, "enterprise_authentication")
+		if owner.Claimed {
 			t.Fatalf("enterprise authentication must default to unclaimed")
 		}
-		if cfg.EnterpriseAuthentication.ProviderManifestPath != "" {
-			t.Fatalf("enterprise provider manifest path must default empty, got %q", cfg.EnterpriseAuthentication.ProviderManifestPath)
+		if owner.ProviderManifestPath != "" {
+			t.Fatalf("enterprise provider manifest path must default empty, got %q", owner.ProviderManifestPath)
 		}
 	})
 
@@ -161,18 +164,20 @@ func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 	t.Run("preserves claimed values for owner validation", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\n"
 		cfg := mustLoadConfig(t, content, nil)
-		if !cfg.EnterpriseAuthentication.Claimed || cfg.EnterpriseAuthentication.ProviderManifestPath != "" {
-			t.Fatalf("owner input was not preserved: %#v", cfg.EnterpriseAuthentication)
+		owner := testOwnerValue[testEnterpriseConfiguration](t, cfg, "enterprise_authentication")
+		if !owner.Claimed || owner.ProviderManifestPath != "" {
+			t.Fatalf("owner input was not preserved: %#v", owner)
 		}
 	})
 
 	t.Run("preserves provider manifest path for owner normalization", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\nprovider_manifest_path = \"/etc/cartulary//enterprise-auth-providers.json\"\n"
 		cfg := mustLoadConfig(t, content, nil)
-		if !cfg.EnterpriseAuthentication.Claimed {
+		owner := testOwnerValue[testEnterpriseConfiguration](t, cfg, "enterprise_authentication")
+		if !owner.Claimed {
 			t.Fatalf("enterprise authentication claim not retained")
 		}
-		if got, want := cfg.EnterpriseAuthentication.ProviderManifestPath, "/etc/cartulary//enterprise-auth-providers.json"; got != want {
+		if got, want := owner.ProviderManifestPath, "/etc/cartulary//enterprise-auth-providers.json"; got != want {
 			t.Fatalf("generic parser changed owner value: got %q want %q", got, want)
 		}
 	})
@@ -182,10 +187,11 @@ func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED":                "true",
 			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH": "/etc/cartulary/enterprise-auth-providers.json",
 		})
-		if !cfg.EnterpriseAuthentication.Claimed {
+		owner := testOwnerValue[testEnterpriseConfiguration](t, cfg, "enterprise_authentication")
+		if !owner.Claimed {
 			t.Fatalf("enterprise authentication overlay claim not applied")
 		}
-		if got := cfg.EnterpriseAuthentication.ProviderManifestPath; got != "/etc/cartulary/enterprise-auth-providers.json" {
+		if got := owner.ProviderManifestPath; got != "/etc/cartulary/enterprise-auth-providers.json" {
 			t.Fatalf("enterprise provider manifest overlay not applied: %q", got)
 		}
 	})
@@ -194,7 +200,7 @@ func TestEnterpriseAuthenticationConfig_Unit(t *testing.T) {
 func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	t.Run("defaults to unclaimed", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
-		if cfg.NetworkFlowActivity.Claimed {
+		if testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity").Claimed {
 			t.Fatal("network_flow_activity must default to unclaimed")
 		}
 	})
@@ -202,7 +208,7 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	t.Run("accepts explicit unclaimed file config", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\n"
 		cfg := mustLoadConfig(t, content, nil)
-		if cfg.NetworkFlowActivity.Claimed {
+		if testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity").Claimed {
 			t.Fatal("explicit unclaimed network_flow_activity config must stay unclaimed")
 		}
 	})
@@ -210,15 +216,16 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	t.Run("preserves a claimed setting for owner validation", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\n"
 		cfg := mustLoadConfig(t, content, nil)
-		if !cfg.NetworkFlowActivity.Claimed || cfg.NetworkFlowActivity.KeyRingManifestPath != "" {
-			t.Fatalf("owner input was not preserved: %#v", cfg.NetworkFlowActivity)
+		owner := testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity")
+		if !owner.Claimed || owner.KeyRingManifestPath != "" {
+			t.Fatalf("owner input was not preserved: %#v", owner)
 		}
 	})
 
 	t.Run("accepts claimed file config with key-ring manifest path", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\nkey_ring_manifest_path = \"/etc/cartulary/network-flow-key-rings.json\"\n"
 		cfg := mustLoadConfig(t, content, nil)
-		if !cfg.NetworkFlowActivity.Claimed {
+		if !testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity").Claimed {
 			t.Fatal("claimed network_flow_activity config must be accepted after adoption")
 		}
 	})
@@ -227,7 +234,7 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
 			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "false",
 		})
-		if cfg.NetworkFlowActivity.Claimed {
+		if testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity").Claimed {
 			t.Fatal("explicit unclaimed network_flow_activity overlay must stay unclaimed")
 		}
 	})
@@ -237,7 +244,7 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
 			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": "/etc/cartulary/network-flow-key-rings.json",
 		})
-		if !cfg.NetworkFlowActivity.Claimed {
+		if !testOwnerValue[testNetworkFlowConfiguration](t, cfg, "network_flow_activity").Claimed {
 			t.Fatal("claimed network_flow_activity overlay must be accepted after adoption")
 		}
 	})
@@ -260,8 +267,8 @@ func TestNetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 func TestExtensionRuntimeConfig_Unit(t *testing.T) {
 	t.Run("preserves explicit continuing claims and applies closed runtime defaults", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
-		if !cfg.Import.Claimed || !cfg.IncidentPortability.Claimed || !cfg.ReferencePack.Claimed || !cfg.SnapshotReporting.Claimed {
-			t.Fatalf("explicit claim set was not retained: import=%t portability=%t reference=%t reporting=%t", cfg.Import.Claimed, cfg.IncidentPortability.Claimed, cfg.ReferencePack.Claimed, cfg.SnapshotReporting.Claimed)
+		if got, want := requestedClaimRegistrationIDs(cfg), []string{"import", "incident_portability", "reference_pack", "snapshot_reporting"}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("explicit claim set was not retained: got %#v, want %#v", got, want)
 		}
 		if cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds != 30 ||
 			cfg.Timeouts.Extensions.ProcessLeaseLossDetectionSeconds != 5 ||
@@ -474,7 +481,7 @@ func TestFilesystemRootPaths_Unit(t *testing.T) {
 
 func TestDisconnectedDefaults_Unit(t *testing.T) {
 	t.Run("accepts the canonical disconnected example without hidden rewrites", func(t *testing.T) {
-		cfg, err := loadWithOptions(LoadOptions{Path: fixtureConfigPath()})
+		cfg, err := loadWithTestCatalog(t, LoadOptions{Path: fixtureConfigPath()})
 		if err != nil {
 			t.Fatalf("load canonical disconnected fixture: %v", err)
 		}
@@ -517,14 +524,14 @@ func TestResourceLimits_Unit(t *testing.T) {
 		content = stripSection(t, content, "[limits.previews]")
 
 		cfg := mustLoadConfig(t, content, nil)
-		if cfg.Limits.ObjectBlobs.MaxDeclaredByteSize != DefaultObjectBlobMaxDeclaredByteSize {
-			t.Fatalf("unexpected object blob default: got %d want %d", cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize)
+		if cfg.Limits.ObjectBlobs.MaxDeclaredByteSize != defaultObjectBlobMaxDeclaredByteSize {
+			t.Fatalf("unexpected object blob default: got %d want %d", cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, defaultObjectBlobMaxDeclaredByteSize)
 		}
-		if cfg.Limits.Archives.MaxCompressionRatio != DefaultArchiveMaxCompressionRatio {
-			t.Fatalf("unexpected archive compression ratio default: got %d want %d", cfg.Limits.Archives.MaxCompressionRatio, DefaultArchiveMaxCompressionRatio)
+		if cfg.Limits.Archives.MaxCompressionRatio != defaultArchiveMaxCompressionRatio {
+			t.Fatalf("unexpected archive compression ratio default: got %d want %d", cfg.Limits.Archives.MaxCompressionRatio, defaultArchiveMaxCompressionRatio)
 		}
-		if cfg.Limits.Previews.MaxTextInlineBytes != DefaultPreviewMaxTextInlineBytes {
-			t.Fatalf("unexpected preview inline default: got %d want %d", cfg.Limits.Previews.MaxTextInlineBytes, DefaultPreviewMaxTextInlineBytes)
+		if cfg.Limits.Previews.MaxTextInlineBytes != defaultPreviewMaxTextInlineBytes {
+			t.Fatalf("unexpected preview inline default: got %d want %d", cfg.Limits.Previews.MaxTextInlineBytes, defaultPreviewMaxTextInlineBytes)
 		}
 	})
 
@@ -542,8 +549,8 @@ func TestResourceLimits_Unit(t *testing.T) {
 		if cfg.Limits.Imports.MaxRows != 42 {
 			t.Fatalf("unexpected overridden import row limit: got %d", cfg.Limits.Imports.MaxRows)
 		}
-		if cfg.Limits.Imports.MaxColumns != DefaultImportMaxColumns {
-			t.Fatalf("unexpected import column default after override: got %d want %d", cfg.Limits.Imports.MaxColumns, DefaultImportMaxColumns)
+		if cfg.Limits.Imports.MaxColumns != defaultImportMaxColumns {
+			t.Fatalf("unexpected import column default after override: got %d want %d", cfg.Limits.Imports.MaxColumns, defaultImportMaxColumns)
 		}
 	})
 
@@ -637,10 +644,10 @@ func bootstrapDeploymentProfileConfig(t testing.TB, profile string) document {
 func mustLoadConfig(t testing.TB, content string, env map[string]string) document {
 	t.Helper()
 
-	cfg, err := loadWithOptions(LoadOptions{
-		Path:           writeTempConfig(t, content),
-		Env:            env,
-		InactivePolicy: testExtensionInactivePolicy(t),
+	cfg, err := loadWithTestCatalog(t, LoadOptions{
+		Path:            writeTempConfig(t, content),
+		Env:             env,
+		ExtensionPolicy: testExtensionPolicyForCharacterization(t),
 	})
 	if err != nil {
 		t.Fatalf("load config: %v", err)
@@ -652,10 +659,10 @@ func mustLoadConfig(t testing.TB, content string, env map[string]string) documen
 func loadInvalidConfig(t testing.TB, content string, env map[string]string) error {
 	t.Helper()
 
-	_, err := loadWithOptions(LoadOptions{
-		Path:           writeTempConfig(t, content),
-		Env:            env,
-		InactivePolicy: testExtensionInactivePolicy(t),
+	_, err := loadWithTestCatalog(t, LoadOptions{
+		Path:            writeTempConfig(t, content),
+		Env:             env,
+		ExtensionPolicy: testExtensionPolicyForCharacterization(t),
 	})
 	if err == nil {
 		t.Fatal("expected invalid config to fail")
@@ -664,9 +671,9 @@ func loadInvalidConfig(t testing.TB, content string, env map[string]string) erro
 	return err
 }
 
-func testExtensionInactivePolicy(t testing.TB) InactivePolicy {
+func testExtensionPolicyForCharacterization(t testing.TB) ExtensionPolicy {
 	t.Helper()
-	return testInactivePolicy{
+	return testExtensionPolicy{
 		claims: map[string]string{
 			"enterprise_authentication.provider_manifest_path": "enterprise_authentication.claimed",
 			"network_flow_activity.key_ring_manifest_path":     "network_flow_activity.claimed",

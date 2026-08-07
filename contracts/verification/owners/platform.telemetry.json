@@ -3,6 +3,34 @@
   "owner_id": "platform.telemetry",
   "verifications": [
     {
+      "verification_id": "platform.telemetry.verification.configuration_defaults_namespace",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": ["go_test"],
+      "public_target": "otel-conformance"
+    },
+    {
+      "verification_id": "platform.telemetry.verification.configuration_environment_parser",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "otel-conformance"
+    },
+    {
+      "verification_id": "platform.telemetry.verification.configuration_secret_references",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "otel-conformance"
+    },
+    {
+      "verification_id": "platform.telemetry.verification.configuration_validation",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": ["go_test"],
+      "public_target": "otel-conformance"
+    },
+    {
       "verification_id": "platform.telemetry.verification.current_conformance",
       "behavior_class": "architecture",
       "profile": "support",

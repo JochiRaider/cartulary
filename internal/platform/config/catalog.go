@@ -1,11 +1,14 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // Source is the read-only, presence-aware configuration view supplied to one
@@ -14,6 +17,60 @@ import (
 type Source interface {
 	Decode(path string, destination any) error
 	Defined(path ...string) bool
+}
+
+// NamespaceDecoder is the closed, namespace-scoped artifact decoder supplied
+// to one statically registered owner. It exposes neither the complete
+// deployment document nor any other owner's namespace.
+type NamespaceDecoder interface {
+	Decode(destination any) error
+}
+
+type namespaceDecoder struct {
+	namespace string
+	raw       map[string]any
+	decoded   bool
+	undecoded []string
+}
+
+func (decoder *namespaceDecoder) Decode(destination any) error {
+	if decoder == nil {
+		return fmt.Errorf("configuration namespace decoder is required")
+	}
+	if decoder.decoded {
+		return fmt.Errorf("configuration namespace %q was decoded more than once", decoder.namespace)
+	}
+	decoder.decoded = true
+	target := reflect.ValueOf(destination)
+	if target.Kind() != reflect.Pointer || target.IsNil() {
+		return fmt.Errorf("configuration namespace decode destination must be a non-nil pointer")
+	}
+
+	value, present := decoder.raw[decoder.namespace]
+	if !present {
+		value = map[string]any{}
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("configuration namespace %q must be a table", decoder.namespace)
+	}
+	var encoded bytes.Buffer
+	if err := toml.NewEncoder(&encoded).Encode(object); err != nil {
+		return fmt.Errorf("encode configuration namespace %q: %w", decoder.namespace, err)
+	}
+	metadata, err := toml.Decode(encoded.String(), destination)
+	if err != nil {
+		return fmt.Errorf("decode configuration namespace %q: %w", decoder.namespace, err)
+	}
+	for _, key := range metadata.Undecoded() {
+		path := decoder.namespace
+		if len(key) > 0 {
+			path += "." + strings.Join(key, ".")
+		}
+		decoder.undecoded = append(decoder.undecoded, path)
+	}
+	sort.Strings(decoder.undecoded)
+	return nil
 }
 
 type documentSource struct {
@@ -182,42 +239,10 @@ func configurationFieldName(field reflect.StructField) string {
 	return name
 }
 
-// ValidationPhase names the fixed deployment-configuration lifecycle. Owner
-// contributions participate only in decode and structural validation; later
-// phases remain application-owned effects.
-type ValidationPhase string
-
-const (
-	ValidationPhaseParse            ValidationPhase = "parse"
-	ValidationPhaseClaimOverlays    ValidationPhase = "claim_overlays"
-	ValidationPhaseInactiveKeys     ValidationPhase = "inactive_keys"
-	ValidationPhaseKeyOwnership     ValidationPhase = "key_ownership"
-	ValidationPhaseDecodeNormalize  ValidationPhase = "decode_normalize"
-	ValidationPhaseStructural       ValidationPhase = "structural_validation"
-	ValidationPhaseRootCapabilities ValidationPhase = "root_capabilities"
-	ValidationPhaseOwnerPreflight   ValidationPhase = "owner_preflight"
-)
-
-var validationPhases = []ValidationPhase{
-	ValidationPhaseParse,
-	ValidationPhaseClaimOverlays,
-	ValidationPhaseInactiveKeys,
-	ValidationPhaseKeyOwnership,
-	ValidationPhaseDecodeNormalize,
-	ValidationPhaseStructural,
-	ValidationPhaseRootCapabilities,
-	ValidationPhaseOwnerPreflight,
-}
-
 var (
 	contributionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,126}$`)
 	configPathPattern     = regexp.MustCompile(`^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$`)
 )
-
-// ValidationPhases returns a copy of the normative implementation order.
-func ValidationPhases() []ValidationPhase {
-	return append([]ValidationPhase(nil), validationPhases...)
-}
 
 // Key is an opaque typed identity for one owner contribution.
 type Key[T any] struct {
@@ -236,11 +261,6 @@ func NewKey[T any](id string) (Key[T], error) {
 	}, nil
 }
 
-// ID returns the stable catalog identity.
-func (key Key[T]) ID() string {
-	return key.id
-}
-
 // Definition declares the exact namespace and keys owned by one pure
 // contribution. Project must not perform filesystem, secret, network,
 // database, process, or other external effects.
@@ -248,9 +268,9 @@ type Definition[T any] struct {
 	Key          Key[T]
 	Namespace    string
 	Paths        []string
-	ClaimPath    string
+	Decode       func(NamespaceDecoder) (T, []Diagnostic)
 	ApplyOverlay func(T, []string, string) (T, *Diagnostic)
-	Project      func(Source) (T, []Diagnostic)
+	Project      func(T, Source) (T, []Diagnostic)
 	Clone        func(T) T
 }
 
@@ -259,9 +279,9 @@ type catalogEntry struct {
 	valueType reflect.Type
 	namespace string
 	paths     []string
-	claimPath string
+	decode    func(map[string]any) (any, []string, []Diagnostic)
 	overlay   func(*document, []string, string) *Diagnostic
-	project   func(Source) (any, []Diagnostic)
+	project   func(*document, Source) (any, []Diagnostic)
 	clone     func(any) any
 }
 
@@ -289,6 +309,9 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 	if len(definition.Paths) == 0 {
 		return fmt.Errorf("configuration contribution %q must own at least one path", definition.Key.id)
 	}
+	if definition.Decode == nil {
+		return fmt.Errorf("configuration contribution %q namespace decoder is required", definition.Key.id)
+	}
 	if definition.Project == nil {
 		return fmt.Errorf("configuration contribution %q projector is required", definition.Key.id)
 	}
@@ -306,20 +329,34 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 			return fmt.Errorf("configuration contribution %q repeats path %q", definition.Key.id, path)
 		}
 	}
-	if definition.ClaimPath != "" {
-		if !configPathPattern.MatchString(definition.ClaimPath) || !pathWithinNamespace(definition.ClaimPath, definition.Namespace) {
-			return fmt.Errorf("configuration contribution %q claim path %q is outside namespace %q", definition.Key.id, definition.ClaimPath, definition.Namespace)
-		}
-	}
-
 	entry := catalogEntry{
 		id:        definition.Key.id,
 		valueType: definition.Key.valueType,
 		namespace: definition.Namespace,
 		paths:     paths,
-		claimPath: definition.ClaimPath,
-		project: func(source Source) (any, []Diagnostic) {
-			value, diagnostics := definition.Project(source)
+		decode: func(raw map[string]any) (any, []string, []Diagnostic) {
+			decoder := &namespaceDecoder{namespace: definition.Namespace, raw: raw}
+			value, diagnostics := definition.Decode(decoder)
+			if !decoder.decoded {
+				diagnostics = append(diagnostics, Diagnostic{
+					Path:       definition.Namespace,
+					ReasonCode: "type_mismatch",
+					Message:    "owner namespace decoder did not consume its namespace",
+				})
+			}
+			copy := definition.Clone(value)
+			return &copy, append([]string(nil), decoder.undecoded...), diagnostics
+		},
+		project: func(cfg *document, source Source) (any, []Diagnostic) {
+			current, present := cfg.namespaces[definition.Namespace].(*T)
+			if !present || current == nil {
+				return nil, []Diagnostic{{
+					Path:       definition.Namespace,
+					ReasonCode: "type_mismatch",
+					Message:    "owner namespace was not decoded",
+				}}
+			}
+			value, diagnostics := definition.Project(definition.Clone(*current), source)
 			return value, diagnostics
 		},
 		clone: func(value any) any {
@@ -328,39 +365,49 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 	}
 	if definition.ApplyOverlay != nil {
 		entry.overlay = func(cfg *document, segments []string, raw string) *Diagnostic {
-			var current T
-			source := documentSource{document: cloneConfig(*cfg)}
-			if err := source.Decode(definition.Namespace, &current); err != nil {
+			current, present := cfg.namespaces[definition.Namespace].(*T)
+			if !present || current == nil {
 				return &Diagnostic{
 					Path:       strings.Join(segments, "."),
 					ReasonCode: "type_mismatch",
-					Message:    err.Error(),
+					Message:    fmt.Sprintf("configuration namespace %q was not decoded", definition.Namespace),
 				}
 			}
-			updated, diagnostic := definition.ApplyOverlay(current, segments, raw)
+			updated, diagnostic := definition.ApplyOverlay(definition.Clone(*current), segments, raw)
 			if diagnostic != nil {
 				return diagnostic
 			}
-			target, present := configFieldAtPath(cfg, definition.Namespace)
-			if !present {
-				return &Diagnostic{
-					Path:       strings.Join(segments, "."),
-					ReasonCode: "unknown_key",
-					Message:    fmt.Sprintf("configuration namespace %q is unresolved", definition.Namespace),
-				}
-			}
-			if err := copyConfigurationValue(target, reflect.ValueOf(updated)); err != nil {
-				return &Diagnostic{
-					Path:       strings.Join(segments, "."),
-					ReasonCode: "type_mismatch",
-					Message:    err.Error(),
-				}
-			}
+			*current = definition.Clone(updated)
 			return nil
 		}
 	}
 	builder.entries = append(builder.entries, entry)
 	return nil
+}
+
+func (catalog Catalog) decodeNamespaces(cfg *document, raw map[string]any) ([]string, []Diagnostic) {
+	if cfg.namespaces == nil {
+		cfg.namespaces = make(map[string]any, len(catalog.entries))
+	}
+	undecoded := make([]string, 0)
+	diagnostics := make([]Diagnostic, 0)
+	for _, entry := range catalog.entries {
+		value, unknownPaths, findings := entry.decode(raw)
+		cfg.namespaces[entry.namespace] = value
+		undecoded = append(undecoded, unknownPaths...)
+		diagnostics = append(diagnostics, findings...)
+	}
+	sort.Strings(undecoded)
+	return undecoded, diagnostics
+}
+
+func (catalog Catalog) ownsNamespacePath(path string) bool {
+	for _, entry := range catalog.entries {
+		if pathWithinNamespace(path, entry.namespace) {
+			return true
+		}
+	}
+	return false
 }
 
 // Catalog is an immutable, deterministically ordered owner registry.
@@ -405,15 +452,6 @@ func (builder *CatalogBuilder) Build() (Catalog, error) {
 		}
 	}
 	return Catalog{entries: entries}, nil
-}
-
-// IDs returns contribution identities in deterministic execution order.
-func (catalog Catalog) IDs() []string {
-	ids := make([]string, len(catalog.entries))
-	for index, entry := range catalog.entries {
-		ids[index] = entry.id
-	}
-	return ids
 }
 
 func (catalog Catalog) applyOverlay(cfg *document, segments []string, raw string) (bool, *Diagnostic) {

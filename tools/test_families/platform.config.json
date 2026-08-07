@@ -179,9 +179,11 @@
       "selector": {
         "package": "./internal/platform/config",
         "tests": [
-          "TestBooleanValuesAtPathsProjectsOnlyRequestedClaims_Unit",
-          "TestBooleanValuesAtPathsRejectsUnknownAndDuplicatePaths_Unit",
-          "TestExtensionRuntimeConfig_Unit"
+          "TestClaimConfigurationTruthTable_Unit",
+          "TestClaimRegistrationCatalogFailsClosedBeforeConfigurationRead_Unit",
+          "TestExtensionRuntimeConfig_Unit",
+          "TestRegisteredClaimsProjectOnlyRequestedIdentities_Unit",
+          "TestUnregisteredClaimPathIsRejected_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -303,6 +305,7 @@
       "selector": {
         "package": "./internal/app/configassembly",
         "tests": [
+          "TestInMemoryAdmissionDefaultsAndProjectionIsolation_Unit",
           "TestPlatformAdapterConstructorSignatures_Unit",
           "TestPlatformSettingsProjection_Unit"
         ]
@@ -353,98 +356,6 @@
         "package": "./internal/app/configassembly",
         "tests": [
           "TestRevisionsConfigurationProjection_Unit"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "platform.config.unit.telemetry_defaults_closed_namespace",
-      "owner_id": "platform.config",
-      "family_id": "platform.config.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "platform.config.verification.telemetry_defaults_namespace"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/config",
-        "tests": [
-          "TestOpenTelemetryConfigDefaultsAndClosedNamespace"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "platform.config.unit.telemetry_environment_binding_parser",
-      "owner_id": "platform.config",
-      "family_id": "platform.config.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "platform.config.verification.telemetry_environment_parser"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/config",
-        "tests": [
-          "TestOpenTelemetryEnvironmentBindingParser"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
-    },
-    {
-      "row_id": "platform.config.unit.telemetry_secret_references",
-      "owner_id": "platform.config",
-      "family_id": "platform.config.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "platform.config.verification.telemetry_secret_references"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/config",
-        "tests": [
-          "TestOpenTelemetrySecretReferences"
-        ]
-      },
-      "evidence_class": "security",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "release"
-    },
-    {
-      "row_id": "platform.config.unit.telemetry_validation",
-      "owner_id": "platform.config",
-      "family_id": "platform.config.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "platform.config.verification.telemetry_validation"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/config",
-        "tests": [
-          "TestOpenTelemetryConfigValidation"
         ]
       },
       "evidence_class": "unit",
