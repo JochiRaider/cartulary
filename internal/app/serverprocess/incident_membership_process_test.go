@@ -12,34 +12,34 @@ import (
 func TestIncidentCreateListAndWorkbookPrefs_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-01")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
-	created := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	created := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-e-2-01-create",
 		"incident_key":  "IR-E201",
 		"title":         "E2E Incident",
 	})
 	incidentID := created["incident_id"].(string)
 
-	listResp := DoJSON(t, server, http.MethodGet, "/api/v1/incidents", nil, withCookies(adminLogin.sessionCookie))
+	listResp := doJSON(t, server, http.MethodGet, "/api/v1/incidents", nil, withCookies(adminLogin.SessionCookie))
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	incidents := listBody["incidents"].([]any)
 	if len(incidents) != 1 {
 		t.Fatalf("expected one listed incident, got %#v", incidents)
 	}
 
-	getResp := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID, nil, withCookies(adminLogin.sessionCookie))
+	getResp := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID, nil, withCookies(adminLogin.SessionCookie))
 	getBody := httptestx.RequireSuccessEnvelope(t, getResp, http.StatusOK)["data"].(map[string]any)
 	if getBody["incident_id"] != incidentID || getBody["status"] != "active" {
 		t.Fatalf("unexpected incident get payload: %#v", getBody)
 	}
 
-	defaultPrefs := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, withCookies(adminLogin.sessionCookie))
+	defaultPrefs := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, withCookies(adminLogin.SessionCookie))
 	defaultPrefsBody := httptestx.RequireSuccessEnvelope(t, defaultPrefs, http.StatusOK)["data"].(map[string]any)
 	if defaultPrefsBody["default_sheet_ref"] != nil {
 		t.Fatalf("unexpected default workbook preferences payload: %#v", defaultPrefsBody)
 	}
 
-	sessionResp := DoJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminLogin.sessionCookie))
+	sessionResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminLogin.SessionCookie))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	memberships := sessionBody["memberships"].([]any)
 	if len(memberships) != 1 {
@@ -50,9 +50,9 @@ func TestIncidentCreateListAndWorkbookPrefs_Process(t *testing.T) {
 func TestIncidentValidationAndPatch_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-02")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
 
-	invalidCreate := DoJSON(
+	invalidCreate := doJSON(
 		t,
 		server,
 		http.MethodPost,
@@ -63,19 +63,19 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 			"title":               "Invalid",
 			"initial_memberships": []any{},
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidCreate, http.StatusBadRequest, "invalid_incident_create")
 
-	created := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	created := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-e-2-02-create",
 		"incident_key":  "IR-E202",
 		"title":         "Patchable",
 	})
 	incidentID := created["incident_id"].(string)
 
-	invalidPatch := DoJSON(
+	invalidPatch := doJSON(
 		t,
 		server,
 		http.MethodPatch,
@@ -84,12 +84,12 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 			"base_incident_version": 1,
 			"title":                 "forbidden",
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, invalidPatch, http.StatusBadRequest, "invalid_incident_patch")
 
-	patchResp := DoJSON(
+	patchResp := doJSON(
 		t,
 		server,
 		http.MethodPatch,
@@ -99,8 +99,8 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 			"tlp":                       "TLP:AMBER",
 			"primary_external_case_ref": "CASE-E202",
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" {
@@ -111,8 +111,8 @@ func TestIncidentValidationAndPatch_Process(t *testing.T) {
 func TestMembershipAdminFlow_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-03")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
-	createdUser := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	createdUser := createUser(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id":    "txn-e-2-03-user",
 		"auth_kind":        "local",
 		"email":            "incident_membership-e-2-03@example.test",
@@ -121,16 +121,16 @@ func TestMembershipAdminFlow_Process(t *testing.T) {
 		"mfa_required":     false,
 	})
 	userID := createdUser["user_id"].(string)
-	userLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-03@example.test", "IncidentMembershipE203Pass!", "")
+	userLogin := loginLocalUser(t, server, "incident_membership-e-2-03@example.test", "IncidentMembershipE203Pass!")
 
-	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-e-2-03-incident",
 		"incident_key":  "IR-E203",
 		"title":         "Membership Flow",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	createMembership := DoJSON(
+	createMembership := doJSON(
 		t,
 		server,
 		http.MethodPost,
@@ -140,18 +140,18 @@ func TestMembershipAdminFlow_Process(t *testing.T) {
 			"user_id":       userID,
 			"role":          "viewer",
 		},
-		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, createMembership, http.StatusCreated)
 
-	listMemberships := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/memberships", nil, withCookies(adminLogin.sessionCookie))
+	listMemberships := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/memberships", nil, withCookies(adminLogin.SessionCookie))
 	listBody := httptestx.RequireSuccessEnvelope(t, listMemberships, http.StatusOK)["data"].(map[string]any)
 	if len(listBody["memberships"].([]any)) != 2 {
 		t.Fatalf("unexpected incident membership list: %#v", listBody)
 	}
 
-	nonAdminCreate := DoJSON(
+	nonAdminCreate := doJSON(
 		t,
 		server,
 		http.MethodPost,
@@ -161,8 +161,8 @@ func TestMembershipAdminFlow_Process(t *testing.T) {
 			"email":         "nobody@example.test",
 			"role":          "viewer",
 		},
-		withCookies(userLogin.sessionCookie, userLogin.csrfCookie),
-		withHeader(authn.CSRFHeaderName, userLogin.csrfCookie.Value),
+		withCookies(userLogin.SessionCookie, userLogin.CSRFCookie),
+		withHeader(authn.CSRFHeaderName, userLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, nonAdminCreate, http.StatusForbidden, "authorization_denied")
 }
@@ -170,13 +170,13 @@ func TestMembershipAdminFlow_Process(t *testing.T) {
 func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-04")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
-	adminSession := adminLogin.sessionCookie
-	adminCSRF := adminLogin.csrfCookie
-	sessionResp := DoJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminSession))
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	adminSession := adminLogin.SessionCookie
+	adminCSRF := adminLogin.CSRFCookie
+	sessionResp := doJSON(t, server, http.MethodGet, "/api/v1/auth/session", nil, withCookies(adminSession))
 	sessionBody := httptestx.RequireSuccessEnvelope(t, sessionResp, http.StatusOK)["data"].(map[string]any)
 	adminUserID := sessionBody["user_id"].(string)
-	createdUser := CreateUser(t, server, adminSession, adminCSRF, map[string]any{
+	createdUser := createUser(t, server, adminSession, adminCSRF, map[string]any{
 		"client_txn_id":    "txn-e-2-04-user",
 		"auth_kind":        "local",
 		"email":            "incident_membership-e-2-04@example.test",
@@ -184,14 +184,14 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 		"initial_password": "IncidentMembershipE204Pass!",
 	})
 	userID := createdUser["user_id"].(string)
-	incident := CreateIncident(t, server, adminSession, adminCSRF, map[string]any{
+	incident := createIncident(t, server, adminSession, adminCSRF, map[string]any{
 		"client_txn_id": "txn-e-2-04-incident",
 		"incident_key":  "IR-E204",
 		"title":         "Membership Mutations",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	createMembership := DoJSON(
+	createMembership := doJSON(
 		t,
 		server,
 		http.MethodPost,
@@ -206,7 +206,7 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 	)
 	createMembershipBody := httptestx.RequireSuccessEnvelope(t, createMembership, http.StatusCreated)["data"].(map[string]any)
 
-	patchMembership := DoJSON(
+	patchMembership := doJSON(
 		t,
 		server,
 		http.MethodPatch,
@@ -223,7 +223,7 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 		t.Fatalf("unexpected membership patch payload: %#v", patchMembershipBody)
 	}
 
-	deleteMembership := DoJSON(
+	deleteMembership := doJSON(
 		t,
 		server,
 		http.MethodDelete,
@@ -236,7 +236,7 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 	)
 	httptestx.RequireStatus(t, deleteMembership, http.StatusNoContent)
 
-	lastAdminGuard := DoJSON(
+	lastAdminGuard := doJSON(
 		t,
 		server,
 		http.MethodDelete,
@@ -253,8 +253,8 @@ func TestMembershipPatchDeleteAndLastAdmin_Process(t *testing.T) {
 func TestExtensionDiscoveryAndReservedRoutes_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-05")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
-	createdUser := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	createdUser := createUser(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id":    "txn-e-2-05-user",
 		"auth_kind":        "local",
 		"email":            "incident_membership-e-2-05@example.test",
@@ -263,23 +263,23 @@ func TestExtensionDiscoveryAndReservedRoutes_Process(t *testing.T) {
 		"mfa_required":     false,
 	})
 	userID := createdUser["user_id"].(string)
-	userLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-05@example.test", "IncidentMembershipE205Pass!", "")
+	userLogin := loginLocalUser(t, server, "incident_membership-e-2-05@example.test", "IncidentMembershipE205Pass!")
 
-	extensions := DoJSON(t, server, http.MethodGet, "/api/v1/extensions", nil, withCookies(userLogin.sessionCookie))
+	extensions := doJSON(t, server, http.MethodGet, "/api/v1/extensions", nil, withCookies(userLogin.SessionCookie))
 	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensions, http.StatusOK)["data"].(map[string]any)
 	if len(extensionsBody["extensions"].([]any)) != 6 {
 		t.Fatalf("unexpected extensions payload: %#v", extensionsBody)
 	}
 	requireSmokeExtensionClaim(t, extensionsBody, "network_flow_activity", false)
 
-	rootReserved := DoJSON(t, server, http.MethodGet, "/api/v1/auth/providers", nil, withCookies(userLogin.sessionCookie))
+	rootReserved := doJSON(t, server, http.MethodGet, "/api/v1/auth/providers", nil, withCookies(userLogin.SessionCookie))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rootDetails["profile_id"] != "enterprise_authentication" {
 		t.Fatalf("unexpected enterprise-authentication reserved dispatch details: %#v", rootDetails)
 	}
 
-	nestedReserved := DoJSON(t, server, http.MethodGet, "/api/v1/users/"+userID+"/auth-bindings", nil, withCookies(userLogin.sessionCookie))
+	nestedReserved := doJSON(t, server, http.MethodGet, "/api/v1/users/"+userID+"/auth-bindings", nil, withCookies(userLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, nestedReserved, http.StatusNotFound, "extension_profile_not_claimed")
 }
 
@@ -300,15 +300,15 @@ func requireSmokeExtensionClaim(t testing.TB, body map[string]any, profileID str
 func TestDeploymentAdminBoundary_Process(t *testing.T) {
 	server := startServerProcess(t, "incident_membership-e-2-06")
 
-	adminLogin, _ := ProvisionBootstrapAdmin(t, server)
-	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	adminLogin, _ := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-e-2-06-incident",
 		"incident_key":  "IR-E206",
 		"title":         "Boundary Incident",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	deploymentOnly := CreateUser(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	deploymentOnly := createUser(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id":       "txn-e-2-06-user",
 		"auth_kind":           "local",
 		"email":               "incident_membership-e-2-06@example.test",
@@ -318,19 +318,19 @@ func TestDeploymentAdminBoundary_Process(t *testing.T) {
 		"is_deployment_admin": true,
 	})
 	_ = deploymentOnly
-	deploymentLogin := LoginLocalUserWithSecondFactor(t, server, "incident_membership-e-2-06@example.test", "IncidentMembershipE206Pass!", "")
+	deploymentLogin := loginLocalUser(t, server, "incident_membership-e-2-06@example.test", "IncidentMembershipE206Pass!")
 
-	getIncident := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID, nil, withCookies(deploymentLogin.sessionCookie))
+	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID, nil, withCookies(deploymentLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, getIncident, http.StatusNotFound, "incident_not_found")
 
-	listIncidentMemberships := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/memberships", nil, withCookies(deploymentLogin.sessionCookie))
+	listIncidentMemberships := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+incidentID+"/memberships", nil, withCookies(deploymentLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, listIncidentMemberships, http.StatusNotFound, "incident_not_found")
 }
 
-func CreateIncident(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
+func createIncident(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
 
-	resp := DoJSON(
+	resp := doJSON(
 		t,
 		server,
 		http.MethodPost,

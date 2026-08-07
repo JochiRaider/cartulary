@@ -307,6 +307,19 @@
         "estimated_work_ms": 1500
       },
       {
+        "id": "backend-unit-suiteservices",
+        "target": "backend-unit",
+        "section": "unit",
+        "packages": [
+          "./internal/testutil/suiteservices"
+        ],
+        "selection_pattern": "^Test",
+        "execution_family": "backend-unit-suiteservices",
+        "execution_label": "backend-unit suiteservices",
+        "fixture_capability": "none",
+        "estimated_work_ms": 2000
+      },
+      {
         "id": "backend-integration-testutil",
         "target": "backend-integration",
         "section": "integration",
@@ -322,6 +335,19 @@
         "execution_label": "backend-integration testutil",
         "fixture_capability": "postgres_dedicated",
         "estimated_work_ms": 5000
+      },
+      {
+        "id": "backend-process-processtest",
+        "target": "backend-process",
+        "section": "process",
+        "packages": [
+          "./internal/testutil/processtest"
+        ],
+        "selection_pattern": "^Test",
+        "execution_family": "backend-process-processtest",
+        "execution_label": "backend-process processtest",
+        "fixture_capability": "managed_process",
+        "estimated_work_ms": 8000
       }
     ]
   },

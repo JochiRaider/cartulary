@@ -9,17 +9,18 @@
 | Target path | `internal/app/serverprocess` |
 | Target label | `serverprocess-app`, normalized to lowercase kebab case |
 | Output path | `docs/handoffs/serverprocess-app-module-refactor-tracker.md` |
-| Current task | Completed implementation of S-00 through S-08 under this controlling tracker; every slice has a completed checkpoint and retained evidence. |
-| Later work | Product behavior changes or adopted-owner changes outside S-00 through S-08 require separate authorization. |
-| Repository baseline | `main` at `04af1d2c77e817be3bcebfa23829fcd3d2a6891a`; at S-00 start this tracker is staged as an added file and is the only source/worktree change. |
-| Prior history | The 2026-08-06T22:20:53-04:00 and 2026-08-06T23:00:58-04:00 planning handoff rows are retained. The authorized implementation session began at 2026-08-06T23:18:00-04:00. |
+| Current task | Completed execution and handoff of Iteration 2, R2-00 through R2-06. The completed S-00 through S-08 implementation remains retained history with its checkpoints and evidence. |
+| Later work | Product behavior and adopted-owner changes beyond the narrow R2-01 Testing Harness execution-membership amendment remain outside this iteration. |
+| Repository baseline | Clean `main` at `2305abda4493517e28373378efee3f4ee96f88c5`; all 28 `serverprocess` tests are cataloged exactly once, and 15 ignored Recovery artifacts remain under the package directory. |
+| Prior history | The 2026-08-06 planning rows and completed S-00 through S-08 implementation session remain unchanged in Sections 1 through 12. Sections 13 through 17 define the next planned iteration. |
 
-This tracker is the completed implementation plan and handoff subordinate to
-adopted owners. It is not an adopted product NLSpec, a production contract, an
-executable harness input, or independent proof of repository conformance.
-Requirements in this tracker constrained this authorized refactor. When it
-conflicts with an adopted owner, the owner controls and implementation MUST
-stop with `BLOCKED: owner contradiction`.
+This tracker preserves the completed Iteration 1 implementation plan and
+handoff and now controls authorized execution of Iteration 2. It remains
+subordinate to adopted owners. It is not an adopted product NLSpec, a
+production contract, an executable harness input, or independent proof of
+repository conformance. Requirements in this tracker constrain only their
+named iteration. When the tracker conflicts with an adopted owner, the owner
+controls and implementation MUST stop with `BLOCKED: owner contradiction`.
 
 Normative terms have these meanings:
 
@@ -422,7 +423,7 @@ browser change.
 | S-05 | 2026-08-06T23:43:00-04:00 | 2026-08-07T00:01:25-04:00 | DONE | Tracker; Recovery sentinel; new `internal/modules/recovery/testsupport`; Recovery family manifest and test-support inventory; rooted-filesystem boundary test. | Recovery capture, selection, restore, consistency, and verification-artifact mechanics now use typed copied inputs and explicit borrowed dependencies; source/public-route seeding and the final server-harness/login/query/shutdown remain local. Format passed at `.cartulary/test-results/20260807T035153Z-p907566`, `.cartulary/test-results/20260807T035421Z-p960652`, `.cartulary/test-results/20260807T035656Z-p1043763`, and `.cartulary/test-results/20260807T035814Z-p1077447`; JSON shape passed at `.cartulary/test-results/20260807T035424Z-p963636`. The first fast suite found the undeclared filesystem boundary at `.cartulary/test-results/20260807T035202Z-p910714`; after registering owner-local runtime-excluded support and its exact effects, it passed at `.cartulary/test-results/20260807T035430Z-p964189`. The first exact sentinel compile exposed a missing explicit Evidence provider at `.cartulary/test-results/20260807T035613Z-p1013559`; the dependency was made explicit and the row passed at `.cartulary/test-results/20260807T035700Z-p1046760`. Catalog check passed; the new support-unit row passed at `.cartulary/test-results/20260807T035818Z-p1080750`; full Recovery focused and service-backed slices passed at `.cartulary/test-results/20260807T035827Z-p1081171` and `.cartulary/test-results/20260807T035913Z-p1116420`; app.server focused and service-backed slices passed at `.cartulary/test-results/20260807T035947Z-p1149119` and `.cartulary/test-results/20260807T040024Z-p1174665`; backend-process and boundary checks passed at `.cartulary/test-results/20260807T040055Z-p1196736` and `.cartulary/test-results/20260807T040117Z-p1226905`. | Both failures were related extraction defects and were corrected structurally without weakening assertions. Support reads no environment, starts no process, closes no borrowed resource, emits only caller-located artifacts, and enforces `0700`/`0600`; no rollback applied. | Begin S-06 mechanical cleanup. |
 | S-06 | 2026-08-07T00:02:15-04:00 | 2026-08-07T00:03:45-04:00 | DONE | Tracker; `internal/app/serverprocess/config_test.go`; `internal/app/serverprocess/e2e_test.go`. | Replaced all four refusal-only view-specific literals with `/ws/v1/incidents/00000000-0000-0000-0000-000000000000`. No remaining wrapper was zero-caller: target construction, object-store composition, Recovery catalog, encrypted backup storage, and evidence-location resolution remain semantically meaningful local adapters. The three exact config/bootstrap rows passed together at `.cartulary/test-results/20260807T040243Z-p1229473`; backend-process passed at `.cartulary/test-results/20260807T040308Z-p1249187`. | Connection-refused behavior and process diagnostics are unchanged; repository scan finds no stale literal and no wrapper rollback was needed. | Begin S-07 reconciliation. |
 | S-07 | 2026-08-07T00:04:10-04:00 | 2026-08-07T00:06:20-04:00 | DONE | Tracker; all authored family manifests and topology inspected; generated topology render index regenerated from authored inputs. | Reconciliation scan found neither retired ID in active source/input roots. Exactly one row selects each migrated process test with exact owner, family, collaborators, verifier, and selector; topology resolves Network Flow to `server-harness` and Recovery to `operator, server-harness`. Catalog check passed. Pre-generation JSON shape correctly reported the newly added support row as stale at `.cartulary/test-results/20260807T040512Z-p1283796`; `make generate` passed at `.cartulary/test-results/20260807T040525Z-p1284464`, JSON shape at `.cartulary/test-results/20260807T040532Z-p1286732`, drift at `.cartulary/test-results/20260807T040535Z-p1287130`, and policy at `.cartulary/test-results/20260807T040542Z-p1289849`. Harness contract, backend-process, and boundary reconciliation passed at `.cartulary/test-results/20260807T040547Z-p1290357`, `.cartulary/test-results/20260807T040550Z-p1290787`, and `.cartulary/test-results/20260807T040609Z-p1320490`. | Generated change is policy-declared and attributable to the authored Recovery support-unit row. The documentation crosswalk and retired-row target mapping were removed; no executable alias exists and no rollback applied. | Begin S-08 ordered final validation. |
-| S-08 | 2026-08-07T00:07:40-04:00 | 2026-08-07T00:28:26-04:00 | DONE | All sixteen paths inventoried in §12.2; generated render index changed only through Make; tracker completed. | In order: catalog check passed without a retained root; JSON shape `.cartulary/test-results/20260807T040745Z-p1323194`; generate `.cartulary/test-results/20260807T040747Z-p1323582`; drift `.cartulary/test-results/20260807T040755Z-p1325841`; policy `.cartulary/test-results/20260807T040802Z-p1328545`; Network Flow owner `.cartulary/test-results/20260807T040806Z-p1328995`; exact Network Flow `.cartulary/test-results/20260807T040927Z-p1361412`; Recovery owner `.cartulary/test-results/20260807T040947Z-p1380476`; exact Recovery `.cartulary/test-results/20260807T041024Z-p1415002`; app.server owner `.cartulary/test-results/20260807T041048Z-p1444487`; app.server service-backed `.cartulary/test-results/20260807T041122Z-p1468129`; boundary `.cartulary/test-results/20260807T041155Z-p1490152`; backend-process `.cartulary/test-results/20260807T041156Z-p1490477`; harness-contract `.cartulary/test-results/20260807T041215Z-p1520075`; agent-finalize `.cartulary/test-results/20260807T041222Z-p1520528`. `RESULTS_DIR` was unset, so retained-run maintenance was skipped. The first check reached 715/716 and failed related Go lint at `.cartulary/test-results/20260807T041236Z-p1523196`; error capitalization was fixed, format passed at `.cartulary/test-results/20260807T041726Z-p1680903`, focused Go lint passed, and check passed at `.cartulary/test-results/20260807T041740Z-p1687871`. The final audit then made copied-environment cleanup explicitly idempotent: format `.cartulary/test-results/20260807T042258Z-p1849377`, support-unit `.cartulary/test-results/20260807T042302Z-p1852373`, exact Recovery `.cartulary/test-results/20260807T042304Z-p1852756`, agent-finalize `.cartulary/test-results/20260807T042333Z-p1882686`, and definitive check `.cartulary/test-results/20260807T042344Z-p1885318`. Final Markdown passed at `.cartulary/test-results/20260807T043042Z-p2046148`; whitespace/diff/status audit passed. | The only broad failure was related staticcheck style in new support and was corrected without rollback or behavior change. All 716 check units pass, no check was skipped except inapplicable retained-run maintenance, no unexplained diff remains, and no runtime alias was introduced. | Handoff complete; no follow-on remediation is required. |
+| S-08 | 2026-08-07T00:07:40-04:00 | 2026-08-07T00:28:26-04:00 | DONE | All sixteen paths inventoried in §12.2; generated render index changed only through Make; tracker completed. | In order: catalog check passed without a retained root; JSON shape `.cartulary/test-results/20260807T040745Z-p1323194`; generate `.cartulary/test-results/20260807T040747Z-p1323582`; drift `.cartulary/test-results/20260807T040755Z-p1325841`; policy `.cartulary/test-results/20260807T040802Z-p1328545`; Network Flow owner `.cartulary/test-results/20260807T040806Z-p1328995`; exact Network Flow `.cartulary/test-results/20260807T040927Z-p1361412`; Recovery owner `.cartulary/test-results/20260807T040947Z-p1380476`; exact Recovery `.cartulary/test-results/20260807T041024Z-p1415002`; app.server owner `.cartulary/test-results/20260807T041048Z-p1444487`; app.server service-backed `.cartulary/test-results/20260807T041122Z-p1468129`; boundary `.cartulary/test-results/20260807T041155Z-p1490152`; backend-process `.cartulary/test-results/20260807T041156Z-p1490477`; harness-contract `.cartulary/test-results/20260807T041215Z-p1520075`; agent-finalize `.cartulary/test-results/20260807T041222Z-p1520528`. `RESULTS_DIR` was unset, so retained-run maintenance was skipped. The first check reached 715/716 and failed related Go lint at `.cartulary/test-results/20260807T041236Z-p1523196`; error capitalization was fixed, format passed at `.cartulary/test-results/20260807T041726Z-p1680903`, focused Go lint passed, and check passed at `.cartulary/test-results/20260807T041740Z-p1687871`. The final audit then made copied-environment cleanup explicitly idempotent: format `.cartulary/test-results/20260807T042258Z-p1849377`, support-unit `.cartulary/test-results/20260807T042302Z-p1852373`, exact Recovery `.cartulary/test-results/20260807T042304Z-p1852756`, agent-finalize `.cartulary/test-results/20260807T042333Z-p1882686`, and definitive check `.cartulary/test-results/20260807T042344Z-p1885318`. Final Markdown passed at `.cartulary/test-results/20260807T043042Z-p2046148`; whitespace/diff/status audit passed. | The only broad failure was related staticcheck style in new support and was corrected without rollback or behavior change. All 716 check units pass, no check was skipped except inapplicable retained-run maintenance, no unexplained diff remains, and no runtime alias was introduced. | Iteration 1 handoff complete; no remediation remained within S-00 through S-08. Iteration 2 is separately planned in §§13-17. |
 
 ### Scope and authority
 
@@ -531,6 +532,268 @@ and was changed only by `make generate`. Core 00 through Core 04,
 `docs/domain.md`, public product contracts, frontend sources, dependency locks,
 and the fifteen ignored Recovery runtime-evidence files were not modified.
 Prior planning history and every implementation checkpoint remain retained.
-All acceptance criteria pass; there is no open architectural question,
-rollback, runtime compatibility alias, skipped applicable check, or follow-on
-remediation.
+All Iteration 1 acceptance criteria pass; there is no open architectural
+question, rollback, runtime compatibility alias, skipped applicable check, or
+remaining remediation within S-00 through S-08. Sections 13 through 17 opened
+and now record the completed separate iteration; they do not retroactively
+change those results.
+
+## 13. Iteration 2 Scope and Planning Posture
+
+### 13.1 Authorization boundary
+
+Iteration 2 is a legacy-removal and production-readiness refactor of retained
+process evidence and its direct test-support packages. R2 implementation is
+authorized as a strictly sequential execution. The narrow Testing Harness
+owner amendment required to add current support-package aggregate membership
+is included in R2-01 and MUST precede the authored topology change.
+
+No R2 requirement authorizes a Core specification, domain vocabulary, product
+behavior, public HTTP or WebSocket contract, storage or Recovery contract,
+immutable catalog row ID, or generated product contract change. Apart from the
+R2-01 Testing Harness execution-membership amendment, a discovered need for an
+adopted-owner change is a stop condition and MUST be recorded as
+`BLOCKED: scope or owner contradiction` rather than absorbed into the refactor.
+
+Sections 1 through 12 are immutable Iteration 1 history except for the status
+annotations that identify this new planning iteration. Sections 13 through 17
+control Iteration 2.
+
+### 13.2 Trusted planning baseline history
+
+| Observation | Historical planning baseline |
+| --- | --- |
+| Branch and commit | Clean `main` at `2305abda4493517e28373378efee3f4ee96f88c5` |
+| Source worktree | Clean before this tracker-only update |
+| Selector coverage | All 28 Go test functions in `internal/app/serverprocess`, excluding `TestMain`, are cataloged exactly once; no duplicate selector exists |
+| Ignored evidence | 15 ignored Recovery JSON artifacts remain below `internal/app/serverprocess/.cartulary` and `internal/app/serverprocess/tmp` |
+| Artifact inspection boundary | Planning inventoried ignored paths and counts only; it did not read, stat for content, or hash artifact contents |
+| Document-only completion | This tracker is the sole changed source file; all R2 work is `PLANNED`; `make lint-markdown` and `git diff --check` pass |
+
+The Iteration 1 exclusion on deleting ignored evidence remains historical.
+R2-04 subsequently performed its separately authorized guarded deletion only
+after canonical replacement evidence and exact re-inventory.
+
+### 13.3 Iteration 2 requirements
+
+| Requirement | Normative rule |
+| --- | --- |
+| SPT2-REQ-001 | R2 MUST preserve the owner hierarchy, product behavior, public contracts, immutable catalog row IDs, all 28 cataloged test names, and the completed S-00 through S-08 history. |
+| SPT2-REQ-002 | Each R2 slice MUST move from `PLANNED` to `IN PROGRESS`, then to `DONE` or `BLOCKED`, in this tracker before the next slice begins. Commands, result roots, failures, rollback, and changed files MUST be recorded. |
+| SPT2-REQ-003 | Unreachable `go run` diagnostic-suffix compatibility MUST be removed. `processtest` MUST require a regular executable and accept exactly one valid JSON diagnostics document. |
+| SPT2-REQ-004 | Unused or behavior-free test-support API MUST be removed rather than retained as compatibility surface. This includes `Server.Address`, `Diagnostics`, `RequireReasonCode`, the unused command-argument tuple, permissive repository-root fallback, and the forwarding helpers admitted in Section 14. |
+| SPT2-REQ-005 | Process completion MUST be broadcast and stored. `WaitForExit` MUST be repeatable; `Stop` MUST be safe after natural exit and across repeated calls; every waiter MUST observe the same terminal result. |
+| SPT2-REQ-006 | Shutdown MUST send process-group `SIGTERM`, allow four seconds for graceful exit, then send process-group `SIGKILL` and allow one second for reap. The total stop bound remains five seconds, descendants MUST NOT survive, and captured diagnostics MUST remain available. |
+| SPT2-REQ-007 | `processtest.ServerOptions` MAY add only the optional `FinalizeEnv func(map[string]string, string)` interface defined in Section 14. It MUST receive a copied environment and the final base URL before authoritative listener variables are applied. |
+| SPT2-REQ-008 | `processtest` tests MUST become self-contained through a helper subprocess using inherited FD 3. They MUST NOT require Postgres, S3, configuration fixtures, or an externally built production server binary. |
+| SPT2-REQ-009 | Authored execution topology MUST give `internal/testutil/processtest` an explicit `backend-process` raw Go aggregate with `managed_process` capability and `internal/testutil/suiteservices` an explicit `backend-unit` raw Go aggregate. Generated outputs MUST change only through Make. |
+| SPT2-REQ-010 | Non-test identifiers in `serverprocess` MUST be package-private unless an owner-backed external consumer is discovered. Go-required `Test*` functions and `TestMain` remain exported. |
+| SPT2-REQ-011 | Authentication support MUST use `flowtest.LoginResult` and separate password-only and second-factor flows. An empty second-factor code MUST NOT remain an implicit compatibility branch. |
+| SPT2-REQ-012 | The five behavior-free forwarding helper families and unused Recovery source-fixture fields in Section 14 MUST be removed. Owner-semantic process-local adapters MUST remain local. |
+| SPT2-REQ-013 | `ServerEnv` and `ConfigProcessEnv` MUST be replaced by one typed, package-local environment builder with copied inputs, temporary roots, configuration and bootstrap application, and explicit overrides applied last. |
+| SPT2-REQ-014 | The dead `processHarnessesErr` global MUST be removed. Startup errors MUST be local, and errors from partial-start cleanup MUST be retained with `errors.Join`. |
+| SPT2-REQ-015 | Generic test support MUST be reorganized by bootstrap, authentication, process-fixture, incident, Evidence, and Recovery responsibility without renaming or changing the meaning of cataloged tests. |
+| SPT2-REQ-016 | Recovery result-root parsing MUST use `suiteservices.ResolveResultsRoot`, `ResolveRunID`, and `TargetEnv`; relative roots MUST resolve from the repository root, and the default run ID MUST be canonical `adhoc`. |
+| SPT2-REQ-017 | R2-04 MAY delete only the exact ignored `internal/app/serverprocess/.cartulary` and `internal/app/serverprocess/tmp` trees, after successful replacement evidence and a path-only re-inventory. Unexpected content MUST abort deletion. |
+| SPT2-REQ-018 | Ordinary database and object-store work MUST use test-scoped contexts; cleanup MUST use bounded fresh contexts; direct local HTTP calls MUST use explicit two-second clients; bucket-cleanup errors MUST fail the test. |
+| SPT2-REQ-019 | The security- and evidence-bearing behaviors explicitly retained in Section 14 MUST NOT be mislabeled or removed as legacy compatibility. |
+| SPT2-REQ-020 | R2 completion MUST pass the narrow-to-broad validation sequence in Section 16 with no unexplained diff, generated drift, selector drift, ignored package-local runtime output, or unclassified failure. |
+
+## 14. Iteration 2 Findings and Remediation Decisions
+
+### 14.1 Findings matrix
+
+| Gap | Remediation | Areas | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion validation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| R2-G01: unreachable and unused `processtest` compatibility surface | Delete `go run` diagnostic-suffix parsing, `Server.Address`, `Diagnostics`, `RequireReasonCode`, the unused command-argument tuple, and permissive repository-root fallback. Require a regular executable and exactly one valid JSON diagnostics document. | Test-support implementation, tests, topology documentation | The executable precondition makes suffix parsing unreachable, while unused APIs enlarge the contract without a consumer. Repository discovery must fail clearly outside a repository rather than silently selecting a questionable root. | A small, explicit process API with deterministic failures and diagnostics that are easy to reason about and extend. | Internal test-only breaking change. All repository callers are migrated atomically; no compatibility alias or deprecated wrapper is retained. | Dead branches can hide malformed output, ambiguous root selection, and accidental future reliance on unsupported entry modes. | Repository-wide reference scan finds no removed symbol or compatibility branch; malformed, trailing, and multiple JSON documents fail; a non-regular executable and unresolved repository root fail with structured diagnostics. |
+| R2-G02: completion and shutdown are single-consumer and abrupt | Store terminal exit state behind broadcast completion. Make every `WaitForExit` return the same result and make `Stop` idempotent before, during, and after exit. Stop the process group with four seconds of `SIGTERM`, then one second of `SIGKILL` and reap. | Test-support implementation and lifecycle tests | A consumed completion value cannot safely coordinate multiple observers. Immediate kill prevents graceful cleanup and may orphan descendants. | Predictable concurrency, graceful shutdown, deterministic cleanup, and a stable foundation for more process-backed suites. | Existing five-second maximum is preserved, but children now receive a graceful termination opportunity. Callers must not depend on one-shot observation or immediate `SIGKILL`. | Races, deadlocks, leaked descendants, discarded exit details, corrupt artifacts, and flaky teardown. | Tests cover natural exit, multiple waiters, repeated waits, concurrent/repeated stops, stop-after-exit, ignored `SIGTERM`, descendant cleanup, four-plus-one timing, reap, diagnostics retention, and race-detector-safe state access. |
+| R2-G03: close-and-rebind port reservation races before child start | Add optional `ServerOptions.FinalizeEnv`. Allocate the inherited listener first, invoke the callback with a copied environment and final base URL, then apply authoritative listener address and FD variables. Replace both reservation callers with derived final-environment configuration. | Test-support interface, two callers, tests | Closing a reserved listener creates a time-of-check/time-of-use race. Derived values cannot be correct until the final listener URL exists. | Race-free process startup and an extensible, narrow mechanism for URL-derived child configuration. | New optional internal callback only. Existing callers without it are unchanged. The callback may add derived values but cannot mutate caller input or replace authoritative listener values. | Intermittent bind failures, configuration pointed at the wrong URL, and pressure to add more ad hoc port helpers. | Tests prove callback order, final URL correctness, caller-map immutability, copied-map isolation, and listener address/FD precedence; no close-and-rebind helper or caller remains. |
+| R2-G04: shared support tests depend on product services and lack explicit aggregate ownership | Replace `processtest` integration setup with a self-contained helper subprocess that consumes inherited FD 3 and can exercise readiness, signals, exit, output, descendants, and malformed diagnostics. Add the two authored raw aggregates and regenerate through Make. | Tests, authored execution topology, generated topology via Make, tracker | Shared support mechanics should be verified directly and should not need Postgres, S3, configuration fixtures, or a separately built server. Explicit aggregates prevent silent omission from public verification. | Faster, deterministic support tests and durable Make-owned execution as more suites reuse the packages. | Test routing changes only. `processtest` joins `backend-process` with `managed_process`; `suiteservices` joins `backend-unit`. Product rows and immutable IDs remain unchanged. | Support regressions can be masked by unrelated service failures or omitted entirely from standard aggregates. | Public Make targets run both packages; `processtest` test plans show no database, object-store, config fixture, or server-harness prerequisite; topology generation and drift checks pass. |
+| R2-G05: `serverprocess` exposes unnecessary names and duplicates canonical support | Make non-test identifiers private; replace the local login result with `flowtest.LoginResult`; split password-only and second-factor functions; remove server-URL, existing-incident socket, session-revocation, bootstrap WebSocket rejection, and TOTP forwarding wrappers; delete unused Recovery object-blob identity and returned manifest/summary fields. | Package tests and local support layout | Exported names and pass-through wrappers imply reusable contracts where none exist. Duplicate auth types and empty-code branching obscure distinct security flows. Unused fixture fields create false evidence expectations. | A cohesive process-evidence package with clear ownership, smaller migration surface, and explicit authentication semantics. | Internal test-only rename/removal. Cataloged Go test names and behavior remain unchanged; meaningful local adapters remain. | Accidental consumers can entrench package internals, auth branches can weaken, and stale fields can be mistaken for verified requirements. | `go doc`/AST and repository scans find no unintended exported non-test symbol, removed wrapper, duplicate result type, empty-code branch, or unused field; all 28 cataloged tests retain exact names and selectors. |
+| R2-G06: environment and shared-harness construction are duplicated and lose errors | Replace `ServerEnv` and `ConfigProcessEnv` with one typed package-local builder. Copy database/object-store inputs, create temporary roots, apply configuration and bootstrap values, then explicit overrides last. Remove `processHarnessesErr`; use local startup errors and `errors.Join` for partial cleanup failures. Reorganize generic files by responsibility. | Package test support and tests | Two builders allow precedence and isolation to drift. A global error separates failure from ownership and can discard cleanup failures. Large generic files blur change boundaries. | Deterministic environment precedence, safer cleanup, easier navigation, and higher cohesion for future process suites. | Internal test-only restructuring. Environment values and all test names remain behaviorally equivalent except that previously hidden cleanup errors become visible failures. | Cross-test leakage, wrong precedence, lost root paths, obscured startup failure, and increasingly brittle catch-all files. | Table tests prove copying, root creation, precedence, and isolation; partial startup tests assert joined errors; no dead global or old builder remains; files are divided into bootstrap, authentication, process-fixture, incident, Evidence, and Recovery support. |
+| R2-G07: Recovery duplicates result-root policy and leaves stale package-local artifacts | Use `suiteservices.ResolveResultsRoot`, `ResolveRunID`, and `TargetEnv`; resolve relative roots from the repository root and default the run ID to `adhoc`. Retain a successful canonical Recovery sentinel run, re-inventory the two exact ignored trees without reading or hashing contents, then delete only those trees. | Recovery test support usage, suiteservices tests, execution evidence, tracker | Result-root semantics must have one owner. Old package-local artifacts should not remain after canonical evidence replacement, but broad or assumption-based deletion is unsafe. | One stable artifact policy and a clean package directory without ambiguous stale evidence. | Artifact paths become canonical and old ignored evidence is intentionally discarded after verification. There is no runtime compatibility alias. | Split evidence locations, noncanonical run IDs, stale results mistaken for current proof, or overly broad cleanup. | Unit tests cover absolute, relative, missing, and `adhoc` cases; exact Recovery row passes and its root is retained; a path-only inventory matches the expected two trees and 15 files before deletion; neither tree exists afterward; any unexpected path blocks deletion. |
+| R2-G08: ordinary I/O and cleanup have weak bounds or failure reporting | Derive ordinary database/object-store contexts from each test scope, use bounded fresh contexts for cleanup, give direct local HTTP calls explicit two-second clients, and fail on bucket-cleanup errors. | Package test support and tests | Background contexts and default clients can outlive tests indefinitely. Logged cleanup failures contaminate later tests while reporting success. | Bounded failures, trustworthy isolation, quicker diagnosis, and fewer cascading flakes. | Tests may newly fail when cleanup is defective; this is intentional evidence, not behavior incompatibility. | Hung runs, leaked resources, false passes, and later failures caused by dirty shared fixtures. | Static scan finds no admitted unbounded context/client; cancellation and timeout tests pass; bucket cleanup failure is asserted as a test failure; broader process evidence remains green. |
+| R2-G09: valuable evidence behavior could be mistaken for legacy residue | Explicitly retain successful-deployment bootstrap-manifest skip behavior, versioned v1/v2 identifiers, Recovery public-route absence, the packaged-server Recovery sentinel, canonical WebSocket routes, and owner-semantic local helpers. | Tests, support code, tracker decisions | These behaviors enforce security, compatibility of durable evidence, or unique process proof. They are not behavior-free aliases. | Legacy removal stays precise and does not weaken product or verification guarantees. | No migration; these contracts continue unchanged. | Over-aggressive cleanup could expose a Recovery route, break versioned artifacts, duplicate bootstrap work, weaken canonical routing, or remove the only packaged-server recovery proof. | Exact owner rows, public-route absence, bootstrap, versioned artifact, and canonical-route checks pass; review confirms each retained local helper adds owner-semantic behavior. |
+
+### 14.2 New internal interface
+
+The only planned new interface is:
+
+```go
+FinalizeEnv func(env map[string]string, baseURL string)
+```
+
+The callback contract is binary:
+
+1. `processtest` copies the caller-provided environment.
+2. It establishes the final inherited listener and base URL.
+3. It calls `FinalizeEnv` with another owned mutable map and that base URL.
+4. It applies authoritative inherited-listener address and FD variables last.
+5. Mutation cannot escape to the caller map, and the callback cannot override
+   the listener address or inherited FD.
+
+No general hook pipeline, command mutation API, or public production interface
+is planned.
+
+### 14.3 Explicit retention decisions
+
+The following behavior has continuing security or evidence value and MUST be
+retained:
+
+- Bootstrap-manifest skip behavior after successful deployment initialization.
+- Versioned v1/v2 identifiers and artifact formats.
+- Absence of a public Recovery route.
+- The packaged-server Recovery sentinel and its exact immutable catalog row.
+- Canonical WebSocket routes, including the incident socket route.
+- Owner-semantic process-local helpers that add policy, evidence, or lifecycle
+  behavior rather than forwarding arguments unchanged.
+
+## 15. Iteration 2 Sequential Workstreams
+
+### 15.1 State and rollback protocol
+
+R2 slices execute strictly in order. Before changing implementation for a
+slice, its tracker row MUST be updated from `PLANNED` to `IN PROGRESS`. Before
+the next slice begins, the current row MUST record files, commands, result
+roots, failure classification, rollback, and either `DONE` or `BLOCKED`.
+
+Only the last independent failing slice is rolled back. Authored topology and
+its generated outputs form one atomic rollback unit. A product defect, owner
+contradiction, unexpected artifact path, unexplained diff, or missing baseline
+executable blocks later work; assertions or retention requirements MUST NOT be
+weakened to continue.
+
+### 15.2 Workstream plan
+
+| Slice | Depends on | Planned change | Required evidence and exit criteria | Primary risk and rollback | Status |
+| --- | --- | --- | --- | --- | --- |
+| R2-00 | Authorized implementation | Reconcile commit, branch, worktree, selector coverage, process/dead-symbol inventory, and the 15 ignored artifacts by path only. Run `make test-fast`, the app.server service-backed slice, both exact owner rows, and `make backend-process`. | Baseline roots are retained; all 28 tests have one selector; artifact count and exact tree boundaries are recorded without content access; every failure is classified; no unexplained diff exists. | Stop without implementation mutation if the baseline is untrustworthy. Documentation-only checkpoint edits are retained as audit history. | DONE |
+| R2-01 | R2-00 | Amend the Testing Harness owner for the two support-package bindings, add the self-contained inherited-FD-3 helper subprocess, add authored raw aggregates for `processtest` (`backend-process`, `managed_process`) and `suiteservices` (`backend-unit`), then regenerate through Make. | Public Make targets execute both support packages. Process-support tests require no product service, configuration fixture, or external server binary. Catalog, JSON, generation, policy, and topology checks pass. | Helper fidelity or routing omission. Roll back authored aggregate changes and generated projections atomically; roll back the helper separately if it cannot reproduce lifecycle observations. | DONE |
+| R2-02 | R2-01 | Remove obsolete executable, diagnostics, argument, and root-resolution compatibility. Introduce broadcast/stored completion, idempotent stop, graceful group termination, and `FinalizeEnv`; replace both port-reservation callers. | Lifecycle tests prove every ordering, four-second graceful plus one-second forced shutdown, descendant reap, diagnostics retention, exact JSON parsing, root failure, callback isolation, and authoritative listener precedence. No descendant or close-and-rebind caller remains. | Concurrency race, leaked child, or altered diagnostics. Revert the smallest independent lifecycle/interface family and rerun its focused support tests before proceeding. | DONE |
+| R2-03 | R2-02 | Privatize non-test symbols; adopt `flowtest.LoginResult`; split authentication flows; remove behavior-free wrappers and unused Recovery fields; add the typed environment builder; localize startup errors and join cleanup failures; reorganize support files by responsibility. | All 28 test names and selectors are unchanged. Reference, export, dead-code, precedence, cleanup-error, authentication, and package tests pass. The final process evidence and meaningful local adapters remain. | Mechanical moves can change test discovery, setup ordering, or environment precedence. Roll back one helper family or file move at a time; never restore a compatibility wrapper without a demonstrated consumer. | DONE |
+| R2-04 | R2-03 | Adopt `suiteservices` result-root/run-ID/target environment resolution and unit coverage. Run and retain the exact Recovery sentinel. Re-inventory and delete only `internal/app/serverprocess/.cartulary` and `internal/app/serverprocess/tmp`. | Absolute/relative/default resolution passes; default run ID is `adhoc`; the retained canonical Recovery root succeeds; the expected 15 paths are the only ignored content before deletion; neither exact tree remains afterward. | Wrong evidence location or destructive overreach. Unexpected content immediately blocks deletion. Resolver changes roll back independently; deleted stale artifacts are intentionally non-recoverable but only after replacement evidence. | DONE |
+| R2-05 | R2-04 | Apply test-scoped ordinary contexts, bounded fresh cleanup contexts, explicit two-second direct HTTP clients, and failing cleanup reports. Reconcile imports, exports, selectors, topology, generated outputs, and dead-code scans. | Timeout and cleanup tests pass; no unbounded admitted operation, obsolete symbol, selector drift, stale topology, or generated drift remains; narrow owner and boundary evidence passes. | New bounds may expose real slowness or cleanup defects. Classify and fix the defect; roll back only an incorrectly scoped bound, never failure visibility. | DONE |
+| R2-06 | R2-05 | Run the complete Section 16 validation sequence and finish the tracker handoff. | Every applicable command passes in order; all result roots, related or unrelated failures, skipped checks, rollback, deleted trees, and final changed-file inventory are recorded; R2 acceptance is binary and no unexplained diff remains. | Broad validation may expose unrelated baseline failures. Record unrelated failures without modifying unrelated user work; a related failure returns to the last independent slice. | DONE |
+
+## 16. Iteration 2 Validation and Acceptance
+
+### 16.1 Baseline validation for R2-00
+
+R2-00 MUST run and record these commands before implementation mutation:
+
+1. `make test-fast`
+2. `make service-backed-test-slice OWNER=app.server`
+3. `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27`
+4. `make service-backed-test-slice OWNER=module.recovery ROWS=module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e`
+5. `make backend-process`
+
+The artifact inventory MUST use repository ignore metadata and exact path
+enumeration only. R2-00 MUST NOT read, parse, stat for content, or hash ignored
+artifact contents.
+
+### 16.2 Final validation order for R2-06
+
+R2-06 MUST run and record these commands in order:
+
+1. `make format`
+2. `make test-catalog-check`
+3. `make json-shape-check`
+4. `make generate`
+5. `make generate-drift`
+6. `make generated-artifact-policy-check`
+7. `make test-fast`
+8. `make test-slice OWNER=app.server`
+9. `make service-backed-test-slice OWNER=app.server`
+10. `make test-slice OWNER=module.networkflow`
+11. `make service-backed-test-slice OWNER=module.networkflow ROWS=module.networkflow.process.the_packaged_standalone_server_composes_the_netw_400a31ad27`
+12. `make test-slice OWNER=module.recovery`
+13. `make service-backed-test-slice OWNER=module.recovery ROWS=module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e`
+14. `make backend-module-boundary-check`
+15. `make backend-process`
+16. `make harness-contract`
+17. `make agent-finalize`, with a retained successful full warm-check root when available; otherwise record that `RESULTS_DIR` was unset
+18. `make check`
+19. `make lint-markdown`
+20. `git diff --check`, final diff audit, path-only ignored-artifact audit, and `git status --short`
+
+Every Make target that emits a result root MUST have that root recorded in the
+R2-06 checkpoint. A failed target MUST record the relevant summary path, its
+relationship to this iteration, and the rollback or stop decision.
+
+### 16.3 Binary acceptance criteria
+
+| Acceptance | Requirements | Binary criterion | Current state |
+| --- | --- | --- | --- |
+| SPT2-AC-001 | SPT2-REQ-001, SPT2-REQ-002 | Iteration 1 history is intact; each R2 slice has a complete sequential checkpoint; no unauthorized owner, product, public-contract, or test-name change exists. | PASS |
+| SPT2-AC-002 | SPT2-REQ-003, SPT2-REQ-004 | Only a regular executable is admitted; diagnostics are exactly one JSON document; every named dead API and fallback is absent with no alias. | PASS |
+| SPT2-AC-003 | SPT2-REQ-005, SPT2-REQ-006 | Exit is stored and repeatable; stop is idempotent for every ordering; the process group receives four-second graceful and one-second forced shutdown; no descendant survives. | PASS |
+| SPT2-AC-004 | SPT2-REQ-007 | `FinalizeEnv` receives copied state and the final URL before authoritative listener values, cannot mutate caller input, and replaces both port-reservation races. | PASS |
+| SPT2-AC-005 | SPT2-REQ-008, SPT2-REQ-009 | Self-contained FD-3 support tests run through the exact raw aggregates without product services or an externally built server; topology and generated checks pass. | PASS |
+| SPT2-AC-006 | SPT2-REQ-010, SPT2-REQ-011, SPT2-REQ-012 | No unintended exported non-test identifier, duplicate auth result, empty-code branch, behavior-free forwarding helper, or unused Recovery field remains; meaningful local adapters and all test names remain. | PASS |
+| SPT2-AC-007 | SPT2-REQ-013, SPT2-REQ-014, SPT2-REQ-015 | One typed environment builder has tested precedence and isolation; startup and partial cleanup errors are retained; support files have cohesive responsibilities. | PASS |
+| SPT2-AC-008 | SPT2-REQ-016, SPT2-REQ-017 | Canonical suiteservices resolution is tested, the exact Recovery sentinel has retained replacement evidence, guarded inventory matches, and both package-local ignored trees are absent. | PASS |
+| SPT2-AC-009 | SPT2-REQ-018 | Ordinary operations and direct HTTP calls are bounded, cleanup has fresh deadlines, and bucket-cleanup errors fail rather than log. | PASS |
+| SPT2-AC-010 | SPT2-REQ-019 | Every explicit retention behavior remains observable and owner evidence passes. | PASS |
+| SPT2-AC-011 | SPT2-REQ-020 | Section 16.2 passes in order with roots and classifications recorded; generated, selector, boundary, and worktree reconciliation is clean. | PASS |
+
+## 17. Iteration 2 Tracker and Handoff
+
+### 17.1 Work item tracker
+
+| Work item | Slice | Deliverable | Status |
+| --- | --- | --- | --- |
+| SPT2-001 | R2-00 | Trusted live baseline, selector/dead-symbol inventory, artifact path inventory, and retained narrow roots | DONE |
+| SPT2-002 | R2-01 | Self-contained process helper and explicit Make-owned support aggregates | DONE |
+| SPT2-003 | R2-02 | Narrow `processtest` API, hardened lifecycle, strict diagnostics, and race-free final environment | DONE |
+| SPT2-004 | R2-03 | Private cohesive package support, canonical auth type, typed environment, joined startup cleanup, and responsibility-based files | DONE |
+| SPT2-005 | R2-04 | Canonical result-root policy, retained Recovery evidence, and guarded stale-artifact deletion | DONE |
+| SPT2-006 | R2-05 | Bounded operations, strict cleanup failures, and complete structural reconciliation | DONE |
+| SPT2-007 | R2-06 | Full validation, final inventory, and completed implementation handoff | DONE |
+
+### 17.2 Slice execution checkpoints
+
+| Slice | Started | Completed | Status | Files, commands, result roots, outcome, and rollback |
+| --- | --- | --- | --- | --- |
+| R2-00 | 2026-08-07T09:00:48-04:00 | 2026-08-07T09:03:48-04:00 | DONE | Authorized execution began from `main` at `2305abda4493517e28373378efee3f4ee96f88c5`; the staged tracker was the only source change. All 28 Go tests excluding `TestMain` resolve exactly once. A path-only ignored inventory matched the expected six `.cartulary` and nine `tmp` JSON paths with no unexpected entry. Baselines passed: `make test-fast` at `.cartulary/test-results/20260807T130111Z-p2165398`; app.server service-backed at `.cartulary/test-results/20260807T130157Z-p2183849`; exact Network Flow at `.cartulary/test-results/20260807T130232Z-p2206672`; exact Recovery at `.cartulary/test-results/20260807T130303Z-p2225889`; `make backend-process` at `.cartulary/test-results/20260807T130322Z-p2255286`. No failure or rollback occurred. |
+| R2-01 | 2026-08-07T09:04:20-04:00 | 2026-08-07T09:09:06-04:00 | DONE | Amended `TH-HARNESS-REQ-066` and `TH-HARNESS-AC-046` before topology mutation; replaced product-service-backed `processtest` setup with a self-contained current-test-binary helper that consumes inherited FD 3; authored `backend-unit-suiteservices` and `backend-process-processtest`; regenerated `tools/execution_topology_render_index.json` through Make. Changed files: Testing Harness NLSpec, `internal/testutil/processtest/processtest_test.go`, authored topology, generated render index, and this tracker. Passed `make format` at `.cartulary/test-results/20260807T130716Z-p2288002`; `make generate` at `.cartulary/test-results/20260807T130723Z-p2291011`; `make test-catalog-check`; `make json-shape-check` at `.cartulary/test-results/20260807T130737Z-p2293455`; `make generate-drift` at `.cartulary/test-results/20260807T130737Z-p2293454`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260807T130737Z-p2293472`; `make backend-unit` at `.cartulary/test-results/20260807T130750Z-p2297344`; `make backend-process` at `.cartulary/test-results/20260807T130750Z-p2297355`; `make harness-contract` at `.cartulary/test-results/20260807T130855Z-p2350657`; and `make lint-markdown` at `.cartulary/test-results/20260807T130930Z-p2351373`. `git diff --check` and the staged-diff check passed. No failure or rollback occurred. |
+| R2-02 | 2026-08-07T09:10:03-04:00 | 2026-08-07T09:19:11-04:00 | DONE | Removed `Server.Address`, decoded `Diagnostics`, `RequireReasonCode`, command arguments, Go-run suffix parsing, `CommandContext`, and repository-root fallback. Added stored broadcast completion, synchronized output, an explicit process-group controller, idempotent concurrent stop, four-second `SIGTERM` plus one-second `SIGKILL`, and `FinalizeEnv`. Self-contained modes cover natural/error exits, concurrent wait/stop, ignored termination, a signal-ready descendant, retained output, and strict diagnostics. The app.server and Network Flow runtime origins now derive from the inherited listener; the reserve/close/rebind helper is absent. Changed files: both `processtest` files, both runtime-route process tests, and this tracker. `make format` passed at `.cartulary/test-results/20260807T131501Z-p2354724`, `.cartulary/test-results/20260807T131617Z-p2391586`, and `.cartulary/test-results/20260807T131815Z-p2465638`. The first `make backend-process` failed at `.cartulary/test-results/20260807T131510Z-p2357812` in the new callback test because it incorrectly expected the callback-owned map not to receive authoritative values; classified related test-assertion failure, corrected without production rollback. Subsequent `make backend-process` passed at `.cartulary/test-results/20260807T131624Z-p2394634` and, after making descendant signal readiness deterministic, at `.cartulary/test-results/20260807T131821Z-p2468683`. The exact app.server harness-route row passed at `.cartulary/test-results/20260807T131711Z-p2427442`; the exact Network Flow row passed at `.cartulary/test-results/20260807T131730Z-p2446494`; `make lint-markdown` passed at `.cartulary/test-results/20260807T131940Z-p2501625`. Removed-surface, close-and-rebind, staged/unstaged diff checks passed. |
+| R2-03 | 2026-08-07T09:20:19-04:00 | 2026-08-07T09:34:08-04:00 | DONE | Replaced both environment builders with private typed `processEnvOptions` and `newProcessEnv`, copying source maps, allocating isolated roots, applying overrides last, and binding Postgres to the final root. Added in-row contract subtests for copying, precedence, root isolation/finality, and joined partial-start cleanup. Removed `processHarnessesErr`; startup assigns globals only after both services succeed and preserves cleanup errors with `errors.Join`. Adopted `flowtest.LoginResult`, separated password-only and TOTP login helpers, removed the server-URL, existing-socket, revocation, bootstrap-WebSocket, and TOTP forwarding families, and removed unused Recovery fixture return fields. All non-test identifiers are private. Support is split into authentication process/support, bootstrap process, incident support, process fixtures/harness, Evidence, and Recovery files. Changed files: renamed `e2e_test.go` to `bootstrap_process_test.go`, `process_test.go` to `authentication_process_test.go`, and `shared_process_harness_test.go` to `process_fixture_harness_test.go`; added `authentication_support_test.go`, `incident_support_test.go`, and `process_fixture_test.go`; updated config, Evidence, incident, Recovery, and runtime-route tests; updated this tracker. Passed `make format` at `.cartulary/test-results/20260807T132921Z-p2507576` and `.cartulary/test-results/20260807T133355Z-p2616355`; `make test-fast` at `.cartulary/test-results/20260807T132928Z-p2510738`; app.server service-backed evidence at `.cartulary/test-results/20260807T133124Z-p2560248`; exact Recovery evidence at `.cartulary/test-results/20260807T133204Z-p2585318`; `make backend-module-boundary-check` at `.cartulary/test-results/20260807T133250Z-p2615206`; and `make lint-markdown` at `.cartulary/test-results/20260807T133437Z-p2619703`. Source/catalog comparison is exactly 28-to-28 with no selector difference; export, obsolete-wrapper, duplicate-type, empty-code, unused-field, staged/unstaged diff checks pass. No failure or rollback occurred. |
+| R2-04 | 2026-08-07T09:35:19-04:00 | 2026-08-07T09:38:57-04:00 | DONE | Recovery evidence now uses `suiteservices.ResolveResultsRoot`, `ResolveRunID`, `LookupEnvValue`, and `TargetEnv`, defaulting target to `backend-process` and run ID to `adhoc`. Added backend-unit coverage for absolute, relative, missing/default root, explicit run ID, `adhoc`, and target lookup. Changed files: `internal/testutil/suiteservices/env_test.go`, `recovery_sentinel_test.go`, and this tracker. Passed `make format` at `.cartulary/test-results/20260807T133612Z-p2622004`; `make backend-unit` at `.cartulary/test-results/20260807T133620Z-p2625061`; exact canonical Recovery replacement evidence at `.cartulary/test-results/20260807T133655Z-p2646179`, containing the three expected `backend-process/backup-restore` artifacts; the post-deletion Recovery service-backed owner slice at `.cartulary/test-results/20260807T133809Z-p2676375`; and `make lint-markdown` at `.cartulary/test-results/20260807T133922Z-p2710552`. Before deletion, both exact targets were ordinary nonsymlink directories; path-only inventory matched the R2-00 allowlist exactly at 15 ignored regular files, with zero symlinks, special types, or unexpected paths. The initial exact-target `rm` command was rejected before execution by the command safeguard, classified tooling-policy only; depth-first deletion of the same validated targets then succeeded. Deleted nonrecoverably: `internal/app/serverprocess/.cartulary` and `internal/app/serverprocess/tmp`, containing only the 15 allowlisted stale files. Post-deletion existence, ignored-status, canonical-evidence, staged/unstaged diff audits pass. No implementation rollback occurred. |
+| R2-05 | 2026-08-07T09:40:13-04:00 | 2026-08-07T09:48:03-04:00 | DONE | Ordinary database and object-store operations now use `t.Context()`. Direct package-local HTTP calls use fresh two-second clients. Bucket cleanup receives a fresh ten-second context and calls `Errorf` on failure; SQL and object-store close failures are likewise reported. `TestMain` uses a bounded lifecycle context plus a fresh bounded shutdown context. The existing app.server config row now contains contract subtests for cleanup deadline/cancellation, HTTP timeout, and injected cleanup failure reporting. Changed files: process fixture/harness, bootstrap, config, Evidence, Recovery, and runtime-route tests plus this tracker. Passed `make format` at `.cartulary/test-results/20260807T134213Z-p2713511` and `.cartulary/test-results/20260807T134517Z-p2790480`; `make test-fast` at `.cartulary/test-results/20260807T134227Z-p2716640`; app.server service-backed evidence at `.cartulary/test-results/20260807T134525Z-p2793529`; exact Network Flow at `.cartulary/test-results/20260807T134609Z-p2818550`; exact Recovery at `.cartulary/test-results/20260807T134635Z-p2837679`; `make backend-module-boundary-check` at `.cartulary/test-results/20260807T134705Z-p2867898`; `make test-catalog-check`; `make json-shape-check` at `.cartulary/test-results/20260807T134705Z-p2867607`; `make generate-drift` at `.cartulary/test-results/20260807T134705Z-p2867602`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260807T134705Z-p2867634`; `make backend-process` at `.cartulary/test-results/20260807T134715Z-p2871751`; and `make lint-markdown` at `.cartulary/test-results/20260807T134836Z-p2902675`. The first app.server attempt failed at `.cartulary/test-results/20260807T134420Z-p2766031` with related infra/preflight build errors for two imports made unused by the context migration; both imports were removed, with no semantic rollback, and the full slice then passed. Source/catalog comparison remains exactly 28-to-28. Raw aggregates, exports, runtime mappings, generated outputs, obsolete symbols, admitted contexts/clients, stale artifact absence, staged/unstaged diffs reconcile cleanly. |
+| R2-06 | 2026-08-07T09:49:18-04:00 | 2026-08-07T10:00:40-04:00 | DONE | Section 16.2 steps 1 through 18 passed in exact order with no failure: `make format` at `.cartulary/test-results/20260807T134928Z-p2904498`; `make test-catalog-check` with no emitted result root; `make json-shape-check` at `.cartulary/test-results/20260807T134946Z-p2907884`; `make generate` at `.cartulary/test-results/20260807T134953Z-p2908315`; `make generate-drift` at `.cartulary/test-results/20260807T135003Z-p2910607`; `make generated-artifact-policy-check` at `.cartulary/test-results/20260807T135017Z-p2913391`; `make test-fast` at `.cartulary/test-results/20260807T135022Z-p2913916`; app.server `test-slice` at `.cartulary/test-results/20260807T135215Z-p2963237`; app.server service-backed at `.cartulary/test-results/20260807T135247Z-p2986213`; Network Flow `test-slice` at `.cartulary/test-results/20260807T135318Z-p3008182`; exact Network Flow at `.cartulary/test-results/20260807T135439Z-p3040431`; Recovery `test-slice` at `.cartulary/test-results/20260807T135500Z-p3059408`; exact Recovery at `.cartulary/test-results/20260807T135545Z-p3093987`; boundary check at `.cartulary/test-results/20260807T135608Z-p3123441`; `make backend-process` at `.cartulary/test-results/20260807T135612Z-p3123801`; `make harness-contract` at `.cartulary/test-results/20260807T135634Z-p3153687`; `make agent-finalize` at `.cartulary/test-results/20260807T135646Z-p3154119`, with retained-run maintenance skipped because `RESULTS_DIR` was unset and no earlier successful full warm-check root existed; and `make check` at `.cartulary/test-results/20260807T135701Z-p3156814` with 718/718 units passing. The final tracker edit precedes the required Markdown, diff, selector, ignored-path, and status audit. No R2-06 failure or rollback occurred. |
+
+### 17.3 Completed implementation handoff
+
+| Timestamp | Scope | Files changed | Verification | Outcome |
+| --- | --- | --- | --- | --- |
+| 2026-08-07 | Document-only Iteration 2 plan | `docs/handoffs/serverprocess-app-module-refactor-tracker.md` only | Live branch/commit/worktree check; exact selector coverage count; ignored path/count inventory without content access; `make lint-markdown` at `.cartulary/test-results/20260807T124039Z-p2152840`; `git diff --check` | PASS; every R2 item remains `PLANNED`, and implementation was not started. |
+| 2026-08-07 | Completed R2 implementation | Testing Harness owner; authored/generated topology; `processtest`; `suiteservices` environment tests; serverprocess authentication, bootstrap, incident, process-fixture, Evidence, Recovery, and runtime-route tests; this tracker | Every slice gate in Section 17.2 and the ordered Section 16.2 validation sequence | PASS; product behavior, Core/domain owners, public HTTP/WebSocket contracts, catalog row IDs, and all 28 test names are unchanged. |
+
+The final changed-file inventory is:
+
+- Documentation and owner: this tracker and `docs/testing-harness-nlspec.md`.
+- Authored/generated harness topology: `tools/execution_topology_manifest.json`
+  and Make-generated `tools/execution_topology_render_index.json`.
+- Shared support: both files under `internal/testutil/processtest` and the new
+  `internal/testutil/suiteservices/env_test.go`.
+- Serverprocess support and tests: `config_test.go`,
+  `authentication_process_test.go`, `authentication_support_test.go`,
+  `bootstrap_process_test.go`, `incident_support_test.go`,
+  `process_fixture_test.go`, `process_fixture_harness_test.go`,
+  `evidence_process_test.go`, `incident_membership_process_test.go`,
+  `networkflow_runtime_routes_process_test.go`, `recovery_sentinel_test.go`,
+  and `runtime_routes_process_test.go`.
+- Replaced generic layouts: removed `e2e_test.go`, `process_test.go`, and
+  `shared_process_harness_test.go`; their retained tests and support now live in
+  the responsibility-named files above.
+- Deleted ignored runtime output: the exact nonsymlink directories
+  `internal/app/serverprocess/.cartulary` and
+  `internal/app/serverprocess/tmp`, formerly containing only the 15 allowlisted
+  stale JSON artifacts. The deletion is nonrecoverable.
+
+The failure ledger is closed. R2-02 had one related new-test assertion failure,
+R2-04 had one pre-execution command-safeguard rejection, and R2-05 had one
+related unused-import preflight failure. Each checkpoint records the correction
+and successful rerun; there was no product defect, unrelated baseline failure,
+owner contradiction, rollback, or skipped applicable validation. Browser E2E
+was not triggered because no packaged frontend behavior changed.

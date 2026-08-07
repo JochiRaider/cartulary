@@ -3,7 +3,6 @@ package serverprocess
 import (
 	"bytes"
 	"encoding/json"
-	"net"
 	"net/http"
 	"testing"
 
@@ -28,21 +27,20 @@ func TestHarnessRuntimeRoutesEnableOnlyForExactOneInServerProcess(t *testing.T) 
 			if tc.value != "" {
 				routeEnv["CARTULARY_ENABLE_TEST_ROUTES"] = tc.value
 			}
-			server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-"+tc.name, routeEnv)
+			server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-"+tc.name, routeEnv, nil)
 			requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, "", "", "", http.StatusNotFound)
 		})
 	}
 
 	t.Run("exact-one", func(t *testing.T) {
-		addr := reserveHarnessRuntimeProcessAddress(t)
 		publicOrigin := "http://127.0.0.1:4173"
 		server := startHarnessRuntimeServerProcess(t, "test-runtime-enable-value-exact-one", map[string]string{
-			"CARTULARY_HTTP_ADDR":             addr,
 			"CARTULARY_ENABLE_TEST_ROUTES":    "1",
 			"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
 			"CARTULARY_TEST_ROUTE_TOKEN":      httptestx.TestRouteToken,
-			"CARTULARY_WEB_E2E_API_ORIGIN":    "http://" + addr,
 			"CARTULARY_WEB_E2E_PUBLIC_ORIGIN": publicOrigin,
+		}, func(env map[string]string, baseURL string) {
+			env["CARTULARY_WEB_E2E_API_ORIGIN"] = baseURL
 		})
 		requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, httptestx.TestRouteToken, publicOrigin, "", http.StatusOK)
 	})
@@ -83,16 +81,14 @@ func TestHarnessRuntimeRoutesFailClosedDuringServerStartup(t *testing.T) {
 }
 
 func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T) {
-	addr := reserveHarnessRuntimeProcessAddress(t)
-	apiOrigin := "http://" + addr
 	publicOrigin := "http://127.0.0.1:4173"
 	server := startHarnessRuntimeServerProcess(t, "test-runtime-security", map[string]string{
-		"CARTULARY_HTTP_ADDR":             addr,
 		"CARTULARY_ENABLE_TEST_ROUTES":    "1",
 		"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
 		"CARTULARY_TEST_ROUTE_TOKEN":      httptestx.TestRouteToken,
-		"CARTULARY_WEB_E2E_API_ORIGIN":    apiOrigin,
 		"CARTULARY_WEB_E2E_PUBLIC_ORIGIN": publicOrigin,
+	}, func(env map[string]string, baseURL string) {
+		env["CARTULARY_WEB_E2E_API_ORIGIN"] = baseURL
 	})
 
 	missingToken := doHarnessRuntimeJSON(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, "", publicOrigin, "")
@@ -132,7 +128,7 @@ func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T)
 	}
 }
 
-func startHarnessRuntimeServerProcess(t testing.TB, prefix string, routeEnv map[string]string) *processtest.Server {
+func startHarnessRuntimeServerProcess(t testing.TB, prefix string, routeEnv map[string]string, finalizeEnv func(map[string]string, string)) *processtest.Server {
 	t.Helper()
 
 	env := harnessRuntimeServerProcessEnv(t, prefix)
@@ -140,7 +136,7 @@ func startHarnessRuntimeServerProcess(t testing.TB, prefix string, routeEnv map[
 		env[key] = value
 	}
 
-	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
+	server := processtest.StartServer(t, processtest.ServerOptions{Env: env, FinalizeEnv: finalizeEnv})
 	t.Cleanup(func() {
 		server.Stop(t)
 	})
@@ -153,24 +149,18 @@ func harnessRuntimeServerProcessEnv(t testing.TB, prefix string) map[string]stri
 
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
-	bucket := BucketName(prefix)
+	bucket := bucketName(prefix)
 	t.Cleanup(func() {
 		cleanupBucket(t, s3Harness, bucket)
 	})
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	return ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
-}
-
-func reserveHarnessRuntimeProcessAddress(t testing.TB) string {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("reserve process address: %v", err)
-	}
-	defer listener.Close()
-	return listener.Addr().String()
+	return newProcessEnv(t, processEnvOptions{
+		Database:      testDB.Env(),
+		ObjectStore:   s3Harness.Env(bucket),
+		ConfigPath:    configPath,
+		BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json"),
+	})
 }
 
 func requireHarnessRuntimeStatus(t testing.TB, server *processtest.Server, method string, path string, body any, token string, origin string, host string, want int) {
@@ -219,7 +209,7 @@ func doHarnessRuntimeJSON(t testing.TB, server *processtest.Server, method strin
 		req.Host = host
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := newProcessHTTPClient().Do(req)
 	if err != nil {
 		t.Fatalf("do %s %s: %v", method, path, err)
 	}

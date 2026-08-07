@@ -1,10 +1,7 @@
 package serverprocess
 
 import (
-	"context"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	recoverytestsupport "github.com/JochiRaider/cartulary/internal/modules/recovery/testsupport"
@@ -25,15 +23,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	fixture := captureRestoreSource(t, "backup_restore-i-10-02-source")
 	target := prepareRestoreTarget(t, "backup_restore-i-10-02-target")
 
 	recoverytestsupport.RestoreLatest(t, ctx,
-		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
+		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t)),
 		target.Postgres,
 		recovery.RestoreTarget{
 			Postgres:        target.Postgres,
@@ -68,7 +67,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	}
 	verification, err := recovery.NewRestoreVerificationService(
 		fixture.SourceStore,
-		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, RecoveryExtensionCatalog(t)),
+		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t)),
 	).VerifyLatestSuccessfulRetained(ctx, recovery.RestoreVerificationTarget{
 		RestoreTarget: recovery.RestoreTarget{
 			Postgres:        verificationTarget.Postgres,
@@ -84,7 +83,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	if verification.BackupSet.VerificationState != recovery.VerificationVerified || verification.Artifact.Result != "pass" {
 		t.Fatalf("restore verification did not pass: %#v", verification)
 	}
-	verificationPath := recoverytestsupport.RequireVerificationArtifact(t, fixture.BackupStorage, verification, RecoveryEvidenceLocation("backup-restore"), recoverytestsupport.VerificationExpectation{
+	verificationPath := recoverytestsupport.RequireVerificationArtifact(t, fixture.BackupStorage, verification, recoveryEvidenceLocation(t, "backup-restore"), recoverytestsupport.VerificationExpectation{
 		BackupSetID:        fixture.LatestBackupSetID,
 		ConsistencyPointAt: fixture.ConsistencyPointAt,
 		IncidentID:         fixture.IncidentID,
@@ -98,19 +97,19 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	defer server.Stop(t)
 	server.WaitForReady(t)
 
-	login := LoginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, GenerateTOTPCode(t, fixture.AdminTOTPSecret))
-	getIncident := DoJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, withCookies(login.sessionCookie))
+	login := loginLocalUserWithSecondFactor(t, server, authenticationBootstrapAdminEmail, authenticationBootstrapAdminPassword, flowtest.GenerateTOTPCode(t, fixture.AdminTOTPSecret))
+	getIncident := doJSON(t, server, http.MethodGet, "/api/v1/incidents/"+fixture.IncidentID, nil, withCookies(login.SessionCookie))
 	incidentData := httptestx.RequireSuccessEnvelope(t, getIncident, http.StatusOK)["data"].(map[string]any)
 	if incidentData["incident_id"] != fixture.IncidentID {
 		t.Fatalf("restored incident identity got %v want %s", incidentData["incident_id"], fixture.IncidentID)
 	}
-	restoredTimeline := RequireTimelineEvidenceCount(t, server, login, fixture.IncidentID, fixture.TimelineRecordID, 1, true)
+	restoredTimeline := requireTimelineEvidenceCount(t, server, login, fixture.IncidentID, fixture.TimelineRecordID, 1, true)
 	if got := int(restoredTimeline["row_version"].(float64)); got != fixture.TimelineRowVersion {
 		t.Fatalf("restored Timeline row_version got %d want %d", got, fixture.TimelineRowVersion)
 	}
 }
 
-type SourceBackupFixture struct {
+type sourceBackupFixture struct {
 	SourceStore             *recovery.Store
 	BackupStorage           recovery.BackupStorage
 	AsOf                    time.Time
@@ -120,7 +119,6 @@ type SourceBackupFixture struct {
 	TimelineRecordID        string
 	TimelineRowVersion      int
 	EvidenceRecordID        string
-	ObjectBlobID            string
 	BlobSHA256              string
 	AuthoritativeRowsSHA256 string
 	ChangeSetsSHA256        string
@@ -128,14 +126,12 @@ type SourceBackupFixture struct {
 	ChangeSetRowCount       int
 	EvidenceBlob            recoverytestsupport.EvidenceBlobConsistency
 	AdminTOTPSecret         string
-	ManifestEvidencePath    string
-	SummaryEvidencePath     string
 }
 
-func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
+func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	t.Helper()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
@@ -144,29 +140,31 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	}
 	t.Cleanup(sourcePool.Close)
 
-	bucket := BucketName(prefix)
+	bucket := bucketName(prefix)
 	t.Cleanup(func() {
 		cleanupBucket(t, s3Harness, bucket)
 	})
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	sourceEnv := ServerEnv(t, sourceDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
-	sourceObjectStore := OpenObjectStore(t, sourceEnv)
+	sourceEnv := newProcessEnv(t, processEnvOptions{Database: sourceDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
+	sourceObjectStore := openObjectStore(t, sourceEnv)
 	t.Cleanup(func() {
-		_ = sourceObjectStore.Close()
+		if err := sourceObjectStore.Close(); err != nil {
+			t.Errorf("close source object store: %v", err)
+		}
 	})
 
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: sourceEnv})
 	defer server.Stop(t)
 	server.WaitForReady(t)
 
-	adminLogin, adminSecret := ProvisionBootstrapAdmin(t, server)
-	incident := CreateIncident(t, server, adminLogin.sessionCookie, adminLogin.csrfCookie, map[string]any{
+	adminLogin, adminSecret := provisionBootstrapAdmin(t, server)
+	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-" + prefix + "-incident",
 		"incident_key":  "IR-BACKUP-RESTORE-RESTORE",
 		"title":         "Recovery and coordination restore source",
 	})
 	incidentID := incident["incident_id"].(string)
-	timeline := CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
+	timeline := createViewRow(t, server, adminLogin, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-" + prefix + "-timeline",
 		"timeline.activity_synopsis_text": "restore source timeline",
 	})
@@ -174,32 +172,32 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	timelineRecordID := timelineRow["record_id"].(string)
 	timelineRowVersion := int(timelineRow["row_version"].(float64))
 
-	evidence := CreateViewRow(t, server, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
+	evidence := createViewRow(t, server, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-" + prefix + "-evidence",
 		"evidence.title": "restore source evidence",
 	})
 	evidenceRecordID := evidence["row"].(map[string]any)["record_id"].(string)
 	payload := []byte("backup_restore restore coherent blob payload")
-	blobCreate := DoJSON(t, server, http.MethodPost, "/api/v1/object-blobs", map[string]any{
+	blobCreate := doJSON(t, server, http.MethodPost, "/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID,
 		"client_txn_id":     "txn-" + prefix + "-blob",
 		"byte_size":         len(payload),
 		"filename_hint":     "restore.txt",
 		"content_type_hint": "text/plain",
-	}, withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
+	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
-	PutObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
 
-	attach := DoJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
+	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   objectBlobID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-" + prefix + "-attach",
-	}, withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie), withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value))
+	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)
 
-	PatchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
+	patchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-" + prefix + "-link",
@@ -214,7 +212,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 			},
 		}},
 	})
-	linkedTimeline := RequireTimelineEvidenceCount(t, server, adminLogin, incidentID, timelineRecordID, 1, true)
+	linkedTimeline := requireTimelineEvidenceCount(t, server, adminLogin, incidentID, timelineRecordID, 1, true)
 	linkedTimelineRowVersion := int(linkedTimeline["row_version"].(float64))
 	olderBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100201")
 	latestBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000100202")
@@ -222,7 +220,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	olderConsistencyPointAt := asOf.Add(-9 * time.Minute)
 	consistencyPointAt := asOf.Add(-time.Minute)
 	backupRoot := t.TempDir()
-	backupStorage := EncryptedBackupStorage(t, backupRoot)
+	backupStorage := encryptedBackupStorage(t, backupRoot)
 	sourceRecoveryStore := recovery.NewStore(sourcePool)
 	captured := recoverytestsupport.CaptureSourceBackup(t, ctx, recoverytestsupport.CaptureInput{
 		Prefix:                  prefix,
@@ -238,8 +236,8 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 		EvidenceObjects:         recoveryprovider.New(sourcePool),
 		BackupStorage:           backupStorage,
 		BackupStorageRoot:       backupRoot,
-		ExtensionCatalog:        RecoveryExtensionCatalog(t),
-		EvidenceLocation:        RecoveryEvidenceLocation("backup-restore"),
+		ExtensionCatalog:        recoveryExtensionCatalog(t),
+		EvidenceLocation:        recoveryEvidenceLocation(t, "backup-restore"),
 		IncidentID:              incidentID,
 		TimelineRecordID:        timelineRecordID,
 		TimelineRowVersion:      linkedTimelineRowVersion,
@@ -250,7 +248,7 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 	t.Logf("object_store_backup_manifest=%s", captured.ManifestEvidencePath)
 	t.Logf("object_store_backup_summary=%s", captured.SummaryEvidencePath)
 
-	return SourceBackupFixture{
+	return sourceBackupFixture{
 		SourceStore:             sourceRecoveryStore,
 		BackupStorage:           backupStorage,
 		AsOf:                    captured.AsOf,
@@ -260,7 +258,6 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 		TimelineRecordID:        captured.TimelineRecordID,
 		TimelineRowVersion:      captured.TimelineRowVersion,
 		EvidenceRecordID:        captured.EvidenceRecordID,
-		ObjectBlobID:            captured.ObjectBlobID,
 		BlobSHA256:              captured.BlobSHA256,
 		AuthoritativeRowsSHA256: captured.AuthoritativeRowsSHA256,
 		ChangeSetsSHA256:        captured.ChangeSetsSHA256,
@@ -268,23 +265,22 @@ func captureRestoreSource(t testing.TB, prefix string) SourceBackupFixture {
 		ChangeSetRowCount:       captured.ChangeSetRowCount,
 		EvidenceBlob:            captured.EvidenceBlob,
 		AdminTOTPSecret:         adminSecret,
-		ManifestEvidencePath:    captured.ManifestEvidencePath,
-		SummaryEvidencePath:     captured.SummaryEvidencePath,
 	}
 }
 
-const RecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+const recoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
-func RecoveryEvidenceLocation(group string) recoverytestsupport.EvidenceLocation {
-	resultsDir := strings.TrimSpace(os.Getenv("CARTULARY_TEST_RESULTS_DIR"))
-	runID := strings.TrimSpace(os.Getenv("CARTULARY_TEST_RUN_ID"))
-	target := strings.TrimSpace(os.Getenv("CARTULARY_TEST_TARGET"))
+func recoveryEvidenceLocation(t testing.TB, group string) recoverytestsupport.EvidenceLocation {
+	t.Helper()
+
+	resultsDir, err := suiteservices.ResolveResultsRoot(nil)
+	if err != nil {
+		t.Fatalf("resolve Recovery results root: %v", err)
+	}
+	runID := suiteservices.ResolveRunID(nil)
+	target := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.TargetEnv))
 	if target == "" {
 		target = "backend-process"
-	}
-	if resultsDir == "" || runID == "" {
-		resultsDir = filepath.Join(".cartulary", "test-results")
-		runID = "local-backup-restore"
 	}
 	return recoverytestsupport.EvidenceLocation{
 		ResultsRoot: resultsDir,
@@ -294,13 +290,13 @@ func RecoveryEvidenceLocation(group string) recoverytestsupport.EvidenceLocation
 	}
 }
 
-func EncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
+func encryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 	t.Helper()
 	rawStorage, err := recoveryassembly.NewFilesystemStorage(root)
 	if err != nil {
 		t.Fatalf("create backup storage: %v", err)
 	}
-	key, err := recovery.ParseRecoveryEncryptionKey(RecoveryMasterKey)
+	key, err := recovery.ParseRecoveryEncryptionKey(recoveryMasterKey)
 	if err != nil {
 		t.Fatalf("parse recovery encryption key: %v", err)
 	}
@@ -314,7 +310,7 @@ func EncryptedBackupStorage(t testing.TB, root string) recovery.BackupStorage {
 func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.TargetFixture {
 	t.Helper()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
@@ -323,32 +319,34 @@ func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.Targe
 	}
 	t.Cleanup(targetPool.Close)
 
-	bucket := BucketName(prefix)
+	bucket := bucketName(prefix)
 	t.Cleanup(func() {
 		cleanupBucket(t, s3Harness, bucket)
 	})
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	env := ServerEnv(t, targetDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
-	store := OpenObjectStore(t, env)
+	env := newProcessEnv(t, processEnvOptions{Database: targetDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
+	store := openObjectStore(t, env)
 	t.Cleanup(func() {
-		_ = store.Close()
+		if err := store.Close(); err != nil {
+			t.Errorf("close target object store: %v", err)
+		}
 	})
 	target := recoverytestsupport.NewTargetFixture(env, targetPool, store)
 	t.Cleanup(target.Cleanup)
 	return target
 }
 
-func OpenObjectStore(t testing.TB, env map[string]string) objectstore.Store {
+func openObjectStore(t testing.TB, env map[string]string) objectstore.Store {
 	t.Helper()
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
-	store, err := appsupport.OpenObjectStore(context.Background(), cfg, env)
+	store, err := appsupport.OpenObjectStore(t.Context(), cfg, env)
 	if err != nil {
 		t.Fatalf("open object store: %v", err)
 	}
 	return store
 }
 
-func RecoveryExtensionCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
+func recoveryExtensionCatalog(t testing.TB) *recovery.ExtensionBackupCatalog {
 	t.Helper()
 	catalog, err := extensionassembly.GeneratedRecoveryCatalog()
 	if err != nil {
@@ -361,11 +359,11 @@ func TestPublicRouteInventoryAbsence_Process(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-03-route-absence")
 
-	bucket := BucketName("backup_restore-e-10-03")
+	bucket := bucketName("backup_restore-e-10-03")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+	env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	defer server.Stop(t)
 	server.WaitForReady(t)

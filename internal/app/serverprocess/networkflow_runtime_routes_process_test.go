@@ -9,16 +9,14 @@ import (
 )
 
 func TestNetworkFlowHarnessRuntimeRouteServerProcessContribution(t *testing.T) {
-	addr := reserveHarnessRuntimeProcessAddress(t)
-	apiOrigin := "http://" + addr
 	publicOrigin := "http://127.0.0.1:4173"
 	server := startHarnessRuntimeServerProcess(t, "network-flow-test-runtime", map[string]string{
-		"CARTULARY_HTTP_ADDR":             addr,
 		"CARTULARY_ENABLE_TEST_ROUTES":    "1",
 		"CARTULARY_TEST_RUNTIME_MARKER":   "harness-owned",
 		"CARTULARY_TEST_ROUTE_TOKEN":      httptestx.TestRouteToken,
-		"CARTULARY_WEB_E2E_API_ORIGIN":    apiOrigin,
 		"CARTULARY_WEB_E2E_PUBLIC_ORIGIN": publicOrigin,
+	}, func(env map[string]string, baseURL string) {
+		env["CARTULARY_WEB_E2E_API_ORIGIN"] = baseURL
 	})
 
 	invalidFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", map[string]any{

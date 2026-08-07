@@ -2,7 +2,6 @@ package serverprocess
 
 import (
 	"bytes"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
-	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
@@ -32,13 +30,13 @@ func TestReadyState_Process(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-01")
 
 	db := openSQL(t, testDB.DSN)
-	defer db.Close()
+	defer closeSQL(t, db)
 
-	bucket := BucketName("bootstrap-e-0-01")
+	bucket := bucketName("bootstrap-e-0-01")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+	env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
 
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	defer server.Stop(t)
@@ -56,14 +54,18 @@ func TestReadyState_Process(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open configured filesystem object store: %v", err)
 	}
-	if err := store.PutObject(context.Background(), "bootstrap-ready.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
+	if err := store.PutObject(t.Context(), "bootstrap-ready.txt", bytes.NewReader(payload), int64(len(payload)), "text/plain"); err != nil {
 		t.Fatalf("write configured filesystem object store: %v", err)
 	}
-	object, _, err := store.ReadObject(context.Background(), "bootstrap-ready.txt", objectstore.ReadOptions{})
+	object, _, err := store.ReadObject(t.Context(), "bootstrap-ready.txt", objectstore.ReadOptions{})
 	if err != nil {
 		t.Fatalf("read configured filesystem object store: %v", err)
 	}
-	defer object.Close()
+	defer func() {
+		if err := object.Close(); err != nil {
+			t.Errorf("close configured object-store payload: %v", err)
+		}
+	}()
 	got, err := io.ReadAll(object)
 	if err != nil {
 		t.Fatalf("read configured object-store payload: %v", err)
@@ -112,14 +114,11 @@ func TestInvalidConfigDiagnostics_Process(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-02")
 
-			bucket := BucketName("bootstrap-e-0-02")
+			bucket := bucketName("bootstrap-e-0-02")
 			defer cleanupBucket(t, s3Harness, bucket)
 
 			configPath := writeConfig(t, tc.configText)
-			env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, "")
-			for key, value := range tc.env {
-				env[key] = value
-			}
+			env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, Overrides: tc.env})
 
 			server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 			err := server.WaitForExit(t)
@@ -140,13 +139,13 @@ func TestFirstAdminBootstrap_Process(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-03")
 
 	db := openSQL(t, testDB.DSN)
-	defer db.Close()
+	defer closeSQL(t, db)
 
-	bucket := BucketName("bootstrap-e-0-03")
+	bucket := bucketName("bootstrap-e-0-03")
 	defer cleanupBucket(t, s3Harness, bucket)
 
 	configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-	env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+	env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
 
 	server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 	defer server.Stop(t)
@@ -159,7 +158,7 @@ func TestFirstAdminBootstrap_Process(t *testing.T) {
 
 	var userID string
 	var email string
-	if err := db.QueryRowContext(context.Background(), `SELECT id::text, email FROM users WHERE is_active = true AND is_deployment_admin = true`).Scan(&userID, &email); err != nil {
+	if err := db.QueryRowContext(t.Context(), `SELECT id::text, email FROM users WHERE is_active = true AND is_deployment_admin = true`).Scan(&userID, &email); err != nil {
 		t.Fatalf("query bootstrap-created user: %v", err)
 	}
 	bootstraptest.RequireBootstrapUserLocalAuthOnly(t, testDB.DSN, userID, email)
@@ -244,16 +243,16 @@ func TestBootstrapFailures_Process(t *testing.T) {
 			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-04")
 
 			db := openSQL(t, testDB.DSN)
-			defer db.Close()
+			defer closeSQL(t, db)
 			if tc.seed != nil {
 				tc.seed(t, db)
 			}
 
-			bucket := BucketName("bootstrap-e-0-04")
+			bucket := bucketName("bootstrap-e-0-04")
 			defer cleanupBucket(t, s3Harness, bucket)
 
 			configPath := writeConfig(t, tc.configContent())
-			env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, tc.bootstrapPath)
+			env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: tc.bootstrapPath})
 
 			server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 			err := server.WaitForExit(t)
@@ -279,12 +278,12 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-05-skip")
 
 		db := openSQL(t, testDB.DSN)
-		defer db.Close()
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, is_active, is_deployment_admin) VALUES ($1, $2, $3, true, true)`, "existing-admin@example.test", "Existing Admin", "existing-hash"); err != nil {
+		defer closeSQL(t, db)
+		if _, err := db.ExecContext(t.Context(), `INSERT INTO users (email, display_name, password_hash, is_active, is_deployment_admin) VALUES ($1, $2, $3, true, true)`, "existing-admin@example.test", "Existing Admin", "existing-hash"); err != nil {
 			t.Fatalf("seed active deployment admin: %v", err)
 		}
 
-		bucket := BucketName("bootstrap-e-0-05-skip")
+		bucket := bucketName("bootstrap-e-0-05-skip")
 		defer cleanupBucket(t, s3Harness, bucket)
 
 		cases := []struct {
@@ -304,7 +303,7 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-				env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, tc.manifestPath)
+				env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: tc.manifestPath})
 
 				server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 				defer server.Stop(t)
@@ -323,21 +322,21 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-e-0-05-recovery")
 
 		db := openSQL(t, testDB.DSN)
-		defer db.Close()
+		defer closeSQL(t, db)
 
 		var userID string
-		if err := db.QueryRowContext(context.Background(), `INSERT INTO users (email, display_name, password_hash, is_active, is_deployment_admin) VALUES ($1, $2, $3, false, true) RETURNING id`, "retired-admin@example.test", "Retired Admin", "existing-hash").Scan(&userID); err != nil {
+		if err := db.QueryRowContext(t.Context(), `INSERT INTO users (email, display_name, password_hash, is_active, is_deployment_admin) VALUES ($1, $2, $3, false, true) RETURNING id`, "retired-admin@example.test", "Retired Admin", "existing-hash").Scan(&userID); err != nil {
 			t.Fatalf("seed retired deployment admin: %v", err)
 		}
-		if _, err := db.ExecContext(context.Background(), `INSERT INTO deployment_bootstrap_state (slot, bootstrap_schema_id, bootstrap_artifact_id, artifact_sha256, created_user_id) VALUES ('first_deployment_admin', $1, $2, $3, $4)`, "cartulary.bootstrap_admin.v1", "33333333-3333-3333-3333-333333333333", []byte{0x04, 0x05, 0x06}, userID); err != nil {
+		if _, err := db.ExecContext(t.Context(), `INSERT INTO deployment_bootstrap_state (slot, bootstrap_schema_id, bootstrap_artifact_id, artifact_sha256, created_user_id) VALUES ('first_deployment_admin', $1, $2, $3, $4)`, "cartulary.bootstrap_admin.v1", "33333333-3333-3333-3333-333333333333", []byte{0x04, 0x05, 0x06}, userID); err != nil {
 			t.Fatalf("seed bootstrap completion state: %v", err)
 		}
 
-		bucket := BucketName("bootstrap-e-0-05-recovery")
+		bucket := bucketName("bootstrap-e-0-05-recovery")
 		defer cleanupBucket(t, s3Harness, bucket)
 
 		configPath := writeConfig(t, string(fixtures.MustRead("config", "valid.toml")))
-		env := ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
+		env := newProcessEnv(t, processEnvOptions{Database: testDB.Env(), ObjectStore: s3Harness.Env(bucket), ConfigPath: configPath, BootstrapPath: fixtures.Path("bootstrap-admin", "canonical.json")})
 
 		server := processtest.StartServer(t, processtest.ServerOptions{Env: env})
 		err := server.WaitForExit(t)
@@ -355,36 +354,13 @@ func TestBootstrapSkipAndRecovery_Process(t *testing.T) {
 	})
 }
 
-type AuditEvent struct {
+type auditEvent struct {
 	ActorUserID string
 	EventSource string
 	EventKind   string
 	RequestID   string
 	CreatedAt   time.Time
 	After       map[string]any
-}
-
-func ServerEnv(t testing.TB, databaseEnv map[string]string, objectStoreEnv map[string]string, configPath string, bootstrapPath string) map[string]string {
-	t.Helper()
-
-	tempRoots := configtest.SetupTempRoots(t)
-	env := make(map[string]string)
-	for key, value := range databaseEnv {
-		env[key] = value
-	}
-	for key, value := range objectStoreEnv {
-		env[key] = value
-	}
-	for key, value := range tempRoots.Paths {
-		env[key] = value
-	}
-	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
-	env["CARTULARY_CONFIG_FILE"] = configPath
-	if bootstrapPath != "" {
-		env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = bootstrapPath
-	}
-	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
-	return env
 }
 
 func writeConfig(t testing.TB, content string) string {
@@ -419,7 +395,7 @@ func stripConfigSection(t testing.TB, content string, header string) string {
 	return strings.Join(append(lines[:start], lines[end:]...), "\n")
 }
 
-func BucketName(prefix string) string {
+func bucketName(prefix string) string {
 	value := strings.ToLower(prefix)
 	value = strings.ReplaceAll(value, "_", "-")
 	value = strings.ReplaceAll(value, " ", "-")
@@ -428,9 +404,9 @@ func BucketName(prefix string) string {
 
 func cleanupBucket(t testing.TB, harness *s3test.Harness, bucket string) {
 	t.Helper()
-	if err := harness.CleanupBucket(context.Background(), bucket); err != nil {
-		t.Logf("cleanup bucket: %v", err)
-	}
+	ctx, cancel := newProcessCleanupContext()
+	defer cancel()
+	reportProcessCleanupFailure(t, "cleanup bucket "+bucket, harness.CleanupBucket(ctx, bucket))
 }
 
 func openSQL(t testing.TB, dsn string) *sql.DB {
@@ -443,11 +419,18 @@ func openSQL(t testing.TB, dsn string) *sql.DB {
 	return db
 }
 
+func closeSQL(t testing.TB, db *sql.DB) {
+	t.Helper()
+	if err := db.Close(); err != nil {
+		t.Errorf("close postgres sql handle: %v", err)
+	}
+}
+
 func requireCountSQL(t testing.TB, db *sql.DB, query string, want int) {
 	t.Helper()
 
 	var got int
-	if err := db.QueryRowContext(context.Background(), query).Scan(&got); err != nil {
+	if err := db.QueryRowContext(t.Context(), query).Scan(&got); err != nil {
 		t.Fatalf("query %q: %v", query, err)
 	}
 	if got != want {
@@ -455,7 +438,7 @@ func requireCountSQL(t testing.TB, db *sql.DB, query string, want int) {
 	}
 }
 
-func lookupBootstrapAuditEvent(t testing.TB, db *sql.DB) AuditEvent {
+func lookupBootstrapAuditEvent(t testing.TB, db *sql.DB) auditEvent {
 	t.Helper()
 
 	var actorUserID string
@@ -464,7 +447,7 @@ func lookupBootstrapAuditEvent(t testing.TB, db *sql.DB) AuditEvent {
 	var requestID string
 	var createdAt time.Time
 	var afterJSON []byte
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRowContext(t.Context(), `
 SELECT COALESCE(actor_user_id::text, ''),
        event_source,
        event_kind,
@@ -478,7 +461,7 @@ SELECT COALESCE(actor_user_id::text, ''),
 		t.Fatalf("query bootstrap audit event: %v", err)
 	}
 
-	event := AuditEvent{
+	event := auditEvent{
 		ActorUserID: actorUserID,
 		EventSource: eventSource,
 		EventKind:   eventKind,

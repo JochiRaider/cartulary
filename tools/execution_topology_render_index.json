@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:aac1021ca428f6e7808a7054addd42630357eba7f32f0c6a54ed573e10ceb122",
+  "input_digest": "sha256:fa189756996e709ed221b6f38e18b6f4a60789deeb00de70666282d458b8a854",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -322,7 +322,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:52eec24b8d5fd32f73beb27809d59208abec1794595115f4edfe45bea2a4657f"
+      "hash": "sha256:8fcbfdfe4e0b01ebae8695a5f2a44092585588699de5417fe1aa848ead9d33e4"
     },
     {
       "path": "tools/harness/backend/go-lpt-shards.mjs",
