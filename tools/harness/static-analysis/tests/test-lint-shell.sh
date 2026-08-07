@@ -283,14 +283,21 @@ printf '%s\n' "echo \"\$HOME\"" >"$make_strict_repo/scripts/warn.sh"
 track_all "$make_strict_repo"
 make_strict_shellcheck="$(make_fake_shellcheck "$make_strict_repo")"
 make_strict_args_log="$make_strict_repo/shellcheck-args.log"
+make_strict_results="$(cartulary_harness_mktemp_dir lint-shell-public-results.XXXXXX)"
+cleanup_paths+=("$make_strict_results")
+make_strict_run_id="lint-shell-public-strict"
 set +e
 make_strict_output="$(
-  CARTULARY_SHELLCHECK_ROOT="$make_strict_repo" \
-  SHELLCHECK_BIN="$make_strict_shellcheck" \
-  FAKE_SHELLCHECK_ARGS_LOG="$make_strict_args_log" \
-  FAKE_SHELLCHECK_OUTPUT="SC2086 simulated finding" \
-  FAKE_SHELLCHECK_STATUS=1 \
-    make -C "$ROOT_DIR" --no-print-directory lint-shell 2>&1
+  env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
+    CARTULARY_OUTPUT_MODE=verbose \
+    CARTULARY_TEST_RESULTS_DIR="$make_strict_results" \
+    CARTULARY_TEST_RUN_ID="$make_strict_run_id" \
+    CARTULARY_SHELLCHECK_ROOT="$make_strict_repo" \
+    SHELLCHECK_BIN="$make_strict_shellcheck" \
+    FAKE_SHELLCHECK_ARGS_LOG="$make_strict_args_log" \
+    FAKE_SHELLCHECK_OUTPUT="SC2086 simulated finding" \
+    FAKE_SHELLCHECK_STATUS=1 \
+      make -C "$ROOT_DIR" --no-print-directory CARTULARY_HARNESS_CACHE_MODE=off lint-shell 2>&1
 )"
 make_strict_status=$?
 set -e
@@ -298,6 +305,15 @@ if [[ "$make_strict_status" -eq 0 ]]; then
   fail "public Make lint-shell: expected strict ShellCheck failure"
 fi
 assert_not_contains "$make_strict_output" "lint-shell warning-only" "public Make lint-shell must not use warning-only mode"
+if [[ ! -f "$make_strict_args_log" ]]; then
+  fail "public Make lint-shell: fake ShellCheck was not invoked"
+fi
+assert_contains "$(cat "$make_strict_args_log")" "scripts/warn.sh" "public Make lint-shell fake invocation"
+make_strict_manifest="$make_strict_results/$make_strict_run_id/run-manifest.json"
+if [[ ! -f "$make_strict_manifest" ]]; then
+  fail "public Make lint-shell: missing nested run manifest"
+fi
+assert_contains "$(cat "$make_strict_manifest")" '"cache_mode": "off"' "public Make lint-shell nested cache mode"
 
 real_shellcheck=""
 if [[ -n "${SHELLCHECK_BIN:-}" && -x "${SHELLCHECK_BIN}" ]]; then

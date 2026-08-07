@@ -74,6 +74,22 @@ assert_file_absent() {
   fi
 }
 
+assert_files_equal() {
+  local actual="$1"
+  local expected="$2"
+  local label="$3"
+
+  if ! cmp -s "$actual" "$expected"; then
+    fail "$label: expected file bytes to remain unchanged: $actual"
+  fi
+}
+
+normalize_make_continuations() {
+  local text="$1"
+
+  printf '%s\n' "$text" | sed -e ':join' -e '/\\$/ { N; s/[[:space:]]*\\\n[[:space:]]*/ /; b join; }'
+}
+
 probe_run_id() {
   local label="$1"
   local slug
@@ -153,6 +169,7 @@ assert_make_passes() {
 
 makefile_content="$(cat "$ROOT_DIR/Makefile"; printf '\n'; cat "$ROOT_DIR/tools/task_surface.generated.mk")"
 release_check_block="$(extract_target_definition release-check)"
+release_check_logical_block="$(normalize_make_continuations "$release_check_block")"
 release_readiness_block="$(extract_target_definition release-readiness-evidence)"
 license_report_block="$(extract_target_definition license-report)"
 sbom_block="$(extract_target_definition sbom)"
@@ -163,7 +180,7 @@ release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY
 for public_target in test-fast release-check release-readiness-evidence license-report sbom; do
   assert_contains "$makefile_content" "$public_target:" "release task surface target $public_target"
 done
-assert_contains "$release_check_block" 'work-graph/runner-cli.mjs --selection aggregate --target' "release-check graph runner"
+assert_contains "$release_check_logical_block" 'work-graph/runner-cli.mjs --selection aggregate --target release-check' "release-check graph runner"
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
@@ -181,44 +198,34 @@ assert_contains "$release_check_explain" "browser-e2e-visual" "release-check exp
 assert_contains "$release_check_explain" "browser-e2e-a11y" "release-check explains accessibility readiness child"
 assert_contains "$release_check_explain" "release-readiness-evidence" "release-check explains release readiness aggregation child"
 
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/release-task-surface.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "release-task-surface-artifacts.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 empty_license="$tmp_dir/empty-license.json"
 valid_license="$tmp_dir/license-report.json"
 empty_sbom="$tmp_dir/empty-sbom.cyclonedx.json"
 valid_sbom="$tmp_dir/sbom.cyclonedx.json"
-fake_cyclonedx_gomod="$tmp_dir/cyclonedx-gomod"
-fake_syft="$tmp_dir/syft"
-frontend_install_stamp="$tmp_dir/frontend-install.stamp"
-
-printf '#!/usr/bin/env bash\nexit 0\n' >"$fake_cyclonedx_gomod"
-printf '#!/usr/bin/env bash\nexit 0\n' >"$fake_syft"
-chmod +x "$fake_cyclonedx_gomod" "$fake_syft"
-touch "$frontend_install_stamp"
-release_probe_prereqs=(
-  --old-file="$NODE_BIN"
-  --old-file="$frontend_install_stamp"
-  --old-file="$fake_cyclonedx_gomod"
-  --old-file="$fake_syft"
-  NODE_BIN="$NODE_BIN"
-  FRONTEND_INSTALL_STAMP="$frontend_install_stamp"
-  CYCLONEDX_GOMOD_BIN="$fake_cyclonedx_gomod"
-  SYFT_BIN="$fake_syft"
-)
 
 touch "$empty_license"
-empty_license_output="$(assert_make_fails "empty license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
+cp "$empty_license" "$empty_license.before"
+empty_license_output="$(assert_make_fails "empty license report" --old-file="$empty_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$empty_license" license-report)"
 assert_contains "$empty_license_output" "license report artifact is empty" "empty license report failure"
+assert_files_equal "$empty_license" "$empty_license.before" "empty license report probe"
 
 printf '%s\n' '{"licenses":[]}' >"$valid_license"
-assert_make_passes "valid license report" "${release_probe_prereqs[@]}" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
+cp "$valid_license" "$valid_license.before"
+assert_make_passes "valid license report" --old-file="$valid_license" NODE_BIN="$NODE_BIN" LICENSE_REPORT_ARTIFACT="$valid_license" license-report >/dev/null
+assert_files_equal "$valid_license" "$valid_license.before" "valid license report probe"
 
 touch "$empty_sbom"
-empty_sbom_output="$(assert_make_fails "empty SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$empty_sbom" sbom)"
+cp "$empty_sbom" "$empty_sbom.before"
+empty_sbom_output="$(assert_make_fails "empty SBOM" --old-file="$empty_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$empty_sbom" sbom)"
 assert_contains "$empty_sbom_output" "SBOM artifact is empty" "empty SBOM failure"
+assert_files_equal "$empty_sbom" "$empty_sbom.before" "empty SBOM probe"
 
 printf '%s\n' '{"bomFormat":"CycloneDX"}' >"$valid_sbom"
-assert_make_passes "valid SBOM" "${release_probe_prereqs[@]}" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+cp "$valid_sbom" "$valid_sbom.before"
+assert_make_passes "valid SBOM" --old-file="$valid_sbom" NODE_BIN="$NODE_BIN" SBOM_ARTIFACT="$valid_sbom" sbom >/dev/null
+assert_files_equal "$valid_sbom" "$valid_sbom.before" "valid SBOM probe"
 
 assert_no_ambient_summary "license-report"
 assert_no_ambient_summary "sbom"

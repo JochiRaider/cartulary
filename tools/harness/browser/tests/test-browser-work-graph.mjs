@@ -64,6 +64,7 @@ const selectedWorkbookBrowserRows = compiler.catalog.rows
   .map((row) => row.row_id)
   .sort();
 const projectedWorkbookBrowserRows = workbookOwner.units
+  .filter((unit) => unit.unit_id.startsWith("browser_group:"))
   .flatMap((unit) =>
     unit.evidence_outputs
       .filter((output) => output.startsWith("rows/"))
