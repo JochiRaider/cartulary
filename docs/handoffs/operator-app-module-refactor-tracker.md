@@ -8,10 +8,11 @@
 | Target label | `operator-app` |
 | Output path | `docs/handoffs/operator-app-module-refactor-tracker.md` |
 | Baseline | `main` at `0bd8bd63bd0c19eed8b9f48fc8a9819134667401`; the tracked worktree was initially clean |
-| Tracker status | Remediation complete; SL-00 through SL-07 and OT-009 through OT-012 are `DONE`; no blocker remains |
-| Permitted change in this task | The user-authorized SL-00 through SL-07 write sets recorded in section 7, with this tracker updated after every completed or blocked slice |
-| Prohibited changes in this task | Unrelated product behavior, frontend/browser/network surfaces, data migrations, hand edits to generated artifacts, runtime compatibility aliases, and any work belonging to a later slice before its dependency gates close |
-| Implementation authority | The 2026-08-06 implementation directive authorizes the complete remediation plan; adopted owners still MUST precede their typed projections and dependent behavior changes |
+| Tracker status | The SL-00 through SL-07 remediation is complete historical work. Section 13 records the next production-cleanup iteration as `PLANNED`; no PC slice has started. |
+| Next-iteration planning baseline | Clean HEAD `846d024b900be4cf8019dcb6cf0c1d938386ff71`; the document update MUST preserve this baseline as the inspected implementation state. |
+| Permitted change in this task | This tracker only. The PC-00 through PC-04 write sets in section 13 are plans for a separately authorized implementation turn. |
+| Prohibited changes in this task | Product source, tests, owner documents, typed contracts, Harness inputs, generated artifacts, dependencies, migrations, and runtime state. |
+| Implementation authority | The 2026-08-06 directive authorized and completed SL-00 through SL-07. The current directive authorizes this tracker revision only; adopted owners remain authoritative over any later PC implementation. |
 
 `MUST`, `MUST NOT`, `SHOULD`, and `MAY` are normative for execution of this
 refactor plan. They do not amend product behavior owned by Core or an adopted
@@ -374,9 +375,11 @@ WF-03 and WF-04 MAY run concurrently. No other dependency may be reordered.
 | SL-06 | DONE | SL-05 | Introduced four private executors and narrow ports; implemented Collaboration v2 plus repaired-state transaction/private journal; removed Object Store string matching; updated guide and Harness evidence | Operator facade/source/tests, Collaboration service/integration tests, Recovery operator process evidence, app family manifest, generated accounting, guide, and this tracker | Intentional v2 break is complete; closure and owner boundaries are guarded by exact tests | Strict grammar/envelope/exit/redaction/timeout/delivery tests; cases 1-18; real process; repair, concurrency, attribution, rollback, commit-unknown, and typed Object Store evidence | All five focused/service-backed owners; shape/generation/drift/policy; Harness contract; boundary; operator build | Restore previous private wiring and v1 runtime behavior; no data migration exists | Each executor depends only on its command needs, v2 is exclusive, semantic SQL stays in Collaboration, and SL-07 is the only next slice |
 | SL-07 | DONE | SL-06 | Removed obsolete private test helpers, completed the final Harness reconciliation, removed the temporary crosswalk, and retained broad validation/handoff evidence | `internal/app/operator/operator_test.go`, `tools/contractgen/collaboration_validation_test.go`, and this tracker | Cleanup was limited to proven-unused private test support plus one compile-correct validation wrapper | Final active-row reconciliation; exact final worktree `test-fast`; full `check`; retained successful-run maintenance | Pre-broad and retained-run `agent-finalize`; `test-fast`; `backend-unit`; `check`; Markdown/diff/status integrity | Restore the deleted private test helpers only if a future test demonstrates continuing value | No obsolete helper remains; every required gate has current successful evidence; no blocker or follow-on workstream remains |
 
-The 2026-08-06 implementation directive authorized these slices. Owner adoption
-in SL-02 and typed projection in SL-03 satisfied the hard prerequisites for the
-Harness and behavioral changes completed in SL-04 through SL-07.
+The 2026-08-06 implementation directive authorized these historical slices.
+Owner adoption in SL-02 and typed projection in SL-03 satisfied the hard
+prerequisites for the Harness and behavioral changes completed in SL-04 through
+SL-07. Their completion did not freeze private implementation details against
+the separately planned cleanup in section 13.
 
 ## 8. Validation Plan
 
@@ -547,6 +550,7 @@ NLSpec-style documentation revision.
 | 2026-08-06T17:56:16Z | Codex / SL-05 execution | Mechanical source movement is complete and the four private executor port sets are closed for SL-06 | Touched: five operator production files, complete 14-file inventory, port map, and this tracker | Format; app owner slice; backend boundary; operator build | No command behavior changed; OT-010 is DONE | None | Start SL-06 adopted behavior and executor implementation only |
 | 2026-08-06T18:29:24Z | Codex / SL-06 execution | Adopted runtime cutover is complete; strict Collaboration v2 is exclusive and Object Store specificity is typed-only | Touched: operator facade/executors/tests, Collaboration service/integration tests, process evidence, app Harness manifest/generated accounting, dev guide, and this tracker | Five focused and five service-backed owners; v2/process rows; shape/generation/drift/policy; Harness; boundary; build | OT-011 is DONE; every narrow SL-06 gate passes at section 8 roots | None | Start SL-07 cleanup, broad validation, and final handoff only |
 | 2026-08-06T18:57:24Z | Codex / SL-07 completion | All authorized remediation slices and acceptance criteria are complete | Touched: final private-test cleanup, validator test wrapper, and this tracker; inspected the complete authorized diff | Pre-broad and retained-run finalization; final `test-fast`; full `check`; Markdown/diff/status integrity | SL-00 through SL-07 and OT-009 through OT-012 are `DONE`; the user's staged tracker history remains preserved | None | Handoff complete; no follow-on workstream is authorized or required |
+| 2026-08-06T20:59:24Z | Codex / PC planning | The completed remediation remains historical; a separate legacy-cleanup and production-hardening iteration is decision-complete but unstarted | Touched: this tracker only. Inspected: current operator source/exports/callers, target tests, owner selectors, boundary policy, and command-retirement rules | Read-only caller/export/test/selector inventory; owner task guidance; `make lint-markdown`; diff/status integrity | Section 13 fixes the PC-00 through PC-04 scope, deletion evidence, immutable-ID posture, gates, and acceptance criteria at clean HEAD `846d024...`; Markdown lint passed at `.cartulary/test-results/20260806T205911Z-p2678277` | None for planning; implementation remains separately gated | Await an explicit instruction to start PC-00; do not mutate product or Harness files during this documentation step |
 
 ### Backend module boundary
 
@@ -634,6 +638,7 @@ NLSpec-style documentation revision.
 | 2026-08-06T17:56:16Z | Codex / SL-05 execution | SL-05 completes the behavior-neutral file split and records every added file and planned executor port | Touched: operator source layout, section 2 inventory, executor map, and this tracker | Format; focused app slice; boundary; build; Markdown checkpoint follows | All source-movement gates pass; SL-06 is unblocked | Adopted behavior is not yet implemented | Run the SL-05 Markdown/diff/status checkpoint, then start SL-06 only if it passes |
 | 2026-08-06T18:29:24Z | Codex / SL-06 execution | SL-06 completes the intentional v2 behavior cutover and narrow-executor implementation | Touched: complete authorized SL-06 source/test/guide/Harness set and this tracker | All required narrow owner, generation, Harness, boundary, build, diff/status gates; Markdown checkpoint follows | No product or owner blocker remains; two related failed roots and their corrections are retained in section 8 | Broad `test-fast`/`check` and temporary cleanup remain | Run the SL-06 Markdown/diff/status checkpoint, then start SL-07 only if it passes |
 | 2026-08-06T18:57:24Z | Codex / SL-07 completion | Remediation and handoff are complete with retained current-worktree evidence | Touched: final cleanup and this controlling tracker; inspected all authorized files | Pre-broad `agent-finalize`; final `test-fast`; `check`; retained-run `agent-finalize`; integrity checkpoint | All OA-AC criteria pass; environmental failed roots and successful corrections are retained in section 8 | None; shared `/tmp` remains externally space-constrained, so final runs used `/var/tmp/ct-op` and task-local caches | No next remediation slice; retain the successful run roots for review |
+| 2026-08-06T20:59:24Z | Codex / PC planning | Section 13 identifies removable private residue without reopening completed product behavior | Touched: this tracker only; inspected the live operator package and active Harness ownership | Read-only reachability and stale-surface scans; `make task-guide ROLE=module-author OWNER=app.operator`; `make explain-test-owner OWNER=app.operator`; tracker validation | Owner-required commands are retained; five uncataloged tests, stale ordinal coverage, dead fields, test-only exports, and the broad Recovery CLI path have closed dispositions | PC execution has not been authorized in this document-only step | Begin with read-only PC-00 reconciliation only after a later explicit implementation directive |
 
 ## 11. Resolved Questions and Blockers
 
@@ -723,6 +728,146 @@ owner-qualified family, semantic claim, and exact selector key.
 OA-AC-001 through OA-AC-016 all pass. RB-001 through RB-003 are closed,
 OT-009 through OT-012 are `DONE`, and section 8 contains successful retained
 evidence for every required focused, service-backed, generated, boundary,
-build, static, broad, and handoff gate. This tracker is the complete final
-handoff for the authorized remediation; it does not authorize an additional
-product or Harness mutation.
+build, static, broad, and handoff gate. Sections 1 through 12 remain the final
+handoff for that remediation. Section 13 supersedes only the historical claim
+that no later private cleanup iteration is planned; it does not reopen or
+weaken any completed acceptance result.
+
+## 13. Planned Operator Legacy Cleanup and Production Hardening
+
+### 13.1 Status, authority, and behavior freeze
+
+This section is a refactor plan, not an adopted product owner. Its status is
+`PLANNED`. This documentation task MUST NOT execute PC-00 through PC-04 or
+change any file other than this tracker. A later explicit implementation
+directive may start PC-00 at the baseline recorded in section 1 after first
+reconciling intervening repository changes.
+
+The next iteration has one structural objective: make `internal/app/operator`
+a production-ready binary facade with the smallest justified private surface,
+no live legacy accommodation, and complete active verification. It MUST preserve
+all of the following observable contracts:
+
+- `RunOperatorCLIContext` remains the sole binary-facing Go entry point;
+- the five Recovery commands, `migration-evidence capture`, `object-store init`,
+  and `collaboration requeue` remain the exact eight command paths;
+- command grammar, usage, defaults, output member order and bytes, schema IDs,
+  exit codes, timeout and cancellation behavior, redaction, mutation semantics,
+  and acquired-resource closure remain unchanged;
+- `cmd/operator` continues to import only `internal/app/operator`;
+- semantic behavior remains delegated to Recovery, Collaboration, Postgres, and
+  Object Store owners; and
+- no schema version, migration, command alias, compatibility reader, forwarding
+  package, or dual behavior is introduced.
+
+The supported commands are not cleanup candidates. The Testing Harness NLSpec
+retains the five Recovery commands while Core 01 requires them, retains
+Migration Evidence while its owner consumes the evidence, and retains Object
+Store initialization while stand-up packaging requires configured-bucket
+initialization. Collaboration requeue remains adopted current-profile behavior.
+None of those retirement predicates is satisfied at the planning baseline.
+
+### 13.2 Inspected cleanup inventory and final disposition
+
+The planning baseline is a clean worktree at
+`846d024b900be4cf8019dcb6cf0c1d938386ff71`. It contains 21 Go test entry points
+beneath `internal/app/operator`, nine active `app.operator` Harness rows, and
+five target test entry points that do not occur in any authored selector. The
+following dispositions are closed for the next implementation iteration:
+
+| Candidate | Baseline evidence | Final disposition | Continuing contract |
+| --- | --- | --- | --- |
+| `operatorRunner.stdout` | Stored during construction and never read | Delete in PC-03 | Writers remain owned by each executor's `operatorTransport`. |
+| `operatorCommandDescriptor.Owner` | Checked only for nonempty text and never used for routing, diagnostics, ownership, or evidence | Delete in PC-03 | Harness ownership remains in authored owner manifests; command descriptors retain tokens, usage, handlers, and invalid-namespace routing. |
+| `operatorCLIResult.command` | Written by two parsers and read only by one test assertion | Delete in PC-03 | Exact command identity remains in the registry and command-local executor. |
+| `operatorCLIResult` | Union of Migration Evidence fields and Object Store fields, coupling unrelated parsers | Replace with `migrationEvidenceCaptureArgs` and `objectStoreInitArgs` in PC-03 | Each parser returns its command-local value plus explicit stop/exit control. No generic parser container is added. |
+| `defaultMigrationEvidenceManifestPath` | Private alias used only by implementation and tests | Delete in PC-03 | Use `migrationevidence.DefaultManifestPath` directly. |
+| Root operator result structs and schema constants | Exported only for same-repository tests; not production composition APIs | Make private in PC-02 | JSON schema IDs and wire shapes remain byte-stable; external process tests decode into test-local structs and compare exact contract IDs. |
+| `internal/app/operator/recoverycli` import path | Imported by its operator parent and Recovery process tests; its broad exported surface exists partly for those tests | Move to `internal/app/operator/internal/recoverycli` in PC-02 and delete the old path | The nested `internal` boundary permits the operator facade to compose it and prevents unrelated production imports. No forwarding package remains. |
+| Recovery CLI helper exports | Parsing, timeout, target-path, error-construction, progress, and failure-mapping helpers are exported beyond their production need | Make helpers private after moving their tests in PC-01/PC-02; retain only the minimum symbols required by the parent facade | Recovery wire behavior and `ProjectFailureEvidence` mapping remain unchanged. |
+| `TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand` | Refers to a stale ordinal and duplicates global unknown-command coverage | Delete and remove it from the existing registry row in PC-01 | The registry row continues to prove exactly eight routes, ambiguity rejection, exact routing, and generic unknown-command usage. |
+| Five uncataloged Recovery tests in `operator_recovery_test.go` | Canonical parsing, unsafe paths, and generic failure-envelope behavior contain current value; legacy names and retired-token cases duplicate stronger guards | Re-express current behavior in active nested-Recovery-CLI tests and delete all five old entry points in PC-01/PC-02 | Current parser and failure contracts become active Harness evidence; historical command and flag names are not retained as dedicated tests. |
+| Retired top-level-token boundary rule | Machine policy rejects production reintroduction of `backup-metadata` | Keep | A structural absence guard has continuing value and adds no runtime compatibility path. |
+
+The five currently uncataloged entry points are
+`TestOperatorRecoveryParserAcceptsCanonicalCommands`,
+`TestOperatorRecoveryParserRejectsLegacyRecoverySurface`,
+`TestOperatorRecoveryParserLeavesRetiredTopLevelNamesForRegistryUsage`,
+`TestOperatorRecoveryParserRejectsUnsafeTargetPaths`, and
+`TestOperatorRecoveryCLIEmitsSingleFailureEnvelopeForLegacyCommand`.
+Their names MUST disappear. PC-01 MUST preserve only their current-contract
+assertions: five canonical operations, literal absolute target-path validation,
+generic unknown Recovery subcommand projection, and the single JSON failure
+envelope. Unknown flags MUST be covered generically, not by enumerating retired
+flag spellings.
+
+The final intended Go exposure is:
+
+| Package | Permitted exported surface after PC-03 |
+| --- | --- |
+| `internal/app/operator` | `RunOperatorCLIContext` only |
+| `internal/app/operator/internal/recoverycli` | Only the runner construction/execution and failure-evidence projection symbols required by `operator_recovery.go`; wire DTOs and parser helpers remain private |
+| retired `internal/app/operator/recoverycli` | Package absent; zero imports and no forwarding alias |
+
+### 13.3 Ordered implementation slices
+
+The status vocabulary for this iteration is `PLANNED`, `READY`, `IN_PROGRESS`,
+`BLOCKED`, and `DONE`. This tracker update leaves every slice `PLANNED`. A later
+implementation turn MUST execute them in order and checkpoint this tracker
+after each completed or blocked slice.
+
+| Slice | Status | Depends on | Exact change | Authorized write set | Validation and completion gate |
+| --- | --- | --- | --- | --- | --- |
+| PC-00 | PLANNED | Explicit implementation directive | Revalidate baseline, production callers, root and Recovery CLI exports, all target test entry points, authored selectors, command retirement predicates, and byte-level contract freeze. Record any intervening drift before changing source. | This tracker only; all other inspection is read-only. | Clean scoped status or an explicit preserved-change inventory; exact caller/export/test/selector reports; all eight commands and five uncataloged tests reconciled. Drift that changes a planned disposition blocks PC-01 pending tracker revision. |
+| PC-01 | PLANNED | PC-00 | Delete the stale sixth-command test and remove its selector. Replace legacy-named Recovery tests with current-contract parser, path, generic unknown-command, envelope, and failure-mapping tests in the Recovery CLI package. | Operator registry/Recovery test files, Recovery CLI test file, `tools/test_families/app.operator.json`, Make-generated test accounting, and this tracker. | Keep the existing registry, failure-mapping, and due-timeout row IDs when owner and postcondition are unchanged. Allocate one new owner-qualified row with `make author-test-row-id` for the newly active parser/transport postcondition. Every retained test entry point resolves exactly once; no legacy-named test remains. |
+| PC-02 | PLANNED | PC-01 | Move the Recovery CLI package beneath `internal/app/operator/internal`, update the parent import, move its active tests, make wire DTOs/schema constants private in the root operator package, and replace process-test type imports with test-local decoders and exact schema IDs. Delete the old package directory. | `operator_recovery.go`; old and new Recovery CLI trees; operator/process tests that consume the Go types; backend boundary owner input; affected authored Harness manifests and generated accounting; this tracker. | Zero imports or files remain at the old path; Go's nested-internal boundary admits only operator-subtree callers; unchanged rows keep their semantic IDs while selectors point to the new package; focused and process evidence remains byte-stable. No shim, alias, or duplicate package exists. |
+| PC-03 | PLANNED | PC-02 | Remove the dead runner/descriptor/parser fields and manifest alias. Replace `operatorCLIResult` with command-local Migration Evidence and Object Store argument structs and explicit parse stop/exit returns. Remove all no-longer-required exports. | Operator facade, registry, transport, Migration Evidence, Object Store, and directly affected unit tests; boundary owner input if its exact scan paths change; this tracker. | `internal/app/operator` exposes only `RunOperatorCLIContext`; the registry still validates incomplete, duplicate, and prefix-ambiguous descriptors; all command output, errors, exits, and closure evidence are unchanged. No generic command bus, dependency container, or shared union parser is introduced. |
+| PC-04 | PLANNED | PC-03 | Reconcile authored selectors, generated accounting, boundary paths, source inventory, stale-name search, run roots, and final handoff. Remove obsolete selectors and historical implementation references from current-state sections without rewriting prior session history. | Authored Harness/boundary inputs changed by PC-01 through PC-03, their Make-generated projections, this tracker, and no other product surface. | All section 13 acceptance criteria pass; all required narrow and broad gates have retained successful evidence; tracker status becomes `DONE` with no compatibility residue or untracked test. |
+
+PC-01 may retain the existing failure-mapping and due-timeout row IDs because
+their owner and semantic postconditions do not change. The current registry row
+also retains its ID after the redundant selector is removed because it still
+proves the same eight-route and routing postcondition. The new active
+parser/transport postcondition MUST receive a newly authored ID because it has
+no active predecessor row. No migration crosswalk is required: no existing row
+changes owner, and the uncataloged tests never had active row identity.
+
+### 13.4 Verification and evidence plan
+
+Before editing each owner input, run its Make-owned task guidance. The later
+implementation MUST use these gates in order and record actual run roots:
+
+| Stage | Exact commands | Required result |
+| --- | --- | --- |
+| Owner and selector discovery | `make task-guide ROLE=module-author OWNER=<owner>` and `make explain-test-owner OWNER=<owner>` for `app.operator`, `module.recovery`, `module.collaboration`, `platform.postgres`, and `platform.objectstore` | Current rows and service-backed posture recorded before selector changes. |
+| Identifier allocation | `make author-test-row-id FAMILY_ID=app.operator.unit CLAIM=<current-recovery-cli-parser-contract> SELECTOR_KEY=<stable-selector-key>` | One new immutable ID for the newly active parser/transport row; no IDs for deleted legacy-only tests. |
+| Focused owner evidence | `make test-slice OWNER=<owner>` for all five owners above | Every affected unit/integration selector passes after PC-01 through PC-03. |
+| Service-backed evidence | `make service-backed-test-slice OWNER=<owner>` for all five owners above | Resource, process, durable-effect, and semantic-owner evidence remains unchanged. |
+| Static and build | `make backend-module-boundary-check`; `make build-operator` | Nested internal boundary and exclusive binary composition pass; production operator builds. |
+| Harness and projections | `make harness-contract`; `make json-shape-check`; `make generate`; `make generate-drift`; `make generated-artifact-policy-check` | Authored selector and boundary changes project cleanly; generated files are never hand-edited. |
+| Broad completion | `make agent-finalize`; `make test-fast`; `make check` | Final current-worktree evidence succeeds before PC-04 becomes `DONE`; retained-run maintenance uses `RESULTS_DIR` when a successful full run is retained. |
+| Tracker integrity | `make lint-markdown`; `git diff --check`; `git status --short` | Markdown, whitespace, and write-scope integrity pass after every checkpoint. |
+
+No browser, frontend, HTTP, WebSocket, data-migration, or schema-version test is
+added. A failure outside the authorized write set MUST be recorded with its run
+root and relationship assessment; it MUST NOT broaden the iteration silently.
+
+### 13.5 Binary acceptance and next action
+
+| Acceptance ID | Required terminal condition |
+| --- | --- |
+| PC-AC-001 | `RunOperatorCLIContext` is the only export from `internal/app/operator`; `cmd/operator` remains its only production composition caller. |
+| PC-AC-002 | The old Recovery CLI package and import path are absent, and no forwarding package, type alias, compatibility reader, or duplicate implementation remains. |
+| PC-AC-003 | All eight commands retain exact grammar, usage, output bytes and schemas, failure/exit mapping, cancellation/timeouts, redaction, mutation semantics, and resource closure. |
+| PC-AC-004 | `operatorRunner.stdout`, descriptor owner metadata, the mixed parser result and its dead command field, and the manifest-path alias are absent. |
+| PC-AC-005 | Migration Evidence and Object Store parsers use separate command-local argument types; no generic plugin framework, dependency container, or shared union parser replaces the deleted structure. |
+| PC-AC-006 | Every retained Go test beneath the target is selected exactly once by an active owner row, and no stale ordinal or legacy-specific test name remains. |
+| PC-AC-007 | Current Recovery parser, absolute target-path, generic unknown-command/envelope, exhaustive failure mapping, and due-timeout behavior have active exact selectors. |
+| PC-AC-008 | Existing owner/postcondition rows retain their immutable IDs; the new parser/transport postcondition has one Make-authored ID; no crosswalk or runtime alias is created. |
+| PC-AC-009 | The retired-token production boundary guard remains active while historical command identifiers are absent from live production code and active test selectors. |
+| PC-AC-010 | Focused, service-backed, boundary, build, Harness, generation, broad, Markdown, diff, and status gates all have recorded successful evidence before PC-04 is marked `DONE`. |
+
+The only authorized next action after this documentation checkpoint is a later
+explicit instruction to begin PC-00. Until then, PC-00 through PC-04 remain
+`PLANNED`, sections 1 through 12 remain closed historical evidence, and no
+product or Harness mutation is authorized by this document update.
