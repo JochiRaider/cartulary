@@ -6,11 +6,13 @@
 - **Target label:** `platform-config` (derived from the target path and normalized to
   lowercase kebab case)
 - **Output path:** `docs/handoffs/platform-config-module-refactor-tracker.md`
-- **Status:** Complete; WS-00 through WS-10 passed their required gates with no active
-  blocker or postponed remediation.
-- **Allowed change:** The specification, authored contracts, generators, production
-  implementation, tests, verification ownership, generated artifacts, and this tracker
-  required by the workstreams in Section 1.1.
+- **Status:** Prior iteration complete; WS-00 through WS-10 passed their required gates.
+  The production-readiness cleanup iteration in Section 13 is planned; WS-11 completed
+  its documentation gate and WS-12 is the sole next implementation slice, pending
+  separate authorization.
+- **Allowed change:** This request authorizes only the WS-11 tracker update. The
+  implementation, tests, boundary policy, verification inputs, and generated artifacts
+  named by WS-12 through WS-17 require a separately authorized implementation task.
 - **Non-goals:** No HTTP, database, browser-facing, or deployment-config v2 schema
   migration; no v1 compatibility reader; no deprecated alias for removed internal Go
   APIs; no unrelated product work.
@@ -18,8 +20,9 @@
   contract, strict parsing, overlay behavior, defaults, diagnostics, and fail-closed
   admission. Remove internal compatibility only when the controlling workstream proves
   that it has no continuing value.
-- **Implementation authorization:** Explicitly granted on 2026-08-07 for WS-00 through
-  WS-10 below.
+- **Implementation authorization:** Explicitly granted and completed on 2026-08-07 for
+  WS-00 through WS-10. WS-11 is authorized as a documentation-only step; WS-12 through
+  WS-17 are planned but not yet authorized for implementation.
 
 The source hierarchy used for this tracker is:
 
@@ -39,7 +42,7 @@ repairs the stale normative clauses before any dependent implementation change. 
 former RB-003 blocker is therefore converted into the WS-01 prerequisite rather than
 silently resolved in implementation.
 
-### 1.1 Authorized implementation control
+### 1.1 Implementation control and next iteration
 
 This subsection supersedes the planning-only status and deferred implementation rows in
 Sections 2 through 8 and the legacy rows in Sections 9 and 11. Those entries remain as
@@ -60,6 +63,13 @@ not receive compatibility shims.
 | WS-08 | Move telemetry wire semantics and verification ownership to platform.telemetry | WS-07 | DONE | Telemetry 10/10 `.cartulary/test-results/20260807T172538Z-p3804410`; config 15/15 `.cartulary/test-results/20260807T172550Z-p3805815`; OTel 14/14 `.cartulary/test-results/20260807T172551Z-p3805998`; tracker lint `.cartulary/test-results/20260807T172711Z-p3814843` | WS-09 |
 | WS-09 | Replace hard-coded Boolean paths with descriptor-derived typed requested claims | WS-02, WS-07, WS-08 | DONE | Config 15/15 `.cartulary/test-results/20260807T175144Z-p4075770`; Extensions unit 37/37 `.cartulary/test-results/20260807T174214Z-p3875258` and service-backed 24/24 `.cartulary/test-results/20260807T174252Z-p3902644`; Network Flow 71/71 `.cartulary/test-results/20260807T174322Z-p3925490`; server unit 42/42 `.cartulary/test-results/20260807T174951Z-p4042969` and service-backed 33/33 `.cartulary/test-results/20260807T174448Z-p3963442`; stateful browser 36/36 `.cartulary/test-results/20260807T174752Z-p4016912`; tracker lint `.cartulary/test-results/20260807T175232Z-p4077806` | WS-10 |
 | WS-10 | Reconcile harness ownership, run final validation, and complete handoff | WS-01 through WS-09 | DONE | Finalize `.cartulary/test-results/20260807T175350Z-p4081227`; fast 349/349 `.cartulary/test-results/20260807T175533Z-p4100146`; check 722/722 `.cartulary/test-results/20260807T175802Z-p4193493`; release 893/893 `.cartulary/test-results/20260807T180201Z-p146336`; tracker lint `.cartulary/test-results/20260807T181236Z-p335003`; remaining evidence in Section 12 | Complete |
+| WS-11 | Rebaseline this tracker with the production-readiness cleanup iteration | WS-10 | DONE | Section 13 audit and plan; initial and post-status `make lint-markdown` runs `.cartulary/test-results/20260807T185329Z-p348875` and `.cartulary/test-results/20260807T185415Z-p350661` | WS-12 after separate implementation authorization |
+| WS-12 | Remove dead request-state projections | WS-11 | READY — AUTHORIZATION REQUIRED | Removed-symbol audit and focused config/Extensions/configassembly tests | WS-13 |
+| WS-13 | Contract snapshots and owner presence to typed, namespace-scoped seams | WS-12 | PLANNED | Config, telemetry, OTel, isolation, and defensive-copy evidence | WS-14 |
+| WS-14 | Separate one-time structural admission from startup filesystem readiness | WS-13 | PLANNED | Structural/startup diagnostic parity and config/server tests | WS-15 |
+| WS-15 | Remove test-only production admission and migrate application/test loading | WS-14 | PLANNED | Builds plus affected unit, service-backed, recovery, and stateful-browser evidence | WS-16 |
+| WS-16 | Enforce the contracted boundary and prune residual legacy support | WS-15 | PLANNED | Negative boundary fixtures, removed-symbol audit, and generated drift | WS-17 |
+| WS-17 | Run final validation and complete the production-readiness handoff | WS-12 through WS-16 | PLANNED | Finalization, focused, broad, security, release, and tracker evidence | Complete |
 
 After every workstream, before work begins on the next one:
 
@@ -398,6 +408,7 @@ owner.
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-07 14:50 EDT | Codex / WS-11 | Prior WS-00 through WS-10 evidence is retained; a new production-readiness cleanup iteration is rebaselined from current usage and caller evidence | Inspected the tracker, every current `internal/platform/config` production file, configassembly, extensionassembly, telemetry configuration, server/migrate/operator composition, test-support loaders, verification ownership, and backend boundary policy; touched only this tracker | `git status --short --branch`; exact source and owner-document reads; repository-wide symbol and caller searches; `git diff --check`; `make lint-markdown` | PASS: only this tracker is modified; initial and post-status Markdown lint run roots `.cartulary/test-results/20260807T185329Z-p348875` and `.cartulary/test-results/20260807T185415Z-p350661`; six cleanup gaps are decision-complete without an external deployment-config change; WS-12 through WS-17 remain implementation-planning rows only | RB-005: later implementation authorization | WS-12 is the sole ready slice after separate authorization. |
 | 2026-08-07 14:10 EDT | Codex / WS-10 | Harness ownership and generated topology are reconciled; every required narrow, service-backed, stateful, security, broad, full, release, and tracker gate is green; final source audits find no removed claim API, production profile registry, retired telemetry owner ID, whitespace error, or `docs/domain.md` change | Reconciled the controlling tracker and final worktree; no product source changed after the successful WS-09 gate | `make agent-finalize`; `make harness-contract`; generation/artifact/JSON/boundary checks; platform.telemetry owner and OTel conformance; retained WS-09 focused owner/service-backed/stateful evidence; `make test-fast`; `make go-gosec-targeted`; `make check`; `make release-check`; `git diff --check`; exact final source/ownership/domain searches; `make lint-markdown` | PASS: finalize 1/1 `.cartulary/test-results/20260807T175350Z-p4081227`; harness 2/2 `.cartulary/test-results/20260807T175406Z-p4083877`; drift 4/4 `.cartulary/test-results/20260807T175413Z-p4084256`; artifact policy 3/3 `.cartulary/test-results/20260807T175426Z-p4086984`; JSON shape 3/3 `.cartulary/test-results/20260807T175429Z-p4087431`; boundary 3/3 `.cartulary/test-results/20260807T175439Z-p4087933`; OTel 14/14 `.cartulary/test-results/20260807T175456Z-p4088274`; telemetry 10/10 `.cartulary/test-results/20260807T175511Z-p4099748`; fast 349/349 `.cartulary/test-results/20260807T175533Z-p4100146`; gosec 4/4 `.cartulary/test-results/20260807T175747Z-p4167348`; check 722/722 `.cartulary/test-results/20260807T175802Z-p4193493`; release 893/893 `.cartulary/test-results/20260807T180201Z-p146336`; tracker lint `.cartulary/test-results/20260807T181236Z-p335003`. Finalize retained-run checks were intentionally skipped with `results-dir-not-provided` because no successful full warm check root existed before broad verification. | None; no unrelated exception is needed. | Complete. |
 | 2026-08-07 13:52 EDT | Codex / WS-09 | One generated, immutable Extensions configuration policy now supplies exact claim registrations and inactive-key behavior; the kernel collects only registered Booleans; `extensionassembly.RequestedClaims`, coordinator resolution, and resolved identity are distinct types; no arbitrary Boolean/path API remains | Added the generic kernel claim-policy seam and future-profile/malformed-catalog/truth-table tests; rewrote extensionassembly policy/request composition; moved claim-only wire values out of config; migrated configassembly, server, migrate, operator, test support, and authored test-family selectors; regenerated harness outputs | `make format`; `make generate`; owner unit/service-backed slices for platform.config, module.extensions, module.networkflow, app.server, and app.operator; `make browser-e2e-stateful`; `make backend-module-boundary-check`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make build-migrate`; exact removed-symbol/raw-map/hard-coded-path searches; `make lint-markdown` | PASS: format `.cartulary/test-results/20260807T174726Z-p4013307`; generate `.cartulary/test-results/20260807T174648Z-p4010264`; config 15/15 `.cartulary/test-results/20260807T175144Z-p4075770`; Extensions unit 37/37 `.cartulary/test-results/20260807T174214Z-p3875258` and service-backed 24/24 `.cartulary/test-results/20260807T174252Z-p3902644`; Network Flow 71/71 `.cartulary/test-results/20260807T174322Z-p3925490`; server unit 42/42 `.cartulary/test-results/20260807T174951Z-p4042969` and service-backed 33/33 `.cartulary/test-results/20260807T174448Z-p3963442`; operator 17/17 `.cartulary/test-results/20260807T174601Z-p3988536`; browser 36/36 `.cartulary/test-results/20260807T174752Z-p4016912`; boundary 3/3 `.cartulary/test-results/20260807T174737Z-p4016441`; drift 4/4 `.cartulary/test-results/20260807T175044Z-p4070126`; artifact policy 3/3 `.cartulary/test-results/20260807T175054Z-p4072855`; JSON shape 3/3 `.cartulary/test-results/20260807T175057Z-p4073286`; migrate build `.cartulary/test-results/20260807T175105Z-p4073842`; tracker lint `.cartulary/test-results/20260807T175232Z-p4077806`. Initial format checks failed on stale/unsorted authored test selectors; config runs `.cartulary/test-results/20260807T173756Z-p3825816` and `.cartulary/test-results/20260807T173915Z-p3834433` failed on related caller/test-policy migration; boundary run `.cartulary/test-results/20260807T174700Z-p4012634` correctly rejected the broad Extensions module import. Each related cause was structurally repaired before the passing evidence. | None. External deployment v2 paths and request truth table are unchanged; internal Boolean lookup and inactive-only policy APIs are intentionally removed without shims. | Run WS-10 final validation and complete the handoff. |
 | 2026-08-07 13:26 EDT | Codex / WS-08 | Telemetry wire/semantic configuration evidence is physically and contractually owned by platform.telemetry; the kernel retains only generic admission collaboration | Moved telemetry configuration tests to an external telemetry test package; reassigned four authored rows and four verification contracts; regenerated harness projections; added the immutable crosswalk above | `make format`; `make generate`; platform.telemetry and platform.config owner slices; `make otel-conformance`; `make generate-drift`; `make harness-contract`; exact retired-ID and kernel telemetry searches; `make lint-markdown` | PASS: generate `.cartulary/test-results/20260807T172426Z-p3791104`; telemetry 10/10 `.cartulary/test-results/20260807T172538Z-p3804410`; config 15/15 `.cartulary/test-results/20260807T172550Z-p3805815`; OTel 14/14 `.cartulary/test-results/20260807T172551Z-p3805998`; drift 4/4 `.cartulary/test-results/20260807T172602Z-p3811295`; harness 2/2 `.cartulary/test-results/20260807T172602Z-p3811447`; tracker lint `.cartulary/test-results/20260807T172711Z-p3814843`. Initial telemetry slice `.cartulary/test-results/20260807T172439Z-p3793444` failed on two remaining private-helper calls after the test move; those calls were migrated to the public application admission path before the passing run. | None | Build descriptor-derived claim registration and typed requested-claim boundaries in WS-09. |
@@ -462,12 +473,15 @@ owner.
 | RB-002 | Should telemetry wire DTOs and configuration tests move to `platform.telemetry`, remain platform integration evidence, or split between both? | The OTel owner must own semantics, but moving all tests could lose strict decoder, environment containment, and secret-redaction integration evidence. | Adopted OTel owner, generic owner-namespace decoder, and immutable test-row crosswalk | RESOLVED AND IMPLEMENTED — WS-07 supplies the generic seam; WS-08 moves semantics and owner evidence while preserving parser collaboration. |
 | RB-003 | Which descriptor and configuration-contract versions govern descriptor-derived Boolean claim projection? | The adopted Extensions NLSpec formerly named v3 as current while later clauses required v1. | Adopted owner repair, regenerated projections/integrity evidence, and complete claim parity matrix | RESOLVED AND IMPLEMENTED — WS-01 makes v3/v2 canonical without a v1 reader; WS-02 and WS-09 validate and consume that projection. |
 | RB-004 | Is production/test/boundary implementation authorized? | The original tracker task was planning-only. | Explicit user authorization for WS-00 through WS-10 | RESOLVED — authorization was recorded before WS-00 and every gated workstream is complete or at the final Markdown gate. |
+| RB-005 | Is the production-readiness cleanup implementation authorized? | The current request is explicitly a document-update step; treating it as production authorization would bypass the new per-workstream gates. | A later explicit implementation request covering WS-12 through WS-17 | OPEN AUTHORIZATION BOUNDARY — WS-11 may update this tracker only. This is not a product or specification blocker. |
 
-There is no active blocker, postponed remediation, or approval exception. Historical
-planning labels in Sections 2 through 8 are retained only to explain the decisions that
-the authorized WS-00 through WS-10 sequence superseded.
+There is no active product, specification, or release blocker and no approval exception
+against the completed prior iteration. RB-005 limits this request to WS-11 documentation;
+the current cleanup gaps are planned rather than silently deferred. Historical planning
+labels in Sections 2 through 8 are retained only to explain the decisions that the
+authorized WS-00 through WS-10 sequence superseded.
 
-## 12. Final Validation and Handoff
+## 12. Prior Iteration Final Validation and Handoff
 
 ### Planning and implementation summary
 
@@ -565,3 +579,274 @@ selected. No unrelated failure exception is required.
 No known residual product or migration risk remains. The only continuing maintenance
 obligation is architectural: new namespaces and profiles must use the explicit owner
 contribution and admitted policy seams rather than widening the kernel boundary.
+
+## 13. Current Production-Readiness Cleanup Iteration
+
+### 13.1 Objective, authority, and preservation boundary
+
+This iteration removes usage-proven legacy and test-shaped internal surfaces left after
+the successful WS-00 through WS-10 architecture cutover. It is an atomic boundary
+cleanup across `internal/platform/config` and only the adjacent application/test
+packages required to delete those surfaces cleanly. It does not introduce a feature,
+new configuration namespace, new extension profile, or new runtime policy.
+
+The following external behavior remains frozen:
+
+- `cartulary.deployment_config.v2`, all currently supported keys, and the six current
+  claim paths;
+- default artifact selection, `CARTULARY_CONFIG_FILE`, and the `CARTULARY__` overlay
+  grammar and precedence;
+- strict TOML and overlay type handling, unknown-key rejection, effective defaults,
+  deterministic diagnostics, and fail-closed startup ordering;
+- HTTP, database, browser, route, storage, secret-reference, and readiness contracts.
+
+The current Core 04, Core 01, Extensions, and OTel owner text already requires an
+owner-neutral kernel, explicit static namespace assembly, immutable admitted settings,
+and distinct requested/resolved claim boundaries. The cleanup below is an implementation
+contraction inside those requirements. No specification, authored product contract,
+generated production artifact, or `docs/domain.md` edit is planned. If implementation
+finds a genuine normative contradiction, the active slice stops and records a blocker
+instead of expanding this cleanup through an incidental specification change.
+
+### 13.2 Current gap register
+
+| ID | Current evidence | Remediation and affected areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion criteria |
+| --- | --- | --- | --- | --- | --- | --- |
+| PRG-001 | `configassembly.Deployment` still carries `Import`, `IncidentPortability`, `ReferencePack`, and `SnapshotReporting`; repository search finds no reader outside their construction. `extensionassembly.ClaimConfiguration` exists only for those fields. | **Implementation and tests:** remove the four fields, their construction map, and `ClaimConfiguration`. Keep `Loaded.RequestedClaims()` as the only request-state projection. | Removes a second representation of requested claims and preserves the security distinction between deployment settings, requested claims, resolved claims, and published identity. New claim-only profiles no longer require application projection edits. | Intentional internal Go break with atomic caller/test updates and no alias. Operator-facing claim keys remain accepted through the generated claim policy. | A caller can treat an unused Boolean mirror as authoritative, and each future profile can recreate a central static projection list. | Removed-symbol searches are empty; current claim truth-table and Extensions/configassembly tests pass; requested claims remain unchanged for omitted, false, and true values. |
+| PRG-002 | `config.Source.Decode` has no production caller; `Snapshot.Decode` is used only by configassembly to copy eight Core sections. Their support retains the full document and reflection helpers `documentSource`, `copyConfigurationValue`, `fieldByTOMLName`, `configurationFieldName`, `cloneConfig`, and `cloneReflectValue`. | **Implementation and tests:** add `CoreConfiguration` and defensive `Snapshot.Core()`; replace `Source` with presence-only `NamespacePresence`; store only Core configuration, sorted requested-claim IDs, and owner-cloned values in snapshots; remove arbitrary document decode and reflection-based document/owner cloning. | Gives the kernel a typed, closed projection and prevents owners from inspecting or copying unrelated namespaces. Owner-provided clone behavior becomes the only authority for owner values, making future map/slice/private-field types safe. | Internal catalog and snapshot API break only. Configassembly and telemetry migrate atomically; TOML shape and diagnostics remain unchanged. | Full-document access becomes an accidental compatibility surface, namespace isolation is advisory, and reflection can silently mishandle future owner types. | A fixture owner can observe presence only inside its registered namespace; `Snapshot.Core()` and `Value` are defensive; no removed helper remains; platform-config, telemetry, and OTel checks pass. |
+| PRG-003 | Package-private `validate`, `validateWithExtensionPolicy`, `validateForStartup`, and `validateForStartupWithExtensionPolicy` are used only by tests or by startup revalidation. Startup currently repeats structural validation on an already admitted snapshot without the original extension policy. | **Implementation and tests:** run structural validation exactly once during admission; make startup validation reject an unadmitted snapshot and perform only filesystem canonicalization, overlap, and writability readiness checks; migrate tests to the production loader or narrow `_test.go` helpers around the production structural validator. | Establishes one owner for each validation phase, removes phase drift, and avoids reapplying defaults or validating with an incomplete policy. | No accepted input or diagnostic change. Tests stop depending on production-only wrappers and private document lifecycle shortcuts. | Structural behavior can diverge by call path, and an invalid zero snapshot could be mistaken for admitted input after simplification. | Structurally invalid input never yields a snapshot; zero/unadmitted snapshots fail closed; admitted startup diagnostics and ordering match the baseline; wrappers have no references. |
+| PRG-004 | `configassembly.Admit` is documented as composition-test support; `config.LoadSnapshotFromTOML` supports it and one unit test. `server.NewRuntime` accepts a raw `Deployment` only to re-admit it. Production `Deployment` TOML tags and a thin appsupport path loader exist for these tests. | **Implementation and test support:** remove both in-memory admission APIs; make `server.NewRuntime` accept `configassembly.Loaded`; consolidate explicit path and fixture loading in `internal/testutil/configtest`; construct test variants through valid TOML fixtures plus explicit overlays; remove `Deployment` TOML tags and the duplicate appsupport loader. | Makes production construction consume admitted state only and ensures integration tests exercise the same discovery, overlay, catalog, and policy path as binaries. The application projection ceases pretending to be a wire DTO. | Intentional internal Go/test-harness break. Server, migrate, operator, recovery, HTTP test harness, and runtime tests migrate in one slice. No serialization shim is retained. | Tests can normalize or admit shapes that production never accepts, and test convenience continues defining production APIs and projection metadata. | No production API accepts an unadmitted `Deployment`; no test serializes `Deployment`; removed symbols/tags have no callers; affected builds and owner/service-backed/stateful slices pass. |
+| PRG-005 | `configassembly.Load` accepts `config.LoadOptions`, then silently overwrites its `ExtensionPolicy`; application callers can supply a value that is ignored. | **Implementation and tests:** add `configassembly.LoadOptions { Path string; Env map[string]string }` and construct kernel `config.LoadOptions` plus the generated policy inside application assembly. | Makes application assembly's accepted inputs truthful and prevents generic kernel policy details from leaking into composition roots or tests. | Internal call sites migrate atomically. Platform `config.LoadOptions` remains the kernel input and retains its policy field for the explicit assembly edge. | A caller can believe it selected admission policy while application assembly silently substitutes another, obscuring ownership and tests. | No caller passes platform options to configassembly; path/env behavior is unchanged; generated policy remains mandatory and fail-closed. |
+| PRG-006 | The current boundary check prevents owner imports and hard-coded profile registries, but it does not reject reintroduction of arbitrary snapshot/document access or production test-only admission. `inactive_policy.go` now owns the complete extension policy rather than an inactive-only abstraction. | **Tooling, implementation hygiene, and tests:** extend the authored backend boundary with negative fixtures for the removed access/admission forms; rename stale policy filenames; prune obsolete helpers and imports. | Converts cleanup decisions into durable architecture rules and leaves names aligned with current responsibility, reducing the chance that later work revives the legacy seam. | Boundary policy becomes stricter for future internal changes. No runtime or product compatibility impact. | The repository can regress to the same bypasses while all behavioral tests remain green, and stale names mislead future maintainers. | Representative forbidden fixtures fail; the repository passes `make backend-module-boundary-check`; exact symbol searches and generated drift are clean. |
+
+### 13.3 Controlling interface decisions
+
+The cleanup uses these exact internal boundaries:
+
+- `config.CoreConfiguration` is the typed Core 04 projection containing schema ID,
+  deployment profile, application, roots, bootstrap, timeouts, intervals, and limits.
+  `Snapshot.Core()` returns a defensive value and does not expose the decoded document.
+- `config.NamespacePresence` exposes only `Defined(path ...string) bool`. Paths remain
+  full deployment paths for consistency with contribution path declarations and
+  diagnostics, but a contribution receives `false` for any path outside its registered
+  namespace. It cannot decode or inspect another namespace.
+- A snapshot contains an admitted marker, `CoreConfiguration`, a sorted defensive list
+  of requested-claim registration IDs, and typed owner values protected by each
+  contribution's `Clone`. The transient decoded document and namespace map end at
+  materialization.
+- `configassembly.LoadOptions` contains exactly `Path` and `Env`. `Load` derives the
+  generated Extensions configuration policy and passes a kernel `config.LoadOptions`
+  internally.
+- `server.NewRuntime` accepts a `configassembly.Loaded`, not a mutable application
+  projection. Tests obtain `Loaded` through `configtest` fixture/path helpers and express
+  configuration variants through explicit overlays before admission.
+- `Loaded.Deployment()` remains a precomputed, infallible, defensive application
+  projection. The live catalog builder, `NamespaceDecoder`, owner `Project` and `Clone`
+  callbacks, typed `Value`, diagnostics, kernel `LoadOptions`, and `RequestedClaims`
+  remain because they carry continuing production value.
+- Reflection remains permitted for generic TOML decoding, typed environment overlay,
+  and registered inactive-value traversal where it is live. This iteration removes only
+  reflection used to provide arbitrary full-document copies or generic owner cloning.
+
+Internal removals receive no deprecated aliases, compatibility readers, replacement
+builders, or dual paths. Each slice updates all repository callers atomically.
+
+### 13.4 Ordered workstreams
+
+#### WS-11 — Tracker rebaseline
+
+- **Areas:** documentation only.
+- **Work:** record this gap register, exact interface decisions, workstream dependency
+  chain, evidence template, compatibility boundary, and final validation plan. Preserve
+  WS-00 through WS-10 and Sections 2 through 12 as dated historical evidence.
+- **Dependency:** WS-10 completion.
+- **Risk:** rewriting history or implying production authorization. Mitigate by adding
+  this section, retaining prior evidence, and recording RB-005.
+- **Exit:** this tracker is the only tracked file changed; `make lint-markdown` passes;
+  WS-11 is `DONE`; WS-12 is the sole `READY` slice and remains authorization-gated.
+
+#### WS-12 — Dead request-state projection removal
+
+- **Areas:** implementation and tests in extensionassembly/configassembly.
+- **Work:** remove the four claim-only `Deployment` fields,
+  `extensionassembly.ClaimConfiguration`, the transient requested-set map used to fill
+  them, and the now-unnecessary requested argument to deployment projection.
+- **Dependency:** WS-11 and explicit implementation authorization.
+- **Risk:** unintentionally removing live owner claim state. Enterprise Authentication
+  and Network Flow owner configuration, generated claim registrations, and
+  `Loaded.RequestedClaims()` are retained and tested separately.
+- **Verification:** `make format`; exact removed-symbol searches;
+  `make test-slice OWNER=platform.config`; `make test-slice OWNER=module.extensions`.
+- **Exit:** PRG-001 completion criteria pass and the tracker/Markdown gate records the
+  evidence before WS-13 begins.
+
+#### WS-13 — Typed snapshot and namespace-presence contraction
+
+- **Areas:** platform config, configassembly, telemetry configuration, and tests.
+- **Work:** introduce `CoreConfiguration`, `Snapshot.Core()`, admitted/sorted snapshot
+  state, and namespace-scoped `NamespacePresence`; migrate configassembly and telemetry;
+  delete arbitrary source/snapshot decode and reflection-copy helpers.
+- **Dependency:** WS-12.
+- **Risk:** changing owner default presence, clone isolation, projection errors, or claim
+  ordering. Add focused parity and hostile fixture-owner cases before deleting helpers.
+- **Verification:** `make format`; `make test-slice OWNER=platform.config`;
+  `make test-slice OWNER=platform.telemetry`; `make otel-conformance`; exact source and
+  removed-symbol searches.
+- **Exit:** PRG-002 criteria pass, no owner can observe another namespace, and the
+  tracker/Markdown gate records the evidence before WS-14 begins.
+
+#### WS-14 — Admission and startup-phase simplification
+
+- **Areas:** platform-config validation, config/configassembly tests, and server startup
+  characterization.
+- **Work:** remove test-only structural wrappers and repeated structural validation from
+  startup; make an unadmitted snapshot fail closed; retain only runtime filesystem
+  canonicalization, overlap, and writability work in the startup phase.
+- **Dependency:** WS-13.
+- **Risk:** accepting a zero snapshot or changing diagnostic precedence. Preserve the
+  existing contract tests and add explicit admitted/unadmitted phase tests.
+- **Verification:** `make format`; `make test-slice OWNER=platform.config`;
+  `make test-slice OWNER=app.server`; focused diagnostic-golden comparison.
+- **Exit:** PRG-003 criteria pass and the tracker/Markdown gate records the evidence
+  before WS-15 begins.
+
+#### WS-15 — Application and test-loading boundary
+
+- **Areas:** configassembly, server/migrate/operator composition, configtest/appsupport,
+  HTTP/runtime harnesses, recovery test support, and affected tests.
+- **Work:** introduce application `LoadOptions`; remove `Admit` and in-memory snapshot
+  loading; make runtime construction accept `Loaded`; replace mutable `Deployment`
+  fixtures with admitted TOML fixture plus overlay helpers; remove projection TOML tags
+  and the duplicate appsupport loader.
+- **Dependency:** WS-14.
+- **Risk:** startup ordering, borrowed-resource ownership, dynamic test roots, or service
+  binding setup can change during widespread caller migration. Keep runtime assembly
+  order unchanged and express every prior test mutation as a pre-admission overlay.
+- **Verification:** `make format`; `make build-server`; `make build-migrate`;
+  `make build-operator`; unit slices for `platform.config`, `app.server`, `app.operator`,
+  and `platform.postgres`; service-backed slices for `app.server`, `app.operator`, and
+  `module.recovery`; `make browser-e2e-stateful`; exact removed-symbol and TOML-tag
+  searches.
+- **Exit:** PRG-004 and PRG-005 criteria pass and the tracker/Markdown gate records all
+  run roots before WS-16 begins.
+
+#### WS-16 — Permanent enforcement and residual pruning
+
+- **Areas:** authored backend boundary policy/checker fixtures, filenames, tests, and
+  verification metadata only if an existing row must move.
+- **Work:** add fail-closed fixtures for arbitrary document/snapshot access and
+  production test-only admission; rename inactive-only policy files to their current
+  extension-policy responsibility; remove obsolete helpers and imports. Preserve test
+  function names and ownership where possible to avoid meaningless topology churn.
+- **Dependency:** WS-15.
+- **Risk:** a token rule can reject legitimate decoder or overlay reflection. Match only
+  the removed APIs/patterns and retain the current TOML/overlay mechanisms explicitly.
+- **Verification:** `make format`; `make backend-module-boundary-check`;
+  `make harness-contract`; `make generate-drift`;
+  `make generated-artifact-policy-check`; exact forbidden-symbol searches.
+- **Exit:** PRG-006 criteria pass, generated outputs are unchanged or regenerated only
+  from authored inputs, and the tracker/Markdown gate records the evidence before
+  WS-17 begins.
+
+#### WS-17 — Validation and handoff completion
+
+- **Areas:** verification, tracker evidence, and generated topology only if required by
+  an authored verification change.
+- **Work:** reconcile every gap and workstream; run finalization, focused owner and
+  service-backed checks, stateful coverage, security, broad, and release validation;
+  document failures, run roots, compatibility, generated artifacts, residual risks, and
+  skipped checks.
+- **Dependency:** WS-12 through WS-16.
+- **Risk:** broad failures obscure ownership. Use `make explain-test-owner`,
+  `make explain-target`, and `make explain-run`, then rerun the narrow owning slice
+  before repeating broad verification.
+- **Verification:** run the complete matrix in Section 13.6.
+- **Exit:** every required command passes or an explicitly approved unrelated exception
+  is documented; every PRG row is closed; no cleanup row is deferred; final tracker lint
+  passes; WS-17 is `DONE`.
+
+The dependency chain is strictly:
+
+`WS-11 -> WS-12 -> WS-13 -> WS-14 -> WS-15 -> WS-16 -> WS-17`
+
+No slice advances around a failed or blocked predecessor.
+
+### 13.5 Mandatory tracker and evidence gate
+
+At the end of every workstream, before the next workstream begins:
+
+1. Record timestamp, agent/session, affected owners, files changed, and the substantive
+   ownership or compatibility decision.
+2. Record every verification command, result, run root or summary artifact, and whether
+   each failure was related. A failed required command is never omitted from the log.
+3. Record removed/changed internal interfaces, external compatibility effects, newly
+   discovered risks, generated artifacts, and follow-up work.
+4. Mark the current workstream `DONE` only after every exit criterion passes. Mark
+   exactly one successor `READY`; all later rows remain `PLANNED`.
+5. Run `make lint-markdown` after the tracker update and record its run root. Do not
+   begin the successor until this gate passes.
+
+Use this evidence shape for each new Section 10 row:
+
+| Field | Required content |
+| --- | --- |
+| Time and agent | Local timestamp, agent, and workstream ID |
+| Current state | Resulting architecture or behavior, not an activity summary |
+| Owners and files | Every affected semantic owner and authored/generated file family |
+| Commands | Exact Make targets and any read-only source audits |
+| Results | Counts, run roots, summary artifacts, and related failure resolution |
+| Compatibility and risks | External stability, intentional internal breaks, and new risks |
+| Next action | Exactly one successor or final completion |
+
+### 13.6 Final validation matrix
+
+WS-17 runs at least the following after `make agent-finalize`. Supply
+`RESULTS_DIR=<successful-full-warm-run-root>` only when such a retained run exists;
+otherwise record `results-dir-not-provided` as the reason retained-run maintenance was
+skipped.
+
+| Validation family | Required command or evidence |
+| --- | --- |
+| Tracker | `make lint-markdown` |
+| Harness contract | `make harness-contract` |
+| Generation | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` |
+| Architecture | `make backend-module-boundary-check`; exact removed-symbol and forbidden-pattern searches |
+| Platform config | `make test-slice OWNER=platform.config` |
+| Telemetry | `make test-slice OWNER=platform.telemetry`; `make otel-conformance` |
+| Extensions | `make test-slice OWNER=module.extensions`; service-backed slice when routed by the owner guide |
+| Server | `make test-slice OWNER=app.server`; `make service-backed-test-slice OWNER=app.server` |
+| Operator and migration | Unit/service-backed `app.operator`; `platform.postgres` owner slice; server/migrate/operator builds |
+| Recovery | `make service-backed-test-slice OWNER=module.recovery` |
+| Stateful runtime | `make browser-e2e-stateful` |
+| Fast broad suite | `make test-fast` |
+| Targeted security | `make go-gosec-targeted` |
+| Full repository | `make check` |
+| Release | `make release-check` |
+
+Use `make task-guide ROLE=module-author OWNER=<owner-id>` to confirm the current routed
+commands before each focused slice. If test functions or packages move, update authored
+owner rows, assign new immutable IDs only when semantic ownership changes, record a
+crosswalk, regenerate through Make, and include harness/topology evidence.
+
+### 13.7 Completion criteria
+
+The cleanup iteration is complete only when:
+
+- request state exists only as typed `RequestedClaims`; no claim-only Boolean mirror or
+  static application projection list remains;
+- the kernel exposes no arbitrary full-document or snapshot-path decode, retains no
+  owner namespace document after materialization, and performs no reflective owner
+  cloning;
+- owner presence is mechanically namespace-scoped and owner values remain defensively
+  cloned;
+- structural admission runs once, startup filesystem validation runs only on an
+  admitted snapshot, and zero/unadmitted state fails closed;
+- production composition accepts admitted configuration, while test configuration uses
+  the same file discovery, overlays, catalog, and generated policy as production;
+- configassembly accepts only truthful path/environment options and never silently
+  replaces a caller-supplied policy;
+- boundary enforcement rejects reintroduction of the removed seams;
+- all internal breaks have no caller, shim, deprecated alias, or compatibility reader;
+- the external deployment v2 contract and startup behavior remain unchanged;
+- final focused, service-backed, stateful, security, full, release, generated-artifact,
+  and tracker evidence is current and green.
