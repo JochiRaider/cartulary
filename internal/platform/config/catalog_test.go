@@ -1,11 +1,16 @@
 package config
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
 
 func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
+	if err := ValidateSnapshotForStartup(Snapshot{}); !errors.Is(err, errSnapshotNotAdmitted) {
+		t.Fatalf("unadmitted snapshot startup error = %v", err)
+	}
+
 	type ownerSettings struct {
 		Enabled bool              `toml:"enabled"`
 		Labels  map[string]string `toml:"labels"`
@@ -21,6 +26,8 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	}
 
 	var order []string
+	var ownedPresenceObserved bool
+	var foreignPresenceObserved bool
 	builder := &CatalogBuilder{}
 	if err := Register(builder, Definition[string]{
 		Key:       keyB,
@@ -35,7 +42,7 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			}
 			return wire.Value, nil
 		},
-		Project: func(value string, _ Source) (string, []Diagnostic) {
+		Project: func(value string, _ NamespacePresence) (string, []Diagnostic) {
 			order = append(order, "owner.beta")
 			return value, nil
 		},
@@ -50,8 +57,10 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 		Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
 			return decodeTestNamespace[ownerSettings](decoder, "alpha")
 		},
-		Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) {
+		Project: func(value ownerSettings, presence NamespacePresence) (ownerSettings, []Diagnostic) {
 			order = append(order, "owner.alpha")
+			ownedPresenceObserved = presence.Defined("alpha", "enabled")
+			foreignPresenceObserved = presence.Defined("beta", "value")
 			return value, nil
 		},
 		Clone: func(value ownerSettings) ownerSettings {
@@ -69,7 +78,13 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build catalog: %v", err)
 	}
-	cfg := document{}
+	cfg := document{
+		Application: ApplicationConfig{PublicOrigin: "https://cartulary.example"},
+		presence: configPresence{overlayPaths: map[string]struct{}{
+			"alpha.enabled": {},
+			"beta.value":    {},
+		}},
+	}
 	unknown, findings := catalog.decodeNamespaces(&cfg, map[string]any{
 		"alpha": map[string]any{"enabled": true, "labels": map[string]any{"mode": "strict"}},
 		"beta":  map[string]any{"value": "beta"},
@@ -90,6 +105,17 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 	}
 	if got, want := order, []string{"owner.alpha", "owner.beta"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("projection order: got %v want %v", got, want)
+	}
+	if !ownedPresenceObserved || foreignPresenceObserved {
+		t.Fatalf("namespace presence isolation: owned=%t foreign=%t", ownedPresenceObserved, foreignPresenceObserved)
+	}
+	core := snapshot.Core()
+	if core.Application.PublicOrigin != "https://cartulary.example" {
+		t.Fatalf("core projection = %#v", core)
+	}
+	core.Application.PublicOrigin = "https://mutated.example"
+	if again := snapshot.Core(); again.Application.PublicOrigin != "https://cartulary.example" {
+		t.Fatalf("snapshot returned mutable Core state: %#v", again)
 	}
 	settings, err := Value(snapshot, keyA)
 	if err != nil {
@@ -123,7 +149,7 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 				Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
 					return decodeTestNamespace[ownerSettings](decoder, "alpha")
 				},
-				Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) { return value, nil },
+				Project: func(value ownerSettings, _ NamespacePresence) (ownerSettings, []Diagnostic) { return value, nil },
 				Clone:   func(value ownerSettings) ownerSettings { return value },
 			}); err != nil {
 				t.Fatalf("register duplicate candidate: %v", err)
@@ -147,7 +173,7 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 			Decode: func(decoder NamespaceDecoder) (ownerSettings, []Diagnostic) {
 				return decodeTestNamespace[ownerSettings](decoder, "alpha")
 			},
-			Project: func(value ownerSettings, _ Source) (ownerSettings, []Diagnostic) { return value, nil },
+			Project: func(value ownerSettings, _ NamespacePresence) (ownerSettings, []Diagnostic) { return value, nil },
 			Clone:   func(value ownerSettings) ownerSettings { return value },
 		}); err != nil {
 			t.Fatalf("register parent: %v", err)
@@ -163,7 +189,7 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 				}
 				return value, nil
 			},
-			Project: func(value string, _ Source) (string, []Diagnostic) { return value, nil },
+			Project: func(value string, _ NamespacePresence) (string, []Diagnostic) { return value, nil },
 			Clone:   func(value string) string { return value },
 		}); err != nil {
 			t.Fatalf("register child: %v", err)
@@ -192,7 +218,7 @@ func TestCatalogSnapshotLifecycle_Unit(t *testing.T) {
 				}
 				return wire.Value, nil
 			},
-			Project: func(_ string, _ Source) (string, []Diagnostic) {
+			Project: func(_ string, _ NamespacePresence) (string, []Diagnostic) {
 				return "", []Diagnostic{
 					{Path: "z", ReasonCode: "b", Message: "second"},
 					{Path: "a", ReasonCode: "a", Message: "first"},

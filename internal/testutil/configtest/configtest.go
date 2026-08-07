@@ -44,24 +44,37 @@ func EffectiveConfigEnv(fixtureParts []string, overlays map[string]string) map[s
 	return env
 }
 
-func LoadEffectiveFixture(t testing.TB, fixtureParts []string, overlays map[string]string) configassembly.Deployment {
+func LoadFixture(t testing.TB, fixtureParts []string, overlays map[string]string) configassembly.Loaded {
 	t.Helper()
-	EnsureRevisionsConflictTokenTestEnvironment(overlays)
 
-	loaded, err := configassembly.Load(config.LoadOptions{
+	loaded, err := configassembly.Load(configassembly.LoadOptions{
 		Env: EffectiveConfigEnv(fixtureParts, overlays),
 	})
 	if err != nil {
 		t.Fatalf("load config fixture: %v", err)
 	}
 
-	return loaded.Deployment()
+	return loaded
+}
+
+func LoadPath(t testing.TB, path string, overlays map[string]string) configassembly.Loaded {
+	t.Helper()
+	env := make(map[string]string, len(overlays)+2)
+	for key, value := range overlays {
+		env[key] = value
+	}
+	EnsureRevisionsConflictTokenTestEnvironment(env)
+	loaded, err := configassembly.Load(configassembly.LoadOptions{Path: path, Env: env})
+	if err != nil {
+		t.Fatalf("load config path %s: %v", path, err)
+	}
+	return loaded
 }
 
 func LoadInvalidFixture(t testing.TB, fixtureParts []string, overlays map[string]string) error {
 	t.Helper()
 
-	_, err := configassembly.Load(config.LoadOptions{
+	_, err := configassembly.Load(configassembly.LoadOptions{
 		Env: EffectiveConfigEnv(fixtureParts, overlays),
 	})
 	if err == nil {

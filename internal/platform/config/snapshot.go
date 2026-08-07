@@ -1,14 +1,33 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
 
+var errSnapshotNotAdmitted = errors.New("configuration snapshot is not structurally admitted")
+
+// CoreConfiguration is the closed Core 04 projection retained after
+// structural admission. It excludes source-owner namespaces and transient
+// decoder/presence state.
+type CoreConfiguration struct {
+	ConfigSchemaID    string
+	DeploymentProfile string
+	Application       ApplicationConfig
+	Roots             RootBindings
+	Bootstrap         BootstrapConfig
+	Timeouts          TimeoutConfig
+	Intervals         IntervalConfig
+	Limits            LimitConfig
+}
+
 // Snapshot is the immutable result of structural configuration admission.
 type Snapshot struct {
-	core   document
-	values map[string]snapshotValue
+	admitted                      bool
+	core                          CoreConfiguration
+	requestedClaimRegistrationIDs []string
+	values                        map[string]snapshotValue
 }
 
 type snapshotValue struct {
@@ -23,9 +42,9 @@ type snapshotValue struct {
 func (catalog Catalog) materialize(cfg document) (Snapshot, error) {
 	values := make(map[string]snapshotValue, len(catalog.entries))
 	diagnostics := make([]Diagnostic, 0)
-	source := documentSource{document: cloneConfig(cfg)}
 	for _, entry := range catalog.entries {
-		value, findings := entry.project(&cfg, source)
+		presence := namespacePresence{namespace: entry.namespace, presence: cfg.presence}
+		value, findings := entry.project(&cfg, presence)
 		diagnostics = append(diagnostics, findings...)
 		if value == nil {
 			continue
@@ -40,8 +59,10 @@ func (catalog Catalog) materialize(cfg document) (Snapshot, error) {
 		return Snapshot{}, newDiagnosticsError(diagnostics)
 	}
 	return Snapshot{
-		core:   cloneConfig(cfg),
-		values: values,
+		admitted:                      true,
+		core:                          coreConfigurationFromDocument(cfg),
+		requestedClaimRegistrationIDs: requestedClaimRegistrationIDs(cfg),
+		values:                        values,
 	}, nil
 }
 
@@ -56,38 +77,28 @@ func LoadSnapshotWithOptions(options LoadOptions, catalog Catalog) (Snapshot, er
 	return catalog.materialize(cfg)
 }
 
-// LoadSnapshotFromTOML materializes an immutable snapshot from an in-memory
-// deployment artifact. Application assembly uses this for composition tests;
-// production startup uses LoadSnapshotWithOptions and its selected file.
-func LoadSnapshotFromTOML(data []byte, options LoadOptions, catalog Catalog) (Snapshot, error) {
-	claims, err := newClaimCatalog(options.ExtensionPolicy)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	cfg, err := decodeDocumentWithCatalog(append([]byte(nil), data...), options, catalog, claims)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	return catalog.materialize(cfg)
-}
-
-// Decode copies one normalized configuration subtree into caller-owned memory.
-// It is intended for application facades that project narrow owner settings.
-func (snapshot Snapshot) Decode(path string, destination any) error {
-	return documentSource{document: cloneConfig(snapshot.core)}.Decode(path, destination)
+// Core returns a defensive copy of the admitted Core 04 configuration.
+func (snapshot Snapshot) Core() CoreConfiguration {
+	return cloneCoreConfiguration(snapshot.core)
 }
 
 // RequestedClaimRegistrationIDs returns only registered claims whose admitted
 // effective value is true. The returned identity list is defensive and sorted.
 func RequestedClaimRegistrationIDs(snapshot Snapshot) []string {
-	return requestedClaimRegistrationIDs(snapshot.core)
+	return append([]string(nil), snapshot.requestedClaimRegistrationIDs...)
 }
 
 // ValidateSnapshotForStartup verifies canonical root readiness without exposing the
 // underlying deployment document.
 func ValidateSnapshotForStartup(snapshot Snapshot) error {
-	_, err := validateForStartup(snapshot.core)
-	return err
+	if !snapshot.admitted {
+		return errSnapshotNotAdmitted
+	}
+	diagnostics := validateStartupFilesystemRoots(snapshot.core.Roots)
+	if len(diagnostics) > 0 {
+		return newDiagnosticsError(diagnostics)
+	}
+	return nil
 }
 
 // Value returns one typed owner value.
@@ -112,19 +123,19 @@ func Value[T any](snapshot Snapshot, key Key[T]) (T, error) {
 	return typed, nil
 }
 
-func cloneConfig(cfg document) document {
-	cloned := cfg
-	if cfg.claims != nil {
-		cloned.claims = make(map[string]registeredClaim, len(cfg.claims))
-		for path, claim := range cfg.claims {
-			cloned.claims[path] = claim
-		}
+func coreConfigurationFromDocument(cfg document) CoreConfiguration {
+	return CoreConfiguration{
+		ConfigSchemaID:    cfg.ConfigSchemaID,
+		DeploymentProfile: cfg.DeploymentProfile,
+		Application:       cfg.Application,
+		Roots:             cfg.Roots,
+		Bootstrap:         cfg.Bootstrap,
+		Timeouts:          cfg.Timeouts,
+		Intervals:         cfg.Intervals,
+		Limits:            cfg.Limits,
 	}
-	if cfg.namespaces != nil {
-		cloned.namespaces = make(map[string]any, len(cfg.namespaces))
-		for namespace, value := range cfg.namespaces {
-			cloned.namespaces[namespace] = cloneReflectValue(reflect.ValueOf(value)).Interface()
-		}
-	}
-	return cloned
+}
+
+func cloneCoreConfiguration(core CoreConfiguration) CoreConfiguration {
+	return core
 }

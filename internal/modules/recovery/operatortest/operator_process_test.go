@@ -1470,7 +1470,7 @@ func mustOpenOperatorPool(t testing.TB, dsn string) *pgxpool.Pool {
 
 func loadOperatorConfig(t testing.TB, path string) configassembly.Deployment {
 	t.Helper()
-	return appsupport.LoadDeploymentConfiguration(t, path)
+	return configtest.LoadPath(t, path, nil).Deployment()
 }
 
 func writeRestoreVerificationTargetMarker(t testing.TB, cfg configassembly.Deployment) {

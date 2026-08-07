@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -318,9 +317,13 @@ func TestPreviewPayloadCeiling_Unit(t *testing.T) {
 		maxPreviewBytes = int64(64)
 		maxTextBytes    = int64(32)
 	)
-	harness := appsupport.StartServerWithConfig(t, "evidence_lifecycle-preview-size", func(cfg *configassembly.Deployment) {
-		cfg.Limits.Previews.MaxPreviewablePayloadBytes = maxPreviewBytes
-		cfg.Limits.Previews.MaxTextInlineBytes = maxTextBytes
+	harness := appsupport.StartRuntime(t).StartServer(t, appsupport.ServerOptions{
+		Prefix:        "evidence_lifecycle-preview-size",
+		TestRouteMode: httptestx.TestRouteModeDisabled,
+		Env: map[string]string{
+			"CARTULARY__LIMITS__PREVIEWS__MAX_PREVIEWABLE_PAYLOAD_BYTES": "64",
+			"CARTULARY__LIMITS__PREVIEWS__MAX_TEXT_INLINE_BYTES":         "32",
+		},
 	})
 	login, adminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{

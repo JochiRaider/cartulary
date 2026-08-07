@@ -11,12 +11,30 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Source is the read-only, presence-aware configuration view supplied to one
-// catalog contribution. Decode copies only the requested owned subtree into a
-// caller-owned value; it never exposes the mutable deployment document.
-type Source interface {
-	Decode(path string, destination any) error
+// NamespacePresence is the read-only, namespace-scoped presence view supplied
+// to one catalog contribution. Paths outside the contribution's registered
+// namespace are never observable.
+type NamespacePresence interface {
 	Defined(path ...string) bool
+}
+
+type namespacePresence struct {
+	namespace string
+	presence  configPresence
+}
+
+func (source namespacePresence) Defined(path ...string) bool {
+	if len(path) == 0 {
+		return false
+	}
+	if len(path) == 1 {
+		path = strings.Split(path[0], ".")
+	}
+	joined := strings.Join(path, ".")
+	if !pathWithinNamespace(joined, source.namespace) {
+		return false
+	}
+	return source.presence.Defined(path...)
 }
 
 // NamespaceDecoder is the closed, namespace-scoped artifact decoder supplied
@@ -73,172 +91,6 @@ func (decoder *namespaceDecoder) Decode(destination any) error {
 	return nil
 }
 
-type documentSource struct {
-	document document
-}
-
-func (source documentSource) Decode(path string, destination any) error {
-	target := reflect.ValueOf(destination)
-	if target.Kind() != reflect.Pointer || target.IsNil() {
-		return fmt.Errorf("configuration decode destination must be a non-nil pointer")
-	}
-
-	value := reflect.ValueOf(source.document)
-	if path != "" {
-		resolved, present := configFieldAtPath(&source.document, path)
-		if !present {
-			return fmt.Errorf("configuration path %q is unresolved", path)
-		}
-		value = resolved
-	}
-	if err := copyConfigurationValue(target.Elem(), value); err != nil {
-		return fmt.Errorf("decode configuration path %q: %w", path, err)
-	}
-	return nil
-}
-
-func (source documentSource) Defined(path ...string) bool {
-	if len(path) == 0 {
-		return false
-	}
-	if len(path) == 1 {
-		return source.document.presence.Defined(strings.Split(path[0], ".")...)
-	}
-	return source.document.presence.Defined(path...)
-}
-
-func copyConfigurationValue(target reflect.Value, source reflect.Value) error {
-	for source.Kind() == reflect.Pointer {
-		if source.IsNil() {
-			target.SetZero()
-			return nil
-		}
-		source = source.Elem()
-	}
-	if target.Kind() == reflect.Pointer {
-		if target.IsNil() {
-			target.Set(reflect.New(target.Type().Elem()))
-		}
-		return copyConfigurationValue(target.Elem(), source)
-	}
-	if source.Type().AssignableTo(target.Type()) {
-		target.Set(cloneReflectValue(source))
-		return nil
-	}
-
-	switch target.Kind() {
-	case reflect.Struct:
-		if source.Kind() != reflect.Struct {
-			return fmt.Errorf("cannot copy %s into %s", source.Type(), target.Type())
-		}
-		for index := 0; index < target.NumField(); index++ {
-			targetFieldType := target.Type().Field(index)
-			if !targetFieldType.IsExported() {
-				continue
-			}
-			sourceField, present := fieldByTOMLName(source, configurationFieldName(targetFieldType))
-			if !present {
-				continue
-			}
-			if err := copyConfigurationValue(target.Field(index), sourceField); err != nil {
-				return err
-			}
-		}
-		return nil
-	case reflect.Slice:
-		if source.Kind() != reflect.Slice {
-			return fmt.Errorf("cannot copy %s into %s", source.Type(), target.Type())
-		}
-		copied := reflect.MakeSlice(target.Type(), source.Len(), source.Len())
-		for index := 0; index < source.Len(); index++ {
-			if err := copyConfigurationValue(copied.Index(index), source.Index(index)); err != nil {
-				return err
-			}
-		}
-		target.Set(copied)
-		return nil
-	case reflect.Map:
-		if source.Kind() != reflect.Map {
-			return fmt.Errorf("cannot copy %s into %s", source.Type(), target.Type())
-		}
-		copied := reflect.MakeMapWithSize(target.Type(), source.Len())
-		iterator := source.MapRange()
-		for iterator.Next() {
-			key := reflect.New(target.Type().Key()).Elem()
-			if err := copyConfigurationValue(key, iterator.Key()); err != nil {
-				return err
-			}
-			value := reflect.New(target.Type().Elem()).Elem()
-			if err := copyConfigurationValue(value, iterator.Value()); err != nil {
-				return err
-			}
-			copied.SetMapIndex(key, value)
-		}
-		target.Set(copied)
-		return nil
-	default:
-		if source.Type().ConvertibleTo(target.Type()) {
-			target.Set(source.Convert(target.Type()))
-			return nil
-		}
-		return fmt.Errorf("cannot copy %s into %s", source.Type(), target.Type())
-	}
-}
-
-func cloneReflectValue(value reflect.Value) reflect.Value {
-	switch value.Kind() {
-	case reflect.Pointer:
-		if value.IsNil() {
-			return reflect.Zero(value.Type())
-		}
-		copy := reflect.New(value.Type().Elem())
-		copy.Elem().Set(cloneReflectValue(value.Elem()))
-		return copy
-	case reflect.Slice:
-		copy := reflect.MakeSlice(value.Type(), value.Len(), value.Len())
-		for index := 0; index < value.Len(); index++ {
-			copy.Index(index).Set(cloneReflectValue(value.Index(index)))
-		}
-		return copy
-	case reflect.Map:
-		copy := reflect.MakeMapWithSize(value.Type(), value.Len())
-		iterator := value.MapRange()
-		for iterator.Next() {
-			copy.SetMapIndex(cloneReflectValue(iterator.Key()), cloneReflectValue(iterator.Value()))
-		}
-		return copy
-	case reflect.Struct:
-		copy := reflect.New(value.Type()).Elem()
-		for index := 0; index < value.NumField(); index++ {
-			if copy.Field(index).CanSet() {
-				copy.Field(index).Set(cloneReflectValue(value.Field(index)))
-			}
-		}
-		return copy
-	default:
-		return value
-	}
-}
-
-func fieldByTOMLName(value reflect.Value, name string) (reflect.Value, bool) {
-	valueType := value.Type()
-	for index := 0; index < value.NumField(); index++ {
-		fieldType := valueType.Field(index)
-		if configurationFieldName(fieldType) == name {
-			return value.Field(index), true
-		}
-	}
-	return reflect.Value{}, false
-}
-
-func configurationFieldName(field reflect.StructField) string {
-	name := strings.Split(field.Tag.Get("toml"), ",")[0]
-	if name == "" {
-		return strings.ToLower(field.Name)
-	}
-	return name
-}
-
 var (
 	contributionIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,126}$`)
 	configPathPattern     = regexp.MustCompile(`^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$`)
@@ -270,7 +122,7 @@ type Definition[T any] struct {
 	Paths        []string
 	Decode       func(NamespaceDecoder) (T, []Diagnostic)
 	ApplyOverlay func(T, []string, string) (T, *Diagnostic)
-	Project      func(T, Source) (T, []Diagnostic)
+	Project      func(T, NamespacePresence) (T, []Diagnostic)
 	Clone        func(T) T
 }
 
@@ -281,7 +133,7 @@ type catalogEntry struct {
 	paths     []string
 	decode    func(map[string]any) (any, []string, []Diagnostic)
 	overlay   func(*document, []string, string) *Diagnostic
-	project   func(*document, Source) (any, []Diagnostic)
+	project   func(*document, NamespacePresence) (any, []Diagnostic)
 	clone     func(any) any
 }
 
@@ -347,7 +199,7 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 			copy := definition.Clone(value)
 			return &copy, append([]string(nil), decoder.undecoded...), diagnostics
 		},
-		project: func(cfg *document, source Source) (any, []Diagnostic) {
+		project: func(cfg *document, presence NamespacePresence) (any, []Diagnostic) {
 			current, present := cfg.namespaces[definition.Namespace].(*T)
 			if !present || current == nil {
 				return nil, []Diagnostic{{
@@ -356,7 +208,7 @@ func Register[T any](builder *CatalogBuilder, definition Definition[T]) error {
 					Message:    "owner namespace was not decoded",
 				}}
 			}
-			value, diagnostics := definition.Project(definition.Clone(*current), source)
+			value, diagnostics := definition.Project(definition.Clone(*current), presence)
 			return value, diagnostics
 		},
 		clone: func(value any) any {

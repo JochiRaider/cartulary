@@ -52,7 +52,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	}
 	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
 
-	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
+	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, effectiveEnv).Deployment()
 	ctx := context.Background()
 	pool, err := appsupport.OpenPostgres(ctx, cfg, effectiveEnv)
 	if err != nil {

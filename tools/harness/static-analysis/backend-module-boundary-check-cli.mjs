@@ -873,6 +873,94 @@ function assertBoundaryFixtures(manifest) {
   ) {
     throw new Error("platform config profile-registry boundary fixture must fail closed");
   }
+
+  const contractedConfigRuleIDs = [
+    "platform-config-no-retired-document-snapshot-access",
+    "platform-config-no-in-memory-toml-snapshot-admission",
+    "configassembly-no-in-memory-admission-definition",
+    "application-no-configassembly-in-memory-admission-callers",
+    "configassembly-deployment-no-wire-tags",
+  ];
+  const contractedConfigRules = contractedConfigRuleIDs.map((id) => {
+    const rule = manifest.forbiddenSourceTokens.find((candidate) => candidate.id === id);
+    if (!rule) {
+      throw new Error(`${id} boundary rule is required`);
+    }
+    return rule;
+  });
+  const retiredConfigFixtures = [
+    {
+      label: "retired full-document source",
+      relative: "internal/platform/config/source.go",
+      content: "package config\ntype Source interface { Decode(path []string, target any) error }",
+      ruleID: "platform-config-no-retired-document-snapshot-access",
+    },
+    {
+      label: "retired reflective owner clone",
+      relative: "internal/platform/config/snapshot.go",
+      content: "package config\nfunc cloneConfig(value any) any { return value }",
+      ruleID: "platform-config-no-retired-document-snapshot-access",
+    },
+    {
+      label: "retired in-memory TOML snapshot loading",
+      relative: "internal/platform/config/snapshot_test.go",
+      content: "package config\nfunc fixture() { LoadSnapshotFromTOML(nil, Catalog{}) }",
+      ruleID: "platform-config-no-in-memory-toml-snapshot-admission",
+    },
+    {
+      label: "retired configassembly admission definition",
+      relative: "internal/app/configassembly/configuration.go",
+      content: "package configassembly\nfunc Admit(value Deployment) (Loaded, error) { return Loaded{}, nil }",
+      ruleID: "configassembly-no-in-memory-admission-definition",
+    },
+    {
+      label: "retired configassembly admission caller",
+      relative: "internal/app/server/runtime_test.go",
+      content: "package server\nfunc fixture() { _, _ = configassembly.Admit(configassembly.Deployment{}) }",
+      ruleID: "application-no-configassembly-in-memory-admission-callers",
+    },
+    {
+      label: "wire-tagged application deployment projection",
+      relative: "internal/app/configassembly/deployment.go",
+      content: 'package configassembly\ntype Deployment struct { Profile string `toml:"deployment_profile"` }',
+      ruleID: "configassembly-deployment-no-wire-tags",
+    },
+  ];
+  for (const fixture of retiredConfigFixtures) {
+    const rule = contractedConfigRules.find((candidate) => candidate.id === fixture.ruleID);
+    const violations = checkForbiddenSourceTokens(
+      [{ relative: fixture.relative, content: fixture.content }],
+      [rule],
+    );
+    if (violations.length !== 1 || violations[0].code !== "forbidden_source_token") {
+      throw new Error(`${fixture.label} boundary fixture must fail closed`);
+    }
+  }
+
+  const supportedConfigFixtures = [
+    {
+      relative: "internal/platform/config/catalog.go",
+      content:
+        "package config\ntype NamespaceDecoder interface { Decode(target any) error }\ntype NamespacePresence interface { Defined(path ...string) bool }",
+    },
+    {
+      relative: "internal/platform/config/config.go",
+      content:
+        'package config\nimport "reflect"\nfunc applyOverlay(target reflect.Value) reflect.Value { return target }',
+    },
+    {
+      relative: "internal/app/configassembly/configuration.go",
+      content:
+        "package configassembly\nvar owner = Definition[Configuration]{Clone: func(value Configuration) Configuration { return value }}",
+    },
+  ];
+  const supportedConfigViolations = checkForbiddenSourceTokens(
+    supportedConfigFixtures,
+    contractedConfigRules,
+  );
+  if (supportedConfigViolations.length !== 0) {
+    throw new Error("supported config seams must remain accepted by contracted boundary rules");
+  }
 }
 
 function checkForbiddenGoCalls(files, rules) {

@@ -338,7 +338,7 @@ func prepareRestoreTarget(t testing.TB, prefix string) recoverytestsupport.Targe
 
 func openObjectStore(t testing.TB, env map[string]string) objectstore.Store {
 	t.Helper()
-	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
+	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, env).Deployment()
 	store, err := appsupport.OpenObjectStore(t.Context(), cfg, env)
 	if err != nil {
 		t.Fatalf("open object store: %v", err)

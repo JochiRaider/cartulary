@@ -27,12 +27,6 @@ type RequestedClaims struct {
 	profileIDs []string
 }
 
-// ClaimConfiguration is the Extensions assembly-owned wire value for a
-// profile whose deployment namespace contains only its claim request.
-type ClaimConfiguration struct {
-	Claimed bool `toml:"claimed"`
-}
-
 // GeneratedConfigurationPolicy admits packaged Extensions artifacts before
 // exposing their configuration projection.
 func GeneratedConfigurationPolicy() (ConfigurationPolicy, error) {

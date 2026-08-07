@@ -35,50 +35,32 @@ import (
 )
 
 func TestInvalidConfigNeverReachesReady_Integration(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "bootstrap-invalid-config")
-
-	s3Harness := s3test.Start(t)
-	bucket, err := s3Harness.BootstrapBucket(context.Background(), "bootstrap-invalid-config")
-	if err != nil {
-		t.Fatalf("bootstrap bucket: %v", err)
-	}
-	defer func() {
-		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
-			t.Fatalf("cleanup bucket: %v", err)
-		}
-	}()
-
-	env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 	cases := []struct {
 		name       string
-		mutate     func(configassembly.Deployment) configassembly.Deployment
+		overlays   map[string]string
 		goldenFile string
 	}{
 		{
 			name: "path-validation failure",
-			mutate: func(cfg configassembly.Deployment) configassembly.Deployment {
-				cfg.Roots.DatabaseStorage.Path = "relative/postgres"
-				return cfg
-			},
+			overlays: configtest.Overlay(
+				"CARTULARY__ROOTS__DATABASE_STORAGE__PATH", "relative/postgres",
+			),
 			goldenFile: "startup_path_not_absolute_database_storage_root.json",
 		},
 		{
 			name: "missing required runtime root",
-			mutate: func(cfg configassembly.Deployment) configassembly.Deployment {
-				cfg.Roots.ExportOutputs = config.RootBinding{}
-				return cfg
-			},
+			overlays: configtest.Overlay(
+				"CARTULARY__ROOTS__EXPORT_OUTPUTS__BINDING_KIND", "",
+				"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH", "",
+			),
 			goldenFile: "startup_missing_export_outputs_root.json",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			counters, dependencies := installStartupCounters()
-			cfg := BindPostgres(t, tc.mutate(RuntimeConfig(t)), env)
-
-			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
+			counters, _ := installStartupCounters()
+			err := RuntimeConfigError(t, tc.overlays)
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 		})
@@ -120,13 +102,10 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 	defer store.Close()
 
-	loaded, err := configassembly.Admit(RuntimeConfig(t))
-	if err != nil {
-		t.Fatalf("admit single-active runtime fixture: %v", err)
-	}
-	cfg := loaded.Deployment()
-	cfg.Timeouts.Extensions.ProcessLeaseAcquireSeconds = 1
-	cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+	cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+		"CARTULARY__TIMEOUTS__EXTENSIONS__PROCESS_LEASE_ACQUIRE_SECONDS", "1",
+		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+	)), testDB.Env())
 
 	restoreAdmission, err := processlease.Acquire(
 		ctx,
@@ -226,8 +205,9 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 		}()
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+		cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+			"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+		)), env)
 
 		runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 		if err != nil {
@@ -319,8 +299,9 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		}()
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+		cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+			"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+		)), env)
 
 		counters, dependencies := installStartupCounters()
 		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
@@ -463,10 +444,11 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 			}()
 
 			env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-			cfg := BindPostgres(t, RuntimeConfig(t), env)
+			overlays := map[string]string{}
 			if tc.manifestPath != nil {
-				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath(t)
+				overlays["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = tc.manifestPath(t)
 			}
+			cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, overlays), env)
 
 			counters, dependencies := installStartupCounters()
 			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
@@ -543,8 +525,9 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				cfg := BindPostgres(t, RuntimeConfig(t), env)
-				cfg.Bootstrap.FirstAdminManifestPath = tc.manifestPath
+				cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+					"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", tc.manifestPath,
+				)), env)
 
 				runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
 				if err != nil {
@@ -582,8 +565,9 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		}()
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
-		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		cfg.Bootstrap.FirstAdminManifestPath = fixtures.Path("bootstrap-admin", "canonical.json")
+		cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+			"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+		)), env)
 
 		counters, dependencies := installStartupCounters()
 		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
@@ -722,10 +706,10 @@ func IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[string]str
 	return env
 }
 
-func BindPostgres(t testing.TB, cfg configassembly.Deployment, env map[string]string) configassembly.Deployment {
+func BindPostgres(t testing.TB, loaded configassembly.Loaded, env map[string]string) configassembly.Loaded {
 	t.Helper()
-	configtest.BindPostgresEnvToDatabaseRoot(t, cfg.Roots.DatabaseStorage.Path, env)
-	return cfg
+	configtest.BindPostgresEnvToDatabaseRoot(t, loaded.Deployment().Roots.DatabaseStorage.Path, env)
+	return loaded
 }
 
 func openSQL(t testing.TB, dsn string) *sql.DB {

@@ -3,10 +3,7 @@
 package configassembly
 
 import (
-	"bytes"
 	"fmt"
-
-	"github.com/BurntSushi/toml"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
@@ -29,45 +26,28 @@ type Loaded struct {
 	requestedClaims extensionassembly.RequestedClaims
 }
 
-// Load builds the application catalog and materializes one immutable snapshot.
-func Load(options config.LoadOptions) (Loaded, error) {
-	policy, err := extensionassembly.GeneratedConfigurationPolicy()
-	if err != nil {
-		return Loaded{}, err
-	}
-	options.ExtensionPolicy = policy
-	catalog, err := applicationCatalog()
-	if err != nil {
-		return Loaded{}, err
-	}
-	snapshot, err := config.LoadSnapshotWithOptions(options, catalog)
-	if err != nil {
-		return Loaded{}, err
-	}
-	return loadedFromSnapshot(snapshot, policy)
+// LoadOptions contains only operator-selected artifact inputs. Application
+// assembly owns the generated Extensions policy supplied to the kernel.
+type LoadOptions struct {
+	Path string
+	Env  map[string]string
 }
 
-// Admit strictly parses and materializes an in-memory application projection.
-// It exists for composition tests; production startup selects the deployment
-// artifact through Load.
-func Admit(deployment Deployment) (Loaded, error) {
-	catalog, err := applicationCatalog()
-	if err != nil {
-		return Loaded{}, err
-	}
+// Load builds the application catalog and materializes one immutable snapshot.
+func Load(options LoadOptions) (Loaded, error) {
 	policy, err := extensionassembly.GeneratedConfigurationPolicy()
 	if err != nil {
 		return Loaded{}, err
 	}
-	var encoded bytes.Buffer
-	if err := toml.NewEncoder(&encoded).Encode(deployment); err != nil {
-		return Loaded{}, fmt.Errorf("encode in-memory deployment configuration: %w", err)
+	catalog, err := applicationCatalog()
+	if err != nil {
+		return Loaded{}, err
 	}
-	snapshot, err := config.LoadSnapshotFromTOML(
-		encoded.Bytes(),
-		config.LoadOptions{ExtensionPolicy: policy},
-		catalog,
-	)
+	snapshot, err := config.LoadSnapshotWithOptions(config.LoadOptions{
+		Path:            options.Path,
+		Env:             options.Env,
+		ExtensionPolicy: policy,
+	}, catalog)
 	if err != nil {
 		return Loaded{}, err
 	}
@@ -79,7 +59,7 @@ func loadedFromSnapshot(snapshot config.Snapshot, policy extensionassembly.Confi
 	if err != nil {
 		return Loaded{}, fmt.Errorf("materialize requested extension claims: %w", err)
 	}
-	deployment, err := deploymentFromSnapshot(snapshot, requestedClaims)
+	deployment, err := deploymentFromSnapshot(snapshot)
 	if err != nil {
 		return Loaded{}, fmt.Errorf("project deployment configuration: %w", err)
 	}
@@ -128,7 +108,7 @@ func registerRevisionsConfigurationContribution(builder *config.CatalogBuilder) 
 			}
 			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
 		},
-		Project: func(configuration conflicts.Configuration, _ config.Source) (conflicts.Configuration, []config.Diagnostic) {
+		Project: func(configuration conflicts.Configuration, _ config.NamespacePresence) (conflicts.Configuration, []config.Diagnostic) {
 			normalized, findings := conflicts.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -166,7 +146,7 @@ func registerEnterpriseAuthenticationConfigurationContribution(builder *config.C
 			}
 			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
 		},
-		Project: func(configuration enterpriseauth.Configuration, _ config.Source) (enterpriseauth.Configuration, []config.Diagnostic) {
+		Project: func(configuration enterpriseauth.Configuration, _ config.NamespacePresence) (enterpriseauth.Configuration, []config.Diagnostic) {
 			normalized, findings := enterpriseauth.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {
@@ -210,7 +190,7 @@ func registerNetworkFlowConfigurationContribution(builder *config.CatalogBuilder
 			}
 			return updated, &config.Diagnostic{Path: finding.Path, ReasonCode: finding.ReasonCode, Message: finding.Message}
 		},
-		Project: func(configuration networkflow.Configuration, _ config.Source) (networkflow.Configuration, []config.Diagnostic) {
+		Project: func(configuration networkflow.Configuration, _ config.NamespacePresence) (networkflow.Configuration, []config.Diagnostic) {
 			normalized, findings := networkflow.NormalizeAndValidateConfiguration(configuration)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {

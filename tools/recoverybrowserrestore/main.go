@@ -34,9 +34,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 const readySchemaID = "cartulary.restore.browser_restore_target.v1"
@@ -129,7 +129,11 @@ func run() error {
 	if err := seedDeploymentAdmin(ctx, sourcePool, sourceAdminEmail, sourceAdminPassword); err != nil {
 		return err
 	}
-	sourceRuntime, err := server.NewRuntime(ctx, targetConfig(sourceRoot, ""), server.Options{
+	sourceConfig, err := targetConfig(sourceRoot, "", sourceTokenEnv)
+	if err != nil {
+		return fmt.Errorf("load source configuration: %w", err)
+	}
+	sourceRuntime, err := server.NewRuntime(ctx, sourceConfig, server.Options{
 		Postgres:    sourcePool,
 		ObjectStore: sourceObjectStore,
 		Env:         sourceTokenEnv,
@@ -260,7 +264,12 @@ func run() error {
 		return fmt.Errorf("probe restored workbook query: %w", err)
 	}
 
-	cfg := targetConfig(targetRoot, "")
+	cfg, err := targetConfig(targetRoot, "", targetTokenEnv)
+	if err != nil {
+		targetPool.Close()
+		_ = targetObjectStore.Close()
+		return fmt.Errorf("load target configuration: %w", err)
+	}
 	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
@@ -639,25 +648,32 @@ func sourcePostgresDSN(runtimeRoot string, env map[string]string) (string, error
 	return "postgres://cartulary:cartulary@localhost:5432/" + url.PathEscape(stack.Database.LogicalID) + "?sslmode=disable", nil
 }
 
-func targetConfig(root string, origin string) configassembly.Deployment {
+func targetConfig(root string, origin string, runtimeEnv map[string]string) (configassembly.Loaded, error) {
 	if origin == "" {
 		origin = "http://127.0.0.1"
 	}
-	return configassembly.Deployment{
-		ConfigSchemaID:    "cartulary.deployment_config.v2",
-		DeploymentProfile: "disconnected",
-		Application:       config.ApplicationConfig{PublicOrigin: origin},
-		Roots: config.RootBindings{
-			DatabaseStorage:      config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "database-storage")},
-			ObjectStorage:        config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "object-storage")},
-			BackupStorage:        config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "backup-storage")},
-			ReferencePackStorage: config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "reference-pack-storage")},
-			TemporaryWork:        config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "temporary-work")},
-			ExportOutputs:        config.RootBinding{BindingKind: "filesystem_root", Path: filepath.Join(root, "export-outputs")},
-		},
-		Bootstrap: config.BootstrapConfig{FirstAdminManifestPath: filepath.Join(root, "bootstrap-admin.json")},
-		Revisions: conflicts.Configuration{ConflictTokenKeyRingManifestPath: filepath.Join(root, "revisions-conflict-token-key-ring.json")},
+	env := map[string]string{
+		"CARTULARY__APPLICATION__PUBLIC_ORIGIN":                       origin,
+		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":                    filepath.Join(root, "database-storage"),
+		"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":                      filepath.Join(root, "object-storage"),
+		"CARTULARY__ROOTS__BACKUP_STORAGE__PATH":                      filepath.Join(root, "backup-storage"),
+		"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH":              filepath.Join(root, "reference-pack-storage"),
+		"CARTULARY__ROOTS__TEMPORARY_WORK__PATH":                      filepath.Join(root, "temporary-work"),
+		"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":                      filepath.Join(root, "export-outputs"),
+		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH":             filepath.Join(root, "bootstrap-admin.json"),
+		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": filepath.Join(root, "revisions-conflict-token-key-ring.json"),
+		"CARTULARY__IMPORT__CLAIMED":                                  "false",
+		"CARTULARY__INCIDENT_PORTABILITY__CLAIMED":                    "false",
+		"CARTULARY__REFERENCE_PACK__CLAIMED":                          "false",
+		"CARTULARY__SNAPSHOT_REPORTING__CLAIMED":                      "false",
 	}
+	for key, value := range runtimeEnv {
+		env[key] = value
+	}
+	return configassembly.Load(configassembly.LoadOptions{
+		Path: fixtures.Path("config", "valid.toml"),
+		Env:  env,
+	})
 }
 
 func prepareConflictTokenHarness(root string) (map[string]string, error) {

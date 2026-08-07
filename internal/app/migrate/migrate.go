@@ -10,7 +10,6 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -30,7 +29,7 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 	return migrateRunner{
 		stderr: normalizeMigrateWriter(stderr),
 		loadConfig: func() (configassembly.Loaded, error) {
-			loaded, err := configassembly.Load(config.LoadOptions{})
+			loaded, err := configassembly.Load(configassembly.LoadOptions{})
 			if err != nil {
 				return configassembly.Loaded{}, err
 			}

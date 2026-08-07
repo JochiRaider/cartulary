@@ -62,7 +62,7 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 		stdout: normalizeServerWriter(stdout),
 		stderr: normalizeServerWriter(stderr),
 		loadConfig: func() (configassembly.Loaded, error) {
-			loaded, err := configassembly.Load(config.LoadOptions{})
+			loaded, err := configassembly.Load(configassembly.LoadOptions{})
 			if err != nil {
 				return configassembly.Loaded{}, err
 			}

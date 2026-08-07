@@ -8,10 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -74,15 +72,6 @@ func StartServerWithDependencies(
 		Dependencies:  dependencies,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-}
-
-func StartServerWithConfig(
-	t testing.TB,
-	prefix string,
-	mutate func(*configassembly.Deployment),
-) *ServerHarness {
-	t.Helper()
-	return StartRuntime(t).StartServerWithConfig(t, prefix, mutate)
 }
 
 func (r *Runtime) PrepareIsolatedDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
@@ -157,55 +146,6 @@ func (r *Runtime) StartServerWithDatabaseAndDependencies(
 		Dependencies:  dependencies,
 		TestRouteMode: httptestx.TestRouteModeDisabled,
 	})
-}
-
-func (r *Runtime) StartServerWithConfig(
-	t testing.TB,
-	prefix string,
-	mutate func(*configassembly.Deployment),
-) *ServerHarness {
-	t.Helper()
-	testDB := r.PrepareIsolatedDatabase(t, prefix)
-	bucket := r.S3.PreparePackageBucketT(t, prefix)
-	env := testDB.Env()
-	for key, value := range r.S3.Env(bucket) {
-		env[key] = value
-	}
-	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path(
-		"bootstrap-admin",
-		"canonical.json",
-	)
-	tempRoots := configtest.SetupTempRoots(t)
-	for key, value := range tempRoots.Paths {
-		if _, exists := env[key]; !exists {
-			env[key] = value
-		}
-	}
-	configtest.BindPostgresEnvToDatabaseRoot(
-		t,
-		tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
-		env,
-	)
-	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
-	if mutate != nil {
-		mutate(&cfg)
-	}
-	pool := openServerPool(t, testDB)
-	store, err := OpenObjectStore(context.Background(), cfg, env)
-	if err != nil {
-		t.Fatalf("open object store: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = store.Close()
-	})
-	server := httptestx.StartServer(t, httptestx.ServerOptions{
-		Config:        cfg,
-		Env:           env,
-		Postgres:      pool,
-		ObjectStore:   store,
-		TestRouteMode: httptestx.TestRouteModeDisabled,
-	})
-	return serverHarnessForDatabase(t, testDB, server, pool, store)
 }
 
 func (r *Runtime) StartServerWithObjectStore(

@@ -222,7 +222,7 @@ func TestOpenTelemetryConfigValidation(t *testing.T) {
 kind = "otlp_http"
 endpoint = "https://collector.example.test:4318/otel"
 `
-		if _, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, validHTTP)}); err != nil {
+		if _, err := configassembly.Load(configassembly.LoadOptions{Path: writeTelemetryTempConfig(t, validHTTP)}); err != nil {
 			t.Fatalf("load valid OTLP/HTTP endpoint: %v", err)
 		}
 
@@ -231,7 +231,7 @@ endpoint = "https://collector.example.test:4318/otel"
 kind = "otlp_grpc"
 endpoint = "http://collector.example.test:4317/"
 `
-		if _, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, validGRPC)}); err != nil {
+		if _, err := configassembly.Load(configassembly.LoadOptions{Path: writeTelemetryTempConfig(t, validGRPC)}); err != nil {
 			t.Fatalf("load valid OTLP/gRPC endpoint: %v", err)
 		}
 
@@ -550,7 +550,7 @@ func fixturesConfigValid(t testing.TB) []byte {
 
 func mustLoadTelemetryConfig(t testing.TB, content string, env map[string]string) configassembly.Deployment {
 	t.Helper()
-	loaded, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
+	loaded, err := configassembly.Load(configassembly.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
 	if err != nil {
 		t.Fatalf("load telemetry configuration: %v", err)
 	}
@@ -559,7 +559,7 @@ func mustLoadTelemetryConfig(t testing.TB, content string, env map[string]string
 
 func loadInvalidTelemetryConfig(t testing.TB, content string, env map[string]string) error {
 	t.Helper()
-	_, err := configassembly.Load(config.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
+	_, err := configassembly.Load(configassembly.LoadOptions{Path: writeTelemetryTempConfig(t, content), Env: env})
 	if err == nil {
 		t.Fatal("expected invalid telemetry configuration")
 	}

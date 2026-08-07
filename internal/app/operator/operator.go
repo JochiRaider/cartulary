@@ -11,7 +11,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -33,7 +32,7 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 	stderr = normalizeOperatorWriter(stderr)
 	transport := operatorTransport{stdout: stdout, stderr: stderr}
 	loadConfig := func(path string) (configassembly.Loaded, error) {
-		options := config.LoadOptions{}
+		options := configassembly.LoadOptions{}
 		if strings.TrimSpace(path) == "" {
 			loaded, err := configassembly.Load(options)
 			if err != nil {

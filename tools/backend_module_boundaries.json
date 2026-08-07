@@ -1147,6 +1147,50 @@
       "production_only": true
     },
     {
+      "id": "platform-config-no-retired-document-snapshot-access",
+      "tokens": [
+        "type Source interface {",
+        "func (snapshot Snapshot) Decode(",
+        "documentSource",
+        "copyConfigurationValue",
+        "fieldByTOMLName",
+        "configurationFieldName",
+        "cloneConfig(",
+        "cloneReflectValue("
+      ],
+      "scan_paths": ["internal/platform/config/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "platform-config-no-in-memory-toml-snapshot-admission",
+      "tokens": ["LoadSnapshotFromTOML("],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "configassembly-no-in-memory-admission-definition",
+      "tokens": ["func Admit("],
+      "scan_paths": ["internal/app/configassembly/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "application-no-configassembly-in-memory-admission-callers",
+      "tokens": ["configassembly.Admit("],
+      "scan_paths": ["internal/**", "tools/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
+      "id": "configassembly-deployment-no-wire-tags",
+      "tokens": ["toml:\""],
+      "scan_paths": ["internal/app/configassembly/deployment.go"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "workbook-assembly-no-evidence-construction",
       "tokens": [
         "evidence.NewWorkbookFacade(",

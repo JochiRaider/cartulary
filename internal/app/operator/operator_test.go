@@ -410,15 +410,11 @@ func TestOperatorObjectStoreInitCommand_U_UsesOnlyTypedFailureClassification(t *
 
 func objectStoreTestConfig(t testing.TB, rootPath string) configassembly.Loaded {
 	t.Helper()
-	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
-	deployment.Roots.ObjectStorage.BindingKind = "filesystem_root"
-	deployment.Roots.ObjectStorage.Path = rootPath
-	deployment.Roots.ObjectStorage.ServiceRef = ""
-	loaded, err := configassembly.Admit(deployment)
-	if err != nil {
-		t.Fatalf("admit object-store operator test deployment: %v", err)
-	}
-	return loaded
+	return configtest.LoadFixture(t, []string{"config", "valid.toml"}, map[string]string{
+		"CARTULARY__ROOTS__OBJECT_STORAGE__BINDING_KIND": "filesystem_root",
+		"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":         rootPath,
+		"CARTULARY__ROOTS__OBJECT_STORAGE__SERVICE_REF":  "",
+	})
 }
 
 func collaborationV2TestRunner(

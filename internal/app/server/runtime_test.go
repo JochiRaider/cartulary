@@ -27,6 +27,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/secretpurpose"
 	"github.com/JochiRaider/cartulary/internal/platform/securefile"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
 func TestFailClosedStartup_Unit(t *testing.T) {
@@ -78,10 +80,9 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 			t.Fatal("invalid config reached schema readiness")
 			return nil
 		}
-		cfg := RuntimeConfig(t)
-		cfg.Roots.DatabaseStorage.Path = "relative/postgres"
-
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		err := RuntimeConfigError(t, configtest.Overlay(
+			"CARTULARY__ROOTS__DATABASE_STORAGE__PATH", "relative/postgres",
+		))
 		if err == nil {
 			t.Fatal("expected invalid config to fail closed")
 		}
@@ -122,9 +123,6 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("inactive extension configuration stops before dependency wiring", func(t *testing.T) {
 		testDependencies := dependencies
-		cfg := RuntimeConfig(t)
-		cfg.EnterpriseAuthentication.Claimed = false
-		cfg.EnterpriseAuthentication.ProviderManifestPath = "/do-not-read/provider.json"
 
 		var secureFileReads int
 		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
@@ -137,7 +135,10 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		objectStoreCalls = 0
 		wsHubCalls = 0
 		handlerCalls = 0
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		err := RuntimeConfigError(t, configtest.Overlay(
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED", "false",
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH", "/do-not-read/provider.json",
+		))
 		if err == nil {
 			t.Fatal("expected inactive extension configuration to fail closed")
 		}
@@ -154,9 +155,6 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("unclaimed Network Flow configuration stops before active validation or file work", func(t *testing.T) {
 		testDependencies := dependencies
-		cfg := RuntimeConfig(t)
-		cfg.NetworkFlowActivity.Claimed = false
-		cfg.NetworkFlowActivity.KeyRingManifestPath = "relative/must-not-be-read.json"
 
 		var secureFileReads int
 		testDependencies.readSecureFile = func(string, int64) (securefile.Document, error) {
@@ -169,7 +167,10 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		objectStoreCalls = 0
 		wsHubCalls = 0
 		handlerCalls = 0
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{}, testDependencies)
+		err := RuntimeConfigError(t, configtest.Overlay(
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "false",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH", "relative/must-not-be-read.json",
+		))
 		if err == nil {
 			t.Fatal("expected inactive Network Flow configuration to fail closed")
 		}
@@ -572,58 +573,58 @@ func (s *CloseTrackingStore) Close() error {
 	return nil
 }
 
-func RuntimeConfig(t testing.TB) configassembly.Deployment {
+func RuntimeConfig(t testing.TB) configassembly.Loaded {
+	t.Helper()
+	return RuntimeConfigWithOverlays(t, nil)
+}
+
+func RuntimeConfigWithOverlays(t testing.TB, overlays map[string]string) configassembly.Loaded {
+	t.Helper()
+	loaded, err := loadRuntimeConfig(t, overlays)
+	if err != nil {
+		t.Fatalf("load runtime configuration: %v", err)
+	}
+	return loaded
+}
+
+func RuntimeConfigError(t testing.TB, overlays map[string]string) error {
+	t.Helper()
+	_, err := loadRuntimeConfig(t, overlays)
+	if err == nil {
+		t.Fatal("expected runtime configuration loading to fail")
+	}
+	return err
+}
+
+func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly.Loaded, error) {
 	t.Helper()
 
-	base := t.TempDir()
-	databaseRoot := filepath.Join(base, "postgres")
-	if err := os.MkdirAll(databaseRoot, 0o700); err != nil {
-		t.Fatalf("create database root fixture: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(databaseRoot, postgres.FilesystemRootDSNFile),
-		[]byte("postgres://unit-test"),
-		0o600,
-	); err != nil {
-		t.Fatalf("write database DSN fixture: %v", err)
-	}
-	conflictTokenManifestPath := filepath.Join(base, "revisions-conflict-token-key-ring.json")
+	roots := configtest.SetupTempRoots(t)
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], "postgres://unit-test")
+	conflictTokenManifestPath := filepath.Join(roots.Base, "revisions-conflict-token-key-ring.json")
 	if err := os.WriteFile(conflictTokenManifestPath, []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"runtime-test","state":"active","secret_ref":{"kind":"env","name":"runtime-test-revisions-conflict"}}]}`), 0o600); err != nil {
 		t.Fatalf("write Revisions conflict-token key-ring fixture: %v", err)
 	}
-	t.Setenv("CARTULARY_SECRET_RUNTIME_TEST_REVISIONS_CONFLICT", "pVldGSpD5oEmYa9F85d3_iL2lzBgkyfiWcoJDhsSGpk")
-	return configassembly.Deployment{
-		ConfigSchemaID:    "cartulary.deployment_config.v2",
-		DeploymentProfile: "disconnected",
-		Application: config.ApplicationConfig{
-			PublicOrigin: "http://localhost:5173",
-		},
-		Roots: config.RootBindings{
-			DatabaseStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        databaseRoot,
-			},
-			ObjectStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "object-store"),
-			},
-			BackupStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "backups"),
-			},
-			ReferencePackStorage: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "reference-packs"),
-			},
-			TemporaryWork: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "tmp"),
-			},
-			ExportOutputs: config.RootBinding{
-				BindingKind: "filesystem_root",
-				Path:        filepath.Join(base, "exports"),
-			},
-		},
-		Revisions: conflicts.Configuration{ConflictTokenKeyRingManifestPath: conflictTokenManifestPath},
+	artifact := string(fixtures.MustRead("config", "valid.toml"))
+	const bootstrapSection = "[bootstrap]\nfirst_admin_manifest_path = \"/etc/cartulary/bootstrap-admin.json\"\n\n"
+	if !strings.Contains(artifact, bootstrapSection) {
+		t.Fatal("canonical configuration fixture no longer contains the expected bootstrap section")
 	}
+	artifactPath := filepath.Join(roots.Base, "runtime-config.toml")
+	if err := os.WriteFile(artifactPath, []byte(strings.Replace(artifact, bootstrapSection, "", 1)), 0o600); err != nil {
+		t.Fatalf("write runtime configuration artifact: %v", err)
+	}
+	t.Setenv("CARTULARY_SECRET_RUNTIME_TEST_REVISIONS_CONFLICT", "pVldGSpD5oEmYa9F85d3_iL2lzBgkyfiWcoJDhsSGpk")
+	env := make(map[string]string, len(roots.Paths)+len(overlays)+2)
+	for key, value := range roots.Paths {
+		env[key] = value
+	}
+	env["CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH"] = conflictTokenManifestPath
+	for key, value := range overlays {
+		env[key] = value
+	}
+	return configassembly.Load(configassembly.LoadOptions{
+		Path: artifactPath,
+		Env:  env,
+	})
 }

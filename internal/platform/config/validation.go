@@ -19,37 +19,6 @@ type filesystemRoot struct {
 
 const limitRegistryMaxInt64 = int64(^uint64(0) >> 1)
 
-func validate(cfg document) (document, error) {
-	return validateWithExtensionPolicy(cfg, nil)
-}
-
-func validateWithExtensionPolicy(cfg document, policy ExtensionPolicy) (document, error) {
-	normalized := cfg
-	diagnostics := validateConfigStructure(&normalized, configPresence{}, policy)
-	if len(diagnostics) > 0 {
-		return document{}, newDiagnosticsError(diagnostics)
-	}
-	return normalized, nil
-}
-
-func validateForStartup(cfg document) (document, error) {
-	return validateForStartupWithExtensionPolicy(cfg, nil)
-}
-
-func validateForStartupWithExtensionPolicy(cfg document, policy ExtensionPolicy) (document, error) {
-	normalized, err := validateWithExtensionPolicy(cfg, policy)
-	if err != nil {
-		return document{}, err
-	}
-
-	diagnostics := validateStartupFilesystemRoots(&normalized)
-	if len(diagnostics) > 0 {
-		return document{}, newDiagnosticsError(diagnostics)
-	}
-
-	return normalized, nil
-}
-
 func validateConfigStructure(cfg *document, presence configPresence, inactivePolicy ExtensionPolicy) []Diagnostic {
 	diagnostics := make([]Diagnostic, 0)
 	cfg.presence = presence
@@ -101,7 +70,7 @@ func validateConfigStructure(cfg *document, presence configPresence, inactivePol
 		return diagnostics
 	}
 
-	roots := collectFilesystemRoots(*cfg)
+	roots := collectFilesystemRoots(cfg.Roots)
 	diagnostics = append(diagnostics, detectBackupStorageRootSubstitution(roots)...)
 	diagnostics = append(diagnostics, detectFilesystemRootOverlap(roots)...)
 	return diagnostics
@@ -145,8 +114,8 @@ func validateApplication(application *ApplicationConfig, diagnostics *[]Diagnost
 	application.PublicOrigin = parsed.Scheme + "://" + parsed.Host
 }
 
-func validateStartupFilesystemRoots(cfg *document) []Diagnostic {
-	roots := collectFilesystemRoots(*cfg)
+func validateStartupFilesystemRoots(bindings RootBindings) []Diagnostic {
+	roots := collectFilesystemRoots(bindings)
 	for i := range roots {
 		canonicalPath, diagnostic := canonicalizeFilesystemRoot(roots[i].Path, roots[i].ConfigPath)
 		if diagnostic != nil {
@@ -545,25 +514,25 @@ func filesystemRootsOverlap(left string, right string) bool {
 	return left == right || pathWithinRoot(left, right) || pathWithinRoot(right, left)
 }
 
-func collectFilesystemRoots(cfg document) []filesystemRoot {
+func collectFilesystemRoots(bindings RootBindings) []filesystemRoot {
 	roots := make([]filesystemRoot, 0, 6)
-	if cfg.Roots.DatabaseStorage.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.DatabaseStorage.Path, ConfigPath: "roots.database_storage.path"})
+	if bindings.DatabaseStorage.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.DatabaseStorage.Path, ConfigPath: "roots.database_storage.path"})
 	}
-	if cfg.Roots.ObjectStorage.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.ObjectStorage.Path, ConfigPath: "roots.object_storage.path"})
+	if bindings.ObjectStorage.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.ObjectStorage.Path, ConfigPath: "roots.object_storage.path"})
 	}
-	if cfg.Roots.BackupStorage.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.BackupStorage.Path, ConfigPath: "roots.backup_storage.path"})
+	if bindings.BackupStorage.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.BackupStorage.Path, ConfigPath: "roots.backup_storage.path"})
 	}
-	if cfg.Roots.ReferencePackStorage.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.ReferencePackStorage.Path, ConfigPath: "roots.reference_pack_storage.path"})
+	if bindings.ReferencePackStorage.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.ReferencePackStorage.Path, ConfigPath: "roots.reference_pack_storage.path"})
 	}
-	if cfg.Roots.TemporaryWork.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.TemporaryWork.Path, ConfigPath: "roots.temporary_work.path"})
+	if bindings.TemporaryWork.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.TemporaryWork.Path, ConfigPath: "roots.temporary_work.path"})
 	}
-	if cfg.Roots.ExportOutputs.BindingKind == "filesystem_root" {
-		roots = append(roots, filesystemRoot{Path: cfg.Roots.ExportOutputs.Path, ConfigPath: "roots.export_outputs.path"})
+	if bindings.ExportOutputs.BindingKind == "filesystem_root" {
+		roots = append(roots, filesystemRoot{Path: bindings.ExportOutputs.Path, ConfigPath: "roots.export_outputs.path"})
 	}
 
 	return roots

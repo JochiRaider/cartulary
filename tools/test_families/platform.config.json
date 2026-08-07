@@ -305,7 +305,7 @@
       "selector": {
         "package": "./internal/app/configassembly",
         "tests": [
-          "TestInMemoryAdmissionDefaultsAndProjectionIsolation_Unit",
+          "TestArtifactAdmissionDefaultsAndProjectionIsolation_Unit",
           "TestPlatformAdapterConstructorSignatures_Unit",
           "TestPlatformSettingsProjection_Unit"
         ]

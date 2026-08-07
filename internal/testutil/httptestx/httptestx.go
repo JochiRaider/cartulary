@@ -219,7 +219,7 @@ const (
 )
 
 type ServerOptions struct {
-	Config           configassembly.Deployment
+	Loaded           *configassembly.Loaded
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
@@ -242,9 +242,10 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	if err := applyTestRouteMode(env, options.TestRouteMode); err != nil {
 		t.Fatalf("configure test routes: %v", err)
 	}
+	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
 
-	cfg := options.Config
-	if cfg.ConfigSchemaID == "" {
+	var loaded configassembly.Loaded
+	if options.Loaded == nil {
 		tempRoots := configtest.SetupTempRoots(t)
 		for key, value := range tempRoots.Paths {
 			if _, exists := env[key]; !exists {
@@ -255,8 +256,11 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		if _, exists := env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"]; !exists {
 			env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 		}
-		cfg = configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, env)
+		loaded = configtest.LoadFixture(t, []string{"config", "valid.toml"}, env)
+	} else {
+		loaded = *options.Loaded
 	}
+	cfg := loaded.Deployment()
 
 	clock := httpapi.NewTestClock()
 	routes := append([]httpapi.RouteRegistrar{RegisterBootstrapRoutes(), httpapi.RegisterTestClockRoutes(clock)}, options.AdditionalRoutes...)
@@ -266,7 +270,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		revisionsCapability     *RevisionsCapability
 		projectionCapability    *ProjectionCapability
 	)
-	runtime, err := server.NewRuntime(context.Background(), cfg, server.Options{
+	runtime, err := server.NewRuntime(context.Background(), loaded, server.Options{
 		Env:         env,
 		Now:         clock.Now,
 		Postgres:    options.Postgres,

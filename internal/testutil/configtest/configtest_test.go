@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func TestLoadEffectiveFixture(t *testing.T) {
+func TestLoadFixture(t *testing.T) {
 	roots := SetupTempRoots(t)
-	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, roots.Paths)
+	cfg := LoadFixture(t, []string{"config", "valid.toml"}, roots.Paths).Deployment()
 
 	if cfg.ConfigSchemaID != "cartulary.deployment_config.v2" {
 		t.Fatalf("unexpected config schema id: %q", cfg.ConfigSchemaID)
@@ -28,7 +28,7 @@ func TestOverlayAppliesToFixture(t *testing.T) {
 		overlays[key] = value
 	}
 
-	cfg := LoadEffectiveFixture(t, []string{"config", "valid.toml"}, overlays)
+	cfg := LoadFixture(t, []string{"config", "valid.toml"}, overlays).Deployment()
 
 	if cfg.Roots.TemporaryWork.Path != "/tmp/cartulary-test" {
 		t.Fatalf("unexpected temporary work path: %q", cfg.Roots.TemporaryWork.Path)

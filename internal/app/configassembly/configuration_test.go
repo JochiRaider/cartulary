@@ -1,24 +1,35 @@
 package configassembly
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
-func TestInMemoryAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
-	deployment := validProjectionDeployment(t)
-	wantLimits := deployment.Limits
-	deployment.Limits = config.LimitConfig{}
-
-	loaded, err := Admit(deployment)
+func TestArtifactAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
+	wantLoaded, err := loadProjection(t, nil)
 	if err != nil {
-		t.Fatalf("admit deployment with omitted limits: %v", err)
+		t.Fatalf("load deployment defaults: %v", err)
+	}
+	wantLimits := wantLoaded.Deployment().Limits
+	content := string(fixtures.MustRead("config", "valid.toml"))
+	content, _, _ = strings.Cut(content, "\n[limits.object_blobs]\n")
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write limits-omitted config: %v", err)
+	}
+
+	loaded, err := Load(LoadOptions{Path: path})
+	if err != nil {
+		t.Fatalf("load deployment with omitted limits: %v", err)
 	}
 	if got := loaded.Deployment().Limits; !reflect.DeepEqual(got, wantLimits) {
-		t.Fatalf("omitted in-memory limits = %#v, want %#v", got, wantLimits)
+		t.Fatalf("omitted artifact limits = %#v, want %#v", got, wantLimits)
 	}
 	for _, profileID := range loaded.RequestedClaims().ProfileIDs() {
 		if profileID == "enterprise_authentication" || profileID == "network_flow_activity" {
@@ -35,10 +46,10 @@ func TestInMemoryAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
 
 func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 	t.Run("claimed configuration is owner-validated before preflight", func(t *testing.T) {
-		deployment := validProjectionDeployment(t)
-		deployment.EnterpriseAuthentication.Claimed = true
-		deployment.EnterpriseAuthentication.ProviderManifestPath = ""
-		_, err := Admit(deployment)
+		_, err := loadProjection(t, map[string]string{
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED":                "true",
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH": "",
+		})
 		diagnostics, ok := config.DiagnosticsFromError(err)
 		if !ok || len(diagnostics) != 1 ||
 			diagnostics[0].ReasonCode != "provider_manifest_path_missing" {
@@ -47,12 +58,12 @@ func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 	})
 
 	t.Run("normalized owner value is immutable and mapped into the temporary projection", func(t *testing.T) {
-		deployment := validProjectionDeployment(t)
-		deployment.EnterpriseAuthentication.Claimed = true
-		deployment.EnterpriseAuthentication.ProviderManifestPath = "/etc//cartulary/enterprise-auth-providers.json"
-		loaded, err := Admit(deployment)
+		loaded, err := loadProjection(t, map[string]string{
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED":                "true",
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH": "/etc//cartulary/enterprise-auth-providers.json",
+		})
 		if err != nil {
-			t.Fatalf("Admit: %v", err)
+			t.Fatalf("Load: %v", err)
 		}
 		configuration := loaded.Deployment().EnterpriseAuthentication
 		const expected = "/etc/cartulary/enterprise-auth-providers.json"
@@ -71,20 +82,22 @@ func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 }
 
 func TestRevisionsConfigurationProjection_Unit(t *testing.T) {
-	deployment := validProjectionDeployment(t)
-	deployment.Revisions.ConflictTokenKeyRingManifestPath = ""
-	_, err := Admit(deployment)
+	_, err := loadProjection(t, map[string]string{
+		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "",
+	})
 	diagnostics, ok := config.DiagnosticsFromError(err)
 	if !ok || len(diagnostics) != 1 || diagnostics[0].ReasonCode != "revisions_conflict_token_manifest_missing" {
 		t.Fatalf("missing Revisions configuration diagnostics = %#v / %v", diagnostics, err)
 	}
 
-	deployment.Revisions.ConflictTokenKeyRingManifestPath = "/etc//cartulary/revisions-conflict-token-key-ring.json"
-	if _, err := Admit(deployment); err == nil {
+	if _, err := loadProjection(t, map[string]string{
+		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "/etc//cartulary/revisions-conflict-token-key-ring.json",
+	}); err == nil {
 		t.Fatal("unnormalized Revisions key-ring path was admitted")
 	}
-	deployment.Revisions.ConflictTokenKeyRingManifestPath = "/etc/cartulary/revisions-conflict-token-key-ring.json"
-	loaded, err := Admit(deployment)
+	loaded, err := loadProjection(t, map[string]string{
+		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": "/etc/cartulary/revisions-conflict-token-key-ring.json",
+	})
 	if err != nil {
 		t.Fatalf("admit Revisions configuration: %v", err)
 	}
@@ -101,10 +114,10 @@ func TestRevisionsConfigurationProjection_Unit(t *testing.T) {
 
 func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 	t.Run("claimed configuration is owner-validated before preflight", func(t *testing.T) {
-		deployment := validProjectionDeployment(t)
-		deployment.NetworkFlowActivity.Claimed = true
-		deployment.NetworkFlowActivity.KeyRingManifestPath = ""
-		_, err := Admit(deployment)
+		_, err := loadProjection(t, map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": "",
+		})
 		diagnostics, ok := config.DiagnosticsFromError(err)
 		if !ok || len(diagnostics) != 2 ||
 			diagnostics[0].ReasonCode != "network_flow_cursor_key_missing" ||
@@ -114,12 +127,12 @@ func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 	})
 
 	t.Run("normalized owner value is immutable and mapped into the temporary projection", func(t *testing.T) {
-		deployment := validProjectionDeployment(t)
-		deployment.NetworkFlowActivity.Claimed = true
-		deployment.NetworkFlowActivity.KeyRingManifestPath = "/etc//cartulary/network-flow-key-rings.json"
-		loaded, err := Admit(deployment)
+		loaded, err := loadProjection(t, map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED":                "true",
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__KEY_RING_MANIFEST_PATH": "/etc//cartulary/network-flow-key-rings.json",
+		})
 		if err != nil {
-			t.Fatalf("Admit: %v", err)
+			t.Fatalf("Load: %v", err)
 		}
 		configuration := loaded.Deployment().NetworkFlowActivity
 		const expected = "/etc/cartulary/network-flow-key-rings.json"
@@ -137,13 +150,10 @@ func TestNetworkFlowConfigurationProjection_Unit(t *testing.T) {
 	})
 }
 
-func validProjectionDeployment(t testing.TB) Deployment {
+func loadProjection(t testing.TB, env map[string]string) (Loaded, error) {
 	t.Helper()
-	loaded, err := Load(config.LoadOptions{
+	return Load(LoadOptions{
 		Path: fixtures.Path("config", "valid.toml"),
+		Env:  env,
 	})
-	if err != nil {
-		t.Fatalf("load valid deployment fixture: %v", err)
-	}
-	return loaded.Deployment()
 }

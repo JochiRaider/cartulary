@@ -189,11 +189,7 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
 		"postgres://unit-test",
 	)
-	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, roots.Paths)
-	loaded, err := configassembly.Admit(deployment)
-	if err != nil {
-		t.Fatalf("admit migrate test deployment: %v", err)
-	}
+	loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, roots.Paths)
 
 	db, err := sql.Open("pgx", "postgres://cartulary:cartulary@127.0.0.1:1/cartulary?sslmode=disable")
 	if err != nil {

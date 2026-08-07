@@ -87,7 +87,7 @@ func RegisterConfigurationContribution(builder *config.CatalogBuilder) error {
 				Message:    finding.Message,
 			}
 		},
-		Project: func(settings telemetryconfiguration.Config, source config.Source) (telemetryconfiguration.Config, []config.Diagnostic) {
+		Project: func(settings telemetryconfiguration.Config, source config.NamespacePresence) (telemetryconfiguration.Config, []config.Diagnostic) {
 			normalized, findings := telemetryconfiguration.NormalizeAndValidate(settings, source)
 			diagnostics := make([]config.Diagnostic, len(findings))
 			for index, finding := range findings {

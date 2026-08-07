@@ -113,7 +113,7 @@ func registerTestOwnerNamespace[T any](
 		Paths:        paths,
 		Decode:       decode,
 		ApplyOverlay: overlay,
-		Project:      func(value T, _ Source) (T, []Diagnostic) { return value, nil },
+		Project:      func(value T, _ NamespacePresence) (T, []Diagnostic) { return value, nil },
 		Clone:        func(value T) T { return value },
 	})
 	if err != nil {

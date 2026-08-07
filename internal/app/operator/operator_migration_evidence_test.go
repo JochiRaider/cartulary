@@ -271,16 +271,12 @@ func assertMigrationEvidenceFinding(t *testing.T, findings []migrationevidence.F
 
 func migrationEvidenceTestDeployment(t testing.TB) configassembly.Loaded {
 	t.Helper()
-	deployment := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, nil)
-	deployment.DeploymentProfile = "on_prem"
-	deployment.Roots.DatabaseStorage.BindingKind = "managed_service"
-	deployment.Roots.DatabaseStorage.Path = ""
-	deployment.Roots.DatabaseStorage.ServiceRef = "postgres-primary"
-	loaded, err := configassembly.Admit(deployment)
-	if err != nil {
-		t.Fatalf("admit migration-evidence test deployment: %v", err)
-	}
-	return loaded
+	return configtest.LoadFixture(t, []string{"config", "valid.toml"}, map[string]string{
+		"CARTULARY__DEPLOYMENT_PROFILE":                    "on_prem",
+		"CARTULARY__ROOTS__DATABASE_STORAGE__BINDING_KIND": "managed_service",
+		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":         "",
+		"CARTULARY__ROOTS__DATABASE_STORAGE__SERVICE_REF":  "postgres-primary",
+	})
 }
 
 func migrationEvidenceManifestPathForTest(t *testing.T) string {

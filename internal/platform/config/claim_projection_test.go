@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -21,7 +23,11 @@ func TestRegisteredClaimsProjectOnlyRequestedIdentities_Unit(t *testing.T) {
 	base := configWithoutClaimSections(t)
 	content := base + "\n[future_profile]\nclaimed = true\n"
 	policy := testExtensionPolicy{registrations: []ClaimRegistration{{ID: "future_profile", Path: "future_profile.claimed"}}}
-	snapshot, err := LoadSnapshotFromTOML([]byte(content), LoadOptions{ExtensionPolicy: policy}, testOwnerNamespaceCatalog(t))
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write future-profile config: %v", err)
+	}
+	snapshot, err := LoadSnapshotWithOptions(LoadOptions{Path: path, ExtensionPolicy: policy}, testOwnerNamespaceCatalog(t))
 	if err != nil {
 		t.Fatal(err)
 	}
