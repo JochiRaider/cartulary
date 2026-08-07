@@ -3,31 +3,6 @@
   "owner_id": "app.operator",
   "rows": [
     {
-      "row_id": "app.operator.integration.collaboration_requeue_v2_process_contract_c1e6d7ba96",
-      "owner_id": "app.operator",
-      "family_id": "app.operator.integration",
-      "collaborator_ids": [
-        "module.collaboration"
-      ],
-      "verification_ids": [
-        "app.operator.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/recovery/operatortest",
-        "tests": [
-          "TestOperatorCollaborationRequeueV2_Process"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
-    },
-    {
       "row_id": "app.operator.integration.migration_evidence_transport_and_resource_lifecy_6f6f81a872",
       "owner_id": "app.operator",
       "family_id": "app.operator.integration",
@@ -53,9 +28,34 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "app.operator.integration.object_store_init_process_transport_c19d4d6cf0",
+      "row_id": "app.operator.process.collaboration_requeue_v2_process_contract_4ce8fef4eb",
       "owner_id": "app.operator",
-      "family_id": "app.operator.integration",
+      "family_id": "app.operator.process",
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery/operatortest",
+        "tests": [
+          "TestOperatorCollaborationRequeueV2_Process"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "app.operator.process.object_store_init_process_transport_400591b90d",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.process",
       "collaborator_ids": [
         "platform.objectstore"
       ],
@@ -74,7 +74,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "object_store_namespace",
       "minimum_tier": "full"
     },
     {
@@ -157,6 +157,29 @@
       "minimum_tier": "fast"
     },
     {
+      "row_id": "app.operator.unit.operator_facade_and_nested_recovery_cli_expose_o_0b8f75c21c",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestOperatorExportedSurfaceIsCompositionOnly"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "app.operator.unit.operator_registry_eight_paths_and_collaboration_01217009b8",
       "owner_id": "app.operator",
       "family_id": "app.operator.unit",
@@ -170,8 +193,32 @@
         "tests": [
           "TestOperatorCommandRegistryContainsExactlyEightCanonicalPaths",
           "TestOperatorCommandRegistryRejectsDuplicateAndPrefixAmbiguousPaths",
-          "TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures",
-          "TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand"
+          "TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "app.operator.unit.recovery_cli_parser_and_invalid_invocation_trans_b3caf1f612",
+      "owner_id": "app.operator",
+      "family_id": "app.operator.unit",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "app.operator.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator/internal/recoverycli",
+        "tests": [
+          "TestRecoveryCLIParserAndInvalidInvocationContract"
         ]
       },
       "evidence_class": "unit",
@@ -194,7 +241,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/app/operator",
+        "package": "./internal/app/operator/internal/recoverycli",
         "tests": [
           "TestOperatorRecoveryFailureKindsMapExhaustivelyToClosedWirePairs"
         ]
@@ -219,7 +266,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/app/operator/recoverycli",
+        "package": "./internal/app/operator/internal/recoverycli",
         "tests": [
           "TestRunnerLeavesDueInvocationUnboundedForPerAttemptTimeouts"
         ]

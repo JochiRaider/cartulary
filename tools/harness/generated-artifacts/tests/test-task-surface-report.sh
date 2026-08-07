@@ -214,6 +214,11 @@ assert.match(
   /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)"/,
   "generated runtime must forward the resolved machine-state configuration after stripping public inputs",
 );
+assert.match(
+  renderedMake,
+  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[^\n]*work-graph\/runner-cli\.mjs --selection owner --target test-slice/,
+  "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
+);
 for (const target of manifest.targets.filter((entry) =>
   entry.target_class === "public" && entry.output_policy.artifact_policy !== "none")) {
   const escapedTarget = target.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

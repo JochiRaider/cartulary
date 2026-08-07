@@ -1388,6 +1388,15 @@
       "production_only": true
     },
     {
+      "id": "retired-operator-recovery-cli-import",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
+      ],
+      "scan_paths": ["cmd/**", "internal/**"],
+      "allowed_paths": [],
+      "production_only": false
+    },
+    {
       "id": "retired-recovery-top-level-token",
       "tokens": ["backup-metadata"],
       "scan_paths": ["internal/modules/recovery/**", "internal/app/**"],
@@ -1398,7 +1407,7 @@
       "id": "recovery-application-no-operator-transport-imports",
       "imports": [
         "github.com/JochiRaider/cartulary/internal/app/operator",
-        "github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
+        "github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
       ],
       "scan_paths": ["internal/modules/recovery/application/**"],
       "allowed_paths": [],
@@ -1440,7 +1449,7 @@
       "scan_paths": [
         "internal/modules/recovery/**",
         "internal/app/recoveryassembly/**",
-        "internal/app/operator/recoverycli/**"
+        "internal/app/operator/internal/recoverycli/**"
       ],
       "allowed_paths": [],
       "production_only": true

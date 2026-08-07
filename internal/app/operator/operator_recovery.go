@@ -6,7 +6,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
-	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
+	"github.com/JochiRaider/cartulary/internal/app/operator/internal/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
@@ -39,11 +39,13 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 		executor.transport.logger().Error("recovery state catalog is invalid", "error", err)
 		return true, 1
 	}
-	return recoverycli.Runner{
-		Stdout: executor.transport.stdout,
-		Stderr: executor.transport.stderr,
-		Now:    executor.now,
-		Facade: application.Service{
+	return recoverycli.Run(
+		ctx,
+		args,
+		executor.transport.stdout,
+		executor.transport.stderr,
+		executor.now,
+		application.Service{
 			LoadDeployment: executor.loadDeployment,
 			ReadTargetMarker: func(bindingKind string, rootPath string) (application.TargetMarkerMaterial, error) {
 				if bindingKind != "filesystem_root" {
@@ -104,7 +106,7 @@ func (executor recoveryExecutor) runCLI(ctx context.Context, args []string) (boo
 			},
 			Now: executor.now,
 		},
-	}.Run(ctx, args)
+	)
 }
 
 func (executor recoveryExecutor) loadDeployment(path string) (application.Deployment, error) {

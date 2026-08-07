@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -13,15 +12,6 @@ import (
 type operatorPostgresPool interface {
 	postgres.DB
 	Close()
-}
-
-type operatorCLIResult struct {
-	stop             bool
-	exitCode         int
-	command          string
-	asOf             time.Time
-	sourceConfigPath string
-	manifestPath     string
 }
 
 type operatorTransport struct {

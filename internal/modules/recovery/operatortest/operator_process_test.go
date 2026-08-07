@@ -23,8 +23,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
-	"github.com/JochiRaider/cartulary/internal/app/operator"
-	"github.com/JochiRaider/cartulary/internal/app/operator/recoverycli"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
@@ -38,6 +36,64 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
+
+const (
+	operatorObjectStoreInitResultSchemaID      = "cartulary.operator.object_store_init_result.v1"
+	operatorCollaborationRequeueResultSchemaID = "cartulary.operator.collaboration_requeue_result.v2"
+	operatorRecoveryResultSchemaID             = "cartulary.operator_recovery_result.v1"
+	operatorRecoveryProgressSchemaID           = "cartulary.operator_recovery_progress.v1"
+)
+
+type operatorObjectStoreInitResult struct {
+	SchemaID      string `json:"schema_id"`
+	Result        string `json:"result"`
+	Created       bool   `json:"created"`
+	AlreadyExists bool   `json:"already_exists"`
+}
+
+type operatorCollaborationRequeueResult struct {
+	SchemaID            string                             `json:"schema_id"`
+	OperationID         string                             `json:"operation_id"`
+	Operation           string                             `json:"operation"`
+	Result              string                             `json:"result"`
+	StartedAt           string                             `json:"started_at"`
+	CompletedAt         string                             `json:"completed_at"`
+	IncidentID          *string                            `json:"incident_id"`
+	RequeuedIntentCount *int                               `json:"requeued_intent_count"`
+	Error               *operatorCollaborationRequeueError `json:"error"`
+}
+
+type operatorCollaborationRequeueError struct {
+	Code       string `json:"code"`
+	ReasonCode string `json:"reason_code"`
+	Message    string `json:"message"`
+}
+
+type operatorRecoveryResult struct {
+	SchemaID           string                        `json:"schema_id"`
+	OperationID        string                        `json:"operation_id"`
+	Operation          string                        `json:"operation"`
+	Result             string                        `json:"result"`
+	StartedAt          time.Time                     `json:"started_at"`
+	CompletedAt        time.Time                     `json:"completed_at"`
+	BackupSetID        *string                       `json:"backup_set_id"`
+	ConsistencyPointAt *time.Time                    `json:"consistency_point_at"`
+	ArtifactRefs       []operatorRecoveryArtifactRef `json:"artifact_refs"`
+	Error              *operatorRecoveryError        `json:"error"`
+}
+
+type operatorRecoveryArtifactRef struct {
+	Kind        string  `json:"kind"`
+	SchemaID    string  `json:"schema_id"`
+	RefID       string  `json:"ref_id"`
+	BackupSetID *string `json:"backup_set_id"`
+}
+
+type operatorRecoveryError struct {
+	Code       string `json:"code"`
+	ReasonCode string `json:"reason_code"`
+	Message    string `json:"message"`
+}
 
 func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
 	s3Harness := s3test.Start(t)
@@ -55,11 +111,8 @@ func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("object-store init failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode object-store init JSON: %v\nstdout=%s", err, stdout)
-	}
-	if payload["schema_id"] != operator.OperatorObjectStoreInitResultSchemaID || payload["result"] != "created" || payload["created"] != true {
+	payload := decodeOperatorWireJSON[operatorObjectStoreInitResult](t, stdout)
+	if payload.SchemaID != operatorObjectStoreInitResultSchemaID || payload.Result != "created" || !payload.Created || payload.AlreadyExists {
 		t.Fatalf("unexpected object-store init payload: %#v", payload)
 	}
 	if strings.Count(stdout, "\n") != 1 || stderr != "" {
@@ -179,11 +232,8 @@ INSERT INTO collaboration_incident_stream_cursors (
 	if exitCode != 0 || stderr != "" || strings.Count(stdout, "\n") != 1 {
 		t.Fatalf("collaboration requeue process failed: exit=%d stdout=%q stderr=%q", exitCode, stdout, stderr)
 	}
-	var payload operator.OperatorCollaborationRequeueResult
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode collaboration requeue v2 process result: %v\nstdout=%s", err, stdout)
-	}
-	if payload.SchemaID != operator.OperatorCollaborationRequeueResultSchemaID || payload.Result != "succeeded" || payload.IncidentID == nil || *payload.IncidentID != incidentID.String() || payload.RequeuedIntentCount == nil || *payload.RequeuedIntentCount != 1 || payload.Error != nil {
+	payload := decodeOperatorWireJSON[operatorCollaborationRequeueResult](t, stdout)
+	if payload.SchemaID != operatorCollaborationRequeueResultSchemaID || payload.Result != "succeeded" || payload.IncidentID == nil || *payload.IncidentID != incidentID.String() || payload.RequeuedIntentCount == nil || *payload.RequeuedIntentCount != 1 || payload.Error != nil {
 		t.Fatalf("unexpected collaboration requeue process payload: %#v", payload)
 	}
 	var (
@@ -808,22 +858,28 @@ func operatorExtensionBackupCatalog(t testing.TB) *recovery.ExtensionBackupCatal
 	return catalog
 }
 
-func decodeOperatorRecoveryResult(t testing.TB, stdout string) recoverycli.Result {
+func decodeOperatorWireJSON[T any](t testing.TB, encoded string) T {
+	t.Helper()
+	decoder := json.NewDecoder(strings.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	var payload T
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatalf("decode operator wire JSON: %v\nencoded=%s", err, encoded)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		t.Fatalf("operator wire JSON contained trailing content: %v\nencoded=%s", err, encoded)
+	}
+	return payload
+}
+
+func decodeOperatorRecoveryResult(t testing.TB, stdout string) operatorRecoveryResult {
 	t.Helper()
 	if !strings.HasSuffix(stdout, "\n") || strings.Count(stdout, "\n") != 1 {
 		t.Fatalf("operator recovery stdout must be exactly one JSON line, got %q", stdout)
 	}
-	decoder := json.NewDecoder(strings.NewReader(stdout))
-	decoder.DisallowUnknownFields()
-	var payload recoverycli.Result
-	if err := decoder.Decode(&payload); err != nil {
-		t.Fatalf("decode operator recovery result: %v\nstdout=%s", err, stdout)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		t.Fatalf("operator recovery stdout contained trailing JSON content: %v\nstdout=%s", err, stdout)
-	}
-	if payload.SchemaID != recoverycli.ResultSchemaID {
-		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, recoverycli.ResultSchemaID, payload)
+	payload := decodeOperatorWireJSON[operatorRecoveryResult](t, stdout)
+	if payload.SchemaID != operatorRecoveryResultSchemaID {
+		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, operatorRecoveryResultSchemaID, payload)
 	}
 	if _, err := uuid.Parse(payload.OperationID); err != nil {
 		t.Fatalf("operator recovery operation_id is not UUID: %#v", payload)
@@ -834,7 +890,7 @@ func decodeOperatorRecoveryResult(t testing.TB, stdout string) recoverycli.Resul
 	return payload
 }
 
-func requireOperatorRecoverySuccess(t testing.TB, payload recoverycli.Result, operation string, backupSetID string) {
+func requireOperatorRecoverySuccess(t testing.TB, payload operatorRecoveryResult, operation string, backupSetID string) {
 	t.Helper()
 	if payload.Operation != operation || payload.Result != "succeeded" || payload.Error != nil {
 		t.Fatalf("unexpected operator recovery success payload: %#v", payload)
@@ -866,7 +922,7 @@ func requireOperatorRecoveryFailure(t testing.TB, stdout string, stderr string, 
 	}
 }
 
-func requireOperatorRecoveryArtifactKind(t testing.TB, payload recoverycli.Result, kind string, schemaID string, wantCount int) {
+func requireOperatorRecoveryArtifactKind(t testing.TB, payload operatorRecoveryResult, kind string, schemaID string, wantCount int) {
 	t.Helper()
 	count := 0
 	for _, ref := range payload.ArtifactRefs {
@@ -899,7 +955,7 @@ func requireOperatorRecoveryProgress(t testing.TB, stderr string, operationID st
 		if err := decoder.Decode(&record); err != nil {
 			t.Fatalf("decode operator recovery progress line %d: %v\nline=%s", index, err, line)
 		}
-		if record.SchemaID != recoverycli.ProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
+		if record.SchemaID != operatorRecoveryProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
 			t.Fatalf("unexpected operator recovery progress line %d: %#v want phase=%s operation_id=%s", index, record, wantPhases[index], operationID)
 		}
 		if record.Completed < 0 || (record.Total != nil && (record.Completed > *record.Total || *record.Total < 0)) || record.EmittedAt.IsZero() {
@@ -921,7 +977,7 @@ func requireOperatorRecoverySafeOutput(t testing.TB, stdout string, stderr strin
 	}
 }
 
-func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload recoverycli.Result, operation string, terminalResult string, forbidden ...string) {
+func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload operatorRecoveryResult, operation string, terminalResult string, forbidden ...string) {
 	t.Helper()
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

@@ -249,7 +249,7 @@ function renderMakeRecipe(recipe, manifest) {
       header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs ${selectionArgs}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/scheduler/work-graph/runner-cli.mjs ${selectionArgs}`,
     ];
   }
   if (recipe.type === "step_command") {

@@ -8,11 +8,11 @@
 | Target label | `operator-app` |
 | Output path | `docs/handoffs/operator-app-module-refactor-tracker.md` |
 | Baseline | `main` at `0bd8bd63bd0c19eed8b9f48fc8a9819134667401`; the tracked worktree was initially clean |
-| Tracker status | The SL-00 through SL-07 remediation is complete historical work. Section 13 records the next production-cleanup iteration as `PLANNED`; no PC slice has started. |
+| Tracker status | The SL-00 through SL-07 remediation is complete historical work. PC-00 of the production-hardening iteration is `DONE`; PC-01 is `READY`. |
 | Next-iteration planning baseline | Clean HEAD `846d024b900be4cf8019dcb6cf0c1d938386ff71`; the document update MUST preserve this baseline as the inspected implementation state. |
-| Permitted change in this task | This tracker only. The PC-00 through PC-04 write sets in section 13 are plans for a separately authorized implementation turn. |
-| Prohibited changes in this task | Product source, tests, owner documents, typed contracts, Harness inputs, generated artifacts, dependencies, migrations, and runtime state. |
-| Implementation authority | The 2026-08-06 directive authorized and completed SL-00 through SL-07. The current directive authorizes this tracker revision only; adopted owners remain authoritative over any later PC implementation. |
+| Permitted change in this task | The PC-00 through PC-05 write sets in section 13, with this tracker checkpointed after every completed or blocked slice. |
+| Prohibited changes in this task | Unrelated product behavior, owner behavior, frontend/browser/network surfaces, data migrations, dependencies, hand edits to generated artifacts, compatibility aliases, and work from a dependent slice before its gate closes. |
+| Implementation authority | The 2026-08-06 directive authorized and completed SL-00 through SL-07. The current directive authorizes PC-00 through PC-05; adopted owners remain authoritative over behavior throughout execution. |
 
 `MUST`, `MUST NOT`, `SHOULD`, and `MAY` are normative for execution of this
 refactor plan. They do not amend product behavior owned by Core or an adopted
@@ -737,11 +737,13 @@ weaken any completed acceptance result.
 
 ### 13.1 Status, authority, and behavior freeze
 
-This section is a refactor plan, not an adopted product owner. Its status is
-`PLANNED`. This documentation task MUST NOT execute PC-00 through PC-04 or
-change any file other than this tracker. A later explicit implementation
-directive may start PC-00 at the baseline recorded in section 1 after first
-reconciling intervening repository changes.
+This section is a refactor execution ledger, not an adopted product owner. Its
+status is `BLOCKED`: PC-00 through PC-04 are complete and PC-05 is blocked by a
+pre-existing ShellCheck failure in an unchanged Harness test outside the
+authorized write set.
+The user-authorized implementation MUST execute PC-00 through PC-05 in order
+at the baseline recorded in section 1. A slice is not complete until this
+tracker is updated and its Markdown, diff, and scope checkpoint passes.
 
 The next iteration has one structural objective: make `internal/app/operator`
 a production-ready binary facade with the smallest justified private surface,
@@ -765,29 +767,36 @@ retains the five Recovery commands while Core 01 requires them, retains
 Migration Evidence while its owner consumes the evidence, and retains Object
 Store initialization while stand-up packaging requires configured-bucket
 initialization. Collaboration requeue remains adopted current-profile behavior.
-None of those retirement predicates is satisfied at the planning baseline.
+None of those retirement predicates is satisfied at the execution baseline.
+Core 01, Core 03, Core 04, and the Testing Harness NLSpec already close the
+behavior and runtime-binary requirements. `docs/domain.md` classifies package
+paths, Go symbols, and operator wiring as implementation detail. PC-00 found no
+owner contradiction and authorizes no owner or domain amendment.
 
 ### 13.2 Inspected cleanup inventory and final disposition
 
-The planning baseline is a clean worktree at
-`846d024b900be4cf8019dcb6cf0c1d938386ff71`. It contains 21 Go test entry points
-beneath `internal/app/operator`, nine active `app.operator` Harness rows, and
-five target test entry points that do not occur in any authored selector. The
-following dispositions are closed for the next implementation iteration:
+The implementation baseline is HEAD
+`846d024b900be4cf8019dcb6cf0c1d938386ff71` with only this user-owned tracker
+revision staged. The index MUST remain untouched. The baseline contains 21 Go
+test entry points beneath `internal/app/operator`, nine active `app.operator`
+Harness rows, and five target test entry points absent from every authored
+selector. The following dispositions are closed:
 
 | Candidate | Baseline evidence | Final disposition | Continuing contract |
 | --- | --- | --- | --- |
-| `operatorRunner.stdout` | Stored during construction and never read | Delete in PC-03 | Writers remain owned by each executor's `operatorTransport`. |
-| `operatorCommandDescriptor.Owner` | Checked only for nonempty text and never used for routing, diagnostics, ownership, or evidence | Delete in PC-03 | Harness ownership remains in authored owner manifests; command descriptors retain tokens, usage, handlers, and invalid-namespace routing. |
-| `operatorCLIResult.command` | Written by two parsers and read only by one test assertion | Delete in PC-03 | Exact command identity remains in the registry and command-local executor. |
-| `operatorCLIResult` | Union of Migration Evidence fields and Object Store fields, coupling unrelated parsers | Replace with `migrationEvidenceCaptureArgs` and `objectStoreInitArgs` in PC-03 | Each parser returns its command-local value plus explicit stop/exit control. No generic parser container is added. |
-| `defaultMigrationEvidenceManifestPath` | Private alias used only by implementation and tests | Delete in PC-03 | Use `migrationevidence.DefaultManifestPath` directly. |
-| Root operator result structs and schema constants | Exported only for same-repository tests; not production composition APIs | Make private in PC-02 | JSON schema IDs and wire shapes remain byte-stable; external process tests decode into test-local structs and compare exact contract IDs. |
-| `internal/app/operator/recoverycli` import path | Imported by its operator parent and Recovery process tests; its broad exported surface exists partly for those tests | Move to `internal/app/operator/internal/recoverycli` in PC-02 and delete the old path | The nested `internal` boundary permits the operator facade to compose it and prevents unrelated production imports. No forwarding package remains. |
-| Recovery CLI helper exports | Parsing, timeout, target-path, error-construction, progress, and failure-mapping helpers are exported beyond their production need | Make helpers private after moving their tests in PC-01/PC-02; retain only the minimum symbols required by the parent facade | Recovery wire behavior and `ProjectFailureEvidence` mapping remain unchanged. |
-| `TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand` | Refers to a stale ordinal and duplicates global unknown-command coverage | Delete and remove it from the existing registry row in PC-01 | The registry row continues to prove exactly eight routes, ambiguity rejection, exact routing, and generic unknown-command usage. |
-| Five uncataloged Recovery tests in `operator_recovery_test.go` | Canonical parsing, unsafe paths, and generic failure-envelope behavior contain current value; legacy names and retired-token cases duplicate stronger guards | Re-express current behavior in active nested-Recovery-CLI tests and delete all five old entry points in PC-01/PC-02 | Current parser and failure contracts become active Harness evidence; historical command and flag names are not retained as dedicated tests. |
+| `operatorRunner.stdout` | Stored during construction and never read | Delete in PC-04 | Writers remain owned by each executor's `operatorTransport`. |
+| `operatorCommandDescriptor.Owner` | Checked only for nonempty text and never used for routing, diagnostics, ownership, or evidence | Delete in PC-04 | Harness ownership remains in authored owner manifests; descriptors retain tokens, usage, handlers, and invalid-namespace routing. |
+| `operatorCLIResult.command` | Written by two parsers and read only by one test assertion | Delete in PC-04 | Exact command identity remains in the registry and command-local executor. |
+| `operatorCLIResult` | Union of Migration Evidence fields and Object Store fields, coupling unrelated parsers | Replace with command-local argument types in PC-04 | Parsers return `(commandArgs, stop, exitCode)`; no generic parser container is added. |
+| `defaultMigrationEvidenceManifestPath` | Private alias used only by implementation and tests | Delete in PC-04 | Use `migrationevidence.DefaultManifestPath` directly. |
+| Root operator result structs and schema constants | Exported only for same-repository tests; not production composition APIs | Make private in PC-03 | JSON schema IDs and wire shapes remain byte-stable; process tests use strict test-local decoders. |
+| `internal/app/operator/recoverycli` import path | Imported by its operator parent and Recovery process tests | Move beneath `internal/app/operator/internal` in PC-03 and delete the old path | No forwarding package, import alias, or duplicate implementation remains. |
+| Recovery CLI helper exports | Parsing, timeout, path, error, progress, and mapping helpers exceed production need | Make all private except `Run` and `FailureEvidenceFields` in PC-03 | The parent facade retains exactly its two required composition seams. |
+| `TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand` | Refers to a stale ordinal and duplicates global unknown-command coverage | Delete in PC-02 and remove its selector | The registry row retains its immutable identity and current postcondition. |
+| Five uncataloged Recovery tests in `operator_recovery_test.go` | Current parser/path/envelope value is mixed with legacy spellings | Replace with one current-contract test in PC-02 | Canonical grammar and generic failure behavior become active evidence without historical compatibility vocabulary. |
 | Retired top-level-token boundary rule | Machine policy rejects production reintroduction of `backup-metadata` | Keep | A structural absence guard has continuing value and adds no runtime compatibility path. |
+| Black-box process rows lack the `operator` runtime-binary edge | Baseline owner slice failed because `CARTULARY_OPERATOR_BIN` named a missing file | Move both to `app.operator.process` and map that family to `operator` in PC-01 | Scheduler-produced binary provenance replaces workspace-order dependence. |
+| Object Store process row claims a Postgres fixture | The test mutates only an isolated Object Store bucket | Use `object_store_namespace` in PC-01 | Fixture ownership matches the durable effect and avoids a false database dependency. |
 
 The five currently uncataloged entry points are
 `TestOperatorRecoveryParserAcceptsCanonicalCommands`,
@@ -795,42 +804,62 @@ The five currently uncataloged entry points are
 `TestOperatorRecoveryParserLeavesRetiredTopLevelNamesForRegistryUsage`,
 `TestOperatorRecoveryParserRejectsUnsafeTargetPaths`, and
 `TestOperatorRecoveryCLIEmitsSingleFailureEnvelopeForLegacyCommand`.
-Their names MUST disappear. PC-01 MUST preserve only their current-contract
+Their names MUST disappear. PC-02 MUST preserve only their current-contract
 assertions: five canonical operations, literal absolute target-path validation,
 generic unknown Recovery subcommand projection, and the single JSON failure
-envelope. Unknown flags MUST be covered generically, not by enumerating retired
-flag spellings.
+envelope. The invalid-path matrix includes relative, `~`, shell-variable, NUL,
+and lexical `.` and `..` forms. Unknown flags MUST be covered generically, not
+by enumerating retired flag spellings.
 
 The final intended Go exposure is:
 
 | Package | Permitted exported surface after PC-03 |
 | --- | --- |
 | `internal/app/operator` | `RunOperatorCLIContext` only |
-| `internal/app/operator/internal/recoverycli` | Only the runner construction/execution and failure-evidence projection symbols required by `operator_recovery.go`; wire DTOs and parser helpers remain private |
+| `internal/app/operator/internal/recoverycli` | `Run` and `FailureEvidenceFields` only; wire DTOs and parser helpers remain private |
 | retired `internal/app/operator/recoverycli` | Package absent; zero imports and no forwarding alias |
+
+The baseline `make test-slice OWNER=app.operator` run at
+`.cartulary/test-results/20260806T210808Z-p2685286` failed only the two process
+rows because `/home/jochi/code/cartulary/operator` did not exist. The failure is
+related to the PC-01 Harness projection gap and is retained as diagnostic
+evidence, not accepted as a product failure.
 
 ### 13.3 Ordered implementation slices
 
-The status vocabulary for this iteration is `PLANNED`, `READY`, `IN_PROGRESS`,
-`BLOCKED`, and `DONE`. This tracker update leaves every slice `PLANNED`. A later
-implementation turn MUST execute them in order and checkpoint this tracker
+The status vocabulary is `PLANNED`, `READY`, `IN_PROGRESS`, `BLOCKED`, and
+`DONE`. Slices execute in exact order and this tracker MUST be checkpointed
 after each completed or blocked slice.
 
 | Slice | Status | Depends on | Exact change | Authorized write set | Validation and completion gate |
 | --- | --- | --- | --- | --- | --- |
-| PC-00 | PLANNED | Explicit implementation directive | Revalidate baseline, production callers, root and Recovery CLI exports, all target test entry points, authored selectors, command retirement predicates, and byte-level contract freeze. Record any intervening drift before changing source. | This tracker only; all other inspection is read-only. | Clean scoped status or an explicit preserved-change inventory; exact caller/export/test/selector reports; all eight commands and five uncataloged tests reconciled. Drift that changes a planned disposition blocks PC-01 pending tracker revision. |
-| PC-01 | PLANNED | PC-00 | Delete the stale sixth-command test and remove its selector. Replace legacy-named Recovery tests with current-contract parser, path, generic unknown-command, envelope, and failure-mapping tests in the Recovery CLI package. | Operator registry/Recovery test files, Recovery CLI test file, `tools/test_families/app.operator.json`, Make-generated test accounting, and this tracker. | Keep the existing registry, failure-mapping, and due-timeout row IDs when owner and postcondition are unchanged. Allocate one new owner-qualified row with `make author-test-row-id` for the newly active parser/transport postcondition. Every retained test entry point resolves exactly once; no legacy-named test remains. |
-| PC-02 | PLANNED | PC-01 | Move the Recovery CLI package beneath `internal/app/operator/internal`, update the parent import, move its active tests, make wire DTOs/schema constants private in the root operator package, and replace process-test type imports with test-local decoders and exact schema IDs. Delete the old package directory. | `operator_recovery.go`; old and new Recovery CLI trees; operator/process tests that consume the Go types; backend boundary owner input; affected authored Harness manifests and generated accounting; this tracker. | Zero imports or files remain at the old path; Go's nested-internal boundary admits only operator-subtree callers; unchanged rows keep their semantic IDs while selectors point to the new package; focused and process evidence remains byte-stable. No shim, alias, or duplicate package exists. |
-| PC-03 | PLANNED | PC-02 | Remove the dead runner/descriptor/parser fields and manifest alias. Replace `operatorCLIResult` with command-local Migration Evidence and Object Store argument structs and explicit parse stop/exit returns. Remove all no-longer-required exports. | Operator facade, registry, transport, Migration Evidence, Object Store, and directly affected unit tests; boundary owner input if its exact scan paths change; this tracker. | `internal/app/operator` exposes only `RunOperatorCLIContext`; the registry still validates incomplete, duplicate, and prefix-ambiguous descriptors; all command output, errors, exits, and closure evidence are unchanged. No generic command bus, dependency container, or shared union parser is introduced. |
-| PC-04 | PLANNED | PC-03 | Reconcile authored selectors, generated accounting, boundary paths, source inventory, stale-name search, run roots, and final handoff. Remove obsolete selectors and historical implementation references from current-state sections without rewriting prior session history. | Authored Harness/boundary inputs changed by PC-01 through PC-03, their Make-generated projections, this tracker, and no other product surface. | All section 13 acceptance criteria pass; all required narrow and broad gates have retained successful evidence; tracker status becomes `DONE` with no compatibility residue or untracked test. |
+| PC-00 | DONE | Explicit implementation directive | Revalidated HEAD/index posture, adopted owners, callers, exports, 21 tests, nine rows, five uncataloged tests, retirement predicates, and the missing operator-binary edge; adopted this six-slice ledger. | This tracker only; all other inspection was read-only. | Baseline and owner reports agree; the staged tracker is preserved; PC-01 is `READY`. |
+| PC-01 | DONE | PC-00 | Replaced the two process row identities, added `app.operator.process -> operator`, corrected the Object Store fixture capability, repaired graph-runner machine-state propagation under the explicitly expanded write set, and regenerated topology/task-surface outputs. | `tools/test_families/app.operator.json`, `tools/execution_topology_manifest.json`, their Make-generated outputs, the task-surface renderer, its focused regression test and generated Make output, and this tracker. | Exact and omitted owner selections build the missing operator artifact and pass both process rows; generated-artifact owner, Harness, JSON, generation-drift, and policy gates pass. |
+| PC-02 | DONE | PC-01 | Deleted the stale ordinal and five legacy-named entry points; added one current parser/path/invalid-envelope test; moved exhaustive failure mapping beside Recovery CLI; updated selectors/accounting. | Operator registry/Recovery tests, Recovery CLI tests, app operator family manifest, generated accounting, and this tracker. | The intermediate inventory is 16 selected entry points and projects to the required final 17 after PC-03 adds the export guard; registry/failure/due IDs remain stable and the new parser row is active. |
+| PC-03 | DONE | PC-02 | Moved Recovery CLI beneath nested `internal`, exposed only `Run` and `FailureEvidenceFields`, privatized root wire types, introduced strict test-local process DTOs, updated boundary policy, and added the export-surface guard. | Operator/Recovery CLI source and tests, process tests, backend boundary input, app manifest, generated accounting, and this tracker. | Old path/imports are absent; the exact 17-test and 11-row inventory reconciles; black-box bytes, boundary, build, process, owner, Harness, JSON, generation-drift, and generated-policy evidence pass. |
+| PC-04 | DONE | PC-03 | Removed dead runner/descriptor/parser fields and the manifest alias; introduced command-local Migration Evidence and Object Store args with explicit stop/exit returns; strengthened incomplete-descriptor tests. | Operator facade, registry, transport, Migration Evidence, Object Store, directly affected tests, and this tracker. | Dead symbols are absent; only the two command-local parser result types remain; help, invalid, and success stop/exit semantics pass; affected app, Postgres, Object Store, and operator-build evidence passes. |
+| PC-05 | BLOCKED | PC-04 | Reconciled selectors, generated outputs, boundaries, the 11-row and 17-test inventory, exact acceptance rows, all focused/service-backed owners, static/build/projection gates, preflight finalization, and `test-fast`. The full check completed 715 of 716 units before an unchanged Harness shell test failed ShellCheck. | Authorized authored/generated inputs changed by PC-01 through PC-04 and this tracker. The required one-line Harness test repair is outside this set. | Resume only after authorizing `tools/harness/tests/test-run-step.sh`; consume or discard its existing `capacity_target_output` capture without weakening the assertion, rerun `lint-shell`, `check`, retained finalization, and the final handoff checkpoint. |
 
-PC-01 may retain the existing failure-mapping and due-timeout row IDs because
+PC-02 retains the existing failure-mapping and due-timeout row IDs because
 their owner and semantic postconditions do not change. The current registry row
 also retains its ID after the redundant selector is removed because it still
 proves the same eight-route and routing postcondition. The new active
-parser/transport postcondition MUST receive a newly authored ID because it has
-no active predecessor row. No migration crosswalk is required: no existing row
-changes owner, and the uncataloged tests never had active row identity.
+parser/transport postcondition is
+`app.operator.unit.recovery_cli_parser_and_invalid_invocation_trans_b3caf1f612`.
+The export guard is
+`app.operator.unit.operator_facade_and_nested_recovery_cli_expose_o_0b8f75c21c`.
+Neither has a predecessor.
+
+The two process-family changes require new row IDs because `row_id` is prefixed
+by immutable `family_id`. The documentation-only crosswalk is:
+
+| Previous row | Replacement row |
+| --- | --- |
+| `app.operator.integration.collaboration_requeue_v2_process_contract_c1e6d7ba96` | `app.operator.process.collaboration_requeue_v2_process_contract_4ce8fef4eb` |
+| `app.operator.integration.object_store_init_process_transport_c19d4d6cf0` | `app.operator.process.object_store_init_process_transport_400591b90d` |
+
+The old IDs are removed from executable inputs. This table is review evidence,
+not a runtime alias, selector source, or compatibility reader.
 
 ### 13.4 Verification and evidence plan
 
@@ -840,12 +869,12 @@ implementation MUST use these gates in order and record actual run roots:
 | Stage | Exact commands | Required result |
 | --- | --- | --- |
 | Owner and selector discovery | `make task-guide ROLE=module-author OWNER=<owner>` and `make explain-test-owner OWNER=<owner>` for `app.operator`, `module.recovery`, `module.collaboration`, `platform.postgres`, and `platform.objectstore` | Current rows and service-backed posture recorded before selector changes. |
-| Identifier allocation | `make author-test-row-id FAMILY_ID=app.operator.unit CLAIM=<current-recovery-cli-parser-contract> SELECTOR_KEY=<stable-selector-key>` | One new immutable ID for the newly active parser/transport row; no IDs for deleted legacy-only tests. |
+| Identifier allocation | `make author-test-row-id` with the approved family, claim, and final selector keys recorded above | Four exact new IDs reproduce; no ID is allocated for deleted legacy-only tests. |
 | Focused owner evidence | `make test-slice OWNER=<owner>` for all five owners above | Every affected unit/integration selector passes after PC-01 through PC-03. |
 | Service-backed evidence | `make service-backed-test-slice OWNER=<owner>` for all five owners above | Resource, process, durable-effect, and semantic-owner evidence remains unchanged. |
 | Static and build | `make backend-module-boundary-check`; `make build-operator` | Nested internal boundary and exclusive binary composition pass; production operator builds. |
 | Harness and projections | `make harness-contract`; `make json-shape-check`; `make generate`; `make generate-drift`; `make generated-artifact-policy-check` | Authored selector and boundary changes project cleanly; generated files are never hand-edited. |
-| Broad completion | `make agent-finalize`; `make test-fast`; `make check` | Final current-worktree evidence succeeds before PC-04 becomes `DONE`; retained-run maintenance uses `RESULTS_DIR` when a successful full run is retained. |
+| Broad completion | `make agent-finalize`; `make test-fast`; `make check` | Final current-worktree evidence succeeds before PC-05 becomes `DONE`; retained-run maintenance uses `RESULTS_DIR` for the successful full run. |
 | Tracker integrity | `make lint-markdown`; `git diff --check`; `git status --short` | Markdown, whitespace, and write-scope integrity pass after every checkpoint. |
 
 No browser, frontend, HTTP, WebSocket, data-migration, or schema-version test is
@@ -863,11 +892,34 @@ root and relationship assessment; it MUST NOT broaden the iteration silently.
 | PC-AC-005 | Migration Evidence and Object Store parsers use separate command-local argument types; no generic plugin framework, dependency container, or shared union parser replaces the deleted structure. |
 | PC-AC-006 | Every retained Go test beneath the target is selected exactly once by an active owner row, and no stale ordinal or legacy-specific test name remains. |
 | PC-AC-007 | Current Recovery parser, absolute target-path, generic unknown-command/envelope, exhaustive failure mapping, and due-timeout behavior have active exact selectors. |
-| PC-AC-008 | Existing owner/postcondition rows retain their immutable IDs; the new parser/transport postcondition has one Make-authored ID; no crosswalk or runtime alias is created. |
+| PC-AC-008 | Continuing owner/postcondition rows retain their immutable IDs; four exact new IDs cover the process-family replacements and new parser/export postconditions; the documentation crosswalk is not executable and no runtime alias exists. |
 | PC-AC-009 | The retired-token production boundary guard remains active while historical command identifiers are absent from live production code and active test selectors. |
-| PC-AC-010 | Focused, service-backed, boundary, build, Harness, generation, broad, Markdown, diff, and status gates all have recorded successful evidence before PC-04 is marked `DONE`. |
+| PC-AC-010 | Focused, service-backed, boundary, build, Harness, generation, broad, Markdown, diff, and status gates all have recorded successful evidence before PC-05 is marked `DONE`. |
 
-The only authorized next action after this documentation checkpoint is a later
-explicit instruction to begin PC-00. Until then, PC-00 through PC-04 remain
-`PLANNED`, sections 1 through 12 remain closed historical evidence, and no
-product or Harness mutation is authorized by this document update.
+Additional terminal conditions are:
+
+- both black-box process rows receive a scheduler-produced `operator` binary;
+- `app.operator` contains 11 active rows and the target contains 17 Go test
+  entry points, each selected exactly once;
+- the Object Store process row uses `object_store_namespace` and no false
+  Postgres fixture dependency; and
+- the export-surface AST guard admits only the root `RunOperatorCLIContext` and
+  nested `Run` and `FailureEvidenceFields` seams.
+
+### 13.6 Production-hardening execution log
+
+| Timestamp | Slice | Status | Files and substantive work | Commands and evidence | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-06T21:18:38Z | PC-00 | DONE | Updated this tracker only; preserved staged baseline; reconciled owners, callers, exports, tests, selectors, runtime-binary topology, exact new IDs, and the process-row crosswalk | `git status --porcelain=v2`; owner task guides/explanations; exact `rg` inventories; baseline failed owner slice `.cartulary/test-results/20260806T210808Z-p2685286`; checkpoint validation follows | None; the failed owner slice is the confirmed PC-01 Harness gap | Execute PC-01 only |
+| 2026-08-06T21:23:34Z | PC-01 | BLOCKED | Replaced both process row IDs and family IDs, mapped `app.operator.process` to the authored `operator` runtime binary, changed the Object Store fixture from `postgres_dedicated` to `object_store_namespace`, and regenerated the topology render index. The staged tracker baseline remains untouched. | First `make generate` failed on row ordering at `.cartulary/test-results/20260806T211931Z-p2701475`; the corrected rerun passed at `.cartulary/test-results/20260806T212027Z-p2704296`. With no pre-existing `operator` file, the exact two-row slice built the binary and passed Collaboration, but failed Object Store fixture acquisition at `.cartulary/test-results/20260806T212047Z-p2706713`. Checkpoint `make lint-markdown` passed at `.cartulary/test-results/20260806T212400Z-p2729930`; staged and unstaged `git diff --check` and scoped status inspection passed. | Related Harness defect: graph-runner recipes strip the three Make-owned Go machine-state variables, while `object_store_namespace` requires them to compile its run-scoped proxy. Repairing the task-surface renderer/generated Make output and adding Harness regression evidence is outside the PC-01 authorized write set. | Obtain authority to expand PC-01 to the task-surface renderer, its tests, and generated task-surface output; repair propagation, rerun PC-01 gates, and do not begin PC-02 beforehand. |
+| 2026-08-06T23:46:00Z | PC-01 | IN_PROGRESS | User explicitly expanded the slice write set to the task-surface renderer, focused renderer regression tests, and generated task-surface Make output; no PC-02 mutation began. | Authorization recorded in this ledger before the resumed implementation. | None | Repair graph-runner machine-state propagation and complete all PC-01 gates. |
+| 2026-08-06T23:48:42Z | PC-01 | DONE | Added Make-owned machine-state forwarding to every graph-runner recipe after public-input stripping; added a renderer regression assertion; regenerated task-surface and topology outputs; retained new process identities, operator binary mapping, and correct Object Store fixture. | `make generate` passed at `.cartulary/test-results/20260806T234654Z-p2763340`. From an absent `operator` artifact, the exact two-row slice passed at `.cartulary/test-results/20260806T234723Z-p2765734`; omitted-row `app.operator` passed at `.cartulary/test-results/20260806T234753Z-p2785430`. `harness.generated_artifacts` passed at `.cartulary/test-results/20260806T234822Z-p2805493`; `harness-contract`, `json-shape-check`, and `generate-drift` passed respectively at `.cartulary/test-results/20260806T234822Z-p2805726`, `.cartulary/test-results/20260806T234822Z-p2805428`, and `.cartulary/test-results/20260806T234822Z-p2805388`; generated-artifact policy passed at `.cartulary/test-results/20260806T234834Z-p2811464`. | None; the earlier related fixture failure remains recorded above. | Run the PC-01 tracker checkpoint, then execute PC-02 only. |
+| 2026-08-06T23:53:18Z | PC-02 | DONE | Removed the stale sixth-command test and the five uncataloged legacy-oriented Recovery entry points; replaced their continuing value with `TestRecoveryCLIParserAndInvalidInvocationContract`; moved the exhaustive failure mapping unchanged beside Recovery CLI; converted registry negatives to generic unknown inputs; retained registry, failure, and due row IDs; added the new parser row and regenerated accounting. | `make format` passed at `.cartulary/test-results/20260806T235158Z-p2817848`; `make generate` passed at `.cartulary/test-results/20260806T235201Z-p2820813`; exact parser/registry/failure/due rows passed at `.cartulary/test-results/20260806T235213Z-p2823146`; omitted `app.operator` and `module.recovery` slices passed at `.cartulary/test-results/20260806T235227Z-p2824158` and `.cartulary/test-results/20260806T235227Z-p2824175`; Harness contract and generation drift passed at `.cartulary/test-results/20260806T235227Z-p2824367` and `.cartulary/test-results/20260806T235227Z-p2824077`. Inventory inspection found 16 intermediate entry points with no stale ordinal, legacy-named test, or historical negative identifier in active operator tests/selectors. | None | Run the PC-02 tracker checkpoint, then execute PC-03 only. |
+| 2026-08-07T00:03:25Z | PC-03 | DONE | Moved Recovery CLI to `internal/app/operator/internal/recoverycli`; replaced its exported runner and DTO/helper surface with free `Run`, `FailureEvidenceFields`, and private implementation types; privatized root Object Store and Collaboration wire types; removed process-test imports of both production transport packages in favor of closed local DTOs, literal schema IDs, and strict decoders; added retired-import boundary policy and updated runtime scan paths; added the AST export allowlist with a negative fixture and its immutable row. | Initial `make build-operator` exposed a local type-shadowing compile error at `.cartulary/test-results/20260806T235931Z-p2890145`; the repaired build passed at `.cartulary/test-results/20260807T000004Z-p2904141`. `make generate` passed at `.cartulary/test-results/20260807T000028Z-p2915028`; exact export/parser/failure/due rows passed at `.cartulary/test-results/20260807T000042Z-p2917385`. The first exact process rerun exposed a test-local Object Store schema literal typo at `.cartulary/test-results/20260807T000050Z-p2918263`; the corrected rerun passed at `.cartulary/test-results/20260807T000140Z-p2941339`. Boundary passed at `.cartulary/test-results/20260807T000210Z-p2961164`; omitted `app.operator` and `module.recovery` passed at `.cartulary/test-results/20260807T000229Z-p2961823` and `.cartulary/test-results/20260807T000229Z-p2961822`; Harness and generation drift passed at `.cartulary/test-results/20260807T000229Z-p2962046` and `.cartulary/test-results/20260807T000229Z-p2961744`; JSON and generated-policy gates passed at `.cartulary/test-results/20260807T000317Z-p3019825` and `.cartulary/test-results/20260807T000317Z-p3019816`. | None; both related local implementation/test failures were repaired without owner or wire changes. | Run the PC-03 tracker checkpoint, then execute PC-04 only. |
+| 2026-08-07T00:07:36Z | PC-04 | DONE | Removed `operatorRunner.stdout`, `operatorCommandDescriptor.Owner`, `operatorCLIResult` and its dead command field, and the manifest-path alias; introduced `migrationEvidenceCaptureArgs` and `objectStoreInitArgs` with explicit `(args, stop, exitCode)` parse returns; used `migrationevidence.DefaultManifestPath` directly; expanded the registry test across empty tokens, invalid tokens, blank usage, and nil handlers; added direct help/invalid/success parser assertions. | `make format` passed at `.cartulary/test-results/20260807T000609Z-p3023431`. The first exact three-row run found a test-local variable redeclaration at `.cartulary/test-results/20260807T000621Z-p3026479`; after repair, exact Migration Evidence, Object Store, and registry rows passed at `.cartulary/test-results/20260807T000648Z-p3030162`. Omitted `app.operator`, `platform.postgres`, and `platform.objectstore` passed at `.cartulary/test-results/20260807T000706Z-p3031109`, `.cartulary/test-results/20260807T000706Z-p3031113`, and `.cartulary/test-results/20260807T000706Z-p3031108`; `make build-operator` passed at `.cartulary/test-results/20260807T000706Z-p3031529`. Dead-symbol searches were empty and found only the two command-local parser types/signatures. | None; the related test compile failure was repaired without product behavior changes. | Run the PC-04 tracker checkpoint, then execute PC-05 only. |
+| 2026-08-07T00:19:36Z | PC-05 | BLOCKED | Reconciled all 11 active `app.operator` rows and 17 target tests; reran the seven exact process/parser/export/registry/failure/due rows; completed all five focused and service-backed owner selections; completed static, build, Harness, JSON, generation, drift, policy, preflight-finalization, and fast-suite gates. | Exact acceptance rows passed at `.cartulary/test-results/20260807T000833Z-p3067976`. Focused `app.operator`, `module.recovery`, `module.collaboration`, `platform.postgres`, and `platform.objectstore` passed respectively at `.cartulary/test-results/20260807T000856Z-p3087712`, `.cartulary/test-results/20260807T000856Z-p3087723`, `.cartulary/test-results/20260807T000856Z-p3087739`, `.cartulary/test-results/20260807T000856Z-p3087758`, and `.cartulary/test-results/20260807T000856Z-p3087774`; their service-backed selections passed at `.cartulary/test-results/20260807T001040Z-p3173353`, `.cartulary/test-results/20260807T001040Z-p3173339`, `.cartulary/test-results/20260807T001040Z-p3173340`, `.cartulary/test-results/20260807T001040Z-p3173369`, and `.cartulary/test-results/20260807T001040Z-p3173362`. `generate` passed at `.cartulary/test-results/20260807T001210Z-p3254168`; boundary, build, Harness, JSON, drift, and policy passed at `.cartulary/test-results/20260807T001227Z-p3257012`, `.cartulary/test-results/20260807T001227Z-p3257382`, `.cartulary/test-results/20260807T001227Z-p3257099`, `.cartulary/test-results/20260807T001226Z-p3256702`, `.cartulary/test-results/20260807T001226Z-p3256698`, and `.cartulary/test-results/20260807T001226Z-p3256729`. `agent-finalize` and all 348 `test-fast` units passed at `.cartulary/test-results/20260807T001243Z-p3271839` and `.cartulary/test-results/20260807T001259Z-p3274508`. Full `check` failed one of 716 units at `.cartulary/test-results/20260807T001451Z-p3323661`; independent `lint-shell` reproduced it at `.cartulary/test-results/20260807T001912Z-p3478277`. | Unrelated pre-existing `SC2034`: unchanged `tools/harness/tests/test-run-step.sh` assigns `capacity_target_output` but never consumes it. Retained-evidence finalization was not run because no successful full-check root exists. Browser suites remain skipped because this target has no browser surface. | Obtain authority for the narrow Harness test repair; do not mark PC-05 done or publish final handoff before the broad check and retained finalization pass. |
+
+The only authorized next action is resolving the PC-05 ShellCheck blocker.
+Sections 1 through 12 remain closed historical evidence. PC-05 MUST remain
+blocked until a successful full-check root is retained and the final tracker
+checkpoint passes.

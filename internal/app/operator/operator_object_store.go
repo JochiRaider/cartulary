@@ -13,9 +13,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-const OperatorObjectStoreInitResultSchemaID = "cartulary.operator.object_store_init_result.v1"
+const operatorObjectStoreInitResultSchemaID = "cartulary.operator.object_store_init_result.v1"
 
-type OperatorObjectStoreInitResult struct {
+type operatorObjectStoreInitResult struct {
 	SchemaID      string `json:"schema_id"`
 	Result        string `json:"result"`
 	Created       bool   `json:"created"`
@@ -28,10 +28,14 @@ type objectStoreExecutor struct {
 	ensureObjectStoreBucket func(context.Context, objectstore.Settings) (objectstore.EnsureBucketResult, error)
 }
 
+type objectStoreInitArgs struct {
+	sourceConfigPath string
+}
+
 func (executor objectStoreExecutor) runCommand(ctx context.Context, args []string) int {
-	parsed := parseObjectStoreInitArgs(args[2:], executor.transport.stderr)
-	if parsed.stop {
-		return parsed.exitCode
+	parsed, stop, exitCode := parseObjectStoreInitArgs(args[2:], executor.transport.stderr)
+	if stop {
+		return exitCode
 	}
 	if err := executor.initialize(ctx, parsed); err != nil {
 		executor.transport.logger().Error("operator command failed", "error", err)
@@ -40,7 +44,7 @@ func (executor objectStoreExecutor) runCommand(ctx context.Context, args []strin
 	return 0
 }
 
-func (executor objectStoreExecutor) initialize(ctx context.Context, parsed operatorCLIResult) error {
+func (executor objectStoreExecutor) initialize(ctx context.Context, parsed objectStoreInitArgs) error {
 	loaded, err := executor.loadConfig(parsed.sourceConfigPath)
 	if err != nil {
 		return sanitizeObjectStoreInitError(err)
@@ -54,8 +58,8 @@ func (executor objectStoreExecutor) initialize(ctx context.Context, parsed opera
 	if err != nil {
 		return sanitizeObjectStoreInitError(err)
 	}
-	payload := OperatorObjectStoreInitResult{
-		SchemaID:      OperatorObjectStoreInitResultSchemaID,
+	payload := operatorObjectStoreInitResult{
+		SchemaID:      operatorObjectStoreInitResultSchemaID,
 		Result:        operatorObjectStoreInitResultCode(result),
 		Created:       result.Created,
 		AlreadyExists: result.AlreadyExists,
@@ -63,20 +67,19 @@ func (executor objectStoreExecutor) initialize(ctx context.Context, parsed opera
 	return executor.transport.encodeJSON(payload)
 }
 
-func parseObjectStoreInitArgs(args []string, stderr io.Writer) operatorCLIResult {
+func parseObjectStoreInitArgs(args []string, stderr io.Writer) (objectStoreInitArgs, bool, int) {
 	flags := flag.NewFlagSet("operator object-store init", flag.ContinueOnError)
 	flags.SetOutput(normalizeOperatorWriter(stderr))
 	sourceConfig := flags.String("config", "", "optional deployment config path")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return operatorCLIResult{stop: true, exitCode: 0}
+			return objectStoreInitArgs{}, true, 0
 		}
-		return operatorCLIResult{stop: true, exitCode: 2}
+		return objectStoreInitArgs{}, true, 2
 	}
-	return operatorCLIResult{
-		command:          "object-store init",
+	return objectStoreInitArgs{
 		sourceConfigPath: strings.TrimSpace(*sourceConfig),
-	}
+	}, false, 0
 }
 
 func operatorObjectStoreInitResultCode(result objectstore.EnsureBucketResult) string {

@@ -17,12 +17,12 @@ import (
 )
 
 const (
-	OperatorCollaborationRequeueResultSchemaID = "cartulary.operator.collaboration_requeue_result.v2"
+	operatorCollaborationRequeueResultSchemaID = "cartulary.operator.collaboration_requeue_result.v2"
 	collaborationRequeueUsage                  = "operator collaboration requeue --incident-id <canonical-uuid> [--config <absolute-path>] [--timeout-seconds <seconds>]"
 	defaultCollaborationRequeueTimeout         = 30 * time.Second
 )
 
-type OperatorCollaborationRequeueResult struct {
+type operatorCollaborationRequeueResult struct {
 	SchemaID            string                             `json:"schema_id"`
 	OperationID         string                             `json:"operation_id"`
 	Operation           string                             `json:"operation"`
@@ -31,10 +31,10 @@ type OperatorCollaborationRequeueResult struct {
 	CompletedAt         string                             `json:"completed_at"`
 	IncidentID          *string                            `json:"incident_id"`
 	RequeuedIntentCount *int                               `json:"requeued_intent_count"`
-	Error               *OperatorCollaborationRequeueError `json:"error"`
+	Error               *operatorCollaborationRequeueError `json:"error"`
 }
 
-type OperatorCollaborationRequeueError struct {
+type operatorCollaborationRequeueError struct {
 	Code       string `json:"code"`
 	ReasonCode string `json:"reason_code"`
 	Message    string `json:"message"`
@@ -94,7 +94,7 @@ func (executor collaborationExecutor) runCommand(ctx context.Context, args []str
 
 	loaded, err := executor.loadConfig(parsed.configPath)
 	if err != nil {
-		failure := &OperatorCollaborationRequeueError{
+		failure := &operatorCollaborationRequeueError{
 			Code:       "invalid_operator_request",
 			ReasonCode: "local_config_invalid",
 			Message:    collaborationRequeueMessage("local_config_invalid"),
@@ -103,7 +103,7 @@ func (executor collaborationExecutor) runCommand(ctx context.Context, args []str
 	}
 	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(loaded.Deployment()), nil)
 	if err != nil {
-		failure := &OperatorCollaborationRequeueError{
+		failure := &operatorCollaborationRequeueError{
 			Code:       "invalid_operator_request",
 			ReasonCode: "local_config_invalid",
 			Message:    collaborationRequeueMessage("local_config_invalid"),
@@ -118,7 +118,7 @@ func (executor collaborationExecutor) runCommand(ctx context.Context, args []str
 		if failure := collaborationContextFailure(operationCtx, ctx); failure != nil {
 			return executor.deliverMappedCollaborationFailure(operationID, startedAt, parsed, failure)
 		}
-		failure := &OperatorCollaborationRequeueError{
+		failure := &operatorCollaborationRequeueError{
 			Code:       "collaboration_requeue_failed",
 			ReasonCode: "postgres_unavailable",
 			Message:    collaborationRequeueMessage("postgres_unavailable"),
@@ -139,8 +139,8 @@ func (executor collaborationExecutor) runCommand(ctx context.Context, args []str
 	}
 	incidentID := parsed.incidentID.String()
 	count := result.RequeuedIntentCount
-	return executor.deliverCollaborationResult(OperatorCollaborationRequeueResult{
-		SchemaID:            OperatorCollaborationRequeueResultSchemaID,
+	return executor.deliverCollaborationResult(operatorCollaborationRequeueResult{
+		SchemaID:            operatorCollaborationRequeueResultSchemaID,
 		OperationID:         operationID.String(),
 		Operation:           "collaboration_requeue",
 		Result:              "succeeded",
@@ -156,7 +156,7 @@ func (executor collaborationExecutor) deliverMappedCollaborationFailure(
 	operationID uuid.UUID,
 	startedAt time.Time,
 	parsed collaborationRequeueArgs,
-	failure *OperatorCollaborationRequeueError,
+	failure *operatorCollaborationRequeueError,
 ) int {
 	return executor.deliverCollaborationFailure(operationID, startedAt, parsed, failure, 4)
 }
@@ -165,7 +165,7 @@ func (executor collaborationExecutor) deliverCollaborationFailure(
 	operationID uuid.UUID,
 	startedAt time.Time,
 	parsed collaborationRequeueArgs,
-	failure *OperatorCollaborationRequeueError,
+	failure *operatorCollaborationRequeueError,
 	exitCode int,
 ) int {
 	return executor.deliverCollaborationResult(collaborationFailureResult(
@@ -179,7 +179,7 @@ func (executor collaborationExecutor) deliverCollaborationFailure(
 	), exitCode)
 }
 
-func (executor collaborationExecutor) deliverCollaborationResult(result OperatorCollaborationRequeueResult, exitCode int) int {
+func (executor collaborationExecutor) deliverCollaborationResult(result operatorCollaborationRequeueResult, exitCode int) int {
 	if err := executor.transport.encodeJSON(result); err != nil {
 		_, _ = fmt.Fprintf(
 			normalizeOperatorWriter(executor.transport.stderr),
@@ -199,9 +199,9 @@ func collaborationFailureResult(
 	code string,
 	reasonCode string,
 	message string,
-) OperatorCollaborationRequeueResult {
-	return OperatorCollaborationRequeueResult{
-		SchemaID:            OperatorCollaborationRequeueResultSchemaID,
+) operatorCollaborationRequeueResult {
+	return operatorCollaborationRequeueResult{
+		SchemaID:            operatorCollaborationRequeueResultSchemaID,
 		OperationID:         operationID.String(),
 		Operation:           "collaboration_requeue",
 		Result:              "failed",
@@ -209,7 +209,7 @@ func collaborationFailureResult(
 		CompletedAt:         formatOperatorTimestamp(completedAt),
 		IncidentID:          incidentID,
 		RequeuedIntentCount: nil,
-		Error: &OperatorCollaborationRequeueError{
+		Error: &operatorCollaborationRequeueError{
 			Code:       code,
 			ReasonCode: reasonCode,
 			Message:    message,
@@ -301,7 +301,7 @@ func mapCollaborationRequeueFailure(
 	err error,
 	operationCtx context.Context,
 	callerCtx context.Context,
-) (*OperatorCollaborationRequeueError, int) {
+) (*operatorCollaborationRequeueError, int) {
 	var serviceFailure *collaboration.RequeueFailure
 	if errors.As(err, &serviceFailure) {
 		switch serviceFailure.Kind {
@@ -328,7 +328,7 @@ func mapCollaborationRequeueFailure(
 	return collaborationError("collaboration_requeue_failed", "transaction_failed"), 4
 }
 
-func collaborationContextFailure(operationCtx context.Context, callerCtx context.Context) *OperatorCollaborationRequeueError {
+func collaborationContextFailure(operationCtx context.Context, callerCtx context.Context) *operatorCollaborationRequeueError {
 	if errors.Is(callerCtx.Err(), context.Canceled) {
 		return collaborationError("operation_cancelled", "caller_cancelled")
 	}
@@ -344,8 +344,8 @@ func collaborationContextFailure(operationCtx context.Context, callerCtx context
 	return nil
 }
 
-func collaborationError(code string, reasonCode string) *OperatorCollaborationRequeueError {
-	return &OperatorCollaborationRequeueError{
+func collaborationError(code string, reasonCode string) *operatorCollaborationRequeueError {
+	return &operatorCollaborationRequeueError{
 		Code:       code,
 		ReasonCode: reasonCode,
 		Message:    collaborationRequeueMessage(reasonCode),

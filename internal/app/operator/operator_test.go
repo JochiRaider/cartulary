@@ -23,6 +23,17 @@ import (
 )
 
 func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
+	parsed, stop, parseExitCode := parseObjectStoreInitArgs([]string{"-config", "  /etc/cartulary/config.toml  "}, io.Discard)
+	if stop || parseExitCode != 0 || parsed.sourceConfigPath != "/etc/cartulary/config.toml" {
+		t.Fatalf("object-store parse got args=%#v stop=%t exit=%d", parsed, stop, parseExitCode)
+	}
+	if _, stop, exitCode := parseObjectStoreInitArgs([]string{"-help"}, io.Discard); !stop || exitCode != 0 {
+		t.Fatalf("object-store help got stop=%t exit=%d", stop, exitCode)
+	}
+	if _, stop, exitCode := parseObjectStoreInitArgs([]string{"-unknown"}, io.Discard); !stop || exitCode != 2 {
+		t.Fatalf("object-store invalid input got stop=%t exit=%d", stop, exitCode)
+	}
+
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	var gotConfigPath string
@@ -53,11 +64,11 @@ func TestOperatorObjectStoreInitCommand_U_DeploymentLocalResult(t *testing.T) {
 		t.Fatalf("expected exactly one ensure call, got %d", ensureCalls)
 	}
 
-	var payload OperatorObjectStoreInitResult
+	var payload operatorObjectStoreInitResult
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode object-store init payload: %v\nstdout=%s", err, stdout.String())
 	}
-	if payload.SchemaID != OperatorObjectStoreInitResultSchemaID || payload.Result != "created" || !payload.Created || payload.AlreadyExists {
+	if payload.SchemaID != operatorObjectStoreInitResultSchemaID || payload.Result != "created" || !payload.Created || payload.AlreadyExists {
 		t.Fatalf("unexpected object-store init payload: %#v", payload)
 	}
 	if strings.Contains(stdout.String(), "bucket") || strings.Contains(stdout.String(), "endpoint") {
@@ -426,7 +437,6 @@ func collaborationV2TestRunner(
 		time.Date(2026, 8, 6, 17, 0, 2, 0, time.UTC),
 	}
 	return operatorRunner{
-		stdout: stdout,
 		stderr: stderr,
 		collaboration: collaborationExecutor{
 			transport: operatorTransport{stdout: stdout, stderr: stderr},
@@ -468,9 +478,9 @@ func (port collaborationRecoveryPortFunc) RequeueIncident(ctx context.Context, r
 	return port(ctx, request)
 }
 
-func decodeCollaborationRequeueResult(t testing.TB, encoded string) OperatorCollaborationRequeueResult {
+func decodeCollaborationRequeueResult(t testing.TB, encoded string) operatorCollaborationRequeueResult {
 	t.Helper()
-	var result OperatorCollaborationRequeueResult
+	var result operatorCollaborationRequeueResult
 	if err := json.Unmarshal([]byte(encoded), &result); err != nil {
 		t.Fatalf("decode collaboration requeue result: %v\nencoded=%s", err, encoded)
 	}
@@ -517,26 +527,4 @@ func (*collaborationRequeueFakePool) QueryRow(context.Context, string, ...any) p
 
 func (*collaborationRequeueFakePool) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
 	return nil, errors.New("unexpected pool BeginTx")
-}
-
-func TestOperatorCommandRegistry_U_RejectsUnregisteredSixthCommand(t *testing.T) {
-	var stderr bytes.Buffer
-	runner := operatorRunner{stderr: &stderr}
-	registry, err := runner.commandRegistry()
-	if err != nil {
-		t.Fatalf("build operator registry: %v", err)
-	}
-	exitCode := registry.run(context.Background(), []string{
-		"retired-sixth-command",
-		"run",
-	})
-	if exitCode != 2 {
-		t.Fatalf("expected removed command to stop with usage error, got exit=%d stderr=%s", exitCode, stderr.String())
-	}
-	if strings.Contains(registry.usage(), "retired-sixth-command") {
-		t.Fatalf("operator usage advertises an unregistered sixth command")
-	}
-	if !strings.Contains(stderr.String(), "operator backup inspect latest") || strings.Contains(stderr.String(), "retired-sixth-command") {
-		t.Fatalf("removed command usage was not clear: %s", stderr.String())
-	}
 }

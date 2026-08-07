@@ -267,6 +267,12 @@
     ],
     "family_runtime_binaries": [
       {
+        "family_id": "app.operator.process",
+        "runtime_binary_ids": [
+          "operator"
+        ]
+      },
+      {
         "family_id": "app.server.process",
         "runtime_binary_ids": [
           "server-harness"

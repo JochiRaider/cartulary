@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	ResultSchemaID   = "cartulary.operator_recovery_result.v1"
-	ProgressSchemaID = "cartulary.operator_recovery_progress.v1"
+	resultSchemaID   = "cartulary.operator_recovery_result.v1"
+	progressSchemaID = "cartulary.operator_recovery_progress.v1"
 )
 
-type Result struct {
+type result struct {
 	SchemaID           string        `json:"schema_id"`
 	OperationID        string        `json:"operation_id"`
 	Operation          string        `json:"operation"`
@@ -30,24 +30,24 @@ type Result struct {
 	CompletedAt        time.Time     `json:"completed_at"`
 	BackupSetID        *string       `json:"backup_set_id"`
 	ConsistencyPointAt *time.Time    `json:"consistency_point_at"`
-	ArtifactRefs       []ArtifactRef `json:"artifact_refs"`
-	Error              *Error        `json:"error"`
+	ArtifactRefs       []artifactRef `json:"artifact_refs"`
+	Error              *errorPayload `json:"error"`
 }
 
-type ArtifactRef struct {
+type artifactRef struct {
 	Kind        string  `json:"kind"`
 	SchemaID    string  `json:"schema_id"`
 	RefID       string  `json:"ref_id"`
 	BackupSetID *string `json:"backup_set_id"`
 }
 
-type Error struct {
+type errorPayload struct {
 	Code       string `json:"code"`
 	ReasonCode string `json:"reason_code"`
 	Message    string `json:"message"`
 }
 
-type Progress struct {
+type progressRecord struct {
 	SchemaID    string    `json:"schema_id"`
 	OperationID string    `json:"operation_id"`
 	Phase       string    `json:"phase"`
@@ -56,7 +56,7 @@ type Progress struct {
 	EmittedAt   time.Time `json:"emitted_at"`
 }
 
-type Command struct {
+type command struct {
 	OperationID        string
 	Handled            bool
 	Invalid            bool
@@ -67,18 +67,29 @@ type Command struct {
 	Output             string
 	Progress           string
 	TimeoutSeconds     int
-	Err                *Error
+	Err                *errorPayload
 }
 
-type Runner struct {
-	Stdout io.Writer
-	Stderr io.Writer
-	Now    func() time.Time
-	Facade application.Facade
+type runner struct {
+	stdout io.Writer
+	stderr io.Writer
+	nowFn  func() time.Time
+	facade application.Facade
 }
 
-func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
-	parsed := ParseCommand(args)
+func Run(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+	now func() time.Time,
+	facade application.Facade,
+) (bool, int) {
+	return (runner{stdout: stdout, stderr: stderr, nowFn: now, facade: facade}).run(ctx, args)
+}
+
+func (runner runner) run(ctx context.Context, args []string) (bool, int) {
+	parsed := parseCommand(args)
 	if !parsed.Handled {
 		return false, 0
 	}
@@ -90,16 +101,16 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 	if parsed.Invalid {
 		errPayload := parsed.Err
 		if errPayload == nil {
-			errPayload = ErrorPayload("invalid_operator_request", "unknown_command", "unsupported recovery command")
+			errPayload = newErrorPayload("invalid_operator_request", "unknown_command", "unsupported recovery command")
 		}
-		return true, runner.emitResult(Result{
-			SchemaID:     ResultSchemaID,
+		return true, runner.emitResult(result{
+			SchemaID:     resultSchemaID,
 			OperationID:  operationID.String(),
 			Operation:    parsed.Operation,
 			Result:       "failed",
 			StartedAt:    startedAt,
 			CompletedAt:  now().UTC(),
-			ArtifactRefs: []ArtifactRef{},
+			ArtifactRefs: []artifactRef{},
 			Error:        errPayload,
 		}, 2)
 	}
@@ -111,23 +122,28 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 	}
 	defer cancel()
 
-	progress := ProgressEmitter{
+	emitter := progressEmitter{
 		enabled:     parsed.Progress == "jsonl",
-		writer:      normalizeWriter(runner.Stderr),
+		writer:      normalizeWriter(runner.stderr),
 		operationID: operationID.String(),
 		now:         now,
 	}
-	outcome, err := runner.runOperation(runCtx, operationID, parsed, progress)
+	outcome, err := runner.runOperation(
+		runCtx,
+		operationID,
+		parsed,
+		application.ProgressSinkFunc(emitter.reportProgress),
+	)
 	completedAt := now().UTC()
 	if err != nil {
 		kind, ok := application.FailureKindOf(err)
 		if !ok {
 			kind = fallbackFailureKind(parsed.Operation)
 		}
-		errPayload, exitCode := MapFailureKind(kind)
+		errPayload, exitCode := mapFailureKind(kind)
 		backupSetID, consistencyPointAt, artifactRefs := wireResultFields(outcome)
-		return true, runner.emitResult(Result{
-			SchemaID:           ResultSchemaID,
+		return true, runner.emitResult(result{
+			SchemaID:           resultSchemaID,
 			OperationID:        operationID.String(),
 			Operation:          parsed.Operation,
 			Result:             "failed",
@@ -139,16 +155,16 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 			Error:              errPayload,
 		}, exitCode)
 	}
-	result := string(outcome.Status)
-	if result == "" {
-		result = "succeeded"
+	resultCode := string(outcome.Status)
+	if resultCode == "" {
+		resultCode = "succeeded"
 	}
 	backupSetID, consistencyPointAt, artifactRefs := wireResultFields(outcome)
-	return true, runner.emitResult(Result{
-		SchemaID:           ResultSchemaID,
+	return true, runner.emitResult(result{
+		SchemaID:           resultSchemaID,
 		OperationID:        operationID.String(),
 		Operation:          parsed.Operation,
-		Result:             result,
+		Result:             resultCode,
 		StartedAt:          startedAt,
 		CompletedAt:        completedAt,
 		BackupSetID:        backupSetID,
@@ -158,16 +174,16 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 	}, 0)
 }
 
-func ParseCommand(args []string) Command {
+func parseCommand(args []string) command {
 	if len(args) == 0 {
-		return Command{Handled: false}
+		return command{Handled: false}
 	}
 	if len(args) < 2 {
 		switch args[0] {
 		case "backup", "restore", "restore-verify":
 			return invalidCommand("unknown", "unknown_command", "unsupported recovery command")
 		default:
-			return Command{Handled: false}
+			return command{Handled: false}
 		}
 	}
 	switch {
@@ -184,11 +200,11 @@ func ParseCommand(args []string) Command {
 	case args[0] == "backup" || args[0] == "restore" || args[0] == "restore-verify":
 		return invalidCommand("unknown", "unknown_command", "unsupported recovery command")
 	default:
-		return Command{Handled: false}
+		return command{Handled: false}
 	}
 }
 
-func parseFlags(operation string, args []string, requiresTarget bool, requiresConfirm bool) Command {
+func parseFlags(operation string, args []string, requiresTarget bool, requiresConfirm bool) command {
 	flags := flag.NewFlagSet("operator "+operation, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	output := flags.String("output", "json", "output mode")
@@ -209,16 +225,16 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 	if *progress != "" && *progress != "jsonl" {
 		return invalidCommand(operation, "unsupported_progress_mode", "unsupported progress mode")
 	}
-	timeout, errPayload := ParseTimeout(operation, *timeoutRaw)
+	timeout, errPayload := parseTimeout(operation, *timeoutRaw)
 	if errPayload != nil {
-		return Command{Handled: true, Invalid: true, Operation: operation, Err: errPayload}
+		return command{Handled: true, Invalid: true, Operation: operation, Err: errPayload}
 	}
 	target := strings.TrimSpace(*targetConfig)
 	if requiresTarget {
 		if target == "" {
 			return invalidCommand(operation, "missing_required_flag", "target-config-file is required")
 		}
-		if err := ValidateTargetConfigPath(target); err != nil {
+		if err := validateTargetConfigPath(target); err != nil {
 			return invalidCommand(operation, "invalid_flag_value", err.Error())
 		}
 	}
@@ -231,7 +247,7 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 			return invalidCommand(operation, "invalid_flag_value", "confirm-backup-set-id must be an exact UUID")
 		}
 	}
-	return Command{
+	return command{
 		Handled:            true,
 		Operation:          operation,
 		SourceConfigPath:   strings.TrimSpace(*sourceConfig),
@@ -243,25 +259,25 @@ func parseFlags(operation string, args []string, requiresTarget bool, requiresCo
 	}
 }
 
-func ParseTimeout(operation string, raw string) (int, *Error) {
-	defaultValue, minimum, maximum := TimeoutBounds(operation)
+func parseTimeout(operation string, raw string) (int, *errorPayload) {
+	defaultValue, minimum, maximum := timeoutBounds(operation)
 	if strings.TrimSpace(raw) == "" {
 		return defaultValue, nil
 	}
 	value, err := strconv.Atoi(strings.TrimSpace(raw))
 	if err != nil {
-		return 0, ErrorPayload("invalid_operator_request", "invalid_flag_value", "timeout-seconds must be an integer")
+		return 0, newErrorPayload("invalid_operator_request", "invalid_flag_value", "timeout-seconds must be an integer")
 	}
 	if value < minimum {
-		return 0, ErrorPayload("invalid_operator_request", "timeout_below_minimum", "timeout-seconds is below the operation minimum")
+		return 0, newErrorPayload("invalid_operator_request", "timeout_below_minimum", "timeout-seconds is below the operation minimum")
 	}
 	if value > maximum {
-		return 0, ErrorPayload("invalid_operator_request", "timeout_above_maximum", "timeout-seconds is above the operation maximum")
+		return 0, newErrorPayload("invalid_operator_request", "timeout_above_maximum", "timeout-seconds is above the operation maximum")
 	}
 	return value, nil
 }
 
-func TimeoutBounds(operation string) (int, int, int) {
+func timeoutBounds(operation string) (int, int, int) {
 	switch operation {
 	case "backup_inspect_latest":
 		return 30, 1, 3600
@@ -272,7 +288,7 @@ func TimeoutBounds(operation string) (int, int, int) {
 	}
 }
 
-func ValidateTargetConfigPath(path string) error {
+func validateTargetConfigPath(path string) error {
 	if strings.ContainsRune(path, '\x00') {
 		return errors.New("target-config-file must not contain NUL")
 	}
@@ -290,32 +306,32 @@ func ValidateTargetConfigPath(path string) error {
 	return nil
 }
 
-func invalidCommand(operation string, reason string, message string) Command {
-	return Command{
+func invalidCommand(operation string, reason string, message string) command {
+	return command{
 		Handled:   true,
 		Invalid:   true,
 		Operation: operation,
-		Err:       ErrorPayload("invalid_operator_request", reason, message),
+		Err:       newErrorPayload("invalid_operator_request", reason, message),
 	}
 }
 
-func ErrorPayload(code string, reasonCode string, message string) *Error {
-	return &Error{Code: code, ReasonCode: reasonCode, Message: message}
+func newErrorPayload(code string, reasonCode string, message string) *errorPayload {
+	return &errorPayload{Code: code, ReasonCode: reasonCode, Message: message}
 }
 
-type ProgressEmitter struct {
+type progressEmitter struct {
 	enabled     bool
 	writer      io.Writer
 	operationID string
 	now         func() time.Time
 }
 
-func (emitter ProgressEmitter) ReportProgress(progress application.Progress) {
+func (emitter progressEmitter) reportProgress(progress application.Progress) {
 	if !emitter.enabled {
 		return
 	}
-	_ = json.NewEncoder(emitter.writer).Encode(Progress{
-		SchemaID:    ProgressSchemaID,
+	_ = json.NewEncoder(emitter.writer).Encode(progressRecord{
+		SchemaID:    progressSchemaID,
 		OperationID: emitter.operationID,
 		Phase:       progress.Phase,
 		Completed:   progress.Completed,
@@ -324,8 +340,8 @@ func (emitter ProgressEmitter) ReportProgress(progress application.Progress) {
 	})
 }
 
-func (runner Runner) runOperation(ctx context.Context, operationID uuid.UUID, parsed Command, progress application.ProgressSink) (application.Result, error) {
-	if runner.Facade == nil {
+func (runner runner) runOperation(ctx context.Context, operationID uuid.UUID, parsed command, progress application.ProgressSink) (application.Result, error) {
+	if runner.facade == nil {
 		return application.Result{}, application.NewFailure(
 			fallbackFailureKind(parsed.Operation),
 			errors.New("operator recovery facade is unavailable"),
@@ -333,12 +349,12 @@ func (runner Runner) runOperation(ctx context.Context, operationID uuid.UUID, pa
 	}
 	switch parsed.Operation {
 	case "backup_inspect_latest":
-		return runner.Facade.BackupInspectLatest(ctx, application.BackupInspectLatestRequest{
+		return runner.facade.BackupInspectLatest(ctx, application.BackupInspectLatestRequest{
 			OperationID:      operationID,
 			SourceConfigPath: parsed.SourceConfigPath,
 		}, progress)
 	case "backup_create":
-		return runner.Facade.BackupCreate(ctx, application.BackupCreateRequest{
+		return runner.facade.BackupCreate(ctx, application.BackupCreateRequest{
 			OperationID:      operationID,
 			SourceConfigPath: parsed.SourceConfigPath,
 		}, progress)
@@ -347,20 +363,20 @@ func (runner Runner) runOperation(ctx context.Context, operationID uuid.UUID, pa
 		if err != nil {
 			return application.Result{}, application.NewFailure(application.FailureConfirmationMismatch, err)
 		}
-		return runner.Facade.RestoreLatest(ctx, application.RestoreLatestRequest{
+		return runner.facade.RestoreLatest(ctx, application.RestoreLatestRequest{
 			OperationID:        operationID,
 			SourceConfigPath:   parsed.SourceConfigPath,
 			TargetConfigPath:   parsed.TargetConfigPath,
 			ConfirmedBackupSet: confirmed,
 		}, progress)
 	case "restore_verify_latest":
-		return runner.Facade.RestoreVerifyLatest(ctx, application.RestoreVerifyLatestRequest{
+		return runner.facade.RestoreVerifyLatest(ctx, application.RestoreVerifyLatestRequest{
 			OperationID:      operationID,
 			SourceConfigPath: parsed.SourceConfigPath,
 			TargetConfigPath: parsed.TargetConfigPath,
 		}, progress)
 	case "restore_verify_due":
-		return runner.Facade.RestoreVerifyDue(ctx, application.RestoreVerifyDueRequest{
+		return runner.facade.RestoreVerifyDue(ctx, application.RestoreVerifyDueRequest{
 			OperationID:      operationID,
 			SourceConfigPath: parsed.SourceConfigPath,
 			TargetConfigPath: parsed.TargetConfigPath,
@@ -381,12 +397,12 @@ type failureMapping struct {
 	ExitCode   int
 }
 
-func MapFailureKind(kind application.FailureKind) (*Error, int) {
+func mapFailureKind(kind application.FailureKind) (*errorPayload, int) {
 	mapping, ok := failureMappingForKind(kind)
 	if !ok {
-		return ErrorPayload("invalid_operator_request", "unknown_command", "unsupported recovery failure"), 2
+		return newErrorPayload("invalid_operator_request", "unknown_command", "unsupported recovery failure"), 2
 	}
-	return ErrorPayload(mapping.Code, mapping.ReasonCode, mapping.Message), mapping.ExitCode
+	return newErrorPayload(mapping.Code, mapping.ReasonCode, mapping.Message), mapping.ExitCode
 }
 
 func FailureEvidenceFields(kind application.FailureKind) (string, string) {
@@ -497,7 +513,7 @@ func fallbackFailureKind(operation string) application.FailureKind {
 	}
 }
 
-func wireResultFields(result application.Result) (*string, *time.Time, []ArtifactRef) {
+func wireResultFields(result application.Result) (*string, *time.Time, []artifactRef) {
 	var backupSetID *string
 	if result.BackupSetID != nil {
 		value := result.BackupSetID.String()
@@ -508,14 +524,14 @@ func wireResultFields(result application.Result) (*string, *time.Time, []Artifac
 		value := result.ConsistencyPointAt.UTC()
 		consistencyPointAt = &value
 	}
-	artifactRefs := make([]ArtifactRef, 0, len(result.ArtifactRefs))
+	artifactRefs := make([]artifactRef, 0, len(result.ArtifactRefs))
 	for _, ref := range result.ArtifactRefs {
 		var refBackupSetID *string
 		if ref.BackupSetID != nil {
 			value := ref.BackupSetID.String()
 			refBackupSetID = &value
 		}
-		artifactRefs = append(artifactRefs, ArtifactRef{
+		artifactRefs = append(artifactRefs, artifactRef{
 			Kind:        ref.Kind,
 			SchemaID:    ref.SchemaID,
 			RefID:       ref.RefID,
@@ -525,11 +541,11 @@ func wireResultFields(result application.Result) (*string, *time.Time, []Artifac
 	return backupSetID, consistencyPointAt, artifactRefs
 }
 
-func sortedArtifactRefs(refs []ArtifactRef) []ArtifactRef {
+func sortedArtifactRefs(refs []artifactRef) []artifactRef {
 	if refs == nil {
-		return []ArtifactRef{}
+		return []artifactRef{}
 	}
-	out := append([]ArtifactRef(nil), refs...)
+	out := append([]artifactRef(nil), refs...)
 	for i := 0; i < len(out); i++ {
 		for j := i + 1; j < len(out); j++ {
 			if artifactRefLess(out[j], out[i]) {
@@ -540,7 +556,7 @@ func sortedArtifactRefs(refs []ArtifactRef) []ArtifactRef {
 	return out
 }
 
-func artifactRefLess(left ArtifactRef, right ArtifactRef) bool {
+func artifactRefLess(left artifactRef, right artifactRef) bool {
 	if left.Kind != right.Kind {
 		return left.Kind < right.Kind
 	}
@@ -550,17 +566,17 @@ func artifactRefLess(left ArtifactRef, right ArtifactRef) bool {
 	return left.RefID < right.RefID
 }
 
-func (runner Runner) emitResult(payload Result, exitCode int) int {
-	encoder := json.NewEncoder(normalizeWriter(runner.Stdout))
+func (runner runner) emitResult(payload result, exitCode int) int {
+	encoder := json.NewEncoder(normalizeWriter(runner.stdout))
 	if err := encoder.Encode(payload); err != nil {
 		return 4
 	}
 	return exitCode
 }
 
-func (runner Runner) now() func() time.Time {
-	if runner.Now != nil {
-		return runner.Now
+func (runner runner) now() func() time.Time {
+	if runner.nowFn != nil {
+		return runner.nowFn
 	}
 	return func() time.Time { return time.Now().UTC() }
 }

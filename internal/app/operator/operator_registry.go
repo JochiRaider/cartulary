@@ -11,7 +11,6 @@ type operatorCommandHandler func(context.Context, []string) int
 
 type operatorCommandDescriptor struct {
 	Tokens           []string
-	Owner            string
 	Usage            string
 	Run              operatorCommandHandler
 	InvalidNamespace operatorCommandHandler
@@ -31,7 +30,7 @@ func newOperatorCommandRegistry(stderr io.Writer, commands []operatorCommandDesc
 	}
 	seen := make(map[string]struct{}, len(registry.commands))
 	for index, command := range registry.commands {
-		if len(command.Tokens) == 0 || strings.TrimSpace(command.Owner) == "" || strings.TrimSpace(command.Usage) == "" || command.Run == nil {
+		if len(command.Tokens) == 0 || strings.TrimSpace(command.Usage) == "" || command.Run == nil {
 			return operatorCommandRegistry{}, fmt.Errorf("operator command descriptor %d is incomplete", index)
 		}
 		for _, token := range command.Tokens {

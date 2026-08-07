@@ -9,14 +9,30 @@ import (
 
 func TestOperatorCommandRegistryRejectsDuplicateAndPrefixAmbiguousPaths(t *testing.T) {
 	run := func(context.Context, []string) int { return 0 }
+	for _, test := range []struct {
+		name       string
+		descriptor operatorCommandDescriptor
+	}{
+		{name: "empty tokens", descriptor: operatorCommandDescriptor{Usage: "operator object-store init", Run: run}},
+		{name: "blank token", descriptor: operatorCommandDescriptor{Tokens: []string{"object-store", ""}, Usage: "operator object-store init", Run: run}},
+		{name: "whitespace token", descriptor: operatorCommandDescriptor{Tokens: []string{"object-store", "init command"}, Usage: "operator object-store init", Run: run}},
+		{name: "blank usage", descriptor: operatorCommandDescriptor{Tokens: []string{"object-store", "init"}, Usage: " ", Run: run}},
+		{name: "nil handler", descriptor: operatorCommandDescriptor{Tokens: []string{"object-store", "init"}, Usage: "operator object-store init"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := newOperatorCommandRegistry(nil, []operatorCommandDescriptor{test.descriptor}); err == nil {
+				t.Fatal("registry accepted an incomplete command descriptor")
+			}
+		})
+	}
 	for _, commands := range [][]operatorCommandDescriptor{
 		{
-			{Tokens: []string{"object-store", "init"}, Owner: "object-store", Usage: "operator object-store init", Run: run},
-			{Tokens: []string{"object-store", "init"}, Owner: "object-store", Usage: "operator object-store init", Run: run},
+			{Tokens: []string{"object-store", "init"}, Usage: "operator object-store init", Run: run},
+			{Tokens: []string{"object-store", "init"}, Usage: "operator object-store init", Run: run},
 		},
 		{
-			{Tokens: []string{"object-store"}, Owner: "object-store", Usage: "operator object-store", Run: run},
-			{Tokens: []string{"object-store", "init"}, Owner: "object-store", Usage: "operator object-store init", Run: run},
+			{Tokens: []string{"object-store"}, Usage: "operator object-store", Run: run},
+			{Tokens: []string{"object-store", "init"}, Usage: "operator object-store init", Run: run},
 		},
 	} {
 		if _, err := newOperatorCommandRegistry(nil, commands); err == nil {
@@ -40,7 +56,6 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 	registry, err := newOperatorCommandRegistry(&stderr, []operatorCommandDescriptor{
 		{
 			Tokens:           []string{"backup", "create"},
-			Owner:            "recovery",
 			Usage:            "operator backup create",
 			Run:              exact,
 			InvalidNamespace: invalid,
@@ -55,17 +70,17 @@ func TestOperatorCommandRegistryRoutesExactAndCanonicalNamespaceFailures(t *test
 	if got, want := strings.Join(exactArgs, " "), "backup create --progress=jsonl"; got != want {
 		t.Fatalf("exact handler args got %q want %q", got, want)
 	}
-	if got := registry.run(context.Background(), []string{"backup", "retired"}); got != 2 {
+	if got := registry.run(context.Background(), []string{"backup", "unsupported"}); got != 2 {
 		t.Fatalf("canonical namespace exit code got %d want 2", got)
 	}
-	if got, want := strings.Join(invalidArgs, " "), "backup retired"; got != want {
+	if got, want := strings.Join(invalidArgs, " "), "backup unsupported"; got != want {
 		t.Fatalf("invalid handler args got %q want %q", got, want)
 	}
-	if got := registry.run(context.Background(), []string{"backup-metadata", "latest"}); got != 2 {
-		t.Fatalf("retired top-level exit code got %d want 2", got)
+	if got := registry.run(context.Background(), []string{"unknown-root", "latest"}); got != 2 {
+		t.Fatalf("unknown top-level exit code got %d want 2", got)
 	}
-	if !strings.Contains(stderr.String(), "usage:") || strings.Contains(stderr.String(), "backup-metadata") {
-		t.Fatalf("global usage did not reject retired top-level name cleanly: %q", stderr.String())
+	if !strings.Contains(stderr.String(), "usage:") || strings.Contains(stderr.String(), "unknown-root") {
+		t.Fatalf("global usage did not reject unknown top-level name cleanly: %q", stderr.String())
 	}
 }
 

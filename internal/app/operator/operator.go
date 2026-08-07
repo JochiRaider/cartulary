@@ -18,7 +18,6 @@ import (
 )
 
 type operatorRunner struct {
-	stdout            io.Writer
 	stderr            io.Writer
 	recovery          recoveryExecutor
 	migrationEvidence migrationEvidenceExecutor
@@ -74,7 +73,6 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 		return time.Now().UTC()
 	}
 	return operatorRunner{
-		stdout: stdout,
 		stderr: stderr,
 		recovery: recoveryExecutor{
 			transport:        transport,
@@ -125,54 +123,46 @@ func (runner operatorRunner) commandRegistry() (operatorCommandRegistry, error) 
 	return newOperatorCommandRegistry(runner.stderr, []operatorCommandDescriptor{
 		{
 			Tokens:           []string{"backup", "inspect", "latest"},
-			Owner:            "recovery",
 			Usage:            "operator backup inspect latest [--source-config-file <path>] [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens:           []string{"backup", "create"},
-			Owner:            "recovery",
 			Usage:            "operator backup create [--source-config-file <path>] [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens:           []string{"restore", "latest"},
-			Owner:            "recovery",
 			Usage:            "operator restore latest --source-config-file <path> --target-config-file <path> --confirm-backup-set-id <uuid> [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens:           []string{"restore-verify", "latest"},
-			Owner:            "recovery",
 			Usage:            "operator restore-verify latest --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens:           []string{"restore-verify", "due"},
-			Owner:            "recovery",
 			Usage:            "operator restore-verify due --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
 			Run:              recoveryHandler,
 			InvalidNamespace: recoveryHandler,
 		},
 		{
 			Tokens: []string{"migration-evidence", "capture"},
-			Owner:  "postgres-migration-evidence",
 			Usage:  "operator migration-evidence capture [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
 			Run:    runner.migrationEvidence.runCommand,
 		},
 		{
 			Tokens: []string{"object-store", "init"},
-			Owner:  "object-store",
 			Usage:  "operator object-store init [-config <path>]",
 			Run:    runner.objectStore.runCommand,
 		},
 		{
 			Tokens: []string{"collaboration", "requeue"},
-			Owner:  "collaboration",
 			Usage:  collaborationRequeueUsage,
 			Run:    runner.collaboration.runCommand,
 		},

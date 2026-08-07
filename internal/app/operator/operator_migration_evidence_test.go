@@ -34,7 +34,7 @@ func TestMigrationEvidenceSemantics_Unit(t *testing.T) {
 
 func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	var stderr bytes.Buffer
-	result := parseMigrationEvidenceCaptureArgs([]string{
+	result, stop, exitCode := parseMigrationEvidenceCaptureArgs([]string{
 		"-source-config",
 		"/etc/cartulary/config.toml",
 		"-manifest",
@@ -42,11 +42,8 @@ func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 		"-as-of",
 		"2026-04-17T12:00:00Z",
 	}, &stderr)
-	if result.stop {
-		t.Fatalf("parse stopped: exit=%d stderr=%s", result.exitCode, stderr.String())
-	}
-	if result.command != "migration-evidence capture" {
-		t.Fatalf("unexpected command: %q", result.command)
+	if stop {
+		t.Fatalf("parse stopped: exit=%d stderr=%s", exitCode, stderr.String())
 	}
 	if result.sourceConfigPath != "/etc/cartulary/config.toml" {
 		t.Fatalf("unexpected source config: %q", result.sourceConfigPath)
@@ -58,15 +55,18 @@ func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 		t.Fatalf("unexpected as-of: %s", got)
 	}
 
-	defaulted := parseMigrationEvidenceCaptureArgs(nil, &stderr)
-	if defaulted.stop {
-		t.Fatalf("defaulted parse stopped: exit=%d stderr=%s", defaulted.exitCode, stderr.String())
+	defaulted, stop, exitCode := parseMigrationEvidenceCaptureArgs(nil, &stderr)
+	if stop {
+		t.Fatalf("defaulted parse stopped: exit=%d stderr=%s", exitCode, stderr.String())
 	}
 	if defaulted.sourceConfigPath != "" {
 		t.Fatalf("unexpected default source config path: %q", defaulted.sourceConfigPath)
 	}
-	if defaulted.manifestPath != defaultMigrationEvidenceManifestPath {
+	if defaulted.manifestPath != migrationevidence.DefaultManifestPath {
 		t.Fatalf("unexpected default manifest path: %q", defaulted.manifestPath)
+	}
+	if _, stop, exitCode := parseMigrationEvidenceCaptureArgs([]string{"-help"}, &stderr); !stop || exitCode != 0 {
+		t.Fatalf("help got stop=%t exit=%d stderr=%s", stop, exitCode, stderr.String())
 	}
 }
 
@@ -96,9 +96,9 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			result := parseMigrationEvidenceCaptureArgs(test.args[2:], &stderr)
-			if !result.stop || result.exitCode != 2 {
-				t.Fatalf("expected parse exit 2, got stop=%v exit=%d stderr=%s", result.stop, result.exitCode, stderr.String())
+			_, stop, exitCode := parseMigrationEvidenceCaptureArgs(test.args[2:], &stderr)
+			if !stop || exitCode != 2 {
+				t.Fatalf("expected parse exit 2, got stop=%v exit=%d stderr=%s", stop, exitCode, stderr.String())
 			}
 			if !strings.Contains(stderr.String(), test.wantMessage) {
 				t.Fatalf("stderr %q does not contain %q", stderr.String(), test.wantMessage)
@@ -290,13 +290,13 @@ func migrationEvidenceManifestPathForTest(t *testing.T) string {
 		t.Fatalf("get working directory: %v", err)
 	}
 	for {
-		candidate := filepath.Join(dir, defaultMigrationEvidenceManifestPath)
+		candidate := filepath.Join(dir, migrationevidence.DefaultManifestPath)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Fatalf("could not find %s above %s", defaultMigrationEvidenceManifestPath, dir)
+			t.Fatalf("could not find %s above %s", migrationevidence.DefaultManifestPath, dir)
 		}
 		dir = parent
 	}
