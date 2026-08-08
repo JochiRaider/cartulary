@@ -7,7 +7,10 @@ import type { WorkbookIncidentRole } from "../../shared/workbookShellContracts";
 import type { WorkbookQueryState } from "./workbookQuery";
 
 export type WorkbookQueryLoadState =
-  | { readonly kind: "initial_loading" }
+  | {
+      readonly generationKey: string | number;
+      readonly kind: "initial_loading";
+    }
   | { readonly kind: "ready" }
   | { readonly kind: "refreshing" }
   | { readonly kind: "stale_error"; readonly message: string }
@@ -15,6 +18,7 @@ export type WorkbookQueryLoadState =
   | { readonly kind: "permission_denied"; readonly message?: string };
 
 export const initialWorkbookQueryLoadState: WorkbookQueryLoadState = {
+  generationKey: 0,
   kind: "initial_loading",
 };
 
@@ -39,7 +43,11 @@ export function workbookGridDataState({
 }): GridDataState {
   switch (loadState.kind) {
     case "initial_loading":
-      return { kind: "initial_loading", surfaceLabel };
+      return {
+        generationKey: loadState.generationKey,
+        kind: "initial_loading",
+        surfaceLabel,
+      };
     case "refreshing":
       return { kind: "refreshing", surfaceLabel };
     case "stale_error":

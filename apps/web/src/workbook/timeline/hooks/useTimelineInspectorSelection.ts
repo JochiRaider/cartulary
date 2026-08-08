@@ -309,6 +309,7 @@ export function useTimelineInspectorRowInteractions({
       handleTimelineGridContextMenu,
       openInspectorForRow,
       setRowContextMenu,
+      timelineRowForEventTarget,
     },
     snapshot: {
       activeRowContextMenuRow,

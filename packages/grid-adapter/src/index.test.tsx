@@ -3,6 +3,7 @@ import {
   gridScrollportClassName,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -245,7 +246,11 @@ describe("grid-adapter", () => {
       <SemanticDataGrid
         surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
         columns={columns}
-        dataState={{ kind: "initial_loading", surfaceLabel: "Records" }}
+        dataState={{
+          generationKey: "records-1",
+          kind: "initial_loading",
+          surfaceLabel: "Records",
+        }}
         interactionMode={{ kind: "read_only", label: "Closed, read-only" }}
         dataRows={[]}
       />,
@@ -302,6 +307,52 @@ describe("grid-adapter", () => {
     expect(
       container.querySelector('[data-grid-record-id="record-retained"]'),
     ).toBeTruthy();
+  });
+
+  it("shows the delayed loading message once per active generation and cancels it on terminal state", () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{
+          generationKey: "generation-1",
+          kind: "initial_loading",
+          surfaceLabel: "Records",
+        }}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(1999));
+    expect(screen.queryByText("Still loading this surface")).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText("Still loading this surface")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+
+    rerender(
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{
+          generationKey: "generation-2",
+          kind: "initial_loading",
+          surfaceLabel: "Records",
+        }}
+      />,
+    );
+    expect(screen.getByText("Loading Records…")).toBeTruthy();
+    rerender(
+      <SemanticDataGrid
+        surface={{ kind: "view_schema", viewSchemaId: "test.view" }}
+        columns={columns}
+        dataRows={[]}
+        dataState={{ kind: "ready" }}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.queryByText("Still loading this surface")).toBeNull();
+    vi.useRealTimers();
   });
 
   it("compiles semantic row and cell state into private classes, markers, and ARIA", async () => {

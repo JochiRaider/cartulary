@@ -8,6 +8,7 @@ import {
   httpOperationBindings,
 } from "@cartulary/protocol-ts/http";
 import { fetchHTTPOperation, publicErrorView } from "../../services/browserApi";
+import { resolvePublicErrorPresentation } from "../../shared/publicErrorPresentation";
 import type {
   WorkbookOperationFailure,
   WorkbookOperationFieldFailure,
@@ -185,7 +186,7 @@ function evidenceFailureMessage(
     : fallback;
 }
 
-function operationFailure(
+function operationFailureWithoutPresentation(
   status: number,
   payload: unknown,
   operationID: WorkbookOperationID,
@@ -263,6 +264,40 @@ function operationFailure(
     return { kind: "retryable", message };
   }
   return { kind: "terminal", message };
+}
+
+function operationFailure(
+  status: number,
+  payload: unknown,
+  operationID: WorkbookOperationID,
+): WorkbookOperationFailure {
+  const failure = operationFailureWithoutPresentation(
+    status,
+    payload,
+    operationID,
+  );
+  const decoded = errorEnvelopeDecoder.decode(payload);
+  const code = decoded.ok
+    ? decoded.value.error.code
+    : "invalid_public_contract_response";
+  const operationFamily =
+    operationID === "queryWorkbookView" ||
+    operationID === "getIncidentWorkbookStartup" ||
+    operationID === "getRecordHistory"
+      ? "surface_load"
+      : operationID === "issueEvidencePreviewHandle" ||
+          operationID === "issueEvidenceDownloadHandle"
+        ? "evidence_preview"
+        : "field_mutation";
+  return {
+    ...failure,
+    presentation: resolvePublicErrorPresentation({
+      code,
+      hasAuthorizedMaterialization: false,
+      operationFamily,
+      status,
+    }),
+  };
 }
 
 export function createWorkbookOperationExecutor(options: {

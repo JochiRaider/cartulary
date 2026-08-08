@@ -31,6 +31,7 @@ export function TimelineEvidencePanel({
 
   return (
     <section
+      tabIndex={-1}
       data-testid={timelineInspectorSectionTestId("evidence")}
       data-evidence-count-state={countDisplay.stateKey}
       style={inspectorSectionStyle}

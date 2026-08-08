@@ -621,6 +621,7 @@
           "grid-adapter renders, selects, and focuses extension resources without Core identities",
           "grid-adapter retains semantic editor drafts for validation outcomes and closes only after acceptance",
           "grid-adapter selects density token variables explicitly for every supported mode",
+          "grid-adapter shows the delayed loading message once per active generation and cancels it on terminal state",
           "grid-adapter survives jsdom layout measurement when row pending state rerenders the RDG grid",
           "grid-adapter translates live cell events and the restricted handle through semantic coordinates"
         ]

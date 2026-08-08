@@ -55,7 +55,13 @@ export {
   referencePackRowTestId,
   workbookImportAssistantTestId,
 } from "./applicationSelectors";
-
+export {
+  type CartularyErrorFamily,
+  type CartularyErrorPresentation,
+  type CartularyStatusSecondaryKind,
+  cartularyDesignPresentation,
+  cartularyErrorPresentation,
+} from "./designPresentation";
 export {
   type CartularyDefaultThemeId,
   type CartularyDesignTokenVarName,

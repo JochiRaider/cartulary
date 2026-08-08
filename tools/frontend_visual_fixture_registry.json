@@ -242,6 +242,94 @@
       ]
     },
     {
+      "fixture_id": "visual.fixture.delayed_initial_loading",
+      "fixture_title": "Delayed initial-loading state",
+      "design_contract_id": "D-VFIX-013",
+      "status": "current",
+      "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-delayed-initial-loading-linux.png"
+      ],
+      "seed_id": "visual.seed.delayed_initial_loading",
+      "viewport_css_px": "1280x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "delayed-loading"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-design-fixture='delayed-loading']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "The existing grid focus remains unchanged while the polite loading status appears."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "No editor or retry action is present."
+      },
+      "inspector_state": {
+        "kind": "closed",
+        "description": "The delayed loading state occupies the active grid locus."
+      },
+      "dynamic_masks": [],
+      "no_dynamic_regions": true,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+      ]
+    },
+    {
+      "fixture_id": "visual.fixture.error_presentation_loci",
+      "fixture_title": "Representative error-presentation loci",
+      "design_contract_id": "D-VFIX-014",
+      "status": "current",
+      "playwright_scenario_title": "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples.",
+      "golden_filename": "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-error-presentation-loci-linux.png",
+      "golden_artifacts": [
+        "apps/web/e2e/workbook.visual.spec.ts-snapshots/design-error-presentation-loci-linux.png"
+      ],
+      "seed_id": "visual.seed.error_presentation_loci",
+      "viewport_css_px": "1280x720",
+      "device_scale_factor": 1,
+      "browser_zoom_percent": 100,
+      "theme_id": "dark_graphite",
+      "density_id": "default",
+      "scroll_normalization": {
+        "kind": "top_left",
+        "anchor": "error-presentation"
+      },
+      "capture_scope": {
+        "kind": "selector",
+        "selector": "[data-design-fixture='error-presentation']"
+      },
+      "focus_state": {
+        "kind": "fixture_specific",
+        "description": "Each representative locus declares preserved focus or its exact destination; fixture injection does not move focus."
+      },
+      "editor_state": {
+        "kind": "fixture_specific",
+        "description": "Local validation retains the synthetic draft; other loci contain no active editor."
+      },
+      "inspector_state": {
+        "kind": "fixture_specific",
+        "description": "Evidence-preview blocked is inspector-local while the other representative families occupy their declared cell, grid, panel, or root loci."
+      },
+      "dynamic_masks": [],
+      "no_dynamic_regions": true,
+      "blocked_reason": "",
+      "replacement_fixture_id": "",
+      "catalog_row_ids": [
+        "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+      ]
+    },
+    {
       "fixture_id": "visual.fixture.drag_fill_handle",
       "fixture_title": "Drag-fill handle",
       "status": "current",

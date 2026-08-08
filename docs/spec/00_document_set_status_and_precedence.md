@@ -12,6 +12,15 @@ publication requirements for timed or fixture-sensitive criteria and is not
 part of Base Profile or extension-profile implementation conformance.
 Appendices remain non-normative.
 
+`docs/design.md` is the sole normative design-direction owner for the current
+profile. The UI/UX design guide is non-normative design support: it may restate
+owner decisions and explain their rationale or implementation consequences,
+but it does not own product behavior, defaults, interfaces, acceptance claims,
+or release evidence. Runtime code, generators, test routing, conformance
+checks, and release evidence MUST NOT consume either guide text or other
+Markdown as a behavioral input; executable design values are projected through
+the machine contracts identified by `docs/design.md`.
+
 Versioned schemas, enums, limits, mappings, algorithms, fixtures, generated
 artifacts, implementation, tests, and retained evidence are downstream of the
 applicable normative owner. A difference between an adopted specification and

@@ -2,7 +2,8 @@
 
 **Status**: Implementation-support guide
 **Authority**: Core 00 through Core 04 own product behavior. `docs/design.md`
-and `docs/guides/cartulary-ui-ux-design-guide.md` own design direction.
+is the sole normative design-direction owner.
+`docs/guides/cartulary-ui-ux-design-guide.md` is non-normative design support.
 `docs/testing-harness-nlspec.md` owns harness mechanics. This guide does not
 define Base Profile conformance, extension-profile conformance, or Core 05
 claim-publication evidence.
@@ -145,8 +146,8 @@ Review these surfaces before judging changes:
 A missing inspector-heavy visual state is a fixture issue when the Core-owned
 behavior is already implemented and not represented; it is a product bug when
 the behavior violates Core 01/Core 03/Core 04; it is a design issue when the
-behavior satisfies Core but violates `design.md` or UI/UX guide design
-direction.
+behavior satisfies Core but violates `design.md`. A mismatch with the UI/UX
+guide is a guide-maintenance issue unless it also conflicts with an owner.
 
 Record findings in this shape:
 
@@ -155,7 +156,7 @@ Record findings in this shape:
 | Viewport | Exact viewport and browser zoom. |
 | Surface or state | The visible workbook surface, system view, or state under review. |
 | Evidence | Screenshot, trace, retained artifact path, or concise observation. |
-| Owner reference | Relevant `docs/design.md`, UI/UX guide, visual golden guide, or frontend guide section. |
+| Owner reference | Relevant Core section or `docs/design.md` section; supporting-guide references may be recorded separately but are not owners. |
 | Decision | `accept`, `change before MVP`, or `defer`. |
 | Classification | `design issue`, `product bug`, `fixture issue`, `golden stale`, or `accepted intentional state`. |
 

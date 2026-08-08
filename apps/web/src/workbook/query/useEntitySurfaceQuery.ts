@@ -73,7 +73,7 @@ export function useEntitySurfaceQuery({
     setLoadState(
       acceptedRowCountRef.current > 0
         ? { kind: "refreshing" }
-        : initialWorkbookQueryLoadState,
+        : { generationKey: request.generationKey, kind: "initial_loading" },
     );
     const [hostsResult, identitiesResult] = await Promise.all([
       viewQuery.query({

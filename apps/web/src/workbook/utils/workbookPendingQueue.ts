@@ -161,6 +161,7 @@ export type PendingReplaySameFieldConflict = {
   conflict_resolution_class: string;
   base_row_version: number;
   current_row_version: number;
+  view_schema_id?: string;
 };
 
 export type WorkbookSaveStateConflictAnchor = {
@@ -213,6 +214,7 @@ export type PendingReplayOverflow = {
   refused_unit_id: string;
   preserve_visible_edit_as_unsaved: true;
   visible_edit: PendingReplayVisibleEdit | null;
+  view_schema_id?: string;
 };
 
 export type PendingQueueSnapshot = {
@@ -770,6 +772,9 @@ function cloneConflict(
     conflict_resolution_class: value.conflict_resolution_class,
     base_row_version: value.base_row_version,
     current_row_version: value.current_row_version,
+    ...(value.view_schema_id === undefined
+      ? {}
+      : { view_schema_id: value.view_schema_id }),
   };
 }
 
@@ -780,6 +785,9 @@ function cloneOverflow(value: PendingReplayOverflow): PendingReplayOverflow {
     preserve_visible_edit_as_unsaved: true,
     visible_edit:
       value.visible_edit === null ? null : cloneVisibleEdit(value.visible_edit),
+    ...(value.view_schema_id === undefined
+      ? {}
+      : { view_schema_id: value.view_schema_id }),
   };
 }
 
@@ -847,13 +855,11 @@ export function deriveWorkbookSaveState(
     ...normalizeSaveStateConflictAnchors(input.localDraftConflicts),
   ]);
 
-  if (conflictAnchors.length > 0) {
+  if (input.halted?.error_code === "client_txn_conflict") {
     return {
       primaryLabel: "Conflict",
-      secondaryKind: "same_field_conflict",
-      secondaryMessage: sameFieldConflictSecondaryMessage(
-        conflictAnchors.length,
-      ),
+      secondaryKind: "replay_halted",
+      secondaryMessage: input.halted.message,
       conflictAnchors,
     };
   }
@@ -863,6 +869,17 @@ export function deriveWorkbookSaveState(
       primaryLabel: "Conflict",
       secondaryKind: "overflow",
       secondaryMessage: input.overflow.message,
+      conflictAnchors,
+    };
+  }
+
+  if (conflictAnchors.length > 0) {
+    return {
+      primaryLabel: "Conflict",
+      secondaryKind: "same_field_conflict",
+      secondaryMessage: sameFieldConflictSecondaryMessage(
+        conflictAnchors.length,
+      ),
       conflictAnchors,
     };
   }
@@ -965,6 +982,7 @@ function failureAnchor(
 
 function sameFieldConflictAnchor(
   error: PendingReplayPublicError,
+  viewSchemaId: string,
 ): PendingReplaySameFieldConflict | null {
   const conflict = parseSameFieldConflictFields(
     error.conflict,
@@ -980,6 +998,7 @@ function sameFieldConflictAnchor(
     conflict_resolution_class: conflict.conflict_resolution_class,
     base_row_version: conflict.base_row_version,
     current_row_version: conflict.current_row_version,
+    view_schema_id: viewSchemaId,
   };
 }
 
@@ -1177,6 +1196,7 @@ export class WorkbookPendingQueueModel {
         refused_unit_id: unit.id,
         preserve_visible_edit_as_unsaved: true,
         visible_edit: visibleEdit,
+        view_schema_id: unit.viewSchemaId,
       };
       return {
         accepted: false,
@@ -1276,7 +1296,7 @@ export class WorkbookPendingQueueModel {
     }
 
     if (result.error.code === "same_field_conflict") {
-      const conflict = sameFieldConflictAnchor(result.error);
+      const conflict = sameFieldConflictAnchor(result.error, unit.viewSchemaId);
       if (conflict !== null) {
         this.units = this.units.filter((candidate) => candidate !== unit);
         this.sameFieldConflicts.push(conflict);

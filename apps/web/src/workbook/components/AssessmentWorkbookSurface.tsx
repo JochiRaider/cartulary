@@ -145,7 +145,10 @@ export function AssessmentWorkbookSurface({
     null,
   );
   const continuityPortRef = useRef<WorkbookContinuityPort | null>(null);
-  const mutation = useWorkbookMutationRuntime(mutationRuntime);
+  const mutation = useWorkbookMutationRuntime(
+    mutationRuntime,
+    assessmentsViewSchemaId,
+  );
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );

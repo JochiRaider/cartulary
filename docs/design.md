@@ -1,10 +1,11 @@
 ---
-version: 0.3.0
+version: 0.4.0
 name: Cartulary
 document_class: design-direction-contract
 status: adopted/closed-design-contract
 design_contract_schema_id: cartulary.design_direction.v1
 token_registry_schema_id: cartulary.design_tokens.v1
+presentation_contract_schema_id: cartulary.design_presentation.v1
 default_theme_id: dark_graphite
 description: "A dense graphite workbook-native incident workspace with {colors.accent} as the scarce warm accent for focus, primary action, and active-shell emphasis. The interface keeps the grid as the primary work surface, uses adjacent inspectors for enrichment and review, and presents conflicts, evidence, presence, and progressive structure as local semantic state rather than detached workflow chrome."
 
@@ -323,6 +324,8 @@ MUST consume `contracts/design/tokens.v1.json` and MUST NOT read, stat, hash, or
 otherwise depend on this file or another path under `docs/`. Human review MUST
 establish that the machine projection faithfully implements this design owner.
 
+Design contract. `contracts/design/presentation.v1.json` is the corresponding documentation-free projection for the observable presentation values in §§10.1, 10.6, 10.7, and 10.8. Its schema ID is `cartulary.design_presentation.v1`. It MUST project the exact loading delay and sentence, transient-confirmation timing, status-secondary priority, and closed error-family rows without adding a presentation family or alternate value. Executable consumers MUST use the generated package facade and MUST NOT parse this document.
+
 ### 3.2 Token registry schema contract
 
 Design contract. The token registry schema ID is `cartulary.design_tokens.v1`. A conforming token registry MUST satisfy every row in the table below.
@@ -625,7 +628,7 @@ Design contract. The Account settings surface MUST be organized into exactly the
 
 Design contract. The Profile area MUST present email as inspection-only deployment-managed login identity. It MUST NOT style email as an editable form field, suggest that ordinary users can change it from this surface, or hide the fact that display name is the only self-service profile field.
 
-Design contract. The Appearance area MUST expose density as a single segmented control or equivalent closed selector over the four UI choices in the table above. It MUST NOT present a theme selector in the current profile. The only supported theme remains `dark_graphite`.
+Design contract. The Appearance area MUST expose density as one segmented radiogroup containing the four UI choices in the table above in table order. It MUST NOT present a theme selector in the current profile. The only supported theme remains `dark_graphite`.
 
 ### 4.5 Deployment administration composition
 
@@ -635,7 +638,7 @@ Design contract. The Deployment administration entry MUST be a menu item labeled
 
 Design contract. The upper-right account/application menu MUST remain reachable from the incident directory and workbook shell. Its trigger MUST have a visible focus indicator, an accessible name that identifies account and application navigation, and keyboard operation for open, close, item movement, and item activation. When viewport pressure requires overflow, workbook query controls, chips, and optional navigation groups collapse before this menu; safe account/application navigation remains available even below the supported minimum viewport.
 
-Design contract. The Deployment administration page MUST use a deployment-local administration layout, not the workbook grid shell. The default selected panel MUST be `Users`. Panel tabs, sidebar entries, or equivalent navigation MUST use visible focus state, active selected state, and stable accessible labels matching the panel names below.
+Design contract. The Deployment administration page MUST use a deployment-local administration layout, not the workbook grid shell. The default selected panel MUST be `Users`. A tablist MUST expose the panels in the table order below with visible focus state, active selected state, and accessible labels matching the panel names.
 
 | Panel | Availability | Required UI content | Required states and boundaries |
 | --- | --- | --- | --- |
@@ -650,6 +653,20 @@ Design contract. Reference Pack search controls inside Deployment administration
 Design contract. A successful incident-import terminal state MUST offer exactly one primary incident-entry action labeled `Open imported incident` for the imported incident. The action MUST leave Deployment administration and launch the incident through the ordinary workbook startup chain with no explicit `sheet_ref`. It MUST NOT write or expose `home_sheet_ref`, `default_sheet_ref`, saved-view ownership, source-role mapping, or historical-actor membership decisions.
 
 Non-goal. Deployment administration is not a general deployment console. It MUST NOT contain `General settings`, all-incident catalog/search/count/metadata controls, generic cross-incident policy-default editors, provider-definition editors, provider-wide recovery controls, or incident membership controls whose only authorization basis is `deployment_admin`.
+
+### 4.6 Authenticated-root composition
+
+Core restatement. Core 01 §3.3.2.1A owns authenticated-root selection and incident visibility. This subsection owns only presentation of the owner result.
+
+Design contract. Authenticated-root presentation MUST use the exhaustive table below. The visible-incident count is evaluated after authorization filtering. Loading and failed discovery are not count cases and MUST use their typed loading or error presentation.
+
+| Visible incident count | Required presentation | Active destination | Omission behavior |
+| ---: | --- | --- | --- |
+| `0` | Successful incident directory with heading `Incidents`, an explicit empty-state message, and the owner-authorized create action when creation is allowed. | `/` | No error, missing-incident placeholder, or empty workbook is rendered. |
+| `1` | Open the sole visible incident workbook through ordinary Core 03 startup selection. | Sole incident; no explicit launch `sheet_ref`. | The directory card grid is omitted. |
+| `2` or more | Incident directory with one stable-identity entry per visible incident. | `/` until explicit selection. | No incident is auto-selected. |
+
+Design contract. Transition from permission or incident-access loss to `/` MUST clear protected incident materialization before the root presentation is rendered. Focus MUST move to the authenticated-root `Incidents` heading after navigation completes.
 
 ## 5. Visual design principles
 
@@ -754,7 +771,7 @@ Design contract. The application shell MUST contain the regions in the table bel
 | Inspector | Details, Relationships, Evidence, History, destructive and specialized row actions. | Conditional adjacent or overlay secondary surface opened through explicit controls. |
 | Status strip | Save state, secondary same-surface message, presence summary or overflow when assigned by §7.5. | Capacity-limited working-state strip. |
 
-Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, compact sheet toolbar, active Timeline grid, explicit inspector opener, bottom draft row when creation is allowed, and status strip as the dominant first-viewport structure. The inspector MUST be closed by default and MUST open only through explicit controls such as the toolbar inspector control, row action menu, history action, mention action, or equivalent keyboard-accessible command. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
+Design contract. The default Timeline workbook shell at `{layout.baseViewport}` MUST show the top bar, compact sheet toolbar, active Timeline grid, explicit inspector opener, bottom draft row when creation is allowed, and status strip as the dominant first-viewport structure. The inspector MUST be closed by default and MUST open only through the toolbar inspector control, a row action, a History action, a mention action, or a Core 03 application shortcut whose exact preconditions are satisfied. Incident summary, bootstrap defaults, membership management, promoted-field patch forms, or other administration/control surfaces MUST NOT dominate the default Timeline path above the active grid; those controls are valid only inside an explicitly opened secondary surface or a distinct administration context.
 
 Design contract. The active surface work area between the view bar and status strip MUST own workbook vertical sizing. The grid and an open inspector MUST fill that same work area regardless of whether the surface renders zero, one, three, or many rows, and the same geometry MUST hold for empty, loading, error, and draft-row states. Grid content and inspector content MUST scroll independently inside the work area, the status strip MUST remain anchored at the bottom of the shell, and the workbook layout MUST NOT create document-level vertical scrolling. Synthetic filler rows, row-count height calculations, fixed `100vh - Npx` offsets, and surface-specific minimum-height workarounds are not valid design strategies.
 
@@ -970,7 +987,7 @@ Design contract. Active chips MUST render in this order: group chip, sort chips 
 
 Design contract. The View bar MUST expose a keyboard-accessible `Columns` control that lists semantic field labels, reports visibility, supports show or hide, move earlier or later, and reset, and remains usable when every data column is hidden. Pointer header drag MAY provide the same reorder operation as a convenience but MUST NOT be the only reorder mechanism. Adapter-private structural columns are excluded from this control and from saved layout.
 
-Design contract. Sort controls MUST expose the complete ordered sort list and priority. Ordinary header activation replaces the list. Ctrl/Cmd header activation adds, cycles, or removes the field. The View bar MUST expose equivalent keyboard-accessible add, direction, priority, and removal operations without requiring discovery of the modifier gesture.
+Design contract. Sort controls MUST expose the complete ordered sort list and priority. Ordinary header activation replaces the list. Ctrl/Cmd header activation adds, cycles, or removes the field. The View bar Sort control MUST expose keyboard-operable `Add sort`, direction, `Move earlier`, `Move later`, and `Remove` actions for every sort entry without requiring discovery of the modifier gesture.
 
 Design contract. Bulk record selection MUST appear only on a surface with an adopted bulk command. Its checkbox column MUST be visually distinct from inspector-row context and active-cell focus, identify select-all as current-page selection, omit controls for group and draft rows, and announce the selected committed-record count after changes.
 
@@ -1166,9 +1183,11 @@ Design contract. The status strip MUST show exactly one primary save-state label
 ```pseudocode
 select_primary_save_label(state):
   validate state as save_state_input_v1
-  if state.same_field_conflict_count > 0:
+  if state.client_txn_conflict_blocked == true:
     return Conflict
   if state.queue_overflow_refused == true:
+    return Conflict
+  if state.same_field_conflict_count > 0:
     return Conflict
   if state.non_retryable_replay_failure == true:
     return Conflict
@@ -1192,6 +1211,23 @@ Design contract. When `client_txn_conflict_blocked=true`, the `Conflict` label i
 | `Syncing` | Subtle spinner or pending marker plus label. | Text label and state description. |
 | `Saved` | Text label only by default; no celebratory animation. | Text label. |
 | `Conflict` | Conflict semantic marker and local entry point. | Text label, affected count when `same_field_conflict_count` is greater than zero, and action path. |
+
+Design contract. The status strip MUST allocate visible state as follows: one primary save label; zero or one secondary message for the active `sheet_ref`; and one presence summary with deterministic `+N` overflow. Queue size MUST NOT occupy a fourth visible slot. The accessible primary description MAY include queue size; omission of queue size is conformant when the secondary message already communicates queued or blocked work.
+
+Design contract. Secondary-message selection MUST use the first applicable row in this table. A workbook-global blocker is eligible on every active surface. A surface-local candidate is eligible only when its exact `sheet_ref` equals the active `sheet_ref`.
+
+| Priority | Candidate | Required message target | Status activation target |
+| ---: | --- | --- | --- |
+| `1` | FIFO blocker has `client_txn_conflict`. | Exact same-surface recovery summary. | Transaction-recovery panel. |
+| `2` | Pending queue refused its 65th unit. | Overflow summary; existing 64 units remain retained. | Overflow notice. |
+| `3` | One or more same-field conflicts exist on the active surface. | User-facing affected-count summary. | First resolver by stable conflict-queue order. |
+| `4` | Another terminal replay failure blocks FIFO progress. | Safe terminal-failure summary. | Blocking-failure notice. |
+| `5` | Replay is paused for authentication. | Reauthentication-required summary. | Session recovery entry. |
+| `6` | Active-surface refresh blocks replay. | Refresh-wait summary. | Active-surface refresh status. |
+| `7` | Active-surface or workbook mutation is queued or in flight. | Sync progress summary. | No activation target. |
+| none | No candidate applies. | No secondary message. | No activation target. |
+
+Design contract. At `base` and `narrow_desktop`, primary, secondary, and presence allocations are visible. At `compact_desktop`, primary and presence are visible and the secondary message remains accessible after the primary label. At `below_supported_minimum`, the primary label remains visible whenever unsaved work exists; secondary and presence omission is conformant.
 
 ### 10.2 Presence input schema
 
@@ -1264,6 +1300,38 @@ Design contract. The recovery panel is a same-surface non-modal notice in the wo
 2. `Discard blocked edit`, using destructive text and border styling.
 
 Design contract. Both controls remain ordinary keyboard-operable buttons and disable immediately after activation until the transition changes the panel state. The panel uses a polite live announcement for the safe failure message. A terminal replay failure that is not `client_txn_conflict` MAY show only `Discard blocked edit`; it MUST NOT show re-key retry. Successful retry or discard removes the recovery panel and returns the save-state presentation to its state-machine-derived label without a celebratory transition.
+
+### 10.6 Initial-loading timing
+
+Design contract. An initial-load generation is identified by the active surface identity plus a stable loader-supplied generation key. The immediate blocking state displays `Loading <surface label>…`. After exactly `2,000ms` of monotonic elapsed time in the same generation, it displays `Still loading this surface` and announces that sentence once with polite priority.
+
+Design contract. A generation-key change resets the elapsed time. Transition to `ready`, `refreshing`, `empty`, `filtered_empty`, `stale_error`, `unavailable`, or `permission_denied` cancels the timer. The delayed sentence MUST NOT create a retry action or imply failure. A retry exists only after the typed load operation fails.
+
+### 10.7 Transient confirmation timing
+
+Design contract. An actionless transient confirmation receives exactly `5,000ms` of cumulative visible, unpaused time. Monotonic elapsed time advances only while the document is visible, the pointer is outside the message, and keyboard focus is outside the message. Pointer hover, focus within, and `document.hidden=true` pause the clock. Removing every pause condition resumes the remaining duration without reset.
+
+Design contract. A message with a still-valid action MUST remain until its state changes or the user dismisses it. Error, progress, authentication, conflict, unavailable, and unresolved critical messages MUST NOT use automatic dismissal. Actionless confirmations use polite announcement priority.
+
+### 10.8 Error-presentation mapping
+
+Design contract. Error presentation MUST be selected from a typed error code or operation family and the presence of previously authorized materialization. Human message text MUST NOT select the family. The mapping below is exhaustive for the current design contract.
+
+| Error family | Presentation locus | Data retention | Actions | Focus effect | Live behavior |
+| --- | --- | --- | --- | --- | --- |
+| `local_validation` | Affected editor or cell. | Retain committed value and exact local draft. | Correct value; cancel draft. | No automatic move. | Assertive. |
+| `same_field_conflict` | Cell marker and same-surface resolver. | Retain saved and unsaved values. | Owner-declared resolution actions. | Move only after activation; return to cell after resolution or close. | Assertive. |
+| `client_txn_conflict` | Same-surface non-modal recovery panel. | Retain blocker and later FIFO units. | `Retry with a new request ID`; `Discard blocked edit`. | No automatic move. | One assertive announcement. |
+| `queue_overflow` | Status secondary and same-surface overflow notice. | Retain 64 units and refuse the 65th. | Enter recovery. | No automatic move. | Assertive. |
+| `stale_refresh` | Non-blocking grid and status. | Retain previously authorized materialization. | `Retry`. | Preserve selection and focus. | Assertive. |
+| `initial_load_failure` | Blocking grid state. | Retain no fabricated rows. | `Retry` after failure. | Do not focus the action automatically. | Assertive. |
+| `authentication_required` | Same-surface session recovery notice. | Retain local unsent work and previously authorized materialization. | Reauthenticate. | No automatic move. | Assertive. |
+| `permission_or_incident_access_loss` | Authenticated root. | Clear protected materialization before navigation. | Return to authenticated root. | Focus `Incidents` heading. | Assertive. |
+| `extension_unavailable` | Ordinary Base startup fallback. | Clear extension state; preserve Base state. | Run Base fallback. | Focus selected Base surface heading. | Assertive. |
+| `evidence_preview_blocked` | Inspector-local state. | Retain authorized metadata without preview bytes. | Download only when separately authorized. | Preserve focus. | Polite. |
+| `unknown_future_error` | Blocking, stale, or operation-local locus selected from typed operation family and authorized-materialization state. | Retain only data still verified as authorized; clear protected data when authorization is unknown. | No destructive action. | No automatic move. | Assertive. |
+
+Design contract. Unknown errors MUST NOT expose stack traces, SQL, routes, storage identifiers, raw transaction identifiers, tokens, or payloads. They MUST NOT invent retry, discard, reset, or delete actions.
 
 ## 11. Evidence design
 
@@ -1627,11 +1695,13 @@ Design contract. The visual fixture registry is closed to the rows below for thi
 | `D-VFIX-010` | Narrow desktop shell. | `1024x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Built-in tabs collapse to `Surfaces`; required controls remain reachable. |
 | `D-VFIX-011` | Compact desktop shell. | `768x640 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | Actor names, timestamps, IDs. | `full_viewport` | Chips move to `Filters`; presence moves to status strip. |
 | `D-VFIX-012` | Successful empty query. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='empty-state']` | Empty state distinguishes filtered empty and successful empty. |
+| `D-VFIX-013` | Delayed initial-loading state after the same generation reaches `2,000ms`. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs. | `selector:[data-design-fixture='delayed-loading']` | Exact delayed sentence is visible, no retry is present, and the grid remains busy. |
+| `D-VFIX-014` | Representative local validation, transaction recovery, stale refresh, permission loss, and evidence-preview-blocked loci. | `1280x720 CSS px` | `{layout.zoomDefault}` | `{density.default-mode}` | `dark_graphite` | `top_left` | IDs, error details. | `selector:[data-design-fixture='error-presentation']` | Each family appears at the §10.8 locus with its required focus and live-region posture. |
 
 Design contract. The authored machine projection of this registry MUST use
 schema version `cartulary.frontend_visual_fixture_registry.v5`. A current
 implementation fixture MAY declare one optional `design_contract_id`. Each
-`D-VFIX-001` through `D-VFIX-012` value MUST occur on exactly one current
+`D-VFIX-001` through `D-VFIX-014` value MUST occur on exactly one current
 fixture, and no other `design_contract_id` is valid. Implementation-support
 fixtures that do not claim one of these design rows MUST omit the field.
 
@@ -1817,3 +1887,9 @@ Design contract. This `design.md` is ready to guide design implementation only w
 | `D-AC-073` | §16.1 | Owner-boundary review | No added section creates route, schema, authorization, lifecycle, storage, or Core conformance behavior. | Design document defines Core-owned behavior. |
 | `D-AC-074` | §3.9 and §4.4 | Account settings boundary review | Account settings exposes only Profile display-name editing, Appearance density override or clear, and Security links to existing auth flows; no theme switcher or forbidden profile field appears. | Account settings implies self-service email/login change, theme selection, generalized preferences, global home/default incident, custom density, custom row height, or new security routes. |
 | `D-AC-075` | §4.5, §7.1, §7.5, and §16.2 | Deployment-administration design review | Deployment administration is reachable through the upper-right account/application menu, uses only the allowed panels and labels, shows required loading/error/search/import-completion states, and omits prohibited aggregate administration controls. | The design implies a workbook surface, post-login default, general settings console, all-incident catalog, provider-definition editor, or deployment-admin-only incident membership control. |
+| `D-AC-076` | §4.6 | Authenticated-root cardinality test | Zero visible incidents renders a successful empty directory; one opens the sole workbook without an explicit launch `sheet_ref`; two or more remain in the directory until selection. | A count case is missing, produces an error, or auto-selects from multiple incidents. |
+| `D-AC-077` | §7.5 and §10.1 | Status allocation and priority test | Exactly one primary label, at most one eligible secondary message, and one deterministic presence summary render with the declared responsive behavior and priority. | A queue-count slot is independently visible, an inactive-surface message wins, or priority differs. |
+| `D-AC-078` | §10.6 | Monotonic fake-timer and live-region test | The delayed sentence is absent at `1,999ms`, appears and is announced once at `2,000ms`, resets on generation change, cancels on terminal state, and never creates retry. | Any timing boundary, cancellation, announcement, or action differs. |
+| `D-AC-079` | §10.7 | Monotonic fake-timer test | Actionless confirmation dismisses after `5,000ms` of visible unpaused time; pointer, focus, and hidden-document pauses preserve the exact remainder; actionable and critical states persist. | Elapsed time resets on resume or any persistent state auto-dismisses. |
+| `D-AC-080` | §10.8 | Exhaustive typed error-presentation test | Every current family maps to one locus, retention rule, action set, focus effect, and live behavior; unknown errors use typed context and never human message text. | A family is missing, duplicated, message-classified, or exposes an undeclared action or internal detail. |
+| `D-AC-081` | §2.1 and §3.1.1 | Wording and projection audit | Normative design prose has no open-choice wording; the machine projection equals the accepted timing, priority, and error rows. | Open delegation remains or projection values differ from this owner. |

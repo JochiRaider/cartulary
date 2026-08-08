@@ -78,6 +78,8 @@ export function useNetworkFlowGraphController({
   const [contributorPageIndex, setContributorPageIndex] = useState(0);
   const [contributorLoadState, setContributorLoadState] =
     useState<NetworkFlowQueryLoadState>("idle");
+  const [contributorLoadGenerationKey, setContributorLoadGenerationKey] =
+    useState(0);
   const graphControllerRef = useRef<AbortController | null>(null);
   const contributorControllerRef = useRef<AbortController | null>(null);
   const contributorGenerationRef = useRef(0);
@@ -230,6 +232,7 @@ export function useNetworkFlowGraphController({
       contributorControllerRef.current = controller;
       contributorGenerationRef.current += 1;
       const generation = contributorGenerationRef.current;
+      setContributorLoadGenerationKey(generation);
       setContributorLoadState(
         contributorPagingRef.current === null ? "loading" : "refreshing",
       );
@@ -431,6 +434,7 @@ export function useNetworkFlowGraphController({
     canPreviousContributorPage: contributorPageIndex > 0,
     clearGraph,
     contributorLoadState,
+    contributorLoadGenerationKey,
     contributorPageNumber: contributorPageIndex + 1,
     contributors,
     firstContributor: contributors[0] ?? null,

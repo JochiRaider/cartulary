@@ -60,7 +60,7 @@ export function useAssessmentSurfaceQuery({
     setLoadState(
       acceptedRowCountRef.current > 0
         ? { kind: "refreshing" }
-        : initialWorkbookQueryLoadState,
+        : { generationKey: request.generationKey, kind: "initial_loading" },
     );
     const result = await viewQuery.query({
       contract: assessmentsContract,

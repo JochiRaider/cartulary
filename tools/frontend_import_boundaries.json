@@ -906,6 +906,7 @@
         "exclude": []
       },
       "allowed_importers": [
+        "packages/ui-contracts/src/designPresentation.ts",
         "packages/ui-contracts/src/designTokens.ts"
       ],
       "restricted_imports": [

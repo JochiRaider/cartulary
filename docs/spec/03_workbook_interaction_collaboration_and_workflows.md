@@ -2107,7 +2107,17 @@ The base profile MUST support:
 - `Alt+H` to open history for the selected row,
 - `Esc` to close the inspector and return focus to the prior cell.
 Profiles: base
-Verified by: AC-005, AC-231
+Verified by: AC-005, AC-231, AC-538
+
+Application shortcut consumption MUST use the exhaustive matrix below. `Grid navigation owns focus` means the semantic grid cell is active and no editor, menu, popover, dialog, or inspector control owns the keyboard event.
+
+| Shortcut | Preconditions | Required result | Unavailable-target result |
+| --- | --- | --- | --- |
+| `Ctrl+K` or `Cmd+K` | Grid navigation owns focus; the selected committed cell exposes an owner-declared link or resolve capability. | Open that cell's same-surface link or resolve control. | No application action; visible text MUST NOT be used to infer capability. |
+| `Space` | Grid navigation owns focus; the selected committed row exposes an Evidence inspector group. | Open the inspector explicitly at Evidence. When exactly one previewable evidence item exists, open it; otherwise focus the Evidence list or its empty state. | No inspector action; browser scrolling is prevented only when the grid consumes the command. |
+| `Alt+H` | Grid navigation owns focus; the selected committed row exposes a History inspector group. | Open the inspector explicitly at History. | No application action for group rows, draft rows, no-row state, or unavailable History. |
+
+An editor, menu, popover, dialog, or inspector control MUST retain its ordinary keyboard ownership. An unavailable application shortcut MUST NOT call `preventDefault` or `stopPropagation`.
 
 ### 13.3 Bulk editing
 

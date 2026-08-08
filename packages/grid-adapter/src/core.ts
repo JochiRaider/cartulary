@@ -111,7 +111,11 @@ export type GridDataStateAction = {
 
 export type GridDataState =
   | { readonly kind: "ready" }
-  | { readonly kind: "initial_loading"; readonly surfaceLabel: string }
+  | {
+      readonly kind: "initial_loading";
+      readonly generationKey: string | number;
+      readonly surfaceLabel: string;
+    }
   | { readonly kind: "refreshing"; readonly surfaceLabel: string }
   | {
       readonly kind: "empty";

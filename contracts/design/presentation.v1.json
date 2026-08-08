@@ -1,0 +1,122 @@
+{
+  "schema_id": "cartulary.design_presentation.v1",
+  "owner_id": "package.ui",
+  "verification_id": "package.ui.verification.machine_owned_presentation",
+  "initial_loading": {
+    "delay_ms": 2000,
+    "message": "Still loading this surface",
+    "live": "polite",
+    "announce_once_per_generation": true,
+    "retry_on_delay": false
+  },
+  "transient_confirmation": {
+    "visible_unpaused_ms": 5000,
+    "live": "polite",
+    "pause_conditions": [
+      "document_hidden",
+      "keyboard_focus_within",
+      "pointer_hover"
+    ],
+    "resume_resets_elapsed": false,
+    "still_valid_action_prevents_dismissal": true
+  },
+  "status_secondary_priority": [
+    "client_txn_conflict",
+    "queue_overflow",
+    "same_field_conflict",
+    "terminal_replay_failure",
+    "authentication_required",
+    "refresh_paused",
+    "queued_or_in_flight"
+  ],
+  "error_presentations": [
+    {
+      "family": "local_validation",
+      "locus": "affected_editor_or_cell",
+      "retention": "retain_committed_value_and_exact_local_draft",
+      "actions": ["correct_value", "cancel_draft"],
+      "focus_effect": "no_automatic_move",
+      "live": "assertive"
+    },
+    {
+      "family": "same_field_conflict",
+      "locus": "cell_marker_and_same_surface_resolver",
+      "retention": "retain_saved_and_unsaved_values",
+      "actions": ["owner_declared_resolution"],
+      "focus_effect": "move_only_after_activation_then_return_to_cell",
+      "live": "assertive"
+    },
+    {
+      "family": "client_txn_conflict",
+      "locus": "same_surface_non_modal_recovery_panel",
+      "retention": "retain_blocker_and_later_fifo_units",
+      "actions": ["retry_with_new_request_id", "discard_blocked_edit"],
+      "focus_effect": "no_automatic_move",
+      "live": "assertive_once"
+    },
+    {
+      "family": "queue_overflow",
+      "locus": "status_secondary_and_same_surface_overflow_notice",
+      "retention": "retain_64_units_and_refuse_65th",
+      "actions": ["enter_recovery"],
+      "focus_effect": "no_automatic_move",
+      "live": "assertive"
+    },
+    {
+      "family": "stale_refresh",
+      "locus": "non_blocking_grid_and_status",
+      "retention": "retain_previously_authorized_materialization",
+      "actions": ["retry"],
+      "focus_effect": "preserve_selection_and_focus",
+      "live": "assertive"
+    },
+    {
+      "family": "initial_load_failure",
+      "locus": "blocking_grid_state",
+      "retention": "retain_no_fabricated_rows",
+      "actions": ["retry_after_failure"],
+      "focus_effect": "do_not_focus_action_automatically",
+      "live": "assertive"
+    },
+    {
+      "family": "authentication_required",
+      "locus": "same_surface_session_recovery_notice",
+      "retention": "retain_local_unsent_work_and_previously_authorized_materialization",
+      "actions": ["reauthenticate"],
+      "focus_effect": "no_automatic_move",
+      "live": "assertive"
+    },
+    {
+      "family": "permission_or_incident_access_loss",
+      "locus": "authenticated_root",
+      "retention": "clear_protected_materialization",
+      "actions": ["return_to_authenticated_root"],
+      "focus_effect": "focus_authenticated_root_heading",
+      "live": "assertive"
+    },
+    {
+      "family": "extension_unavailable",
+      "locus": "ordinary_base_startup_fallback",
+      "retention": "clear_extension_state_preserve_base_state",
+      "actions": ["run_base_fallback"],
+      "focus_effect": "focus_selected_base_surface_heading",
+      "live": "assertive"
+    },
+    {
+      "family": "evidence_preview_blocked",
+      "locus": "inspector_local_state",
+      "retention": "retain_authorized_metadata_without_preview_bytes",
+      "actions": ["download_when_separately_authorized"],
+      "focus_effect": "preserve_focus",
+      "live": "polite"
+    },
+    {
+      "family": "unknown_future_error",
+      "locus": "typed_operation_family_and_authorized_materialization_state",
+      "retention": "retain_only_verified_authorized_data",
+      "actions": [],
+      "focus_effect": "no_automatic_move",
+      "live": "assertive"
+    }
+  ]
+}

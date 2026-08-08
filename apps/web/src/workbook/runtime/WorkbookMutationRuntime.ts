@@ -8,9 +8,11 @@ import {
 import type { WorkbookOperationOutcome } from "../mutations/workbookOperationOutcome";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
 import type {
+  PendingQueueSnapshot,
   PendingReplayScope,
   PendingReplayUnitState,
 } from "../utils/workbookPendingQueue";
+import type { WorkbookStatusSecondaryCandidate } from "../utils/workbookStatusSecondary";
 import {
   buildWorkbookConflictResolutionPayload,
   type WorkbookConflictEntry,
@@ -57,6 +59,7 @@ export type WorkbookMutationSnapshot = {
   readonly primaryLabel: "Conflict" | "Saved" | "Syncing";
   readonly overflowMessage: string | null;
   readonly secondaryMessage: string | null;
+  readonly secondaryCandidates: readonly WorkbookStatusSecondaryCandidate[];
 };
 
 export type WorkbookSurfaceSaveStateProjection = {
@@ -191,6 +194,7 @@ export class WorkbookMutationRuntime {
         : primaryLabel === "Syncing"
           ? surfaceSyncing?.secondaryMessage
           : null;
+    const secondaryCandidates = this.secondaryCandidates(queue);
     return {
       authPaused: queue.authPaused,
       blockedEdit:
@@ -218,7 +222,82 @@ export class WorkbookMutationRuntime {
               this.explicitInFlightCount === 1 ? "" : "s"
             } in flight`
           : null),
+      secondaryCandidates,
     };
+  }
+
+  private secondaryCandidates(
+    queue: PendingQueueSnapshot,
+  ): WorkbookStatusSecondaryCandidate[] {
+    const candidates: WorkbookStatusSecondaryCandidate[] = [];
+    const haltedSurfaceId =
+      queue.halted === null
+        ? undefined
+        : queue.units.find((unit) => unit.id === queue.halted?.unit_id)
+            ?.viewSchemaId;
+    if (queue.halted !== null && haltedSurfaceId !== undefined) {
+      candidates.push({
+        kind:
+          queue.halted.error_code === "client_txn_conflict"
+            ? "client_txn_conflict"
+            : "terminal_replay_failure",
+        message: queue.halted.message,
+        surfaceId: haltedSurfaceId,
+      });
+    }
+    if (
+      queue.overflow !== null &&
+      queue.overflow.view_schema_id !== undefined
+    ) {
+      candidates.push({
+        kind: "queue_overflow",
+        message: queue.overflow.message,
+        surfaceId: queue.overflow.view_schema_id,
+      });
+    }
+    for (const conflict of queue.sameFieldConflicts) {
+      if (conflict.view_schema_id === undefined) continue;
+      candidates.push({
+        kind: "same_field_conflict",
+        message:
+          queue.saveStatePresentation.secondaryMessage ??
+          "Same-field conflict requires review.",
+        surfaceId: conflict.view_schema_id,
+      });
+    }
+    for (const conflict of this.conflictsByKey.values()) {
+      candidates.push({
+        kind: "same_field_conflict",
+        message: "Same-field conflict requires review.",
+        surfaceId: conflict.origin.viewSchemaId,
+      });
+    }
+    const pendingSurfaceIds = new Set(
+      queue.units.map((unit) => unit.viewSchemaId),
+    );
+    for (const surfaceId of pendingSurfaceIds) {
+      candidates.push({
+        kind: queue.authPaused
+          ? "authentication_required"
+          : "queued_or_in_flight",
+        message: queue.authPaused
+          ? "Authentication is required before queued edits can replay."
+          : "Queued edits are waiting to replay.",
+        surfaceId,
+      });
+    }
+    for (const [surfaceId, state] of this.saveStateBySurface) {
+      if (state.secondaryMessage === null) continue;
+      candidates.push({
+        kind:
+          state.primaryLabel === "Conflict"
+            ? "terminal_replay_failure"
+            : "refresh_paused",
+        message: state.secondaryMessage,
+        surfaceId,
+      });
+    }
+    return candidates;
   }
 
   subscribe = (listener: WorkbookMutationListener): (() => void) => {

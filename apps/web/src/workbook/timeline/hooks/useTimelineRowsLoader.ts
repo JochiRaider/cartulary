@@ -72,6 +72,7 @@ export function useTimelineRowsLoader({
   editorDraftRegistry,
   setDismissedMentionsByRow,
   setIsInitialLoading,
+  setInitialLoadGenerationKey,
   setIsRefreshing,
   setLoadAccessLost,
   setLoadError,
@@ -130,6 +131,7 @@ export function useTimelineRowsLoader({
     SetStateAction<Record<string, DismissedMention[]>>
   >;
   readonly setIsInitialLoading: (loading: boolean) => void;
+  readonly setInitialLoadGenerationKey: (generationKey: number) => void;
   readonly setIsRefreshing: (refreshing: boolean) => void;
   readonly setLoadAccessLost: (lost: boolean) => void;
   readonly setLoadError: (message: string | null) => void;
@@ -279,6 +281,7 @@ export function useTimelineRowsLoader({
       const { queryStartEpoch, requestSequence } = beginTimelineRowsLoad();
 
       if (options.showLoading && !hasLoadedRows()) {
+        setInitialLoadGenerationKey(requestSequence);
         setIsInitialLoading(true);
       }
       if (hasLoadedRows()) {
@@ -481,6 +484,7 @@ export function useTimelineRowsLoader({
       settleProjectionObligationsFromCurrentRows,
       setDismissedMentionsByRow,
       setIsInitialLoading,
+      setInitialLoadGenerationKey,
       setIsRefreshing,
       setLoadAccessLost,
       setLoadError,

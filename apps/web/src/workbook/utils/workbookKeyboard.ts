@@ -19,6 +19,7 @@ export type WorkbookKeyboardCommand =
     }
   | {
       readonly kind: "preview-linked-evidence";
+      readonly destination: "list_or_empty" | "sole_previewable_item";
       readonly preventDefault: true;
     }
   | {
@@ -34,11 +35,22 @@ export type WorkbookKeyboardCommand =
       readonly preventDefault: false;
     };
 
-export type WorkbookKeyboardAvailability = {
+export type WorkbookKeyboardContext = {
   readonly closeInspector?: boolean | undefined;
-  readonly history?: boolean | undefined;
-  readonly previewLinkedEvidence?: boolean | undefined;
-  readonly quickLink?: boolean | undefined;
+  readonly cell?:
+    | { readonly linkResolveCapability: boolean }
+    | null
+    | undefined;
+  readonly inspectorGroups?: readonly ("evidence" | "history")[] | undefined;
+  readonly mode?:
+    | "editor"
+    | "grid_navigation"
+    | "inspector"
+    | "menu"
+    | undefined;
+  readonly rowKind?: "committed" | "draft" | "group" | "none" | undefined;
+  readonly committedRowIdentity?: string | null | undefined;
+  readonly previewableEvidenceCount?: number | undefined;
 };
 
 export type WorkbookKeyboardEventLike = {
@@ -60,8 +72,14 @@ const navigationKeys = new Set<string>([
 
 export function mapWorkbookKeyboardCommand(
   event: WorkbookKeyboardEventLike,
-  availability: WorkbookKeyboardAvailability = {},
+  context: WorkbookKeyboardContext = {},
 ): WorkbookKeyboardCommand {
+  const mode = context.mode ?? "grid_navigation";
+  const committedGridRow =
+    mode === "grid_navigation" &&
+    context.rowKind === "committed" &&
+    typeof context.committedRowIdentity === "string" &&
+    context.committedRowIdentity.length > 0;
   const hasCommandModifier = event.ctrlKey === true || event.metaKey === true;
   const hasUnsupportedModifier =
     event.altKey === true || (hasCommandModifier && event.key !== "v");
@@ -78,7 +96,8 @@ export function mapWorkbookKeyboardCommand(
     hasCommandModifier &&
     event.key.toLowerCase() === "k" &&
     event.altKey !== true &&
-    availability.quickLink === true
+    committedGridRow &&
+    context.cell?.linkResolveCapability === true
   ) {
     return { kind: "quick-link", preventDefault: true };
   }
@@ -87,12 +106,13 @@ export function mapWorkbookKeyboardCommand(
     event.altKey === true &&
     !hasCommandModifier &&
     event.key.toLowerCase() === "h" &&
-    availability.history === true
+    committedGridRow &&
+    context.inspectorGroups?.includes("history") === true
   ) {
     return { kind: "open-history", preventDefault: true };
   }
 
-  if (event.key === "Escape" && availability.closeInspector === true) {
+  if (event.key === "Escape" && context.closeInspector === true) {
     return { kind: "close-inspector", preventDefault: true };
   }
 
@@ -100,9 +120,17 @@ export function mapWorkbookKeyboardCommand(
     event.key === " " &&
     event.altKey !== true &&
     !hasCommandModifier &&
-    availability.previewLinkedEvidence === true
+    committedGridRow &&
+    context.inspectorGroups?.includes("evidence") === true
   ) {
-    return { kind: "preview-linked-evidence", preventDefault: true };
+    return {
+      destination:
+        context.previewableEvidenceCount === 1
+          ? "sole_previewable_item"
+          : "list_or_empty",
+      kind: "preview-linked-evidence",
+      preventDefault: true,
+    };
   }
 
   if (hasUnsupportedModifier || !isGridNavigationKey(event.key)) {

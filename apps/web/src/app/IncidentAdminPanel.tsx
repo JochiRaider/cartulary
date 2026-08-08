@@ -27,6 +27,7 @@ import {
 } from "../services/browserApi";
 import type { SheetRef } from "../shared/sheetRef";
 import { isSheetRef } from "../shared/sheetRef";
+import { useTransientMessageController } from "../shared/useTransientMessageController";
 import type {
   CloseIncidentRequest,
   CloseIncidentResponse,
@@ -86,6 +87,7 @@ type IncidentSurfaceLoadTarget = {
 type IncidentActionMessage = {
   readonly incidentId: string;
   readonly text: string;
+  readonly transient: boolean;
 };
 
 function apiPath(base: string | undefined, path: string): string {
@@ -217,7 +219,7 @@ export function IncidentAdminPanel({
     "Loading incident controls…",
   );
   const [actionMessageState, setActionMessageState] =
-    useState<IncidentActionMessage>({ incidentId, text: "" });
+    useState<IncidentActionMessage>({ incidentId, text: "", transient: false });
   const [error, setError] = useState<APIError | null>(null);
   const loadRequestIdRef = useRef(0);
   const activeSectionRef = useRef(activeSection);
@@ -243,12 +245,28 @@ export function IncidentAdminPanel({
   function setActionMessageForIncident(
     messageIncidentId: string,
     text: string,
+    transient = false,
   ) {
     if (messageIncidentId !== incidentIdRef.current) {
       return;
     }
-    setActionMessageState({ incidentId: messageIncidentId, text });
+    setActionMessageState({ incidentId: messageIncidentId, text, transient });
   }
+
+  const transientActionMessage = useTransientMessageController({
+    actionAvailable: false,
+    enabled:
+      actionMessageState.incidentId === incidentId &&
+      actionMessageState.text !== "" &&
+      actionMessageState.transient,
+    messageKey: `${actionMessageState.incidentId}:${actionMessageState.text}`,
+    onDismiss: () =>
+      setActionMessageState((current) =>
+        current.incidentId === incidentIdRef.current && current.transient
+          ? { ...current, text: "", transient: false }
+          : current,
+      ),
+  });
 
   const refreshSessionRole = useCallback(async () => {
     await onSessionRoleChange?.();
@@ -401,7 +419,9 @@ export function IncidentAdminPanel({
 
   useEffect(() => {
     setActionMessageState((current) =>
-      current.incidentId === incidentId ? current : { incidentId, text: "" },
+      current.incidentId === incidentId
+        ? current
+        : { incidentId, text: "", transient: false },
     );
   }, [incidentId]);
 
@@ -518,6 +538,7 @@ export function IncidentAdminPanel({
     setActionMessageForIncident(
       actionIncidentId,
       "Saved promoted incident fields.",
+      true,
     );
   }
 
@@ -582,6 +603,7 @@ export function IncidentAdminPanel({
     setActionMessageForIncident(
       actionIncidentId,
       action === "close" ? "Incident closed." : "Incident reopened.",
+      true,
     );
   }
 
@@ -616,7 +638,7 @@ export function IncidentAdminPanel({
     setMembershipEmail("");
     setMembershipRole("viewer");
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Added membership.");
+    setActionMessageForIncident(actionIncidentId, "Added membership.", true);
   }
 
   async function handlePatchMembership(membership: MembershipRecord) {
@@ -650,7 +672,7 @@ export function IncidentAdminPanel({
 
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Updated membership.");
+    setActionMessageForIncident(actionIncidentId, "Updated membership.", true);
   }
 
   async function handleDeleteMembership(membership: MembershipRecord) {
@@ -683,7 +705,7 @@ export function IncidentAdminPanel({
 
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setActionMessageForIncident(actionIncidentId, "Removed membership.");
+    setActionMessageForIncident(actionIncidentId, "Removed membership.", true);
   }
 
   const activeSectionMeta = incidentControlsSectionMeta[activeSection];
@@ -715,6 +737,7 @@ export function IncidentAdminPanel({
       </div>
 
       <p
+        {...transientActionMessage}
         aria-live="polite"
         data-testid={incidentControlsActionMessageTestId()}
         role="status"

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:9a61fb6ae3e591bed91862dadb4f50e455cf9cfd03c7fdd2bb378c42138c76fc",
+  "input_digest": "sha256:11ec435e6eba5f5ea54e6429fcbe8776db3e34324fbda83336d1e33aebcd6892",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.migrate.json",
@@ -512,7 +512,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9e5f1436117a3ad26981a5365824a69b5ba43605ed49657447f03bb4048249cf"
+      "hash": "sha256:5ecf988b80e41a45d3805f274d64601a0aa1ddc48a46e5feccecb39de4052108"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -538,6 +538,16 @@
       "path": "tools/harness/generated-artifacts/database-contract-drift/schema-object-ownership.mjs",
       "role": "renderer_source",
       "hash": "sha256:95b217bef3086630f6ccfac3e95db53b34dfe597249a48b127f368045f7cc68e"
+    },
+    {
+      "path": "tools/harness/generated-artifacts/design-presentation/design-presentation-cli.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:d964c9b8f03f3e713b779cdd7952dfd90d2129d3318d4acce03c058891427c5f"
+    },
+    {
+      "path": "tools/harness/generated-artifacts/design-presentation/design-presentation.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:5c25e5fcf0b594711288a30b9b7a24976b4f1d832a131f1023a7920a8422e660"
     },
     {
       "path": "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
@@ -992,12 +1002,12 @@
     {
       "path": "tools/test_families/module.workbook.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3c911920767ce891061f9304c1d331d56e2f0c09765a166858a690df8bf0b536"
+      "hash": "sha256:3a1f50d1dd4ee1dfe82d235539c912782495e0bf57c0513ddc0872f91e664b98"
     },
     {
       "path": "tools/test_families/package.grid_adapter.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fadc09a0d11927d48716397d58dd97d85ddf440159740f01a986fce5b4b76f08"
+      "hash": "sha256:f6d5064249deea10270f99b4cdb79b482cf9fd8aa4a5baf3e190251347df600f"
     },
     {
       "path": "tools/test_families/package.protocol_ts.json",
@@ -1012,7 +1022,7 @@
     {
       "path": "tools/test_families/package.ui.json",
       "role": "test_family_manifest",
-      "hash": "sha256:7bb1660d84ba91e2ffd58f204825b5af5cc24cbc809319e3989cfe2d75b9cbe9"
+      "hash": "sha256:30a8eccb637982b7d276d2eaa8c5c8fc5a4a504c9cc6a93a5648855cf58107f6"
     },
     {
       "path": "tools/test_families/package.view_contracts.json",
@@ -1087,7 +1097,7 @@
     {
       "path": "tools/test_families/web.application.json",
       "role": "test_family_manifest",
-      "hash": "sha256:d2bd5d549106996aa97853d8a0921f0a2d9f30557a8b211521a7fd601b733ec9"
+      "hash": "sha256:457877b87217fcd01e6b15f4d28dd2a69d519f0fd2773d24966e7d8e2f3a59ec"
     },
     {
       "path": "tools/test_families/web.architecture.json",

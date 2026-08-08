@@ -416,6 +416,7 @@ describe("pending queue unit model", () => {
         "Local pending queue is full. The current edit remains unsaved local work.",
       refused_unit_id: "unit-txn-65",
       preserve_visible_edit_as_unsaved: true,
+      view_schema_id: viewSchemaId,
       visible_edit: {
         rowKey: "row-record-65",
         fieldKey: "timeline.activity_synopsis_text",
@@ -987,6 +988,7 @@ describe("pending queue unit model", () => {
       conflict_resolution_class: "text_compare_merge",
       base_row_version: 7,
       current_row_version: 8,
+      view_schema_id: viewSchemaId,
     });
     expect(
       sameFieldConflict.snapshot.units.map((unit) => unit.clientTxnId),
@@ -1307,7 +1309,7 @@ describe("save-state unit model", () => {
           halted,
         },
         expected: "Conflict",
-        secondaryKind: "same_field_conflict",
+        secondaryKind: "overflow",
       },
       {
         name: "queue overflow",

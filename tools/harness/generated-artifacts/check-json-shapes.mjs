@@ -91,7 +91,7 @@ const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v5";
 const frontendVisualDesignContractIDs = Object.freeze(
   Array.from(
-    { length: 12 },
+    { length: 14 },
     (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
   ),
 );

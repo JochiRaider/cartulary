@@ -1,4 +1,5 @@
 import {
+  cartularyDesignPresentation,
   gridScrollportClassName,
   workbookGridRowHeightPx,
 } from "@cartulary/ui-contracts";
@@ -1354,7 +1355,11 @@ function GridStatePresentation({
     SemanticDataGridProps<unknown>["interactionMode"]
   >;
 }) {
-  const presentation = gridDataStatePresentation(dataState);
+  const delayedInitialLoading = useDelayedInitialLoading(dataState);
+  const presentation = gridDataStatePresentation(
+    dataState,
+    delayedInitialLoading,
+  );
   return (
     <>
       {presentation === null ? null : (
@@ -1395,8 +1400,26 @@ function GridStatePresentation({
   );
 }
 
+function useDelayedInitialLoading(
+  state: NonNullable<SemanticDataGridProps<unknown>["dataState"]>,
+): boolean {
+  const [delayed, setDelayed] = useState(false);
+  const generationKey =
+    state.kind === "initial_loading" ? state.generationKey : null;
+  useEffect(() => {
+    setDelayed(false);
+    if (generationKey === null) return;
+    const timeout = window.setTimeout(() => {
+      setDelayed(true);
+    }, cartularyDesignPresentation.initialLoading.delayMs);
+    return () => window.clearTimeout(timeout);
+  }, [generationKey]);
+  return delayed;
+}
+
 function gridDataStatePresentation(
   state: NonNullable<SemanticDataGridProps<unknown>["dataState"]>,
+  delayedInitialLoading = false,
 ): {
   readonly action?: { readonly label: string; readonly onInvoke: () => void };
   readonly blocking: boolean;
@@ -1411,7 +1434,9 @@ function gridDataStatePresentation(
       return {
         blocking: true,
         live: "polite",
-        message: `Loading ${state.surfaceLabel}…`,
+        message: delayedInitialLoading
+          ? cartularyDesignPresentation.initialLoading.message
+          : `Loading ${state.surfaceLabel}…`,
         role: "status",
       };
     case "refreshing":

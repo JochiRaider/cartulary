@@ -2,7 +2,6 @@ import {
   genericWorkbookTestId,
   saveStateActionButtonTestId,
   saveStateTestId,
-  statusStripQueueCountTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { CSSProperties } from "react";
@@ -27,8 +26,6 @@ export type WorkbookStatusSaveState = "Syncing" | "Saved" | "Conflict";
 
 export function WorkbookStatusStrip({
   activeSheetPresenceRecords,
-  inFlightCount,
-  queuedCount,
   saveState,
   saveStateSecondaryMessage,
   showPresence = true,
@@ -83,12 +80,6 @@ export function WorkbookStatusStrip({
           {saveStateSecondaryMessage}
         </span>
       ) : null}
-      <span style={statusStripItemStyle}>
-        Queue{" "}
-        <span data-testid={statusStripQueueCountTestId()}>
-          {queuedCount + inFlightCount}
-        </span>
-      </span>
       {showPresence ? (
         <WorkbookPresenceSummary records={activeSheetPresenceRecords} />
       ) : null}

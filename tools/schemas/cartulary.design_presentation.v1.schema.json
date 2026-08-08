@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.design_presentation.v1",
+  "title": "Cartulary design presentation projection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "owner_id",
+    "verification_id",
+    "initial_loading",
+    "transient_confirmation",
+    "status_secondary_priority",
+    "error_presentations"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.design_presentation.v1" },
+    "owner_id": { "const": "package.ui" },
+    "verification_id": { "const": "package.ui.verification.machine_owned_presentation" },
+    "initial_loading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delay_ms", "message", "live", "announce_once_per_generation", "retry_on_delay"],
+      "properties": {
+        "delay_ms": { "const": 2000 },
+        "message": { "const": "Still loading this surface" },
+        "live": { "const": "polite" },
+        "announce_once_per_generation": { "const": true },
+        "retry_on_delay": { "const": false }
+      }
+    },
+    "transient_confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible_unpaused_ms", "live", "pause_conditions", "resume_resets_elapsed", "still_valid_action_prevents_dismissal"],
+      "properties": {
+        "visible_unpaused_ms": { "const": 5000 },
+        "live": { "const": "polite" },
+        "pause_conditions": {
+          "const": ["document_hidden", "keyboard_focus_within", "pointer_hover"]
+        },
+        "resume_resets_elapsed": { "const": false },
+        "still_valid_action_prevents_dismissal": { "const": true }
+      }
+    },
+    "status_secondary_priority": {
+      "const": [
+        "client_txn_conflict",
+        "queue_overflow",
+        "same_field_conflict",
+        "terminal_replay_failure",
+        "authentication_required",
+        "refresh_paused",
+        "queued_or_in_flight"
+      ]
+    },
+    "error_presentations": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "locus", "retention", "actions", "focus_effect", "live"],
+        "properties": {
+          "family": {
+            "enum": [
+              "local_validation",
+              "same_field_conflict",
+              "client_txn_conflict",
+              "queue_overflow",
+              "stale_refresh",
+              "initial_load_failure",
+              "authentication_required",
+              "permission_or_incident_access_loss",
+              "extension_unavailable",
+              "evidence_preview_blocked",
+              "unknown_future_error"
+            ]
+          },
+          "locus": { "type": "string", "minLength": 1 },
+          "retention": { "type": "string", "minLength": 1 },
+          "actions": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "focus_effect": { "type": "string", "minLength": 1 },
+          "live": { "enum": ["assertive", "assertive_once", "polite"] }
+        }
+      }
+    }
+  }
+}

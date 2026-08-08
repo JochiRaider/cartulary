@@ -61,6 +61,7 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
   const [paging, setPaging] = useState<NetworkFlowPaging | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [loadState, setLoadState] = useState<NetworkFlowQueryLoadState>("idle");
+  const [loadGenerationKey, setLoadGenerationKey] = useState(0);
   const [error, setError] = useState<NetworkFlowRequestError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
     controller.current = activeController;
     generation.current += 1;
     const activeGeneration = generation.current;
+    setLoadGenerationKey(activeGeneration);
     setLoadState(itemsRef.current.length === 0 ? "loading" : "refreshing");
     setError(null);
     onErrorRef.current(null);
@@ -235,6 +237,7 @@ export function useNetworkFlowPagedQuery<Item, Request>(options: {
     error,
     items,
     loadState,
+    loadGenerationKey,
     nextPage,
     notice,
     pageNumber: pageIndex + 1,

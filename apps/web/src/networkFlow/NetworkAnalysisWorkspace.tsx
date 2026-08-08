@@ -564,6 +564,9 @@ function NetworkAnalysisWorkspaceContent({
               graphController.canPreviousContributorPage
             }
             contributorLoadState={graphController.contributorLoadState}
+            contributorLoadGenerationKey={
+              graphController.contributorLoadGenerationKey
+            }
             contributorPageNumber={graphController.contributorPageNumber}
             contributors={graphController.contributors}
             firstContributor={graphController.firstContributor}
@@ -617,6 +620,7 @@ function NetworkAnalysisWorkspaceContent({
             canNext={rejectedRowsController.canNext}
             canPrevious={rejectedRowsController.canPrevious}
             diagnostics={rejectedRowsController.diagnostics}
+            loadGenerationKey={rejectedRowsController.loadGenerationKey}
             loadState={rejectedRowsController.loadState}
             notice={rejectedRowsController.notice}
             pageNumber={rejectedRowsController.pageNumber}
@@ -638,6 +642,7 @@ function NetworkAnalysisWorkspaceContent({
             canLink={canLink}
             canNext={rowsController.canNext}
             canPrevious={rowsController.canPrevious}
+            loadGenerationKey={rowsController.loadGenerationKey}
             loadState={rowsController.loadState}
             notice={rowsController.notice}
             pageNumber={rowsController.pageNumber}
@@ -1117,6 +1122,7 @@ function RowsPanel({
   canNext,
   canPrevious,
   loadState,
+  loadGenerationKey,
   notice,
   onBeginLink,
   onNext,
@@ -1135,6 +1141,7 @@ function RowsPanel({
   readonly canNext: boolean;
   readonly canPrevious: boolean;
   readonly loadState: NetworkFlowQueryLoadState;
+  readonly loadGenerationKey: string | number;
   readonly notice: string | null;
   readonly onBeginLink: () => void;
   readonly onNext: () => void;
@@ -1178,6 +1185,7 @@ function RowsPanel({
       ) : null}
       <NetworkFlowAcceptedGrid
         filtered={query.filters.length > 0 || query.timeWindow !== null}
+        loadGenerationKey={loadGenerationKey}
         loadState={loadState}
         resetKey={`${activeTable?.network_flow_table_id ?? "none"}:${JSON.stringify(query)}`}
         rows={rows}
@@ -1206,6 +1214,7 @@ function RejectedRowsPanel({
   canPrevious,
   diagnostics,
   loadState,
+  loadGenerationKey,
   notice,
   onNext,
   onPrevious,
@@ -1219,6 +1228,7 @@ function RejectedRowsPanel({
   readonly canPrevious: boolean;
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
   readonly loadState: NetworkFlowQueryLoadState;
+  readonly loadGenerationKey: string | number;
   readonly notice: string | null;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
@@ -1243,6 +1253,7 @@ function RejectedRowsPanel({
           query.sourceRowRange !== null
         }
         loadState={loadState}
+        loadGenerationKey={loadGenerationKey}
         resetKey={`${activeTable?.network_flow_table_id ?? "none"}:${JSON.stringify(query)}`}
         onResetQuery={onResetQuery}
         onRetry={onRetry}
@@ -1311,6 +1322,7 @@ function GraphPanel({
   canNextContributorPage,
   canPreviousContributorPage,
   contributorLoadState,
+  contributorLoadGenerationKey,
   contributorPageNumber,
   contributors,
   firstContributor,
@@ -1337,6 +1349,7 @@ function GraphPanel({
   readonly canNextContributorPage: boolean;
   readonly canPreviousContributorPage: boolean;
   readonly contributorLoadState: NetworkFlowQueryLoadState;
+  readonly contributorLoadGenerationKey: string | number;
   readonly contributorPageNumber: number;
   readonly contributors: readonly NetworkFlowContributor[];
   readonly firstContributor: NetworkFlowContributor | null;
@@ -1665,6 +1678,7 @@ function GraphPanel({
           </div>
           <NetworkFlowContributorGrid
             contributors={contributors}
+            loadGenerationKey={contributorLoadGenerationKey}
             loadState={contributorLoadState}
             tables={tables}
             onRetry={onRetryContributors}

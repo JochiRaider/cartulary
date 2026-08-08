@@ -179,7 +179,10 @@ export function useTimelineRowMutationCoordinator({
 }) {
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const conflicts = useTimelineConflicts({ conflictQueueRef });
-  const commonMutationSnapshot = useWorkbookMutationRuntime(mutationRuntime);
+  const commonMutationSnapshot = useWorkbookMutationRuntime(
+    mutationRuntime,
+    timelineViewSchemaId,
+  );
   const { activeConflictKey, conflictQueue, pasteConflictGroup } =
     conflicts.snapshot;
   const { setActiveConflictKey, setConflictQueueState, setPasteConflictGroup } =

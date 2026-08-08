@@ -6,6 +6,7 @@ import {
   genericCreateFieldTestId,
   gridShellTestId,
   incidentAdministrationTestId,
+  incidentControlsActionMessageTestId,
   incidentControlsPanelTestId,
   incidentLandingTestId,
   incidentMembershipAdminNoteTestId,
@@ -739,6 +740,14 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
     .getByTestId(incidentAdministrationTestId("patch-external-case"))
     .fill("CASE-E202-PRIMARY");
   await page.getByTestId(incidentAdministrationTestId("patch-button")).click();
+
+  const actionMessage = page.getByTestId(incidentControlsActionMessageTestId());
+  await expect(actionMessage).toHaveText("Saved promoted incident fields.");
+  await actionMessage.hover();
+  await page.waitForTimeout(5_100);
+  await expect(actionMessage).toHaveText("Saved promoted incident fields.");
+  await page.mouse.move(0, 0);
+  await expect(actionMessage).toHaveText("", { timeout: 5_500 });
 
   await openIncidentControls(page);
   await expect(

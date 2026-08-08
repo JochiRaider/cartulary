@@ -98,6 +98,30 @@
       "minimum_tier": "fast"
     },
     {
+      "row_id": "package.ui.frontend_unit.design_presentation_projection_8e15b85b40",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/design-presentation.test.ts",
+        "titles": [
+          "design presentation projection contains every closed error family exactly once",
+          "design presentation projection exports the adopted loading and transient timing rules"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "package.ui.frontend_unit.network_flow_selector_contracts_b95d925bdf",
       "owner_id": "package.ui",
       "family_id": "package.ui.frontend_unit",

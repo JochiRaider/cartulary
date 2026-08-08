@@ -179,7 +179,7 @@ export function WorkbookSurfaceLayout({
         aria-label={workAreaAriaLabel}
         style={workAreaStyle}
         onContextMenu={onWorkAreaContextMenu}
-        onKeyDown={onWorkAreaKeyDown}
+        onKeyDownCapture={onWorkAreaKeyDown}
       >
         <WorkbookShellSlotRegion
           inert={backgroundIsInert}

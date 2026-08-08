@@ -141,7 +141,11 @@
         "apps/web/src/shared/authorizationRecovery.ts",
         "apps/web/src/shared/publicError.test.ts",
         "apps/web/src/shared/publicError.ts",
+        "apps/web/src/shared/publicErrorPresentation.test.ts",
+        "apps/web/src/shared/publicErrorPresentation.ts",
         "apps/web/src/shared/sheetRef.ts",
+        "apps/web/src/shared/useTransientMessageController.test.tsx",
+        "apps/web/src/shared/useTransientMessageController.ts",
         "apps/web/src/shared/workbookShellContracts.ts"
       ]
     },
@@ -425,6 +429,8 @@
         "apps/web/src/workbook/utils/workbookPresence.ts",
         "apps/web/src/workbook/utils/workbookRowReconciliation.test.ts",
         "apps/web/src/workbook/utils/workbookRowReconciliation.ts",
+        "apps/web/src/workbook/utils/workbookStatusSecondary.test.ts",
+        "apps/web/src/workbook/utils/workbookStatusSecondary.ts",
         "apps/web/src/workbook/utils/workbookStyles.ts",
         "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
         "apps/web/src/workbook/utils/workbookValueFormat.ts",

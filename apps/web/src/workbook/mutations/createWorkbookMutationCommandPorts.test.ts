@@ -115,22 +115,28 @@ describe("semantic mutation command ports", () => {
       kind: "accepted",
       value: { data: { rows: [] } },
     });
-    await expect(operations.execute(queryInput)).resolves.toEqual({
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
       kind: "rejected",
       failure: {
         kind: "invalid_contract",
         message: "The server returned an invalid public contract response.",
+        presentation: { family: "initial_load_failure" },
       },
     });
-    await expect(operations.execute(queryInput)).resolves.toEqual({
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
       kind: "rejected",
-      failure: { kind: "authorization_lost", message: "Access denied." },
+      failure: {
+        kind: "authorization_lost",
+        message: "Access denied.",
+        presentation: { family: "permission_or_incident_access_loss" },
+      },
     });
-    await expect(operations.execute(queryInput)).resolves.toEqual({
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
       kind: "rejected",
       failure: {
         kind: "invalid_contract",
         message: "The server returned an invalid public error response.",
+        presentation: { family: "initial_load_failure" },
       },
     });
     await expect(
@@ -141,11 +147,12 @@ describe("semantic mutation command ports", () => {
         },
         request: {},
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       kind: "rejected",
       failure: {
         kind: "terminal",
         message: "evidence_access_unavailable: unsupported_preview",
+        presentation: { family: "evidence_preview_blocked" },
       },
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -540,11 +547,14 @@ describe("semantic mutation command ports", () => {
         viewSchemaId: hostsViewSchemaId,
       },
     });
-    await expect(commands.entity.pasteCreate(pasteInput)).resolves.toEqual({
+    await expect(
+      commands.entity.pasteCreate(pasteInput),
+    ).resolves.toMatchObject({
       kind: "rejected",
       failure: {
         kind: "invalid_contract",
         message: "The server returned an invalid public contract response.",
+        presentation: { family: "unknown_future_error" },
       },
     });
   });

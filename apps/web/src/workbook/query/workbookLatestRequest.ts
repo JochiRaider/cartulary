@@ -4,6 +4,7 @@ export type LatestQueryRuntime = {
 };
 
 export type LatestQueryRequest = {
+  generationKey: number;
   isCurrent: () => boolean;
   signal: AbortSignal;
 };
@@ -18,6 +19,7 @@ export function beginLatestQuery(runtime: {
   previousController?.abort();
 
   return {
+    generationKey: sequence,
     signal: controller.signal,
     isCurrent: () =>
       runtime.current.sequence === sequence &&

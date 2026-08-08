@@ -1,3 +1,4 @@
+import type { CartularyErrorPresentation } from "@cartulary/ui-contracts";
 import type { WorkbookSameFieldConflictPayload } from "../runtime/workbookConflictModel";
 
 export type WorkbookOperationFieldFailure = {
@@ -5,7 +6,7 @@ export type WorkbookOperationFieldFailure = {
   readonly message: string;
 };
 
-export type WorkbookOperationFailure =
+export type WorkbookOperationFailure = (
   | {
       readonly kind: "validation";
       readonly message: string;
@@ -22,7 +23,8 @@ export type WorkbookOperationFailure =
   | { readonly kind: "stale_target"; readonly message: string }
   | { readonly kind: "retryable"; readonly message: string }
   | { readonly kind: "invalid_contract"; readonly message: string }
-  | { readonly kind: "terminal"; readonly message: string };
+  | { readonly kind: "terminal"; readonly message: string }
+) & { readonly presentation?: CartularyErrorPresentation | undefined };
 
 export type WorkbookOperationOutcome<Accepted> =
   | { readonly kind: "accepted"; readonly value: Accepted }

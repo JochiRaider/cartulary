@@ -1120,6 +1120,30 @@
       "minimum_tier": "fast"
     },
     {
+      "row_id": "web.application.regression.public_error_presentation_typed_mapping_1ea7e57fb4",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/shared/publicErrorPresentation.test.ts",
+        "titles": [
+          "public error presentation falls back without accepting or inspecting human message text",
+          "public error presentation uses structured code and operation context for every current locus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",
       "owner_id": "web.application",
       "family_id": "web.application.regression",
@@ -1184,6 +1208,32 @@
         "titles": [
           "publicError normalization replaces unsafe messages and details with status-safe presentation",
           "publicError normalization retains structured codes, safe messages, and allowlisted details"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "web.application.regression.transient_message_visible_time_controller_7cd87bd3fa",
+      "owner_id": "web.application",
+      "family_id": "web.application.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.application.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/shared/useTransientMessageController.test.tsx",
+        "titles": [
+          "useTransientMessageController dismisses after 5,000ms of visible unpaused time",
+          "useTransientMessageController does not dismiss a message with a still-valid action",
+          "useTransientMessageController pauses for pointer hover and keyboard focus and resumes the remainder",
+          "useTransientMessageController pauses while the document is hidden and resumes the exact remainder"
         ]
       },
       "evidence_class": "unit",

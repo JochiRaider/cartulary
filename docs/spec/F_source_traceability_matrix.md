@@ -4,6 +4,13 @@ This appendix is **non-normative**.
 
 It records where the content of the exploratory source artifact was carried into the derived document set. Appendix G preserves the full original artifact verbatim.
 
+`docs/design.md` is the sole normative design-direction owner. Revision 3 of
+the UI/UX design guide is non-normative support only. Research reports R01
+through R09 and Appendices A through I are informative preservation,
+traceability, rationale, or implementation-support sources; none owns runtime
+behavior. No runtime, generator, test catalog, conformance check, or release
+evidence consumes this appendix or either guide as behavioral input.
+
 ## F.1 Level-2 source section coverage
 
 | Source section or topic | Current owner section(s) | Non-normative preservation target(s) | Supporting guidance | Preservation note |

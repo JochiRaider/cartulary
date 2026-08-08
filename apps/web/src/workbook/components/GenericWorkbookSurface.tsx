@@ -229,7 +229,10 @@ export function ContractWorkbookSurface({
     refreshReferenceOptions,
     surfaceLabel: contract.title,
   });
-  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime);
+  const sharedMutation = useWorkbookMutationRuntime(
+    mutationRuntime,
+    contract.viewSchemaId,
+  );
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );

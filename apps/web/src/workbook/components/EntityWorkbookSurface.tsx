@@ -233,7 +233,12 @@ export function EntityWorkbookSurface({
   );
   const [mutationState, setMutationState] =
     useState<WorkbookMutationSaveState>("Saved");
-  const sharedMutation = useWorkbookMutationRuntime(mutationRuntime);
+  const sharedMutation = useWorkbookMutationRuntime(
+    mutationRuntime,
+    entityType === "host"
+      ? hostsContract.viewSchemaId
+      : identitiesContract.viewSchemaId,
+  );
   const collaboration = useWorkbookCollaborationCoordinator(
     collaborationProjection,
   );

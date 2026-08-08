@@ -72,6 +72,7 @@ export function TimelineHistoryPanel({
     <section
       data-testid={timelineInspectorSectionTestId("history")}
       style={inspectorSectionStyle}
+      tabIndex={-1}
     >
       <div data-testid={rowHistoryPanelTestId()}>
         <div style={historySectionHeaderStyle}>

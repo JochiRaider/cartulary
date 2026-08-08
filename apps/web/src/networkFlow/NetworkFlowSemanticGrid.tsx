@@ -45,6 +45,7 @@ import type { NetworkFlowQueryLoadState } from "./useNetworkFlowPagedQuery";
 
 export function NetworkFlowAcceptedGrid({
   filtered,
+  loadGenerationKey = 0,
   loadState,
   onResetQuery,
   onRetry,
@@ -55,6 +56,7 @@ export function NetworkFlowAcceptedGrid({
   onSelectionChange,
 }: {
   readonly filtered: boolean;
+  readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
@@ -93,6 +95,7 @@ export function NetworkFlowAcceptedGrid({
       dataState={networkFlowGridDataState({
         filtered,
         itemCount: rows.length,
+        loadGenerationKey,
         loadState,
         onResetQuery,
         onRetry,
@@ -121,6 +124,7 @@ export function NetworkFlowAcceptedGrid({
           dataState={networkFlowGridDataState({
             filtered,
             itemCount: rows.length,
+            loadGenerationKey,
             loadState,
             onResetQuery,
             onRetry,
@@ -169,6 +173,7 @@ export function NetworkFlowAcceptedGrid({
 export function NetworkFlowRejectedGrid({
   diagnostics,
   filtered,
+  loadGenerationKey = 0,
   loadState,
   onResetQuery,
   onRetry,
@@ -176,6 +181,7 @@ export function NetworkFlowRejectedGrid({
 }: {
   readonly diagnostics: readonly NetworkFlowDiagnostic[];
   readonly filtered: boolean;
+  readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
@@ -201,6 +207,7 @@ export function NetworkFlowRejectedGrid({
       dataState={networkFlowGridDataState({
         filtered,
         itemCount: diagnostics.length,
+        loadGenerationKey,
         loadState,
         onResetQuery,
         onRetry,
@@ -228,6 +235,7 @@ export function NetworkFlowRejectedGrid({
           dataState={networkFlowGridDataState({
             filtered,
             itemCount: diagnostics.length,
+            loadGenerationKey,
             loadState,
             onResetQuery,
             onRetry,
@@ -253,11 +261,13 @@ export function NetworkFlowRejectedGrid({
 
 export function NetworkFlowContributorGrid({
   contributors,
+  loadGenerationKey = 0,
   loadState,
   onRetry,
   tables,
 }: {
   readonly contributors: readonly NetworkFlowContributor[];
+  readonly loadGenerationKey?: string | number | undefined;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onRetry: () => void;
   readonly tables: readonly NetworkFlowTable[];
@@ -314,6 +324,7 @@ export function NetworkFlowContributorGrid({
           dataState={networkFlowGridDataState({
             filtered: false,
             itemCount: contributors.length,
+            loadGenerationKey,
             loadState,
             onResetQuery: () => undefined,
             onRetry,
@@ -743,13 +754,18 @@ function useStableGridProjection<Owner, Row>(
 function networkFlowGridDataState(options: {
   readonly filtered: boolean;
   readonly itemCount: number;
+  readonly loadGenerationKey: string | number;
   readonly loadState: NetworkFlowQueryLoadState;
   readonly onResetQuery: () => void;
   readonly onRetry: () => void;
   readonly surfaceLabel: string;
 }): GridDataState {
   if (options.loadState === "loading") {
-    return { kind: "initial_loading", surfaceLabel: options.surfaceLabel };
+    return {
+      generationKey: options.loadGenerationKey,
+      kind: "initial_loading",
+      surfaceLabel: options.surfaceLabel,
+    };
   }
   if (options.loadState === "refreshing") {
     return { kind: "refreshing", surfaceLabel: options.surfaceLabel };

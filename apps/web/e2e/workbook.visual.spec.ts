@@ -198,6 +198,8 @@ const expectedFrontendVisualFixtureIds = [
   "visual.fixture.default_timeline_workbook_shell",
   "visual.fixture.compact_desktop_workbook_shell",
   "visual.fixture.destructive_actions",
+  "visual.fixture.delayed_initial_loading",
+  "visual.fixture.error_presentation_loci",
   "visual.fixture.drag_fill_handle",
   "visual.fixture.edit_cell",
   "visual.fixture.empty_successful_query",
@@ -216,7 +218,7 @@ const expectedFrontendVisualFixtureIds = [
 ] as const;
 
 const expectedDesignContractIds = Array.from(
-  { length: 12 },
+  { length: 14 },
   (_, index) => `D-VFIX-${String(index + 1).padStart(3, "0")}`,
 );
 
@@ -264,6 +266,8 @@ function frontendVisualFixtureRegistryDigest(): string {
 function expectCurrentFrontendVisualFixtureMetadata(
   fixture: FrontendVisualFixture,
 ) {
+  const updatingSnapshots =
+    process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1";
   expect(fixture.status).toBe("current");
   expect(fixture.fixture_title.length).toBeGreaterThan(0);
   expect(fixture.catalog_row_ids.length).toBeGreaterThan(0);
@@ -285,10 +289,12 @@ function expectCurrentFrontendVisualFixtureMetadata(
   expect(fixture.blocked_reason).toBe("");
   expect(fixture.replacement_fixture_id).toBe("");
   for (const artifact of fixture.golden_artifacts) {
-    expect(
-      existsSync(repoPath(artifact)),
-      `${artifact} should exist`,
-    ).toBeTruthy();
+    if (!updatingSnapshots) {
+      expect(
+        existsSync(repoPath(artifact)),
+        `${artifact} should exist`,
+      ).toBeTruthy();
+    }
   }
   expect(fixture.golden_artifacts).toContain(fixture.golden_filename);
 }
@@ -3533,6 +3539,32 @@ test.describe("browser.design-readiness visual readiness", () => {
     const fixture = page.locator("[data-design-fixture='components']");
     await expect(fixture).toBeVisible();
     await assertVisualRegression(page, "design-exposed-theme-states", fixture);
+
+    await injectDelayedLoadingVisualFixture(page);
+    const delayedLoading = page.locator(
+      "[data-design-fixture='delayed-loading']",
+    );
+    await expect(delayedLoading).toContainText("Still loading this surface");
+    await expect(delayedLoading.getByRole("button")).toHaveCount(0);
+    await assertVisualRegression(
+      page,
+      "design-delayed-initial-loading",
+      delayedLoading,
+    );
+
+    await injectErrorPresentationVisualFixture(page);
+    const errorPresentation = page.locator(
+      "[data-design-fixture='error-presentation']",
+    );
+    await expect(errorPresentation).toBeVisible();
+    await expect(errorPresentation.locator("[data-error-locus]")).toHaveCount(
+      5,
+    );
+    await assertVisualRegression(
+      page,
+      "design-error-presentation-loci",
+      errorPresentation,
+    );
   });
 });
 
@@ -4430,6 +4462,166 @@ async function injectExposedThemeVisualFixture(page: Page) {
         <input class="theme-input" value="Readonly token input" readonly />
         <div class="theme-grid-cell">Grid cell typography and default density</div>
       </div>
+    `,
+  });
+}
+
+async function injectDelayedLoadingVisualFixture(page: Page) {
+  await injectDesignFixture(page, {
+    ariaLabel: "Delayed initial-loading state",
+    fixtureName: "delayed-loading",
+    missingMainMessage: "Expected workbook shell main before loading fixture",
+    styleText: `
+      [data-design-fixture='delayed-loading'] {
+        position: fixed;
+        inset: var(--ct-spacing-xl);
+        box-sizing: border-box;
+        display: grid;
+        place-items: center;
+        background: var(--ct-colors-canvas);
+        color: var(--ct-colors-ink);
+        border: var(--ct-border-strong);
+        border-radius: var(--ct-rounded-lg);
+        box-shadow: var(--ct-elevation-panel);
+        font-family: var(--ct-typography-ui-fontFamily);
+        z-index: 1001;
+      }
+
+      .delayed-loading-card {
+        display: grid;
+        justify-items: center;
+        gap: var(--ct-spacing-sm);
+        min-inline-size: 24rem;
+        padding: var(--ct-spacing-xl);
+        background: var(--ct-colors-surface-1);
+        border: var(--ct-border-hairline);
+        border-radius: var(--ct-rounded-md);
+      }
+
+      .delayed-loading-spinner {
+        inline-size: var(--ct-component-icon-inline-size);
+        block-size: var(--ct-component-icon-inline-size);
+        border: var(--ct-border-strong);
+        border-inline-start-color: var(--ct-colors-accent);
+        border-radius: var(--ct-rounded-pill);
+      }
+
+      .delayed-loading-card strong {
+        font-family: var(--ct-typography-surface-title-fontFamily);
+        font-size: var(--ct-typography-surface-title-fontSize);
+      }
+
+      .delayed-loading-card span {
+        color: var(--ct-colors-ink-muted);
+      }
+    `,
+    html: `
+      <div class="delayed-loading-card" role="status" aria-live="polite">
+        <span class="delayed-loading-spinner" aria-hidden="true"></span>
+        <strong>Still loading this surface</strong>
+        <span>Timeline remains busy for this request generation.</span>
+      </div>
+    `,
+  });
+}
+
+async function injectErrorPresentationVisualFixture(page: Page) {
+  await injectDesignFixture(page, {
+    ariaLabel: "Representative error-presentation loci",
+    fixtureName: "error-presentation",
+    missingMainMessage: "Expected workbook shell main before error fixture",
+    styleText: `
+      [data-design-fixture='error-presentation'] {
+        position: fixed;
+        inset: var(--ct-spacing-xl);
+        box-sizing: border-box;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--ct-spacing-md);
+        overflow: hidden;
+        background: var(--ct-colors-canvas);
+        color: var(--ct-colors-ink);
+        border: var(--ct-border-strong);
+        border-radius: var(--ct-rounded-lg);
+        padding: var(--ct-spacing-lg);
+        box-shadow: var(--ct-elevation-panel);
+        font-family: var(--ct-typography-ui-fontFamily);
+        z-index: 1002;
+      }
+
+      .error-locus-title {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-family: var(--ct-typography-surface-title-fontFamily);
+        font-size: var(--ct-typography-surface-title-fontSize);
+      }
+
+      [data-error-locus] {
+        display: grid;
+        align-content: start;
+        gap: var(--ct-spacing-xs);
+        min-width: 0;
+        padding: var(--ct-spacing-md);
+        background: var(--ct-colors-surface-1);
+        border: var(--ct-border-hairline);
+        border-inline-start: var(--ct-border-strong);
+        border-inline-start-color: var(--ct-colors-semantic-conflict);
+        border-radius: var(--ct-rounded-md);
+      }
+
+      [data-error-locus='permission-loss'] {
+        grid-column: 1 / -1;
+        border-inline-start-color: var(--ct-colors-semantic-destructive);
+      }
+
+      [data-error-locus] strong,
+      [data-error-locus] p {
+        margin: 0;
+      }
+
+      [data-error-locus] p {
+        color: var(--ct-colors-ink-muted);
+      }
+
+      .error-locus-actions {
+        display: flex;
+        gap: var(--ct-spacing-xs);
+      }
+
+      .error-locus-actions button {
+        border: var(--ct-component-button-secondary-border);
+        border-radius: var(--ct-component-button-secondary-rounded);
+        background: var(--ct-component-button-secondary-backgroundColor);
+        color: var(--ct-component-button-secondary-textColor);
+        padding: var(--ct-component-button-secondary-padding);
+      }
+    `,
+    html: `
+      <h2 class="error-locus-title">Typed error families at their recovery loci</h2>
+      <section data-error-locus="local-validation" role="alert">
+        <strong>Cell validation</strong>
+        <p>Committed value retained · local draft “09:7x” retained</p>
+        <div class="error-locus-actions"><button type="button">Correct value</button><button type="button">Cancel draft</button></div>
+      </section>
+      <section data-error-locus="client-transaction-conflict" role="alert">
+        <strong>Queued edit needs recovery</strong>
+        <p>Blocked edit and later FIFO edits retained</p>
+        <div class="error-locus-actions"><button type="button">Retry with a new request ID</button><button type="button">Discard blocked edit</button></div>
+      </section>
+      <section data-error-locus="stale-refresh" role="alert">
+        <strong>Refresh paused</strong>
+        <p>Previously authorized rows, selection, and focus retained</p>
+        <div class="error-locus-actions"><button type="button">Retry</button></div>
+      </section>
+      <section data-error-locus="evidence-preview-blocked" role="status">
+        <strong>Evidence preview blocked</strong>
+        <p>Authorized metadata retained · preview bytes unavailable</p>
+        <div class="error-locus-actions"><button type="button">Download</button></div>
+      </section>
+      <section data-error-locus="permission-loss" role="alert">
+        <strong>Incident access changed</strong>
+        <p>Protected workbook materialization cleared · authenticated root focused</p>
+      </section>
     `,
   });
 }

@@ -24,11 +24,13 @@ import {
   surfaceTabTestId,
   systemViewSwitcherOptionTestId,
   systemViewSwitcherTriggerTestId,
+  timelineInspectorSectionTestId,
   timelineInspectorTestId,
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
   workbookFilterPopoverTriggerTestId,
   workbookFocusAnchorTestId,
+  workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
   workbookPresenceSummaryTestId,
   workbookResponsiveBandTestId,
@@ -416,12 +418,37 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
   );
   await expect(alphaSummaryCell).not.toBeFocused();
+  await page.keyboard.press("Escape");
 
   await openTimelineInspector(page, alpha.record_id as string);
   await expect(page.getByTestId(timelineInspectorTestId())).toContainText(
     "WorkbookInteractionHost?",
   );
   expect(page.url()).toBe(initialURL);
+  await alphaSummaryCell.focus();
+  await expect(alphaSummaryCell).toBeFocused();
+  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
+    `${timelineViewSchemaId}:${alpha.record_id}:timeline.date_entered_text`,
+  );
+
+  await page.keyboard.press("Alt+H");
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
+    String(alpha.record_id),
+  );
+  await expect(
+    page.getByTestId(timelineInspectorSectionTestId("history")),
+  ).toBeFocused();
+  expect(page.url()).toBe(initialURL);
+
+  await alphaSummaryCell.focus();
+  await page.keyboard.press("Space");
+  await expect(
+    page.getByTestId(timelineInspectorSectionTestId("evidence")),
+  ).toBeFocused();
+
+  await page
+    .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
+    .click();
   await scrollGridCellIntoView({
     cellKey: "timeline.analyst_text",
     page,
@@ -431,16 +458,35 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
   const alphaAnalyst = page.getByTestId(
     rowCellTestId(alpha.record_id as string, "timeline.analyst_text"),
   );
-  await activateSemanticGridCell(alphaAnalyst);
-  await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
-    `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
+  await alphaAnalyst.click();
+  const alphaAnalystEditor = page.getByTestId(
+    timelineScalarEditorTestId({
+      fieldKey: "timeline.analyst_text",
+      recordId: alpha.record_id as string,
+      surface: "grid",
+    }),
   );
-
-  await page.keyboard.press("Alt+H");
-  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    String(alpha.record_id),
-  );
-  expect(page.url()).toBe(initialURL);
+  await page.evaluate(() => {
+    Reflect.set(window, "__cartularyShortcutDefaultPrevented", null);
+    const recordAltH = (event: KeyboardEvent) => {
+      if (event.altKey && event.key.toLowerCase() === "h") {
+        Reflect.set(
+          window,
+          "__cartularyShortcutDefaultPrevented",
+          event.defaultPrevented,
+        );
+        window.removeEventListener("keydown", recordAltH);
+      }
+    };
+    window.addEventListener("keydown", recordAltH);
+  });
+  await alphaAnalystEditor.press("Alt+H");
+  expect(
+    await page.evaluate(() =>
+      Reflect.get(window, "__cartularyShortcutDefaultPrevented"),
+    ),
+  ).toBe(false);
+  await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
 
   await page.keyboard.press("Control+V");
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(

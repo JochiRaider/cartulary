@@ -12,6 +12,7 @@ import {
   dataTestIdSelector,
   draftCellTestId,
   gridGroupRowTestId,
+  timelineInspectorSectionTestId,
   timelineMutationSubstrateReadyTestId,
   workbookConflictSummaryTestId,
 } from "@cartulary/ui-contracts";
@@ -321,6 +322,7 @@ function TimelineWorkbookContent({
     setRefreshError,
   } = timelineRuntime.lifecycle;
   const [loadAccessLost, setLoadAccessLost] = useState(false);
+  const [initialLoadGenerationKey, setInitialLoadGenerationKey] = useState(0);
   const {
     applyQueryFilter,
     filterDraft,
@@ -762,6 +764,7 @@ function TimelineWorkbookContent({
     editorDraftRegistry,
     setDismissedMentionsByRow,
     setIsInitialLoading,
+    setInitialLoadGenerationKey,
     setIsRefreshing,
     setLoadAccessLost,
     setLoadError,
@@ -1012,6 +1015,7 @@ function TimelineWorkbookContent({
     handleTimelineGridContextKeyDown,
     handleTimelineGridContextMenu,
     openInspectorForRow,
+    timelineRowForEventTarget,
   } = timelineInspectorRowInteractions.commands;
 
   const timelineMutationCommands = useTimelineMutationCommands({
@@ -1206,9 +1210,8 @@ function TimelineWorkbookContent({
             selectedRowId !== null ||
             rowHistory.recordId !== null ||
             rowHistory.status !== "idle"),
-        history: anchor !== null,
-        previewLinkedEvidence:
-          anchor !== null && event.currentTarget.value === "",
+        mode: "editor",
+        rowKind: anchor === null ? "draft" : "committed",
       });
       if (command.preventDefault) {
         event.preventDefault();
@@ -1315,13 +1318,8 @@ function TimelineWorkbookContent({
           (selectedRowId !== null ||
             rowHistory.recordId !== null ||
             rowHistory.status !== "idle"),
-        history: anchor !== null,
-        previewLinkedEvidence:
-          anchor !== null && event.currentTarget.value === "",
-        quickLink:
-          anchor !== null &&
-          (fieldKey === "timeline.host_refs" ||
-            fieldKey === "timeline.identity_refs"),
+        mode: "editor",
+        rowKind: anchor === null ? "draft" : "committed",
       });
       if (command.preventDefault) {
         event.preventDefault();
@@ -1413,6 +1411,104 @@ function TimelineWorkbookContent({
       setSelectedMentionRef,
       setInspectorMessage,
       setSelectedRowId,
+    ],
+  );
+
+  const focusInspectorSection = useCallback(
+    (section: "evidence" | "history") => {
+      window.requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(
+            dataTestIdSelector(timelineInspectorSectionTestId(section)),
+          )
+          ?.focus({ preventScroll: true });
+      });
+    },
+    [],
+  );
+
+  const handleTimelineWorkAreaKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      handleTimelineGridContextKeyDown(event);
+      if (event.defaultPrevented || !(event.target instanceof Element)) {
+        return;
+      }
+      if (
+        event.target.closest(
+          "input, textarea, select, button, a, [contenteditable='true'], [role='menu']",
+        ) !== null
+      ) {
+        return;
+      }
+      const row = timelineRowForEventTarget(event.target);
+      const fieldElement = event.target.closest<HTMLElement>(
+        "[data-grid-field-key]",
+      );
+      const fieldKey = fieldElement?.dataset.gridFieldKey;
+      const committedRecordId = row?.recordId ?? null;
+      const command = mapWorkbookKeyboardCommand(event, {
+        cell:
+          fieldKey === undefined
+            ? null
+            : {
+                linkResolveCapability:
+                  fieldKey === "timeline.host_refs" ||
+                  fieldKey === "timeline.identity_refs",
+              },
+        inspectorGroups: ["evidence", "history"],
+        mode: "grid_navigation",
+        committedRowIdentity: committedRecordId,
+        previewableEvidenceCount: 0,
+        rowKind: committedRecordId === null ? "none" : "committed",
+      });
+      const isInspectorShortcut =
+        command.kind === "open-history" ||
+        command.kind === "preview-linked-evidence" ||
+        command.kind === "quick-link";
+      if (!isInspectorShortcut || row === null || committedRecordId === null) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const recordId = committedRecordId;
+      if (command.kind === "open-history") {
+        openRowHistory(recordId);
+        focusInspectorSection("history");
+        return;
+      }
+      if (command.kind === "preview-linked-evidence") {
+        setSelectedRowId(recordId);
+        setIsInspectorOpen(true);
+        setInspectorMessage(null);
+        focusInspectorSection("evidence");
+        return;
+      }
+      if (command.kind === "quick-link") {
+        const mention = [
+          ...row.collectionValues.hostRefs,
+          ...row.collectionValues.identityRefs,
+        ].find((item) => item.itemKind !== "resolved_ref");
+        setSelectedRowId(recordId);
+        setIsInspectorOpen(true);
+        if (mention === undefined) {
+          setInspectorMessage(
+            "No unresolved mention is available for quick link.",
+          );
+        } else {
+          setSelectedMentionRef(mention.itemRef);
+          setInspectorMessage(null);
+        }
+      }
+    },
+    [
+      focusInspectorSection,
+      handleTimelineGridContextKeyDown,
+      openRowHistory,
+      setInspectorMessage,
+      setIsInspectorOpen,
+      setSelectedMentionRef,
+      setSelectedRowId,
+      timelineRowForEventTarget,
     ],
   );
 
@@ -1799,7 +1895,7 @@ function TimelineWorkbookContent({
       ? refreshError
       : null;
   const timelineLoadState: WorkbookQueryLoadState = isInitialLoading
-    ? { kind: "initial_loading" }
+    ? { generationKey: initialLoadGenerationKey, kind: "initial_loading" }
     : loadError !== null
       ? loadAccessLost
         ? { kind: "permission_denied", message: loadError }
@@ -2061,7 +2157,7 @@ function TimelineWorkbookContent({
         </>
       }
       onWorkAreaContextMenu={handleTimelineGridContextMenu}
-      onWorkAreaKeyDown={handleTimelineGridContextKeyDown}
+      onWorkAreaKeyDown={handleTimelineWorkAreaKeyDown}
     />
   );
 }

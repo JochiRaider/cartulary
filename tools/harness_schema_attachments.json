@@ -72,6 +72,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.design_presentation.v1",
+      "path": "tools/schemas/cartulary.design_presentation.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "design presentation projection owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.design_token_registry.v1",
       "path": "tools/schemas/cartulary.design_token_registry.v1.schema.json",
       "classification": "owner_input",
