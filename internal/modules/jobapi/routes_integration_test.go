@@ -45,6 +45,7 @@ func TestIncidentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	})
 
 	job, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
+		JobKind:           "import.discovery_v1",
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: viewerUser.ID,
 		Cancelable:        true,
@@ -87,6 +88,7 @@ func TestDeploymentJobAuthorizationReDerivedAtRequestTime_Unit(t *testing.T) {
 	otherCookies, otherCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, otherUser.Email, otherPassword, nil)
 
 	job, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
+		JobKind:           "import.discovery_v1",
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		SubmittedByUserID: submitterUser.ID,
 		Cancelable:        true,
@@ -154,6 +156,7 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	})
 
 	readJob, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
+		JobKind:           "import.discovery_v1",
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: submitterUser.ID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
@@ -192,6 +195,7 @@ func TestDeploymentAdminIncidentMembershipPolicy_Unit(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, viewerAdminCancel, http.StatusOK)
 
 	demotedJob, err := harness.Jobs.Create(context.Background(), jobs.CreateParams{
+		JobKind:           "import.discovery_v1",
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: submitterUser.ID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,

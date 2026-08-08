@@ -1,0 +1,240 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v3",
+  "owner_id": "platform.jobs",
+  "rows": [
+    {
+      "row_id": "platform.jobs.integration.claim_recovery_and_publication",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.durable_runner",
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.progress",
+        "platform.jobs.verification.recovery"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestDurableClaimsRecoveryAndDuplicateDispatch_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.drained_cutover_recovery",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.durable_runner",
+        "platform.jobs.verification.recovery",
+        "platform.jobs.verification.storage_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestDrainedV2CutoverAndRecovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.lifecycle_and_progress",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.progress"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestManagerCreatesCancelsAndReplaysJobCancel",
+          "TestManagerTerminalSuccessRetainsJobResource"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.migration_and_storage_contract",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.progress",
+        "platform.jobs.verification.storage_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration",
+          "TestJobsDefinitionMigration58RejectsUnsafeCorporaBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.runner_and_recovery",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.jobs.verification.durable_runner",
+        "platform.jobs.verification.recovery"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestManagerFailsDurableHandlerClosedAfterMaxAttempts"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.runner_failure_security",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.jobs.verification.durable_runner",
+        "platform.jobs.verification.failure_security",
+        "platform.jobs.verification.recovery"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestRunnerFailureSecurity_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.storage_catalog_startup",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.jobs.verification.storage_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestStorageCatalogStartupValidation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.transition_progress_contract",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.collaboration"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.progress"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestTransitionAndProgressCorrection_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.unit.telemetry_contract",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.unit",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.telemetry"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestJobTelemetryNoSDK",
+          "TestJobTelemetryVocabularyHelpers",
+          "TestSafeJobTelemetryToken"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    }
+  ]
+}

@@ -51,12 +51,17 @@ type InactiveJobOutcomeRecord struct {
 	CancellationRequestID     string
 }
 
+type InactiveJobTerminalWriter interface {
+	ValidateInactiveJobTx(context.Context, pgx.Tx, uuid.UUID, string, time.Time) error
+	CompleteInactiveJobTx(context.Context, pgx.Tx, uuid.UUID, string, json.RawMessage, time.Time) error
+}
+
 func (s *Store) LoadInactiveJobRecords(ctx context.Context, profileID string, limit int) ([]InactiveJobRecord, error) {
 	if s == nil || s.pool == nil || profileID == "" || limit < 1 {
 		return nil, ErrInvalidTransition
 	}
 	rows, err := s.pool.Query(ctx, `
-SELECT j.job_id, j.extension_owner_profile_id, j.extension_job_kind,
+SELECT j.job_id, j.extension_owner_profile_id, j.job_kind,
        j.submitted_at, j.extension_idempotency_identity,
        j.extension_normalized_request_sha256,
        p.job_id, p.owner_profile_id, p.operation_kind, p.final_commit_id,
@@ -130,8 +135,8 @@ SELECT j.job_id, j.extension_owner_profile_id, j.extension_job_kind,
 	return result, rows.Err()
 }
 
-func (s *Store) ApplyInactiveJobOutcomeRecords(ctx context.Context, profileID string, outcomes []InactiveJobOutcomeRecord, now time.Time) (CommitOutcome, error) {
-	if s == nil || s.pool == nil || profileID == "" || now.IsZero() {
+func (s *Store) ApplyInactiveJobOutcomeRecords(ctx context.Context, terminalWriter InactiveJobTerminalWriter, profileID string, outcomes []InactiveJobOutcomeRecord, now time.Time) (CommitOutcome, error) {
+	if s == nil || s.pool == nil || terminalWriter == nil || profileID == "" || now.IsZero() {
 		return CommitAbsent, ErrInvalidTransition
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -148,17 +153,11 @@ func (s *Store) ApplyInactiveJobOutcomeRecords(ctx context.Context, profileID st
 					(outcome.SubmittedAt.Equal(previousSubmittedAt) && outcome.JobID.String() <= previousJobID.String()))) {
 			return CommitAbsent, ErrInvalidTransition
 		}
-		var submittedAt time.Time
 		var proofDigest *string
 		var cancellationRequestID *string
-		if err := tx.QueryRow(ctx, `
-SELECT j.submitted_at
-  FROM jobs j
- WHERE j.job_id = $1
-   AND j.extension_owner_profile_id = $2
-   AND j.status IN ('queued', 'running', 'cancel_requested')
- FOR UPDATE OF j
-`, outcome.JobID, profileID).Scan(&submittedAt); err != nil {
+		if err := terminalWriter.ValidateInactiveJobTx(
+			ctx, tx, outcome.JobID, profileID, outcome.SubmittedAt,
+		); err != nil {
 			return CommitAbsent, err
 		}
 		if err := tx.QueryRow(ctx, `
@@ -171,40 +170,16 @@ SELECT (SELECT p.terminal_result_sha256
 `, outcome.JobID).Scan(&proofDigest, &cancellationRequestID); err != nil {
 			return CommitAbsent, err
 		}
-		if !submittedAt.Equal(outcome.SubmittedAt) ||
-			!inactiveEvidenceMatches(outcome, proofDigest, cancellationRequestID) {
+		if !inactiveEvidenceMatches(outcome, proofDigest, cancellationRequestID) {
 			return CommitAbsent, ErrIntegrity
 		}
-		var resultJSON any
-		var errorJSON any
 		switch outcome.Status {
-		case "succeeded", "canceled":
-			resultJSON = outcome.TerminalResult
-		case "failed":
-			errorJSON = outcome.TerminalResult
+		case "succeeded", "canceled", "failed":
 		default:
 			return CommitAbsent, ErrInvalidTransition
 		}
-		tag, err := tx.Exec(ctx, `
-UPDATE jobs
-   SET status = $3,
-       cancelable = false,
-       updated_at = $4,
-       finished_at = $4,
-       retained_until = $5,
-       result_summary_json = $6,
-       error_summary_json = $7,
-       handler_lease_owner = NULL,
-       handler_lease_expires_at = NULL
- WHERE job_id = $1
-   AND extension_owner_profile_id = $2
-   AND status IN ('queued', 'running', 'cancel_requested')
-`, outcome.JobID, profileID, outcome.Status, now.UTC(), now.UTC().Add(7*24*time.Hour), resultJSON, errorJSON)
-		if err != nil {
+		if err := terminalWriter.CompleteInactiveJobTx(ctx, tx, outcome.JobID, outcome.Status, outcome.TerminalResult, now.UTC()); err != nil {
 			return CommitAbsent, err
-		}
-		if tag.RowsAffected() != 1 {
-			return CommitAbsent, ErrIntegrity
 		}
 		previousSubmittedAt = outcome.SubmittedAt
 		previousJobID = outcome.JobID

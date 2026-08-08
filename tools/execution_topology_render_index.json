@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:0289ef2efc50ac77f1c00597cfd758f6a6154fa151e01c7284c355e5bb36e350",
+  "input_digest": "sha256:383831372e452f9c1c361714db9a2c9b50ac75adb26dffd29e5b1ac432ce2315",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.operator.json",
@@ -245,6 +245,11 @@
       "hash": "sha256:d10b53c05392ad553b823fed24877be84e4f0a74f98bf19c867a6b4959fe0d25"
     },
     {
+      "path": "contracts/verification/owners/platform.jobs.json",
+      "role": "verification_owner_contract",
+      "hash": "sha256:34aa5ca585d85134dd621d1a047b09e4d53bf293f6850b7114b594aa0baa7bc4"
+    },
+    {
       "path": "contracts/verification/owners/platform.objectstore.json",
       "role": "verification_owner_contract",
       "hash": "sha256:898edfff1e246f1f2885434cef32662f7f48648a6dd2d8eb825fdb8c27de5da8"
@@ -317,7 +322,7 @@
     {
       "path": "contracts/verification/registry.json",
       "role": "verification_registry",
-      "hash": "sha256:d2b9616b2f0725a644e7684f1c584cfa42eca057e76208ebe0de2b432abc306a"
+      "hash": "sha256:6ab746add5148c975e55d1b9dd9d73f1b4c3fec601bc2a463c1223c2f7d05728"
     },
     {
       "path": "tools/execution_topology_manifest.json",
@@ -777,7 +782,7 @@
     {
       "path": "tools/test_catalog_owner.json",
       "role": "test_owner_registry",
-      "hash": "sha256:e244b2374dca124f72785ddf0847eee00cbf5615a976353883eecd2f4487937a"
+      "hash": "sha256:acee8522e18479b4e816fe06edc03542ebf952c9cd71eea85894ca94dce39e30"
     },
     {
       "path": "tools/test_families/app.operator.json",
@@ -1013,6 +1018,11 @@
       "path": "tools/test_families/platform.httpruntime.json",
       "role": "test_family_manifest",
       "hash": "sha256:789f9394800e06ca8e23be8e108edf685cae26cb2c30ba5c4279dbd413cc4d36"
+    },
+    {
+      "path": "tools/test_families/platform.jobs.json",
+      "role": "test_family_manifest",
+      "hash": "sha256:1888c465a4a08d0cd252db238696b297dcb48b720396c78147d6d3dffa7a164e"
     },
     {
       "path": "tools/test_families/platform.objectstore.json",

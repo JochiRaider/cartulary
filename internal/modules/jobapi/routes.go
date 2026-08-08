@@ -20,11 +20,16 @@ import (
 )
 
 type Service struct {
-	manager        *jobs.Manager
+	jobs           jobReadCanceler
 	authStore      *authn.Store
 	incidentAccess incidents.Access
 	keys           authn.MasterKeys
 	now            func() time.Time
+}
+
+type jobReadCanceler interface {
+	Get(context.Context, uuid.UUID) (jobs.Resource, error)
+	Cancel(context.Context, jobs.CancelParams) (jobs.CancelResult, error)
 }
 
 type cancelRequest struct {
@@ -32,9 +37,9 @@ type cancelRequest struct {
 	Reason      *string
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+func RegisterRoutes(jobService jobReadCanceler) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, jobService)
 		if err != nil {
 			return err
 		}
@@ -45,7 +50,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, jobService jobReadCanceler) (*Service, error) {
+	if jobService == nil {
+		return nil, fmt.Errorf("job API requires read/cancel capability")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -55,7 +63,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		manager:        deps.Jobs,
+		jobs:           jobService,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		keys:           keys,
@@ -89,7 +97,7 @@ func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request, jobID uui
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	resource, err := s.manager.Get(r.Context(), jobID)
+	resource, err := s.jobs.Get(r.Context(), jobID)
 	if errors.Is(err, jobs.ErrNotFound) {
 		writeAPIError(w, r, jobNotFoundError())
 		return
@@ -120,7 +128,7 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	resource, err := s.manager.Get(r.Context(), jobID)
+	resource, err := s.jobs.Get(r.Context(), jobID)
 	if errors.Is(err, jobs.ErrNotFound) {
 		writeAPIError(w, r, jobNotFoundError())
 		return
@@ -133,7 +141,7 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.manager.Cancel(r.Context(), jobs.CancelParams{
+	result, err := s.jobs.Cancel(r.Context(), jobs.CancelParams{
 		JobID:             jobID,
 		ActorUserID:       principal.User.ID,
 		ClientTxnID:       request.ClientTxnID,

@@ -2,6 +2,7 @@ package imports
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,14 +14,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
 	store                    *Store
 	incidentAccess           incidents.Access
 	authStore                *authn.Store
-	jobManager               *jobs.Manager
-	jobRunner                *jobs.Runner
+	jobManager               importJobOperations
+	jobRunner                importJobRunner
 	keys                     authn.MasterKeys
 	cursorCodec              *pagination.Codec
 	limits                   Limits
@@ -32,6 +35,23 @@ type Service struct {
 	now                      func() time.Time
 }
 
+type importJobTransactions interface {
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
+	ValidateRunnableTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
+type importJobOperations interface {
+	Get(context.Context, uuid.UUID) (jobs.Resource, error)
+	HandlerPayload(context.Context, uuid.UUID) (json.RawMessage, error)
+	MarkRunning(context.Context, uuid.UUID, jobs.Progress, *string) (jobs.Resource, error)
+	CompleteCanceled(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+}
+
+type importJobRunner interface {
+	RegisterHandler(string, jobs.HandlerFunc) error
+	RecoverHandler(context.Context, string) error
+}
+
 type RouteOption func(*routeOptions)
 
 type routeOptions struct {
@@ -41,6 +61,17 @@ type routeOptions struct {
 	archiveLimits            ArchiveLimits
 	ownerCreateRegistry      *ownerfacade.ImportOwnerCreateRegistry
 	revisionAppender         *revisions.Appender
+	jobTransactions          importJobTransactions
+	jobOperations            importJobOperations
+	jobRunner                importJobRunner
+}
+
+func WithJobs(transactions importJobTransactions, operations importJobOperations, runner importJobRunner) RouteOption {
+	return func(options *routeOptions) {
+		options.jobTransactions = transactions
+		options.jobOperations = operations
+		options.jobRunner = runner
+	}
 }
 
 func WithOwnerCreateRegistry(
@@ -112,14 +143,14 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.revisionAppender == nil {
 		return nil, fmt.Errorf("import route composition requires a Revisions appender")
 	}
-	if deps.Jobs != nil && deps.JobTransactions == nil {
+	if options.jobOperations != nil && options.jobTransactions == nil {
 		return nil, fmt.Errorf("import admitted route requires the Jobs transaction service")
 	}
 	extensionImportFacades, err := extensionImportFacadesFromDependencies(deps)
 	if err != nil {
 		return nil, err
 	}
-	if deps.Jobs != nil && options.jobSuccessFinalizer == nil {
+	if options.jobOperations != nil && options.jobSuccessFinalizer == nil {
 		return nil, fmt.Errorf("import admitted route requires a job success finalizer")
 	}
 	extensionProfileAdmitted := options.extensionProfileAdmitted
@@ -130,12 +161,12 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		store: NewStore(
 			deps.Postgres,
 			options.revisionAppender,
-			deps.JobTransactions,
+			options.jobTransactions,
 		),
 		incidentAccess:           incidents.NewAccess(deps.PostgresHandle()),
 		authStore:                authn.NewStore(deps.PostgresHandle()),
-		jobManager:               deps.Jobs,
-		jobRunner:                deps.JobRunner,
+		jobManager:               options.jobOperations,
+		jobRunner:                options.jobRunner,
 		keys:                     keys,
 		cursorCodec:              cursorCodec,
 		limits:                   options.limits,

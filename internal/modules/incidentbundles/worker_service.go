@@ -21,14 +21,26 @@ import (
 const incidentBundleJobHandlerName = BundleWorkerKind
 
 type incidentBundleJobRunner interface {
+	ValidateConfiguration() error
 	RegisterHandler(string, jobs.HandlerFunc) error
 	RecoverHandler(context.Context, string) error
 	DispatchJobID(string, uuid.UUID) error
 }
 
+type incidentBundleJobOperations interface {
+	Get(context.Context, uuid.UUID) (jobs.Resource, error)
+	MarkRunning(context.Context, uuid.UUID, jobs.Progress, *string) (jobs.Resource, error)
+	CompleteFailed(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+	CompleteCanceled(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+}
+
+type incidentBundleJobAdmission interface {
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
+}
+
 type incidentBundleWorker struct {
 	store             *Store
-	jobManager        *jobs.Manager
+	jobManager        incidentBundleJobOperations
 	jobRunner         incidentBundleJobRunner
 	results           incidentBundleJobResultSink
 	storage           BundleStorage
@@ -44,12 +56,12 @@ type incidentBundleWorker struct {
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
-		jobManager:        deps.Jobs,
-		jobRunner:         deps.JobRunner,
-		results:           incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
+		jobManager:        jobManager,
+		jobRunner:         jobRunner,
+		results:           incidentBundleJobResultSink{manager: jobManager, store: store, now: now},
 		storage:           storage,
 		importFinalizer:   importFinalizer,
 		jobFinalizer:      jobFinalizer,
@@ -321,7 +333,7 @@ func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID
 }
 
 type incidentBundleJobResultSink struct {
-	manager *jobs.Manager
+	manager incidentBundleJobOperations
 	store   *Store
 	now     func() time.Time
 }

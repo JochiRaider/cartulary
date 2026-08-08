@@ -194,6 +194,10 @@
       "contract_path": "contracts/verification/owners/platform.httpruntime.json"
     },
     {
+      "owner_id": "platform.jobs",
+      "contract_path": "contracts/verification/owners/platform.jobs.json"
+    },
+    {
       "owner_id": "platform.objectstore",
       "contract_path": "contracts/verification/owners/platform.objectstore.json"
     },

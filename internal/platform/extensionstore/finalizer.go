@@ -25,18 +25,27 @@ type JobFinalizationRequest struct {
 	Mutate             OwnerMutation
 }
 
+type FinalIdempotencyPort interface {
+	UpdateFinalIdempotencyOutcomeTx(context.Context, pgx.Tx, jobs.RouteIdempotencyKey, []byte, jobs.Resource) (bool, error)
+}
+
+type JobFinalizationPort interface {
+	ExtensionFinalizationContextTx(context.Context, pgx.Tx, uuid.UUID) (jobs.ExtensionFinalizationContext, error)
+	CompleteSucceededTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
+}
+
 type OwnerFinalizer struct {
 	store        *Store
-	manager      *jobs.Manager
-	transactions *jobs.TransactionService
+	transactions JobFinalizationPort
+	idempotency  FinalIdempotencyPort
 	now          func() time.Time
 	fatalSink    func(error)
 	commit       func(context.Context, pgx.Tx) error
 }
 
-func NewOwnerFinalizer(store *Store, manager *jobs.Manager, transactions *jobs.TransactionService, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
-	if store == nil || store.pool == nil || manager == nil || transactions == nil {
-		return nil, errors.New("extension owner finalizer requires store, job manager, and job transaction service")
+func NewOwnerFinalizer(store *Store, transactions JobFinalizationPort, idempotency FinalIdempotencyPort, now func() time.Time, fatalSink func(error)) (*OwnerFinalizer, error) {
+	if store == nil || store.pool == nil || transactions == nil || idempotency == nil {
+		return nil, errors.New("extension owner finalizer requires store, job manager, job transaction service, and Auth idempotency port")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -45,7 +54,7 @@ func NewOwnerFinalizer(store *Store, manager *jobs.Manager, transactions *jobs.T
 		fatalSink = func(error) {}
 	}
 	return &OwnerFinalizer{
-		store: store, manager: manager, transactions: transactions, now: now, fatalSink: fatalSink,
+		store: store, transactions: transactions, idempotency: idempotency, now: now, fatalSink: fatalSink,
 		commit: func(ctx context.Context, tx pgx.Tx) error { return tx.Commit(ctx) },
 	}, nil
 }
@@ -71,20 +80,15 @@ func (f *OwnerFinalizer) FinalizeSuccess(ctx context.Context, request JobFinaliz
 }
 
 func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, request JobFinalizationRequest, committedAt time.Time) (jobs.Resource, error) {
-	if f == nil || f.manager == nil || tx == nil || request.Transition.JobID == uuid.Nil ||
+	if f == nil || f.transactions == nil || tx == nil || request.Transition.JobID == uuid.Nil ||
 		request.Transition.ResultSummary == nil || request.FinalCommitID == "" || committedAt.IsZero() {
 		return jobs.Resource{}, ErrInvalidTransition
 	}
-	metadata, err := extensionJobMetadataForUpdate(ctx, tx, request.Transition.JobID)
+	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Transition.JobID)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	contract, present := f.manager.ExtensionContract(metadata.JobKind)
-	if !present || !contract.ProofRequired ||
-		contract.OwnerProfileID != metadata.OwnerProfileID ||
-		contract.WorkerKind != metadata.WorkerKind {
-		return jobs.Resource{}, ErrIntegrity
-	}
+	contract := metadata.Definition
 	normalizedSummary, terminalJSON, resourceRefsJSON, terminalDigest, err :=
 		jobs.CanonicalExtensionTerminalSuccess(contract, request.Transition.ResultSummary)
 	if err != nil {
@@ -102,7 +106,7 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 	}
 	proof := JobCommitProof{
 		JobID:                   request.Transition.JobID,
-		OwnerProfileID:          metadata.OwnerProfileID,
+		OwnerProfileID:          contract.OwnerProfileID,
 		OperationKind:           contract.OperationKind,
 		FinalCommitID:           request.FinalCommitID,
 		IdempotencyIdentity:     metadata.IdempotencyIdentity,
@@ -119,60 +123,10 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 	if err := InsertJobCommitProof(ctx, tx, proof); err != nil {
 		return jobs.Resource{}, err
 	}
-	if err := updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+	if err := f.updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
 		return jobs.Resource{}, err
 	}
 	return resource, nil
-}
-
-type extensionJobMetadata struct {
-	OwnerProfileID          string
-	JobKind                 string
-	WorkerKind              string
-	IdempotencyIdentity     json.RawMessage
-	IdempotencyRouteKey     string
-	IdempotencyScopeKey     string
-	NormalizedRequestSHA256 string
-	ActorUserID             uuid.UUID
-	ClientTxnID             string
-}
-
-func extensionJobMetadataForUpdate(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (extensionJobMetadata, error) {
-	var metadata extensionJobMetadata
-	err := tx.QueryRow(ctx, `
-SELECT extension_owner_profile_id, extension_job_kind, handler_name,
-       extension_idempotency_identity, extension_idempotency_route_key,
-       extension_idempotency_scope_key, extension_normalized_request_sha256,
-       submitted_by_user_id
-  FROM jobs
- WHERE job_id = $1
-   AND status IN ('queued', 'running', 'cancel_requested')
- FOR UPDATE
-`, jobID).Scan(
-		&metadata.OwnerProfileID,
-		&metadata.JobKind,
-		&metadata.WorkerKind,
-		&metadata.IdempotencyIdentity,
-		&metadata.IdempotencyRouteKey,
-		&metadata.IdempotencyScopeKey,
-		&metadata.NormalizedRequestSHA256,
-		&metadata.ActorUserID,
-	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return extensionJobMetadata{}, jobs.ErrInvalidTransition
-	}
-	if err != nil {
-		return extensionJobMetadata{}, err
-	}
-	var identity jobs.RouteScopedIdempotencyIdentity
-	if err := json.Unmarshal(metadata.IdempotencyIdentity, &identity); err != nil ||
-		identity.SchemaID != "cartulary.route_scoped_idempotency_identity.v1" ||
-		identity.ActorUserID != metadata.ActorUserID.String() ||
-		identity.RouteIdentity != metadata.IdempotencyRouteKey+":"+metadata.IdempotencyScopeKey {
-		return extensionJobMetadata{}, ErrIntegrity
-	}
-	metadata.ClientTxnID = identity.ClientTxnID
-	return metadata, nil
 }
 
 func validateProofSize(proof JobCommitProof, maxBytes int) error {
@@ -200,29 +154,19 @@ func validateProofSize(proof JobCommitProof, maxBytes int) error {
 	return nil
 }
 
-func updateFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata extensionJobMetadata, resource jobs.Resource) error {
+func (f *OwnerFinalizer) updateFinalIdempotencyOutcome(ctx context.Context, tx pgx.Tx, metadata jobs.ExtensionFinalizationContext, resource jobs.Resource) error {
 	requestDigest, err := hex.DecodeString(metadata.NormalizedRequestSHA256)
 	if err != nil {
 		return ErrIntegrity
 	}
-	payload, err := json.Marshal(resource)
+	updated, err := f.idempotency.UpdateFinalIdempotencyOutcomeTx(ctx, tx, jobs.RouteIdempotencyKey{
+		RouteKey: metadata.IdempotencyRouteKey, ActorUserID: metadata.ActorUserID,
+		ScopeKey: metadata.IdempotencyScopeKey, ClientTxnID: metadata.ClientTxnID,
+	}, requestDigest, resource)
 	if err != nil {
 		return err
 	}
-	tag, err := tx.Exec(ctx, `
-UPDATE route_idempotency
-   SET response_json = $1
- WHERE route_key = $2
-   AND actor_user_id = $3
-   AND scope_key = $4
-   AND client_txn_id = $5
-   AND request_hash = $6
-`, payload, metadata.IdempotencyRouteKey, metadata.ActorUserID,
-		metadata.IdempotencyScopeKey, metadata.ClientTxnID, requestDigest)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() != 1 {
+	if !updated {
 		return ErrIntegrity
 	}
 	return nil

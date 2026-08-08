@@ -7,14 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 func TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit(t *testing.T) {
 	actorID := uuid.MustParse("00000000-0000-4000-8000-000000000001")
 	incidentID := uuid.MustParse("00000000-0000-4000-8000-000000000002")
-	key := authn.RouteIdempotencyKey{
+	key := jobs.RouteIdempotencyKey{
 		RouteKey: "imports.sessions.create", ActorUserID: actorID,
 		ScopeKey: incidentID.String(), ClientTxnID: "txn-1",
 	}
@@ -46,7 +45,8 @@ func TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(publicJSON), "extension_") || strings.Contains(string(publicJSON), "job_kind") {
+	if strings.Contains(string(publicJSON), "extension_") || strings.Contains(string(publicJSON), "job_kind") ||
+		strings.Contains(string(publicJSON), "progress_unit") {
 		t.Fatalf("internal extension metadata leaked into public job: %s", publicJSON)
 	}
 }
@@ -54,7 +54,8 @@ func TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit(t *testing.T) {
 func TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit(t *testing.T) {
 	contract := jobs.ExtensionJobContract{
 		OwnerProfileID: "import", JobKind: "import.apply_v1",
-		OperationKind: "import.apply", WorkerKind: "import.apply_worker_v1",
+		ProgressUnitID: "import.apply.import_unit.v1",
+		OperationKind:  "import.apply", WorkerKind: "import.apply_worker_v1",
 		ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
 		ResourceRefs: []jobs.ExtensionResourceRefContract{
 			{Kind: "import_session", MaxRefs: 1},
@@ -94,5 +95,10 @@ func TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit(t *tes
 	}
 	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{invalid}); err == nil {
 		t.Fatal("expected unsorted resource contract rejection")
+	}
+	invalid = contract
+	invalid.ProgressUnitID = "caller selected unit"
+	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{invalid}); err == nil {
+		t.Fatal("expected invalid progress unit rejection")
 	}
 }

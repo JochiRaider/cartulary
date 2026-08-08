@@ -287,6 +287,12 @@ function normalizeManifest(raw) {
           rule?.write_allowed_paths ?? [],
           `sql_table_access[${index + 1}].write_allowed_paths`,
         ).map(normalizePath),
+        lockAllowedPaths: rule?.lock_allowed_paths === undefined
+          ? null
+          : requireStringArray(
+            rule.lock_allowed_paths,
+            `sql_table_access[${index + 1}].lock_allowed_paths`,
+          ).map(normalizePath),
       }),
     ),
     forbiddenGoCalls: requireArray(raw.forbidden_go_calls ?? [], "forbidden_go_calls").map(
@@ -679,13 +685,33 @@ function checkSQLTableAccess(files, rules) {
               access.operation === "read" ? "sql_table_read_access" : "sql_table_write_access",
               file,
               rule.table,
+              { rule_id: rule.id },
             ),
           );
         }
       }
+      if (
+        rule.lockAllowedPaths !== null &&
+        mentionsSQLTableLock(file.content, rule.table) &&
+        !pathMatchesAny(file.relative, rule.lockAllowedPaths)
+      ) {
+        violations.push(
+          violation("sql_table_lock_access", file, rule.table, { rule_id: rule.id }),
+        );
+      }
     }
   }
   return violations;
+}
+
+function mentionsSQLTableLock(content, table) {
+  const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tableReference = `(?:FROM|JOIN)\\s+(?:public\\.)?${escaped}\\b`;
+  const lockInStatement = new RegExp(
+    `${tableReference}[^;\u0060]{0,4000}\\bFOR\\s+(?:NO\\s+KEY\\s+)?UPDATE\\b`,
+    "gis",
+  );
+  return lockInStatement.test(content);
 }
 
 function sqlTableAccesses(content) {
@@ -757,6 +783,230 @@ function assertBoundaryFixtures(manifest) {
       (violations.length !== 1 || violations[0].code !== fixture.wantCode)
     ) {
       throw new Error(`${fixture.label} boundary fixture must fail with ${fixture.wantCode}`);
+    }
+  }
+
+  const jobsStorageRule = manifest.sqlTableAccess.find(
+    (rule) => rule.id === "jobs-storage-owner-write-and-lock-access",
+  );
+  const jobsForeignStorageRuleIDs = [
+    "jobs-no-auth-route-idempotency-storage-access",
+    "jobs-no-extension-cancellation-storage-access",
+    "jobs-no-collaboration-intent-storage-access",
+  ];
+  const jobsForeignStorageRules = jobsForeignStorageRuleIDs.map((id) => {
+    const rule = manifest.sqlTableAccess.find((candidate) => candidate.id === id);
+    if (!rule) {
+      throw new Error(`${id} boundary rule is required`);
+    }
+    return rule;
+  });
+  if (!jobsStorageRule) {
+    throw new Error("jobs-storage-owner-write-and-lock-access boundary rule is required");
+  }
+  const jobsStorageFixtures = [
+    {
+      label: "Jobs owner write",
+      file: {
+        relative: "internal/platform/jobs/fixture.go",
+        content: "package jobs\nconst sql = `UPDATE jobs SET status = 'running'`",
+      },
+      rule: jobsStorageRule,
+      wantCode: null,
+    },
+    {
+      label: "consumer Jobs read",
+      file: {
+        relative: "internal/modules/jobapi/fixture.go",
+        content: "package jobapi\nconst sql = `SELECT status FROM jobs`",
+      },
+      rule: jobsStorageRule,
+      wantCode: null,
+    },
+    {
+      label: "non-owner Jobs write",
+      file: {
+        relative: "internal/modules/imports/fixture.go",
+        content: "package imports\nconst sql = `UPDATE jobs SET status = 'failed'`",
+      },
+      rule: jobsStorageRule,
+      wantCode: "sql_table_write_access",
+    },
+    {
+      label: "non-owner Jobs transition lock",
+      file: {
+        relative: "internal/platform/extensionstore/fixture.go",
+        content: "package extensionstore\nconst sql = `SELECT status FROM jobs FOR UPDATE`",
+      },
+      rule: jobsStorageRule,
+      wantCode: "sql_table_lock_access",
+    },
+    {
+      label: "auth owner adapter storage access",
+      file: {
+        relative: "internal/app/server/job_owner_ports.go",
+        content: "package server\nconst sql = `SELECT response_json FROM route_idempotency`",
+      },
+      rule: jobsForeignStorageRules[0],
+      wantCode: null,
+    },
+    {
+      label: "Jobs auth storage access",
+      file: {
+        relative: "internal/platform/jobs/fixture.go",
+        content: "package jobs\nconst sql = `SELECT response_json FROM route_idempotency`",
+      },
+      rule: jobsForeignStorageRules[0],
+      wantCode: "sql_table_read_access",
+    },
+    {
+      label: "Jobs extension cancellation storage access",
+      file: {
+        relative: "internal/platform/jobs/fixture.go",
+        content:
+          "package jobs\nconst sql = `INSERT INTO extension_job_cancellation_observations (job_id) VALUES ($1)`",
+      },
+      rule: jobsForeignStorageRules[1],
+      wantCode: "sql_table_write_access",
+    },
+    {
+      label: "Jobs Collaboration storage access",
+      file: {
+        relative: "internal/platform/jobs/fixture.go",
+        content: "package jobs\nconst sql = `INSERT INTO collaboration_event_intents (intent_key) VALUES ($1)`",
+      },
+      rule: jobsForeignStorageRules[2],
+      wantCode: "sql_table_write_access",
+    },
+    {
+      label: "Jobs test storage access",
+      file: {
+        relative: "internal/platform/jobs/fixture_test.go",
+        content: "package jobs\nconst sql = `UPDATE route_idempotency SET status_code = 200`",
+      },
+      rule: jobsForeignStorageRules[0],
+      wantCode: null,
+    },
+    {
+      label: "Jobs migration write",
+      file: {
+        relative: "db/migrations/fixture.sql",
+        content: "UPDATE jobs SET job_kind = extension_job_kind;",
+      },
+      rule: jobsStorageRule,
+      wantCode: null,
+    },
+  ];
+  for (const fixture of jobsStorageFixtures) {
+    const violations = checkSQLTableAccess([fixture.file], [fixture.rule]);
+    if (fixture.wantCode === null && violations.length !== 0) {
+      throw new Error(`${fixture.label} boundary fixture must pass`);
+    }
+    if (
+      fixture.wantCode !== null &&
+      (violations.length !== 1 ||
+        violations[0].code !== fixture.wantCode ||
+        violations[0].rule_id !== fixture.rule.id)
+    ) {
+      throw new Error(
+        `${fixture.label} boundary fixture must fail with ${fixture.rule.id}/${fixture.wantCode}`,
+      );
+    }
+  }
+
+  const jobsCapabilityRule = manifest.forbiddenSourceTokens.find(
+    (rule) => rule.id === "jobs-consumers-use-narrow-capabilities",
+  );
+  if (!jobsCapabilityRule) {
+    throw new Error("jobs-consumers-use-narrow-capabilities boundary rule is required");
+  }
+  const jobsCapabilityFixtures = [
+    {
+      label: "application Jobs composition",
+      file: {
+        relative: "internal/app/server/fixture.go",
+        content: "package server\ntype dependencies struct { Jobs *jobs.Manager }",
+      },
+      wantViolation: false,
+    },
+    {
+      label: "consumer broad Jobs manager",
+      file: {
+        relative: "internal/modules/imports/fixture.go",
+        content: "package imports\ntype store struct { jobs *jobs.Manager }",
+      },
+      wantViolation: true,
+    },
+    {
+      label: "consumer raw Jobs transition lock",
+      file: {
+        relative: "internal/modules/imports/fixture.go",
+        content: "package imports\nfunc lock() { jobs.LockTransitionTx(nil, nil, id) }",
+      },
+      wantViolation: true,
+    },
+    {
+      label: "consumer test broad Jobs manager",
+      file: {
+        relative: "internal/modules/imports/fixture_test.go",
+        content: "package imports\ntype fixture struct { jobs *jobs.Manager }",
+      },
+      wantViolation: false,
+    },
+  ];
+  for (const fixture of jobsCapabilityFixtures) {
+    const violations = checkForbiddenSourceTokens([fixture.file], [jobsCapabilityRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 || violations[0].code !== "forbidden_source_token")
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with the capability rule`);
+    }
+  }
+
+  const jobsPeerImportRule = manifest.forbiddenGoImports.find(
+    (rule) => rule.id === "jobs-use-owner-transaction-ports-not-peer-persistence",
+  );
+  if (!jobsPeerImportRule) {
+    throw new Error(
+      "jobs-use-owner-transaction-ports-not-peer-persistence boundary rule is required",
+    );
+  }
+  const jobsPeerImportFixtures = [
+    {
+      label: "application Auth owner adapter",
+      file: {
+        relative: "internal/app/server/job_owner_ports.go",
+        content:
+          'package server\nimport "github.com/JochiRaider/cartulary/internal/platform/authn"',
+      },
+      wantViolation: false,
+    },
+    {
+      label: "Jobs peer persistence import",
+      file: {
+        relative: "internal/platform/jobs/fixture.go",
+        content:
+          'package jobs\nimport "github.com/JochiRaider/cartulary/internal/platform/authn"',
+      },
+      wantViolation: true,
+    },
+  ];
+  for (const fixture of jobsPeerImportFixtures) {
+    const violations = checkForbiddenGoImports([fixture.file], [jobsPeerImportRule]);
+    if ((violations.length > 0) !== fixture.wantViolation) {
+      throw new Error(`${fixture.label} boundary fixture produced an unexpected result`);
+    }
+    if (
+      fixture.wantViolation &&
+      (violations.length !== 1 ||
+        violations[0].code !== "forbidden_go_import" ||
+        violations[0].rule_id !== jobsPeerImportRule.id)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with the peer import rule`);
     }
   }
 

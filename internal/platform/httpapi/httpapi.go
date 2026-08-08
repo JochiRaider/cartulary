@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi/webassets"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -30,9 +29,6 @@ type DependencySet struct {
 	Postgres            *pgxpool.Pool
 	PostgresDB          postgres.DB
 	ObjectStore         objectstore.Store
-	Jobs                *jobs.Manager
-	JobTransactions     *jobs.TransactionService
-	JobRunner           *jobs.Runner
 	CursorCodec         *pagination.Codec
 	ExtensionDiscovery  ExtensionDiscoveryProvider
 	ExtensionClaims     ExtensionClaimProvider

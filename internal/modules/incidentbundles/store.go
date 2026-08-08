@@ -24,7 +24,7 @@ var ErrNotFound = errors.New("incident bundle: not found")
 
 type Store struct {
 	pool            *pgxpool.Pool
-	jobTransactions *jobs.TransactionService
+	jobTransactions incidentBundleJobAdmission
 }
 
 type JobAcceptedResult struct {
@@ -93,7 +93,7 @@ type DescriptorRecord struct {
 	BundleStorageRef     BundleStorageRef
 }
 
-func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
+func NewStore(pool *pgxpool.Pool, jobTransactions incidentBundleJobAdmission) *Store {
 	return &Store{pool: pool, jobTransactions: jobTransactions}
 }
 
@@ -113,7 +113,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
 				ExportJobKind,
-				key,
+				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
 			)
@@ -160,7 +160,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
 				ImportJobKind,
-				key,
+				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
 			)

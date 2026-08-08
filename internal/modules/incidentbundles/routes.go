@@ -39,6 +39,17 @@ type routeOptions struct {
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
 	historicalIntents historicalIntentPolicy
+	jobAdmission      incidentBundleJobAdmission
+	jobOperations     incidentBundleJobOperations
+	jobRunner         incidentBundleJobRunner
+}
+
+func WithJobs(admission incidentBundleJobAdmission, operations incidentBundleJobOperations, runner incidentBundleJobRunner) RouteOption {
+	return func(options *routeOptions) {
+		options.jobAdmission = admission
+		options.jobOperations = operations
+		options.jobRunner = runner
+	}
 }
 
 func WithPortability(orchestrator *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator) RouteOption {
@@ -132,13 +143,13 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.sourceCatalog == nil {
 		return nil, fmt.Errorf("incident bundle source catalog is required")
 	}
-	if deps.Jobs == nil || deps.JobRunner == nil {
+	if options.jobOperations == nil || options.jobRunner == nil {
 		return nil, fmt.Errorf("incident bundle jobs composition is required")
 	}
-	if deps.JobTransactions == nil {
+	if options.jobAdmission == nil {
 		return nil, fmt.Errorf("incident bundle Jobs transaction service is required")
 	}
-	if err := deps.JobRunner.ValidateNamedConfiguration(deps.Jobs); err != nil {
+	if err := options.jobRunner.ValidateConfiguration(); err != nil {
 		return nil, fmt.Errorf("incident bundle jobs composition is invalid: %w", err)
 	}
 	if options.historicalIntents == nil {
@@ -152,8 +163,8 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	store := NewStore(deps.Postgres, deps.JobTransactions)
-	worker := newIncidentBundleWorker(store, deps, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.limits, now)
+	store := NewStore(deps.Postgres, options.jobAdmission)
+	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.limits, now)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

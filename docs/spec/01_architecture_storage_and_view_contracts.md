@@ -3954,7 +3954,7 @@ For REQ-01-248 and REQ-01-249, the canonical public job contract is:
 - `scope` is required and is the authorization and live-update boundary. In `/api/v1/`, the closed `scope.kind` vocabulary is `incident | deployment`. When `scope.kind = incident`, `scope.incident_id` is required. When `scope.kind = deployment`, `scope.incident_id` is forbidden.
 - The common job shell MUST preserve the initiating route family's authorization contract rather than replacing it with submitter-only access. Incident-scoped jobs admitted by a route that also requires `deployment_admin` MUST require current `deployment_admin` plus current membership in the job incident for job reads. Cancel for that policy MUST additionally require either the original submitter relationship or current incident role `admin`.
 - `status` is a closed six-token vocabulary: `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled`. The public job shell MUST NOT introduce `completed`, `done`, `warning`, or job-family-specific phase tokens as alternate `status` values.
-- The allowed public state transitions are `queued -> running | cancel_requested | failed`, `running -> cancel_requested | succeeded | failed`, and `cancel_requested -> canceled | failed | succeeded`. Terminal states have no outgoing public transitions.
+- The allowed public state transitions are `queued -> running | cancel_requested`, `running -> cancel_requested | succeeded | failed`, and `cancel_requested -> canceled | failed | succeeded`. Terminal states have no outgoing public transitions. A queued job MUST NOT transition directly to a terminal state; execution or execution-time failure first commits `running`, while cancellation finalization first commits `cancel_requested`.
 - `cancelable` is required. It MUST be `false` in `cancel_requested`, `succeeded`, `failed`, and `canceled`. It MAY be `false` in `queued` or `running` when the current non-terminal phase does not accept cancellation.
 - `submitted_at` and `updated_at` are required timestamps. `started_at` MUST be `null` until work begins. `finished_at` MUST be `null` until the job reaches a terminal state. `retained_until` MUST be `null` until the job reaches a terminal state.
 - `progress` MUST be an object of the form `{ completed, total }`, never a bare percentage. `completed` MUST be a non-negative integer and MUST be monotonically non-decreasing for one job resource. `total` MUST be either `null` or a positive integer. Once `total` becomes non-null, it MUST NOT decrease and MUST NOT change unit semantics. When `total` is non-null, `completed` MUST be less than or equal to `total`. On `succeeded`, if `total` is non-null, `completed` MUST equal `total`. Clients MAY derive `floor(100 * completed / total)` when `total` is non-null, but percent is not part of the wire contract and clients MUST render indeterminate progress when `total = null`.
@@ -7865,6 +7865,44 @@ Background jobs MUST expose:
 - non-blocking UI behavior.
 
 For the public HTTP and WebSocket surface, the exact contract for `progress`, cancellation, and retry-safe status is owned by §3.3.9.1.
+
+The internal Jobs runtime MUST enforce the closed state matrix in §3.3.9.1
+through Jobs-owned semantic operations rather than caller-supplied expected
+states. A queued durable-job claim MUST atomically commit `running`,
+`started_at`, its unique attempt identity, lease owner, lease expiry, and
+attempt count before invoking the handler. An expired lease for a `running` or
+`cancel_requested` job MAY be reacquired without changing the public state or
+regressing progress. Lease and attempt bookkeeping alone MUST NOT change the
+public `updated_at` value or publish a public progress event.
+
+Terminal state and progress are immutable. Progress `completed` MUST never
+decrease; a known `total` MUST never clear or decrease; the transition from an
+unknown total to one positive total is allowed; and an exact repeated progress
+update is a mutation-free and event-free success. Rejected progress and state
+updates MUST be mutation-free and event-free. Every accepted public-resource
+change and its incident-scoped `job_progress` intent MUST commit atomically.
+
+A handler panic, handler error, exhausted-attempt outcome, or nil handler return
+that leaves the job mutable MUST be reduced to an owner-declared closed safe
+reason and a fixed operator-safe summary. Raw error text, recovered panic
+values, job identifiers, payload content, incident content, storage paths,
+secrets, and internal progress-unit identifiers MUST NOT enter public errors,
+logs, telemetry, or durable public summaries. A nil return while the job
+remains mutable is `job_handler_incomplete`, not success.
+
+The seven Core-owned current job kinds use these immutable internal progress
+units:
+
+| Job kind | Progress unit ID |
+| --- | --- |
+| `import.discovery_v1` | `import.discovery.session.v1` |
+| `import.apply_v1` | `import.apply.import_unit.v1` |
+| `incident_portability.export_v1` | `incident_portability.export.request.v1` |
+| `incident_portability.import_v1` | `incident_portability.import.request.v1` |
+| `reference_pack.import_v1` | `reference_pack.import.request.v1` |
+| `reference_pack.refresh_v1` | `reference_pack.refresh.pack_key.v1` |
+| `reference_pack.reverify_v1` | `reference_pack.reverify.pack_version.v1` |
+
 Profiles: base
 Verified by: AC-030, AC-033, AC-046, AC-129, AC-169, AC-231, AC-258, AC-260
 

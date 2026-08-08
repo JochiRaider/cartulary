@@ -73,7 +73,7 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 
 	cancelInactiveJob(t, pool, manager, canceledJob, "cancel-reconciliation")
 
-	adapter, err := extensionassembly.NewInactiveJobStore(store, func() time.Time { return now.Add(4 * time.Second) })
+	adapter, err := extensionassembly.NewInactiveJobStore(store, jobTransactions, func() time.Time { return now.Add(4 * time.Second) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 		t.Fatalf("load race candidates = %d/%v", len(loaded), err)
 	}
 	cancelInactiveJob(t, pool, manager, raceSecond, "cancel-after-classification")
-	commitOutcome, err := store.ApplyInactiveJobOutcomeRecords(ctx, "test_profile", []extensionstore.InactiveJobOutcomeRecord{
+	commitOutcome, err := store.ApplyInactiveJobOutcomeRecords(ctx, jobTransactions, "test_profile", []extensionstore.InactiveJobOutcomeRecord{
 		{
 			JobID: raceFirst, SubmittedAt: loaded[0].SubmittedAt, Status: jobs.StatusFailed,
 			TerminalResult: []byte(`{"code":"extension_profile_unclaimed","message":"Extension profile is not claimed.","retryable":false,"details":{}}`),
@@ -150,7 +150,7 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 	admission, err := jobs.NewExtensionJobAdmission(
 		"test_profile",
 		"test_profile.run_v1",
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		normalized,
 	)
@@ -180,6 +180,7 @@ func reconciliationPlatformContract() jobs.ExtensionJobContract {
 	return jobs.ExtensionJobContract{
 		OwnerProfileID: "test_profile",
 		JobKind:        "test_profile.run_v1",
+		ProgressUnitID: "test_profile.run.attempt.v1",
 		OperationKind:  "test_profile.run",
 		WorkerKind:     "test_profile.worker_v1",
 		ContractSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -192,6 +193,7 @@ func reconciliationLogicalContract() extensions.JobKindContract {
 	return extensions.JobKindContract{
 		ProfileID:                   "test_profile",
 		JobKind:                     "test_profile.run_v1",
+		ProgressUnitID:              "test_profile.run.attempt.v1",
 		OperationKind:               "test_profile.run",
 		ProofPolicy:                 "required_on_terminal_success",
 		IdempotencyPolicy:           "required",

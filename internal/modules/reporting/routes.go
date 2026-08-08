@@ -27,6 +27,16 @@ type RouteOptions struct {
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
 	ExportFieldProviders []exportprovider.FieldProvider
+	jobAdmission         reportingJobAdmission
+	jobOperations        reportingJobManager
+	jobRunner            reportingJobRunner
+}
+
+func WithJobs(options RouteOptions, admission reportingJobAdmission, operations reportingJobManager, runner reportingJobRunner) RouteOptions {
+	options.jobAdmission = admission
+	options.jobOperations = operations
+	options.jobRunner = runner
+	return options
 }
 
 func RegisterRoutes(options RouteOptions) httpapi.RouteRegistrar {
@@ -56,19 +66,19 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	if deps.Jobs != nil && deps.JobTransactions == nil {
+	if options.jobOperations != nil && options.jobAdmission == nil {
 		return nil, fmt.Errorf("reporting admitted route requires the Jobs transaction service")
 	}
 	exportMaterializer, err := newReportingExportMaterializer(options.ExportFieldProviders...)
 	if err != nil {
 		return nil, fmt.Errorf("compose reporting export materializer: %w", err)
 	}
-	store := newStore(deps.Postgres, deps.JobTransactions, exportMaterializer)
+	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer)
 	app, err := NewApplicationService(
 		store,
 		incidents.NewAccess(deps.PostgresHandle()),
-		deps.Jobs,
-		deps.JobRunner,
+		options.jobOperations,
+		options.jobRunner,
 		options.JobSuccessFinalizer,
 		options.RenderExportInvoker,
 		now,

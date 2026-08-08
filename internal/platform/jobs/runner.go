@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -29,7 +28,6 @@ type Runner struct {
 	mu              sync.Mutex
 	closed          bool
 	manager         *Manager
-	workerID        string
 	leaseDuration   time.Duration
 	recoverLimit    int
 	handlers        map[string]HandlerFunc
@@ -42,7 +40,6 @@ func NewRunner() *Runner {
 	return &Runner{
 		ctx:             ctx,
 		cancel:          cancel,
-		workerID:        uuid.NewString(),
 		leaseDuration:   30 * time.Second,
 		recoverLimit:    100,
 		handlers:        map[string]HandlerFunc{},
@@ -68,8 +65,8 @@ func (r *Runner) Configure(manager *Manager) {
 	r.manager = manager
 }
 
-func (r *Runner) ValidateNamedConfiguration(manager *Manager) error {
-	if r == nil || manager == nil {
+func (r *Runner) ValidateConfiguration() error {
+	if r == nil {
 		return ErrNotConfigured
 	}
 	r.mu.Lock()
@@ -77,7 +74,7 @@ func (r *Runner) ValidateNamedConfiguration(manager *Manager) error {
 	if r.closed {
 		return ErrRunnerClosed
 	}
-	if r.manager == nil || r.manager != manager || r.gate == nil {
+	if r.manager == nil || r.gate == nil {
 		return ErrNotConfigured
 	}
 	return nil
@@ -249,23 +246,24 @@ func (r *Runner) namedWork(handlerName string) (HandlerFunc, *Manager, error) {
 }
 
 func (r *Runner) runNamedJob(handlerName string, jobID uuid.UUID, manager *Manager, handler HandlerFunc) {
-	claimed, err := manager.ClaimHandlerJob(r.ctx, jobID, handlerName, r.workerID, r.leaseDuration)
+	attemptID := uuid.NewString()
+	claimed, err := manager.ClaimHandlerJob(r.ctx, jobID, handlerName, attemptID, r.leaseDuration)
 	if err != nil || !claimed {
 		return
 	}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			_ = manager.RecordHandlerError(context.Background(), jobID, r.workerID, fmt.Errorf("job handler panic: %v", recovered))
+			_ = manager.RecordHandlerFailure(context.Background(), jobID, attemptID)
 		}
 	}()
 	err = handler(r.ctx, jobID)
 	if err == nil {
-		_ = manager.ReleaseHandlerLease(context.Background(), jobID, r.workerID)
+		_ = manager.RecordHandlerIncomplete(context.Background(), jobID, attemptID)
 		return
 	}
 	if r.ctx.Err() != nil && errors.Is(err, context.Canceled) {
-		_ = manager.ReleaseHandlerLease(context.Background(), jobID, r.workerID)
+		_ = manager.ReleaseHandlerLease(context.Background(), jobID, attemptID)
 		return
 	}
-	_ = manager.RecordHandlerError(context.Background(), jobID, r.workerID, err)
+	_ = manager.RecordHandlerFailure(context.Background(), jobID, attemptID)
 }

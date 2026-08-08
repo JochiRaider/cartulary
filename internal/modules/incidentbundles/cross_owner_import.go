@@ -50,15 +50,20 @@ type ImportWriteCapability interface {
 	ApplyIncidentBundleImport(context.Context, *PreparedImport, ImportParams, uuid.UUID, string) (ImportTransactionResult, error)
 }
 
+type jobRunnableValidator interface {
+	ValidateRunnableTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
 // ImportTransactionProvider owns the Incident Bundles logical capability over
 // the one physical transaction supplied by app composition.
 type ImportTransactionProvider struct {
 	importer Importer
+	jobs     jobRunnableValidator
 	now      func() time.Time
 }
 
-func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, now func() time.Time) (*ImportTransactionProvider, error) {
-	if pool == nil || objects == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil {
+func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
+	if pool == nil || objects == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil || jobs == nil {
 		return nil, errors.New("incident bundle import transaction provider is incomplete")
 	}
 	if now == nil {
@@ -67,7 +72,7 @@ func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store,
 	return &ImportTransactionProvider{importer: Importer{
 		pool: pool, objectStore: objects, finalizer: finalizer, projectionRebuild: projectionRebuild,
 		historicalIntents: historicalIntents,
-	}, now: now}, nil
+	}, jobs: jobs, now: now}, nil
 }
 
 func (p *ImportTransactionProvider) TransactionCapabilities(participantID string, tx pgx.Tx) (crossownertransaction.ReadCapability, crossownertransaction.WriteCapability, error) {
@@ -75,7 +80,7 @@ func (p *ImportTransactionProvider) TransactionCapabilities(participantID string
 		return nil, nil, fmt.Errorf("%w: %s", crossownertransaction.ErrParticipantSet, participantID)
 	}
 	capability := &importTransactionCapability{
-		participantID: participantID, tx: tx, importer: p.importer, now: p.now,
+		participantID: participantID, tx: tx, importer: p.importer, jobs: p.jobs, now: p.now,
 	}
 	return capability, capability, nil
 }
@@ -84,6 +89,7 @@ type importTransactionCapability struct {
 	participantID string
 	tx            pgx.Tx
 	importer      Importer
+	jobs          jobRunnableValidator
 	now           func() time.Time
 }
 
@@ -95,7 +101,7 @@ func (c *importTransactionCapability) ParticipantScope() string {
 }
 
 func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.Context, incidentID, jobID uuid.UUID) error {
-	if c == nil || c.tx == nil || incidentID == uuid.Nil || jobID == uuid.Nil {
+	if c == nil || c.tx == nil || c.jobs == nil || incidentID == uuid.Nil || jobID == uuid.Nil {
 		return crossownertransaction.ErrUnavailable
 	}
 	var incidentExists bool
@@ -105,12 +111,11 @@ func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.C
 	if incidentExists {
 		return &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	var jobState string
-	if err := c.tx.QueryRow(ctx, `SELECT status FROM jobs WHERE job_id = $1 FOR UPDATE`, jobID).Scan(&jobState); err != nil {
+	if err := c.jobs.ValidateRunnableTx(ctx, c.tx, jobID); err != nil {
+		if errors.Is(err, jobs.ErrCancellationRequested) || errors.Is(err, jobs.ErrInvalidTransition) {
+			return crossownertransaction.ErrCanceled
+		}
 		return err
-	}
-	if jobState != jobs.StatusRunning && jobState != jobs.StatusQueued {
-		return crossownertransaction.ErrCanceled
 	}
 	return nil
 }

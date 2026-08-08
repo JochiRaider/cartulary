@@ -78,7 +78,7 @@ func (e *UnsupportedSnapshotDerivationError) Error() string {
 
 type Store struct {
 	pool               *pgxpool.Pool
-	jobTransactions    *jobs.TransactionService
+	jobTransactions    reportingJobAdmission
 	exportMaterializer reportingExportMaterializer
 }
 
@@ -264,7 +264,7 @@ type ReleaseActionResult struct {
 
 func newStore(
 	pool *pgxpool.Pool,
-	jobTransactions *jobs.TransactionService,
+	jobTransactions reportingJobAdmission,
 	exportMaterializer reportingExportMaterializer,
 ) *Store {
 	return &Store{
@@ -355,7 +355,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		SnapshotCreateJobKind,
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		normalized,
 	)
@@ -521,7 +521,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		ReleaseCreateJobKind,
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.Request.Normalized,
 	)

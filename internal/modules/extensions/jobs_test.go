@@ -19,6 +19,7 @@ func TestReconcileInactiveExtensionJobs_Unit(t *testing.T) {
 	contract := JobKindContract{
 		ProfileID:                   "test_profile",
 		JobKind:                     "test_profile.run_v1",
+		ProgressUnitID:              "test_profile.run.attempt.v1",
 		OperationKind:               "test_profile.run",
 		ProofPolicy:                 "required_on_terminal_success",
 		IdempotencyPolicy:           "required",
@@ -98,7 +99,8 @@ func TestReconcileInactiveExtensionJobsFailsBeforeMutation_Unit(t *testing.T) {
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
 	contract := JobKindContract{
 		ProfileID: "test_profile", JobKind: "test_profile.run_v1",
-		OperationKind: "test_profile.run", ProofPolicy: "required_on_terminal_success",
+		ProgressUnitID: "test_profile.run.attempt.v1",
+		OperationKind:  "test_profile.run", ProofPolicy: "required_on_terminal_success",
 		IdempotencyPolicy:           "required",
 		IdempotencyIdentitySchemaID: "cartulary.route_scoped_idempotency_identity.v1",
 		TerminalResultSchemaID:      "cartulary.common_job_terminal_success.v1",

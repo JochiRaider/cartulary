@@ -23,15 +23,31 @@ import (
 type Service struct {
 	store               *Store
 	authStore           *authn.Store
-	jobManager          *jobs.Manager
-	jobRunner           *jobs.Runner
+	jobManager          referenceJobOperations
+	jobRunner           referenceJobRunner
 	jobSuccessFinalizer JobSuccessFinalizer
 	keys                authn.MasterKeys
 	cursorCodec         *pagination.Codec
 	storage             Storage
 	limits              Limits
-	deps                httpapi.DependencySet
 	now                 func() time.Time
+}
+
+type referenceJobAdmission interface {
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
+}
+
+type referenceJobOperations interface {
+	Get(context.Context, uuid.UUID) (jobs.Resource, error)
+	MarkRunning(context.Context, uuid.UUID, jobs.Progress, *string) (jobs.Resource, error)
+	CompleteFailed(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+	CompleteCanceled(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+}
+
+type referenceJobRunner interface {
+	RegisterHandler(string, jobs.HandlerFunc) error
+	RecoverHandler(context.Context, string) error
+	DispatchJobID(string, uuid.UUID) error
 }
 
 type RouteOption func(*routeOptions)
@@ -40,6 +56,17 @@ type routeOptions struct {
 	jobSuccessFinalizer JobSuccessFinalizer
 	storage             Storage
 	limits              Limits
+	jobAdmission        referenceJobAdmission
+	jobOperations       referenceJobOperations
+	jobRunner           referenceJobRunner
+}
+
+func WithJobs(admission referenceJobAdmission, operations referenceJobOperations, runner referenceJobRunner) RouteOption {
+	return func(options *routeOptions) {
+		options.jobAdmission = admission
+		options.jobOperations = operations
+		options.jobRunner = runner
+	}
 }
 
 func WithJobSuccessFinalizer(finalizer JobSuccessFinalizer) RouteOption {
@@ -101,29 +128,28 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	if deps.Jobs != nil && options.jobSuccessFinalizer == nil {
+	if options.jobOperations != nil && options.jobSuccessFinalizer == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires a job success finalizer")
 	}
-	if deps.Jobs != nil && deps.JobRunner == nil {
+	if options.jobOperations != nil && options.jobRunner == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires the shared job runner")
 	}
-	if deps.Jobs != nil && deps.JobTransactions == nil {
+	if options.jobOperations != nil && options.jobAdmission == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires the Jobs transaction service")
 	}
-	if deps.Jobs != nil && options.storage == nil {
+	if options.jobOperations != nil && options.storage == nil {
 		return nil, fmt.Errorf("reference pack admitted route requires storage")
 	}
 	service := &Service{
-		store:               NewStore(deps.Postgres, deps.JobTransactions),
+		store:               NewStore(deps.Postgres, options.jobAdmission),
 		authStore:           authn.NewStore(deps.PostgresHandle()),
-		jobManager:          deps.Jobs,
-		jobRunner:           deps.JobRunner,
+		jobManager:          options.jobOperations,
+		jobRunner:           options.jobRunner,
 		jobSuccessFinalizer: options.jobSuccessFinalizer,
 		keys:                keys,
 		cursorCodec:         cursorCodec,
 		storage:             options.storage,
 		limits:              options.limits,
-		deps:                deps,
 		now:                 now,
 	}
 	if err := service.registerJobHandler(); err != nil {

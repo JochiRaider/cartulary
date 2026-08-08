@@ -237,6 +237,11 @@
       "status": "active"
     },
     {
+      "owner_id": "platform.jobs",
+      "manifest_path": "tools/test_families/platform.jobs.json",
+      "status": "active"
+    },
+    {
       "owner_id": "platform.objectstore",
       "manifest_path": "tools/test_families/platform.objectstore.json",
       "status": "active"

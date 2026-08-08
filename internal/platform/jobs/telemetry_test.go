@@ -1,16 +1,30 @@
 package jobs
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestJobTelemetryVocabularyHelpers(t *testing.T) {
-	if got := jobKindFromScope(Scope{Kind: ScopeKindIncident}); got != ScopeKindIncident {
-		t.Fatalf("unexpected incident job kind: %q", got)
+	manager := NewManager()
+	contract := ExtensionJobContract{
+		OwnerProfileID: "import", JobKind: "import.discovery_v1",
+		ProgressUnitID: "import.discovery.session.v1", OperationKind: "import.discovery",
+		WorkerKind: "import.discovery_worker_v1", ContractSHA256: strings.Repeat("a", 64),
+		ProofRequired: true, MaxProofBytes: 4096,
 	}
-	if got := jobKindFromScope(Scope{Kind: "unknown-kind"}); got != "unknown" {
+	if err := manager.ConfigureExtensionContracts([]ExtensionJobContract{contract}); err != nil {
+		t.Fatal(err)
+	}
+	if got := manager.catalogJobKind(ScopeKindIncident); got != "unknown" {
+		t.Fatalf("scope surrogate escaped as job kind: %q", got)
+	}
+	if got := manager.catalogJobKind("unknown-kind"); got != "unknown" {
 		t.Fatalf("unexpected unknown job kind: %q", got)
+	}
+	if got := manager.catalogJobKind(contract.JobKind); got != contract.JobKind {
+		t.Fatalf("catalog job kind projected as %q", got)
 	}
 	for status, want := range map[string]string{
 		StatusSucceeded: "success",

@@ -16,14 +16,19 @@ import (
 type importJobSuccessFinalizer struct {
 	finalizer    *extensionstore.OwnerFinalizer
 	pool         postgres.DB
-	transactions *jobs.TransactionService
+	transactions importTerminalCompleter
 	now          func() time.Time
+}
+
+type importTerminalCompleter interface {
+	CompleteFailedTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
+	CompleteCanceledTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
 }
 
 func NewImportJobSuccessFinalizer(
 	finalizer *extensionstore.OwnerFinalizer,
 	pool postgres.DB,
-	transactions *jobs.TransactionService,
+	transactions importTerminalCompleter,
 	now func() time.Time,
 ) imports.JobSuccessFinalizer {
 	if finalizer == nil || pool == nil || transactions == nil {

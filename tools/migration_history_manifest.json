@@ -344,6 +344,12 @@
       "filename": "00057_indicator_envelope_contract.sql",
       "sha256": "734a70540c9b94585e8693b6671c864f50c79e01ef3c77fa15720f8b83cd2eaf",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 58,
+      "filename": "00058_platform_jobs_definition_contract.sql",
+      "sha256": "9977fd8be35a80b4f142877b9a9325cffa797f9a6ded19cf4c7b4c76598d1ad0",
+      "historical_phase_shaped": false
     }
   ]
 }

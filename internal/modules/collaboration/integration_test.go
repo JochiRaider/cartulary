@@ -379,6 +379,7 @@ SELECT user_id::text
 	incidentUUID := uuid.MustParse(incidentID)
 	actorUUID := uuid.MustParse(actorUserID)
 	if _, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
+		JobKind:           collaborationsupport.TestJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentUUID},
 		SubmittedByUserID: actorUUID,
 		Cancelable:        true,

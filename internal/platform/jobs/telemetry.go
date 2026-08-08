@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,13 +38,20 @@ func (m *Manager) observeActiveJobs(ctx context.Context, observer metric.Int64Ob
 		ctx, cancel = context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
 	}
-	counts := map[string]int64{
-		ScopeKindIncident:   0,
-		ScopeKindDeployment: 0,
-		"unknown":           0,
+	counts := map[string]int64{"unknown": 0}
+	definitions := map[string]ExtensionJobContract(nil)
+	if m.definitions != nil {
+		definitions = m.definitions.byKind
 	}
+	kinds := make([]string, 0, len(definitions)+1)
+	for kind := range definitions {
+		counts[kind] = 0
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	kinds = append(kinds, "unknown")
 	rows, err := m.pool.Query(ctx, `
-SELECT scope_kind, COUNT(*)::bigint
+SELECT job_kind, COUNT(*)::bigint
   FROM jobs
  WHERE status = 'running'
  GROUP BY scope_kind
@@ -53,12 +61,15 @@ SELECT scope_kind, COUNT(*)::bigint
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var kind string
+		var storedKind *string
 		var count int64
-		if err := rows.Scan(&kind, &count); err != nil {
+		if err := rows.Scan(&storedKind, &count); err != nil {
 			return err
 		}
-		kind = jobKindFromScope(Scope{Kind: kind})
+		kind := "unknown"
+		if storedKind != nil {
+			kind = m.catalogJobKind(*storedKind)
+		}
 		if count < 0 {
 			count = 0
 		}
@@ -67,7 +78,7 @@ SELECT scope_kind, COUNT(*)::bigint
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	for _, kind := range []string{ScopeKindIncident, ScopeKindDeployment, "unknown"} {
+	for _, kind := range kinds {
 		observer.Observe(counts[kind], metric.WithAttributes(telemetry.SafeAttributes(attribute.String("cartulary.job_kind", kind))...))
 	}
 	return nil
@@ -130,13 +141,17 @@ func (m *Manager) telemetryServiceVersion() string {
 	return telemetry.VersionUnknown
 }
 
-func jobKindFromScope(scope Scope) string {
-	switch scope.Kind {
-	case ScopeKindIncident, ScopeKindDeployment:
-		return scope.Kind
-	default:
+func (m *Manager) catalogJobKind(jobKind string) string {
+	if m == nil || !safeJobTelemetryToken(jobKind) {
 		return "unknown"
 	}
+	if m.definitions == nil {
+		return "unknown"
+	}
+	if _, present := m.definitions.byKind[jobKind]; !present {
+		return "unknown"
+	}
+	return jobKind
 }
 
 func resultForJobError(err error) string {

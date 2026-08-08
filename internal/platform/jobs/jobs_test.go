@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,11 +19,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
+const testJobKind = collaborationsupport.TestJobKind
+
 func TestManagerCreatesCancelsAndReplaysJobCancel(t *testing.T) {
 	ctx := context.Background()
 	manager, actorID, incidentID := newJobsHarness(t, "jobs-cancel-replay")
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -79,6 +83,7 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	manager, actorID, _ := newJobsHarnessWithClock(t, "jobs-terminal-success", func() time.Time { return now })
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		SubmittedByUserID: actorID,
 		Cancelable:        false,
@@ -89,6 +94,9 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	}
 	jobID := uuid.MustParse(resource.JobID)
 	total := 1
+	if _, err := manager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err != nil {
+		t.Fatalf("start job: %v", err)
+	}
 	completed, err := manager.CompleteSucceeded(ctx, jobs.TransitionParams{
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -117,6 +125,7 @@ func TestManagerPersistsCanonicalIncidentProgressIntents_Integration(t *testing.
 	)
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -177,13 +186,18 @@ func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing
 		func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) },
 	)
 	intentFailure := errors.New("reject invalid job progress payload")
-	transactions, err := jobs.NewTransactionService(rejectingProgressIntentAppender{err: intentFailure})
+	ownerPorts := collaborationsupport.NewJobOwnerTransactionAdapters()
+	definitions := collaborationsupport.TestJobDefinitions()
+	transactions, err := jobs.NewTransactionService(rejectingProgressIntentAppender{err: intentFailure}, jobs.OwnerTransactionPorts{
+		RouteIdempotency: ownerPorts, ExtensionCancellation: ownerPorts,
+	}, definitions[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	manager := jobs.NewManager()
 	manager.Configure(pool, transactions, func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) })
 	_, err = manager.Create(context.Background(), jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -206,6 +220,7 @@ func TestRunnerDispatchesDurableHandlerAndCompletesJob(t *testing.T) {
 	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-dispatch")
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -284,6 +299,7 @@ func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
 	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-recover")
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -358,16 +374,16 @@ func TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration(t *testing
 		}
 	})
 	manager := &jobs.Manager{}
-	if err := runner.ValidateNamedConfiguration(manager); !errors.Is(err, jobs.ErrNotConfigured) {
+	if err := runner.ValidateConfiguration(); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("unconfigured named composition error = %v; want ErrNotConfigured", err)
 	}
 	runner.Configure(manager)
-	if err := runner.ValidateNamedConfiguration(manager); !errors.Is(err, jobs.ErrNotConfigured) {
+	if err := runner.ValidateConfiguration(); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("missing dequeue gate error = %v; want ErrNotConfigured", err)
 	}
 	gate := &dequeueGate{}
 	runner.ConfigureDequeueGate(gate)
-	if err := runner.ValidateNamedConfiguration(manager); err != nil {
+	if err := runner.ValidateConfiguration(); err != nil {
 		t.Fatalf("configured named composition rejected: %v", err)
 	}
 	handler := func(context.Context, uuid.UUID) error { return nil }
@@ -392,6 +408,7 @@ func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-exhausted")
 
 	resource, err := manager.Create(ctx, jobs.CreateParams{
+		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: actorID,
 		Cancelable:        true,
@@ -403,15 +420,16 @@ func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 	}
 	jobID := uuid.MustParse(resource.JobID)
 
-	for range jobs.DefaultHandlerMaxAttempts {
-		claimed, err := manager.ClaimHandlerJob(ctx, jobID, "test.exhausted", "worker-1", time.Minute)
+	for attempt := range jobs.DefaultHandlerMaxAttempts {
+		attemptID := fmt.Sprintf("attempt-%d", attempt+1)
+		claimed, err := manager.ClaimHandlerJob(ctx, jobID, "test.exhausted", attemptID, time.Minute)
 		if err != nil {
 			t.Fatalf("claim durable job: %v", err)
 		}
 		if !claimed {
 			t.Fatal("expected durable job claim")
 		}
-		if err := manager.RecordHandlerError(ctx, jobID, "worker-1", errors.New("handler failed")); err != nil {
+		if err := manager.RecordHandlerFailure(ctx, jobID, attemptID); err != nil {
 			t.Fatalf("record durable handler error: %v", err)
 		}
 	}
@@ -490,5 +508,8 @@ VALUES ($1, $2, 'admin', $2, $2)
 
 	manager := jobs.NewManager()
 	manager.Configure(pool, collaborationsupport.NewJobTransactions(), now)
+	if err := manager.ConfigureExtensionContracts(collaborationsupport.TestJobDefinitions()); err != nil {
+		t.Fatalf("configure test job definitions: %v", err)
+	}
 	return manager, actorID, incidentID, pool
 }

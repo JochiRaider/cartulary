@@ -417,6 +417,17 @@
       "production_only": true
     },
     {
+      "id": "jobs-use-owner-transaction-ports-not-peer-persistence",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
+        "github.com/JochiRaider/cartulary/internal/platform/extensionstore"
+      ],
+      "scan_paths": ["internal/platform/jobs/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "platform-adapter-construction-no-deployment-config",
       "match_kind": "subtree",
       "imports": [
@@ -955,6 +966,62 @@
   ],
   "sql_table_access": [
     {
+      "id": "jobs-storage-owner-write-and-lock-access",
+      "table": "jobs",
+      "scan_paths": ["internal/**"],
+      "read_allowed_paths": ["internal/**"],
+      "write_allowed_paths": ["internal/platform/jobs/**"],
+      "lock_allowed_paths": ["internal/platform/jobs/**"]
+    },
+    {
+      "id": "jobs-no-auth-route-idempotency-storage-access",
+      "table": "route_idempotency",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "jobs-no-extension-cancellation-storage-access",
+      "table": "extension_job_cancellation_observations",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "jobs-no-collaboration-intent-storage-access",
+      "table": "collaboration_event_intents",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "jobs-no-collaboration-replay-storage-access",
+      "table": "collaboration_replay_events",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "jobs-no-collaboration-cursor-storage-access",
+      "table": "collaboration_incident_stream_cursors",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
+      "id": "jobs-no-collaboration-resume-storage-access",
+      "table": "collaboration_resume_tokens",
+      "scan_paths": ["internal/platform/jobs/**"],
+      "read_allowed_paths": [],
+      "write_allowed_paths": [],
+      "lock_allowed_paths": []
+    },
+    {
       "id": "task-request-projection-storage-access",
       "table": "task_request_grid_projection",
       "scan_paths": ["internal/modules/**"],
@@ -1263,6 +1330,22 @@
       "production_only": true
     },
     {
+      "id": "jobs-consumers-use-narrow-capabilities",
+      "tokens": [
+        "*jobs.Manager",
+        "*jobs.TransactionService",
+        "*jobs.Runner",
+        "LockTransitionTx("
+      ],
+      "scan_paths": [
+        "internal/modules/**",
+        "internal/platform/extensionstore/**",
+        "internal/platform/httpapi/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
       "id": "transaction-bound-job-callers-use-configured-service",
       "tokens": [
         "jobs.CreateQueuedTx(",
@@ -1436,7 +1519,7 @@
       "scan_paths": ["internal/**"],
       "allowed_paths": [
         "internal/modules/imports/owner_apply.go",
-        "internal/platform/jobs/jobs.go",
+        "internal/platform/jobs/lifecycle_persistence.go",
         "internal/platform/postgres/extension_job_cutover_migration_test.go"
       ],
       "production_only": false

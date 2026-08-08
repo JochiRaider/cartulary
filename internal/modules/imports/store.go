@@ -54,7 +54,7 @@ type Store struct {
 	pool             *pgxpool.Pool
 	incidentAccess   incidents.Access
 	revisionAppender *revisions.Appender
-	jobTransactions  *jobs.TransactionService
+	jobTransactions  importJobTransactions
 }
 
 type DiscoveredUnit struct {
@@ -183,7 +183,7 @@ type ApplyJournalParams struct {
 func NewStore(
 	pool *pgxpool.Pool,
 	appender *revisions.Appender,
-	jobTransactions *jobs.TransactionService,
+	jobTransactions importJobTransactions,
 ) *Store {
 	return &Store{
 		pool:             pool,
@@ -245,7 +245,7 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		"import.discovery_v1",
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
 	)
@@ -744,7 +744,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		"import.apply_v1",
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		normalizedRequest,
 	)

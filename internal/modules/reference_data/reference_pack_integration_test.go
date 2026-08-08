@@ -261,9 +261,9 @@ func TestAdmissionQueuesBeforeVerificationAndCancelPreventsCommit_Integration(t 
 	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	jobID := job["job_id"].(string)
 	<-workerStarted
-	queued := requireJobNow(t, harness, adminLogin, jobID)
-	if queued["status"] != "queued" {
-		t.Fatalf("job should be accepted before verification starts, got %#v", queued)
+	running := requireJobNow(t, harness, adminLogin, jobID)
+	if running["status"] != "running" {
+		t.Fatalf("job must be running before verification starts, got %#v", running)
 	}
 	requirePackRowCount(t, harness.DB, "type_registry.queued", "1", 0)
 
@@ -544,9 +544,9 @@ func TestJobsRequireDeploymentAdminAtPollAndCancelTime_Integration(t *testing.T)
 	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 	jobID := job["job_id"].(string)
 	<-workerStarted
-	queued := requireJobNow(t, harness, adminLogin, jobID)
-	if queued["status"] != "queued" {
-		t.Fatalf("job should be queued before auth mutation, got %#v", queued)
+	running := requireJobNow(t, harness, adminLogin, jobID)
+	if running["status"] != "running" {
+		t.Fatalf("job must be running before auth mutation, got %#v", running)
 	}
 
 	setDeploymentAdmin(t, harness.DB, adminID, false)
@@ -699,7 +699,7 @@ SELECT owner_profile_id, operation_kind, final_commit_id
 	var actualJobKind string
 	var workerKind string
 	if err := db.QueryRow(`
-SELECT extension_owner_profile_id, extension_job_kind, handler_name
+SELECT extension_owner_profile_id, job_kind, handler_name
   FROM jobs
  WHERE job_id::text = $1
 `, jobID).Scan(&admittedProfileID, &actualJobKind, &workerKind); err != nil {

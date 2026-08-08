@@ -23,7 +23,7 @@ var ErrNotFound = errors.New("reference_data: not found")
 
 type Store struct {
 	pool            *pgxpool.Pool
-	jobTransactions *jobs.TransactionService
+	jobTransactions referenceJobAdmission
 }
 
 type ImportAcceptedParams struct {
@@ -74,7 +74,7 @@ type RefreshAcceptedParams struct {
 	Now               time.Time
 }
 
-func NewStore(pool *pgxpool.Pool, jobTransactions *jobs.TransactionService) *Store {
+func NewStore(pool *pgxpool.Pool, jobTransactions referenceJobAdmission) *Store {
 	return &Store{pool: pool, jobTransactions: jobTransactions}
 }
 
@@ -159,7 +159,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		ImportJobKind,
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
 	)
@@ -557,7 +557,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		referencePackContractJobKind(params.JobKind),
-		key,
+		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
 	)

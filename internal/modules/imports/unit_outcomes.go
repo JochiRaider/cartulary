@@ -423,29 +423,14 @@ func (s *Store) ensureApplyJobRunnableTx(
 	if err != nil {
 		return err
 	}
-	if err := jobs.LockTransitionTx(ctx, tx, jobID); err != nil {
-		return err
+	if s.jobTransactions == nil {
+		return jobs.ErrNotConfigured
 	}
-	var status string
-	if err := tx.QueryRow(ctx, `
-SELECT status
-  FROM jobs
- WHERE job_id = $1
- FOR UPDATE
-`, jobID).Scan(&status); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return jobs.ErrNotFound
-		}
-		return err
-	}
-	switch status {
-	case jobs.StatusRunning:
-		return nil
-	case jobs.StatusCancelRequested:
+	err = s.jobTransactions.ValidateRunnableTx(ctx, tx, jobID)
+	if errors.Is(err, jobs.ErrCancellationRequested) {
 		return errImportUnitCanceled
-	default:
-		return fmt.Errorf("import apply job is not runnable in status %q", status)
 	}
+	return err
 }
 
 func (s *Store) lockUnitOutcomePlanTx(

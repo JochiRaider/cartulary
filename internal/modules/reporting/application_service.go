@@ -17,8 +17,7 @@ import (
 type ApplicationService struct {
 	store          *Store
 	incidentAccess incidents.Access
-	jobManager     *jobs.Manager
-	jobRunner      *jobs.Runner
+	jobRunner      reportingJobRunner
 	jobDispatcher  reportingJobDispatcher
 	now            func() time.Time
 }
@@ -26,8 +25,8 @@ type ApplicationService struct {
 func NewApplicationService(
 	store *Store,
 	incidentAccess incidents.Access,
-	jobManager *jobs.Manager,
-	jobRunner *jobs.Runner,
+	jobManager reportingJobManager,
+	jobRunner reportingJobRunner,
 	jobFinalizer JobSuccessFinalizer,
 	renderExportInvoker RenderExportInvoker,
 	now func() time.Time,
@@ -38,7 +37,6 @@ func NewApplicationService(
 	service := &ApplicationService{
 		store:          store,
 		incidentAccess: incidentAccess,
-		jobManager:     jobManager,
 		jobRunner:      jobRunner,
 		now:            now,
 	}

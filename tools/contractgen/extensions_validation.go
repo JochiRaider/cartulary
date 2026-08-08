@@ -605,16 +605,16 @@ func validateExtensionOwnerFragment(object map[string]any, relativePath string) 
 
 func validateExtensionJobKindContract(object map[string]any, profileID, label string) error {
 	if err := requireAllowedKeys(object, stringSet(
-		"schema_id", "profile_id", "job_kind", "operation_kind", "proof_policy",
+		"schema_id", "profile_id", "job_kind", "progress_unit_id", "operation_kind", "proof_policy",
 		"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
 		"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
 	), label); err != nil {
 		return err
 	}
-	if object["schema_id"] != "cartulary.extension_job_kind_contract.v1" || object["profile_id"] != profileID {
+	if object["schema_id"] != "cartulary.extension_job_kind_contract.v2" || object["profile_id"] != profileID {
 		return fmt.Errorf("%s must bind the extension job schema and owner profile", label)
 	}
-	for _, key := range []string{"job_kind", "operation_kind", "idempotency_identity_schema_id", "terminal_result_schema_id"} {
+	for _, key := range []string{"job_kind", "progress_unit_id", "operation_kind", "idempotency_identity_schema_id", "terminal_result_schema_id"} {
 		if _, err := requiredString(object, key, label); err != nil {
 			return err
 		}
@@ -622,6 +622,9 @@ func validateExtensionJobKindContract(object map[string]any, profileID, label st
 	if !strings.HasPrefix(stringValue(object["job_kind"]), profileID+".") ||
 		!strings.HasPrefix(stringValue(object["operation_kind"]), profileID+".") {
 		return fmt.Errorf("%s job and operation identities must use the profile prefix", label)
+	}
+	if !validExtensionProgressUnitID(stringValue(object["progress_unit_id"])) {
+		return fmt.Errorf("%s.progress_unit_id is invalid", label)
 	}
 	if object["proof_policy"] != "required_on_terminal_success" ||
 		object["idempotency_policy"] != "required" ||
@@ -668,6 +671,37 @@ func validateExtensionJobKindContract(object map[string]any, profileID, label st
 		}
 	}
 	return nil
+}
+
+func validExtensionProgressUnitID(value string) bool {
+	if len(value) == 0 || len(value) > 191 {
+		return false
+	}
+	segments := strings.Split(value, ".")
+	if len(segments) < 3 {
+		return false
+	}
+	for _, segment := range segments[:len(segments)-1] {
+		if len(segment) == 0 || len(segment) > 63 || segment[0] < 'a' || segment[0] > 'z' {
+			return false
+		}
+		for _, character := range segment[1:] {
+			if !((character >= 'a' && character <= 'z') ||
+				(character >= '0' && character <= '9') || character == '_') {
+				return false
+			}
+		}
+	}
+	version := segments[len(segments)-1]
+	if len(version) < 2 || version[0] != 'v' || version[1] < '1' || version[1] > '9' {
+		return false
+	}
+	for _, character := range version[2:] {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validateExtensionConfigurationContract(object map[string]any, relativePath string) error {

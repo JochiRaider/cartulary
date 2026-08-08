@@ -1,0 +1,62 @@
+{
+  "schema_id": "cartulary.verification_contract.v3",
+  "owner_id": "platform.jobs",
+  "verifications": [
+    {
+      "verification_id": "platform.jobs.verification.durable_runner",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.failure_security",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.lifecycle",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.progress",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.recovery",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.storage_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.telemetry",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    }
+  ]
+}

@@ -99,6 +99,18 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 	if len(jobKinds) != 10 || len(workerKinds) != 5 {
 		t.Fatalf("adoption identity totals = %d jobs/%d workers; want 10/5", len(jobKinds), len(workerKinds))
 	}
+	progressUnits := map[string]string{
+		"import.discovery_v1":                       "import.discovery.session.v1",
+		"import.apply_v1":                           "import.apply.import_unit.v1",
+		"incident_portability.export_v1":            "incident_portability.export.request.v1",
+		"incident_portability.import_v1":            "incident_portability.import.request.v1",
+		"reference_pack.import_v1":                  "reference_pack.import.request.v1",
+		"reference_pack.refresh_v1":                 "reference_pack.refresh.pack_key.v1",
+		"reference_pack.reverify_v1":                "reference_pack.reverify.pack_version.v1",
+		"snapshot_reporting.composition_preview_v1": "snapshot_reporting.composition_preview.render_attempt.v1",
+		"snapshot_reporting.release_create_v1":      "snapshot_reporting.release_create.render_attempt.v1",
+		"snapshot_reporting.snapshot_create_v1":     "snapshot_reporting.snapshot_create.materialization.v1",
+	}
 	liveJobs := coordinator.JobKindContracts()
 	if len(liveJobs) != len(jobKinds) {
 		t.Fatalf("generated live job catalog = %d; want %d", len(liveJobs), len(jobKinds))
@@ -116,6 +128,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			}
 		}
 		if !foundOperation ||
+			liveJob.ProgressUnitID != progressUnits[liveJob.JobKind] ||
 			liveJob.ProofPolicy != "required_on_terminal_success" ||
 			liveJob.IdempotencyPolicy != "required" ||
 			liveJob.CancellationPolicy != "precommit_observable" {

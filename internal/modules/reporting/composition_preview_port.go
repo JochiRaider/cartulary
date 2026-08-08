@@ -11,11 +11,11 @@ import (
 )
 
 type compositionPreviewJobPort struct {
-	runner       *jobs.Runner
-	transactions *jobs.TransactionService
+	runner       reportingJobRunner
+	transactions reportingJobAdmission
 }
 
-func NewCompositionPreviewJobPort(runner *jobs.Runner, transactions *jobs.TransactionService) (reportcomposition.PreviewJobPort, error) {
+func NewCompositionPreviewJobPort(runner reportingJobRunner, transactions reportingJobAdmission) (reportcomposition.PreviewJobPort, error) {
 	if runner == nil || transactions == nil {
 		return nil, errors.New("reporting composition preview port requires job runner and transaction service")
 	}
@@ -30,7 +30,7 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
 		CompositionPreviewJobKind,
-		request.IdempotencyKey,
+		jobs.NewRouteIdempotencyKey(request.IdempotencyKey.RouteKey, request.IdempotencyKey.ActorUserID, request.IdempotencyKey.ScopeKey, request.IdempotencyKey.ClientTxnID),
 		request.Scope,
 		request.Normalized,
 	)

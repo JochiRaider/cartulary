@@ -1137,11 +1137,12 @@ type Job struct {
 	HandlerLastAttemptedAt           pgtype.Timestamptz `json:"handler_last_attempted_at"`
 	HandlerLastError                 pgtype.Text        `json:"handler_last_error"`
 	ExtensionOwnerProfileID          pgtype.Text        `json:"extension_owner_profile_id"`
-	ExtensionJobKind                 pgtype.Text        `json:"extension_job_kind"`
+	JobKind                          pgtype.Text        `json:"job_kind"`
 	ExtensionIdempotencyIdentity     []byte             `json:"extension_idempotency_identity"`
 	ExtensionIdempotencyRouteKey     pgtype.Text        `json:"extension_idempotency_route_key"`
 	ExtensionIdempotencyScopeKey     pgtype.Text        `json:"extension_idempotency_scope_key"`
 	ExtensionNormalizedRequestSha256 pgtype.Text        `json:"extension_normalized_request_sha256"`
+	ProgressUnitID                   pgtype.Text        `json:"progress_unit_id"`
 }
 
 type NetworkFlowIndicatorBinding struct {

@@ -2,9 +2,10 @@
 
 ## 1. Scope and Source Posture
 
-This tracker is a planning and handoff contract. Normative terms such as
-`MUST`, `MUST NOT`, `SHOULD`, and `MAY` prescribe the work that a later
-authorized implementation must perform; they do not elevate this tracker above
+This tracker is the controlling execution and handoff artifact for the
+authorized Jobs Platform remediation. Normative terms such as `MUST`, `MUST
+NOT`, `SHOULD`, and `MAY` describe the required projection into adopted owners,
+contracts, implementation, and evidence; they do not elevate this tracker above
 an adopted owner document. If this tracker and an adopted owner conflict, the
 owner controls and the implementation work is `BLOCKED: owner contradiction`.
 
@@ -14,10 +15,27 @@ owner controls and the implementation work is `BLOCKED: owner contradiction`.
 | Target label | `jobs-platform`; lowercase kebab case with no spaces, separators, shell metacharacters, or unsafe filename characters |
 | Output path | `docs/handoffs/jobs-platform-module-refactor-tracker.md` |
 | Original repository baseline | Branch `main`, commit `7a39756616f12d06b5d1c981295acc35e517cc1d`; the worktree was clean before the original tracker was created |
-| Current task | Revise this tracker into an NLSpec-grade, decision-complete handoff |
-| Permitted change | This tracker file only |
-| Prohibited changes | Production code, tests, adopted owners, contracts, migrations, generated artifacts, package configuration, and harness inputs or outputs |
-| Implementation status | Not started; every production, owner, contract, migration, test, generation, and harness change requires a later authorized task |
+| Authorized implementation baseline | Branch `main`, commit `2e80c849048e012867dc1ff860102ff1a99ca69a`; worktree clean at the 2026-08-08 execution bootstrap |
+| Current task | Implement the complete Jobs Platform remediation through JS-07 in the strict sequence in Section 7 |
+| Permitted change | Adopted owner specifications, authored contracts and verification inputs, Jobs and affected owner implementations/tests/composition, authored migration and boundary policy, generator-produced outputs, and this tracker, limited to the active slice |
+| Prohibited changes | Unrelated behavior, public job protocol shape changes, hand edits to generated artifacts, mixed v1/v2 runtime support, dual writers, inferred historical progress repair, and automatic database reset/reseed |
+| Implementation status | JS-01 through JS-07 are `DONE` in the required sequence; repository implementation, deployment-faithful cutover rehearsal, validation, and handoff are complete |
+
+### Controlling checkpoint protocol
+
+The only valid execution sequence is `JS-01` → `JS-06A` → `JS-06B` →
+`JS-06C` → `JS-06D` → `JS-06E` → `JS-02` → `JS-03` → `JS-04` →
+`JS-05` → `JS-07`.
+
+While execution is incomplete, exactly one slice is `IN_PROGRESS`. The active
+slice is implemented and validated in isolation; changed files, commands,
+result roots, failures, rollback posture, and remaining blockers are recorded
+here. A slice is marked `DONE` only after all binary exit criteria pass, or
+`BLOCKED` when they cannot pass. The tracker is then validated with
+`make lint-markdown` before the next slice becomes `IN_PROGRESS`. After JS-07
+is `DONE`, no slice remains active. Planned or expected results never count as
+completion evidence. JS-07 updates JP-AC-101 through JP-AC-110 from actual
+retained evidence only.
 
 ### Identity map
 
@@ -35,7 +53,8 @@ that assignment. Package existence alone is not authority; Core 01's explicit
 `JP-REQ-002`: Public job routes, envelopes, status tokens, authorization
 outcomes, WebSocket members, and the public `{completed,total}` progress shape
 MUST remain unchanged. The internal `progress_unit_id` defined by this tracker
-MUST NOT enter HTTP, WebSocket, frontend, or telemetry surfaces.
+MUST NOT enter `jobs.Resource`, HTTP, WebSocket, OpenAPI, TypeScript, frontend,
+logs, or telemetry surfaces.
 
 `JP-REQ-003`: Core 05 remains inapplicable because this work concerns
 implementation conformance rather than timed or fixture-sensitive public claim
@@ -78,7 +97,7 @@ Owner, authoring, and support material inspected:
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `internal/platform/jobs/.gitkeep` | Empty placeholder in a populated package | None | None | None | None | None | `platform_jobs` housekeeping | low | Non-runtime; optional deletion remains deferred. |
+| `internal/platform/jobs/.gitkeep` | Removed obsolete placeholder from the populated package in JS-03 | None | None | None | None | None | `platform_jobs` housekeeping | none | Cleanup is complete. |
 | `internal/platform/jobs/collaboration_producer.go` | Transaction-scoped job creation/terminal operations and canonical incident `job_progress` intent production | `ProgressIntent`, `ProgressIntentAppender`, `TransactionService`, constructor, and transaction methods | Server and test-support composition; imports, incident bundles, reporting, reference data, and extension finalizers | `pgx`, jobs lifecycle helpers, injected intent appender | Progress persistence and rollback tests in `jobs_test.go` | WebSocket job-progress contract and generated WS catalog | `platform_jobs` producer with application-owned Collaboration translation | high | Existing consumer-owned port direction is intentional. |
 | `internal/platform/jobs/durable.go` | Handler payload access, recovery selection, claims, leases, attempts, error recording, and exhaustion failure | Durable Manager methods | `Runner` and tests | PostgreSQL jobs rows, lifecycle transitions, progress intents | Runner dispatch, recovery, and exhaustion tests | Jobs migrations and recovery catalog | `platform_jobs` | critical | Claim currently acquires a lease without atomically changing queued status to running. |
 | `internal/platform/jobs/extensions.go` | Extension job admission, contract lookup, terminal-result validation, and canonical encoding | `ExtensionResourceRefContract`, `ExtensionJobContract`, contract configuration/lookup, canonical helpers | Extension assembly, extension store/finalizers, extension-capable producers | Generated owner facts supplied through application composition | `extensions_test.go` and extension rows | Extension job-kind fragments and generated bindings | Generic `platform_jobs` mechanism constrained by Extensions/Reporting owners | high | Future projection must carry owner-declared `progress_unit_id`. |
@@ -87,10 +106,37 @@ Owner, authoring, and support material inspected:
 | `internal/platform/jobs/jobs_test.go` | Characterizes cancellation replay, terminal resource retention, progress-intent atomicity, runner dispatch/recovery, configuration, and exhaustion | Eight package tests | Go runner and semantic family rows | PostgreSQL test support and jobs API | Self | Some rows map to `module.extensions`; six tests were previously unmapped | `platform.jobs` plus existing cross-owner evidence | high | Queued recovery currently characterizes a direct queued-to-success path and must be corrected, not preserved. |
 | `internal/platform/jobs/recovery_state.go` | Declares the authoritative `jobs` recovery contribution | `RecoveryStateContribution` | Recovery assembly | Recovery contribution contract | Recovery catalog/assembly tests | Recovery state catalog | `platform_jobs` | medium | Legitimate thin owner contribution. |
 | `internal/platform/jobs/runner.go` | Handler registration, dequeue admission, dispatch, recovery activation, panic/error handling, and shutdown | Runner errors, `HandlerFunc`, `DequeueGate`, `Runner`, and lifecycle methods | Server assembly and module handler registration | Manager durable operations, concurrency, UUIDs | Runner tests and worker integration rows | Named portability recovery evidence | `platform_jobs` | critical | Handler invocation must occur only after a committed running claim. |
-| `internal/platform/jobs/telemetry.go` | Jobs tracing, duration and active metrics, active-job query, and safe tokens | Private jobs instrumentation helpers | Manager and Runner | OpenTelemetry API and jobs table | `telemetry_test.go` | Adopted OpenTelemetry vocabulary | `platform_jobs` | medium | `progress_unit_id` must never become a telemetry attribute. |
+| `internal/platform/jobs/telemetry.go` | Jobs tracing, duration and active metrics, active-job query, and safe tokens | Private jobs instrumentation helpers | Manager and Runner | OpenTelemetry API and jobs table | `telemetry_test.go` | Adopted OpenTelemetry vocabulary | `platform_jobs` | high | `progress_unit_id` must never become a telemetry attribute; `cartulary.job_kind` currently reports a scope surrogate rather than the catalog-backed job kind. |
 | `internal/platform/jobs/telemetry_test.go` | Characterizes vocabulary, safe tokens, and no-SDK ownership | Three package tests | Go runner | Telemetry helpers | Self | No current semantic row | `platform.jobs` verification evidence | medium | Must be routed after `platform.jobs` is registered. |
 
 Every target entry is inventoried; none is silently excluded.
+
+### Execution-baseline runtime and security gaps
+
+The authorized baseline contains all of the following defects, and JS-06B
+must establish regression evidence before corrected writers are activated:
+
+- a durable claim can invoke a handler while the public job is still queued;
+- runner-wide lease-owner reuse can admit duplicate dispatch within one runner;
+- a nil handler return can release a lease while leaving a mutable job
+  unfinished;
+- raw handler errors and recovered panic values can enter persisted or public
+  diagnostics;
+- lease and attempt bookkeeping can change public `updated_at` and emit a
+  public progress intent despite no public resource change;
+- the extension reconciliation path directly updates the Jobs table;
+- Jobs directly accesses Auth route-idempotency and Extensions cancellation
+  observation tables;
+- Imports combines the exported `LockTransitionTx` capability with direct Jobs
+  queries; and
+- Jobs telemetry emits an incident/deployment scope surrogate as
+  `cartulary.job_kind`.
+
+The corrected runtime uses a unique attempt identity for every dispatch,
+closed safe failure tokens and fixed operator-safe summaries, a private
+transition matrix, and catalog-backed actual job kinds. Raw handler errors,
+panic values, job IDs, and progress-unit IDs are forbidden from public errors,
+logs, and telemetry.
 
 ### Production jobs-table writer map
 
@@ -220,7 +266,16 @@ state matrices.
 NOT be added unless an authorized later task proves that bypassing writers
 cannot be removed or guarded.
 
-### Progress-unit contract
+### Job-definition and progress-unit contract
+
+`JP-REQ-010A`: The active runtime contract is the closed
+`cartulary.extension_job_kind_contract.v2` shape. It requires
+`progress_unit_id`, participates in the existing canonical digest algorithm,
+and has no v1 compatibility reader. One immutable runtime job-definition
+catalog is assembled from owner facts. Callers identify a job kind; Jobs
+derives the unit from the catalog and never trusts a caller-supplied unit.
+Internal storage uses the generic name `job_kind`, not
+`extension_job_kind`.
 
 `JP-REQ-011`: Every new job and every mutable nonterminal job MUST have one
 immutable internal `progress_unit_id`. Its grammar is:
@@ -244,16 +299,16 @@ messages, route names, results, or mutable registries.
 
 | Job kind | Profile/semantic owner | Current authored source | Required declaration state |
 | --- | --- | --- | --- |
-| `import.apply_v1` | Import contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `import.discovery_v1` | Import contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `incident_portability.export_v1` | Incident portability contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `incident_portability.import_v1` | Incident portability contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `reference_pack.import_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `reference_pack.refresh_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `reference_pack.reverify_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `snapshot_reporting.composition_preview_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `snapshot_reporting.release_create_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
-| `snapshot_reporting.snapshot_create_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | Exact `progress_unit_id` MUST be adopted before migration; no fallback |
+| `import.discovery_v1` | Import contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `import.discovery.session.v1` |
+| `import.apply_v1` | Import contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `import.apply.import_unit.v1` |
+| `incident_portability.export_v1` | Incident portability contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `incident_portability.export.request.v1` |
+| `incident_portability.import_v1` | Incident portability contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `incident_portability.import.request.v1` |
+| `reference_pack.import_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `reference_pack.import.request.v1` |
+| `reference_pack.refresh_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `reference_pack.refresh.pack_key.v1` |
+| `reference_pack.reverify_v1` | Reference-pack contract owner (`core01` fragment) | `contracts/extensions/fragments/core01.profile-jobs.json` | `reference_pack.reverify.pack_version.v1` |
+| `snapshot_reporting.composition_preview_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | `snapshot_reporting.composition_preview.render_attempt.v1` |
+| `snapshot_reporting.release_create_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | `snapshot_reporting.release_create.render_attempt.v1` |
+| `snapshot_reporting.snapshot_create_v1` | Reporting | `contracts/extensions/fragments/snapshot_reporting.participation.json` | `snapshot_reporting.snapshot_create.materialization.v1` |
 
 The unit MUST traverse the owner-to-storage boundary as follows:
 
@@ -266,10 +321,10 @@ The unit MUST traverse the owner-to-storage boundary as follows:
 | Jobs row | Required `progress_unit_id` for new/mutable rows | Jobs persists the exact value at creation and never changes it |
 | Public resource/event | No member | HTTP, WS, TypeScript protocol, and telemetry surfaces reject accidental projection |
 
-An extension job with a missing, unknown, or mismatched unit MUST fail admission
-as an invalid internal job definition before row insertion. A non-extension test
-or internal caller MUST supply an explicitly registered Jobs-owned unit; an
-arbitrary caller string is not an owner declaration.
+An extension job with a missing, unknown, or mismatched catalog definition MUST
+fail admission before any jobs row is inserted. A future non-extension producer
+or internal caller MUST add an explicitly owner-declared catalog fact; an
+admission-time fallback or caller-chosen unit is forbidden.
 
 ### Progress update contract
 
@@ -363,7 +418,7 @@ authoritative effect.
 | Jobs-owned SQL and recovery contribution remain in Jobs. | Target sources and recovery catalog | Expected persistence adjacency | `intentional/no_action` | `platform_jobs` | Keep private; do not introduce a generic repository abstraction without a behavior need. |
 | Jobs telemetry remains API-only and safe-token bounded. | OTel owner and target tests | Low when unit ID remains absent | `intentional/no_action` | `platform_jobs` | Route tests to `platform.jobs`; add no new attribute. |
 | No target dependency on timeline, projections, saved views, view schema, grid vendor, or frontend shell exists. | Target/caller scan | Scope expansion | `intentional/no_action` | Existing owners | Keep these concerns out of the refactor. |
-| `.gitkeep` remains in a populated directory. | Directory inspection | No runtime risk | `defer` | Housekeeping | Optional JS-07 cleanup only. |
+| `.gitkeep` remained in a populated directory. | Directory inspection | No runtime risk | `should_fix` | Housekeeping | Resolved in JS-03 by deleting the obsolete placeholder. |
 
 `JP-REQ-016`: After JS-05, boundary checks MUST reject production jobs-table
 writes outside the Jobs owner, Auth/Extensions table access from Jobs, direct
@@ -388,7 +443,7 @@ at application composition remain permitted.
 
 | Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| JS-01 | none | Register active `platform.jobs`; add verification contract and semantic lifecycle/durable/telemetry families; route exact tests without overlaps. | Authored verification/catalog inputs; generated topology via generator | Misassignment by file location or recycled identity | Selector uniqueness, owner closure, existing Extensions/Job API ownership | `make generate`; owner explain/guide; complete `platform.jobs` slices | Revert authored owner inputs and regenerate; no product code changes. | Owner is active/unique; every target test resolves exactly once; generated outputs are drift-clean. |
+| JS-01 | tracker bootstrap | Register active `platform.jobs`; add lifecycle, progress, durable-runner, recovery, and telemetry verification families; route generic Jobs tests exactly once while preserving Job API, Extensions, Collaboration, and profile ownership by postcondition. | Authored verification/catalog inputs; generated topology via generator | Misassignment by file location or recycled identity | Selector uniqueness, owner closure, existing cross-owner ownership | `make generate`; generation/policy drift; owner explain/guide; complete `platform.jobs` slices | Revert authored owner inputs and regenerate; no product code changes. | Owner is active/unique; every target test resolves exactly once; generated outputs are drift-clean. |
 | JS-06A | JS-01 | Adopt minimal Core 01 transition/recovery/progress clarification, Core 04 acceptance updates, and exact unit declarations for all ten job kinds. | Core 01/Core 04 and owner fragments/contracts | Tracker must not become behavior owner; unit meaning must not be guessed | Owner review and contract validation | `make generate`; `make generate-drift`; `make generated-artifact-policy-check` | Revert owner edits as one specification checkpoint before code. | Every future behavior has one adopted owner statement and every job kind has one exact unit. |
 | JS-06B | JS-06A | Add owner-aligned transition, progress, concurrency, recovery, atomicity, public-parity, and extension-unit evidence. | Jobs/Job API/Extensions/Collaboration tests and semantic rows | Tests could bless current queued terminal drift | Full matrices in Section 8 | Exact owner slices | Revert tests/rows without touching production behavior. | Tests fail against current defects for the intended reasons and contain no duplicated selectors. |
 | JS-06C | JS-06B | Introduce the central atomic transition/progress substrate behind existing Jobs operations; do not activate unsupported writers yet. | Jobs lifecycle/transaction internals | Public errors, atomicity, or status behavior can drift | Unit and service-backed substrate evidence | `make test-slice OWNER=platform.jobs`; `make service-backed-test-slice OWNER=platform.jobs` | Keep old call routing until substrate evidence passes; never dual-write. | One internal state/progress matrix exists; current facade delegates where activated. |
@@ -399,6 +454,22 @@ at application composition remain permitted.
 | JS-04 | JS-03 | Narrow concrete consumers one at a time while application composition supplies adapters. | Job API, imports, incident bundles, reporting, reference data, extension store, HTTP/server/test composition | Capability loss or broad facade recreation | Each consumer's current owner rows | Consumer `make task-guide` slice plus boundary check | One consumer per checkpoint. | Consumers receive only required Jobs capabilities. |
 | JS-05 | JS-02, JS-04 | Add authored boundary guards for foreign SQL, jobs-table bypasses, and peer imports. | Backend boundary owner input; generated outputs through generator | Overbroad rules can reject owner adapters/tests | Positive owner-adapter fixtures and negative bypass fixtures | `make backend-module-boundary-check`; drift checks | Revert a rule that cannot distinguish production bypass from allowed owner/test paths. | Reintroduced bypasses fail canonically and valid composition passes. |
 | JS-07 | JS-05 | Perform drained cutover, replay-horizon check, complete validation, optional `.gitkeep` cleanup, and final handoff. | Runtime operations, validation artifacts, tracker | Mixed writers, stale replay, premature cleanup, unsupported claims | Complete owner and broad evidence | `make agent-finalize`; `make check`; all Section 8 gates | Keep pre-cutover rollback point; reopen dequeue only after corrected writer readiness. | Single corrected writer serves work; all binary criteria pass; results and deferrals are recorded. |
+
+### Slice checkpoint ledger
+
+| Slice | Status | Changed files | Commands and result roots | Failures or blockers | Rollback posture |
+| --- | --- | --- | --- | --- | --- |
+| JS-01 | DONE | `contracts/verification/owners/platform.jobs.json`; `contracts/verification/registry.json`; `tools/test_families/platform.jobs.json`; `tools/test_catalog_owner.json`; generated `tools/execution_topology_render_index.json`; this tracker | `make generate` pass: `.cartulary/test-results/20260808T040638Z-p2208396`; `make generate-drift` pass: `.cartulary/test-results/20260808T040657Z-p2210760`; generated policy pass: `.cartulary/test-results/20260808T040709Z-p2213484`; owner explain/guide pass; owner slice pass: `.cartulary/test-results/20260808T040721Z-p2214373`; service-backed slice pass: `.cartulary/test-results/20260808T040734Z-p2216155` | Initial generation attempts failed on ASCII ordering at `.cartulary/test-results/20260808T040533Z-p2202673` and `.cartulary/test-results/20260808T040609Z-p2205561`; authored order corrected; no remaining blocker | Revert the four authored owner/catalog changes and regenerate; no product behavior changed |
+| JS-06A | DONE | Core 01/Core 04, Extensions/Reporting/OTel NLSpecs; extension contract definition and both job owner fragments; generator validation; Extensions parser/canonical model; application/Jobs projections and affected fixtures; generated `internal/gen/contractextensions/artifacts_gen.go`; this tracker | `make format` pass: `.cartulary/test-results/20260808T041353Z-p2220810`; `make generate` pass: `.cartulary/test-results/20260808T041402Z-p2223875`; JSON shape pass: `.cartulary/test-results/20260808T041429Z-p2226373`; generation drift pass: `.cartulary/test-results/20260808T041434Z-p2226775`; generated policy pass: `.cartulary/test-results/20260808T041447Z-p2229519`; Extensions unit rows pass: `.cartulary/test-results/20260808T041452Z-p2229951`; affected service-backed rows pass: `.cartulary/test-results/20260808T041514Z-p2231247`; Markdown lint pass: `.cartulary/test-results/20260808T041603Z-p2234634` | First Markdown lint run failed at `.cartulary/test-results/20260808T041543Z-p2233683` because a new Core 01 table lacked a trailing blank line; corrected; no remaining blocker | Revert the adopted owner/contract/projection checkpoint as one unit and regenerate; no v1 runtime reader exists to preserve |
+| JS-06B | DONE | New `internal/platform/jobs/correction_test.go`; strengthened Jobs telemetry/public-projection and Extensions ten-unit tests; `platform.jobs` failure-security verification and three semantic rows; regenerated topology render index; this tracker | `make format` passes: `.cartulary/test-results/20260808T042343Z-p2238282` and `.cartulary/test-results/20260808T042713Z-p2261502`; `make generate` pass: `.cartulary/test-results/20260808T042355Z-p2241305`; intended transition/progress failure: `.cartulary/test-results/20260808T042722Z-p2264555`; intended claim/recovery failure: `.cartulary/test-results/20260808T042440Z-p2245721`; intended failure-security failure: `.cartulary/test-results/20260808T042459Z-p2247332`; intended telemetry failure: `.cartulary/test-results/20260808T042515Z-p2248968`; retained Jobs rows pass: `.cartulary/test-results/20260808T042524Z-p2249343`; Extensions exact-unit rows pass: `.cartulary/test-results/20260808T042542Z-p2251032`; Job API pass: `.cartulary/test-results/20260808T042558Z-p2251856`; Collaboration protocol pass: `.cartulary/test-results/20260808T042558Z-p2251852`; generation drift/policy pass: `.cartulary/test-results/20260808T042622Z-p2258121` and `.cartulary/test-results/20260808T042622Z-p2258130`; checkpoint lint pass: `.cartulary/test-results/20260808T042936Z-p2266725` | Four rows fail only their intended old-behavior assertions: illegal terminal paths/progress semantics; claim/recovery/duplicate dispatch; nil/raw/panic/exhaustion secrecy; scope-surrogate telemetry. These are activation gates for JS-06C/JS-06E, not unrelated regressions | Revert the new tests/semantic rows and regenerate; no production behavior changed in this slice |
+| JS-06C | DONE | New private `internal/platform/jobs/transition.go`; lifecycle facade delegation in `jobs.go`; corrected direct-terminal fixture in `jobs_test.go`; this tracker | `make format` pass: `.cartulary/test-results/20260808T043515Z-p2309837`; central transition/progress and retained lifecycle rows pass: `.cartulary/test-results/20260808T043518Z-p2312848`; earlier isolated passes: `.cartulary/test-results/20260808T043331Z-p2272978` and `.cartulary/test-results/20260808T043342Z-p2274788`; Job API pass: `.cartulary/test-results/20260808T043421Z-p2276471`; Extensions service-backed slice passes after correcting owner routing | Durable claim, recovery, handler-failure secrecy, and telemetry correction rows intentionally remain activation gates for JS-06E. An attempted `OWNER=platform.extensionstore` service slice failed because that owner has no service-backed rows; the valid `module.extensions` service slice passed | Revert `transition.go` and the facade/test edits before JS-06D; no schema mutation or dual writer exists yet |
+| JS-06D | DONE | Migration 58; migration history; generated SQL model; Jobs definition admission/catalog/startup validation; server composition gate; migration/storage tests and owner rows; renamed storage queries and affected fixtures; this tracker | `make format` pass: `.cartulary/test-results/20260808T045404Z-p2398997`; migration/storage invalid-corpus pass: `.cartulary/test-results/20260808T045251Z-p2393808`; central/storage rows pass: `.cartulary/test-results/20260808T045407Z-p2402020`; migration drift pass: `.cartulary/test-results/20260808T045311Z-p2395836`; generation drift, generated policy, and JSON shape pass: `.cartulary/test-results/20260808T045430Z-p2404673`, `.cartulary/test-results/20260808T045437Z-p2407394`, `.cartulary/test-results/20260808T045439Z-p2407794`; app.server slice passes | Initial migration fixture failed on its FK setup at `.cartulary/test-results/20260808T044544Z-p2324287`; initial storage validation used an incomplete test definition at `.cartulary/test-results/20260808T044841Z-p2336233`; initial drift identified the required history entry at `.cartulary/test-results/20260808T044951Z-p2342014`. All were corrected and rerun. No reset ran | Restore the pre-58 snapshot and old writer before JS-06E writes new rows; after corrected writes, downgrade is unsupported |
+| JS-06E | DONE | Durable claim/error/recovery and runner implementation; catalog-backed telemetry; inactive-extension Jobs transaction operation and composition ordering; extensionstore writer removal; affected tests; this tracker | `make format` pass: `.cartulary/test-results/20260808T050632Z-p2643373`; complete Jobs unit slice pass: `.cartulary/test-results/20260808T050638Z-p2651867`; complete Jobs service-backed slice passes; first correction/security group pass: `.cartulary/test-results/20260808T045951Z-p2413545`; telemetry row pass: `.cartulary/test-results/20260808T050042Z-p2419280`; complete affected Job API, Extensions, Imports, Incident Portability, Reference Data, Reporting, Collaboration, and app.server unit/service-backed invocations pass; production source scan finds no Jobs-table write outside Jobs | No remaining JS-06E blocker. Raw handler/panic values are absent by construction; nil mutable returns persist only `job_handler_incomplete`; lease-only recovery is public-event-free | Stop the corrected process; schema downgrade is unsupported after v2 writes. Revert the runner/durable/telemetry and inactive-reconciliation routing together; never restore an old writer onto v2 rows |
+| JS-02 | DONE | New Jobs owner-port contracts; Auth transaction lookup/update operations; Extensions transaction append; application and test adapters; finalizer, cancellation, admission, and composition migrations; affected tests; this tracker | `make format` pass: `.cartulary/test-results/20260808T051344Z-p2669895`; complete Jobs unit slice pass: `.cartulary/test-results/20260808T051404Z-p2673429`; complete Jobs service-backed slice pass: `.cartulary/test-results/20260808T051435Z-p2677730`; complete Job API service-backed slice pass: `.cartulary/test-results/20260808T051455Z-p2679318`; complete Extensions service-backed slice pass: `.cartulary/test-results/20260808T051509Z-p2685393`; boundary check pass: `.cartulary/test-results/20260808T051601Z-p2710387`; production source scans pass | An initial `platform.jobs.unit` row alias was rejected because `ROWS` requires canonical unique row IDs; the complete owner slice was used and passed. No remaining blocker; Jobs contains neither foreign table name nor Auth import/type | Revert ports, owner persistence operations, and composition adapters as one checkpoint. Cancellation/finalization still use one transaction and no dual write exists |
+| JS-03 | DONE | Jobs public types, manager facade, extension admission/terminal, immutable definition catalog, stored projection, transition policy/persistence, lifecycle persistence, durable persistence, transaction service, and telemetry concern files; removed unused canonical JSON helper and `.gitkeep`; this tracker | `make format` passes: `.cartulary/test-results/20260808T052222Z-p2713847`, `.cartulary/test-results/20260808T052426Z-p2721515`, and `.cartulary/test-results/20260808T052449Z-p2724730`; complete Jobs unit slice pass: `.cartulary/test-results/20260808T052452Z-p2727760`; complete Jobs service-backed slice pass: `.cartulary/test-results/20260808T052526Z-p2732068`; `make test-fast` pass: `.cartulary/test-results/20260808T052546Z-p2733748` | No failed validation or remaining blocker. The internal catalog cleanup strengthened equality from progress-unit-only matching to the complete immutable definition | Revert the cohesive file split and shared-catalog change together; no package path, protocol, or compatibility shim was introduced |
+| JS-04 | DONE | Job API read/cancel port; Imports, Incident Bundles, Reference Data, Reporting, and Report Composition admission/runtime/runner ports; Jobs runnable/finalization transaction operations; narrowed Extensions finalizer and application adapters; HTTP dependency bag cleanup; runner configuration contract; affected tests and boundary allowlist; this tracker | Job API pass: `.cartulary/test-results/20260808T053003Z-p2819050` and `.cartulary/test-results/20260808T053013Z-p2821618`; Imports pass: `.cartulary/test-results/20260808T054929Z-p3241453` and `.cartulary/test-results/20260808T055004Z-p3268921`; Incident Bundles pass: `.cartulary/test-results/20260808T054844Z-p3228740` and `.cartulary/test-results/20260808T054916Z-p3239791`; Reference Data pass: `.cartulary/test-results/20260808T053833Z-p3000782` and `.cartulary/test-results/20260808T053904Z-p3025002`; Reporting/Composition pass: `.cartulary/test-results/20260808T054014Z-p3050629`, `.cartulary/test-results/20260808T054027Z-p3055453`, `.cartulary/test-results/20260808T054034Z-p3056903`, and `.cartulary/test-results/20260808T054043Z-p3058478`; Extensions pass: `.cartulary/test-results/20260808T054730Z-p3175101` and `.cartulary/test-results/20260808T054806Z-p3205888`; app.server pass: `.cartulary/test-results/20260808T055050Z-p3292348`; complete Jobs slices pass: `.cartulary/test-results/20260808T055125Z-p3319608` and `.cartulary/test-results/20260808T055145Z-p3321859`; boundary pass: `.cartulary/test-results/20260808T055204Z-p3323496` | Initial Imports root `.cartulary/test-results/20260808T053233Z-p2827134` failed because the next consumer still called the removed runner signature; corrected before rerun. Reference roots `.cartulary/test-results/20260808T053659Z-p2948623` and `.cartulary/test-results/20260808T053732Z-p2975118` exposed two obsolete queued-during-handler assertions; corrected to required running-before-handler. Extensions roots `.cartulary/test-results/20260808T054114Z-p3063123` and `.cartulary/test-results/20260808T054149Z-p3089718` exposed a partial test catalog; the fixture now supplies one exact shared catalog. Boundary root `.cartulary/test-results/20260808T054447Z-p3167326` exposed the JS-03 file-move allowlist and was corrected. No blocker remains | Revert consumer ports and composition as one checkpoint. No compatibility facade remains; restore neither the broad HTTP dependency fields nor external transition locks |
+| JS-05 | DONE | Authored backend boundary policy; static-analysis lock detection and Jobs-specific fixtures; Jobs inactive-reconciliation validation operation; Extensions reconciliation caller; this tracker | `make format` pass: `.cartulary/test-results/20260808T060036Z-p3327961`; Jobs slices pass: `.cartulary/test-results/20260808T060051Z-p3331158` and `.cartulary/test-results/20260808T060117Z-p3334286`; Extensions slices pass: `.cartulary/test-results/20260808T060143Z-p3335986` and `.cartulary/test-results/20260808T060221Z-p3362394`; `make generate` pass: `.cartulary/test-results/20260808T060253Z-p3385359`; generation drift pass: `.cartulary/test-results/20260808T060303Z-p3387669`; generated policy pass: `.cartulary/test-results/20260808T060313Z-p3390427`; final boundary pass: `.cartulary/test-results/20260808T060317Z-p3390933`; JSON shape pass: `.cartulary/test-results/20260808T060322Z-p3391280`; checkpoint Markdown lint pass: `.cartulary/test-results/20260808T060427Z-p3392233` | Policy design exposed the remaining inactive-reconciliation `FOR UPDATE` on Jobs. It was replaced with Jobs-owned `ValidateInactiveJobTx`, preserving the caller transaction and candidate identity checks. Fixtures prove owner/app adapter, migration, test, and ordinary read positives plus non-owner write/lock, foreign storage, broad capability, raw lock, and peer-persistence negatives. No blocker remains | Revert policy/checker and semantic reconciliation validation together if rollback occurs; do not restore the external row lock without also removing its guard |
+| JS-07 | DONE | New deployment-faithful cutover/recovery integration test and `platform.jobs` row; generated topology index; lowercase Job API constructor diagnostic; final tracker/handoff | Owner explain/task-guide pass; `make format`: `.cartulary/test-results/20260808T060751Z-p3395579`; `make generate`: `.cartulary/test-results/20260808T060801Z-p3398673`; isolated drained cutover: `.cartulary/test-results/20260808T060812Z-p3401018`; complete Jobs: `.cartulary/test-results/20260808T060830Z-p3402740` and `.cartulary/test-results/20260808T060855Z-p3405169`; Extensions: `.cartulary/test-results/20260808T060935Z-p3407048` and `.cartulary/test-results/20260808T061012Z-p3431822`; final Job API: `.cartulary/test-results/20260808T062908Z-p3930691` and `.cartulary/test-results/20260808T062923Z-p3932737`; Imports: `.cartulary/test-results/20260808T061104Z-p3459224` and `.cartulary/test-results/20260808T061142Z-p3486531`; Incident Bundles: `.cartulary/test-results/20260808T061216Z-p3509890` and `.cartulary/test-results/20260808T061247Z-p3516767`; Reference Data: `.cartulary/test-results/20260808T061305Z-p3518515` and `.cartulary/test-results/20260808T061338Z-p3544232`; Reporting/Composition: `.cartulary/test-results/20260808T061411Z-p3566728`, `.cartulary/test-results/20260808T061425Z-p3571444`, `.cartulary/test-results/20260808T061433Z-p3572927`, and `.cartulary/test-results/20260808T061446Z-p3574548`; Collaboration: `.cartulary/test-results/20260808T061451Z-p3576022` and `.cartulary/test-results/20260808T061623Z-p3608393`; app.server: `.cartulary/test-results/20260808T061750Z-p3635117` and `.cartulary/test-results/20260808T061830Z-p3661598`; drift/policy/boundary roots: `.cartulary/test-results/20260808T061905Z-p3683805`, `.cartulary/test-results/20260808T061918Z-p3686587`, `.cartulary/test-results/20260808T061931Z-p3689350`, `.cartulary/test-results/20260808T061935Z-p3689790`, and `.cartulary/test-results/20260808T061956Z-p3690377`; `make test-fast`: `.cartulary/test-results/20260808T062005Z-p3690872`; stateful browser: `.cartulary/test-results/20260808T062214Z-p3755259`; final `make agent-finalize`: `.cartulary/test-results/20260808T062931Z-p3934214`; final `make check` and explain: `.cartulary/test-results/20260808T063551Z-p4119107`; checkpoint Markdown lint: `.cartulary/test-results/20260808T064001Z-p2067` | First check `.cartulary/test-results/20260808T062431Z-p3784022` failed only related `lint-go` ST1005 on the new capitalized Job API error; corrected and focused lint/Job API evidence passed. Second check `.cartulary/test-results/20260808T062947Z-p3936932` failed an unrelated two-second standalone-server reset timeout; exact canonical row rerun passed at `.cartulary/test-results/20260808T063521Z-p4099687`. Final check passed 730/730. `RESULTS_DIR` was unset for finalization, so retained-run maintenance was skipped. No reset/reseed or external deployment mutation ran | The isolated rehearsal retains its pre-58 database boundary until migration, proves no active lease or 24-hour replay event, and opens dequeue only after migration/catalog validation. For an external environment, retain the pre-cutover rollback point and execute the same drained sequence; never start a v1 writer after v2 writes |
 
 ### Migration and rollout defaults
 
@@ -415,14 +486,14 @@ immutable and cannot re-enter processing.
 
 `JP-REQ-019`: Invalid retained data uses these defaults:
 
-- Incomplete succeeded rows with known totals age out under the existing
-  retention policy by default. One-time normalization requires separate owner
-  authorization and an affected-count record.
-- Negative completed values, nonpositive totals, and completed-over-total rows
-  MUST NOT be repaired by inference.
-- Still-replayable illegal Collaboration history ages out under the bounded
-  replay horizon by default. Only a Collaboration-owner remediation may alter
-  history.
+- Any retained job that violates the new state or progress invariants blocks
+  cutover. It is never normalized or repaired by inference.
+- Unsupported retained job data requires the explicitly approved pre-release,
+  targeted `make db-reset` and reseed path. The implementation and migration
+  MUST NOT run that destructive path automatically.
+- Illegal Collaboration history must be absent from the current 24-hour replay
+  horizon. Wait for owner-managed pruning or use the same approved reset/reseed
+  path; never rewrite Collaboration events in place.
 
 `JP-REQ-020`: The default deployment is a drained single-writer cutover:
 
@@ -500,25 +571,24 @@ valid statuses in this table.
 | JP-002 | Inventory every target file and production jobs writer | WF-01 | DONE | JP-001 | Section 2 | Eleven target entries and all discovered production writers are recorded. |
 | JP-003 | Freeze public contracts and owner mapping | WF-02 | DONE | JP-002 | Section 4 | Every discovered public contract has one owner and evidence posture. |
 | JP-004 | Resolve RB-001 through RB-003 at planning level | WF-02 | DONE | JP-003 | Sections 4 and 11 | Owner ID, state correction, and progress closure are decision-complete. |
-| JP-005 | Register `platform.jobs` and route evidence | WF-03 | TODO | JP-004 | JS-01 | Owner commands accept the ID and all tests resolve exactly once. |
-| JP-006 | Adopt Core clarifications and exact job-kind unit declarations | WF-04 | TODO | JP-005 | JS-06A | Owners contain every required behavior and all ten unit mappings. |
-| JP-007 | Add owner-aligned correction evidence | WF-05 | TODO | JP-006 | JS-06B | Required tests fail on old drift and pass on corrected behavior. |
-| JP-008 | Implement central transition/progress substrate | WF-05 | TODO | JP-007 | JS-06C | One internal matrix and typed error boundary governs state/progress. |
-| JP-009 | Apply progress-unit migration and compatibility gates | WF-05 | TODO | JP-008 | JS-06D | Mutable rows have units, constraints validate, and unsafe data fails closed. |
-| JP-010 | Migrate every worker, finalizer, recovery path, and external writer | WF-05 | TODO | JP-009 | JS-06E | No production jobs write bypass remains and complete correction evidence passes. |
-| JP-011 | Extract Auth/Extensions persistence ports | WF-06 | TODO | JP-010 | JS-02 | Jobs contains no foreign-owner table access. |
-| JP-012 | Split Jobs private internals | WF-06 | TODO | JP-011 | JS-03 | Stable facade hides cohesive private concerns. |
-| JP-013 | Narrow concrete consumers | WF-06 | TODO | JP-012 | JS-04 | Each consumer receives only required capabilities. |
-| JP-014 | Add boundary anti-regression rules | WF-07 | TODO | JP-011, JP-013 | JS-05 | Canonical boundary checks reject all defined bypasses. |
-| JP-015 | Execute drained cutover and final evidence | WF-08 | TODO | JP-010, JP-014 | JS-07 | Corrected single writer is serving and every implementation criterion passes. |
-| JP-016 | Remove `.gitkeep` | WF-08 | DEFERRED | JP-012 | Optional JS-07 cleanup | File is removed in a scoped cleanup or deferral remains recorded. |
+| JP-005 | Register `platform.jobs` and route evidence | WF-03 | DONE | JP-004 | JS-01 owner contract, family manifest, generated topology, and retained run roots | Owner commands accept the ID; three rows and all selected tests resolve exactly once; complete slices pass. |
+| JP-006 | Adopt Core clarifications and exact job-kind unit declarations | WF-04 | DONE | JP-005 | JS-06A owners, typed facts, parser/canonical projection, generated bindings, and retained run roots | Owners contain every required behavior; all ten units project through v2; active runtime inputs contain no v1 reader. |
+| JP-007 | Add owner-aligned correction evidence | WF-05 | DONE | JP-006 | JS-06B semantic tests, owner rows, intended-failure roots, and retained green owner roots | Required tests fail on the old drift for their intended assertions; selectors are unique; unrelated retained evidence passes. |
+| JP-008 | Implement central transition/progress substrate | WF-05 | DONE | JP-007 | `internal/platform/jobs/transition.go`; central and retained lifecycle result roots | One private closed matrix and typed safe error boundary governs running, progress, cancellation, and terminal publication; exact repeats and rejected updates are mutation/event-free. |
+| JP-009 | Apply progress-unit migration and compatibility gates | WF-05 | DONE | JP-008 | Migration 58, startup validation, migration/storage rows, and drift roots | Exact backfill, legacy-terminal null preservation, constraints, safe preflight, lease/replay rejection, and catalog-matching startup validation pass without inferred repair. |
+| JP-010 | Migrate every worker, finalizer, recovery path, and external writer | WF-05 | DONE | JP-009 | Complete Jobs/affected owner slices, correction/security rows, and production writer scan | Claims publish running before invocation, recover without regression, use unique attempts, fail with closed safe tokens, clear terminal leases, and route inactive reconciliation through Jobs. |
+| JP-011 | Extract Auth/Extensions persistence ports | WF-06 | DONE | JP-010 | Jobs owner-port contracts, application/test adapters, owner persistence functions, owner slice roots, and source scans | Jobs contains no foreign-owner table access; cancellation replay/conflict, observation, finalization, and rollback remain atomic. |
+| JP-012 | Split Jobs private internals | WF-06 | DONE | JP-011 | Cohesive Jobs concern files, one shared private catalog, removed unused export/placeholder, complete platform roots, and `test-fast` root | Public values/facade are isolated from stored projection, policy, lifecycle/durable persistence, catalog, transaction publication, and telemetry concerns. |
+| JP-013 | Narrow concrete consumers | WF-06 | DONE | JP-012 | Consumer-owned ports, composition injection, Jobs runnable/finalization operations, source scans, affected owner roots, and boundary root | Job API has read/cancel only; producers, workers, and finalizers hold narrow semantic ports; the HTTP dependency bag has no Jobs capability; external transition locks/direct mutable-status reads are gone. |
+| JP-014 | Add boundary anti-regression rules | WF-07 | DONE | JP-011, JP-013 | JS-05 policy, static-analysis fixtures, semantic lock correction, and retained result roots | Canonical boundary checks reject all defined bypasses while owner adapters, migrations, tests, and permitted reads remain accepted. |
+| JP-015 | Execute drained cutover and final evidence | WF-08 | DONE | JP-010, JP-014 | JS-07 cutover rehearsal, complete owner/browser/broad roots, and final acceptance table | The corrected writer recovered and served the retained job only after readiness and dequeue reopening; every implementation criterion passes. |
+| JP-016 | Remove `.gitkeep` | WF-08 | DONE | JP-012 | JS-03 cleanup | The obsolete placeholder is removed. |
 
 ## 10. Session Handoff Log
 
-The first row in each table preserves the original 2026-08-07 planning handoff.
-The second row records this NLSpec-grade revision. Files touched remain limited
-to this tracker; source, owner, code, contract, migration, generated, and harness
-files were inspected only.
+The 2026-08-07 rows preserve the planning handoff. Subsequent rows are the
+slice-by-slice execution record required by the controlling checkpoint
+protocol.
 
 ### Scope and authority
 
@@ -526,6 +596,7 @@ files were inspected only.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 America/New_York | Codex original planning session | WF-00 through WF-02 planning complete | Inspected framework, Core 00-04, subsystem NLSpecs, domain and support guides; touched only this tracker | `git status`, `git branch --show-current`, `git rev-parse`, `sed`, `rg` | Target exists; label is safe; baseline was clean; no owner contradiction found | None for tracker completion | Seek later authorization for JS-01 before implementation. |
 | 2026-08-07 America/New_York | Codex NLSpec revision session | Requirements and owner boundaries are decision-complete | Inspected `analysis-notes.md`, `nlspec-spec.md`, current tracker, owner inputs, and adopted sources; touched only this tracker | `git status`, `sha256sum`, `sed`, `rg`, `jq`, `git log` | RB-001 through RB-003 resolved at planning level; no owner contradiction; implementation remains pending | None at planning level | Execute JS-01 in a separately authorized task. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-01 activated after tracker bootstrap | Updated this tracker; confirmed clean baseline `2e80c849048e012867dc1ff860102ff1a99ca69a` | `git status --short`; `git rev-parse HEAD`; `rg`; `sed`; `make lint-markdown` | Authorized sequence, v2 catalog, exact units, reset/reseed posture, runtime-security gaps, and checkpoint protocol recorded | JS-01 evidence pending | Register and validate `platform.jobs`; do not begin JS-06A until checkpoint is `DONE` and lint-clean. |
 
 ### Backend module boundary
 
@@ -533,6 +604,10 @@ files were inspected only.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 America/New_York | Codex original planning session | Legitimate platform boundary with two foreign-storage leaks and mixed internals | Inspected every target file, server/runtime dependencies, Job API, extension store/assembly, imports, incident bundles, reporting, and reference data; touched only this tracker | `rg`, `sed`, `find`, `git ls-files` | Keep Jobs persistence/runner; move Auth/Extensions SQL behind owner-backed ports; split later | Evidence routing and implementation authority | Characterize before structural extraction. |
 | 2026-08-07 America/New_York | Codex NLSpec revision session | Central writer/transition requirement added | Re-inspected target writes, module workers, and `internal/platform/extensionstore/reconciliation.go`; touched only this tracker | `rg`, `sed` | Extensions reconciliation is a third production write boundary and must migrate in JS-06E | No planning blocker | Register owner, adopt requirements, test, then centralize all writers. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-02 complete; JS-03 activated | Added required Jobs consumer ports, Auth- and Extensions-owned transaction operations, application/test adapters, and finalizer adapter injection; removed foreign SQL/types from Jobs and Auth SQL from the Extensions finalizer | Complete Jobs unit/service-backed, Job API service-backed, and Extensions service-backed slices; boundary check; production foreign-schema/import scans; `make lint-markdown` | Cancellation replay/conflict, observation append, progress intent, final idempotency replacement, terminal state, and proof publication retain one caller transaction with no dual write | None | Split Jobs internals by concern, remove obsolete exports and `.gitkeep`, then run complete platform slices and `make test-fast`. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-03 complete; JS-04 activated | Reorganized Jobs into cohesive concern files, replaced two definition maps with one shared immutable catalog, removed the unused canonical JSON export and stale placeholder, and retained the package boundary | `make format`; complete platform owner slices; `make test-fast`; file/export scans; `make lint-markdown` | Public serialization and package identity are unchanged; all 349 fast units pass; complete catalog equality now prevents partial-definition aliasing | None | Inventory each concrete consumer capability and migrate one consumer at a time. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-04 complete; JS-05 activated | Added consumer-owned Jobs interfaces for every route/producer/worker/finalizer; removed all Jobs capabilities from `httpapi.DependencySet`; added Jobs-owned runnable and extension-finalization transaction operations; removed the external lock and direct mutable-state queries | Per-consumer unit/service owner slices, app.server and complete Jobs slices; source scans; backend boundary check; `make lint-markdown` | No production module or extension finalizer stores a concrete Jobs service; public behavior remains compatible; running-before-handler evidence is corrected | None | Encode these boundaries in the authored canonical policy with positive and negative fixtures. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-05 complete; JS-07 activated | Added owner-only Jobs write/lock enforcement, Jobs foreign-storage and peer-import guards, narrow-capability guards, and fail-closed positive/negative fixtures; moved inactive-reconciliation locking and candidate validation into Jobs | `make format`; complete Jobs and Extensions unit/service-backed slices; `make generate`; generation/policy/JSON drift; final boundary root `.cartulary/test-results/20260808T060317Z-p3390933` | Every prohibited bypass fixture fails its intended canonical rule; owner/app adapters, migrations, tests, and ordinary reads pass; production policy is green | None | Run the drained compatibility/replay readiness path, final owner/module/browser/broad validation, and evidence-backed acceptance update. |
 
 ### Frontend module boundary
 
@@ -547,6 +622,7 @@ files were inspected only.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 America/New_York | Codex original planning session | HTTP, WS, storage, recovery, extension-job, and telemetry contracts frozen | Inspected OpenAPI/WS owners, extension fragments/bindings, migrations 00005/00027/00034, ownership/recovery manifests, and generated Go/TS; touched only this tracker | `rg`, `sed`, `jq`, Make explain targets | Generated artifacts are projections; no authored contract/schema change was then planned | Original RB-002/RB-003 | Use canonical generation only after authored input changes. |
 | 2026-08-07 America/New_York | Codex NLSpec revision session | Future owner and schema edits are precisely routed | Inspected ten job-kind fragments, extension contract parsing/projection, current migration tail through 00057, and jobs schema; touched only this tracker | `find`, `rg`, `sed`, `jq` | JS-06A must add owner-declared units; JS-06D uses next free migration, currently 00058; public projections remain unchanged | Owner adoption is an implementation precondition | Adopt owners first, then generate; never hand-edit projections. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-06A complete; JS-06B activated | Adopted lifecycle/progress/security corrections; replaced active v1 contract with v2; added all ten owner units; updated validation, parser, digest projection, application binding, and generated contracts | `make format`; `make generate`; `make json-shape-check`; generation/policy drift; targeted Extensions unit/service-backed slices; `rg`; `jq`; `make lint-markdown` | Ten exact units project through v2 and affect canonical digests; no active v1 reader remains; all binary gates pass | None | Add correction/security evidence and capture intended old-behavior failures in JS-06B. |
 
 ### Tests and harness
 
@@ -554,6 +630,15 @@ files were inspected only.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 America/New_York | Codex original planning session | Target tests partly route through Extensions; Job API owner active; platform owner absent | Inspected tests, owners, Job API/Extensions families, and harness owner; touched only this tracker | `make help`, `make help-all`, task/explain targets, `make lint-markdown`, `rg`, `sed`, `jq` | Existing owners discovered; invalid attempted IDs rejected; original Markdown lint passed | Original RB-001 | Harness owner decides/creates semantic owner. |
 | 2026-08-07 America/New_York | Codex NLSpec revision session | `platform.jobs` selected; implementation not authored | Inspected owner grammar, current/historical registries, platform owner examples, and exact target tests; touched only this tracker | `rg`, `sed`, `jq`, `git log`, `make lint-markdown` | ID is grammar-valid, currently unused, and not found in owner history; Markdown lint passed; no product or owner slice ran | None at planning level | JS-01 authors owner inputs and runs complete owner evidence. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-01 complete; JS-06A activated | Added `platform.jobs` owner/contract and three generic Jobs rows; updated both registries and generated render index; retained Extensions/Job API/profile selectors | `make generate`; `make generate-drift`; `make generated-artifact-policy-check`; owner explain/guide; complete owner unit/service-backed slices; `make lint-markdown` | All JS-01 binary gates passed; run roots are recorded in the slice ledger | None | Adopt the v2 normative correction contract and exact unit projections in JS-06A. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-06B complete; JS-06C activated | Added transition/progress, claim/recovery/publication, duplicate-dispatch, runner-failure/secrecy, telemetry, public-projection, and exact-unit evidence; updated semantic owner rows | Targeted owner slices and retained-root inspection listed in the slice ledger; generation/policy drift; `make lint-markdown` | All new defect rows fail the old implementation for the intended assertions; retained Jobs, Extensions, Job API, and Collaboration evidence passes | Expected red rows require JS-06C and JS-06E corrections | Implement the private transition/progress substrate without activating unsupported external writers. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-06C complete; JS-06D activated | Added the private stored/public projection boundary, one closed transaction-scoped state/progress policy, semantic lifecycle delegation, conditional state writes, monotonic progress, exact no-op behavior, and committed-change-only intent publication | `make format`; targeted `platform.jobs` service-backed rows; complete Job API slice; Extensions service-backed slice; `make lint-markdown` | Central and retained lifecycle evidence passes; public Job API projection remains compatible | Durable writer/security/telemetry rows remain expected red until JS-06E; invalid service owner selection was corrected to `module.extensions` | Author migration `00058`, immutable catalog, safe preflight/startup gate, and invalid-corpus evidence. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-06D complete; JS-06E activated | Added migration 58, generic job identity and private unit persistence, exact catalog derivation, safe preflight, no-partial-mutation rejection, startup validation before runner/listener activation, and migration/storage owner evidence | `make format`; targeted platform migration/storage/lifecycle rows; `make migration-drift`; generation/policy/JSON drift; complete app.server slice | Fresh install, exact upgrade, all ten mappings, legacy-terminal nulls, invalid progress, unknown mappings, active leases, illegal replay, startup mismatch secrecy, and rollback shape pass | No reset was run; downgrade remains valid only before a corrected writer creates v2 rows | Correct durable claim/recovery/error/finalizer and every remaining Jobs-table writer. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-06E complete; JS-02 activated | Corrected durable claim/recovery/error/exhaustion, unique dispatch attempts, handler secrecy, incomplete-handler closure, actual-kind telemetry, terminal lease clearing, and inactive-extension atomic terminal routing | Complete Jobs owner slices; correction/security/telemetry rows; all affected owner slices; app.server slice; production write scan; `make lint-markdown` | One corrected Jobs writer governs every mutable row; all JS-06B red evidence is green; public state/event sequencing and secrecy sentinels pass | Jobs still directly accesses Auth idempotency and Extensions cancellation storage | Extract caller-transaction ports and composition adapters without dual writes. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-02 complete; JS-03 activated | Preserved cancellation/finalizer assertions while replacing direct cross-owner persistence with composition-supplied transaction ports | Jobs unit root `.cartulary/test-results/20260808T051404Z-p2673429`; Jobs service root `.cartulary/test-results/20260808T051435Z-p2677730`; Job API service root `.cartulary/test-results/20260808T051455Z-p2679318`; Extensions service root `.cartulary/test-results/20260808T051509Z-p2685393` | Complete affected semantic owner inventories pass; source scans are clean | None | Begin only the cohesive private-internal split. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-03 complete; JS-04 activated | Retained all platform evidence while moving implementation concerns and tightening the catalog identity boundary | Jobs unit root `.cartulary/test-results/20260808T052452Z-p2727760`; Jobs service root `.cartulary/test-results/20260808T052526Z-p2732068`; fast root `.cartulary/test-results/20260808T052546Z-p2733748` | Complete Jobs and broad fast evidence pass after the structural break; no compatibility shim exists | None | Narrow Job API first, then transactional producers, workers, and owner finalizers. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-04 complete; JS-05 activated | Validated each consumer after capability narrowing and reran corrected evidence after every discovered failure | Pass roots are recorded in the JS-04 ledger; final app.server, Jobs, and boundary roots are `.cartulary/test-results/20260808T055050Z-p3292348`, `.cartulary/test-results/20260808T055125Z-p3319608`, `.cartulary/test-results/20260808T055145Z-p3321859`, and `.cartulary/test-results/20260808T055204Z-p3323496` | All consumer inventories pass; no broad HTTP capability, concrete module field, external transition lock, or direct module mutable-status query remains | None | Add canonical positive/negative boundary fixtures, regenerate if required, and validate drift. |
+| 2026-08-08 America/New_York | Codex remediation execution | JS-07 complete; no active slice | Added and passed the isolated drained v1-to-v2 cutover/recovery row, then ran every required owner, drift, boundary, fast, browser, finalization, and broad check gate | Complete roots are recorded in the JS-07 ledger; final `make check` root `.cartulary/test-results/20260808T063551Z-p4119107` passes 730/730 and was inspected with `make explain-run` | Repository implementation and deployment rehearsal are complete; public polling/live/replay state handling remains compatible | No repository blocker. External rollout remains an operator action using the recorded fail-closed sequence | Handoff to deployment operators; do not mix writer versions or bypass retained-state preflight. |
 
 ### Security and authorization
 
@@ -568,6 +653,7 @@ files were inspected only.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 America/New_York | Codex original planning session | Planning inventory and sequencing complete; implementation not started | Inspected owner/code/test/harness evidence; touched only this tracker | Read-only discovery commands | Three stable blockers remained; no product validation or refactor ran | RB-001, RB-002, RB-003 | Start with owner decision and characterization. |
 | 2026-08-07 America/New_York | Codex NLSpec revision session | No unanswered planning blocker; implementation gates remain | Inspected retained-data, replay, migration, writer, and rollout evidence; touched only this tracker | Read-only commands listed above | Defaults are fail-closed; mixed writers prohibited; RB decisions resolved but not implemented | Implementation evidence gates IG-001 through IG-004 | Start JS-01; do not combine correction with JS-02/JS-03. |
+| 2026-08-08 America/New_York | Codex remediation execution | All slices and implementation evidence gates closed | Inspected final retained roots, failure artifacts, source status, acceptance criteria, and rollback posture; updated the final handoff | `make explain-run` on both failing and final passing roots; exact flaky-row rerun; final tracker lint | Related lint defect was corrected; unrelated serverprocess timeout passed exact rerun; final broad graph is green | No code/specification blocker; external environment state was not mutated or inferred | Execute the operator-owned drained cutover in each deployment and preserve the pre-v2 rollback point until migration commits. |
 
 ## 11. Open Questions and Blockers
 
@@ -577,18 +663,18 @@ their closure evidence exists.
 
 | ID | Resolution | Required closure evidence | Current status |
 | --- | --- | --- | --- |
-| RB-001 | The semantic harness owner is `platform.jobs`. Generic lifecycle, progress, durable runner, recovery, and Jobs telemetry evidence belongs to it; cross-owner postconditions retain their existing owners. | Active registries/contracts/families; exact selectors; owner explain/guide; complete all/service-backed slices; drift-clean generated outputs | RESOLVED — implementation evidence required |
-| RB-002 | Core 01 controls. Direct queued-to-succeeded/canceled transitions are prohibited; dispatch/recovery claims running before work; cancellation passes through cancel-requested; one atomic Jobs substrate governs all writers. | Exhaustive matrix, concurrent claim, recovery sequencing, cancellation race, atomicity, public polling/WS sequence, and drained-writer evidence | RESOLVED — implementation evidence required |
-| RB-003 | Progress rejects completed regression, total clearing/regression, unit change, bound violation, and incomplete known-total success. Every mutable job persists an immutable owner-declared internal unit. | Adopted owner clarification/unit map; migration/backfill; constraints; concurrent progress, success, recovery, HTTP/WS, and extension parity evidence | RESOLVED — implementation evidence required |
+| RB-001 | The semantic harness owner is `platform.jobs`. Generic lifecycle, progress, durable runner, recovery, and Jobs telemetry evidence belongs to it; cross-owner postconditions retain their existing owners. | Active registries/contracts/families; exact selectors; owner explain/guide; complete all/service-backed slices; drift-clean generated outputs | RESOLVED — CLOSED by JS-01 and JS-07 evidence |
+| RB-002 | Core 01 controls. Direct queued-to-succeeded/canceled transitions are prohibited; dispatch/recovery claims running before work; cancellation passes through cancel-requested; one atomic Jobs substrate governs all writers. | Exhaustive matrix, concurrent claim, recovery sequencing, cancellation race, atomicity, public polling/WS sequence, and drained-writer evidence | RESOLVED — CLOSED by JS-06C, JS-06E, and JS-07 evidence |
+| RB-003 | Progress rejects completed regression, total clearing/regression, unit change, bound violation, and incomplete known-total success. Every mutable job persists an immutable owner-declared internal unit. | Adopted owner clarification/unit map; migration/backfill; constraints; concurrent progress, success, recovery, HTTP/WS, and extension parity evidence | RESOLVED — CLOSED by JS-06A through JS-06E and JS-07 evidence |
 
 ### Implementation evidence gates
 
 | Gate | Condition that prevents completion | Fail-closed result | Current status |
 | --- | --- | --- | --- |
-| IG-001 | One or more of the ten job kinds lacks an adopted exact unit | JS-06D does not start; no unit is inferred | TODO |
-| IG-002 | Preflight finds unresolved nonterminal mappings or unsafe invalid progress | Startup/cutover remains closed until owner-authorized resolution | TODO |
-| IG-003 | Old illegal progress sequences remain replayable | Full conformance claim waits for replay expiry or Collaboration-owner remediation | TODO |
-| IG-004 | Old writers/runners or active leases cannot be drained | Migration and dequeue reopening do not proceed; two-phase rollout requires a separate specification | TODO |
+| IG-001 | One or more of the ten job kinds lacks an adopted exact unit | JS-06D does not start; no unit is inferred | CLOSED — all ten exact v2 bindings pass owner and migration evidence |
+| IG-002 | Preflight finds unresolved nonterminal mappings or unsafe invalid progress | Startup/cutover remains closed until owner-authorized resolution | CLOSED — invalid corpora reject before mutation; valid retained data pass migration and startup validation |
+| IG-003 | Old illegal progress sequences remain replayable | Full conformance claim waits for replay expiry or Collaboration-owner remediation | CLOSED — illegal 24-hour replay rejects; the cutover rehearsal proves an empty accepted horizon |
+| IG-004 | Old writers/runners or active leases cannot be drained | Migration and dequeue reopening do not proceed; two-phase rollout requires a separate specification | CLOSED — active-lease preflight rejects and the drained rehearsal keeps dequeue closed until the corrected writer is ready |
 
 ## 12. Binary Completion Criteria
 
@@ -611,19 +697,20 @@ their closure evidence exists.
 
 ### Refactor completion
 
-| Acceptance ID | Binary completion condition | Current result |
-| --- | --- | --- |
-| JP-AC-101 | `platform.jobs` is active, unique, selects complete owner inventories, and has no overlapping selectors. | NOT MET |
-| JP-AC-102 | Core clarifications and all ten exact owner-declared progress units are adopted and projected. | NOT MET |
-| JP-AC-103 | All required transition/progress/concurrency/recovery/public-parity tests pass. | NOT MET |
-| JP-AC-104 | One Jobs-owned atomic substrate governs every production state/progress write. | NOT MET |
-| JP-AC-105 | Migration preflight/backfill/constraints pass and every mutable job has an immutable unit. | NOT MET |
-| JP-AC-106 | Queued work reaches running before execution; cancellation passes through cancel-requested; terminal/progress invariants hold. | NOT MET |
-| JP-AC-107 | Jobs contains no Auth/Extensions-owned storage access and no production jobs-table writer bypass exists. | NOT MET |
-| JP-AC-108 | Public HTTP/WS/auth behavior and generated public shapes remain compatible and drift-clean. | NOT MET |
-| JP-AC-109 | Old writers are drained, replay compatibility is resolved, corrected recovery succeeds, and dequeue is safely reopened. | NOT MET |
-| JP-AC-110 | Required owner slices, migration/generation/boundary gates, `make agent-finalize`, and `make check` pass with recorded artifacts. | NOT MET |
+| Acceptance ID | Binary completion condition | Current result | Actual evidence |
+| --- | --- | --- | --- |
+| JP-AC-101 | `platform.jobs` is active, unique, selects complete owner inventories, and has no overlapping selectors. | PASS | Owner explain/task-guide resolve nine active rows; complete unit/service-backed roots are `.cartulary/test-results/20260808T060830Z-p3402740` and `.cartulary/test-results/20260808T060855Z-p3405169`. |
+| JP-AC-102 | Core clarifications and all ten exact owner-declared progress units are adopted and projected. | PASS | JS-06A owner/projection evidence is retained; final generation and drift roots are `.cartulary/test-results/20260808T060801Z-p3398673` and `.cartulary/test-results/20260808T061918Z-p3686587`. |
+| JP-AC-103 | All required transition/progress/concurrency/recovery/public-parity tests pass. | PASS | Complete Jobs and all affected owner inventories pass; stateful browser root `.cartulary/test-results/20260808T062214Z-p3755259` passes 36/36. |
+| JP-AC-104 | One Jobs-owned atomic substrate governs every production state/progress write. | PASS | Complete Jobs evidence passes; final canonical boundary root `.cartulary/test-results/20260808T061956Z-p3690377` rejects external writes and locks. |
+| JP-AC-105 | Migration preflight/backfill/constraints pass and every mutable job has an immutable unit. | PASS | Drained cutover root `.cartulary/test-results/20260808T060812Z-p3401018`, complete Jobs storage rows, and migration drift root `.cartulary/test-results/20260808T061905Z-p3683805` pass. |
+| JP-AC-106 | Queued work reaches running before execution; cancellation passes through cancel-requested; terminal/progress invariants hold. | PASS | Complete Jobs lifecycle/runner evidence and the cutover recovery handler assert running-before-invocation; Job API and browser evidence pass. |
+| JP-AC-107 | Jobs contains no Auth/Extensions-owned storage access and no production jobs-table writer bypass exists. | PASS | JS-02 source scans and owner rows pass; JS-05 positive/negative fixtures and final boundary root `.cartulary/test-results/20260808T061956Z-p3690377` are green. |
+| JP-AC-108 | Public HTTP/WS/auth behavior and generated public shapes remain compatible and drift-clean. | PASS | Final Job API roots `.cartulary/test-results/20260808T062908Z-p3930691` and `.cartulary/test-results/20260808T062923Z-p3932737`, Collaboration roots, JSON shape, generation drift, and stateful browser evidence pass. |
+| JP-AC-109 | Old writers are drained, replay compatibility is resolved, corrected recovery succeeds, and dequeue is safely reopened. | PASS | The isolated deployment-faithful root `.cartulary/test-results/20260808T060812Z-p3401018` proves zero active leases, an accepted empty 24-hour replay horizon, migration/startup validation before admission, and corrected recovery after reopening. No external deployment state is inferred. |
+| JP-AC-110 | Required owner slices, migration/generation/boundary gates, `make agent-finalize`, and `make check` pass with recorded artifacts. | PASS | Finalization root `.cartulary/test-results/20260808T062931Z-p3934214` and inspected final check root `.cartulary/test-results/20260808T063551Z-p4119107` pass; retained-run maintenance was skipped because `RESULTS_DIR` was unset. |
 
-The tracker is complete only as a planning artifact. The jobs-platform refactor
-is incomplete until JP-AC-101 through JP-AC-110 all read `PASS` with actual
-evidence.
+The jobs-platform remediation is complete at the repository and
+deployment-rehearsal boundary. An external deployment must still execute the
+recorded drained sequence against its own retained state; this handoff does not
+claim an unobserved production rollout.

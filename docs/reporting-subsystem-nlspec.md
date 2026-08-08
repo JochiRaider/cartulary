@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
-document_version: 1.2.0
+document_version: 1.2.1
 ---
 
 # 1. Status, scope, and authority
@@ -224,11 +224,14 @@ package scanning, profile callbacks, a compatibility reader, or silent omission.
 
 The exact durable job facts owned by this profile are
 `snapshot_reporting.snapshot_create_v1` ->
-`snapshot_reporting.snapshot_create`,
+`snapshot_reporting.snapshot_create` with progress unit
+`snapshot_reporting.snapshot_create.materialization.v1`,
 `snapshot_reporting.release_create_v1` ->
-`snapshot_reporting.release_create`, and
+`snapshot_reporting.release_create` with progress unit
+`snapshot_reporting.release_create.render_attempt.v1`, and
 `snapshot_reporting.composition_preview_v1` ->
-`snapshot_reporting.composition_preview`. Their only worker kind is
+`snapshot_reporting.composition_preview` with progress unit
+`snapshot_reporting.composition_preview.render_attempt.v1`. Their only worker kind is
 `snapshot_reporting.job_worker_v1`. All three jobs require route-scoped
 idempotency, a proof on terminal success, and precommit-observable
 cancellation under Core 01 REQ-01-634. Snapshot create permits one `snapshot`

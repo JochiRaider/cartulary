@@ -45,6 +45,7 @@ func JobContracts(catalog PublicationCatalog) ([]jobs.ExtensionJobContract, erro
 		result = append(result, jobs.ExtensionJobContract{
 			OwnerProfileID: contract.ProfileID,
 			JobKind:        contract.JobKind,
+			ProgressUnitID: contract.ProgressUnitID,
 			OperationKind:  contract.OperationKind,
 			WorkerKind:     workerKind,
 			ContractSHA256: contract.SHA256(),

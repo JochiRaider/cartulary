@@ -430,6 +430,7 @@ type JobResourceRefContract struct {
 type JobKindContract struct {
 	ProfileID                   string
 	JobKind                     string
+	ProgressUnitID              string
 	OperationKind               string
 	ProofPolicy                 string
 	IdempotencyPolicy           string
@@ -454,9 +455,10 @@ func (contract JobKindContract) object() map[string]any {
 		}
 	}
 	return map[string]any{
-		"schema_id":                      "cartulary.extension_job_kind_contract.v1",
+		"schema_id":                      "cartulary.extension_job_kind_contract.v2",
 		"profile_id":                     contract.ProfileID,
 		"job_kind":                       contract.JobKind,
+		"progress_unit_id":               contract.ProgressUnitID,
 		"operation_kind":                 contract.OperationKind,
 		"proof_policy":                   contract.ProofPolicy,
 		"idempotency_policy":             contract.IdempotencyPolicy,
@@ -936,7 +938,7 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 	previous := ""
 	for index, row := range rows {
 		if err := requireExactKeys(row,
-			"schema_id", "profile_id", "job_kind", "operation_kind", "proof_policy",
+			"schema_id", "profile_id", "job_kind", "progress_unit_id", "operation_kind", "proof_policy",
 			"idempotency_policy", "idempotency_identity_schema_id", "terminal_result_schema_id",
 			"resource_ref_contracts", "cancellation_policy", "max_proof_bytes",
 		); err != nil {
@@ -945,6 +947,7 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 		contract := JobKindContract{
 			ProfileID:                   stringValue(row["profile_id"]),
 			JobKind:                     stringValue(row["job_kind"]),
+			ProgressUnitID:              stringValue(row["progress_unit_id"]),
 			OperationKind:               stringValue(row["operation_kind"]),
 			ProofPolicy:                 stringValue(row["proof_policy"]),
 			IdempotencyPolicy:           stringValue(row["idempotency_policy"]),
@@ -953,12 +956,13 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 			CancellationPolicy:          stringValue(row["cancellation_policy"]),
 			MaxProofBytes:               intValue(row["max_proof_bytes"]),
 		}
-		if row["schema_id"] != "cartulary.extension_job_kind_contract.v1" ||
+		if row["schema_id"] != "cartulary.extension_job_kind_contract.v2" ||
 			contract.ProfileID != profileID ||
 			!strings.HasPrefix(contract.JobKind, profileID+".") ||
 			strings.Contains(contract.JobKind, "/") ||
 			strings.Contains(contract.JobKind, `\`) ||
 			(previous != "" && previous >= contract.JobKind) ||
+			!validProgressUnitID(contract.ProgressUnitID) ||
 			!strings.HasPrefix(contract.OperationKind, profileID+".") ||
 			contract.ProofPolicy != "required_on_terminal_success" ||
 			contract.IdempotencyPolicy != "required" ||
@@ -995,6 +999,37 @@ func parseJobKindContracts(profileID string, value any) ([]JobKindContract, erro
 		result[index] = contract
 	}
 	return result, nil
+}
+
+func validProgressUnitID(value string) bool {
+	if len(value) == 0 || len(value) > 191 {
+		return false
+	}
+	segments := strings.Split(value, ".")
+	if len(segments) < 3 {
+		return false
+	}
+	for _, segment := range segments[:len(segments)-1] {
+		if len(segment) == 0 || len(segment) > 63 || segment[0] < 'a' || segment[0] > 'z' {
+			return false
+		}
+		for _, character := range segment[1:] {
+			if !((character >= 'a' && character <= 'z') ||
+				(character >= '0' && character <= '9') || character == '_') {
+				return false
+			}
+		}
+	}
+	version := segments[len(segments)-1]
+	if len(version) < 2 || version[0] != 'v' || version[1] < '1' || version[1] > '9' {
+		return false
+	}
+	for _, character := range version[2:] {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func readArtifactObject(source ArtifactSource, path string) (map[string]any, PackagedArtifact, error) {

@@ -94,7 +94,7 @@
       "owner_id": "core01"
     },
     {
-      "schema_id": "cartulary.extension_job_kind_contract.v1",
+      "schema_id": "cartulary.extension_job_kind_contract.v2",
       "artifact_class": "runtime_protocol",
       "owner_id": "extensions"
     },

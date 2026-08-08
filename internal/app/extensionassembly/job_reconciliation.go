@@ -12,18 +12,19 @@ import (
 )
 
 type InactiveJobStore struct {
-	store *extensionstore.Store
-	now   func() time.Time
+	store          *extensionstore.Store
+	terminalWriter extensionstore.InactiveJobTerminalWriter
+	now            func() time.Time
 }
 
-func NewInactiveJobStore(store *extensionstore.Store, now func() time.Time) (*InactiveJobStore, error) {
-	if store == nil {
+func NewInactiveJobStore(store *extensionstore.Store, terminalWriter extensionstore.InactiveJobTerminalWriter, now func() time.Time) (*InactiveJobStore, error) {
+	if store == nil || terminalWriter == nil {
 		return nil, errors.New("inactive extension job store is required")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &InactiveJobStore{store: store, now: now}, nil
+	return &InactiveJobStore{store: store, terminalWriter: terminalWriter, now: now}, nil
 }
 
 func (s *InactiveJobStore) LoadInactiveJobs(ctx context.Context, profileID string, limit int) ([]extensions.InactiveJob, error) {
@@ -86,7 +87,7 @@ func (s *InactiveJobStore) ApplyInactiveJobOutcomes(ctx context.Context, profile
 			CancellationRequestID:     outcome.CancellationRequestID,
 		})
 	}
-	commitOutcome, err := s.store.ApplyInactiveJobOutcomeRecords(ctx, profileID, records, s.now().UTC())
+	commitOutcome, err := s.store.ApplyInactiveJobOutcomeRecords(ctx, s.terminalWriter, profileID, records, s.now().UTC())
 	switch commitOutcome {
 	case extensionstore.CommitProven:
 		return extensions.ReconciliationCommitted, err

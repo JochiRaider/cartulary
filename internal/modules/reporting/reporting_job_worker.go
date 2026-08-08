@@ -38,11 +38,21 @@ type reportingJobDispatcher interface {
 	Dispatch(jobID string)
 }
 
-type durableReportingJobDispatcher struct {
-	runner *jobs.Runner
+type reportingJobRunner interface {
+	RegisterHandler(string, jobs.HandlerFunc) error
+	RecoverHandler(context.Context, string) error
+	DispatchJob(string, string) error
 }
 
-func newDurableReportingJobDispatcher(runner *jobs.Runner) reportingJobDispatcher {
+type reportingJobAdmission interface {
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
+}
+
+type durableReportingJobDispatcher struct {
+	runner reportingJobRunner
+}
+
+func newDurableReportingJobDispatcher(runner reportingJobRunner) reportingJobDispatcher {
 	return durableReportingJobDispatcher{runner: runner}
 }
 

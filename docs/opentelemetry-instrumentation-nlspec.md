@@ -309,7 +309,7 @@ Instrumentation ownership MUST follow this table:
 | --- | --- | --- | --- |
 | HTTP API | Application server instrumentation | Server spans, request metrics, status/error classification. | Route handlers MUST NOT configure exporters or SDK providers. |
 | WebSocket subscription | Collaboration instrumentation | Connect, authorize, subscribe, close, event-send, replay, and overflow metrics. | WebSocket payload content MUST NOT become telemetry attributes. |
-| Background jobs | Jobs instrumentation | Enqueue, start, terminal state, cancellation, duration, active count, and error metrics. | Job IDs MUST NOT be emitted. |
+| Background jobs | Jobs instrumentation | Enqueue, start, terminal state, cancellation, duration, active count, and error metrics. | Job IDs, progress-unit IDs, raw handler errors, and recovered panic values MUST NOT be emitted. |
 | Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text, bind values, table names, projection names, or connection endpoints. | Workbook modules MUST NOT directly emit raw database query text. |
 | Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, upload IDs, copy sources, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
 | Workbook query and mutation | Workbook/projection instrumentation | Query, create, patch, conflict, projection-maintenance, and refresh spans. | Projection table names and visible row positions MUST NOT become telemetry identity. |
@@ -726,7 +726,7 @@ The current profile permits only the custom attributes in this registry:
 | `cartulary.error_code` | string | Public error-code token or `internal_error` | Public error-code registry count | spans, logs |
 | `cartulary.error_class` | string | Closed low-cardinality implementation or dependency class | Error-class registry count | spans, logs |
 | `cartulary.websocket.event_type` | string | Public WebSocket event type, not payload content | WebSocket event vocabulary count | spans, metrics |
-| `cartulary.job_kind` | string | Background-job kind vocabulary, not job ID | Job-kind vocabulary count | spans, metrics |
+| `cartulary.job_kind` | string | Exact active catalog-backed background-job kind, not scope, job ID, or progress-unit ID | Job-kind vocabulary count | spans, metrics |
 | `cartulary.job_terminal_status` | string | `succeeded`, `failed`, `canceled`, `expired` | 4 | spans, metrics |
 | `cartulary.signal_kind` | string | `traces`, `metrics`, `logs` | 3 | metrics, logs |
 | `cartulary.telemetry.exporter_kind` | string | `none`, `otlp_http`, `otlp_grpc` | 3 | metrics, logs |
@@ -735,6 +735,15 @@ The current profile permits only the custom attributes in this registry:
 
 **OTEL-REQ-043**
 Unknown `cartulary.*` attributes MUST NOT be emitted. Adding a new `cartulary.*` attribute is an `additive_non_breaking` change unless it changes requiredness, type, or emitted shape, in which case §4.5 decides the change class.
+
+**OTEL-REQ-151**
+Jobs instrumentation MUST resolve `cartulary.job_kind` from the same immutable
+owner-fact catalog used for job admission. Incident/deployment scope tokens,
+handler names, operation names, and inferred values are not job kinds and MUST
+NOT be substituted. Unknown or missing catalog identity MUST use the closed
+safe token `unknown`; it MUST NOT expose a raw stored value. The internal
+`progress_unit_id`, raw handler error text, and recovered panic values are
+forbidden in span names, attributes, events, metrics, logs, and diagnostics.
 
 #### 8.5.1 Error code and error class registry
 

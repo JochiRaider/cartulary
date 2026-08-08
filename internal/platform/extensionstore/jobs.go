@@ -2,12 +2,15 @@ package extensionstore
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type JobCommitProof struct {
@@ -58,11 +61,48 @@ type JobCancellationObservation struct {
 	ObservedBeforeFinalCommit bool
 }
 
+type RouteCancellationIdentity struct {
+	RouteKey    string
+	ActorUserID uuid.UUID
+	ScopeKey    string
+	ClientTxnID string
+}
+
+// AppendRouteJobCancellationObservationTx derives the Extensions-owned stable
+// request identity and appends the observation in the caller transaction.
+func AppendRouteJobCancellationObservationTx(ctx context.Context, executor JobCancellationObservationExecutor, identity RouteCancellationIdentity, jobID uuid.UUID, observedAt time.Time) error {
+	if identity.RouteKey == "" || identity.ActorUserID == uuid.Nil || identity.ScopeKey == "" || identity.ClientTxnID == "" {
+		return ErrInvalidTransition
+	}
+	canonical := identity.RouteKey + "\x00" + identity.ActorUserID.String() + "\x00" +
+		identity.ScopeKey + "\x00" + identity.ClientTxnID
+	digest := sha256.Sum256([]byte(canonical))
+	return AppendJobCancellationObservationTx(ctx, executor, JobCancellationObservation{
+		CancellationRequestID:     fmt.Sprintf("cancel:%x", digest[:]),
+		JobID:                     jobID,
+		ObservedAt:                observedAt,
+		ObservedBeforeFinalCommit: true,
+	})
+}
+
 func (s *Store) RecordJobCancellationObservation(ctx context.Context, observation JobCancellationObservation) error {
 	if s == nil || s.pool == nil || observation.CancellationRequestID == "" || observation.JobID == uuid.Nil || !observation.ObservedBeforeFinalCommit {
 		return ErrInvalidTransition
 	}
-	_, err := s.pool.Exec(ctx, `
+	return AppendJobCancellationObservationTx(ctx, s.pool, observation)
+}
+
+// JobCancellationObservationExecutor is satisfied by pgx.Tx and pgxpool.Pool
+// so the Extensions-owned append can join a caller transaction.
+type JobCancellationObservationExecutor interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+func AppendJobCancellationObservationTx(ctx context.Context, executor JobCancellationObservationExecutor, observation JobCancellationObservation) error {
+	if executor == nil || observation.CancellationRequestID == "" || observation.JobID == uuid.Nil || !observation.ObservedBeforeFinalCommit {
+		return ErrInvalidTransition
+	}
+	_, err := executor.Exec(ctx, `
 INSERT INTO extension_job_cancellation_observations (
     cancellation_request_id, job_id, observed_at, observed_before_final_commit
 ) VALUES ($1, $2, $3, TRUE)

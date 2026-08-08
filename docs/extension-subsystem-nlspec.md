@@ -4,7 +4,7 @@ status: adopted/current
 document_class: nlspec
 profile: base
 schema_id: cartulary.extensions_subsystem_nlspec.v1
-document_version: 0.7.2
+document_version: 0.7.3
 contract_major: 2
 ---
 
@@ -12,10 +12,11 @@ contract_major: 2
 
 This NLSpec defines the Cartulary Extensions Subsystem. The subsystem is part of the Base Profile because profile recognition, extension discovery, reserved-route dispatch, claim resolution, inactive-profile behavior, registry integrity validation, verification routing, and extension contract coordination exists even when every optional extension profile is unclaimed.
 
-This document is `status: adopted/current`. Version `0.7.2` makes the breaking projection
+This document is `status: adopted/current`. Version `0.7.3` makes the breaking projection
 versions declared in Section 1.1 authoritative throughout this document, without a compatibility
-reader. It also coordinates the Core-owned analytical import binding shape with target-owned exact
-payload schemas and requires every analytical `import_target` contribution to name its binding.
+reader. It also adopts the v2 extension job-kind contract and its owner-declared progress-unit
+identity, coordinates the Core-owned analytical import binding shape with target-owned exact payload
+schemas, and requires every analytical `import_target` contribution to name its binding.
 Its coordinated owner repair is adopted with Core 00/Core 01, Core 03/Core 04, Domain vocabulary,
 and Network Flow Activity `2.0.3`; the machine projection and implementation evidence remain
 governed by the controlling remediation tracker.
@@ -1449,7 +1450,7 @@ A `migration_definitions[]` item MUST contain exactly:
 
 The versions, digest, and algorithm IDs MUST exactly match one normalized owner `migration_definition` fact. The array MUST contain `0..256` items and sort by `from_state_version`, then `to_state_version`, then `migration_id`.
 
-A `job_kind_contracts[]` item MUST contain exactly `job_kind` and `job_kind_contract_sha256`. The digest MUST equal the canonical digest of the normalized owner `cartulary.extension_job_kind_contract.v1`. The array MUST contain `0..64` items and sort by ascending UTF-8 bytes of `job_kind`.
+A `job_kind_contracts[]` item MUST contain exactly `job_kind` and `job_kind_contract_sha256`. The digest MUST equal the canonical digest of the normalized owner `cartulary.extension_job_kind_contract.v2`, including `progress_unit_id`. The array MUST contain `0..64` items and sort by ascending UTF-8 bytes of `job_kind`.
 
 A `participant_contracts[]` item MUST contain exactly `participant_id`, `participant_contract_sha256`, and `algorithm_ids[]`. The digest MUST equal the canonical digest of the participant contract selected by the contribution. `algorithm_ids[]` MUST equal every packaged algorithm ID required by that contract, contain `1..16` unique values, and sort by ascending UTF-8 bytes. The array MUST contain `0..64` items, reject duplicate participant IDs, and sort by ascending UTF-8 bytes of `participant_id`.
 
@@ -2814,11 +2815,12 @@ The set of last-adopted known retired keys MUST come from the retained digest-bo
 # 22. Jobs and runtime failure isolation
 
 **EXT-REQ-218**
-Every durable extension job kind MUST be declared by one closed canonical `cartulary.extension_job_kind_contract.v1` containing exactly:
+Every durable extension job kind MUST be declared by one closed canonical `cartulary.extension_job_kind_contract.v2` containing exactly:
 
-- `schema_id`, exactly `cartulary.extension_job_kind_contract.v1`;
+- `schema_id`, exactly `cartulary.extension_job_kind_contract.v2`;
 - `profile_id`;
 - `job_kind`;
+- `progress_unit_id`;
 - `operation_kind`;
 - `proof_policy`;
 - `idempotency_policy`;
@@ -2828,17 +2830,21 @@ Every durable extension job kind MUST be declared by one closed canonical `cartu
 - `cancellation_policy`;
 - `max_proof_bytes`.
 
-`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current typed schema registry and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same typed boundaries; `none` requires `idempotency_identity_schema_id=null`. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
+`operation_kind` MUST equal `<profile_id>.<local_key>` under the Table 4-B local-key grammar. `progress_unit_id` MUST contain no more than 191 ASCII bytes and MUST match `[a-z][a-z0-9_]{0,62}(\.[a-z][a-z0-9_]{0,62})+\.v[1-9][0-9]*`. It is immutable semantic identity, not a display label, counter value, telemetry attribute, or caller-selected option. `proof_policy` MUST equal `required_on_terminal_success` or `forbidden`. `idempotency_policy` MUST equal `required` or `none`. `cancellation_policy` MUST equal `precommit_observable` or `not_cancelable`. `terminal_result_schema_id` MUST be a non-null public schema ID that resolves through the current typed schema registry and implementation binding. `idempotency_policy='required'` requires a non-null public identity schema ID that resolves through the same typed boundaries; `none` requires `idempotency_identity_schema_id=null`. A job that can publish any extension-owned or cross-owner resource MUST use `required_on_terminal_success`. A proof-required terminal success MUST commit one proof even when `resource_refs=[]`. A proof-forbidden job MUST never create a proof.
 
 `resource_ref_contracts[]` MUST contain `0..64` rows. Each row MUST contain exactly `resource_ref_kind`, `resource_id_schema_id`, and `max_refs`. `resource_ref_kind` MUST satisfy Table 4-B. `resource_id_schema_id` MUST be a public schema ID that resolves through the current typed schema registry and implementation binding. Rows MUST reject duplicate kinds and sort by ascending UTF-8 bytes of `resource_ref_kind`. `max_refs` MUST be a JSON integer in `1..1024`; a kind that permits no references MUST be omitted rather than declared with zero. The sum across rows MUST NOT exceed `1024`. `max_proof_bytes` MUST be a JSON integer in `1..1048576`.
 
-A proof-required job MUST have at most one immutable proof, and its committed terminal success MUST have exactly one immutable proof. Proof replacement and proof deletion are forbidden while the job or its idempotency outcome is retained. The proof's total nesting depth MUST NOT exceed `32`; resource references MUST sort by `resource_ref_kind`, then canonical resource-ID bytes. The job-kind contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_job_kind_contract_sha256_v1`. Reconciliation MUST determine proof requiredness only from this digest-bound contract and MUST reject a proof present under `forbidden` or absent under a committed required success.
+A proof-required job MUST have at most one immutable proof, and its committed terminal success MUST have exactly one immutable proof. Proof replacement and proof deletion are forbidden while the job or its idempotency outcome is retained. The proof's total nesting depth MUST NOT exceed `32`; resource references MUST sort by `resource_ref_kind`, then canonical resource-ID bytes. The job-kind contract MUST serialize under `extension_registry_canonical_json_v1`, contain `1..1048576` canonical bytes, and have digest `extension_job_kind_contract_sha256_v1`; that existing digest algorithm covers the complete v2 object, including `progress_unit_id`. Reconciliation MUST determine proof requiredness only from this digest-bound contract and MUST reject a proof present under `forbidden` or absent under a committed required success.
+
+The v2 adoption is a clean internal cutover. No active runtime input may use
+`cartulary.extension_job_kind_contract.v1`, and no v1 reader, alias, defaulted
+unit, mixed catalog, or dual digest path is permitted.
 
 Profiles: base
 Verified by: EXT-AC-115
 
 **EXT-REQ-130**
-Every durable job owned by or producing an extension resource MUST carry internal `owner_profile_id` and `job_kind`. `owner_profile_id` MUST equal the exact profile ID, and `job_kind` MUST resolve to one `cartulary.extension_job_kind_contract.v1` whose digest is present in the implementation binding. These members are internal job ownership metadata and need not be public unless Core 01 adopts them in a public schema.
+Every durable job owned by or producing an extension resource MUST carry internal `owner_profile_id`, `job_kind`, and `progress_unit_id`. `owner_profile_id` MUST equal the exact profile ID, and `job_kind` MUST resolve to one `cartulary.extension_job_kind_contract.v2` whose digest is present in the implementation binding. `progress_unit_id` MUST equal the value in that resolved contract and MUST be derived by Jobs from the immutable catalog rather than trusted from a caller. These members are internal job ownership metadata and MUST NOT appear in the Core 01 public job resource, OpenAPI, TypeScript, WebSocket, frontend, logs, or telemetry.
 
 The `0.6.2` adoption is a clean pre-release cutover. A database containing a
 nonterminal or retained job whose handler identity is `imports.discovery`,

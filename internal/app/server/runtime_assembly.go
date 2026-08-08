@@ -449,33 +449,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		extensionStateStore = stateStore
 	}
-	if extensionStateStore != nil {
-		inactiveJobStore, err := extensionassembly.NewInactiveJobStore(extensionStateStore, now)
-		if err != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("compose inactive extension job reconciliation: %w", err)
-		}
-		reconciliationCtx, cancelReconciliation := context.WithTimeout(
-			ctx,
-			time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds)*time.Second,
-		)
-		reconciliationErr := extensions.ReconcileInactiveExtensionJobs(
-			reconciliationCtx,
-			inactiveJobStore,
-			inactiveExtensionProfileIDs(extensionPlan.Claims()),
-			extensionCoordinator.JobKindContracts(),
-			int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
-			func(error) {
-				runtime.lifecycle.Fatal("indeterminate_database_commit")
-			},
-		)
-		cancelReconciliation()
-		if reconciliationErr != nil {
-			runtime.Close()
-			return nil, fmt.Errorf("reconcile inactive extension jobs: %w", reconciliationErr)
-		}
-	}
-
 	var objectStore objectstore.Store
 	if options.ObjectStore != nil {
 		objectStore = instrumentedObjectStore(
@@ -612,7 +585,11 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		_ = dispatcher.Close(closeCtx)
 	})
 	intentAdapters := newCollaborationIntentTranslator(intentAppender)
-	jobTransactions, err := jobs.NewTransactionService(intentAdapters)
+	jobOwnerPorts := jobOwnerTransactionAdapters{}
+	jobTransactions, err := jobs.NewTransactionService(intentAdapters, jobs.OwnerTransactionPorts{
+		RouteIdempotency:      jobOwnerPorts,
+		ExtensionCancellation: jobOwnerPorts,
+	})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)
@@ -627,12 +604,42 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("configure extension job contracts: %w", err)
 	}
+	if err := jobManager.ValidateStorageCatalog(ctx); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate Jobs storage catalog: %w", err)
+	}
+	if extensionStateStore != nil {
+		inactiveJobStore, err := extensionassembly.NewInactiveJobStore(extensionStateStore, jobTransactions, now)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose inactive extension job reconciliation: %w", err)
+		}
+		reconciliationCtx, cancelReconciliation := context.WithTimeout(
+			ctx,
+			time.Duration(normalizedCfg.Timeouts.Extensions.ReconciliationSeconds)*time.Second,
+		)
+		reconciliationErr := extensions.ReconcileInactiveExtensionJobs(
+			reconciliationCtx,
+			inactiveJobStore,
+			inactiveExtensionProfileIDs(extensionPlan.Claims()),
+			extensionCoordinator.JobKindContracts(),
+			int(normalizedCfg.Limits.Extensions.MaxNonterminalJobsPerProfile),
+			func(error) {
+				runtime.lifecycle.Fatal("indeterminate_database_commit")
+			},
+		)
+		cancelReconciliation()
+		if reconciliationErr != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("reconcile inactive extension jobs: %w", reconciliationErr)
+		}
+	}
 	var extensionJobFinalizer *extensionstore.OwnerFinalizer
 	if extensionStateStore != nil {
 		extensionJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore,
-			jobManager,
 			jobTransactions,
+			jobOwnerPorts,
 			now,
 			func(error) {
 				runtime.lifecycle.Fatal("indeterminate_database_commit")
@@ -760,6 +767,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		incidentBundleImportFinalizer,
 		timelineBundle.ProjectionCatalog.Rebuild,
 		historicalIntentPolicy,
+		jobTransactions,
 		now,
 	)
 	if err != nil {
@@ -815,6 +823,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Incident Portability source catalog: %w", err)
 	}
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
+		incidentbundles.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
 		incidentbundles.WithStorage(incidentBundleStorage),
 		incidentbundles.WithLimits(settingsProjection.IncidentBundles()),
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
@@ -842,6 +851,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Imports owner registry: %w", err)
 	}
 	importRoutes := imports.RegisterRoutes(
+		imports.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
 		imports.WithLimits(importOwnerLimits, importArchiveLimits),
 		imports.WithOwnerCreateRegistry(importOwnerRegistry),
 		imports.WithRevisionAppender(revisionRuntime.Appender()),
@@ -856,6 +866,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		)),
 	)
 	referencePackRoutes := reference_data.RegisterRoutes(
+		reference_data.WithJobs(jobTransactions, jobManager, runtime.jobRunner),
 		reference_data.WithStorage(referencePackStorage),
 		reference_data.WithLimits(settingsProjection.ReferenceData()),
 		reference_data.WithJobSuccessFinalizer(
@@ -874,13 +885,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose Snapshot/Reporting participant: %w", err)
 		}
 	}
-	reportingRoutes := reporting.RegisterRoutes(reporting.RouteOptions{
+	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
 		ExportFieldProviders: []exportprovider.FieldProvider{
 			tasksdecisions.NewReportingContribution(),
 		},
-	})
+	}, jobTransactions, jobManager, runtime.jobRunner)
+	reportingRoutes := reporting.RegisterRoutes(reportingRouteOptions)
 	var compositionPreviewJobs reportcomposition.PreviewJobPort
 	if snapshotReportingRoutesAdmitted {
 		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.jobRunner, jobTransactions)
@@ -944,7 +956,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{id: "auth", registrar: auth.RegisterRoutes(authRouteOptions...)},
 		{id: "incidents", registrar: incidentRoutes},
 		{id: "extensions", registrar: extensiondiscovery.RegisterRoutes()},
-		{id: "jobs", registrar: jobapi.RegisterRoutes()},
+		{id: "jobs", registrar: jobapi.RegisterRoutes(jobManager)},
 		{id: "saved_views", registrar: savedviews.RegisterRoutes()},
 		{id: "view_schemas", registrar: viewschemas.RegisterRoutes()},
 		{id: "collaboration", registrar: collaboration.RegisterRoutes(settingsProjection.Collaboration(hub, socketTransport))},
@@ -1018,9 +1030,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		Postgres:            postgresPool,
 		PostgresDB:          postgresHandle,
 		ObjectStore:         objectStore,
-		Jobs:                jobManager,
-		JobTransactions:     jobTransactions,
-		JobRunner:           runtime.jobRunner,
 		CursorCodec:         cursorCodec,
 		Readiness:           httpapi.NewDependencyReadinessChecker(postgresPool, objectStore, readinessProbes...),
 		Admission:           runtime.lifecycle,

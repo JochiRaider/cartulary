@@ -1031,7 +1031,17 @@ RETURNING id
 }
 
 func (s *Store) GetRouteIdempotency(ctx context.Context, key RouteIdempotencyKey) (RouteIdempotencyRecord, error) {
-	row := s.pool.QueryRow(ctx, `
+	return GetRouteIdempotencyTx(ctx, s.pool, key)
+}
+
+// RouteIdempotencyQuerier is satisfied by both pgx.Tx and pgxpool.Pool. It
+// keeps Auth's route-idempotency lookup reusable inside owner transactions.
+type RouteIdempotencyQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func GetRouteIdempotencyTx(ctx context.Context, querier RouteIdempotencyQuerier, key RouteIdempotencyKey) (RouteIdempotencyRecord, error) {
+	row := querier.QueryRow(ctx, `
 SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
   FROM route_idempotency
  WHERE route_key = $1
@@ -1068,6 +1078,29 @@ func InsertRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key RouteIdem
 		return fmt.Errorf("marshal idempotency payload: %w", err)
 	}
 	return InsertRouteIdempotency(ctx, tx, key, targetUserID, requestHash, statusCode, responseJSON)
+}
+
+// UpdateRouteIdempotencyPayload replaces the committed response for the exact
+// original request. The caller keeps the update in its transaction; Auth keeps
+// ownership of the persistence statement and affected-row classification.
+func UpdateRouteIdempotencyPayload(ctx context.Context, tx pgx.Tx, key RouteIdempotencyKey, requestHash []byte, payload any) (bool, error) {
+	responseJSON, err := json.Marshal(payload)
+	if err != nil {
+		return false, fmt.Errorf("marshal idempotency payload: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
+UPDATE route_idempotency
+   SET response_json = $1
+ WHERE route_key = $2
+   AND actor_user_id = $3
+   AND scope_key = $4
+   AND client_txn_id = $5
+   AND request_hash = $6
+`, responseJSON, key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID, requestHash)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func ActorOnlyRouteIdempotencyKey(routeKey string, actorUserID uuid.UUID, clientTxnID string) RouteIdempotencyKey {

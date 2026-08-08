@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -39,24 +38,15 @@ CREATE TABLE extension_job_finalizer_test_effects (
 	}
 	manager := jobs.NewManager()
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
-	jobTransactions := collaborationsupport.NewJobTransactions()
+	definitions := collaborationsupport.TestJobDefinitions()
+	definitions[1].ResourceRefs = []jobs.ExtensionResourceRefContract{{Kind: "thing", MaxRefs: 1}}
+	jobTransactions := collaborationsupport.NewJobTransactionsWithDefinitions(definitions...)
 	manager.Configure(pool, jobTransactions, func() time.Time { return now })
-	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{{
-		OwnerProfileID: "test_profile",
-		JobKind:        "test_profile.run_v1",
-		OperationKind:  "test_profile.run",
-		WorkerKind:     "test_profile.worker_v1",
-		ContractSHA256: strings.Repeat("a", 64),
-		ProofRequired:  true,
-		MaxProofBytes:  4096,
-		ResourceRefs: []jobs.ExtensionResourceRefContract{{
-			Kind: "thing", MaxRefs: 1,
-		}},
-	}}); err != nil {
+	if err := manager.ConfigureExtensionContracts(definitions); err != nil {
 		t.Fatal(err)
 	}
 	fatalCount := 0
-	finalizer, err := NewOwnerFinalizer(store, manager, jobTransactions, func() time.Time { return now }, func(error) { fatalCount++ })
+	finalizer, err := NewOwnerFinalizer(store, jobTransactions, collaborationsupport.NewJobOwnerTransactionAdapters(), func() time.Time { return now }, func(error) { fatalCount++ })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +211,7 @@ VALUES ($1, $2, 'Extension Job Finalizer', 'hash', false, true, true)
 	}
 	normalized := []byte(`{"client_txn_id":"` + clientTxnID + `"}`)
 	admission, err := jobs.NewExtensionJobAdmission(
-		"test_profile", "test_profile.run_v1", key,
+		"test_profile", "test_profile.run_v1", jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		jobs.Scope{Kind: jobs.ScopeKindDeployment}, normalized,
 	)
 	if err != nil {
