@@ -93,8 +93,6 @@ Owner and guidance documents inspected:
 - `docs/domain.md` for Revisions vocabulary and owner navigation;
 - `docs/handoffs/cartulary_modular_refactor_planning_framework.md` as
   planning doctrine; and
-- `docs/archive/revisions-module-refactor-tracker.md` as historical evidence,
-  not current-state authority.
 
 Repository evidence inspected includes every tracked file under
 `internal/modules/revisions`, the Revisions application and server assembly,
