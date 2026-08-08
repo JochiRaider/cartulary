@@ -271,7 +271,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/incidentbundles",
         "tests": [
           "TestIncidentBundleStorageReferenceMigration37FreshSchema_Integration",
           "TestIncidentBundleStorageReferenceMigration37RejectsPopulatedTablesBeforeMutation_Integration"

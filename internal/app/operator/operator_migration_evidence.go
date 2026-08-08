@@ -11,8 +11,8 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 )
 
 type migrationEvidenceExecutor struct {

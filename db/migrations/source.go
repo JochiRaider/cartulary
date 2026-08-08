@@ -3,7 +3,7 @@ package migrations
 import (
 	"embed"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 )
 
 const (
@@ -19,8 +19,8 @@ const (
 //go:embed *.sql
 var Files embed.FS
 
-func Source() postgres.MigrationSource {
-	source := postgres.NewEmbeddedMigrationSource(Files, EmbeddedPath, RepositoryPath)
+func Source() database_migrations.MigrationSource {
+	source := database_migrations.NewEmbeddedMigrationSource(Files, EmbeddedPath, RepositoryPath)
 	source.ExpectedLineageID = LineageID
 	source.ExpectedLineageBoundary = LineageBoundary
 	return source

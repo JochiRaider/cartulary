@@ -137,15 +137,6 @@
       "rationale": "Extension discovery route inventory support for the app-server-owned HTTP adapter."
     },
     {
-      "path": "internal/platform/postgres/testsupport",
-      "owner": "platform_postgres",
-      "posture": "platform_facade",
-      "runtime_scan": "included",
-      "support_scan": "included",
-      "service_starting": false,
-      "rationale": "Database-contract-only migration application helpers; no deployable CLI surface."
-    },
-    {
       "path": "internal/platform/telemetry/testsupport",
       "owner": "platform_telemetry",
       "posture": "platform_facade",

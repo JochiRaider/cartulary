@@ -561,7 +561,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/evidence",
         "tests": [
           "TestEvidenceBlobUniquenessMigration53PreflightAndEnforcement_Integration"
         ]

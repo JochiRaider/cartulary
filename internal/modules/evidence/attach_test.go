@@ -14,6 +14,7 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -416,7 +417,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.Migrate(context.Background(), migrationDB, dbmigrations.Source(), "up"); err != nil {
+	if _, err := database_migrations.Apply(context.Background(), migrationDB, dbmigrations.Source()); err != nil {
 		_ = migrationDB.Close()
 		t.Fatalf("migrate concurrent association database: %v", err)
 	}

@@ -1,4 +1,4 @@
-package postgres
+package database_migrations
 
 import recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 

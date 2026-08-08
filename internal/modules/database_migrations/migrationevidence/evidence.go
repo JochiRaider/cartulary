@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 )
 
 const (
@@ -103,7 +103,7 @@ type manifestEntry struct {
 	HistoricalPhaseShaped bool   `json:"historical_phase_shaped"`
 }
 
-func Build(ctx context.Context, binding DatabaseBinding, pool postgres.DB, collectedAt time.Time, manifestPath string, sourceFS fs.FS) (Result, error) {
+func Build(ctx context.Context, binding DatabaseBinding, pool database_migrations.LedgerReader, collectedAt time.Time, manifestPath string, sourceFS fs.FS) (Result, error) {
 	manifest, manifestSummary, manifestFindings, err := loadManifest(manifestPath)
 	if err != nil {
 		return Result{}, err
@@ -132,15 +132,19 @@ func Build(ctx context.Context, binding DatabaseBinding, pool postgres.DB, colle
 		CollectedAt:       collectedAt,
 		EvidenceOnly:      true,
 		RewriteAuthorized: false,
-		DatabaseBinding: DatabaseBinding{
-			BindingKind: strings.TrimSpace(binding.BindingKind),
-			ServiceRef:  strings.TrimSpace(binding.ServiceRef),
-		},
-		Manifest:    manifestSummary,
-		SourceAudit: sourceAudit,
-		GooseLedger: ledger,
-		Findings:    findings,
+		DatabaseBinding:   normalizeDatabaseBinding(binding),
+		Manifest:          manifestSummary,
+		SourceAudit:       sourceAudit,
+		GooseLedger:       ledger,
+		Findings:          findings,
 	}, nil
+}
+
+func normalizeDatabaseBinding(binding DatabaseBinding) DatabaseBinding {
+	return DatabaseBinding{
+		BindingKind: strings.TrimSpace(binding.BindingKind),
+		ServiceRef:  strings.TrimSpace(binding.ServiceRef),
+	}
 }
 
 func loadManifest(path string) (manifestDocument, ManifestSummary, []Finding, error) {
@@ -292,7 +296,7 @@ func auditSource(sourceFS fs.FS, manifest manifestDocument, manifestByVersion ma
 	return audits, findings, nil
 }
 
-func collectGooseLedger(ctx context.Context, pool postgres.DB, manifestByVersion map[int64]manifestEntry, immutableThroughVersion int64) (GooseLedger, []Finding, error) {
+func collectGooseLedger(ctx context.Context, pool database_migrations.LedgerReader, manifestByVersion map[int64]manifestEntry, immutableThroughVersion int64) (GooseLedger, []Finding, error) {
 	var metadataPresent bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&metadataPresent); err != nil {
 		return GooseLedger{}, nil, fmt.Errorf("inspect goose metadata table: %w", err)

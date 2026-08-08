@@ -1,0 +1,22 @@
+{
+  "schema_id": "cartulary.verification_contract.v3",
+  "owner_id": "module.database_migrations",
+  "verifications": [
+    {
+      "verification_id": "module.database_migrations.verification.behavior_contract",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "module.database_migrations.verification.migration_mechanics",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    }
+  ]
+}

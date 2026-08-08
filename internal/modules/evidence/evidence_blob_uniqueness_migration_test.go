@@ -1,4 +1,4 @@
-package postgres_test
+package evidence_test
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestEvidenceBlobUniquenessMigration53PreflightAndEnforcement_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "evidence-blob-uniqueness", "up-to", "52")
+	db := harness.MigrationDatabaseThroughT(t, "evidence-blob-uniqueness", 52)
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ INSERT INTO evidence (
 		t.Fatal(err)
 	}
 
-	_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "53")
+	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 53)
 	if err == nil {
 		t.Fatal("expected duplicate Evidence blob association preflight rejection")
 	}
@@ -68,7 +68,7 @@ INSERT INTO evidence (
 	if _, err := db.ExecContext(ctx, `DELETE FROM evidence WHERE record_id = $1`, secondRecord); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "53"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 53); err != nil {
 		t.Fatalf("apply migration after owner-reviewed correction: %v", err)
 	}
 	requireEvidenceBlobIndexState(t, db, true, false)
@@ -80,11 +80,11 @@ INSERT INTO evidence (
 		t.Fatalf("duplicate association error = %v, want evidence_object_blob_unique_idx", err)
 	}
 
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "down-to", "52"); err != nil {
+	if _, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 52); err != nil {
 		t.Fatalf("down migration: %v", err)
 	}
 	requireEvidenceBlobIndexState(t, db, false, true)
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "53"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 53); err != nil {
 		t.Fatalf("reapply migration: %v", err)
 	}
 	requireEvidenceBlobIndexState(t, db, true, false)

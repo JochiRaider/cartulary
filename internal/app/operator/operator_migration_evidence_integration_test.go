@@ -13,8 +13,9 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -30,7 +31,7 @@ func TestMigrationEvidenceTransport_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
-	if _, err := postgres.Migrate(ctx, sqlDB, dbmigrations.Source(), "up"); err != nil {
+	if _, err := database_migrations.Apply(ctx, sqlDB, dbmigrations.Source()); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
 	capture := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN)
@@ -57,7 +58,7 @@ func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
-	if _, err := postgres.Migrate(ctx, sqlDB, dbmigrations.Source(), "up"); err != nil {
+	if _, err := database_migrations.Apply(ctx, sqlDB, dbmigrations.Source()); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
 	payload := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload

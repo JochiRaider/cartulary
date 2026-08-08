@@ -1,4 +1,4 @@
-package postgres_test
+package database_migrations_test
 
 import (
 	"context"
@@ -7,27 +7,27 @@ import (
 	"testing"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "migration-lineage-current", "up-to", "1")
+	db := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-current", 1)
 
-	if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up-to", "2"); err != nil {
+	if _, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 2); err != nil {
 		t.Fatalf("current-line partial database should continue migrating: %v", err)
 	}
 }
 
 func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "migration-lineage-historical", "up-to", "1")
+	db := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-historical", 1)
 	if _, err := db.ExecContext(context.Background(), `DROP TABLE schema_migration_lineage`); err != nil {
 		t.Fatalf("simulate historical migration line: %v", err)
 	}
 
-	_, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up-to", "2")
+	_, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 2)
 	var remediationErr *postgres.MigrationRemediationError
 	if !errors.As(err, &remediationErr) {
 		t.Fatalf("expected typed migration remediation error, got %T %[1]v", err)
@@ -55,7 +55,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 
 func TestMigrationLineagePreflightReportsObservedWrongLineage(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "migration-lineage-wrong", "up-to", "1")
+	db := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-wrong", 1)
 	if _, err := db.ExecContext(context.Background(), `
 DELETE FROM schema_migration_lineage;
 INSERT INTO schema_migration_lineage (lineage_id, description)
@@ -64,7 +64,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 		t.Fatalf("simulate wrong migration line: %v", err)
 	}
 
-	_, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up-to", "2")
+	_, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 2)
 	var remediationErr *postgres.MigrationRemediationError
 	if !errors.As(err, &remediationErr) {
 		t.Fatalf("expected typed migration remediation error, got %T %[1]v", err)
@@ -79,6 +79,23 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	if finding.RawValuePair["expected_lineage_id"] != dbmigrations.LineageID ||
 		finding.RawValuePair["lineage_table_present"] != true {
 		t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
+	}
+}
+
+func TestMigrationLineagePreflightReportsRollbackTarget(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	db := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-rollback", 2)
+	if _, err := db.ExecContext(context.Background(), `DROP TABLE schema_migration_lineage`); err != nil {
+		t.Fatalf("simulate historical migration line: %v", err)
+	}
+
+	_, err := postgres.RollbackThrough(context.Background(), db, dbmigrations.Source(), 1)
+	var remediationErr *postgres.MigrationRemediationError
+	if !errors.As(err, &remediationErr) {
+		t.Fatalf("expected typed migration remediation error, got %T %[1]v", err)
+	}
+	if remediationErr.Report.FromVersion != 2 || remediationErr.Report.ToVersion != 1 {
+		t.Fatalf("unexpected rollback remediation target: %#v", remediationErr.Report)
 	}
 }
 

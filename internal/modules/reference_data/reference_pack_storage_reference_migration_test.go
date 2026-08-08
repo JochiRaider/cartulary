@@ -1,4 +1,4 @@
-package postgres_test
+package reference_data_test
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"time"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestReferencePackStorageReferenceMigration38FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "reference-pack-storage-reference-fresh", "up-to", "38")
+	db := harness.MigrationDatabaseThroughT(t, "reference-pack-storage-reference-fresh", 38)
 	ctx := context.Background()
 
 	for table, column := range map[string]string{
@@ -128,7 +128,7 @@ INSERT INTO reference_pack_job_payloads (
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseT(t, "reference-pack-storage-reference-reject", "up-to", "37")
+			db := harness.MigrationDatabaseThroughT(t, "reference-pack-storage-reference-reject", 37)
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 				t.Fatal(err)
@@ -140,7 +140,7 @@ INSERT INTO reference_pack_job_payloads (
 				t.Fatal(err)
 			}
 
-			_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "38")
+			_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 38)
 			if err == nil {
 				t.Fatal("expected pre-release storage-reference cutover rejection")
 			}

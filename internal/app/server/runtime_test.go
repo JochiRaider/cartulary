@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -51,7 +52,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	dependencies.acquireRecoveryServingLease = func(context.Context, *pgxpool.Pool, time.Duration, time.Duration) (*processlease.ApplicationRecoveryServingLease, error) {
 		return nil, nil
 	}
-	dependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+	dependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 		return nil
 	}
 
@@ -76,7 +77,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("invalid deployment config stops before any dependency wiring", func(t *testing.T) {
 		testDependencies := dependencies
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 			t.Fatal("invalid config reached schema readiness")
 			return nil
 		}
@@ -205,7 +206,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 		cfg := RuntimeConfig(t)
 
 		var schemaReadinessCalls int
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 			schemaReadinessCalls++
 			return config.NewDiagnosticsError(config.Diagnostic{
 				Path:       "database.schema_version",
@@ -250,7 +251,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("bootstrap preflight failures stop before jobs, websocket, and handler construction", func(t *testing.T) {
 		testDependencies := dependencies
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
@@ -296,7 +297,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("startup failure closes owned object store exactly once", func(t *testing.T) {
 		testDependencies := dependencies
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)
@@ -316,7 +317,7 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 
 	t.Run("startup failure leaves borrowed object store open", func(t *testing.T) {
 		testDependencies := dependencies
-		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error {
+		testDependencies.ensureSchemaReady = func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error {
 			return nil
 		}
 		cfg := RuntimeConfig(t)

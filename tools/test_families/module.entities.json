@@ -463,6 +463,33 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.entities.support_integration.entity_alias_migration_31",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.support_integration",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityAliasMigration31EmptyUpgrade",
+          "TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample",
+          "TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "full"
+    },
+    {
       "row_id": "module.entities.support_integration.integration_entity_create_idempotency_is_actor_s_3c8ed1fe5c",
       "owner_id": "module.entities",
       "family_id": "module.entities.support_integration",

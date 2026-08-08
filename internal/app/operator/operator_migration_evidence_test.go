@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
@@ -199,6 +199,10 @@ func runMigrationEvidenceCaptureProjectionSemantics(t *testing.T) {
 	}
 	if !payload.EvidenceOnly || payload.RewriteAuthorized {
 		t.Fatalf("payload must remain evidence-only and non-authorizing: %#v", payload)
+	}
+	wantCollectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
+	if !payload.CollectedAt.Equal(wantCollectedAt) {
+		t.Fatalf("collected_at was not preserved: got %s want %s", payload.CollectedAt, wantCollectedAt)
 	}
 	if payload.DatabaseBinding.BindingKind != "managed_service" || payload.DatabaseBinding.ServiceRef != "postgres-primary" {
 		t.Fatalf("unexpected database binding summary: %#v", payload.DatabaseBinding)

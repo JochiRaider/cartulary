@@ -1,13 +1,21 @@
-package postgres
+package database_migrations
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
+
+// LedgerReader is the complete read-only database capability required by
+// migration readiness and evidence collection.
+type LedgerReader interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
 
 // EnsureSchemaReady verifies that an already-open database matches the
 // repository migration source before runtime subsystems touch schema objects.
@@ -66,9 +74,9 @@ func EnsureSchemaReady(ctx context.Context, pool *pgxpool.Pool, source Migration
 	}
 }
 
-func currentGooseVersionPGX(ctx context.Context, pool *pgxpool.Pool) (int64, bool, error) {
+func currentGooseVersionPGX(ctx context.Context, reader LedgerReader) (int64, bool, error) {
 	var tableExists bool
-	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&tableExists); err != nil {
+	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&tableExists); err != nil {
 		return 0, false, err
 	}
 	if !tableExists {
@@ -76,22 +84,22 @@ func currentGooseVersionPGX(ctx context.Context, pool *pgxpool.Pool) (int64, boo
 	}
 
 	var version int64
-	if err := pool.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&version); err != nil {
+	if err := reader.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&version); err != nil {
 		return 0, true, err
 	}
 	return version, true, nil
 }
 
-func inspectMigrationLineagePGX(ctx context.Context, pool *pgxpool.Pool) (migrationLineageState, error) {
+func inspectMigrationLineagePGX(ctx context.Context, reader LedgerReader) (migrationLineageState, error) {
 	var tableExists bool
-	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&tableExists); err != nil {
+	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&tableExists); err != nil {
 		return migrationLineageState{}, err
 	}
 	if !tableExists {
 		return migrationLineageState{TablePresent: false}, nil
 	}
 
-	rows, err := pool.Query(ctx, `SELECT lineage_id FROM schema_migration_lineage ORDER BY lineage_id ASC`)
+	rows, err := reader.Query(ctx, `SELECT lineage_id FROM schema_migration_lineage ORDER BY lineage_id ASC`)
 	if err != nil {
 		return migrationLineageState{}, err
 	}

@@ -2,8 +2,13 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:17875509e11d956e5ba355fcc5906296fd4dcb26c73f439495273d904c0f9841",
+  "input_digest": "sha256:ecaa90e89df47c6c2fbde528a8c75d0accde1fcb992b7bb23caa4acdfdfebc5f",
   "inputs": [
+    {
+      "path": "contracts/verification/owners/app.migrate.json",
+      "role": "verification_owner_contract",
+      "hash": "sha256:18b9e3ebc4684a2dd918b23709fbb55947af1670f4ee50ea1de2e36e47ef5c2d"
+    },
     {
       "path": "contracts/verification/owners/app.operator.json",
       "role": "verification_owner_contract",
@@ -73,6 +78,11 @@
       "path": "contracts/verification/owners/module.crossownertransaction.json",
       "role": "verification_owner_contract",
       "hash": "sha256:86f8fa1af6eeb00d6d9e36ebd0dbf976b96561c1c114a0141d094e5c6218e583"
+    },
+    {
+      "path": "contracts/verification/owners/module.database_migrations.json",
+      "role": "verification_owner_contract",
+      "hash": "sha256:a13605c1937f0ed14c6714eb77a5a5e08843ecb732132a813d5e1f9d78069ccd"
     },
     {
       "path": "contracts/verification/owners/module.entities.json",
@@ -262,7 +272,7 @@
     {
       "path": "contracts/verification/owners/platform.postgres.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:64f4ed5a14400bfc7a956025cb873983ad043a8e6a1abfdb0b556a68551afe87"
+      "hash": "sha256:d6b55f2e066f45c36ac056e58ce1e24e125a7c737d448fda9b55da4990e78d7e"
     },
     {
       "path": "contracts/verification/owners/platform.rootedfs.json",
@@ -322,7 +332,7 @@
     {
       "path": "contracts/verification/registry.json",
       "role": "verification_registry",
-      "hash": "sha256:6ab746add5148c975e55d1b9dd9d73f1b4c3fec601bc2a463c1223c2f7d05728"
+      "hash": "sha256:18fcb365c19887f7ae452e7dce8516c471c5d6d912f5e88168fca5e3e71556da"
     },
     {
       "path": "tools/execution_topology_manifest.json",
@@ -782,7 +792,12 @@
     {
       "path": "tools/test_catalog_owner.json",
       "role": "test_owner_registry",
-      "hash": "sha256:acee8522e18479b4e816fe06edc03542ebf952c9cd71eea85894ca94dce39e30"
+      "hash": "sha256:e9949470984c2da0cbba3bbac9d918cc9a0a57661af58e401dfb9405a95a5090"
+    },
+    {
+      "path": "tools/test_families/app.migrate.json",
+      "role": "test_family_manifest",
+      "hash": "sha256:eb14cf53d392f6c247dbd55bae50f3c106d4cd7bd702c1a42f788f541c8a2aed"
     },
     {
       "path": "tools/test_families/app.operator.json",
@@ -850,24 +865,29 @@
       "hash": "sha256:c10dda7fcb54a936423c677fde68dfbe6386ecad3d31a8dd8a48efcbb8670270"
     },
     {
+      "path": "tools/test_families/module.database_migrations.json",
+      "role": "test_family_manifest",
+      "hash": "sha256:416880dbc9c3a2e5a1ddb1cb5914b08adcd805cf6d7e3025a5c0ae36a62c0b3e"
+    },
+    {
       "path": "tools/test_families/module.entities.json",
       "role": "test_family_manifest",
-      "hash": "sha256:08757b2a6f2e26f4be5385bb44fad8ed812ff0865a82c35e4e92577f8422c3e9"
+      "hash": "sha256:bcdb91ac76670f4f134d80e472c91cc24fae0f22534cdf1cdb253d6dc2e1db58"
     },
     {
       "path": "tools/test_families/module.evidence.json",
       "role": "test_family_manifest",
-      "hash": "sha256:776dcc8779cf96930a868a0f79be4d9e2aac5829ba6a98ba414ff2591dd4013c"
+      "hash": "sha256:363697d1bb69606336a179b5a3e2c0301cf825a4c50582c26155ddd01f4112e3"
     },
     {
       "path": "tools/test_families/module.extensions.json",
       "role": "test_family_manifest",
-      "hash": "sha256:c4088441c552eaadeeaf7eb7ba30114f7363d1e92816a31c4b0b37013db06022"
+      "hash": "sha256:c49d64b852d4bc64ddcb2a985ccd7742aded78272c3eb66d6a720a4f6d39bbe1"
     },
     {
       "path": "tools/test_families/module.graphprojection.json",
       "role": "test_family_manifest",
-      "hash": "sha256:fb4840b523161079f7a3231c83724ae60019b50f31d0e80e52f48fa46b2e6c9f"
+      "hash": "sha256:4c6b2c28d47f52c64ee36af24b2271263283f6c82cbf3a15269e8733403ea717"
     },
     {
       "path": "tools/test_families/module.imports.json",
@@ -877,7 +897,7 @@
     {
       "path": "tools/test_families/module.incidentbundles.json",
       "role": "test_family_manifest",
-      "hash": "sha256:a20795435481883bc0e7ba07675270d8a9fd94b73f9a603c3a3f15ee956bf583"
+      "hash": "sha256:3d740531ba487e9bf0785a1ff15b4325bf2130e5500c9cc7f074418f1539338f"
     },
     {
       "path": "tools/test_families/module.incidents.json",
@@ -927,7 +947,7 @@
     {
       "path": "tools/test_families/module.reference_data.json",
       "role": "test_family_manifest",
-      "hash": "sha256:81f3e69f8d5357bb74e4bc8c0b94aa2c40212ea71981c20a5971f5c43e7551d9"
+      "hash": "sha256:95309c2144357e81d90b6db14da58d09b4439b74f690a590d0c8a533c4fdf3d5"
     },
     {
       "path": "tools/test_families/module.reportcomposition.json",
@@ -947,7 +967,7 @@
     {
       "path": "tools/test_families/module.savedviews.json",
       "role": "test_family_manifest",
-      "hash": "sha256:380eb46497f4a2a59ddae1fad5da69a555ca5d307312430099dda16b277902db"
+      "hash": "sha256:1bf47afe2c69dbbd53e0f8d7871b9ba3cbb380df65dc4442769994003ce783dc"
     },
     {
       "path": "tools/test_families/module.stagedobjects.json",
@@ -1022,7 +1042,7 @@
     {
       "path": "tools/test_families/platform.jobs.json",
       "role": "test_family_manifest",
-      "hash": "sha256:5ff43930d582d48c70bc593eefc1e245013ded56e25d066c4d916a6a91c193e3"
+      "hash": "sha256:e6361204cb353901a96dba1b9eedce5cf001b1bdb3811245a0e4183902884fce"
     },
     {
       "path": "tools/test_families/platform.objectstore.json",
@@ -1037,7 +1057,7 @@
     {
       "path": "tools/test_families/platform.postgres.json",
       "role": "test_family_manifest",
-      "hash": "sha256:3b41bac8df9fac49e61df477852d55539f81c9e5f305540d62357e12e22c9d8f"
+      "hash": "sha256:37bdeef61d446af71fa1d85d4c86b2d8f6ab6674b0515fb939cd90ede3108f33"
     },
     {
       "path": "tools/test_families/platform.rootedfs.json",

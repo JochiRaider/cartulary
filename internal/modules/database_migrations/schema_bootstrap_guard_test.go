@@ -1,4 +1,4 @@
-package postgres_test
+package database_migrations_test
 
 import (
 	"strings"

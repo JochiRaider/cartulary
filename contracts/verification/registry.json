@@ -2,6 +2,10 @@
   "schema_id": "cartulary.verification_registry.v3",
   "owners": [
     {
+      "owner_id": "app.migrate",
+      "contract_path": "contracts/verification/owners/app.migrate.json"
+    },
+    {
       "owner_id": "app.operator",
       "contract_path": "contracts/verification/owners/app.operator.json"
     },
@@ -56,6 +60,10 @@
     {
       "owner_id": "module.crossownertransaction",
       "contract_path": "contracts/verification/owners/module.crossownertransaction.json"
+    },
+    {
+      "owner_id": "module.database_migrations",
+      "contract_path": "contracts/verification/owners/module.database_migrations.json"
     },
     {
       "owner_id": "module.entities",

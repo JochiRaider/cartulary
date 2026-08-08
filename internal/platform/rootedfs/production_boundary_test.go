@@ -15,6 +15,7 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	scanRoots := []string{
 		"internal/app/recoveryassembly",
+		"internal/modules/database_migrations",
 		"internal/modules/imports",
 		"internal/modules/incidentbundles",
 		"internal/modules/recovery",
@@ -30,10 +31,10 @@ func TestProductionFilesystemEffectBoundary_Unit(t *testing.T) {
 			"ReadFile":  true,
 			"WriteFile": true,
 		},
-		"internal/platform/postgres/migrationevidence/evidence.go": {
+		"internal/modules/database_migrations/migrationevidence/evidence.go": {
 			"ReadFile": true,
 		},
-		"internal/platform/postgres/postgres.go": {
+		"internal/modules/database_migrations/migrations.go": {
 			"MkdirAll": true,
 			"OpenFile": true,
 		},

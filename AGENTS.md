@@ -18,7 +18,7 @@
 - `internal/app/serverprocess` is retained process-level test evidence, not production assembly. Reusable application test composition belongs in `internal/testutil/appsupport`.
 - Non-nil `server.Options.Postgres` and `server.Options.ObjectStore` values are borrowed. The server runtime closes only resources it creates, in reverse acquisition order, and `Runtime.Close` is idempotent.
 - `internal/platform/*` owns transport, runtime plumbing, configuration, storage adapters, auth primitives, and job shells.
-- `internal/modules/*` owns domain and application logic inside the modular monolith.
+- `internal/modules/*` owns domain, application, and owner-specific supporting-subsystem logic inside the modular monolith. `internal/modules/database_migrations` owns migration lifecycle mechanics and receives already-opened database handles; it does not own PostgreSQL connectivity, secrets, generic query/transaction ports, source-owner schema meaning, or authored SQL.
 - `contracts/*` contains versioned machine projections and production contracts downstream of adopted specifications and upstream of generated code.
 - `db/migrations` and `db/queries` are authored SQL inputs.
 - `apps/web` is the top-level web app in the pnpm workspace.

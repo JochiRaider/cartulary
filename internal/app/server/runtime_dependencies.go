@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -20,7 +21,7 @@ import (
 type runtimeDependencies struct {
 	newJobsManager                 func(jobs.ManagerOptions) (*jobs.Manager, error)
 	setupPostgres                  func(context.Context, postgres.Settings) (*pgxpool.Pool, error)
-	ensureSchemaReady              func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error
+	ensureSchemaReady              func(context.Context, *pgxpool.Pool, database_migrations.MigrationSource) error
 	setupObjectStore               func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)
 	runBootstrap                   func(context.Context, bootstrap.Settings, *pgxpool.Pool) error
 	newCollaborationHub            func() *collaboration.Hub
@@ -36,7 +37,7 @@ func productionRuntimeDependencies() runtimeDependencies {
 	return runtimeDependencies{
 		newJobsManager:                 jobs.NewManager,
 		setupPostgres:                  postgres.Setup,
-		ensureSchemaReady:              postgres.EnsureSchemaReady,
+		ensureSchemaReady:              database_migrations.EnsureSchemaReady,
 		setupObjectStore:               objectstore.Setup,
 		runBootstrap:                   bootstrap.Preflight,
 		newCollaborationHub:            collaboration.NewHub,

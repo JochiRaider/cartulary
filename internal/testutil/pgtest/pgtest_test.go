@@ -18,7 +18,7 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -327,9 +327,9 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
 		migrateCalls++
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 	}
 
 	harness := &Harness{
@@ -356,8 +356,8 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	if !status.TemplateClone {
 		t.Fatal("expected migration status to mark template clone mode")
 	}
-	if status.Directory != dbmigrations.RepositoryPath {
-		t.Fatalf("unexpected migration directory in status: got %q want %q", status.Directory, dbmigrations.RepositoryPath)
+	if status.SourceName != dbmigrations.RepositoryPath {
+		t.Fatalf("unexpected migration source in status: got %q want %q", status.SourceName, dbmigrations.RepositoryPath)
 	}
 	if status.TemplateDatabase != "suite_template" {
 		t.Fatalf("unexpected template database in status: got %q", status.TemplateDatabase)
@@ -694,8 +694,8 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		dropped = append(dropped, name)
 		return nil
 	}
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 	}
 
 	harness := &Harness{
@@ -707,7 +707,7 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	}
 
 	t.Run("migrate scratch", func(t *testing.T) {
-		harness.MigrationDatabaseT(t, "standalone-scratch", "up")
+		harness.MigrationDatabaseT(t, "standalone-scratch")
 	})
 
 	if len(dropped) != 1 || dropped[0] != scratchName {
@@ -724,11 +724,11 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 
 	oldCreate := createDatabaseFn
 	oldDrop := dropDatabaseFn
-	oldMigrate := migrateDatabaseFn
+	oldMigrate := migrateThroughFn
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
 		dropDatabaseFn = oldDrop
-		migrateDatabaseFn = oldMigrate
+		migrateThroughFn = oldMigrate
 	})
 
 	var scratchName string
@@ -741,8 +741,8 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 		dropCalls++
 		return nil
 	}
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	migrateThroughFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource, version int64) (database_migrations.MigrationStatus, error) {
+		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 	}
 
 	harness := &Harness{
@@ -755,7 +755,7 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 	}
 
 	t.Run("migrate scratch", func(t *testing.T) {
-		harness.MigrationDatabaseT(t, "attached-scratch", "up-to", "00001")
+		harness.MigrationDatabaseThroughT(t, "attached-scratch", 1)
 	})
 
 	if dropCalls != 0 {

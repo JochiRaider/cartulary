@@ -1,0 +1,36 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v3",
+  "owner_id": "app.migrate",
+  "rows": [
+    {
+      "row_id": "app.migrate.unit.migrate_facade_contract",
+      "owner_id": "app.migrate",
+      "family_id": "app.migrate.unit",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "app.migrate.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/migrate",
+        "tests": [
+          "TestMigrateRunnerAcceptsOnlyExplicitUp",
+          "TestMigrateRunnerConfigLoadFailure",
+          "TestMigrateRunnerDBOpenFailure",
+          "TestMigrateRunnerPrintsMigrationRemediationReport",
+          "TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration",
+          "TestMigrateRunnerRunPassesContextToMigration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    }
+  ]
+}

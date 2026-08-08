@@ -17,8 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -33,7 +33,7 @@ func TestDrainedV2CutoverAndRecovery_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "57"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 57); err != nil {
 		t.Fatal(err)
 	}
 
@@ -118,7 +118,7 @@ SELECT (SELECT count(*)
 	if err := oldWriterLease.Release(ctx); err != nil {
 		t.Fatalf("stop old writer under process lease: %v", err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "60"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 60); err != nil {
 		t.Fatal(err)
 	}
 	if info, err := os.Stat(backupPath); err != nil || info.Size() == 0 {
@@ -254,7 +254,7 @@ func TestDrainedJobsCutoverRollbackBeforeFirstCompaction_Integration(t *testing.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "58"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
 		t.Fatal(err)
 	}
 	actorID := uuid.MustParse("58000000-0000-4000-8000-000000000091")
@@ -281,10 +281,10 @@ INSERT INTO jobs (
 	if err := db.QueryRowContext(ctx, `SELECT job_kind, progress_unit_id, handler_name FROM jobs WHERE job_id = $1`, jobID).Scan(&beforeKind, &beforeUnit, &beforeHandler); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "60"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 60); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "down-to", "58"); err != nil {
+	if _, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
 		t.Fatalf("guarded rollback before corrected writes or compaction: %v", err)
 	}
 	var afterKind, afterUnit, afterHandler string

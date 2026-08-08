@@ -602,8 +602,26 @@ receive a generic platform Hub.
 `internal/platform/postgres` owns:
 
 - `pgx/v5` pool creation,
+- filesystem-root and managed-service PostgreSQL binding resolution,
 - transaction helpers,
-- query-execution helpers shared across modules.
+- query-execution helpers shared across modules,
+- PostgreSQL dependency telemetry.
+
+`internal/modules/database_migrations` owns:
+
+- migration-source identity and inspection,
+- production apply-to-head execution and explicitly typed test-only targeted operations,
+- per-invocation Goose Provider filesystem and logger binding,
+- migration lineage preflight, schema readiness, and typed remediation,
+- migration-history evidence and migration recovery metadata.
+
+The database-migrations owner receives already-opened database handles. It does
+not resolve configuration or secrets, create connections, own generic query or
+transaction ports, own PostgreSQL telemetry, define source-owner schema meaning,
+or own the SQL files under `db/migrations`. Source-owner production packages
+must not invoke migration execution. The deployable migration grammar remains
+exactly `migrate up`; targeted apply and rollback operations are repository test
+support only.
 
 `internal/platform/objectstore` owns:
 

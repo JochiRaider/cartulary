@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
@@ -197,7 +197,7 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 		_, _ = io.WriteString(runner.stderr, "\n")
 		return
 	}
-	var remediationErr *postgres.MigrationRemediationError
+	var remediationErr *database_migrations.MigrationRemediationError
 	if errors.As(err, &remediationErr) {
 		_, _ = io.WriteString(runner.stderr, remediationErr.ReportJSON())
 		_, _ = io.WriteString(runner.stderr, "\n")

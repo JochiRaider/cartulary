@@ -1,4 +1,4 @@
-package postgres_test
+package incidentbundles_test
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"time"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestIncidentBundleStorageReferenceMigration37FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "incident-bundle-storage-reference-fresh", "up-to", "37")
+	db := harness.MigrationDatabaseThroughT(t, "incident-bundle-storage-reference-fresh", 37)
 	ctx := context.Background()
 
 	for table, columns := range map[string][]string{
@@ -134,7 +134,7 @@ INSERT INTO incident_bundle_job_payloads (
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseT(t, "incident-bundle-storage-reference-reject", "up-to", "36")
+			db := harness.MigrationDatabaseThroughT(t, "incident-bundle-storage-reference-reject", 36)
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 				t.Fatal(err)
@@ -146,7 +146,7 @@ INSERT INTO incident_bundle_job_payloads (
 				t.Fatal(err)
 			}
 
-			_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "37")
+			_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 37)
 			if err == nil {
 				t.Fatal("expected pre-release storage-reference cutover rejection")
 			}

@@ -1,4 +1,4 @@
-package postgres_test
+package graphprojection_test
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestGraphProjectionMigration32ResetsUnreferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "graph-projection-32-reset", "up-to", "31")
+	db := harness.MigrationDatabaseThroughT(t, "graph-projection-32-reset", 31)
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO graph_projection_views (
@@ -22,7 +22,7 @@ INSERT INTO graph_projection_views (
 `); err != nil {
 		t.Fatalf("seed legacy graph view: %v", err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "32"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 32); err != nil {
 		t.Fatalf("migrate graph projection state to 32: %v", err)
 	}
 	var viewCount int
@@ -51,7 +51,7 @@ SELECT count(*)
 
 func TestGraphProjectionMigration32BlocksReferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "graph-projection-32-referenced", "up-to", "31")
+	db := harness.MigrationDatabaseThroughT(t, "graph-projection-32-referenced", 31)
 	ctx := context.Background()
 	digest := strings.Repeat("a", 64)
 	if _, err := db.ExecContext(ctx, `
@@ -98,7 +98,7 @@ INSERT INTO reporting_releases (
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 		t.Fatalf("restore fixture foreign-key triggers: %v", err)
 	}
-	_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "32")
+	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 32)
 	if err == nil || !strings.Contains(err.Error(), "referenced_projection_run_count=1") {
 		t.Fatalf("migration reference preflight err = %v", err)
 	}

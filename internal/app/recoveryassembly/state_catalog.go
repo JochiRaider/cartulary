@@ -5,6 +5,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	extensionsrecovery "github.com/JochiRaider/cartulary/internal/modules/extensions/recoverycontribution"
@@ -28,7 +29,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
@@ -39,7 +39,7 @@ func CurrentRecoveryStateContributions() []recoverystate.Contribution {
 		administrativeaudit.RecoveryStateContribution(),
 		auth.RecoveryStateContribution(),
 		collaboration.RecoveryStateContribution(),
-		postgres.RecoveryStateContribution(),
+		database_migrations.RecoveryStateContribution(),
 		recovery.DeploymentAdminRecoveryStateContribution(),
 		entities.RecoveryStateContribution(),
 		evidence.RecoveryStateContribution(),

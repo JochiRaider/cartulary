@@ -10,6 +10,7 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -17,8 +18,8 @@ type migrateRunner struct {
 	stderr     io.Writer
 	loadConfig func() (configassembly.Loaded, error)
 	openSQL    func(postgres.Settings) (*sql.DB, error)
-	migrate    func(context.Context, *sql.DB, postgres.MigrationSource, string, ...string) (postgres.MigrationStatus, error)
-	source     postgres.MigrationSource
+	apply      func(context.Context, *sql.DB, database_migrations.MigrationSource) (database_migrations.MigrationStatus, error)
+	source     database_migrations.MigrationSource
 }
 
 func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) int {
@@ -36,7 +37,7 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 			return loaded, nil
 		},
 		openSQL: postgres.OpenSQL,
-		migrate: postgres.Migrate,
+		apply:   database_migrations.Apply,
 		source:  dbmigrations.Source(),
 	}
 }
@@ -48,7 +49,7 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	}
 
 	if err := runner.run(ctx); err != nil {
-		var remediation *postgres.MigrationRemediationError
+		var remediation *database_migrations.MigrationRemediationError
 		if errors.As(err, &remediation) {
 			_, _ = fmt.Fprintln(runner.stderr, remediation.ReportJSON())
 		}
@@ -78,7 +79,7 @@ func (runner migrateRunner) run(ctx context.Context) error {
 		defer db.Close()
 	}
 
-	_, err = runner.migrate(ctx, db, runner.source, "up")
+	_, err = runner.apply(ctx, db, runner.source)
 	return err
 }
 

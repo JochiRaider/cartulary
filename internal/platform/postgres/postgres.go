@@ -3,18 +3,12 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"io/fs"
-	"log"
 	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 
 	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 )
@@ -24,17 +18,8 @@ const (
 	FilesystemRootDSNFile   = "postgres.dsn"
 	ManagedServiceDSNPrefix = "CARTULARY_POSTGRES_"
 	ManagedServiceDSNSuffix = "_DSN"
-	GooseLogFileEnv         = "CARTULARY_GOOSE_LOG_FILE"
 
 	filesystemRootDSNMaximumBytes int64 = 65536
-)
-
-var (
-	errNilMigrateContext = errors.New("postgres migrate: nil context")
-	gooseBaseFSSem       = make(chan struct{}, 1)
-	gooseLoggerMu        sync.Mutex
-	gooseRunContext      = goose.RunContext
-	gooseSetBaseFS       = goose.SetBaseFS
 )
 
 type Settings struct {
@@ -48,34 +33,6 @@ type Binding struct {
 	BindingKind string
 	RootPath    string
 	ServiceRef  string
-}
-
-type MigrationSource struct {
-	BaseFS                  fs.FS
-	Path                    string
-	Name                    string
-	ExpectedLineageID       string
-	ExpectedLineageBoundary string
-}
-
-type MigrationStatus struct {
-	Command          string
-	Directory        string
-	Empty            bool
-	TemplateClone    bool
-	TemplateDatabase string
-}
-
-func NewMigrationSource(path string) MigrationSource {
-	return MigrationSource{Path: path}
-}
-
-func NewEmbeddedMigrationSource(fsys fs.FS, path string, name string) MigrationSource {
-	return MigrationSource{
-		BaseFS: fsys,
-		Path:   path,
-		Name:   name,
-	}
 }
 
 func ResolveSettings(binding Binding, env map[string]string) (Settings, error) {
@@ -149,194 +106,6 @@ func EnvKeyForServiceRef(serviceRef string) (string, error) {
 		return "", fmt.Errorf("resolve managed postgres env key: service_ref must contain at least one letter or digit")
 	}
 	return ManagedServiceDSNPrefix + normalized + ManagedServiceDSNSuffix, nil
-}
-
-func Migrate(ctx context.Context, db *sql.DB, source MigrationSource, command string, args ...string) (MigrationStatus, error) {
-	source = normalizeMigrationSource(source)
-
-	status := MigrationStatus{
-		Command:   command,
-		Directory: source.displayName(),
-	}
-
-	if ctx == nil {
-		return status, errNilMigrateContext
-	}
-	if err := ctx.Err(); err != nil {
-		return status, err
-	}
-
-	empty, err := migrationSourceEmpty(source)
-	if err != nil {
-		return status, fmt.Errorf("inspect migration directory: %w", err)
-	}
-	if err := ctx.Err(); err != nil {
-		return status, err
-	}
-	if empty {
-		status.Empty = true
-		return status, nil
-	}
-
-	if err := runMigrationPreflights(ctx, db, source, command, args...); err != nil {
-		return status, err
-	}
-
-	if err := runGoose(ctx, command, db, source, args...); err != nil {
-		return status, fmt.Errorf("run goose %q: %w", command, err)
-	}
-
-	return status, nil
-}
-
-func normalizeMigrationSource(source MigrationSource) MigrationSource {
-	if source.Path == "" {
-		source.Path = "."
-	}
-	return source
-}
-
-func (source MigrationSource) displayName() string {
-	if source.Name != "" {
-		return source.Name
-	}
-	if source.Path == "" {
-		return "."
-	}
-	return source.Path
-}
-
-func migrationSourceEmpty(source MigrationSource) (bool, error) {
-	if source.BaseFS != nil {
-		return migrationFSEmpty(source.BaseFS, source.Path)
-	}
-	return migrationDirectoryEmpty(source.Path)
-}
-
-func migrationDirectoryEmpty(directory string) (bool, error) {
-	found := false
-	err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if entry.Name() == ".gitkeep" {
-			return nil
-		}
-
-		found = true
-		return fs.SkipAll
-	})
-	if err != nil && err != fs.SkipAll {
-		return false, err
-	}
-
-	return !found, nil
-}
-
-func migrationFSEmpty(fsys fs.FS, directory string) (bool, error) {
-	found := false
-	err := fs.WalkDir(fsys, directory, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if entry.Name() == ".gitkeep" {
-			return nil
-		}
-
-		found = true
-		return fs.SkipAll
-	})
-	if err != nil && err != fs.SkipAll {
-		return false, err
-	}
-
-	return !found, nil
-}
-
-func runGoose(ctx context.Context, command string, db *sql.DB, source MigrationSource, args ...string) error {
-	if ctx == nil {
-		return errNilMigrateContext
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	run := func() error {
-		return runGooseWithConfiguredSource(ctx, command, db, source, args...)
-	}
-	return runGooseWithConfiguredLogger(os.Getenv(GooseLogFileEnv), run)
-}
-
-func runGooseWithConfiguredSource(ctx context.Context, command string, db *sql.DB, source MigrationSource, args ...string) error {
-	if source.BaseFS == nil {
-		return gooseRunContext(ctx, command, db, source.Path, args...)
-	}
-
-	// goose stores the migration filesystem in package-global state, so embedded
-	// runs are serialized to keep concurrent callers from trampling each other.
-	release, err := acquireGooseBaseFS(ctx)
-	if err != nil {
-		return err
-	}
-	defer release()
-
-	gooseSetBaseFS(source.BaseFS)
-	defer gooseSetBaseFS(nil)
-
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	return gooseRunContext(ctx, command, db, source.Path, args...)
-}
-
-func runGooseWithConfiguredLogger(logPath string, run func() error) error {
-	gooseLoggerMu.Lock()
-	defer gooseLoggerMu.Unlock()
-
-	if logPath == "" {
-		goose.SetLogger(log.New(os.Stderr, "", log.LstdFlags))
-		return run()
-	}
-
-	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
-		return fmt.Errorf("create goose log directory: %w", err)
-	}
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- logPath is an artifact path provided by the repo-local runner.
-	if err != nil {
-		return fmt.Errorf("open goose log file: %w", err)
-	}
-	defer file.Close()
-
-	goose.SetLogger(log.New(file, "", log.LstdFlags))
-	defer goose.SetLogger(log.New(os.Stderr, "", log.LstdFlags))
-	return run()
-}
-
-func acquireGooseBaseFS(ctx context.Context) (func(), error) {
-	if ctx == nil {
-		return nil, errNilMigrateContext
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	select {
-	case gooseBaseFSSem <- struct{}{}:
-		if err := ctx.Err(); err != nil {
-			<-gooseBaseFSSem
-			return nil, err
-		}
-		return func() { <-gooseBaseFSSem }, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

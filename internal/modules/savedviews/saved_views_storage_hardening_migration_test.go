@@ -1,4 +1,4 @@
-package postgres_test
+package savedviews_test
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestSavedViewsStorageHardeningMigration52FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "saved-views-storage-hardening-fresh", "up-to", "52")
+	db := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-fresh", 52)
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ $4, $5, $6, $7
 
 func TestSavedViewsStorageHardeningMigration52PreflightReportsOnlyCounts_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "saved-views-storage-hardening-preflight", "up-to", "51")
+	db := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-preflight", 51)
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ VALUES
 		t.Fatal(err)
 	}
 
-	_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "52")
+	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 52)
 	if err == nil {
 		t.Fatal("expected saved-view storage-hardening preflight rejection")
 	}

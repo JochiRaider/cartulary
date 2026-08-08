@@ -437,8 +437,7 @@
         "internal/app/recoveryassembly/**",
         "internal/platform/enterpriseauth/**",
         "internal/platform/objectstore/objectstore.go",
-        "internal/platform/postgres/postgres.go",
-        "internal/platform/postgres/migrationevidence/**"
+        "internal/platform/postgres/postgres.go"
       ],
       "allowed_paths": [],
       "production_only": true
@@ -455,8 +454,52 @@
         "internal/modules/**",
         "internal/platform/httpapi/**"
       ],
+      "allowed_paths": [
+        "internal/modules/database_migrations/schema_readiness.go",
+        "internal/modules/database_migrations/schema_readiness_test.go"
+      ],
+      "production_only": false
+    },
+    {
+      "id": "postgres-adapter-no-database-migration-owner",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+      ],
+      "scan_paths": [
+        "internal/platform/postgres/**"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "database-migrations-no-application-or-secret-resolution",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/app",
+        "github.com/JochiRaider/cartulary/internal/platform/rootedfs",
+        "github.com/JochiRaider/cartulary/internal/platform/securefile"
+      ],
+      "scan_paths": [
+        "internal/modules/database_migrations/**"
+      ],
       "allowed_paths": [],
       "production_only": false
+    },
+    {
+      "id": "source-owner-production-no-migration-lifecycle",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+      ],
+      "scan_paths": [
+        "internal/modules/**",
+        "internal/platform/jobs/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/database_migrations/**"
+      ],
+      "production_only": true
     },
     {
       "id": "extensions-no-transport-auth-or-platform-storage",
@@ -1520,7 +1563,7 @@
       "allowed_paths": [
         "internal/modules/imports/owner_apply.go",
         "internal/platform/jobs/lifecycle_persistence.go",
-        "internal/platform/postgres/extension_job_cutover_migration_test.go"
+        "internal/modules/extensions/extension_job_cutover_migration_test.go"
       ],
       "production_only": false
     },

@@ -97,6 +97,29 @@ Every schema object family created or mutated by authored migrations MUST have o
 
 New migration files SHOULD use behavior- or owner-shaped names instead of historical phase-shaped names. A future phase may add migrations, but production schema names and migration filenames SHOULD describe the durable owner behavior rather than an implementation phase label.
 
+**REQ-01-657**
+The internal `database_migrations` refinement owns repository migration-source
+identity and inspection, production apply-to-head execution, explicitly typed
+test-only apply-through and rollback-through operations, per-invocation
+migration-runner coordination, lineage preflight, repository-head and lineage
+readiness, typed remediation, migration-history evidence, migration recovery
+metadata, and the narrow read-only migration-ledger capability. The production
+surface MUST NOT expose generic Goose command grammar. Test-only targeted
+operations MUST NOT be callable from source-owner production code.
+
+`database_migrations` MUST receive already-opened database handles and MUST NOT
+accept, resolve, retain, log, serialize, or expose a raw DSN, credential,
+database-root path, secret-bearing settings or binding object, or service
+secret. It MUST NOT own PostgreSQL connectivity, generic query or transaction
+ports, PostgreSQL telemetry, application transport, recovery orchestration,
+source-owner schema meaning, or authored SQL. Migration execution MUST bind its
+filesystem and logger per invocation and MUST NOT depend on process-global
+migration filesystem or logger state. Physical package placement, migration SQL
+placement, test placement, and verification routing do not transfer this
+lifecycle ownership.
+Profiles: base
+Verified by: AC-537
+
 **REQ-01-006**
 File-based structured import beyond clipboard paste MUST be implemented as a dedicated internal `imports` module within the modular monolith.
 Profiles: base, import

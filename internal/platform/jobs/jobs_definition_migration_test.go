@@ -1,4 +1,4 @@
-package postgres_test
+package jobs_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -29,13 +29,13 @@ var jobsV2Bindings = map[string]string{
 func TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration(t *testing.T) {
 	t.Run("fresh", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseT(t, "jobs-definition-fresh", "up-to", "58")
+		db := harness.MigrationDatabaseThroughT(t, "jobs-definition-fresh", 58)
 		assertJobsV2Shape(t, db)
 	})
 
 	t.Run("exact backfill and legacy terminal", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseT(t, "jobs-definition-upgrade", "up-to", "57")
+		db := harness.MigrationDatabaseThroughT(t, "jobs-definition-upgrade", 57)
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 			t.Fatal(err)
@@ -64,7 +64,7 @@ INSERT INTO jobs (
 		if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "58"); err != nil {
+		if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
 			t.Fatal(err)
 		}
 		assertJobsV2Shape(t, db)
@@ -155,9 +155,9 @@ INSERT INTO collaboration_event_intents (
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseT(t, "jobs-definition-reject", "up-to", "57")
+			db := harness.MigrationDatabaseThroughT(t, "jobs-definition-reject", 57)
 			testCase.seed(t, db)
-			_, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up-to", "58")
+			_, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 58)
 			if err == nil || !strings.Contains(err.Error(), "jobs v2 compatibility preflight failed") ||
 				!strings.Contains(err.Error(), testCase.wantMetric) {
 				t.Fatalf("preflight error = %v; want %s", err, testCase.wantMetric)

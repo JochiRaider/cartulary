@@ -1,4 +1,4 @@
-package postgres_test
+package database_migrations_test
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -35,7 +35,7 @@ func TestEnsureSchemaReadyRejectsEmptyDatabase(t *testing.T) {
 }
 
 func TestEnsureSchemaReadyRejectsBehindCurrentLine(t *testing.T) {
-	_, pool := migratedSchemaReadinessDatabase(t, "schema-ready-behind", "up-to", "1")
+	_, pool := migratedSchemaReadinessDatabase(t, "schema-ready-behind", 1)
 
 	err := postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source())
 	requireSchemaReadinessDiagnostic(t, err, "schema_migration_required")
@@ -47,7 +47,7 @@ func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
 	db := openSchemaReadinessSQL(t, testDB.DSN)
 	pool := openSchemaReadinessPool(t, testDB.DSN)
 
-	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES (40, true)`); err != nil {
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES (61, true)`); err != nil {
 		t.Fatalf("seed ahead migration version: %v", err)
 	}
 
@@ -56,16 +56,16 @@ func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
 }
 
 func TestEnsureSchemaReadyRejectsHistoricalLineAboveHead(t *testing.T) {
-	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-historical-above-head", "up")
+	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-historical-above-head", 0)
 	if _, err := db.ExecContext(context.Background(), `
 DROP TABLE schema_migration_lineage;
-INSERT INTO goose_db_version (version_id, is_applied) VALUES (40, true);
+INSERT INTO goose_db_version (version_id, is_applied) VALUES (61, true);
 `); err != nil {
 		t.Fatalf("seed historical migration line above head: %v", err)
 	}
 
 	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source()))
-	if report.Boundary != dbmigrations.LineageBoundary || report.FromVersion != 40 || report.ToVersion != 33 {
+	if report.Boundary != dbmigrations.LineageBoundary || report.FromVersion != 61 || report.ToVersion != 60 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
 	finding := report.Findings[0]
@@ -75,7 +75,7 @@ INSERT INTO goose_db_version (version_id, is_applied) VALUES (40, true);
 }
 
 func TestEnsureSchemaReadyReportsWrongLineage(t *testing.T) {
-	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-wrong-lineage", "up-to", "1")
+	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-wrong-lineage", 1)
 	if _, err := db.ExecContext(context.Background(), `
 DELETE FROM schema_migration_lineage;
 INSERT INTO schema_migration_lineage (lineage_id, description)
@@ -94,13 +94,19 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	}
 }
 
-func migratedSchemaReadinessDatabase(t testing.TB, prefix string, command string, args ...string) (*sql.DB, *pgxpool.Pool) {
+func migratedSchemaReadinessDatabase(t testing.TB, prefix string, throughVersion int64) (*sql.DB, *pgxpool.Pool) {
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.NewMigrationDatabaseT(t, prefix)
 	db := openSchemaReadinessSQL(t, testDB.DSN)
-	if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), command, args...); err != nil {
+	var err error
+	if throughVersion == 0 {
+		_, err = postgres.Apply(context.Background(), db, dbmigrations.Source())
+	} else {
+		_, err = postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), throughVersion)
+	}
+	if err != nil {
 		t.Fatalf("migrate schema readiness database: %v", err)
 	}
 	return db, openSchemaReadinessPool(t, testDB.DSN)

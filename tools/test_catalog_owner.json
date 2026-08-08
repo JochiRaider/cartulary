@@ -2,6 +2,11 @@
   "schema_id": "cartulary.test_owner_registry.v1",
   "owners": [
     {
+      "owner_id": "app.migrate",
+      "manifest_path": "tools/test_families/app.migrate.json",
+      "status": "active"
+    },
+    {
       "owner_id": "app.operator",
       "manifest_path": "tools/test_families/app.operator.json",
       "status": "active"
@@ -64,6 +69,11 @@
     {
       "owner_id": "module.crossownertransaction",
       "manifest_path": "tools/test_families/module.crossownertransaction.json",
+      "status": "active"
+    },
+    {
+      "owner_id": "module.database_migrations",
+      "manifest_path": "tools/test_families/module.database_migrations.json",
       "status": "active"
     },
     {

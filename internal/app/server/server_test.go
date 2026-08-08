@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
@@ -263,13 +263,13 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-		return serverRuntime{}, &postgres.MigrationRemediationError{
-			Report: postgres.MigrationRemediationReport{
+		return serverRuntime{}, &database_migrations.MigrationRemediationError{
+			Report: database_migrations.MigrationRemediationReport{
 				SchemaID:    "cartulary.migration_remediation_report.v1",
 				Boundary:    "prod_ddl_rebaseline_v1",
 				FromVersion: 40,
 				ToVersion:   33,
-				Findings: []postgres.MigrationRemediationFinding{
+				Findings: []database_migrations.MigrationRemediationFinding{
 					{
 						Field:           "schema_migration_lineage",
 						ReasonCode:      "historical_migration_lineage",

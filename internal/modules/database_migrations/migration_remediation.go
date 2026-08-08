@@ -1,4 +1,4 @@
-package postgres
+package database_migrations
 
 import (
 	"context"
@@ -57,7 +57,7 @@ func (err *MigrationRemediationError) ReportJSON() string {
 	return string(encoded)
 }
 
-func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSource, command string, args ...string) error {
+func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSource, operation migrationOperation, targetVersion int64) error {
 	if db == nil || source.ExpectedLineageID == "" {
 		return nil
 	}
@@ -77,13 +77,12 @@ func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSou
 		return nil
 	}
 
-	targetVersion, err := targetMigrationVersion(source, currentVersion, command, args)
-	if err != nil {
-		return fmt.Errorf("inspect migration target: %w", err)
-	}
 	repositoryHeadVersion, err := migrationSourceHeadVersion(source)
 	if err != nil {
 		return fmt.Errorf("inspect migration source head: %w", err)
+	}
+	if operation == migrationOperationApply {
+		targetVersion = repositoryHeadVersion
 	}
 
 	return &MigrationRemediationError{
@@ -184,26 +183,6 @@ func migrationLineageRemediationReport(source MigrationSource, state migrationLi
 				RemediationHint: historicalMigrationLineageHint,
 			},
 		},
-	}
-}
-
-func targetMigrationVersion(source MigrationSource, currentVersion int64, command string, args []string) (int64, error) {
-	switch command {
-	case "up":
-		return migrationSourceHeadVersion(source)
-	case "up-by-one":
-		return currentVersion + 1, nil
-	case "up-to":
-		if len(args) == 0 {
-			return 0, nil
-		}
-		target, err := strconv.ParseInt(args[0], 10, 64)
-		if err != nil {
-			return 0, nil
-		}
-		return target, nil
-	default:
-		return 0, nil
 	}
 }
 

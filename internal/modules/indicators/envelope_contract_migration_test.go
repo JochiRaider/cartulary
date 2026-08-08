@@ -10,13 +10,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestIndicatorEnvelopeContractMigration57DownUp_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "indicator-envelope-contract", "up-to", "56")
+	db := harness.MigrationDatabaseThroughT(t, "indicator-envelope-contract", 56)
 	ctx := context.Background()
 
 	const (
@@ -114,13 +114,13 @@ VALUES (
 		t.Fatal(err)
 	}
 
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "57"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 57); err != nil {
 		t.Fatalf("apply Indicator contract migration: %v", err)
 	}
 	requireIndicatorMirrorColumns(t, db, false)
 	requireIndicatorContractConstraintsValidated(t, db)
 
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "down-to", "56"); err != nil {
+	if _, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 56); err != nil {
 		t.Fatalf("reconstruct expand schema: %v", err)
 	}
 	requireIndicatorMirrorColumns(t, db, true)
@@ -144,7 +144,7 @@ SELECT indicator.row_version
 		t.Fatalf("reconstructed row version = %d, want 3", mirroredVersion)
 	}
 
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "57"); err != nil {
+	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 57); err != nil {
 		t.Fatalf("reapply Indicator contract migration: %v", err)
 	}
 	requireIndicatorMirrorColumns(t, db, false)

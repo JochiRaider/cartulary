@@ -224,12 +224,26 @@ projection, the Testing Harness, or an implementation guide.
 Profiles: base
 Verified by: AC-535
 
+**REQ-00-069**
+Database migration lifecycle ownership is distinct from PostgreSQL connection
+adapter ownership and from the source owners whose schemas are evolved. Core 01
+§2.1A owns migration source identity, typed execution, lineage readiness,
+remediation, evidence, and recovery metadata. Core 04 owns the secret boundary
+and conformance proof. Source-owner specifications retain schema meaning;
+OpenTelemetry retains PostgreSQL signal and privacy requirements; and the
+Testing Harness retains execution/evidence accounting. Package location, SQL
+location, test location, and verification routing MUST NOT transfer those
+responsibilities.
+Profiles: base
+Verified by: AC-537
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
 | Current record-envelope authority versus retained record history | Core 02 §3 for envelope meaning and record-type membership; Core 01 §1 and §12.3 for implementation ownership and portability | Core 01 record mutation/history routes; Core 02 history substrate; Core 04 conformance; `docs/domain.md` for vocabulary only | The current-envelope owner controls current envelope persistence and transaction ports. Revisions controls history and destructive coordination but MUST NOT become current-envelope authority. | REQ-00-067 | base, incident_portability | AC-509..AC-512, AC-514 |
 | Collaboration stream-quarantine requeue transition | Core 03 §4.3.3 | Core 01 §12.2.2 transport; Core 04 §2 security and conformance; `docs/domain.md` vocabulary; implementation guide | Core 03 alone owns admission, repaired-state proof, locking, preserved/reset fields, atomic journal participation, concurrency, typed semantic outcomes, and forbidden semantic effects. | REQ-00-068 | base | AC-535 |
 | Collaboration requeue deployment-local CLI grammar, result envelope, and error/exit registry | Core 01 §12.2.2 | Core 03 §4.3.3 transition; Core 04 §2 security and conformance; typed projections under `contracts/collaboration` | Core 01 alone owns accepted tokens and values, config/timeout flags, schema/member/order rules, closed code/reason pairs, stream behavior, and exit mapping. The typed contract family is a projection, not an owner. | REQ-00-068 | base | AC-535 |
 | Collaboration requeue local authority, redaction, private journal, timeout/cancellation safety, and negative surfaces | Core 04 §2 | Core 01 §12.2.2 transport; Core 03 §4.3.3 transition; Core 04 conformance | Core 04 alone owns the local trust boundary, forbidden values, journal visibility, resource closure, and the absence of browser, HTTP, WebSocket, job, session, CSRF, bearer, and public audit surfaces. | REQ-00-068 | base | AC-535 |
+| Database migration lifecycle, readiness, remediation, evidence, and recovery metadata | Core 01 §2.1A | Core 04 security and conformance; source-owner specifications; OpenTelemetry NLSpec; Testing Harness NLSpec; implementation guides | Core 01 owns the typed lifecycle boundary. PostgreSQL connectivity and secrets remain in the platform adapter; source owners retain schema meaning; authored SQL and evidence routing do not transfer lifecycle ownership. | REQ-00-069 | base | AC-537 |
 | Extension-profile recognition, claimability, current major, primary owner, dependencies, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted Extensions NLSpec | Core 00 alone owns whether an extension identity is recognized and claimable/current and assigns its current major, primary owner, and dependencies. Core 01 enumerates only Core-00-recognized identities and owns the public discovery shape. Core 04 owns authorization and lifecycle consequences. The Extensions NLSpec owns shared mechanics only after coordinated adoption and cannot create recognition. | REQ-00-064, REQ-00-065 | base | AC-231, EXT-AC-145, EXT-AC-146, EXT-AC-157 |
 | Adopted subsystem NLSpec deployment-config namespace | Adopted subsystem NLSpec for namespace-local keys; Core 04 §12 for artifact, discovery, overlay, unknown-key, and startup validation mechanics | Core 04 §12, subsystem NLSpec | Core 04 owns the deployment-config container and fail-closed validation mechanics. The adopted subsystem NLSpec owns only its closed key namespace and namespace-local cross-key rules. | REQ-00-052 | base | AC-231 |
 | Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. | REQ-00-006 | base | AC-231 |

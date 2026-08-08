@@ -283,7 +283,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/reference_data",
         "tests": [
           "TestReferencePackStorageReferenceMigration38FreshSchema_Integration",
           "TestReferencePackStorageReferenceMigration38RejectsPopulatedTablesBeforeMutation_Integration"

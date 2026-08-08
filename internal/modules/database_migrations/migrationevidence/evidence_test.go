@@ -13,9 +13,9 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	missingDownMigration := []byte("-- +goose Up\nSELECT 2;\n")
 	gapMigration := []byte("-- +goose Up\nSELECT 4;\n-- +goose Down\nSELECT 4;\n")
 	sourceFS := fstest.MapFS{
-		"00001_valid.sql": &fstest.MapFile{Data: validMigration},
-		"00002_workbook_interaction9_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
-		"00004_gap.sql": &fstest.MapFile{Data: gapMigration},
+		"00001_valid.sql":                        &fstest.MapFile{Data: validMigration},
+		"00002_workbook_phase9_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
+		"00004_gap.sql":                          &fstest.MapFile{Data: gapMigration},
 	}
 	manifestPath := writeMigrationEvidenceManifest(t, manifestDocument{
 		SchemaID:                "cartulary.migration_history_manifest.v1",
@@ -23,7 +23,7 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 		ImmutableThroughVersion: 1,
 		Entries: []manifestEntry{
 			{Version: 1, Filename: "00001_valid.sql", SHA256: "not-the-source-hash"},
-			{Version: 2, Filename: "00002_workbook_interaction9_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
+			{Version: 2, Filename: "00002_workbook_phase9_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
 			{Version: 3, Filename: "00003_missing.sql", SHA256: strings.Repeat("0", 64)},
 		},
 	})
@@ -46,6 +46,11 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	if len(audit) != 3 {
 		t.Fatalf("expected every embedded source file to be audited, got %d", len(audit))
 	}
+	for index := 1; index < len(audit); index++ {
+		if audit[index-1].Version >= audit[index].Version {
+			t.Fatalf("source audit order is not deterministic: %#v", audit)
+		}
+	}
 	findings := append(manifestFindings, sourceFindings...)
 	assertMigrationEvidenceFinding(t, findings, "manifest_hash_mismatch")
 	assertMigrationEvidenceFinding(t, findings, "source_marker_missing")
@@ -53,6 +58,20 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	assertMigrationEvidenceFinding(t, findings, "manifest_version_not_in_source")
 	assertMigrationEvidenceFinding(t, findings, "source_version_not_in_manifest")
 	assertMigrationEvidenceFinding(t, findings, "source_version_gap")
+}
+
+func TestMigrationEvidenceInputDefaultsAndBindingNormalization(t *testing.T) {
+	if _, _, _, err := loadManifest("  "); err == nil || err.Error() != "migration evidence manifest path is required" {
+		t.Fatalf("unexpected empty manifest error: %v", err)
+	}
+
+	got := normalizeDatabaseBinding(DatabaseBinding{
+		BindingKind: "  managed_service\t",
+		ServiceRef:  " postgres-primary \n",
+	})
+	if got.BindingKind != "managed_service" || got.ServiceRef != "postgres-primary" {
+		t.Fatalf("binding was not normalized: %#v", got)
+	}
 }
 
 func writeMigrationEvidenceManifest(t *testing.T, manifest manifestDocument) string {

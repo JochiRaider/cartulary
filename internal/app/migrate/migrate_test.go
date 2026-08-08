@@ -11,27 +11,25 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 )
 
 func TestMigrateRunnerAcceptsOnlyExplicitUp(t *testing.T) {
-	var gotCommand string
+	gotApply := false
 
 	runner := newTestMigrateRunner(t)
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-		gotCommand = command
-		if len(args) != 0 {
-			t.Fatalf("migrate up received unexpected arguments: %#v", args)
-		}
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+		gotApply = true
+		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
 	}
-	if gotCommand != "up" {
-		t.Fatalf("unexpected command: got %q want up", gotCommand)
+	if !gotApply {
+		t.Fatal("migrate up did not invoke the typed apply operation")
 	}
 }
 
@@ -76,9 +74,9 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	}
 
 	migrateCalled := false
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
 		migrateCalled = true
-		return postgres.MigrationStatus{}, nil
+		return database_migrations.MigrationStatus{}, nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
@@ -104,9 +102,9 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
 		migrateCalled = true
-		return postgres.MigrationStatus{}, nil
+		return database_migrations.MigrationStatus{}, nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
@@ -125,14 +123,14 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
 	rawLineageID := "cartulary.prod_ddl_rebaseline.v1"
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-		return postgres.MigrationStatus{}, &postgres.MigrationRemediationError{
-			Report: postgres.MigrationRemediationReport{
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+		return database_migrations.MigrationStatus{}, &database_migrations.MigrationRemediationError{
+			Report: database_migrations.MigrationRemediationReport{
 				SchemaID:    "cartulary.migration_remediation_report.v1",
 				Boundary:    "prod_ddl_rebaseline_v1",
 				FromVersion: 49,
 				ToVersion:   23,
-				Findings: []postgres.MigrationRemediationFinding{
+				Findings: []database_migrations.MigrationRemediationFinding{
 					{
 						Field:           "schema_migration_lineage",
 						RawValue:        &rawLineageID,
@@ -168,9 +166,9 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 	ctx := context.WithValue(context.Background(), migrateContextMarkerKey{}, "marker")
 
 	var gotMarker any
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
 		gotMarker = ctx.Value(migrateContextMarkerKey{})
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 	}
 
 	if err := runner.run(ctx); err != nil {
@@ -207,10 +205,10 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		openSQL: func(settings postgres.Settings) (*sql.DB, error) {
 			return db, nil
 		},
-		migrate: func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-			return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
+		apply: func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+			return database_migrations.MigrationStatus{SourceName: source.Name}, nil
 		},
-		source: postgres.MigrationSource{
+		source: database_migrations.MigrationSource{
 			Path: "db/migrations",
 			Name: "db/migrations",
 		},

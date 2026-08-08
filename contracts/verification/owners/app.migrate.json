@@ -1,9 +1,9 @@
 {
   "schema_id": "cartulary.verification_contract.v3",
-  "owner_id": "platform.postgres",
+  "owner_id": "app.migrate",
   "verifications": [
     {
-      "verification_id": "platform.postgres.verification.behavior_contract",
+      "verification_id": "app.migrate.verification.behavior_contract",
       "behavior_class": "architecture",
       "profile": "base",
       "evidence_kinds": [

@@ -1,0 +1,322 @@
+{
+  "schema_id": "cartulary.test_family_manifest.v3",
+  "owner_id": "module.database_migrations",
+  "rows": [
+    {
+      "row_id": "module.database_migrations.integration.long_running_migration_cancellation",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.migrate"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestMigrateCancelsLongRunningMigration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestMigrationEvidenceSemantics_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.database_migrations.integration.migration_lineage_remediation_matrix",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.migrate",
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestMigrationLineagePreflightAllowsCurrentLine",
+          "TestMigrationLineagePreflightRejectsHistoricalLine",
+          "TestMigrationLineagePreflightReportsObservedWrongLineage",
+          "TestMigrationLineagePreflightReportsRollbackTarget"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.database_migrations.integration.schema_bootstrap",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestSchemaBootstrap_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.database_migrations.integration.schema_readiness_matrix",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestEnsureSchemaReadyAllowsCurrentHead",
+          "TestEnsureSchemaReadyRejectsAheadCurrentLine",
+          "TestEnsureSchemaReadyRejectsBehindCurrentLine",
+          "TestEnsureSchemaReadyRejectsEmptyDatabase",
+          "TestEnsureSchemaReadyRejectsHistoricalLineAboveHead",
+          "TestEnsureSchemaReadyReportsWrongLineage"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.database_migrations.unit.defaults_logger_and_remediation_contract",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [
+        "app.migrate",
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestGooseLoggerConfigurationLifecycle",
+          "TestMigrationOperationRejectsNilContextBeforeInspection",
+          "TestMigrationRemediationReportJSONContract",
+          "TestMigrationSourceDefaultsAndEmptyBehavior",
+          "TestSchemaReadinessHandlesNilPoolAndEmptySource"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.migration_evidence_projection_semantics",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/operator",
+        "tests": [
+          "TestMigrationEvidenceSemantics_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.migration_evidence_source_audit",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [
+        "app.operator"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations/migrationevidence",
+        "tests": [
+          "TestMigrationEvidenceInputDefaultsAndBindingNormalization",
+          "TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.provider_context_source_logger_isolation",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestApplyCanceledContextSkipsSourceInspection",
+          "TestMigrationProviderFSRootsEmbeddedSources",
+          "TestProviderContextSourceLoggerIsolation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.public_surface_and_reader_capability",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [
+        "app.operator",
+        "app.server"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestPublicSurfaceAndLedgerReaderCapability"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.schema_bootstrap_guard",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestSchemaBootstrapMigrationGuard"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "module.database_migrations.unit.targeted_operation_validation",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestTargetedOperationValidation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    }
+  ]
+}

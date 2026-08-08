@@ -25,6 +25,7 @@ import (
 	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
@@ -1424,7 +1425,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 	if err != nil {
 		return fmt.Errorf("open template database: %w", err)
 	}
-	if _, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up"); err != nil {
+	if _, err := database_migrations.Apply(ctx, db, dbmigrations.Source()); err != nil {
 		_ = db.Close()
 		return err
 	}
@@ -1462,16 +1463,16 @@ func withSuiteGooseLog(env map[string]string, run func() error) error {
 		return fmt.Errorf("create suite artifact dir: %w", err)
 	}
 	logPath := filepath.Join(suiteDir, "goose.log")
-	previous, hadPrevious := os.LookupEnv(postgres.GooseLogFileEnv)
-	if err := os.Setenv(postgres.GooseLogFileEnv, logPath); err != nil {
+	previous, hadPrevious := os.LookupEnv(database_migrations.GooseLogFileEnv)
+	if err := os.Setenv(database_migrations.GooseLogFileEnv, logPath); err != nil {
 		return fmt.Errorf("set goose log file env: %w", err)
 	}
 	defer func() {
 		if hadPrevious {
-			_ = os.Setenv(postgres.GooseLogFileEnv, previous)
+			_ = os.Setenv(database_migrations.GooseLogFileEnv, previous)
 			return
 		}
-		_ = os.Unsetenv(postgres.GooseLogFileEnv)
+		_ = os.Unsetenv(database_migrations.GooseLogFileEnv)
 	}()
 	return run()
 }

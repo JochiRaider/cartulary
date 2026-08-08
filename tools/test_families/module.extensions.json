@@ -97,7 +97,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/extensions",
         "tests": [
           "TestExtensionJobCutoverMigration34FreshSchema_Integration",
           "TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_Integration"

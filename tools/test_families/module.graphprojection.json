@@ -113,7 +113,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/graphprojection",
         "tests": [
           "TestGraphProjectionMigration32BlocksReferencedDerivedState",
           "TestGraphProjectionMigration32ResetsUnreferencedDerivedState"

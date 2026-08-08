@@ -244,7 +244,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/modules/savedviews",
         "tests": [
           "TestSavedViewsStorageHardeningMigration52FreshSchema_Integration",
           "TestSavedViewsStorageHardeningMigration52PreflightReportsOnlyCounts_Integration"

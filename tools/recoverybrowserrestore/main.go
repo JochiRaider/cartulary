@@ -30,12 +30,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 )
 
@@ -705,7 +705,7 @@ func createAndMigrateDB(ctx context.Context, baseDSN string, databaseName string
 		return "", fmt.Errorf("open migration db: %w", err)
 	}
 	defer db.Close()
-	if _, err := postgres.Migrate(ctx, db, postgres.NewMigrationSource("db/migrations"), "up"); err != nil {
+	if _, err := database_migrations.Apply(ctx, db, database_migrations.NewMigrationSource("db/migrations")); err != nil {
 		_ = dropDatabase(context.Background(), baseDSN, databaseName)
 		return "", fmt.Errorf("migrate db %s: %w", databaseName, err)
 	}

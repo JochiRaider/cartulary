@@ -20,6 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -141,7 +142,8 @@ var (
 	startPreflightFn    func(context.Context) (string, error)
 	startSleepFn        func(context.Context, time.Duration) error
 	pingAdminDSNFn      = pingAdminDSN
-	migrateDatabaseFn   = postgres.Migrate
+	migrateDatabaseFn   = database_migrations.Apply
+	migrateThroughFn    = database_migrations.ApplyThrough
 	createDatabaseFn    = createDatabase
 	dropDatabaseFn      = dropDatabase
 	markTemplateDBFn    = markTemplateDatabase
@@ -460,21 +462,28 @@ func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope str
 	}, nil
 }
 
-func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, postgres.MigrationStatus, error) {
+type PreparationStatus struct {
+	SourceName       string
+	Empty            bool
+	TemplateClone    bool
+	TemplateDatabase string
+}
+
+func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, PreparationStatus, error) {
 	return h.prepareDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 }
 
-func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, postgres.MigrationStatus, error) {
+func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, PreparationStatus, error) {
 	if h.templateDB == "" && !h.attached {
 		if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
-			return nil, postgres.MigrationStatus{}, err
+			return nil, PreparationStatus{}, err
 		}
 	}
 	if h.templateDB != "" {
 		name := h.nextDatabaseName(prefix)
 		start := time.Now()
 		if err := h.createDatabase(ctx, name, h.templateDB); err != nil {
-			return nil, postgres.MigrationStatus{}, err
+			return nil, PreparationStatus{}, err
 		}
 		recordSuiteEvent(suiteservices.Event{
 			Type:    suiteservices.EventPostgresDBCreated,
@@ -494,9 +503,8 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		return &TestDatabase{
 				Name: name,
 				DSN:  h.dsnFor(name),
-			}, postgres.MigrationStatus{
-				Command:          "template-clone",
-				Directory:        dbmigrations.RepositoryPath,
+			}, PreparationStatus{
+				SourceName:       dbmigrations.RepositoryPath,
 				TemplateClone:    true,
 				TemplateDatabase: h.templateDB,
 			}, nil
@@ -504,19 +512,19 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 
 	testDB, err := h.newDatabase(ctx, prefix, reuseScope, attribution)
 	if err != nil {
-		return nil, postgres.MigrationStatus{}, err
+		return nil, PreparationStatus{}, err
 	}
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
-		return nil, postgres.MigrationStatus{}, fmt.Errorf("open test database handle: %w", err)
+		return nil, PreparationStatus{}, fmt.Errorf("open test database handle: %w", err)
 	}
 	defer db.Close()
 
 	migrateStart := time.Now()
-	status, err := migrateDatabaseFn(ctx, db, dbmigrations.Source(), "up")
+	status, err := migrateDatabaseFn(ctx, db, dbmigrations.Source())
 	if err != nil {
-		return nil, postgres.MigrationStatus{}, err
+		return nil, PreparationStatus{}, err
 	}
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBMigrated,
@@ -525,7 +533,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(migrateStart)),
 	})
 
-	return testDB, status, nil
+	return testDB, PreparationStatus{SourceName: status.SourceName, Empty: status.Empty}, nil
 }
 
 func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
@@ -554,7 +562,7 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		return fmt.Errorf("open local postgres template database: %w", err)
 	}
 	migrateStart := time.Now()
-	if _, err := migrateDatabaseFn(ctx, db, dbmigrations.Source(), "up"); err != nil {
+	if _, err := migrateDatabaseFn(ctx, db, dbmigrations.Source()); err != nil {
 		_ = db.Close()
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("migrate local postgres template database: %w", err)
@@ -626,7 +634,21 @@ func (h *Harness) NewMigrationDatabaseT(t testing.TB, prefix string) *TestDataba
 	return testDB
 }
 
-func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string, args ...string) *sql.DB {
+func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string) *sql.DB {
+	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *sql.DB) error {
+		_, err := migrateDatabaseFn(ctx, db, dbmigrations.Source())
+		return err
+	})
+}
+
+func (h *Harness) MigrationDatabaseThroughT(t testing.TB, prefix string, version int64) *sql.DB {
+	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *sql.DB) error {
+		_, err := migrateThroughFn(ctx, db, dbmigrations.Source(), version)
+		return err
+	})
+}
+
+func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(context.Context, *sql.DB) error) *sql.DB {
 	t.Helper()
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
@@ -650,7 +672,7 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	db = openedDB
 
 	migrateStart := time.Now()
-	if _, err := migrateDatabaseFn(context.Background(), db, dbmigrations.Source(), command, args...); err != nil {
+	if err := apply(context.Background(), db); err != nil {
 		t.Fatalf("migrate scratch database: %v", err)
 	}
 	recordSuiteEvent(suiteservices.Event{

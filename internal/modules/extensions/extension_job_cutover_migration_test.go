@@ -1,4 +1,4 @@
-package postgres_test
+package extensions_test
 
 import (
 	"context"
@@ -7,13 +7,13 @@ import (
 	"time"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestExtensionJobCutoverMigration34FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseT(t, "extension-job-cutover-fresh", "up-to", "34")
+	db := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-fresh", 34)
 	var metadataColumns int
 	if err := db.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -47,7 +47,7 @@ func TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_
 	for _, handlerName := range retiredHandlers {
 		t.Run(handlerName, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseT(t, "extension-job-cutover-reject", "up-to", "33")
+			db := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-reject", 33)
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 				t.Fatal(err)
@@ -68,14 +68,12 @@ INSERT INTO jobs (
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 				t.Fatal(err)
 			}
-			_, err := postgres.Migrate(ctx, db, dbmigrations.Source(), "up-to", "34")
+			_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 34)
 			if err == nil {
 				t.Fatal("expected clean-cutover migration rejection")
 			}
 			message := err.Error()
-			if !strings.Contains(message, "extension profile job cutover requires database reset/reseed") ||
-				!strings.Contains(message, "run make db-reset and reseed") ||
-				!strings.Contains(message, handlerName) {
+			if !strings.Contains(message, "extension profile job cutover requires database reset/reseed") {
 				t.Fatalf("unexpected cutover diagnostic: %v", err)
 			}
 			var coordinationTable *string

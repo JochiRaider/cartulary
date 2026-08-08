@@ -59,6 +59,32 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "platform.jobs.integration.execution_migration",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.execution_fencing"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestJobsExecutionMigration59FreshAndGuarded_Integration",
+          "TestJobsExecutionMigration59RejectsUnsafeIdentityBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "platform.jobs.integration.expiry_and_compaction",
       "owner_id": "platform.jobs",
       "family_id": "platform.jobs.integration",
@@ -101,7 +127,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/platform/jobs",
         "tests": [
           "TestJobsExpiryMigration60FreshAndGuarded_Integration"
         ]
@@ -154,7 +180,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/platform/postgres",
+        "package": "./internal/platform/jobs",
         "tests": [
           "TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration",
           "TestJobsDefinitionMigration58RejectsUnsafeCorporaBeforeMutation_Integration"
