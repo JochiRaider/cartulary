@@ -33,7 +33,6 @@ Owner documents inspected:
 - `docs/testing-harness-nlspec.md` for Make ownership, verification rows, execution selection, and evidence accounting.
 - Relevant vocabulary and owner navigation in `docs/domain.md`; it does not make physical package names or migrations into domain modules.
 - `docs/research/nlspec-spec.md` for specification-writing discipline: behavioral completeness, unambiguous interfaces, explicit defaults, mapping tables, and binary acceptance criteria. It is writing doctrine, not a product-contract owner.
-- `temp/analysis-notes.md` as approved planning input for RB-001 and RB-002. It is evidence of the selected approach, not proof that any proposed Core, package, registry, or harness change already exists.
 
 Core 02, Core 03, and Core 05 do not directly govern the package surfaces discovered: the target contains no domain model implementation, interaction protocol, or claim-bearing benchmark publication. This is an applicability finding, not a reduction of their authority elsewhere.
 
@@ -345,7 +344,7 @@ These are discovered Make-owned commands for later implementation. No product te
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-07 18:07 EDT | Codex planning session | Planning snapshot complete; implementation unauthorized. | Inspected framework, Core 00/01/04, adopted telemetry/harness NLSpecs, relevant `domain.md`; touched only this tracker. | `git status --short --branch`; direct `sed` reads; `rg`/`find` inventory searches. | Authority order and single-write boundary recorded; no owner contradiction found. | RB-001, RB-002 block implementation, not tracker completion. | Obtain owner approval before any package or harness mutation. |
-| 2026-08-07 19:05 EDT | Codex NLSpec revision session | Planning decisions complete; authority adoption remains a future gate. | Inspected `temp/analysis-notes.md`, `docs/research/nlspec-spec.md`, Core identifier spaces, relevant owner/harness inputs, and this tracker; touched only this tracker. | `sed`, `rg`, `find`, `jq`, Git status, and local pinned Goose source inspection. | RB-001 and RB-002 resolved as planning decisions; PGT-REQ-007 prevents premature implementation. | IG-001, IG-002, IG-003. | Adopt S-00 before any production, test, contract, or harness move. |
+| 2026-08-07 19:05 EDT | Codex NLSpec revision session | Planning decisions complete; authority adoption remains a future gate. | Inspected `docs/research/nlspec-spec.md`, Core identifier spaces, relevant owner/harness inputs, and this tracker; touched only this tracker. | `sed`, `rg`, `find`, `jq`, Git status, and local pinned Goose source inspection. | RB-001 and RB-002 resolved as planning decisions; PGT-REQ-007 prevents premature implementation. | IG-001, IG-002, IG-003. | Adopt S-00 before any production, test, contract, or harness move. |
 
 ### Backend module boundary
 
@@ -447,7 +446,7 @@ The refactor is complete only when PGT-AC-001 through PGT-AC-012 all pass. Goose
 ### Current handoff summary
 
 - **Tracker:** revised in place at `docs/handoffs/postgres-module-refactor-tracker.md`; prior handoff history is preserved.
-- **Files inspected:** all 26 target entries; the named authority documents; `temp/analysis-notes.md`; `docs/research/nlspec-spec.md`; representative callers; Core identifier spaces; migration/recovery/schema/generated/boundary/support inputs; verification registries/contracts/families; exact test definitions; and pinned Goose v3.27.0 source.
+- **Files inspected:** all 26 target entries; the named authority documents; `docs/research/nlspec-spec.md`; representative callers; Core identifier spaces; migration/recovery/schema/generated/boundary/support inputs; verification registries/contracts/families; exact test definitions; and pinned Goose v3.27.0 source.
 - **Commands run:** prior discovery commands plus read-only `jq`, exact symbol/ID/collision searches, local module-source inspection, `git diff --check`, and `make lint-markdown` (passed; run root `.cartulary/test-results/20260807T230719Z-p2092390`).
 - **Remaining implementation gates:** IG-001 authority adoption and IG-002 owner/row registration plus retained baseline; IG-003 applies only if the source snapshot changes.
 - **Implementation status:** no production refactor, test edit, contract edit, generated-file edit, migration change, package change, or harness change was performed.

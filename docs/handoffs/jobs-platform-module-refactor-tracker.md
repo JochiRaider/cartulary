@@ -48,7 +48,7 @@ The authority order is:
 3. Core 05 only for claim-bearing timed or fixture-sensitive publication.
 4. Domain vocabulary and implementation-support guides.
 5. Current repository code and tests.
-6. This tracker, `temp/analysis-notes.md`, and the planning framework as evidence
+6. This tracker, and the planning framework as evidence
    and handoff material only.
 
 No owner contradiction was found. The original RB-001 through RB-003 questions
@@ -71,11 +71,6 @@ Owner, authoring, and support material inspected:
 - `docs/guides/cartulary_implementation_testing_guide.md`
 - `docs/handoffs/cartulary_modular_refactor_planning_framework.md`
 - `docs/research/nlspec-spec.md`
-- `temp/analysis-notes.md`
-
-The external research cited by `temp/analysis-notes.md` is corroborative only
-and is not copied into this tracker's normative body. The adopted Cartulary
-owners determine all required behavior.
 
 ## 2. Current-State Repository Inventory
 
