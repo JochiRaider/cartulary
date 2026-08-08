@@ -144,6 +144,7 @@ type CreateSnapshotParams struct {
 
 type CreateSnapshotResult struct {
 	Job        jobs.Resource
+	JobID      uuid.UUID
 	SnapshotID uuid.UUID
 	Replayed   bool
 }
@@ -181,6 +182,7 @@ type CreateReleaseParams struct {
 
 type CreateReleaseResult struct {
 	Job       jobs.Resource
+	JobID     uuid.UUID
 	ReleaseID uuid.UUID
 	Replayed  bool
 }
@@ -307,7 +309,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		if err := tx.Commit(ctx); err != nil {
 			return CreateSnapshotResult{}, err
 		}
-		return CreateSnapshotResult{Job: resource, Replayed: true}, nil
+		return CreateSnapshotResult{Job: resource, JobID: existingJobID, Replayed: true}, nil
 	}
 	if !errors.Is(err, authn.ErrNotFound) {
 		return CreateSnapshotResult{}, err
@@ -354,7 +356,6 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		SnapshotCreateJobKind,
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		normalized,
@@ -362,12 +363,12 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           SnapshotCreateJobKind,
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       JobWorkerKind,
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
@@ -390,7 +391,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 	if err := tx.Commit(ctx); err != nil {
 		return CreateSnapshotResult{}, err
 	}
-	return CreateSnapshotResult{Job: job}, nil
+	return CreateSnapshotResult{Job: job, JobID: jobID}, nil
 }
 
 type SnapshotBoundaryConflictError struct {
@@ -452,10 +453,14 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		if err := json.Unmarshal(existing.ResponseJSON, &resource); err != nil {
 			return CreateReleaseResult{}, err
 		}
+		existingJobID, parseErr := uuid.Parse(resource.JobID)
+		if parseErr != nil {
+			return CreateReleaseResult{}, parseErr
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return CreateReleaseResult{}, err
 		}
-		return CreateReleaseResult{Job: resource, Replayed: true}, nil
+		return CreateReleaseResult{Job: resource, JobID: existingJobID, Replayed: true}, nil
 	}
 	if !errors.Is(err, authn.ErrNotFound) {
 		return CreateReleaseResult{}, err
@@ -520,7 +525,6 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		ReleaseCreateJobKind,
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.Request.Normalized,
@@ -528,12 +532,12 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err != nil {
 		return CreateReleaseResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           ReleaseCreateJobKind,
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       JobWorkerKind,
 		Extension:         admission,
 	}, params.Now.UTC())
 	if err != nil {
@@ -556,7 +560,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if err := tx.Commit(ctx); err != nil {
 		return CreateReleaseResult{}, err
 	}
-	return CreateReleaseResult{Job: job}, nil
+	return CreateReleaseResult{Job: job, JobID: jobID}, nil
 }
 
 func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string]any, uuid.UUID, error) {
@@ -991,14 +995,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	return nil
 }
 
-func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.UUID, profile RedactionProfile, profileSHA string, reasonCode string, now time.Time) (uuid.UUID, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+func (s *Store) CompleteReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, profile RedactionProfile, profileSHA string, reasonCode string, now time.Time) (uuid.UUID, error) {
 	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		return existing.ReleaseID, tx.Commit(ctx)
+		return existing.ReleaseID, nil
 	} else if !errors.Is(err, ErrNotFound) {
 		return uuid.UUID{}, err
 	}
@@ -1062,9 +1061,6 @@ func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.U
 		return uuid.UUID{}, err
 	}
 	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return uuid.UUID{}, err
 	}
 	return releaseID, nil

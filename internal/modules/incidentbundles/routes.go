@@ -113,9 +113,6 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		if err := service.recoverIncidentBundleJobs(context.Background()); err != nil {
-			return err
-		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.incidentbundles", map[string]http.HandlerFunc{
 			"exportIncidentBundle":        service.handleExport,
 			"getIncidentBundleDescriptor": service.handleBundleMember,
@@ -148,9 +145,6 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	}
 	if options.jobAdmission == nil {
 		return nil, fmt.Errorf("incident bundle Jobs transaction service is required")
-	}
-	if err := options.jobRunner.ValidateConfiguration(); err != nil {
-		return nil, fmt.Errorf("incident bundle jobs composition is invalid: %w", err)
 	}
 	if options.historicalIntents == nil {
 		return nil, fmt.Errorf("incident bundle historical intent policy is required")
@@ -325,10 +319,6 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
-}
-
-func (s *Service) recoverIncidentBundleJobs(ctx context.Context) error {
-	return s.worker.recoverJobs(ctx)
 }
 
 func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {

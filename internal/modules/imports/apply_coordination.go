@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +21,7 @@ var (
 
 func (s *Service) applyUnit(
 	ctx context.Context,
+	execution jobs.Execution,
 	actor authn.UserRecord,
 	start ApplyStartResult,
 	unitID uuid.UUID,
@@ -34,7 +36,7 @@ func (s *Service) applyUnit(
 		return unitApplyOutcome{}, fmt.Errorf("begin import apply unit transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.store.ensureApplyJobRunnableTx(ctx, tx, start); err != nil {
+	if err := s.store.ensureApplyJobRunnableTx(ctx, tx, execution); err != nil {
 		return unitApplyOutcome{}, err
 	}
 	unit, err := s.store.lockApplyUnitTx(ctx, tx, start, unitID)

@@ -26,6 +26,31 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.jobapi.integration.expired_job_read_and_cancel_masking",
+      "owner_id": "module.jobapi",
+      "family_id": "module.jobapi.integration",
+      "collaborator_ids": [
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.jobapi.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/jobapi",
+        "tests": [
+          "TestExpiredJobReadAndCancelAreMasked_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.jobapi.integration.incident_scoped_common_job_read_and_cancel_autho_821120b13c",
       "owner_id": "module.jobapi",
       "family_id": "module.jobapi.integration",

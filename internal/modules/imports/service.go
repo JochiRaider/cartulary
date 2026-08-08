@@ -36,20 +36,21 @@ type Service struct {
 }
 
 type importJobTransactions interface {
-	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
-	ValidateRunnableTx(context.Context, pgx.Tx, uuid.UUID) error
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
+	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
+	ValidateCancellationExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
 }
 
 type importJobOperations interface {
-	Get(context.Context, uuid.UUID) (jobs.Resource, error)
-	HandlerPayload(context.Context, uuid.UUID) (json.RawMessage, error)
-	MarkRunning(context.Context, uuid.UUID, jobs.Progress, *string) (jobs.Resource, error)
-	CompleteCanceled(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+	HandlerPayload(context.Context, jobs.Execution) (json.RawMessage, error)
+	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
+	UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error)
+	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
 }
 
 type importJobRunner interface {
 	RegisterHandler(string, jobs.HandlerFunc) error
-	RecoverHandler(context.Context, string) error
+	Notify(uuid.UUID)
 }
 
 type RouteOption func(*routeOptions)
@@ -178,9 +179,6 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		now:                      now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
-		return nil, err
-	}
-	if err := service.recoverImportJobs(context.Background()); err != nil {
 		return nil, err
 	}
 	return service, nil

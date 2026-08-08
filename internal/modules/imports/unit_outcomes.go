@@ -417,16 +417,12 @@ SELECT u.import_unit_id,
 func (s *Store) ensureApplyJobRunnableTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	start ApplyStartResult,
+	execution jobs.Execution,
 ) error {
-	jobID, err := uuid.Parse(start.Job.JobID)
-	if err != nil {
-		return err
-	}
 	if s.jobTransactions == nil {
 		return jobs.ErrNotConfigured
 	}
-	err = s.jobTransactions.ValidateRunnableTx(ctx, tx, jobID)
+	err := s.jobTransactions.ValidateExecutionTx(ctx, tx, execution)
 	if errors.Is(err, jobs.ErrCancellationRequested) {
 		return errImportUnitCanceled
 	}
@@ -576,6 +572,7 @@ UPDATE import_units
 
 func (s *Store) recordTerminalUnitOutcome(
 	ctx context.Context,
+	execution jobs.Execution,
 	start ApplyStartResult,
 	unitID uuid.UUID,
 	actorUserID uuid.UUID,
@@ -596,6 +593,15 @@ func (s *Store) recordTerminalUnitOutcome(
 		return unitApplyOutcome{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	var executionErr error
+	if status == "canceled" {
+		executionErr = s.jobTransactions.ValidateCancellationExecutionTx(ctx, tx, execution)
+	} else {
+		executionErr = s.ensureApplyJobRunnableTx(ctx, tx, execution)
+	}
+	if executionErr != nil {
+		return unitApplyOutcome{}, executionErr
+	}
 	if existing, findErr := findUnitOutcome(ctx, tx, start.ImportSessionID, unitID); findErr == nil {
 		if err := tx.Commit(ctx); err != nil {
 			return unitApplyOutcome{}, err

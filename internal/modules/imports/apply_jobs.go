@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
+func (s *Service) executeApplyJob(ctx context.Context, execution jobs.Execution) error {
 	var payload applyJobHandlerPayload
-	if err := s.decodeJobPayload(ctx, jobID, &payload); err != nil {
+	if err := s.decodeJobPayload(ctx, execution, &payload); err != nil {
 		return err
 	}
 	incidentID, err := uuid.Parse(payload.IncidentID)
@@ -38,11 +38,11 @@ func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	job, err := s.jobManager.Get(ctx, jobID)
+	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	if err != nil {
 		return err
 	}
-	return s.completeApplyJob(ctx, actor, ApplyStartResult{
+	return s.completeApplyJob(ctx, execution, actor, ApplyStartResult{
 		Job:             job,
 		IncidentID:      incidentID,
 		ImportSessionID: sessionID,
@@ -51,15 +51,11 @@ func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
 	})
 }
 
-func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, start ApplyStartResult) error {
-	jobID, err := uuid.Parse(start.Job.JobID)
-	if err != nil {
-		return err
-	}
+func (s *Service) completeApplyJob(ctx context.Context, execution jobs.Execution, actor authn.UserRecord, start ApplyStartResult) error {
 	total := len(start.SelectedUnitIDs)
-	job, getErr := s.jobManager.Get(ctx, jobID)
+	job, getErr := s.jobManager.ObserveExecution(ctx, execution)
 	resumingCancellation := getErr == nil && job.Status == jobs.StatusCancelRequested
-	if !resumingCancellation && !s.markJobRunningOrResume(ctx, jobID, total) {
+	if !resumingCancellation && !s.prepareClaimedJob(ctx, execution, total) {
 		return nil
 	}
 	units, err := s.store.GetApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
@@ -70,9 +66,10 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 		return fmt.Errorf("selected import unit set changed")
 	}
 	for _, unit := range units {
-		if s.jobCancelRequested(ctx, jobID) {
+		if s.jobCancelRequested(ctx, execution) {
 			if _, err := s.store.recordTerminalUnitOutcome(
 				ctx,
+				execution,
 				start,
 				unit.UnitID,
 				actor.ID,
@@ -89,7 +86,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 			}
 			continue
 		}
-		if _, err := s.applyUnit(ctx, actor, start, unit.UnitID); err == nil {
+		if _, err := s.applyUnit(ctx, execution, actor, start, unit.UnitID); err == nil {
 			continue
 		} else if errors.Is(err, errUnitCommitIndeterminate) {
 			return err
@@ -101,6 +98,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 			}
 			if _, persistErr := s.store.recordTerminalUnitOutcome(
 				ctx,
+				execution,
 				start,
 				unit.UnitID,
 				actor.ID,
@@ -112,23 +110,17 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 			}
 		}
 	}
-	return s.finalizeApplyJob(ctx, start)
+	return s.finalizeApplyJob(ctx, execution, start)
 }
 
-func (s *Service) finalizeApplyJob(ctx context.Context, start ApplyStartResult) error {
+func (s *Service) finalizeApplyJob(ctx context.Context, execution jobs.Execution, start ApplyStartResult) error {
 	finalization, err := s.store.prepareApplyFinalization(ctx, start)
 	if err != nil {
 		return err
 	}
-	jobID, err := uuid.Parse(start.Job.JobID)
-	if err != nil {
-		return err
-	}
+	jobID := execution.JobID()
 	total := len(start.SelectedUnitIDs)
-	transition := jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: total, Total: &total},
-	}
+	progress := jobs.Progress{Completed: total, Total: &total}
 	mutate := func(ctx context.Context, tx pgx.Tx) error {
 		return s.store.finalizeApplyFromOutcomesTx(
 			ctx,
@@ -140,40 +132,39 @@ func (s *Service) finalizeApplyJob(ctx context.Context, start ApplyStartResult) 
 	}
 	switch finalization.JobStatus {
 	case jobs.StatusSucceeded:
-		transition.ResultSummary = &jobs.ResultSummary{
+		completion := jobs.SuccessCompletion{Progress: progress, ResultSummary: jobs.ResultSummary{
 			Code:         finalization.ResultCode,
 			Message:      "Import session applied.",
 			ResourceRefs: finalization.ResourceRefs,
-		}
+		}}
 		_, err = s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
 			FinalCommitID: "import.apply:" + jobID.String(),
-			Transition:    transition,
+			Execution:     execution,
+			Completion:    completion,
 			Mutate:        mutate,
 		})
 	case jobs.StatusCanceled:
-		transition.ResultSummary = &jobs.ResultSummary{
+		completion := jobs.CancellationCompletion{Progress: progress, ResultSummary: jobs.ResultSummary{
 			Code:         finalization.ResultCode,
 			Message:      "Import apply canceled.",
 			ResourceRefs: finalization.ResourceRefs,
-		}
-		_, err = s.jobSuccessFinalizer.FinalizeImportJobCancellation(ctx, JobTerminalFinalization{
-			Transition: transition,
-			Mutate:     mutate,
+		}}
+		_, err = s.jobSuccessFinalizer.FinalizeImportJobCancellation(ctx, JobCancellationFinalization{
+			Execution: execution, Completion: completion, Mutate: mutate,
 		})
 	case jobs.StatusFailed:
 		errorDetails := cloneStringAnyMap(finalization.ErrorDetails)
 		if errorDetails == nil {
 			errorDetails = map[string]any{}
 		}
-		transition.ErrorSummary = &jobs.ErrorSummary{
+		completion := jobs.FailureCompletion{Progress: progress, ErrorSummary: jobs.ErrorSummary{
 			Code:      finalization.ErrorCode,
 			Message:   "Import apply failed.",
 			Retryable: finalization.ErrorRetryable,
 			Details:   errorDetails,
-		}
-		_, err = s.jobSuccessFinalizer.FinalizeImportJobFailure(ctx, JobTerminalFinalization{
-			Transition: transition,
-			Mutate:     mutate,
+		}}
+		_, err = s.jobSuccessFinalizer.FinalizeImportJobFailure(ctx, JobFailureFinalization{
+			Execution: execution, Completion: completion, Mutate: mutate,
 		})
 	default:
 		return fmt.Errorf("unsupported import finalization job status %q", finalization.JobStatus)
@@ -221,7 +212,7 @@ func importUnitFailure(err error) importUnitFailureDetail {
 	}
 }
 
-func (s *Service) jobCancelRequested(ctx context.Context, jobID uuid.UUID) bool {
-	job, err := s.jobManager.Get(ctx, jobID)
+func (s *Service) jobCancelRequested(ctx context.Context, execution jobs.Execution) bool {
+	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	return err == nil && job.Status == jobs.StatusCancelRequested
 }

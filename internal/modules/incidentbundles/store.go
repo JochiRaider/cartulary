@@ -112,7 +112,6 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 			scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
-				ExportJobKind,
 				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
@@ -120,13 +119,13 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 			if err != nil {
 				return jobs.Resource{}, err
 			}
-			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+				JobKind:           ExportJobKind,
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-				HandlerName:       incidentBundleJobHandlerName,
 				Extension:         admission,
 			}, params.Now)
 			if err != nil {
@@ -159,7 +158,6 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 			scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 			admission, err := jobs.NewExtensionJobAdmission(
 				IncidentPortabilityProfileID,
-				ImportJobKind,
 				jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 				scope,
 				params.NormalizedRequest,
@@ -167,13 +165,13 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 			if err != nil {
 				return jobs.Resource{}, err
 			}
-			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+			job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+				JobKind:           ImportJobKind,
 				Scope:             scope,
 				SubmittedByUserID: params.ActorUserID,
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-				HandlerName:       incidentBundleJobHandlerName,
 				Extension:         admission,
 			}, params.Now)
 			if err != nil {
@@ -342,13 +340,20 @@ UPDATE incident_bundle_job_payloads
 	return nil
 }
 
-func (s *Store) MarkJobFailure(ctx context.Context, jobID uuid.UUID, reason string, now time.Time) {
-	_, _ = s.pool.Exec(ctx, `
+func (s *Store) MarkJobFailureTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, reason string, now time.Time) error {
+	command, err := tx.Exec(ctx, `
 UPDATE incident_bundle_job_payloads
    SET failure_reason = $2,
        updated_at = $3
  WHERE job_id = $1
 `, jobID, reason, now)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r DescriptorRecord) Resource() map[string]any {

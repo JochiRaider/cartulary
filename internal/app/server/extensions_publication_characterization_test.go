@@ -1,16 +1,13 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/processlifecycle"
 )
 
@@ -83,34 +80,14 @@ func TestRuntime_ExtensionPublication_CurrentAssemblyParity(t *testing.T) {
 
 func TestRuntime_ExtensionPublication_DequeueGate(t *testing.T) {
 	lifecycle := processlifecycle.New()
-	runner := jobs.NewRunner()
-	runner.ConfigureDequeueGate(lifecycle)
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		if err := runner.Close(ctx); err != nil {
-			t.Fatalf("close gated runner: %v", err)
-		}
-	})
-	ran := make(chan struct{}, 1)
-	if err := runner.Dispatch(func(context.Context) { ran <- struct{}{} }); !errors.Is(err, jobs.ErrDequeueGateClosed) {
-		t.Fatalf("pre-serving dispatch error = %v, want dequeue gate closed", err)
-	}
-	select {
-	case <-ran:
-		t.Fatal("job work ran before serving")
-	default:
+	if lifecycle.AdmissionOpen() {
+		t.Fatal("dequeue admission opened before publication")
 	}
 	if err := lifecycle.Publish(); err != nil {
 		t.Fatal(err)
 	}
-	if err := runner.Dispatch(func(context.Context) { ran <- struct{}{} }); err != nil {
-		t.Fatalf("serving dispatch failed: %v", err)
-	}
-	select {
-	case <-ran:
-	case <-time.After(time.Second):
-		t.Fatal("serving dispatch did not run")
+	if !lifecycle.AdmissionOpen() {
+		t.Fatal("dequeue admission remained closed after publication")
 	}
 }
 
@@ -346,45 +323,53 @@ func TestRuntime_ExtensionPublication_FailureNoExposure(t *testing.T) {
 }
 
 func TestRuntime_ExtensionPublication_PublishedComponentLoss(t *testing.T) {
-	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.commit(); err != nil {
-		t.Fatal(err)
-	}
-	acknowledgeAllPublicationComponents(t, controller)
-	if err := controller.serve(); err != nil {
-		t.Fatal(err)
-	}
-	if !controller.componentLost("http") {
-		t.Fatal("published component loss did not enter the fatal lifecycle")
-	}
-	signal := <-lifecycle.FatalEvents()
-	if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" ||
-		controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
-		t.Fatalf("component-loss result = %#v/%s/%t", signal, controller.currentState(), lifecycle.AdmissionOpen())
-	}
-	if _, installed := controller.summary(); installed {
-		t.Fatal("component-loss path retained a rebuildable plan")
+	for _, component := range []string{"http", "job_dequeue"} {
+		t.Run(component, func(t *testing.T) {
+			controller, _, lifecycle := preparedPublicationController(t)
+			if err := controller.commit(); err != nil {
+				t.Fatal(err)
+			}
+			acknowledgeAllPublicationComponents(t, controller)
+			if err := controller.serve(); err != nil {
+				t.Fatal(err)
+			}
+			if !controller.componentLost(component) {
+				t.Fatal("published component loss did not enter the fatal lifecycle")
+			}
+			signal := <-lifecycle.FatalEvents()
+			if signal.ExitCode != 70 || signal.ReasonCode != "published_component_lost" ||
+				controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
+				t.Fatalf("component-loss result = %#v/%s/%t", signal, controller.currentState(), lifecycle.AdmissionOpen())
+			}
+			if _, installed := controller.summary(); installed {
+				t.Fatal("component-loss path retained a rebuildable plan")
+			}
+		})
 	}
 }
 
 func TestRuntime_ExtensionPublication_PreServingComponentLoss(t *testing.T) {
-	controller, _, lifecycle := preparedPublicationController(t)
-	if err := controller.commit(); err != nil {
-		t.Fatal(err)
-	}
-	if !controller.componentLost("http") {
-		t.Fatal("committed component loss was ignored")
-	}
-	if controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
-		t.Fatalf("pre-serving component loss = %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
-	}
-	if _, installed := controller.summary(); installed {
-		t.Fatal("pre-serving component loss retained the installed epoch")
-	}
-	select {
-	case signal := <-lifecycle.FatalEvents():
-		t.Fatalf("pre-serving startup failure emitted serving fatal signal %#v", signal)
-	default:
+	for _, component := range []string{"http", "job_dequeue"} {
+		t.Run(component, func(t *testing.T) {
+			controller, _, lifecycle := preparedPublicationController(t)
+			if err := controller.commit(); err != nil {
+				t.Fatal(err)
+			}
+			if !controller.componentLost(component) {
+				t.Fatal("committed component loss was ignored")
+			}
+			if controller.currentState() != publicationFailed || lifecycle.AdmissionOpen() {
+				t.Fatalf("pre-serving component loss = %s/%t", controller.currentState(), lifecycle.AdmissionOpen())
+			}
+			if _, installed := controller.summary(); installed {
+				t.Fatal("pre-serving component loss retained the installed epoch")
+			}
+			select {
+			case signal := <-lifecycle.FatalEvents():
+				t.Fatalf("pre-serving startup failure emitted serving fatal signal %#v", signal)
+			default:
+			}
+		})
 	}
 }
 

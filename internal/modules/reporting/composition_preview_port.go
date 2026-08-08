@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
@@ -29,7 +30,6 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 ) (jobs.Resource, error) {
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		CompositionPreviewJobKind,
 		jobs.NewRouteIdempotencyKey(request.IdempotencyKey.RouteKey, request.IdempotencyKey.ActorUserID, request.IdempotencyKey.ScopeKey, request.IdempotencyKey.ClientTxnID),
 		request.Scope,
 		request.Normalized,
@@ -37,16 +37,21 @@ func (port compositionPreviewJobPort) AdmitPreviewJob(
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	return port.transactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	return port.transactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           CompositionPreviewJobKind,
 		Scope:             request.Scope,
 		SubmittedByUserID: request.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       JobWorkerKind,
 		Extension:         admission,
 	}, request.Now.UTC())
 }
 
 func (port compositionPreviewJobPort) DispatchPreviewJob(jobID string) error {
-	return port.runner.DispatchJob(JobWorkerKind, jobID)
+	parsed, err := uuid.Parse(jobID)
+	if err != nil {
+		return err
+	}
+	port.runner.Notify(parsed)
+	return nil
 }

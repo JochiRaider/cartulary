@@ -64,10 +64,18 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	return transitionMutation{resource: record, changed: true}, nil
 }
 
+type terminalTransition struct {
+	JobID         uuid.UUID
+	Progress      Progress
+	ResultSummary *ResultSummary
+	ErrorSummary  *ErrorSummary
+	Message       *string
+}
+
 func transitionTerminalTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params TransitionParams,
+	params terminalTransition,
 	now time.Time,
 	status string,
 ) (transitionMutation, error) {
@@ -115,8 +123,9 @@ UPDATE jobs
        result_summary_json = $8,
        error_summary_json = $9,
        message = $10,
-       handler_lease_owner = NULL,
-       handler_lease_expires_at = NULL
+       handler_attempt_id = NULL,
+       handler_lease_expires_at = NULL,
+       handler_next_attempt_at = NULL
  WHERE job_id = $1
    AND status = $2
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,

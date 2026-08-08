@@ -2889,6 +2889,14 @@ A durable precommit cancellation observation MUST conform to `cartulary.extensio
 
 `cancellation_request_id` and `job_id` MUST satisfy the exact Core owner scalars imported by EXT-REQ-233. `observed_at` MUST satisfy the Core canonical UTC timestamp contract.
 
+When a claimed-profile handler publishes the authoritative effect and terminal
+success, its owner transaction MUST first validate the live opaque Jobs
+execution identity under the Jobs transition lock. Validation by bare job ID,
+validation outside the owner transaction, or reuse of a previously validated
+execution is forbidden. A stale, expired, released, or superseded execution
+MUST leave the owner effect, proof, terminal job state, idempotency outcome,
+audit occurrence, and Collaboration intent unchanged.
+
 Profiles: base
 Verified by: EXT-AC-088
 
@@ -2900,7 +2908,7 @@ Verified by: EXT-AC-088
 3. classify every selected job without changing job state;
 4. load the digest-bound job-kind contract and validate proof policy, proof schema, proof ownership, request digest, terminal-result schema and digest, resource-reference contracts and bounds, audit correlation, and cancellation observation;
 5. fail the complete profile reconciliation before any terminal mutation when any proof is missing where required, malformed, contradictory, or digest-inconsistent;
-6. after complete classification succeeds, apply every terminal update for the selected profile job set in one atomic database transaction and in the same deterministic order;
+6. after complete classification succeeds, obtain one opaque Jobs-owned inactive-job grant for each selected row under the Jobs transition lock and apply every typed terminal outcome through those grants in one atomic database transaction and in the same deterministic order; open status strings, raw terminal JSON, and a validate-then-mutate API pair are forbidden;
 7. commit no terminal update when classification fails, the reconciliation timeout expires before commit, or any selected update fails;
 8. treat an indeterminate reconciliation transaction commit outcome as the fatal `indeterminate_database_commit` condition under EXT-REQ-134.
 

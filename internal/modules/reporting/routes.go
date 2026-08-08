@@ -86,9 +86,6 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	if err := app.recoverReportingJobs(context.Background()); err != nil {
-		return nil, err
-	}
 	return &Service{
 		app:       app,
 		authStore: authn.NewStore(deps.PostgresHandle()),

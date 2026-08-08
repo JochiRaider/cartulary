@@ -38,6 +38,7 @@ var (
 	ErrCancellationRequested = errors.New("jobs: cancellation requested")
 	ErrInvalidJobDefinition  = errors.New("jobs: invalid job definition")
 	ErrStorageIncompatible   = errors.New("jobs: storage incompatible")
+	ErrExecutionLost         = errors.New("jobs: execution ownership lost")
 )
 
 type Scope struct {
@@ -88,7 +89,7 @@ type Resource struct {
 	Message           *string        `json:"message,omitempty"`
 }
 
-type CreateParams struct {
+type EnqueueParams struct {
 	JobKind           string
 	Scope             Scope
 	SubmittedByUserID uuid.UUID
@@ -96,16 +97,44 @@ type CreateParams struct {
 	Cancelable        bool
 	Progress          Progress
 	Message           *string
-	HandlerName       string
 	HandlerPayload    json.RawMessage
 	Extension         *ExtensionJobAdmission
 }
 
-type TransitionParams struct {
-	JobID         uuid.UUID
+// Execution is an opaque lease-fenced handler attempt. Only Jobs can create a
+// valid value; consumers may inspect the stable job ID but never the token.
+type Execution struct {
+	jobID     uuid.UUID
+	attemptID uuid.UUID
+}
+
+func newExecution(jobID uuid.UUID, attemptID uuid.UUID) Execution {
+	return Execution{jobID: jobID, attemptID: attemptID}
+}
+
+func (execution Execution) JobID() uuid.UUID {
+	return execution.jobID
+}
+
+func (execution Execution) valid() bool {
+	return execution.jobID != uuid.Nil && execution.attemptID != uuid.Nil
+}
+
+type SuccessCompletion struct {
 	Progress      Progress
-	ResultSummary *ResultSummary
-	ErrorSummary  *ErrorSummary
+	ResultSummary ResultSummary
+	Message       *string
+}
+
+type FailureCompletion struct {
+	Progress     Progress
+	ErrorSummary ErrorSummary
+	Message      *string
+}
+
+type CancellationCompletion struct {
+	Progress      Progress
+	ResultSummary ResultSummary
 	Message       *string
 }
 

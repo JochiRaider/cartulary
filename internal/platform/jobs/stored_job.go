@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,6 +37,24 @@ SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id
 		return Resource{}, ErrNotFound
 	}
 	return stored.publicResource(), err
+}
+
+// requireVisibleJobTx establishes the public retention boundary before any
+// replay or mutation lookup. Taking the row lock makes the visibility decision
+// stable for the remainder of the caller's transaction.
+func requireVisibleJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, now time.Time) error {
+	var present bool
+	err := tx.QueryRow(ctx, `
+SELECT true
+  FROM jobs
+ WHERE job_id = $1
+   AND (retained_until IS NULL OR retained_until > $2)
+ FOR UPDATE
+`, jobID, now.UTC()).Scan(&present)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
 }
 
 func scanStoredJob(row pgx.Row) (storedJob, error) {

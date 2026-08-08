@@ -244,7 +244,6 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		"import.discovery_v1",
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
@@ -252,12 +251,12 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           DiscoveryJobKind,
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
-		HandlerName:       importDiscoveryJobHandlerName,
 		HandlerPayload:    handlerPayload,
 		Extension:         admission,
 	}, params.Now.UTC())
@@ -743,7 +742,6 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		"import.apply_v1",
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		normalizedRequest,
@@ -751,12 +749,12 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           ApplyJobKind,
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(len(selected))},
-		HandlerName:       importApplyJobHandlerName,
 		HandlerPayload:    handlerPayload,
 		Extension:         admission,
 	}, params.Now.UTC())

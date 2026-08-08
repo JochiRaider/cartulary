@@ -19,6 +19,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
+func referenceCatalogJobKind(kind string) string {
+	switch kind {
+	case "import":
+		return ImportJobKind
+	case "reverify":
+		return ReverifyJobKind
+	case "refresh":
+		return RefreshJobKind
+	default:
+		return ""
+	}
+}
+
 var ErrNotFound = errors.New("reference_data: not found")
 
 type Store struct {
@@ -158,7 +171,6 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		ImportJobKind,
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
@@ -166,13 +178,13 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           ImportJobKind,
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-		HandlerName:       LifecycleWorkerKind,
 		Extension:         admission,
 	}, params.Now)
 	if err != nil {
@@ -396,22 +408,6 @@ UPDATE reference_pack_job_payloads
 	return getVersionTx(ctx, tx, verification.PackKey, verification.PackVersion)
 }
 
-func (s *Store) ApplyVerificationResult(ctx context.Context, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return VersionRecord{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	updated, err := s.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, eventKind, actorUserID, jobID, now)
-	if err != nil {
-		return VersionRecord{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return VersionRecord{}, err
-	}
-	return updated, nil
-}
-
 func (s *Store) ApplyVerificationResultTx(ctx context.Context, tx pgx.Tx, record VersionRecord, verification *VerificationResult, verificationErr *VerificationError, eventKind string, actorUserID uuid.UUID, jobID uuid.UUID, now time.Time) (VersionRecord, error) {
 	if verificationErr != nil {
 		status := "failed"
@@ -556,7 +552,6 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	scope := jobs.Scope{Kind: jobs.ScopeKindDeployment}
 	admission, err := jobs.NewExtensionJobAdmission(
 		ProfileID,
-		referencePackContractJobKind(params.JobKind),
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		scope,
 		params.NormalizedRequest,
@@ -564,13 +559,13 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind:           referenceCatalogJobKind(params.JobKind),
 		Scope:             scope,
 		SubmittedByUserID: params.ActorUserID,
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-		HandlerName:       LifecycleWorkerKind,
 		Extension:         admission,
 	}, params.Now)
 	if err != nil {
@@ -586,19 +581,6 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 		return JobAcceptedResult{}, err
 	}
 	return JobAcceptedResult{Job: job}, nil
-}
-
-func referencePackContractJobKind(localKind string) string {
-	switch localKind {
-	case "import":
-		return ImportJobKind
-	case "reverify":
-		return ReverifyJobKind
-	case "refresh":
-		return RefreshJobKind
-	default:
-		return ""
-	}
 }
 
 func versionSelectSQL() string {

@@ -19,9 +19,9 @@ var canonicalWorkerByJobKind = map[string]string{
 	"snapshot_reporting.composition_preview_v1": "snapshot_reporting.job_worker_v1",
 }
 
-func JobContracts(catalog PublicationCatalog) ([]jobs.ExtensionJobContract, error) {
+func JobDefinitions(catalog PublicationCatalog) ([]jobs.Definition, error) {
 	jobKinds := catalog.JobKinds()
-	result := make([]jobs.ExtensionJobContract, 0, len(jobKinds))
+	result := make([]jobs.Definition, 0, len(jobKinds))
 	for _, jobKind := range jobKinds {
 		contract, present := catalog.Job(jobKind)
 		if !present {
@@ -42,16 +42,18 @@ func JobContracts(catalog PublicationCatalog) ([]jobs.ExtensionJobContract, erro
 				MaxRefs: resourceRef.MaxRefs,
 			})
 		}
-		result = append(result, jobs.ExtensionJobContract{
-			OwnerProfileID: contract.ProfileID,
+		result = append(result, jobs.Definition{
 			JobKind:        contract.JobKind,
 			ProgressUnitID: contract.ProgressUnitID,
-			OperationKind:  contract.OperationKind,
-			WorkerKind:     workerKind,
-			ContractSHA256: contract.SHA256(),
-			ProofRequired:  contract.ProofPolicy == "required_on_terminal_success",
-			MaxProofBytes:  contract.MaxProofBytes,
-			ResourceRefs:   resourceRefs,
+			HandlerName:    workerKind,
+			Extension: &jobs.ExtensionPolicy{
+				OwnerProfileID: contract.ProfileID,
+				OperationKind:  contract.OperationKind,
+				ContractSHA256: contract.SHA256(),
+				ProofRequired:  contract.ProofPolicy == "required_on_terminal_success",
+				MaxProofBytes:  contract.MaxProofBytes,
+				ResourceRefs:   resourceRefs,
+			},
 		})
 	}
 	return result, nil

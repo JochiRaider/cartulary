@@ -26,9 +26,25 @@ func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobSuccess(
 	request reference_data.JobSuccessFinalization,
 ) (jobs.Resource, error) {
 	resource, err := adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
-		Transition:    request.Transition,
+		Execution:     request.Execution,
+		Completion:    request.Completion,
 		FinalCommitID: request.FinalCommitID,
 		Mutate:        extensionstore.OwnerMutation(request.Mutate),
+	})
+	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
+		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)
+	}
+	return resource, err
+}
+
+func (adapter referencePackJobSuccessFinalizer) FinalizeReferencePackJobFailure(
+	ctx context.Context,
+	request reference_data.JobFailureFinalization,
+) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeFailure(ctx, extensionstore.JobFailureFinalizationRequest{
+		Execution:  request.Execution,
+		Completion: request.Completion,
+		Mutate:     extensionstore.OwnerMutation(request.Mutate),
 	})
 	if errors.Is(err, extensionstore.ErrIndeterminateCommit) {
 		return resource, fmt.Errorf("%w: %v", reference_data.ErrJobFinalizationIndeterminate, err)

@@ -1128,21 +1128,22 @@ type Job struct {
 	ErrorSummaryJson                 []byte             `json:"error_summary_json"`
 	Message                          pgtype.Text        `json:"message"`
 	AuthPolicy                       string             `json:"auth_policy"`
-	HandlerName                      pgtype.Text        `json:"handler_name"`
+	HandlerName                      string             `json:"handler_name"`
 	HandlerPayloadJson               []byte             `json:"handler_payload_json"`
-	HandlerAttempts                  int32              `json:"handler_attempts"`
-	HandlerMaxAttempts               int32              `json:"handler_max_attempts"`
-	HandlerLeaseOwner                pgtype.Text        `json:"handler_lease_owner"`
 	HandlerLeaseExpiresAt            pgtype.Timestamptz `json:"handler_lease_expires_at"`
 	HandlerLastAttemptedAt           pgtype.Timestamptz `json:"handler_last_attempted_at"`
 	HandlerLastError                 pgtype.Text        `json:"handler_last_error"`
 	ExtensionOwnerProfileID          pgtype.Text        `json:"extension_owner_profile_id"`
-	JobKind                          pgtype.Text        `json:"job_kind"`
+	JobKind                          string             `json:"job_kind"`
 	ExtensionIdempotencyIdentity     []byte             `json:"extension_idempotency_identity"`
 	ExtensionIdempotencyRouteKey     pgtype.Text        `json:"extension_idempotency_route_key"`
 	ExtensionIdempotencyScopeKey     pgtype.Text        `json:"extension_idempotency_scope_key"`
 	ExtensionNormalizedRequestSha256 pgtype.Text        `json:"extension_normalized_request_sha256"`
-	ProgressUnitID                   pgtype.Text        `json:"progress_unit_id"`
+	ProgressUnitID                   string             `json:"progress_unit_id"`
+	HandlerAttemptID                 pgtype.UUID        `json:"handler_attempt_id"`
+	HandlerFailureCount              int32              `json:"handler_failure_count"`
+	HandlerNextAttemptAt             pgtype.Timestamptz `json:"handler_next_attempt_at"`
+	ExpiredAt                        pgtype.Timestamptz `json:"expired_at"`
 }
 
 type NetworkFlowIndicatorBinding struct {

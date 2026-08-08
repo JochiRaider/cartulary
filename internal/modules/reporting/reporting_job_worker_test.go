@@ -13,12 +13,11 @@ import (
 )
 
 func TestReportingJobWorkerCancelsBeforeWork(t *testing.T) {
-	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000301")
 	manager := &fakeReportingJobManager{status: jobs.StatusCancelRequested}
 	store := &fakeReportingJobStore{kind: reportingJobKindSnapshotCreate}
 	worker := newFakeReportingJobWorker(store, manager, nil)
 
-	worker.Run(context.Background(), jobID)
+	worker.Run(context.Background(), jobs.Execution{})
 
 	if manager.status != jobs.StatusCanceled {
 		t.Fatalf("job status = %q want canceled", manager.status)
@@ -26,24 +25,23 @@ func TestReportingJobWorkerCancelsBeforeWork(t *testing.T) {
 	if store.completeSnapshotCalls != 0 {
 		t.Fatalf("snapshot completion ran after cancel request: %d", store.completeSnapshotCalls)
 	}
-	if manager.canceled == nil || manager.canceled.ResultSummary == nil || manager.canceled.ResultSummary.Code != "job_canceled" {
+	if manager.canceled == nil || manager.canceled.ResultSummary.Code != "job_canceled" {
 		t.Fatalf("cancel summary not recorded: %#v", manager.canceled)
 	}
 }
 
 func TestReportingJobWorkerTimeoutFailsBeforePersistingRelease(t *testing.T) {
-	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000302")
-	manager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate}
 	worker := newFakeReportingJobWorker(store, manager, blockingReleaseRenderer{})
 	worker.timeout = time.Millisecond
 
-	worker.Run(context.Background(), jobID)
+	worker.Run(context.Background(), jobs.Execution{})
 
 	if manager.status != jobs.StatusFailed {
 		t.Fatalf("job status = %q want failed", manager.status)
 	}
-	if manager.failed == nil || manager.failed.ErrorSummary == nil {
+	if manager.failed == nil || manager.failed.ErrorSummary.Code == "" {
 		t.Fatalf("failure summary missing: %#v", manager.failed)
 	}
 	if got := manager.failed.ErrorSummary.Code; got != reportingJobTimeoutCode {
@@ -58,13 +56,12 @@ func TestReportingJobWorkerTimeoutFailsBeforePersistingRelease(t *testing.T) {
 }
 
 func TestReportingJobWorkerRenderFailureSummaryIsDeterministic(t *testing.T) {
-	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000303")
 	releaseID := uuid.MustParse("00000000-0000-0000-0000-000000000304")
-	manager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate, renderFailedReleaseID: releaseID}
 	worker := newFakeReportingJobWorker(store, manager, failingReleaseRenderer{reasonCode: "remote_asset_runtime_ref"})
 
-	worker.Run(context.Background(), jobID)
+	worker.Run(context.Background(), jobs.Execution{})
 
 	if manager.status != jobs.StatusFailed {
 		t.Fatalf("job status = %q want failed", manager.status)
@@ -72,7 +69,7 @@ func TestReportingJobWorkerRenderFailureSummaryIsDeterministic(t *testing.T) {
 	if store.renderFailedReleaseCalls != 1 || store.completeReleaseCalls != 0 {
 		t.Fatalf("unexpected release persistence calls: render_failed=%d complete=%d", store.renderFailedReleaseCalls, store.completeReleaseCalls)
 	}
-	if manager.failed == nil || manager.failed.ErrorSummary == nil {
+	if manager.failed == nil || manager.failed.ErrorSummary.Code == "" {
 		t.Fatalf("failure summary missing: %#v", manager.failed)
 	}
 	summary := manager.failed.ErrorSummary
@@ -85,13 +82,12 @@ func TestReportingJobWorkerRenderFailureSummaryIsDeterministic(t *testing.T) {
 }
 
 func TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput(t *testing.T) {
-	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000308")
-	manager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	manager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	store := &fakeReportingJobStore{kind: reportingJobKindReleaseCreate}
 	worker := newFakeReportingJobWorker(store, manager, succeedingReleaseRenderer{})
 	worker.renderExport = failingRenderExportInvoker{}
 
-	worker.Run(context.Background(), jobID)
+	worker.Run(context.Background(), jobs.Execution{})
 
 	if manager.status != jobs.StatusFailed {
 		t.Fatalf("job status = %q want failed", manager.status)
@@ -102,20 +98,19 @@ func TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput(t *testing.
 }
 
 func TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure(t *testing.T) {
-	jobID := uuid.MustParse("00000000-0000-0000-0000-000000000309")
 	canceledManager := &fakeReportingJobManager{status: jobs.StatusCancelRequested}
 	canceledStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
 	canceledWorker := newFakeReportingJobWorker(canceledStore, canceledManager, succeedingReleaseRenderer{})
-	canceledWorker.Run(context.Background(), jobID)
+	canceledWorker.Run(context.Background(), jobs.Execution{})
 	if canceledManager.status != jobs.StatusCanceled || canceledStore.completePreviewCalls != 0 {
 		t.Fatalf("canceled preview executed: status=%q complete=%d", canceledManager.status, canceledStore.completePreviewCalls)
 	}
 
-	failedManager := &fakeReportingJobManager{status: jobs.StatusQueued}
+	failedManager := &fakeReportingJobManager{status: jobs.StatusRunning}
 	failedStore := &fakeReportingJobStore{kind: reportingJobKindCompositionPreview}
 	failedWorker := newFakeReportingJobWorker(failedStore, failedManager, succeedingReleaseRenderer{})
 	failedWorker.renderExport = failingRenderExportInvoker{}
-	failedWorker.Run(context.Background(), jobID)
+	failedWorker.Run(context.Background(), jobs.Execution{})
 	if failedManager.status != jobs.StatusFailed || failedStore.completePreviewCalls != 0 {
 		t.Fatalf("failed preview published output: status=%q complete=%d", failedManager.status, failedStore.completePreviewCalls)
 	}
@@ -196,7 +191,7 @@ func (s *fakeReportingJobStore) CompositionPreviewPayloadForJob(ctx context.Cont
 	}, err
 }
 
-func (s *fakeReportingJobStore) CompleteReleaseRenderFailedJob(ctx context.Context, _ uuid.UUID, _ RedactionProfile, _ string, _ string, _ time.Time) (uuid.UUID, error) {
+func (s *fakeReportingJobStore) CompleteReleaseRenderFailedJobTx(ctx context.Context, _ pgx.Tx, _ uuid.UUID, _ RedactionProfile, _ string, _ string, _ time.Time) (uuid.UUID, error) {
 	if err := ctx.Err(); err != nil {
 		return uuid.UUID{}, err
 	}
@@ -243,14 +238,23 @@ func (f fakeReportingJobFinalizer) FinalizeReportingJobSuccess(ctx context.Conte
 			return jobs.Resource{}, err
 		}
 	}
-	return f.manager.CompleteSucceeded(ctx, request.Transition)
+	return f.manager.CompleteSucceeded(ctx, request.Execution, request.Completion)
+}
+
+func (f fakeReportingJobFinalizer) FinalizeReportingJobFailure(ctx context.Context, request JobFailureFinalization) (jobs.Resource, error) {
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, nil); err != nil {
+			return jobs.Resource{}, err
+		}
+	}
+	return f.manager.CompleteFailed(ctx, request.Execution, request.Completion)
 }
 
 type fakeReportingJobManager struct {
 	status    string
-	failed    *jobs.TransitionParams
-	succeeded *jobs.TransitionParams
-	canceled  *jobs.TransitionParams
+	failed    *jobs.FailureCompletion
+	succeeded *jobs.SuccessCompletion
+	canceled  *jobs.CancellationCompletion
 }
 
 func (m *fakeReportingJobManager) Get(ctx context.Context, _ uuid.UUID) (jobs.Resource, error) {
@@ -260,7 +264,11 @@ func (m *fakeReportingJobManager) Get(ctx context.Context, _ uuid.UUID) (jobs.Re
 	return jobs.Resource{Status: m.status}, nil
 }
 
-func (m *fakeReportingJobManager) MarkRunning(ctx context.Context, _ uuid.UUID, progress jobs.Progress, message *string) (jobs.Resource, error) {
+func (m *fakeReportingJobManager) ObserveExecution(ctx context.Context, _ jobs.Execution) (jobs.Resource, error) {
+	return m.Get(ctx, uuid.Nil)
+}
+
+func (m *fakeReportingJobManager) UpdateProgress(ctx context.Context, _ jobs.Execution, progress jobs.Progress, message *string) (jobs.Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return jobs.Resource{}, err
 	}
@@ -271,37 +279,37 @@ func (m *fakeReportingJobManager) MarkRunning(ctx context.Context, _ uuid.UUID, 
 	return jobs.Resource{Status: m.status, Progress: progress, Message: message}, nil
 }
 
-func (m *fakeReportingJobManager) CompleteSucceeded(ctx context.Context, params jobs.TransitionParams) (jobs.Resource, error) {
+func (m *fakeReportingJobManager) CompleteSucceeded(ctx context.Context, _ jobs.Execution, params jobs.SuccessCompletion) (jobs.Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return jobs.Resource{}, err
 	}
 	m.status = jobs.StatusSucceeded
 	copied := params
 	m.succeeded = &copied
-	return jobs.Resource{Status: m.status, Progress: params.Progress, ResultSummary: params.ResultSummary}, nil
+	return jobs.Resource{Status: m.status, Progress: params.Progress, ResultSummary: &params.ResultSummary}, nil
 }
 
-func (m *fakeReportingJobManager) CompleteFailed(ctx context.Context, params jobs.TransitionParams) (jobs.Resource, error) {
+func (m *fakeReportingJobManager) CompleteFailed(ctx context.Context, _ jobs.Execution, params jobs.FailureCompletion) (jobs.Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return jobs.Resource{}, err
 	}
 	m.status = jobs.StatusFailed
 	copied := params
 	m.failed = &copied
-	return jobs.Resource{Status: m.status, Progress: params.Progress, ErrorSummary: params.ErrorSummary}, nil
+	return jobs.Resource{Status: m.status, Progress: params.Progress, ErrorSummary: &params.ErrorSummary}, nil
 }
 
-func (m *fakeReportingJobManager) CompleteCanceled(ctx context.Context, params jobs.TransitionParams) (jobs.Resource, error) {
+func (m *fakeReportingJobManager) CompleteCanceled(ctx context.Context, _ jobs.Execution, params jobs.CancellationCompletion) (jobs.Resource, error) {
 	if err := ctx.Err(); err != nil {
 		return jobs.Resource{}, err
 	}
 	m.status = jobs.StatusCanceled
 	copied := params
-	if copied.ResultSummary == nil {
-		copied.ResultSummary = &jobs.ResultSummary{Code: "job_canceled", Message: "Job canceled."}
+	if copied.ResultSummary.Code == "" {
+		copied.ResultSummary = jobs.ResultSummary{Code: "job_canceled", Message: "Job canceled."}
 	}
 	m.canceled = &copied
-	return jobs.Resource{Status: m.status, Progress: params.Progress, ResultSummary: copied.ResultSummary}, nil
+	return jobs.Resource{Status: m.status, Progress: params.Progress, ResultSummary: &copied.ResultSummary}, nil
 }
 
 type blockingReleaseRenderer struct{}

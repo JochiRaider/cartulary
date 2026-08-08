@@ -32,6 +32,8 @@ const (
 
 	importDiscoveryJobHandlerName = "import.discovery_worker_v1"
 	importApplyJobHandlerName     = "import.apply_worker_v1"
+	DiscoveryJobKind              = "import.discovery_v1"
+	ApplyJobKind                  = "import.apply_v1"
 
 	ImportTargetKindViewSchema       = "view_schema"
 	ImportTargetKindNetworkFlowTable = "network_flow_table"

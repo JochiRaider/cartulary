@@ -1,29 +1,33 @@
 package jobs
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestJobTelemetryVocabularyHelpers(t *testing.T) {
-	manager := NewManager()
-	contract := ExtensionJobContract{
-		OwnerProfileID: "import", JobKind: "import.discovery_v1",
-		ProgressUnitID: "import.discovery.session.v1", OperationKind: "import.discovery",
-		WorkerKind: "import.discovery_worker_v1", ContractSHA256: strings.Repeat("a", 64),
-		ProofRequired: true, MaxProofBytes: 4096,
+	definition := Definition{
+		JobKind: "import.discovery_v1", ProgressUnitID: "import.discovery.session.v1",
+		HandlerName: "import.discovery_worker_v1",
+		Extension: &ExtensionPolicy{
+			OwnerProfileID: "import", OperationKind: "import.discovery",
+			ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
+		},
 	}
-	if err := manager.ConfigureExtensionContracts([]ExtensionJobContract{contract}); err != nil {
+	catalog, err := NewCatalog([]Definition{definition})
+	if err != nil {
 		t.Fatal(err)
 	}
+	manager := &Manager{catalog: catalog}
 	if got := manager.catalogJobKind(ScopeKindIncident); got != "unknown" {
 		t.Fatalf("scope surrogate escaped as job kind: %q", got)
 	}
 	if got := manager.catalogJobKind("unknown-kind"); got != "unknown" {
 		t.Fatalf("unexpected unknown job kind: %q", got)
 	}
-	if got := manager.catalogJobKind(contract.JobKind); got != contract.JobKind {
+	if got := manager.catalogJobKind(definition.JobKind); got != definition.JobKind {
 		t.Fatalf("catalog job kind projected as %q", got)
 	}
 	for status, want := range map[string]string{
@@ -52,8 +56,7 @@ func TestSafeJobTelemetryToken(t *testing.T) {
 }
 
 func TestJobTelemetryNoSDK(t *testing.T) {
-	manager := NewManager()
-	manager.ConfigureTelemetry("0.0.0+unknown")
+	manager := &Manager{serviceVersion: "0.0.0+unknown"}
 
 	ctx, span := manager.startJobSpan(t.Context(), "cartulary.jobs.enqueue", ScopeKindIncident, "enqueue")
 	manager.finishJobSpan(span, "enqueue", ScopeKindIncident, "", "success", nil)
@@ -66,4 +69,7 @@ func TestJobTelemetryNoSDK(t *testing.T) {
 		StartedAt:  &startedAt,
 		FinishedAt: &finishedAt,
 	}, ScopeKindIncident, "success")
+	manager.recordAttempt(context.Background(), ScopeKindIncident, "failed")
+	manager.recordLeaseRenewalFailure(context.Background(), ScopeKindIncident, "conflict")
+	manager.recordExpiredJobs(context.Background(), map[string]int64{ScopeKindIncident: 1})
 }

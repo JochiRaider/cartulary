@@ -35,9 +35,9 @@ func TestFailClosedStartup_Unit(t *testing.T) {
 	dependencies := productionRuntimeDependencies()
 
 	var jobsCalls int
-	dependencies.newJobsManager = func() *jobs.Manager {
+	dependencies.newJobsManager = func(options jobs.ManagerOptions) (*jobs.Manager, error) {
 		jobsCalls++
-		return &jobs.Manager{}
+		return jobs.NewManager(options)
 	}
 
 	var postgresCalls int

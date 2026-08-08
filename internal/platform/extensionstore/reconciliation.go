@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
 type InactiveJobProofRecord struct {
@@ -52,8 +54,8 @@ type InactiveJobOutcomeRecord struct {
 }
 
 type InactiveJobTerminalWriter interface {
-	ValidateInactiveJobTx(context.Context, pgx.Tx, uuid.UUID, string, time.Time) error
-	CompleteInactiveJobTx(context.Context, pgx.Tx, uuid.UUID, string, json.RawMessage, time.Time) error
+	ValidateInactiveJobTx(context.Context, pgx.Tx, uuid.UUID, string, time.Time) (jobs.InactiveJobGrant, error)
+	CompleteInactiveJobTx(context.Context, pgx.Tx, jobs.InactiveJobGrant, jobs.InactiveTerminalOutcome, time.Time) error
 }
 
 func (s *Store) LoadInactiveJobRecords(ctx context.Context, profileID string, limit int) ([]InactiveJobRecord, error) {
@@ -155,9 +157,10 @@ func (s *Store) ApplyInactiveJobOutcomeRecords(ctx context.Context, terminalWrit
 		}
 		var proofDigest *string
 		var cancellationRequestID *string
-		if err := terminalWriter.ValidateInactiveJobTx(
+		grant, err := terminalWriter.ValidateInactiveJobTx(
 			ctx, tx, outcome.JobID, profileID, outcome.SubmittedAt,
-		); err != nil {
+		)
+		if err != nil {
 			return CommitAbsent, err
 		}
 		if err := tx.QueryRow(ctx, `
@@ -173,12 +176,11 @@ SELECT (SELECT p.terminal_result_sha256
 		if !inactiveEvidenceMatches(outcome, proofDigest, cancellationRequestID) {
 			return CommitAbsent, ErrIntegrity
 		}
-		switch outcome.Status {
-		case "succeeded", "canceled", "failed":
-		default:
-			return CommitAbsent, ErrInvalidTransition
+		terminalOutcome, err := inactiveTerminalOutcome(outcome)
+		if err != nil {
+			return CommitAbsent, err
 		}
-		if err := terminalWriter.CompleteInactiveJobTx(ctx, tx, outcome.JobID, outcome.Status, outcome.TerminalResult, now.UTC()); err != nil {
+		if err := terminalWriter.CompleteInactiveJobTx(ctx, tx, grant, terminalOutcome, now.UTC()); err != nil {
 			return CommitAbsent, err
 		}
 		previousSubmittedAt = outcome.SubmittedAt
@@ -188,6 +190,27 @@ SELECT (SELECT p.terminal_result_sha256
 		return CommitUnknown, err
 	}
 	return CommitProven, nil
+}
+
+func inactiveTerminalOutcome(outcome InactiveJobOutcomeRecord) (jobs.InactiveTerminalOutcome, error) {
+	switch outcome.Status {
+	case jobs.StatusSucceeded:
+		var summary jobs.ResultSummary
+		if err := json.Unmarshal(outcome.TerminalResult, &summary); err != nil {
+			return jobs.InactiveTerminalOutcome{}, ErrInvalidTransition
+		}
+		return jobs.NewInactiveSuccessOutcome(summary), nil
+	case jobs.StatusFailed:
+		var summary jobs.ErrorSummary
+		if err := json.Unmarshal(outcome.TerminalResult, &summary); err != nil {
+			return jobs.InactiveTerminalOutcome{}, ErrInvalidTransition
+		}
+		return jobs.NewInactiveFailureOutcome(summary), nil
+	case jobs.StatusCanceled:
+		return jobs.NewInactiveCancellationOutcome(), nil
+	default:
+		return jobs.InactiveTerminalOutcome{}, ErrInvalidTransition
+	}
 }
 
 func inactiveEvidenceMatches(outcome InactiveJobOutcomeRecord, proofDigest *string, cancellationRequestID *string) bool {

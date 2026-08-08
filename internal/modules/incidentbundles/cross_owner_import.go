@@ -42,7 +42,7 @@ type ImportTransactionResult struct {
 
 type ImportReadCapability interface {
 	crossownertransaction.ReadCapability
-	ValidateIncidentBundleImport(context.Context, uuid.UUID, uuid.UUID) error
+	ValidateIncidentBundleImport(context.Context, uuid.UUID, jobs.Execution) error
 }
 
 type ImportWriteCapability interface {
@@ -51,7 +51,7 @@ type ImportWriteCapability interface {
 }
 
 type jobRunnableValidator interface {
-	ValidateRunnableTx(context.Context, pgx.Tx, uuid.UUID) error
+	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
 }
 
 // ImportTransactionProvider owns the Incident Bundles logical capability over
@@ -100,8 +100,8 @@ func (c *importTransactionCapability) ParticipantScope() string {
 	return c.participantID
 }
 
-func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.Context, incidentID, jobID uuid.UUID) error {
-	if c == nil || c.tx == nil || c.jobs == nil || incidentID == uuid.Nil || jobID == uuid.Nil {
+func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.Context, incidentID uuid.UUID, execution jobs.Execution) error {
+	if c == nil || c.tx == nil || c.jobs == nil || incidentID == uuid.Nil || execution.JobID() == uuid.Nil {
 		return crossownertransaction.ErrUnavailable
 	}
 	var incidentExists bool
@@ -111,7 +111,7 @@ func (c *importTransactionCapability) ValidateIncidentBundleImport(ctx context.C
 	if incidentExists {
 		return &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	if err := c.jobs.ValidateRunnableTx(ctx, c.tx, jobID); err != nil {
+	if err := c.jobs.ValidateExecutionTx(ctx, c.tx, execution); err != nil {
 		if errors.Is(err, jobs.ErrCancellationRequested) || errors.Is(err, jobs.ErrInvalidTransition) {
 			return crossownertransaction.ErrCanceled
 		}
@@ -138,17 +138,17 @@ func (c *importTransactionCapability) ApplyIncidentBundleImport(ctx context.Cont
 type ImportTransactionParticipant struct {
 	prepared    *PreparedImport
 	params      ImportParams
-	jobID       uuid.UUID
+	execution   jobs.Execution
 	manifestSHA string
 }
 
-func NewImportTransactionParticipant(prepared *PreparedImport, params ImportParams, jobID uuid.UUID, manifestSHA string) (*ImportTransactionParticipant, error) {
+func NewImportTransactionParticipant(prepared *PreparedImport, params ImportParams, execution jobs.Execution, manifestSHA string) (*ImportTransactionParticipant, error) {
 	if prepared == nil || prepared.IncidentID == uuid.Nil || params.ActorUserID == uuid.Nil ||
-		jobID == uuid.Nil || manifestSHA == "" {
+		execution.JobID() == uuid.Nil || manifestSHA == "" {
 		return nil, ErrPortabilityPayload
 	}
 	return &ImportTransactionParticipant{
-		prepared: prepared, params: params, jobID: jobID, manifestSHA: manifestSHA,
+		prepared: prepared, params: params, execution: execution, manifestSHA: manifestSHA,
 	}, nil
 }
 
@@ -161,7 +161,7 @@ func (p *ImportTransactionParticipant) BuildInput(context.Context, crossownertra
 	payload, err := json.Marshal(map[string]any{
 		"schema_id":       importTransactionInputSchema,
 		"incident_id":     p.prepared.IncidentID.String(),
-		"job_id":          p.jobID.String(),
+		"job_id":          p.execution.JobID().String(),
 		"manifest_sha256": p.manifestSHA,
 	})
 	return crossownertransaction.Input{SchemaID: importTransactionInputSchema, CanonicalBytes: payload}, err
@@ -181,7 +181,7 @@ func (p *ImportTransactionParticipant) Validate(ctx context.Context, invocation 
 	if !ok {
 		return crossownertransaction.ValidationResult{}, crossownertransaction.ErrUnavailable
 	}
-	if err := capability.ValidateIncidentBundleImport(ctx, p.prepared.IncidentID, p.jobID); err != nil {
+	if err := capability.ValidateIncidentBundleImport(ctx, p.prepared.IncidentID, p.execution); err != nil {
 		return crossownertransaction.ValidationResult{}, err
 	}
 	return crossownertransaction.Valid(), nil
@@ -192,7 +192,7 @@ func (p *ImportTransactionParticipant) Write(ctx context.Context, invocation cro
 	if !ok {
 		return crossownertransaction.WriteResult{}, crossownertransaction.ErrUnavailable
 	}
-	result, err := capability.ApplyIncidentBundleImport(ctx, p.prepared, p.params, p.jobID, p.manifestSHA)
+	result, err := capability.ApplyIncidentBundleImport(ctx, p.prepared, p.params, p.execution.JobID(), p.manifestSHA)
 	if err != nil {
 		return crossownertransaction.WriteResult{}, err
 	}

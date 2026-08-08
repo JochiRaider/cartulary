@@ -51,16 +51,16 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 	if got := catalog.JobKinds(); len(got) != 10 {
 		t.Fatalf("job catalog = %d; want 10: %v", len(got), got)
 	}
-	jobContracts, err := JobContracts(catalog)
+	jobContracts, err := JobDefinitions(catalog)
 	if err != nil {
 		t.Fatal(err)
 	}
 	gotJobWorkers := make(map[string]string, len(jobContracts))
 	for _, contract := range jobContracts {
-		if !contract.ProofRequired || contract.ContractSHA256 == "" {
+		if contract.Extension == nil || !contract.Extension.ProofRequired || contract.Extension.ContractSHA256 == "" {
 			t.Fatalf("job contract is not proof-bound: %#v", contract)
 		}
-		gotJobWorkers[contract.JobKind] = contract.WorkerKind
+		gotJobWorkers[contract.JobKind] = contract.HandlerName
 	}
 	if !reflect.DeepEqual(gotJobWorkers, canonicalWorkerByJobKind) {
 		t.Fatalf("job/worker catalog = %v; want %v", gotJobWorkers, canonicalWorkerByJobKind)

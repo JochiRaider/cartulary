@@ -92,8 +92,7 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
 	requireImportCounts(t, harness.DB, importCounts{Sessions: 1, Units: 1, SourceStreams: 1, Jobs: 1, RouteIdempotency: 1})
 
-	jobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+firstJobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, firstJobID)
 	if job["status"] != "succeeded" {
 		t.Fatalf("discovery job status = %#v, want succeeded", job["status"])
 	}
@@ -169,8 +168,7 @@ func TestXLSXDiscoveryUsesBoundedUsedRange_Integration(t *testing.T) {
 
 	uploadResp := postImportUploadBytes(t, harness.Server.HTTP.URL, adminLogin, metadata, multipleSheetXLSX(t), "input.xlsx", imports.MediaTypeXLSX, false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	jobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	if job["status"] != "succeeded" || job["result_summary"].(map[string]any)["code"] != "import_session_discovered" {
 		t.Fatalf("unexpected discovery job: %#v", job)
 	}
@@ -230,14 +228,7 @@ func TestXLSXOperatorRegionCreatesDurableExactReplay_Integration(t *testing.T) {
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	jobResp := httptestx.DoJSON(
-		t,
-		http.MethodGet,
-		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
-		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
-	)
-	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
 		t,
@@ -350,14 +341,7 @@ func TestSelectionLifecycleEnforcesOverlapAndRetainsSkippedMapping_Integration(t
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	discoveryResp := httptestx.DoJSON(
-		t,
-		http.MethodGet,
-		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
-		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
-	)
-	discoveryJob := httptestx.RequireSuccessEnvelope(t, discoveryResp, http.StatusOK)["data"].(map[string]any)
+	discoveryJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
 		t,
@@ -658,14 +642,7 @@ func TestFreshSessionIsTheOnlyExplicitReimportWorkflow_Integration(t *testing.T)
 			map[string]any{"client_txn_id": "txn-" + prefix + "-apply"},
 		)
 		applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-		jobResp := httptestx.DoJSON(
-			t,
-			http.MethodGet,
-			harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
-			nil,
-			httptestx.WithCookies(adminLogin.SessionCookie),
-		)
-		job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+		job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 		if job["status"] != "succeeded" {
 			t.Fatalf("fresh-session apply %d did not succeed: %#v", index, job)
 		}
@@ -722,8 +699,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 
 	uploadResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "apply.csv", false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	jobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 
 	unitsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units", nil, httptestx.WithCookies(adminLogin.SessionCookie))
@@ -807,8 +783,7 @@ func TestMappingSelectApplyCreatesTimelineRows_Integration(t *testing.T) {
 
 	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-apply-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	appliedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
 		t.Fatalf("unexpected apply job: %#v", appliedJob)
 	}
@@ -1044,14 +1019,7 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 		map[string]any{"client_txn_id": "txn-extension_profile-import-timeline-rollback-apply"},
 	)
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-	applyJobResp := httptestx.DoJSON(
-		t,
-		http.MethodGet,
-		harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
-		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
-	)
-	failedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	failedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	if failedJob["status"] != "failed" {
 		t.Fatalf("expected failed Timeline apply job, got %#v", failedJob)
 	}
@@ -1372,12 +1340,19 @@ SELECT apply_job_id::text
 				t.Fatal("timed out waiting for serialized apply")
 			}
 			var jobStatus string
-			if err := harness.DB.QueryRowContext(
-				context.Background(),
-				"SELECT status FROM jobs WHERE job_id::text = $1",
-				applyJobID,
-			).Scan(&jobStatus); err != nil {
-				t.Fatalf("read terminal apply job after %s: %v", testCase.name, err)
+			terminalDeadline := time.Now().Add(5 * time.Second)
+			for {
+				if err := harness.DB.QueryRowContext(
+					context.Background(),
+					"SELECT status FROM jobs WHERE job_id::text = $1",
+					applyJobID,
+				).Scan(&jobStatus); err != nil {
+					t.Fatalf("read terminal apply job after %s: %v", testCase.name, err)
+				}
+				if jobStatus == "failed" || time.Now().After(terminalDeadline) {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
 			}
 			if jobStatus != "failed" {
 				t.Fatalf("expected failed apply after %s, got %q", testCase.name, jobStatus)
@@ -1503,14 +1478,28 @@ EXECUTE FUNCTION public.fail_import_apply_boundary_rs06()
 				"/api/v1/import-sessions/"+sessionID+"/apply",
 				map[string]any{"client_txn_id": "txn-imports-recovery-apply-" + slug},
 			)
-			httptestx.RequireErrorEnvelope(t, applyResp, http.StatusInternalServerError, "internal_error")
-			var applyJobID string
-			if err := first.DB.QueryRowContext(context.Background(), `
-SELECT apply_job_id::text
-  FROM import_sessions
- WHERE import_session_id::text = $1
-`, sessionID).Scan(&applyJobID); err != nil {
-				t.Fatalf("read interrupted apply job: %v", err)
+			applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+			applyJobID := applyJob["job_id"].(string)
+			var nextAttemptAt *time.Time
+			failureDeadline := time.Now().Add(5 * time.Second)
+			for {
+				var failureCount int
+				var attemptID *string
+				err := first.DB.QueryRowContext(context.Background(), `
+SELECT handler_failure_count, handler_attempt_id::text, handler_next_attempt_at
+  FROM jobs
+ WHERE job_id::text = $1
+`, applyJobID).Scan(&failureCount, &attemptID, &nextAttemptAt)
+				if err != nil {
+					t.Fatalf("read interrupted apply attempt: %v", err)
+				}
+				if failureCount == 1 && attemptID == nil && nextAttemptAt != nil {
+					break
+				}
+				if time.Now().After(failureDeadline) {
+					t.Fatalf("timed out waiting for interrupted attempt: failure_count=%d attempt_id=%v", failureCount, attemptID)
+				}
+				time.Sleep(10 * time.Millisecond)
 			}
 			if got := dbassert.CountSQL(t, first.DB, `
 SELECT COUNT(*)
@@ -1568,6 +1557,9 @@ SELECT s.session_status, u.unit_status, j.status
 				t.Fatalf("drop import recovery failure function: %v", err)
 			}
 			first.Server.Close()
+			if delay := time.Until(*nextAttemptAt); delay > 0 {
+				time.Sleep(delay)
+			}
 
 			second := runtime.StartServerWithDatabaseAndObjectStore(
 				t,
@@ -1730,8 +1722,7 @@ func TestTargetRegistryAndEntityOwnerFacade_Integration(t *testing.T) {
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-target-host-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	appliedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
 		t.Fatalf("unexpected host apply job: %#v", appliedJob)
 	}
@@ -1850,8 +1841,7 @@ UPDATE incident_memberships
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-network-flow-import-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	appliedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	if appliedJob["status"] != "succeeded" {
 		t.Fatalf("unexpected Network Flow apply job: %#v", appliedJob)
 	}
@@ -1991,18 +1981,7 @@ func TestNetworkFlowOwnerErrorsTranslateToSafeImportsFailures_Integration(t *tes
 		applyResp,
 		http.StatusAccepted,
 	)["data"].(map[string]any)
-	jobResp := httptestx.DoJSON(
-		t,
-		http.MethodGet,
-		harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string),
-		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
-	)
-	failedJob := httptestx.RequireSuccessEnvelope(
-		t,
-		jobResp,
-		http.StatusOK,
-	)["data"].(map[string]any)
+	failedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	errorSummary := failedJob["error_summary"].(map[string]any)
 	errorDetails := errorSummary["details"].(map[string]any)
 	ownerError := errorDetails["owner_error"].(map[string]any)
@@ -2064,14 +2043,7 @@ func TestCancellationAfterCommittedUnitDerivesPartialApplication_Integration(t *
 		false,
 	)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	discoveryResp := httptestx.DoJSON(
-		t,
-		http.MethodGet,
-		harness.Server.HTTP.URL+"/api/v1/jobs/"+uploadJob["job_id"].(string),
-		nil,
-		httptestx.WithCookies(adminLogin.SessionCookie),
-	)
-	discoveryJob := httptestx.RequireSuccessEnvelope(t, discoveryResp, http.StatusOK)["data"].(map[string]any)
+	discoveryJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, uploadJob["job_id"].(string))
 	sessionID := discoveryJob["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	unitsResp := httptestx.DoJSON(
 		t,
@@ -2251,21 +2223,11 @@ SELECT
 	for time.Now().Before(deadline) {
 		var waiting int
 		if err := harness.DB.QueryRowContext(context.Background(), `
-WITH blocked_unit_writer AS (
-    SELECT pid
-      FROM pg_locks
-     WHERE locktype = 'advisory'
-       AND classid = 0
-       AND objid = $1
-       AND NOT granted
-)
 SELECT COUNT(*)
-  FROM pg_locks AS waiting
-  JOIN blocked_unit_writer AS writer
-    ON writer.pid = ANY(pg_blocking_pids(waiting.pid))
- WHERE waiting.locktype = 'advisory'
-   AND NOT waiting.granted
-`, advisoryKey).Scan(&waiting); err != nil {
+ FROM pg_stat_activity
+ WHERE wait_event_type = 'Lock'
+   AND query LIKE '%retained_until IS NULL OR retained_until >%'
+`).Scan(&waiting); err != nil {
 			t.Fatalf("observe waiting cancellation: %v", err)
 		}
 		if waiting == 1 {
@@ -2300,7 +2262,7 @@ SELECT COUNT(*)
 		t.Fatal("timed out waiting for partially canceled apply")
 	}
 
-	if got := waitForSQLCount(t, harness.DB, 10*time.Second, 1, `
+	if got := waitForSQLCount(t, harness.DB, 30*time.Second, 1, `
 SELECT COUNT(*)
   FROM import_sessions s
   JOIN jobs j ON j.job_id = s.apply_job_id
@@ -2388,8 +2350,7 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 
 	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-evidence-owner-apply"})
 	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
-	applyJobResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, httptestx.WithCookies(adminLogin.SessionCookie))
-	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	appliedJob := waitImportJobTerminal(t, harness.Server.HTTP.URL, adminLogin, applyJob["job_id"].(string))
 	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
 		t.Fatalf("unexpected evidence apply job: %#v", appliedJob)
 	}
@@ -2553,8 +2514,7 @@ func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginR
 	metadata := `{"client_txn_id":"` + clientTxnID + `","incident_id":"` + incidentID + `"}`
 	uploadResp := postImportUpload(t, serverURL, login, metadata, csv, filename, false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
-	jobResp := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+uploadJob["job_id"].(string), nil, httptestx.WithCookies(login.SessionCookie))
-	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	job := waitImportJobTerminal(t, serverURL, login, uploadJob["job_id"].(string))
 	if job["status"] != "succeeded" {
 		t.Fatalf("unexpected discovery job: %#v", job)
 	}
@@ -2565,6 +2525,23 @@ func startCSVImportSession(t testing.TB, serverURL string, login flowtest.LoginR
 		t.Fatalf("expected one import unit, got %#v", units)
 	}
 	return sessionID, units[0].(map[string]any)["import_unit_id"].(string)
+}
+
+func waitImportJobTerminal(t testing.TB, serverURL string, login flowtest.LoginResult, jobID string) map[string]any {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		response := httptestx.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
+		job := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+		switch job["status"] {
+		case "succeeded", "failed", "canceled":
+			return job
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for import job %s: %#v", jobID, job)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func requireTimelineHostMentionUnresolved(t testing.TB, row map[string]any, rawText string) {

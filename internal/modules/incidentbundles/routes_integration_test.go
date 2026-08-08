@@ -17,7 +17,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -153,8 +152,6 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 		"role":          "admin",
 	})
 
-	dequeueGate := &incidentBundleTestDequeueGate{}
-	harness.Jobs.ConfigureDequeueGate(dequeueGate)
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
 		"client_txn_id": "txn-export-auth-blocked",
@@ -187,7 +184,6 @@ func TestExportJobAuthorizationReDerivesIncidentMembership_Integration(t *testin
 	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, memberAdminCancel, http.StatusOK)
 
-	recoverIncidentBundleJobsThroughGate(t, harness.Server, dequeueGate)
 	terminal := waitJobWithStatus(t, harness.Server, memberAdminLogin, jobID, "canceled")
 	if terminal["status"] != "canceled" {
 		t.Fatalf("export job must stop at canceled after authorized cancel: %#v", terminal)
@@ -665,14 +661,10 @@ func TestImportFinalPublicationRechecksSubmitterAvailability_Integration(t *test
 			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
 			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
-			dequeueGate := &incidentBundleTestDequeueGate{}
-			targetHarness.Jobs.ConfigureDequeueGate(dequeueGate)
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
 
 			tc.mutate(t, targetHarness.DB, targetAdminID)
-			recoverIncidentBundleJobsThroughGate(t, targetHarness.Server, dequeueGate)
-
 			terminal := waitFailedJob(t, targetHarness.Server, observerLogin, job["job_id"].(string))
 			requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", "initial_admin_unavailable")
 			if countRows(t, targetHarness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID) != 0 {
@@ -704,25 +696,6 @@ SELECT last_value, is_called
 		t.Fatalf("snapshot record revision sequence: %v", err)
 	}
 	return state
-}
-
-type incidentBundleTestDequeueGate struct {
-	open atomic.Bool
-}
-
-func (gate *incidentBundleTestDequeueGate) AdmissionOpen() bool {
-	return gate != nil && gate.open.Load()
-}
-
-func recoverIncidentBundleJobsThroughGate(t testing.TB, server *httptestx.Server, gate *incidentBundleTestDequeueGate) {
-	t.Helper()
-	if err := server.JobsCapability().RecoverHandler(context.Background(), incidentbundles.BundleWorkerKind); err != nil {
-		t.Fatalf("queue Incident Bundle recovery behind dequeue gate: %v", err)
-	}
-	gate.open.Store(true)
-	if err := server.JobsCapability().Activate(context.Background()); err != nil {
-		t.Fatalf("activate Incident Bundle recovery through dequeue gate: %v", err)
-	}
 }
 
 func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {

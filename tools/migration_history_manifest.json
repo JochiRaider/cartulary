@@ -350,6 +350,18 @@
       "filename": "00058_platform_jobs_definition_contract.sql",
       "sha256": "9977fd8be35a80b4f142877b9a9325cffa797f9a6ded19cf4c7b4c76598d1ad0",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 59,
+      "filename": "00059_platform_jobs_execution_fencing.sql",
+      "sha256": "0c0e6d942874c29f301423625263ed5fc3f004f0df435f4b2be0d1a4f626e2e3",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 60,
+      "filename": "00060_platform_jobs_expiry_tombstones.sql",
+      "sha256": "cba4e1d18a8ed4d10aa9839a3bcec346192b4d5db1e38038f5fbf20e03bd9aa3",
+      "historical_phase_shaped": false
     }
   ]
 }

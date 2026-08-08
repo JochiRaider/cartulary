@@ -17,8 +17,7 @@ import (
 type ApplicationService struct {
 	store          *Store
 	incidentAccess incidents.Access
-	jobRunner      reportingJobRunner
-	jobDispatcher  reportingJobDispatcher
+	jobNotifier    reportingJobRunner
 	now            func() time.Time
 }
 
@@ -37,22 +36,14 @@ func NewApplicationService(
 	service := &ApplicationService{
 		store:          store,
 		incidentAccess: incidentAccess,
-		jobRunner:      jobRunner,
+		jobNotifier:    jobRunner,
 		now:            now,
 	}
 	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, now)
 	if err := jobRunner.RegisterHandler(JobWorkerKind, worker.Handle); err != nil {
 		return nil, err
 	}
-	service.jobDispatcher = newDurableReportingJobDispatcher(jobRunner)
 	return service, nil
-}
-
-func (s *ApplicationService) recoverReportingJobs(ctx context.Context) error {
-	if s == nil || s.jobRunner == nil {
-		return nil
-	}
-	return s.jobRunner.RecoverHandler(ctx, JobWorkerKind)
 }
 
 func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uuid.UUID, request CreateSnapshotRequest) (jobs.Resource, *httpapi.APIError) {
@@ -74,7 +65,7 @@ func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uui
 	if err != nil {
 		return jobs.Resource{}, internalAPIError(err)
 	}
-	s.dispatchReportingJob(result.Job.JobID)
+	s.notifyReportingJob(result.JobID)
 	return result.Job, nil
 }
 
@@ -130,7 +121,7 @@ func (s *ApplicationService) CreateRelease(ctx context.Context, actorUserID uuid
 	if err != nil {
 		return jobs.Resource{}, internalAPIError(err)
 	}
-	s.dispatchReportingJob(result.Job.JobID)
+	s.notifyReportingJob(result.JobID)
 	return result.Job, nil
 }
 
@@ -216,9 +207,9 @@ func (s *ApplicationService) releaseActionPayload(clientTxnID string, result Rel
 	return result.Payload, nil
 }
 
-func (s *ApplicationService) dispatchReportingJob(jobID string) {
-	if s.jobDispatcher != nil {
-		s.jobDispatcher.Dispatch(jobID)
+func (s *ApplicationService) notifyReportingJob(jobID uuid.UUID) {
+	if s.jobNotifier != nil {
+		s.jobNotifier.Notify(jobID)
 	}
 }
 

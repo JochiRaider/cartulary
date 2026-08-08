@@ -13,34 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (m *Manager) Create(ctx context.Context, params CreateParams) (Resource, error) {
-	if err := m.ensureConfigured(); err != nil {
-		return Resource{}, err
-	}
-	jobKind := params.JobKind
-	if jobKind == "" && params.Extension != nil {
-		jobKind = params.Extension.JobKind
-	}
-	jobKind = m.catalogJobKind(jobKind)
-	ctx, span := m.startJobSpan(ctx, "cartulary.jobs.enqueue", jobKind, "enqueue")
-	tx, err := m.pool.Begin(ctx)
-	if err != nil {
-		m.finishJobSpan(span, "enqueue", jobKind, "", resultForJobError(err), err)
-		return Resource{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := m.transactions.CreateQueuedTx(ctx, tx, params, m.now().UTC())
-	if err == nil {
-		err = tx.Commit(ctx)
-	}
-	m.finishJobSpan(span, "enqueue", jobKind, "", resultForJobError(err), err)
-	if err != nil {
-		return Resource{}, err
-	}
-	return resource, nil
-}
-
-func createDefinedQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, definition ExtensionJobContract, now time.Time) (Resource, error) {
+func createDefinedQueuedTx(ctx context.Context, tx pgx.Tx, params EnqueueParams, definition Definition, now time.Time) (Resource, error) {
 	if err := validateScope(params.Scope); err != nil {
 		return Resource{}, err
 	}
@@ -54,23 +27,14 @@ func createDefinedQueuedTx(ctx context.Context, tx pgx.Tx, params CreateParams, 
 	if params.SubmittedByUserID == uuid.Nil {
 		return Resource{}, fmt.Errorf("%w: missing submitted_by_user_id", ErrInvalidJobDefinition)
 	}
-	if retiredProfileHandler(params.HandlerName) {
-		return Resource{}, fmt.Errorf("%w: retired extension handler %q", ErrInvalidJobDefinition, params.HandlerName)
-	}
-	if err := validateExtensionAdmission(params); err != nil {
+	if err := validateExtensionAdmission(params, definition); err != nil {
 		return Resource{}, err
 	}
 	if params.JobKind != definition.JobKind || !validProgressUnitID(definition.ProgressUnitID) {
 		return Resource{}, fmt.Errorf("%w: unknown job kind", ErrInvalidJobDefinition)
 	}
-	if params.Extension != nil && params.Extension.JobKind != params.JobKind {
-		return Resource{}, fmt.Errorf("%w: extension job kind mismatch", ErrInvalidJobDefinition)
-	}
 	var handlerPayload []byte
 	if len(params.HandlerPayload) > 0 {
-		if params.HandlerName == "" {
-			return Resource{}, fmt.Errorf("%w: handler payload without handler name", ErrInvalidJobDefinition)
-		}
 		if !json.Valid(params.HandlerPayload) {
 			return Resource{}, fmt.Errorf("%w: invalid handler payload json", ErrInvalidJobDefinition)
 		}
@@ -90,7 +54,7 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
           auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
-`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, nullableText(params.HandlerName), handlerPayload,
+`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, definition.HandlerName, handlerPayload,
 		extensionOwner(params.Extension), definition.JobKind, definition.ProgressUnitID, extensionIdempotencyIdentity(params.Extension),
 		extensionIdempotencyRouteKey(params.Extension), extensionIdempotencyScopeKey(params.Extension), extensionRequestDigest(params.Extension)))
 	if err != nil {
@@ -99,12 +63,18 @@ RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user
 	return record, nil
 }
 
-func validateExtensionAdmission(params CreateParams) error {
-	if params.Extension == nil {
+func validateExtensionAdmission(params EnqueueParams, definition Definition) error {
+	if definition.Extension == nil {
+		if params.Extension != nil {
+			return fmt.Errorf("%w: unexpected extension job admission", ErrInvalidJobDefinition)
+		}
 		return nil
 	}
+	if params.Extension == nil {
+		return fmt.Errorf("%w: missing extension job admission", ErrInvalidJobDefinition)
+	}
 	admission := params.Extension
-	if params.HandlerName == "" || admission.OwnerProfileID == "" || admission.JobKind == "" ||
+	if admission.OwnerProfileID == "" || admission.OwnerProfileID != definition.Extension.OwnerProfileID ||
 		admission.IdempotencyRouteKey == "" || admission.IdempotencyScopeKey == "" ||
 		len(admission.IdempotencyIdentity) == 0 || !json.Valid(admission.IdempotencyIdentity) ||
 		len(admission.NormalizedRequestSHA256) != 64 {
@@ -152,15 +122,6 @@ func hasExactIdentityMembers(members map[string]json.RawMessage) bool {
 	return true
 }
 
-func retiredProfileHandler(handlerName string) bool {
-	switch handlerName {
-	case "imports.discovery", "imports.apply", "incident_bundles.execute", "reference_data.execute", "reporting.execute":
-		return true
-	default:
-		return false
-	}
-}
-
 func extensionOwner(admission *ExtensionJobAdmission) *string {
 	if admission == nil {
 		return nil
@@ -200,6 +161,7 @@ func (m *Manager) Get(ctx context.Context, jobID uuid.UUID) (Resource, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
+	now := m.now().UTC()
 	stored, err := scanStoredJob(m.pool.QueryRow(ctx, `
 SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
        auth_policy,
@@ -208,24 +170,34 @@ SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id
        job_kind, progress_unit_id
   FROM jobs
  WHERE job_id = $1
-`, jobID))
+   AND (retained_until IS NULL OR retained_until > $2)
+`, jobID, now))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Resource{}, ErrNotFound
 	}
 	return stored.publicResource(), err
 }
 
-func (m *Manager) MarkRunning(ctx context.Context, jobID uuid.UUID, progress Progress, message *string) (Resource, error) {
+func (m *Manager) ObserveExecution(ctx context.Context, execution Execution) (Resource, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
-	now := m.now().UTC()
+	return m.executionResource(ctx, execution)
+}
+
+func (m *Manager) UpdateProgress(ctx context.Context, execution Execution, progress Progress, message *string) (Resource, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return Resource{}, err
+	}
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
 		return Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	mutation, err := transitionRunningTx(ctx, tx, jobID, progress, message, now)
+	if err := m.validateExecutionTx(ctx, tx, execution, m.now().UTC()); err != nil {
+		return Resource{}, err
+	}
+	mutation, err := transitionRunningTx(ctx, tx, execution.jobID, progress, message, m.now().UTC())
 	if err != nil {
 		return Resource{}, err
 	}
@@ -240,32 +212,44 @@ func (m *Manager) MarkRunning(ctx context.Context, jobID uuid.UUID, progress Pro
 	return mutation.resource, nil
 }
 
-func (m *Manager) CompleteSucceeded(ctx context.Context, params TransitionParams) (Resource, error) {
-	return m.completeTerminal(ctx, params, StatusSucceeded)
+func (m *Manager) CompleteSucceeded(ctx context.Context, execution Execution, completion SuccessCompletion) (Resource, error) {
+	summary := completion.ResultSummary
+	return m.completeTerminal(ctx, execution, terminalTransition{
+		JobID: execution.jobID, Progress: completion.Progress,
+		ResultSummary: &summary, Message: completion.Message,
+	}, StatusSucceeded)
 }
 
-func (m *Manager) CompleteFailed(ctx context.Context, params TransitionParams) (Resource, error) {
-	return m.completeTerminal(ctx, params, StatusFailed)
+func (m *Manager) CompleteFailed(ctx context.Context, execution Execution, completion FailureCompletion) (Resource, error) {
+	summary := completion.ErrorSummary
+	return m.completeTerminal(ctx, execution, terminalTransition{
+		JobID: execution.jobID, Progress: completion.Progress,
+		ErrorSummary: &summary, Message: completion.Message,
+	}, StatusFailed)
 }
 
-func (m *Manager) CompleteCanceled(ctx context.Context, params TransitionParams) (Resource, error) {
-	if params.ResultSummary == nil {
-		params.ResultSummary = &ResultSummary{Code: "job_canceled", Message: "Job canceled."}
+func (m *Manager) CompleteCanceled(ctx context.Context, execution Execution, completion CancellationCompletion) (Resource, error) {
+	summary := completion.ResultSummary
+	if summary.Code == "" && summary.Message == "" {
+		summary = ResultSummary{Code: "job_canceled", Message: "Job canceled."}
 	}
-	return m.completeTerminal(ctx, params, StatusCanceled)
+	return m.completeTerminal(ctx, execution, terminalTransition{
+		JobID: execution.jobID, Progress: completion.Progress,
+		ResultSummary: &summary, Message: completion.Message,
+	}, StatusCanceled)
 }
 
 // CompleteSucceededTx joins terminal job-result publication to an
 // owner-controlled final transaction. Callers publish the returned resource to
 // live progress subscribers only after the enclosing commit is proven.
-func completeSucceededTx(ctx context.Context, tx pgx.Tx, params TransitionParams, now time.Time) (Resource, error) {
+func completeSucceededTx(ctx context.Context, tx pgx.Tx, params terminalTransition, now time.Time) (Resource, error) {
 	return completeTerminalTx(ctx, tx, params, now, StatusSucceeded)
 }
 
 func completeTerminalTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params TransitionParams,
+	params terminalTransition,
 	now time.Time,
 	status string,
 ) (Resource, error) {
@@ -299,6 +283,10 @@ func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult
 		return CancelResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	now := m.now().UTC()
+	if err := requireVisibleJobTx(ctx, tx, params.JobID, now); err != nil {
+		return CancelResult{}, err
+	}
 
 	existing, present, err := m.transactions.routeIdempotency.LookupRouteIdempotencyTx(ctx, tx, key)
 	if err != nil {
@@ -315,7 +303,7 @@ func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult
 		return CancelResult{Resource: resource, Replayed: true}, tx.Commit(ctx)
 	}
 
-	mutation, reason, err := transitionCancellationTx(ctx, tx, params.JobID, m.now().UTC())
+	mutation, reason, err := transitionCancellationTx(ctx, tx, params.JobID, now)
 	if err != nil {
 		return CancelResult{}, err
 	}
@@ -358,52 +346,42 @@ SELECT extension_owner_profile_id
 	return ownerProfileID, nil
 }
 
-func (m *Manager) completeTerminal(ctx context.Context, params TransitionParams, status string) (Resource, error) {
+func (m *Manager) completeTerminal(ctx context.Context, execution Execution, params terminalTransition, status string) (Resource, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
-	ctx, span := m.startJobSpan(ctx, "cartulary.jobs.run", "unknown", "run")
 	now := m.now().UTC()
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
-		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if status == StatusCanceled && params.ResultSummary == nil {
-		params.ResultSummary = &ResultSummary{Code: "job_canceled", Message: "Job canceled."}
+	validate := m.validateExecutionTx
+	if status == StatusCanceled {
+		validate = m.validateCancellationExecutionTx
+	}
+	if err := validate(ctx, tx, execution, now); err != nil {
+		return Resource{}, err
 	}
 	mutation, err := transitionTerminalTx(ctx, tx, params, now, status)
 	if err != nil {
-		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
 	record := mutation.resource
 	jobKind, kindErr := jobKindTx(ctx, tx, params.JobID)
 	if kindErr != nil {
-		m.finishJobSpan(span, "run", "unknown", "", "failed", kindErr)
 		return Resource{}, kindErr
 	}
 	jobKind = m.catalogJobKind(jobKind)
 	if err := m.transactions.appendProgressIntentTx(ctx, tx, record); err != nil {
-		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		m.finishJobSpan(span, "run", "unknown", "", "failed", err)
 		return Resource{}, err
 	}
 	result := resultForTerminalStatus(record.Status)
-	m.finishJobSpan(span, "run", jobKind, record.Status, result, nil)
 	m.recordJobDuration(ctx, record, jobKind, result)
 	return record, nil
-}
-
-func nullableText(value string) *string {
-	if value == "" {
-		return nil
-	}
-	return &value
 }
 
 // lockTransitionTx serializes current-state checks and commits that can change

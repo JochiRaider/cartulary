@@ -18,7 +18,7 @@ func TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit(t *testing.T) {
 		ScopeKey: incidentID.String(), ClientTxnID: "txn-1",
 	}
 	admission, err := jobs.NewExtensionJobAdmission(
-		"import", "import.discovery_v1", key,
+		"import", key,
 		jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		[]byte(`{"client_txn_id":"txn-1"}`),
 	)
@@ -52,17 +52,19 @@ func TestExtensionJobAdmissionMetadataIsClosedAndInternal_Unit(t *testing.T) {
 }
 
 func TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit(t *testing.T) {
-	contract := jobs.ExtensionJobContract{
-		OwnerProfileID: "import", JobKind: "import.apply_v1",
-		ProgressUnitID: "import.apply.import_unit.v1",
-		OperationKind:  "import.apply", WorkerKind: "import.apply_worker_v1",
-		ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
-		ResourceRefs: []jobs.ExtensionResourceRefContract{
-			{Kind: "import_session", MaxRefs: 1},
-			{Kind: "network_flow_table", MaxRefs: 2},
+	definition := jobs.Definition{
+		JobKind: "import.apply_v1", ProgressUnitID: "import.apply.import_unit.v1",
+		HandlerName: "import.apply_worker_v1",
+		Extension: &jobs.ExtensionPolicy{
+			OwnerProfileID: "import", OperationKind: "import.apply",
+			ContractSHA256: strings.Repeat("a", 64), ProofRequired: true, MaxProofBytes: 4096,
+			ResourceRefs: []jobs.ExtensionResourceRefContract{
+				{Kind: "import_session", MaxRefs: 1},
+				{Kind: "network_flow_table", MaxRefs: 2},
+			},
 		},
 	}
-	normalized, terminal, refs, digest, err := jobs.CanonicalExtensionTerminalSuccess(contract, &jobs.ResultSummary{
+	normalized, terminal, refs, digest, err := jobs.CanonicalExtensionTerminalSuccess(definition, &jobs.ResultSummary{
 		Code: "import_session_applied", Message: "Applied.",
 		ResourceRefs: []jobs.ResourceRef{
 			{Kind: "network_flow_table", ID: "table-2", Route: "/tables/table-2"},
@@ -78,27 +80,28 @@ func TestCanonicalExtensionTerminalSuccessValidatesResourceContracts_Unit(t *tes
 		len(terminal) == 0 || len(refs) == 0 || len(digest) != 64 {
 		t.Fatalf("unexpected canonical terminal result: %#v %s %s %s", normalized, terminal, refs, digest)
 	}
-	if _, _, _, _, err := jobs.CanonicalExtensionTerminalSuccess(contract, &jobs.ResultSummary{
+	if _, _, _, _, err := jobs.CanonicalExtensionTerminalSuccess(definition, &jobs.ResultSummary{
 		Code: "bad", Message: "Bad.",
 		ResourceRefs: []jobs.ResourceRef{{Kind: "undeclared", ID: "1"}},
 	}); err == nil {
 		t.Fatal("expected undeclared resource reference rejection")
 	}
-	manager := jobs.NewManager()
-	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{contract}); err != nil {
+	if _, err := jobs.NewCatalog([]jobs.Definition{definition}); err != nil {
 		t.Fatal(err)
 	}
-	invalid := contract
-	invalid.ResourceRefs = []jobs.ExtensionResourceRefContract{
+	invalid := definition
+	invalidPolicy := *definition.Extension
+	invalid.Extension = &invalidPolicy
+	invalid.Extension.ResourceRefs = []jobs.ExtensionResourceRefContract{
 		{Kind: "network_flow_table", MaxRefs: 1},
 		{Kind: "import_session", MaxRefs: 1},
 	}
-	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{invalid}); err == nil {
+	if _, err := jobs.NewCatalog([]jobs.Definition{invalid}); err == nil {
 		t.Fatal("expected unsorted resource contract rejection")
 	}
-	invalid = contract
+	invalid = definition
 	invalid.ProgressUnitID = "caller selected unit"
-	if err := manager.ConfigureExtensionContracts([]jobs.ExtensionJobContract{invalid}); err == nil {
+	if _, err := jobs.NewCatalog([]jobs.Definition{invalid}); err == nil {
 		t.Fatal("expected invalid progress unit rejection")
 	}
 }

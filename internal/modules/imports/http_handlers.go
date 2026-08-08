@@ -97,10 +97,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		return
 	}
 	if !result.Replayed {
-		if err := s.executeDiscoveryJob(r.Context(), uuid.MustParse(result.Job.JobID)); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
+		s.jobRunner.Notify(uuid.MustParse(result.Job.JobID))
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -535,10 +532,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		return
 	}
 	if !result.Replayed {
-		if err := s.executeApplyJob(r.Context(), uuid.MustParse(result.Job.JobID)); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
+		s.jobRunner.Notify(uuid.MustParse(result.Job.JobID))
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))

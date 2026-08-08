@@ -24,8 +24,20 @@ func (adapter reportingJobSuccessFinalizer) FinalizeReportingJobSuccess(
 	request reporting.JobSuccessFinalization,
 ) (jobs.Resource, error) {
 	return adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
-		Transition:    request.Transition,
+		Execution:     request.Execution,
+		Completion:    request.Completion,
 		FinalCommitID: request.FinalCommitID,
 		Mutate:        extensionstore.OwnerMutation(request.Mutate),
+	})
+}
+
+func (adapter reportingJobSuccessFinalizer) FinalizeReportingJobFailure(
+	ctx context.Context,
+	request reporting.JobFailureFinalization,
+) (jobs.Resource, error) {
+	return adapter.finalizer.FinalizeFailure(ctx, extensionstore.JobFailureFinalizationRequest{
+		Execution:  request.Execution,
+		Completion: request.Completion,
+		Mutate:     extensionstore.OwnerMutation(request.Mutate),
 	})
 }

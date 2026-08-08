@@ -14,9 +14,16 @@ var ErrJobFinalizationIndeterminate = errors.New("reference pack job finalizatio
 type JobSuccessMutation func(context.Context, pgx.Tx) error
 
 type JobSuccessFinalization struct {
-	Transition    jobs.TransitionParams
+	Execution     jobs.Execution
+	Completion    jobs.SuccessCompletion
 	FinalCommitID string
 	Mutate        JobSuccessMutation
+}
+
+type JobFailureFinalization struct {
+	Execution  jobs.Execution
+	Completion jobs.FailureCompletion
+	Mutate     JobSuccessMutation
 }
 
 // JobSuccessFinalizer is the Reference Pack-owned terminal-success port.
@@ -24,4 +31,5 @@ type JobSuccessFinalization struct {
 // store or Extensions-owned persistence to the profile implementation.
 type JobSuccessFinalizer interface {
 	FinalizeReferencePackJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error)
+	FinalizeReferencePackJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error)
 }

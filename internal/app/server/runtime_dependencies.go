@@ -18,7 +18,7 @@ import (
 )
 
 type runtimeDependencies struct {
-	newJobsManager                 func() *jobs.Manager
+	newJobsManager                 func(jobs.ManagerOptions) (*jobs.Manager, error)
 	setupPostgres                  func(context.Context, postgres.Settings) (*pgxpool.Pool, error)
 	ensureSchemaReady              func(context.Context, *pgxpool.Pool, postgres.MigrationSource) error
 	setupObjectStore               func(context.Context, objectstore.Settings, objectstore.Instrumentation) (objectstore.Store, error)

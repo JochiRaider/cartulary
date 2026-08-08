@@ -3,7 +3,39 @@
   "owner_id": "platform.jobs",
   "verifications": [
     {
+      "verification_id": "platform.jobs.verification.architecture_guard",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.composition",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "platform.jobs.verification.durable_runner",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.execution_fencing",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.expiry",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": [
@@ -44,6 +76,14 @@
     },
     {
       "verification_id": "platform.jobs.verification.storage_contract",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "platform.jobs.verification.supervision",
       "behavior_class": "product",
       "profile": "base",
       "evidence_kinds": [

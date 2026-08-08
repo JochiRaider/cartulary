@@ -105,6 +105,9 @@ const expectedMetricNames = [
   "cartulary.collaboration.events.sent",
   "cartulary.jobs.active",
   "cartulary.jobs.duration",
+  "cartulary.jobs.attempts",
+  "cartulary.jobs.expired",
+  "cartulary.jobs.lease_renewal.failures",
   "cartulary.postgres.operation.duration",
   "cartulary.objectstore.operation.duration",
   "cartulary.objectstore.transfer.bytes",
@@ -1391,15 +1394,35 @@ function validateGoldenCorpus(manifest, classification, checks) {
           JSON.stringify(jobSignals.span_families ?? []) === JSON.stringify(expectedSpanFamilies.slice(6, 8)) &&
             JSON.stringify(jobSignals.span_names ?? []) === JSON.stringify(["cartulary.jobs.enqueue", "cartulary.jobs.run"]) &&
             JSON.stringify(jobSignals.span_kinds ?? []) === JSON.stringify(["internal"]) &&
-            JSON.stringify(jobSignals.metrics ?? []) === JSON.stringify(["cartulary.jobs.active", "cartulary.jobs.duration"]) &&
-            JSON.stringify(jobSignals.active_job_kinds ?? []) === JSON.stringify(["incident", "deployment", "unknown"]) &&
-            JSON.stringify(jobSignals.terminal_results ?? []) === JSON.stringify(["success", "canceled", "failed"]) &&
-            JSON.stringify(jobSignals.terminal_statuses ?? []) === JSON.stringify(["succeeded", "canceled", "failed", "expired"]) &&
-            ["job_id", "incident_id", "artifact_path", "evidence_id", "request.body"].every((entry) => (jobSignals.forbidden_values_absent ?? []).includes(entry)) &&
+            JSON.stringify(jobSignals.metrics ?? []) === JSON.stringify([
+              "cartulary.jobs.active",
+              "cartulary.jobs.duration",
+              "cartulary.jobs.attempts",
+              "cartulary.jobs.expired",
+              "cartulary.jobs.lease_renewal.failures",
+            ]) &&
+            JSON.stringify(jobSignals.active_job_kinds ?? []) === JSON.stringify(["import.discovery_v1", "reference_pack.refresh_v1", "unknown"]) &&
+            JSON.stringify(jobSignals.terminal_results ?? []) === JSON.stringify(["success", "canceled", "failed", "conflict"]) &&
+            JSON.stringify(jobSignals.terminal_statuses ?? []) === JSON.stringify(["succeeded", "canceled", "failed"]) &&
+            [
+              "job_id",
+              "incident_id",
+              "artifact_path",
+              "evidence_id",
+              "request.body",
+              "attempt_token",
+              "progress_unit_id",
+              "handler_payload",
+              "raw_handler_error",
+              "panic_value",
+              "filesystem_path",
+              "secret",
+            ].every((entry) => (jobSignals.forbidden_values_absent ?? []).includes(entry)) &&
             evidenceOK(jobSignals.evidence, [
               "internal/platform/jobs/telemetry_test.go::TestJobTelemetryVocabularyHelpers",
               "internal/platform/jobs/telemetry_test.go::TestSafeJobTelemetryToken",
               "internal/platform/jobs/telemetry_test.go::TestJobTelemetryNoSDK",
+              "internal/platform/jobs/telemetry_integration_test.go::TestJobAttemptTelemetryUsesCatalogKindsAndClosedOutcomes_Integration",
               "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
               "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed",
             ]),

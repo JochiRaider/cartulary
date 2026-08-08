@@ -21,8 +21,10 @@ type importJobSuccessFinalizer struct {
 }
 
 type importTerminalCompleter interface {
-	CompleteFailedTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
-	CompleteCanceledTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
+	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
+	ValidateCancellationExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
+	CompleteFailedTx(context.Context, pgx.Tx, jobs.Execution, jobs.FailureCompletion, time.Time) (jobs.Resource, error)
+	CompleteCanceledTx(context.Context, pgx.Tx, jobs.Execution, jobs.CancellationCompletion, time.Time) (jobs.Resource, error)
 }
 
 func NewImportJobSuccessFinalizer(
@@ -50,7 +52,8 @@ func (adapter importJobSuccessFinalizer) FinalizeImportJobSuccess(
 	request imports.JobSuccessFinalization,
 ) (jobs.Resource, error) {
 	return adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
-		Transition:    request.Transition,
+		Execution:     request.Execution,
+		Completion:    request.Completion,
 		FinalCommitID: request.FinalCommitID,
 		Mutate:        extensionstore.OwnerMutation(request.Mutate),
 	})
@@ -58,22 +61,21 @@ func (adapter importJobSuccessFinalizer) FinalizeImportJobSuccess(
 
 func (adapter importJobSuccessFinalizer) FinalizeImportJobFailure(
 	ctx context.Context,
-	request imports.JobTerminalFinalization,
+	request imports.JobFailureFinalization,
 ) (jobs.Resource, error) {
-	return adapter.finalizeTerminal(ctx, request, jobs.StatusFailed)
+	return adapter.finalizeFailure(ctx, request)
 }
 
 func (adapter importJobSuccessFinalizer) FinalizeImportJobCancellation(
 	ctx context.Context,
-	request imports.JobTerminalFinalization,
+	request imports.JobCancellationFinalization,
 ) (jobs.Resource, error) {
-	return adapter.finalizeTerminal(ctx, request, jobs.StatusCanceled)
+	return adapter.finalizeCancellation(ctx, request)
 }
 
-func (adapter importJobSuccessFinalizer) finalizeTerminal(
+func (adapter importJobSuccessFinalizer) finalizeFailure(
 	ctx context.Context,
-	request imports.JobTerminalFinalization,
-	status string,
+	request imports.JobFailureFinalization,
 ) (jobs.Resource, error) {
 	if adapter.pool == nil || adapter.transactions == nil || adapter.now == nil {
 		return jobs.Resource{}, errors.New("import terminal finalizer is unavailable")
@@ -83,30 +85,45 @@ func (adapter importJobSuccessFinalizer) finalizeTerminal(
 		return jobs.Resource{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := adapter.transactions.ValidateExecutionTx(ctx, tx, request.Execution); err != nil {
+		return jobs.Resource{}, err
+	}
 	if request.Mutate != nil {
 		if err := request.Mutate(ctx, tx); err != nil {
 			return jobs.Resource{}, err
 		}
 	}
-	var resource jobs.Resource
-	switch status {
-	case jobs.StatusFailed:
-		resource, err = adapter.transactions.CompleteFailedTx(
-			ctx,
-			tx,
-			request.Transition,
-			adapter.now().UTC(),
-		)
-	case jobs.StatusCanceled:
-		resource, err = adapter.transactions.CompleteCanceledTx(
-			ctx,
-			tx,
-			request.Transition,
-			adapter.now().UTC(),
-		)
-	default:
-		return jobs.Resource{}, errors.New("unsupported import terminal finalizer status")
+	resource, err := adapter.transactions.CompleteFailedTx(ctx, tx, request.Execution, request.Completion, adapter.now().UTC())
+	if err != nil {
+		return jobs.Resource{}, err
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return jobs.Resource{}, err
+	}
+	return resource, nil
+}
+
+func (adapter importJobSuccessFinalizer) finalizeCancellation(
+	ctx context.Context,
+	request imports.JobCancellationFinalization,
+) (jobs.Resource, error) {
+	if adapter.pool == nil || adapter.transactions == nil || adapter.now == nil {
+		return jobs.Resource{}, errors.New("import terminal finalizer is unavailable")
+	}
+	tx, err := adapter.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err := adapter.transactions.ValidateCancellationExecutionTx(ctx, tx, request.Execution); err != nil {
+		return jobs.Resource{}, err
+	}
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, tx); err != nil {
+			return jobs.Resource{}, err
+		}
+	}
+	resource, err := adapter.transactions.CompleteCanceledTx(ctx, tx, request.Execution, request.Completion, adapter.now().UTC())
 	if err != nil {
 		return jobs.Resource{}, err
 	}

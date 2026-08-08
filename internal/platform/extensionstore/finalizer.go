@@ -19,10 +19,17 @@ var ErrIndeterminateCommit = errors.New("extension job finalization commit is in
 type OwnerMutation func(context.Context, pgx.Tx) error
 
 type JobFinalizationRequest struct {
-	Transition         jobs.TransitionParams
+	Execution          jobs.Execution
+	Completion         jobs.SuccessCompletion
 	FinalCommitID      string
 	AuditCorrelationID *string
 	Mutate             OwnerMutation
+}
+
+type JobFailureFinalizationRequest struct {
+	Execution  jobs.Execution
+	Completion jobs.FailureCompletion
+	Mutate     OwnerMutation
 }
 
 type FinalIdempotencyPort interface {
@@ -30,8 +37,9 @@ type FinalIdempotencyPort interface {
 }
 
 type JobFinalizationPort interface {
-	ExtensionFinalizationContextTx(context.Context, pgx.Tx, uuid.UUID) (jobs.ExtensionFinalizationContext, error)
-	CompleteSucceededTx(context.Context, pgx.Tx, jobs.TransitionParams, time.Time) (jobs.Resource, error)
+	ExtensionFinalizationContextTx(context.Context, pgx.Tx, jobs.Execution) (jobs.ExtensionFinalizationContext, error)
+	CompleteSucceededTx(context.Context, pgx.Tx, jobs.Execution, jobs.SuccessCompletion, time.Time) (jobs.Resource, error)
+	CompleteFailedTx(context.Context, pgx.Tx, jobs.Execution, jobs.FailureCompletion, time.Time) (jobs.Resource, error)
 }
 
 type OwnerFinalizer struct {
@@ -80,34 +88,37 @@ func (f *OwnerFinalizer) FinalizeSuccess(ctx context.Context, request JobFinaliz
 }
 
 func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, request JobFinalizationRequest, committedAt time.Time) (jobs.Resource, error) {
-	if f == nil || f.transactions == nil || tx == nil || request.Transition.JobID == uuid.Nil ||
-		request.Transition.ResultSummary == nil || request.FinalCommitID == "" || committedAt.IsZero() {
+	if f == nil || f.transactions == nil || tx == nil || request.Execution.JobID() == uuid.Nil ||
+		request.Completion.ResultSummary.Code == "" || request.FinalCommitID == "" || committedAt.IsZero() {
 		return jobs.Resource{}, ErrInvalidTransition
 	}
-	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Transition.JobID)
+	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Execution)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
 	contract := metadata.Definition
+	if contract.Extension == nil {
+		return jobs.Resource{}, ErrInvalidTransition
+	}
 	normalizedSummary, terminalJSON, resourceRefsJSON, terminalDigest, err :=
-		jobs.CanonicalExtensionTerminalSuccess(contract, request.Transition.ResultSummary)
+		jobs.CanonicalExtensionTerminalSuccess(contract, &request.Completion.ResultSummary)
 	if err != nil {
 		return jobs.Resource{}, err
 	}
-	request.Transition.ResultSummary = normalizedSummary
+	request.Completion.ResultSummary = *normalizedSummary
 	if request.Mutate != nil {
 		if err := request.Mutate(ctx, tx); err != nil {
 			return jobs.Resource{}, err
 		}
 	}
-	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, request.Transition, committedAt.UTC())
+	resource, err := f.transactions.CompleteSucceededTx(ctx, tx, request.Execution, request.Completion, committedAt.UTC())
 	if err != nil {
 		return jobs.Resource{}, err
 	}
 	proof := JobCommitProof{
-		JobID:                   request.Transition.JobID,
-		OwnerProfileID:          contract.OwnerProfileID,
-		OperationKind:           contract.OperationKind,
+		JobID:                   request.Execution.JobID(),
+		OwnerProfileID:          contract.Extension.OwnerProfileID,
+		OperationKind:           contract.Extension.OperationKind,
 		FinalCommitID:           request.FinalCommitID,
 		IdempotencyIdentity:     metadata.IdempotencyIdentity,
 		NormalizedRequestSHA256: metadata.NormalizedRequestSHA256,
@@ -117,7 +128,7 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 		AuditCorrelationID:      request.AuditCorrelationID,
 		CommittedAt:             committedAt.UTC(),
 	}
-	if err := validateProofSize(proof, contract.MaxProofBytes); err != nil {
+	if err := validateProofSize(proof, contract.Extension.MaxProofBytes); err != nil {
 		return jobs.Resource{}, err
 	}
 	if err := InsertJobCommitProof(ctx, tx, proof); err != nil {
@@ -125,6 +136,38 @@ func (f *OwnerFinalizer) FinalizeSuccessTx(ctx context.Context, tx pgx.Tx, reque
 	}
 	if err := f.updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
 		return jobs.Resource{}, err
+	}
+	return resource, nil
+}
+
+func (f *OwnerFinalizer) FinalizeFailure(ctx context.Context, request JobFailureFinalizationRequest) (jobs.Resource, error) {
+	if f == nil || f.store == nil || f.store.pool == nil {
+		return jobs.Resource{}, ErrInvalidTransition
+	}
+	tx, err := f.store.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	metadata, err := f.transactions.ExtensionFinalizationContextTx(ctx, tx, request.Execution)
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if request.Mutate != nil {
+		if err := request.Mutate(ctx, tx); err != nil {
+			return jobs.Resource{}, err
+		}
+	}
+	resource, err := f.transactions.CompleteFailedTx(ctx, tx, request.Execution, request.Completion, f.now().UTC())
+	if err != nil {
+		return jobs.Resource{}, err
+	}
+	if err := f.updateFinalIdempotencyOutcome(ctx, tx, metadata, resource); err != nil {
+		return jobs.Resource{}, err
+	}
+	if err := f.commit(ctx, tx); err != nil {
+		f.fatalSink(err)
+		return jobs.Resource{}, fmt.Errorf("%w: %v", ErrIndeterminateCommit, err)
 	}
 	return resource, nil
 }

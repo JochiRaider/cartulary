@@ -3969,7 +3969,7 @@ For REQ-01-248 and REQ-01-249, the canonical public job contract is:
 - Cancel idempotency is keyed by `(actor_user_id, job_id, client_txn_id)`. If the same authenticated actor replays the same normalized cancel request with the same key, the server MUST return `200 OK` with the current authoritative job resource and MUST create no second cancel transition. If the same actor reuses that key with a different normalized cancel request, the server MUST fail with `409` and `error.code = client_txn_conflict`.
 - A newly accepted cancel request MUST set `cancelable = false` immediately and MUST transition the job through `cancel_requested` before any later `canceled`, `failed`, or `succeeded` terminal state is observed. A conformant server MAY return a terminal state on the successful cancel response when the cancel lost a race to an already committed safe-stop boundary, but it MUST NOT create a second public transition.
 - A fresh cancel request against `cancel_requested`, `succeeded`, `failed`, `canceled`, or any non-terminal resource whose current `cancelable = false` MUST fail with `409`, `error.code = job_cancel_rejected`, and `error.details.reason_code` equal to `already_cancel_requested`, `already_terminal`, or `not_cancelable` from §3.3.6.2. A missing, expired, or unauthorized job lookup or cancel request MUST fail with `404` and `error.code = job_not_found`.
-- Terminal job resources MUST be retained for at least 7 days. After a terminal transition, `retained_until` is required and MUST be greater than or equal to `finished_at + 7 days`. After `retained_until`, `GET /api/v1/jobs/{job_id}` MAY return `404` with `error.code = job_not_found`. Expiring a terminal job resource MUST NOT delete or mutate durable outputs such as committed incident changes, imports, reports, snapshots, bundles, or blob metadata produced by that job.
+- Terminal job resources MUST be retained for at least 7 days. After a terminal transition, `retained_until` is required and MUST be greater than or equal to `finished_at + 7 days`. At `now >= retained_until`, `GET /api/v1/jobs/{job_id}` and every cancel request, including an otherwise exact idempotency replay, MUST return `404` with `error.code = job_not_found`. This logical expiry rule applies independently of physical compaction progress. Expiring a terminal job resource MUST NOT delete or mutate durable outputs such as committed incident changes, imports, reports, snapshots, bundles, blob metadata, extension commit proofs, or other cross-owner provenance produced by that job.
 
 #### 3.3.10 WebSocket collaboration stream
 
@@ -7868,12 +7868,49 @@ For the public HTTP and WebSocket surface, the exact contract for `progress`, ca
 
 The internal Jobs runtime MUST enforce the closed state matrix in §3.3.9.1
 through Jobs-owned semantic operations rather than caller-supplied expected
-states. A queued durable-job claim MUST atomically commit `running`,
-`started_at`, its unique attempt identity, lease owner, lease expiry, and
-attempt count before invoking the handler. An expired lease for a `running` or
-`cancel_requested` job MAY be reacquired without changing the public state or
-regressing progress. Lease and attempt bookkeeping alone MUST NOT change the
-public `updated_at` value or publish a public progress event.
+states. Application composition MUST construct one immutable catalog of job
+kind, progress-unit identity, handler identity, and optional owner policy. Job
+admission supplies the job kind as its sole definition selector; Jobs derives
+the other identities from that catalog. Every retained job row MUST carry a
+non-null catalog-backed job kind, progress-unit identity, and handler identity.
+
+A queued durable-job claim MUST atomically commit `running`, `started_at`, a
+unique opaque execution identity, and lease expiry before invoking the
+handler. Handler payload reads, execution observation, progress changes,
+owner-transaction finalization, terminal completion, lease renewal, and
+conditional release MUST validate that same live unexpired execution identity
+under the Jobs transition lock. An expired or superseded execution MUST be
+unable to read handler payload or mutate Jobs, owner, or Collaboration state,
+even when its handler ignores context cancellation. Lease and execution
+bookkeeping alone MUST NOT change public `updated_at` or publish a public
+progress event.
+
+The production execution policy is immutable: handler lease 30 seconds,
+renewal cadence 10 seconds, recovery scan cadence 5 seconds, recovery batch
+100 rows, global handler concurrency 8, maximum failures 3, retry delays 5
+seconds and then 30 seconds, expiry sweep cadence 5 minutes, and expiry batch
+1,000 rows. Tests MAY inject shorter values through harness-owned composition;
+deployment configuration MUST NOT redefine these values in the current
+profile.
+
+Handler error, recovered panic, incomplete nil return, or expiry of an attempt
+not conditionally released during graceful shutdown consumes one failure. A
+graceful conditional release consumes no failure. Failures one and two clear
+the live execution and persist the corresponding next-attempt eligibility
+time. Failure three atomically completes the job failed with the existing
+closed exhausted summary. Claims themselves do not consume the failure budget.
+Recovery MUST honor persisted eligibility across process restart.
+
+One long-lived supervisor is authoritative for initial and continuing
+recovery. It MUST perform one synchronous initial scan before startup can be
+observed as ready, continue scanning at the fixed cadence, deduplicate jobs
+already in flight, and never exceed the global concurrency bound. A typed
+non-blocking job notification MAY accelerate work but MUST NOT be required for
+recovery. Transient scan errors remain inside the live supervisor. An
+unexpected supervisor exit or panic is required publication-component loss;
+an ordinary handler failure is not. Graceful shutdown stops new claims,
+cancels handlers, conditionally releases still-owned executions, and drains
+under the application shutdown deadline.
 
 Terminal state and progress are immutable. Progress `completed` MUST never
 decrease; a known `total` MUST never clear or decrease; the transition from an
@@ -7889,6 +7926,18 @@ values, job identifiers, payload content, incident content, storage paths,
 secrets, and internal progress-unit identifiers MUST NOT enter public errors,
 logs, telemetry, or durable public summaries. A nil return while the job
 remains mutable is `job_handler_incomplete`, not success.
+
+At each five-minute expiry sweep, Jobs MUST capture one fixed cutoff and compact
+at most one ordered batch of 1,000 terminal rows whose `retained_until` is at
+or before that cutoff and which are not already tombstones. Ordering is
+`retained_until`, then `job_id`, ascending. Compaction clears only Jobs-owned
+handler payload, live execution/lease/retry diagnostics, message, public
+result/error summaries, and extension idempotency evidence. It retains job,
+scope, submitter, authorization, owner, catalog, handler, terminal status,
+progress, lifecycle timestamps, extension proof, foreign-row, and durable
+output provenance. It emits no `job_progress` event and performs no hard
+delete. A future physical deletion capability requires a separately adopted
+cross-owner retention contract.
 
 The seven Core-owned current job kinds use these immutable internal progress
 units:

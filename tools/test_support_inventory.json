@@ -146,6 +146,15 @@
       "rationale": "Database-contract-only migration application helpers; no deployable CLI surface."
     },
     {
+      "path": "internal/platform/telemetry/testsupport",
+      "owner": "platform_telemetry",
+      "posture": "platform_facade",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Telemetry-owned in-process SDK capture facade for cross-owner signal assertions; no exporter or service-starting surface."
+    },
+    {
       "path": "internal/platform/viewschema/testsupport",
       "owner": "platform_viewschema",
       "posture": "platform_facade",

@@ -46,7 +46,64 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
+          "TestDrainedJobsCutoverRollbackBeforeFirstCompaction_Integration",
           "TestDrainedV2CutoverAndRecovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.expiry_and_compaction",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.expiry",
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.supervision"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestCompactExpiredJobs_Integration",
+          "TestLogicalExpiryMasksReadsAndCancelReplay_Integration",
+          "TestRunnerDelaysFirstExpirySweep_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.expiry_migration",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.expiry",
+        "platform.jobs.verification.storage_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestJobsExpiryMigration60FreshAndGuarded_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -109,6 +166,31 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "platform.jobs.integration.operational_telemetry",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.telemetry"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestJobAttemptTelemetryUsesCatalogKindsAndClosedOutcomes_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {
@@ -184,6 +266,31 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "platform.jobs.integration.supervised_runner",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.supervision"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestSupervisedRunnerContract_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "platform.jobs.integration.transition_progress_contract",
       "owner_id": "platform.jobs",
       "family_id": "platform.jobs.integration",
@@ -210,6 +317,54 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "platform.jobs.unit.architecture_guard",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.jobs.verification.architecture_guard"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestRemovedJobsSurfacesRemainAbsent_Architecture"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "platform.jobs.unit.immutable_composition",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.unit",
+      "collaborator_ids": [
+        "app.server"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.composition"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestImmutableCompositionContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "platform.jobs.unit.telemetry_contract",
       "owner_id": "platform.jobs",
       "family_id": "platform.jobs.unit",
@@ -226,6 +381,29 @@
           "TestJobTelemetryNoSDK",
           "TestJobTelemetryVocabularyHelpers",
           "TestSafeJobTelemetryToken"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "platform.jobs.unit.typed_execution_contract",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.jobs.verification.execution_fencing"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestTypedExecutionContract_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 )
@@ -13,72 +12,134 @@ type ExtensionResourceRefContract struct {
 	MaxRefs int
 }
 
-type jobDefinitionCatalog struct {
-	byKind map[string]ExtensionJobContract
+// ExtensionPolicy contains only owner-specific policy. Generic job identity
+// remains on Definition so future non-extension owners do not need fake
+// extension metadata.
+type ExtensionPolicy struct {
+	OwnerProfileID string
+	OperationKind  string
+	ContractSHA256 string
+	ProofRequired  bool
+	MaxProofBytes  int
+	ResourceRefs   []ExtensionResourceRefContract
 }
 
-func newJobDefinitionCatalog(contracts []ExtensionJobContract) (*jobDefinitionCatalog, error) {
-	indexed := make(map[string]ExtensionJobContract, len(contracts))
-	for _, contract := range contracts {
-		if contract.OwnerProfileID == "" || contract.JobKind == "" ||
-			!validProgressUnitID(contract.ProgressUnitID) ||
-			contract.OperationKind == "" || contract.WorkerKind == "" ||
-			!lowerHexSHA256(contract.ContractSHA256) || !contract.ProofRequired ||
-			contract.MaxProofBytes < 1 || contract.MaxProofBytes > 1048576 {
-			return nil, fmt.Errorf("%w: incomplete extension job contract %q", ErrInvalidJobDefinition, contract.JobKind)
+// Definition is one immutable job-kind binding.
+type Definition struct {
+	JobKind        string
+	ProgressUnitID string
+	HandlerName    string
+	Extension      *ExtensionPolicy
+}
+
+// Catalog is an immutable definition catalog shared by every Jobs service.
+type Catalog struct {
+	byKind map[string]Definition
+}
+
+func NewCatalog(definitions []Definition) (*Catalog, error) {
+	indexed := make(map[string]Definition, len(definitions))
+	for _, definition := range definitions {
+		if definition.JobKind == "" || len(definition.JobKind) > 191 || !safeJobToken(definition.JobKind) ||
+			!validProgressUnitID(definition.ProgressUnitID) || definition.HandlerName == "" || len(definition.HandlerName) > 191 ||
+			!safeJobToken(definition.HandlerName) {
+			return nil, fmt.Errorf("%w: incomplete job definition %q", ErrInvalidJobDefinition, definition.JobKind)
 		}
-		if _, duplicate := indexed[contract.JobKind]; duplicate {
-			return nil, fmt.Errorf("%w: duplicate extension job contract %q", ErrInvalidJobDefinition, contract.JobKind)
+		if _, duplicate := indexed[definition.JobKind]; duplicate {
+			return nil, fmt.Errorf("%w: duplicate job definition %q", ErrInvalidJobDefinition, definition.JobKind)
 		}
-		totalRefs := 0
-		previousKind := ""
-		for _, resourceRef := range contract.ResourceRefs {
-			if resourceRef.Kind == "" || resourceRef.Kind <= previousKind ||
-				resourceRef.MaxRefs < 1 || resourceRef.MaxRefs > 1024 {
-				return nil, fmt.Errorf("%w: invalid extension resource contract %q", ErrInvalidJobDefinition, resourceRef.Kind)
-			}
-			totalRefs += resourceRef.MaxRefs
-			if totalRefs > 1024 {
-				return nil, fmt.Errorf("%w: extension resource aggregate limit exceeded", ErrInvalidJobDefinition)
-			}
-			previousKind = resourceRef.Kind
+		clone, err := cloneDefinition(definition)
+		if err != nil {
+			return nil, err
 		}
-		clone := contract
-		clone.ResourceRefs = append([]ExtensionResourceRefContract(nil), contract.ResourceRefs...)
-		indexed[contract.JobKind] = clone
+		indexed[definition.JobKind] = clone
 	}
 	if len(indexed) == 0 {
 		return nil, fmt.Errorf("%w: empty job definition catalog", ErrInvalidJobDefinition)
 	}
-	return &jobDefinitionCatalog{byKind: indexed}, nil
+	return &Catalog{byKind: indexed}, nil
 }
 
-func (catalog *jobDefinitionCatalog) contains(contracts []ExtensionJobContract) bool {
-	if catalog == nil || len(catalog.byKind) != len(contracts) {
+func cloneDefinition(definition Definition) (Definition, error) {
+	clone := definition
+	if definition.Extension == nil {
+		return clone, nil
+	}
+	policy := *definition.Extension
+	if policy.OwnerProfileID == "" || policy.OperationKind == "" ||
+		!lowerHexSHA256(policy.ContractSHA256) || !policy.ProofRequired ||
+		policy.MaxProofBytes < 1 || policy.MaxProofBytes > 1048576 {
+		return Definition{}, fmt.Errorf("%w: incomplete extension policy %q", ErrInvalidJobDefinition, definition.JobKind)
+	}
+	policy.ResourceRefs = append([]ExtensionResourceRefContract(nil), definition.Extension.ResourceRefs...)
+	totalRefs := 0
+	previousKind := ""
+	for _, resourceRef := range policy.ResourceRefs {
+		if resourceRef.Kind == "" || resourceRef.Kind <= previousKind ||
+			resourceRef.MaxRefs < 1 || resourceRef.MaxRefs > 1024 {
+			return Definition{}, fmt.Errorf("%w: invalid extension resource contract %q", ErrInvalidJobDefinition, resourceRef.Kind)
+		}
+		totalRefs += resourceRef.MaxRefs
+		if totalRefs > 1024 {
+			return Definition{}, fmt.Errorf("%w: extension resource aggregate limit exceeded", ErrInvalidJobDefinition)
+		}
+		previousKind = resourceRef.Kind
+	}
+	clone.Extension = &policy
+	return clone, nil
+}
+
+func (catalog *Catalog) definition(jobKind string) (Definition, bool) {
+	if catalog == nil {
+		return Definition{}, false
+	}
+	definition, present := catalog.byKind[jobKind]
+	if !present {
+		return Definition{}, false
+	}
+	clone, err := cloneDefinition(definition)
+	if err != nil {
+		return Definition{}, false
+	}
+	return clone, true
+}
+
+func (catalog *Catalog) handlerNames() []string {
+	if catalog == nil {
+		return nil
+	}
+	unique := map[string]struct{}{}
+	for _, definition := range catalog.byKind {
+		unique[definition.HandlerName] = struct{}{}
+	}
+	result := make([]string, 0, len(unique))
+	for name := range unique {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (catalog *Catalog) hasHandlerName(handlerName string) bool {
+	if catalog == nil || handlerName == "" {
 		return false
 	}
-	for _, contract := range contracts {
-		stored, present := catalog.byKind[contract.JobKind]
-		if !present || !reflect.DeepEqual(stored, contract) {
-			return false
+	for _, definition := range catalog.byKind {
+		if definition.HandlerName == handlerName {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
-// ValidateStorageCatalog is the startup compatibility gate. It inspects only
-// mutable jobs and reports bounded kind/status tokens; job identifiers,
-// payloads, progress-unit identifiers, and handler diagnostics never enter the
-// error surface.
+// ValidateStorageCatalog is the startup compatibility gate. It reports only
+// bounded kind/status tokens and never exposes identifiers or payload data.
 func (m *Manager) ValidateStorageCatalog(ctx context.Context) error {
 	if err := m.ensureConfigured(); err != nil {
 		return err
 	}
-	if m.definitions == nil || len(m.definitions.byKind) == 0 {
-		return fmt.Errorf("%w: definition catalog unavailable", ErrStorageIncompatible)
-	}
 	rows, err := m.pool.Query(ctx, `
-SELECT job_kind, progress_unit_id, status
+SELECT job_kind, progress_unit_id, handler_name, status
   FROM jobs
  WHERE status IN ('queued', 'running', 'cancel_requested')
  ORDER BY job_kind, status
@@ -90,16 +151,15 @@ SELECT job_kind, progress_unit_id, status
 	invalidCount := 0
 	tokens := map[string]struct{}{}
 	for rows.Next() {
-		var jobKind *string
-		var progressUnitID *string
+		var jobKind, progressUnitID, handlerName *string
 		var status string
-		if err := rows.Scan(&jobKind, &progressUnitID, &status); err != nil {
+		if err := rows.Scan(&jobKind, &progressUnitID, &handlerName, &status); err != nil {
 			return err
 		}
 		valid := false
-		if jobKind != nil && progressUnitID != nil {
-			definition, present := m.definitions.byKind[*jobKind]
-			valid = present && definition.ProgressUnitID == *progressUnitID
+		if jobKind != nil && progressUnitID != nil && handlerName != nil {
+			definition, present := m.catalog.definition(*jobKind)
+			valid = present && definition.ProgressUnitID == *progressUnitID && definition.HandlerName == *handlerName
 		}
 		if valid {
 			continue
@@ -154,36 +214,6 @@ func safeJobToken(value string) bool {
 	return true
 }
 
-type ExtensionJobContract struct {
-	OwnerProfileID string
-	JobKind        string
-	ProgressUnitID string
-	OperationKind  string
-	WorkerKind     string
-	ContractSHA256 string
-	ProofRequired  bool
-	MaxProofBytes  int
-	ResourceRefs   []ExtensionResourceRefContract
-}
-
-func (m *Manager) ConfigureExtensionContracts(contracts []ExtensionJobContract) error {
-	if m == nil {
-		return ErrNotConfigured
-	}
-	var catalog *jobDefinitionCatalog
-	var err error
-	if m.transactions != nil {
-		catalog, err = m.transactions.configureDefinitions(contracts)
-	} else {
-		catalog, err = newJobDefinitionCatalog(contracts)
-	}
-	if err != nil {
-		return err
-	}
-	m.definitions = catalog
-	return nil
-}
-
 func validProgressUnitID(value string) bool {
 	if len(value) == 0 || len(value) > 191 {
 		return false
@@ -225,16 +255,4 @@ func lowerHexSHA256(value string) bool {
 		}
 	}
 	return true
-}
-
-func (m *Manager) ExtensionContract(jobKind string) (ExtensionJobContract, bool) {
-	if m == nil {
-		return ExtensionJobContract{}, false
-	}
-	if m.definitions == nil {
-		return ExtensionJobContract{}, false
-	}
-	contract, present := m.definitions.byKind[jobKind]
-	contract.ResourceRefs = append([]ExtensionResourceRefContract(nil), contract.ResourceRefs...)
-	return contract, present
 }

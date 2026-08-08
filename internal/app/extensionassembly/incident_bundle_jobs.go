@@ -35,7 +35,8 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobSucces
 	request incidentbundles.JobSuccessFinalization,
 ) (jobs.Resource, error) {
 	resource, err := adapter.finalizer.FinalizeSuccess(ctx, extensionstore.JobFinalizationRequest{
-		Transition:    request.Transition,
+		Execution:     request.Execution,
+		Completion:    request.Completion,
 		FinalCommitID: request.FinalCommitID,
 		Mutate:        extensionstore.OwnerMutation(request.Mutate),
 	})
@@ -58,12 +59,25 @@ func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobSucces
 		ctx,
 		finalization.tx,
 		extensionstore.JobFinalizationRequest{
-			Transition:    request.Transition,
+			Execution:     request.Execution,
+			Completion:    request.Completion,
 			FinalCommitID: request.FinalCommitID,
 			Mutate:        extensionstore.OwnerMutation(request.Mutate),
 		},
 		adapter.now().UTC(),
 	)
+	return resource, mapIncidentBundleFinalizationError(err)
+}
+
+func (adapter incidentBundleJobSuccessFinalizer) FinalizeIncidentBundleJobFailure(
+	ctx context.Context,
+	request incidentbundles.JobFailureFinalization,
+) (jobs.Resource, error) {
+	resource, err := adapter.finalizer.FinalizeFailure(ctx, extensionstore.JobFailureFinalizationRequest{
+		Execution:  request.Execution,
+		Completion: request.Completion,
+		Mutate:     extensionstore.OwnerMutation(request.Mutate),
+	})
 	return resource, mapIncidentBundleFinalizationError(err)
 }
 

@@ -3,7 +3,6 @@ package imports
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -16,41 +15,32 @@ func (s *Service) registerJobHandlers() error {
 	if s == nil || s.jobRunner == nil {
 		return nil
 	}
-	if err := s.jobRunner.RegisterHandler(importDiscoveryJobHandlerName, s.executeDiscoveryJob); err != nil && !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+	if err := s.jobRunner.RegisterHandler(importDiscoveryJobHandlerName, s.executeDiscoveryJob); err != nil {
 		return err
 	}
-	if err := s.jobRunner.RegisterHandler(importApplyJobHandlerName, s.executeApplyJob); err != nil && !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+	if err := s.jobRunner.RegisterHandler(importApplyJobHandlerName, s.executeApplyJob); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Service) recoverImportJobs(ctx context.Context) error {
-	if s == nil || s.jobRunner == nil {
-		return nil
-	}
-	if err := s.jobRunner.RecoverHandler(ctx, importDiscoveryJobHandlerName); err != nil {
-		return err
-	}
-	return s.jobRunner.RecoverHandler(ctx, importApplyJobHandlerName)
-}
-
-func (s *Service) executeDiscoveryJob(ctx context.Context, jobID uuid.UUID) error {
+func (s *Service) executeDiscoveryJob(ctx context.Context, execution jobs.Execution) error {
 	var payload discoveryJobHandlerPayload
-	if err := s.decodeJobPayload(ctx, jobID, &payload); err != nil {
+	if err := s.decodeJobPayload(ctx, execution, &payload); err != nil {
 		return err
 	}
 	sessionID, err := uuid.Parse(payload.ImportSessionID)
 	if err != nil {
 		return err
 	}
-	return s.completeDiscoveryJob(ctx, jobID, sessionID)
+	return s.completeDiscoveryJob(ctx, execution, sessionID)
 }
 
-func (s *Service) completeDiscoveryJob(ctx context.Context, jobID uuid.UUID, importSessionID uuid.UUID) error {
+func (s *Service) completeDiscoveryJob(ctx context.Context, execution jobs.Execution, importSessionID uuid.UUID) error {
+	jobID := execution.JobID()
 	total := 1
-	if !s.markJobRunningOrResume(ctx, jobID, total) {
-		job, err := s.jobManager.Get(ctx, jobID)
+	if !s.prepareClaimedJob(ctx, execution, total) {
+		job, err := s.jobManager.ObserveExecution(ctx, execution)
 		if err == nil && job.Status == jobs.StatusCanceled {
 			return s.store.CancelDiscovery(ctx, importSessionID, s.now())
 		}
@@ -58,10 +48,10 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, jobID uuid.UUID, imp
 	}
 	_, err := s.jobSuccessFinalizer.FinalizeImportJobSuccess(ctx, JobSuccessFinalization{
 		FinalCommitID: "import.discovery:" + jobID.String(),
-		Transition: jobs.TransitionParams{
-			JobID:    jobID,
+		Execution:     execution,
+		Completion: jobs.SuccessCompletion{
 			Progress: jobs.Progress{Completed: 1, Total: &total},
-			ResultSummary: &jobs.ResultSummary{
+			ResultSummary: jobs.ResultSummary{
 				Code:    "import_session_discovered",
 				Message: "Import session discovered.",
 				ResourceRefs: []jobs.ResourceRef{{
@@ -78,8 +68,8 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, jobID uuid.UUID, imp
 	return err
 }
 
-func (s *Service) decodeJobPayload(ctx context.Context, jobID uuid.UUID, target any) error {
-	payload, err := s.jobManager.HandlerPayload(ctx, jobID)
+func (s *Service) decodeJobPayload(ctx context.Context, execution jobs.Execution, target any) error {
+	payload, err := s.jobManager.HandlerPayload(ctx, execution)
 	if err != nil {
 		return err
 	}
@@ -89,23 +79,20 @@ func (s *Service) decodeJobPayload(ctx context.Context, jobID uuid.UUID, target 
 	return json.Unmarshal(payload, target)
 }
 
-func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
+func (s *Service) prepareClaimedJob(ctx context.Context, execution jobs.Execution, total int) bool {
 	if total <= 0 {
 		total = 1
 	}
-	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err == nil {
+	if _, err := s.jobManager.UpdateProgress(ctx, execution, jobs.Progress{Completed: 0, Total: &total}, nil); err == nil {
 		return true
 	}
-	job, err := s.jobManager.Get(ctx, jobID)
+	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	if err != nil {
 		return false
 	}
 	switch job.Status {
-	case jobs.StatusRunning:
-		return true
 	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-			JobID:    jobID,
+		_, _ = s.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
 			Progress: jobs.Progress{Completed: 0, Total: &total},
 		})
 		return false

@@ -131,7 +131,7 @@ func TestImportsResponsibilitiesRemainSeparated(t *testing.T) {
 		},
 		{
 			name:      "jobs.go",
-			required:  []string{"registerJobHandlers", "executeDiscoveryJob", "markJobRunningOrResume"},
+			required:  []string{"registerJobHandlers", "executeDiscoveryJob", "prepareClaimedJob"},
 			forbidden: []string{"handleImportSessionsCollection", "discoverImportUnits"},
 		},
 		{

@@ -745,6 +745,16 @@ safe token `unknown`; it MUST NOT expose a raw stored value. The internal
 `progress_unit_id`, raw handler error text, and recovered panic values are
 forbidden in span names, attributes, events, metrics, logs, and diagnostics.
 
+`cartulary.jobs.run` MUST start only after a durable execution claim succeeds
+and MUST end only after the handler return, panic, cancellation, ownership
+loss, or terminal observation is classified. A failed attempt that remains
+eligible for retry emits `cartulary.result='failed'` and omits
+`cartulary.job_terminal_status`. Ownership loss emits
+`cartulary.result='conflict'`; renewal storage failure emits
+`cartulary.result='failed'`. Ordinary user-requested terminal cancellation
+emits `cartulary.result='canceled'`. These signals MUST NOT change retry,
+transition, or shutdown behavior when telemetry is disabled or unavailable.
+
 #### 8.5.1 Error code and error class registry
 
 **OTEL-REQ-141**
@@ -908,7 +918,7 @@ The implementation MUST emit spans for the following families when tracing is en
 | WebSocket lifecycle | `cartulary.collaboration.websocket` | `cartulary.operation`, `cartulary.result`. | Connection ID, user ID, incident ID, payload content. |
 | WebSocket event send | `cartulary.collaboration.event_send` | `cartulary.websocket.event_type`, `cartulary.result`. | Event payload, record ID, user ID, connection ID. |
 | Job enqueue | `cartulary.jobs.enqueue` | `cartulary.job_kind`, `cartulary.operation='enqueue'`, `cartulary.result`. | Job ID, incident ID, request body. |
-| Job run | `cartulary.jobs.run` | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`. | Job ID, artifact path, incident ID, evidence ID. |
+| Job run | `cartulary.jobs.run` | `cartulary.job_kind`, `cartulary.result`; `cartulary.job_terminal_status` only when the attempt causes or observes terminal job state. | Job ID, attempt ID, progress-unit ID, artifact path, incident ID, evidence ID. |
 | Postgres dependency | `cartulary.postgres.operation` | `db.system.name='postgresql'`, `cartulary.operation`, `cartulary.result`. | SQL text, query summary, bind values, table names, database name, server address, port. |
 | Object-store dependency | `cartulary.objectstore.operation` | `cartulary.operation`, `cartulary.result`. | Bucket, key, filename, object hash, upload ID, copy source, storage ref. |
 
@@ -1043,6 +1053,9 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 | `cartulary.collaboration.events.sent` | Counter | `{event}` | WebSocket events sent. | `cartulary.websocket.event_type`, `cartulary.result`, optional `cartulary.drop_reason`. |
 | `cartulary.jobs.active` | ObservableGauge | `{job}` | Active background jobs by kind. | `cartulary.job_kind`. |
 | `cartulary.jobs.duration` | Histogram | `s` | Background job runtime duration. | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`, optional `cartulary.error_code`. |
+| `cartulary.jobs.attempts` | Counter | `{attempt}` | Completed handler attempts by kind and closed outcome. | `cartulary.job_kind`, `cartulary.result`. |
+| `cartulary.jobs.expired` | Counter | `{job}` | Job resources compacted after logical expiry. | `cartulary.job_kind`. |
+| `cartulary.jobs.lease_renewal.failures` | Counter | `{failure}` | Failed lease renewals by kind and closed outcome. | `cartulary.job_kind`, `cartulary.result`. |
 | `cartulary.postgres.operation.duration` | Histogram | `s` | Postgres dependency operation duration. | `db.system.name`, `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.operation.duration` | Histogram | `s` | Object-store dependency operation duration. | `cartulary.operation`, `cartulary.result`, optional `cartulary.error_class`. |
 | `cartulary.objectstore.transfer.bytes` | Histogram | `By` | Safe object-store transfer size. | `cartulary.operation`, `cartulary.result`; no object labels. |

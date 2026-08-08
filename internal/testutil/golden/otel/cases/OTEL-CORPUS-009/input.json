@@ -16,35 +16,46 @@
     ],
     "metrics": [
       "cartulary.jobs.active",
-      "cartulary.jobs.duration"
+      "cartulary.jobs.duration",
+      "cartulary.jobs.attempts",
+      "cartulary.jobs.expired",
+      "cartulary.jobs.lease_renewal.failures"
     ],
     "active_job_kinds": [
-      "incident",
-      "deployment",
+      "import.discovery_v1",
+      "reference_pack.refresh_v1",
       "unknown"
     ],
     "terminal_results": [
       "success",
       "canceled",
-      "failed"
+      "failed",
+      "conflict"
     ],
     "terminal_statuses": [
       "succeeded",
       "canceled",
-      "failed",
-      "expired"
+      "failed"
     ],
     "forbidden_values_absent": [
       "job_id",
       "incident_id",
       "artifact_path",
       "evidence_id",
-      "request.body"
+      "request.body",
+      "attempt_token",
+      "progress_unit_id",
+      "handler_payload",
+      "raw_handler_error",
+      "panic_value",
+      "filesystem_path",
+      "secret"
     ],
     "evidence": [
       "internal/platform/jobs/telemetry_test.go::TestJobTelemetryVocabularyHelpers",
       "internal/platform/jobs/telemetry_test.go::TestSafeJobTelemetryToken",
       "internal/platform/jobs/telemetry_test.go::TestJobTelemetryNoSDK",
+      "internal/platform/jobs/telemetry_integration_test.go::TestJobAttemptTelemetryUsesCatalogKindsAndClosedOutcomes_Integration",
       "internal/platform/telemetry/registry_test.go::TestSpanRegistryClosed",
       "internal/platform/telemetry/registry_test.go::TestMetricRegistryClosed"
     ]

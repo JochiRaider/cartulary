@@ -62,6 +62,9 @@ func TestMetricRegistryClosed(t *testing.T) {
 		"cartulary.collaboration.events.sent",
 		"cartulary.jobs.active",
 		"cartulary.jobs.duration",
+		"cartulary.jobs.attempts",
+		"cartulary.jobs.expired",
+		"cartulary.jobs.lease_renewal.failures",
 		"cartulary.postgres.operation.duration",
 		"cartulary.objectstore.operation.duration",
 		"cartulary.objectstore.transfer.bytes",
@@ -103,6 +106,15 @@ func TestMetricRegistryClosed(t *testing.T) {
 	}
 	if row := seen["cartulary.jobs.active"]; row.InstrumentKind != "ObservableGauge" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
 		t.Fatalf("jobs active metric row mismatch: %#v", row)
+	}
+	if row := seen["cartulary.jobs.attempts"]; row.InstrumentKind != "Counter" || row.Unit != "{attempt}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind", "cartulary.result"}) {
+		t.Fatalf("jobs attempts metric row mismatch: %#v", row)
+	}
+	if row := seen["cartulary.jobs.lease_renewal.failures"]; row.InstrumentKind != "Counter" || row.Unit != "{failure}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind", "cartulary.result"}) {
+		t.Fatalf("jobs lease-renewal metric row mismatch: %#v", row)
+	}
+	if row := seen["cartulary.jobs.expired"]; row.InstrumentKind != "Counter" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
+		t.Fatalf("jobs expired metric row mismatch: %#v", row)
 	}
 }
 

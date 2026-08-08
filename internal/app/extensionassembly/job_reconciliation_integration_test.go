@@ -32,9 +32,15 @@ func TestInactiveExtensionJobReconciliation_ServiceBacked(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 24, 20, 30, 0, 0, time.UTC)
-	manager := jobs.NewManager()
-	jobTransactions := collaborationsupport.NewJobTransactions()
-	manager.Configure(pool, jobTransactions, func() time.Time { return now })
+	catalog := collaborationsupport.NewJobCatalog()
+	jobTransactions := collaborationsupport.NewJobTransactionsForCatalog(catalog)
+	manager, err := jobs.NewManager(jobs.ManagerOptions{
+		Postgres: pool, Transactions: jobTransactions, Catalog: catalog,
+		Policy: jobs.ProductionRuntimePolicy(), Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	provenJob, provenAdmission := enqueueInactiveJob(t, pool, now, "proven")
 	canceledJob, _ := enqueueInactiveJob(t, pool, now.Add(time.Second), "canceled")
@@ -149,7 +155,6 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 	normalized := []byte(`{"client_txn_id":"` + clientTxnID + `"}`)
 	admission, err := jobs.NewExtensionJobAdmission(
 		"test_profile",
-		"test_profile.run_v1",
 		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
 		jobs.Scope{Kind: jobs.ScopeKindDeployment},
 		normalized,
@@ -162,10 +167,10 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope: jobs.Scope{Kind: jobs.ScopeKindDeployment}, SubmittedByUserID: actorID,
-		Cancelable: true, Progress: jobs.Progress{Completed: 0},
-		HandlerName: "test_profile.worker_v1", Extension: admission,
+	resource, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
+		JobKind: "test_profile.run_v1",
+		Scope:   jobs.Scope{Kind: jobs.ScopeKindDeployment}, SubmittedByUserID: actorID,
+		Cancelable: true, Progress: jobs.Progress{Completed: 0}, Extension: admission,
 	}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -176,16 +181,16 @@ VALUES ($1, $2, 'Inactive Job Reconciliation', 'hash', false, true, true)
 	return uuid.MustParse(resource.JobID), admission
 }
 
-func reconciliationPlatformContract() jobs.ExtensionJobContract {
-	return jobs.ExtensionJobContract{
-		OwnerProfileID: "test_profile",
+func reconciliationPlatformContract() jobs.Definition {
+	return jobs.Definition{
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
-		OperationKind:  "test_profile.run",
-		WorkerKind:     "test_profile.worker_v1",
-		ContractSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		ProofRequired:  true,
-		MaxProofBytes:  4096,
+		HandlerName:    "test_profile.worker_v1",
+		Extension: &jobs.ExtensionPolicy{
+			OwnerProfileID: "test_profile", OperationKind: "test_profile.run",
+			ContractSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			ProofRequired:  true, MaxProofBytes: 4096,
+		},
 	}
 }
 

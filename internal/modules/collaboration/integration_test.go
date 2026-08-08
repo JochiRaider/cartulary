@@ -378,7 +378,7 @@ SELECT user_id::text
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	incidentUUID := uuid.MustParse(incidentID)
 	actorUUID := uuid.MustParse(actorUserID)
-	if _, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.CreateParams{
+	if _, err := collaborationsupport.NewJobTransactions().CreateQueuedTx(context.Background(), tx, jobs.EnqueueParams{
 		JobKind:           collaborationsupport.TestJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentUUID},
 		SubmittedByUserID: actorUUID,

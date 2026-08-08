@@ -16,31 +16,56 @@ import (
 
 const TestJobKind = "test_platform.generic_v1"
 
-var testJobDefinitions = []jobs.ExtensionJobContract{
+var testJobDefinitions = []jobs.Definition{
 	{
-		OwnerProfileID: "test_platform",
 		JobKind:        TestJobKind,
 		ProgressUnitID: "test_platform.generic.operation.v1",
-		OperationKind:  "test_platform.generic",
-		WorkerKind:     "test_platform.worker_v1",
-		ContractSHA256: strings.Repeat("b", 64),
-		ProofRequired:  true,
-		MaxProofBytes:  4096,
+		HandlerName:    "test_platform.worker_v1",
 	},
 	{
-		OwnerProfileID: "test_profile",
 		JobKind:        "test_profile.run_v1",
 		ProgressUnitID: "test_profile.run.attempt.v1",
-		OperationKind:  "test_profile.run",
-		WorkerKind:     "test_profile.worker_v1",
-		ContractSHA256: strings.Repeat("a", 64),
-		ProofRequired:  true,
-		MaxProofBytes:  4096,
+		HandlerName:    "test_profile.worker_v1",
+		Extension: &jobs.ExtensionPolicy{
+			OwnerProfileID: "test_profile",
+			OperationKind:  "test_profile.run",
+			ContractSHA256: strings.Repeat("a", 64),
+			ProofRequired:  true,
+			MaxProofBytes:  4096,
+		},
 	},
 }
 
-func TestJobDefinitions() []jobs.ExtensionJobContract {
-	return append([]jobs.ExtensionJobContract(nil), testJobDefinitions...)
+var testHandlerNames = []string{
+	"test.claim", "test.complete", "test.concurrent", "test.duplicate",
+	"test.error", "test.exhausted", "test.exhaustion", "test.nil",
+	"test.panic", "test.recover",
+}
+
+func TestJobKindForHandler(handlerName string) string {
+	return "test_platform." + strings.ReplaceAll(handlerName, ".", "_") + "_v1"
+}
+
+func TestJobDefinitions() []jobs.Definition {
+	definitions := make([]jobs.Definition, 0, len(testJobDefinitions)+len(testHandlerNames))
+	for _, definition := range testJobDefinitions {
+		clone := definition
+		if definition.Extension != nil {
+			policy := *definition.Extension
+			policy.ResourceRefs = append([]jobs.ExtensionResourceRefContract(nil), definition.Extension.ResourceRefs...)
+			clone.Extension = &policy
+		}
+		definitions = append(definitions, clone)
+	}
+	for _, handlerName := range testHandlerNames {
+		token := strings.ReplaceAll(handlerName, ".", "_")
+		definitions = append(definitions, jobs.Definition{
+			JobKind:        TestJobKindForHandler(handlerName),
+			ProgressUnitID: "test_platform." + token + ".operation.v1",
+			HandlerName:    handlerName,
+		})
+	}
+	return definitions
 }
 
 // IntentAdapters supplies the same narrow source-to-Collaboration translation
@@ -54,19 +79,35 @@ func NewIntentAdapters() IntentAdapters {
 }
 
 func NewJobTransactions() *jobs.TransactionService {
-	return NewJobTransactionsWithDefinitions(testJobDefinitions...)
+	return NewJobTransactionsWithDefinitions(TestJobDefinitions()...)
 }
 
-func NewJobTransactionsWithDefinitions(definitions ...jobs.ExtensionJobContract) *jobs.TransactionService {
+func NewJobCatalog() *jobs.Catalog {
+	catalog, err := jobs.NewCatalog(TestJobDefinitions())
+	if err != nil {
+		panic(err)
+	}
+	return catalog
+}
+
+func NewJobTransactionsForCatalog(catalog *jobs.Catalog) *jobs.TransactionService {
 	ownerPorts := NewJobOwnerTransactionAdapters()
 	service, err := jobs.NewTransactionService(NewIntentAdapters(), jobs.OwnerTransactionPorts{
 		RouteIdempotency:      ownerPorts,
 		ExtensionCancellation: ownerPorts,
-	}, definitions...)
+	}, catalog)
 	if err != nil {
 		panic(err)
 	}
 	return service
+}
+
+func NewJobTransactionsWithDefinitions(definitions ...jobs.Definition) *jobs.TransactionService {
+	catalog, err := jobs.NewCatalog(definitions)
+	if err != nil {
+		panic(err)
+	}
+	return NewJobTransactionsForCatalog(catalog)
 }
 
 // JobOwnerTransactionAdapters provides service-backed tests with the same

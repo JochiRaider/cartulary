@@ -73,7 +73,7 @@ type Options struct {
 	Postgres             *pgxpool.Pool
 	ObjectStore          objectstore.Store
 	Now                  func() time.Time
-	ObserveJobs          func(*jobs.Manager, *jobs.Runner)
+	ObserveJobs          func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
 	ObserveCollaboration func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
 	ObserveTimeline      func(*timelineassembly.Bundle)
 	ObserveRevisions     func(*revisionassembly.Runtime)
@@ -565,16 +565,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
 	}
-	jobManager := dependencies.newJobsManager()
-	jobManager.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
-	runtime.jobRunner = jobs.NewRunner()
-	runtime.jobRunner.ConfigureDequeueGate(runtime.lifecycle)
-	jobRunner := runtime.jobRunner
-	runtime.own(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = jobRunner.Close(ctx)
-	})
 	hub := dependencies.newCollaborationHub()
 	intentAppender := collaboration.NewIntentAppender()
 	runtime.collaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
@@ -586,24 +576,58 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	})
 	intentAdapters := newCollaborationIntentTranslator(intentAppender)
 	jobOwnerPorts := jobOwnerTransactionAdapters{}
+	extensionJobDefinitions, err := extensionassembly.JobDefinitions(publicationCatalog)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose extension job definitions: %w", err)
+	}
+	jobCatalog, err := jobs.NewCatalog(extensionJobDefinitions)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Jobs catalog: %w", err)
+	}
 	jobTransactions, err := jobs.NewTransactionService(intentAdapters, jobs.OwnerTransactionPorts{
 		RouteIdempotency:      jobOwnerPorts,
 		ExtensionCancellation: jobOwnerPorts,
-	})
+	}, jobCatalog)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)
 	}
-	jobManager.Configure(postgresPool, jobTransactions, now)
-	extensionJobContracts, err := extensionassembly.JobContracts(publicationCatalog)
+	jobPolicy := jobs.ProductionRuntimePolicy()
+	jobManager, err := dependencies.newJobsManager(jobs.ManagerOptions{
+		Postgres:                postgresPool,
+		Transactions:            jobTransactions,
+		Catalog:                 jobCatalog,
+		Policy:                  jobPolicy,
+		Now:                     now,
+		TelemetryServiceVersion: normalizedCfg.Telemetry.Resource.ServiceVersion,
+	})
 	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("compose extension job contracts: %w", err)
+		return nil, fmt.Errorf("compose Jobs manager: %w", err)
 	}
-	if err := jobManager.ConfigureExtensionContracts(extensionJobContracts); err != nil {
+	runtime.jobRunner, err = jobs.NewRunner(jobs.RunnerOptions{
+		Manager:     jobManager,
+		Catalog:     jobCatalog,
+		Policy:      jobPolicy,
+		DequeueGate: runtime.lifecycle,
+		OnComponentLoss: func() {
+			if runtime.publication != nil {
+				runtime.publication.componentLost("job_dequeue")
+			}
+		},
+	})
+	if err != nil {
 		runtime.Close()
-		return nil, fmt.Errorf("configure extension job contracts: %w", err)
+		return nil, fmt.Errorf("compose Jobs runner: %w", err)
 	}
+	jobRunner := runtime.jobRunner
+	runtime.own(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = jobRunner.Close(ctx)
+	})
 	if err := jobManager.ValidateStorageCatalog(ctx); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("validate Jobs storage catalog: %w", err)
@@ -650,7 +674,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose extension job finalizer: %w", err)
 		}
 	}
-	runtime.jobRunner.Configure(jobManager)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 	listenerPlanSHA256 := extensionPlan.Summary().ListenerPlanSHA256
 
@@ -1068,6 +1091,13 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
+	jobActivationCtx, cancelJobActivation := context.WithTimeout(ctx, runtime.reconciliationTimeout)
+	jobActivationErr := runtime.jobRunner.Activate(jobActivationCtx)
+	cancelJobActivation()
+	if jobActivationErr != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("activate initial Jobs recovery: %w", jobActivationErr)
+	}
 	if err := publication.controller.acknowledge("job_dequeue", listenerPlanSHA256, nil); err != nil {
 		runtime.Close()
 		return nil, err
@@ -1095,7 +1125,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, processlease.ErrRecoveryServingLeaseLost
 	}
 	if options.ObserveJobs != nil {
-		options.ObserveJobs(jobManager, runtime.jobRunner)
+		options.ObserveJobs(jobManager, jobTransactions, runtime.jobRunner, postgresPool)
 	}
 	if options.ObserveCollaboration != nil {
 		options.ObserveCollaboration(hub, runtime.collaborationDispatcher, intentAppender)
@@ -1427,14 +1457,6 @@ func (r *Runtime) ActivatePublication() error {
 	}
 	if err := r.publication.serve(); err != nil {
 		return err
-	}
-	if r.jobRunner != nil {
-		recoveryCtx, cancel := context.WithTimeout(context.Background(), r.reconciliationTimeout)
-		defer cancel()
-		if err := r.jobRunner.Activate(recoveryCtx); err != nil {
-			r.publication.componentLost("job_dequeue")
-			return fmt.Errorf("activate extension job recovery: %w", err)
-		}
 	}
 	if r.collaborationDispatcher != nil {
 		if err := r.collaborationDispatcher.Start(context.Background()); err != nil {

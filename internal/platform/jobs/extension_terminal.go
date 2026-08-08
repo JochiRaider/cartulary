@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-func CanonicalExtensionTerminalSuccess(contract ExtensionJobContract, summary *ResultSummary) (*ResultSummary, json.RawMessage, json.RawMessage, string, error) {
+func CanonicalExtensionTerminalSuccess(definition Definition, summary *ResultSummary) (*ResultSummary, json.RawMessage, json.RawMessage, string, error) {
 	if summary == nil || summary.Code == "" || summary.Message == "" {
 		return nil, nil, nil, "", fmt.Errorf("%w: extension terminal success is incomplete", ErrInvalidJobDefinition)
 	}
@@ -25,8 +25,11 @@ func CanonicalExtensionTerminalSuccess(contract ExtensionJobContract, summary *R
 		}
 		return normalized.ResourceRefs[left].Route < normalized.ResourceRefs[right].Route
 	})
-	limits := make(map[string]int, len(contract.ResourceRefs))
-	for _, resourceContract := range contract.ResourceRefs {
+	if definition.Extension == nil {
+		return nil, nil, nil, "", fmt.Errorf("%w: extension policy is missing", ErrInvalidJobDefinition)
+	}
+	limits := make(map[string]int, len(definition.Extension.ResourceRefs))
+	for _, resourceContract := range definition.Extension.ResourceRefs {
 		if resourceContract.Kind == "" || resourceContract.MaxRefs < 1 {
 			return nil, nil, nil, "", fmt.Errorf("%w: invalid resource reference contract", ErrInvalidJobDefinition)
 		}

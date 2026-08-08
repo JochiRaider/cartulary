@@ -3,6 +3,32 @@
   "owner_id": "platform.postgres",
   "rows": [
     {
+      "row_id": "platform.postgres.integration.jobs_execution_migration59",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.integration",
+      "collaborator_ids": [
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestJobsExecutionMigration59FreshAndGuarded_Integration",
+          "TestJobsExecutionMigration59RejectsUnsafeIdentityBeforeMutation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "platform.postgres.integration.migration_evidence_database_semantics_86249968df",
       "owner_id": "platform.postgres",
       "family_id": "platform.postgres.integration",

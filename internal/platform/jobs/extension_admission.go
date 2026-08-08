@@ -13,7 +13,6 @@ import (
 // common-job envelope.
 type ExtensionJobAdmission struct {
 	OwnerProfileID          string
-	JobKind                 string
 	IdempotencyIdentity     json.RawMessage
 	IdempotencyRouteKey     string
 	IdempotencyScopeKey     string
@@ -29,8 +28,8 @@ type routeScopedIdempotencyIdentity struct {
 	ClientTxnID   string  `json:"client_txn_id"`
 }
 
-func NewExtensionJobAdmission(ownerProfileID string, jobKind string, key RouteIdempotencyKey, scope Scope, normalizedRequest []byte) (*ExtensionJobAdmission, error) {
-	if ownerProfileID == "" || jobKind == "" || key.ActorUserID == uuid.Nil ||
+func NewExtensionJobAdmission(ownerProfileID string, key RouteIdempotencyKey, scope Scope, normalizedRequest []byte) (*ExtensionJobAdmission, error) {
+	if ownerProfileID == "" || key.ActorUserID == uuid.Nil ||
 		key.RouteKey == "" || key.ScopeKey == "" || key.ClientTxnID == "" || len(normalizedRequest) == 0 {
 		return nil, fmt.Errorf("%w: incomplete extension job admission", ErrInvalidJobDefinition)
 	}
@@ -56,7 +55,6 @@ func NewExtensionJobAdmission(ownerProfileID string, jobKind string, key RouteId
 	digest := sha256.Sum256(normalizedRequest)
 	return &ExtensionJobAdmission{
 		OwnerProfileID:          ownerProfileID,
-		JobKind:                 jobKind,
 		IdempotencyIdentity:     identity,
 		IdempotencyRouteKey:     key.RouteKey,
 		IdempotencyScopeKey:     key.ScopeKey,

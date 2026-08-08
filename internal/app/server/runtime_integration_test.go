@@ -604,9 +604,9 @@ func installStartupCounters() (*StartupCounters, runtimeDependencies) {
 	originalJobsManager := dependencies.newJobsManager
 	originalHTTPHandler := dependencies.newHTTPHandler
 
-	dependencies.newJobsManager = func() *jobs.Manager {
+	dependencies.newJobsManager = func(options jobs.ManagerOptions) (*jobs.Manager, error) {
 		counters.jobsManager++
-		return originalJobsManager()
+		return originalJobsManager(options)
 	}
 	dependencies.newCollaborationHub = func() *collaboration.Hub {
 		counters.wsHub++

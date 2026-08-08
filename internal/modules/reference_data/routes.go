@@ -34,20 +34,20 @@ type Service struct {
 }
 
 type referenceJobAdmission interface {
-	CreateQueuedTx(context.Context, pgx.Tx, jobs.CreateParams, time.Time) (jobs.Resource, error)
+	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
 }
 
 type referenceJobOperations interface {
 	Get(context.Context, uuid.UUID) (jobs.Resource, error)
-	MarkRunning(context.Context, uuid.UUID, jobs.Progress, *string) (jobs.Resource, error)
-	CompleteFailed(context.Context, jobs.TransitionParams) (jobs.Resource, error)
-	CompleteCanceled(context.Context, jobs.TransitionParams) (jobs.Resource, error)
+	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
+	UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error)
+	CompleteFailed(context.Context, jobs.Execution, jobs.FailureCompletion) (jobs.Resource, error)
+	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
 }
 
 type referenceJobRunner interface {
 	RegisterHandler(string, jobs.HandlerFunc) error
-	RecoverHandler(context.Context, string) error
-	DispatchJobID(string, uuid.UUID) error
+	Notify(uuid.UUID)
 }
 
 type RouteOption func(*routeOptions)
@@ -97,9 +97,6 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 		}
 		service, err := newService(deps, settings)
 		if err != nil {
-			return err
-		}
-		if err := service.recoverReferencePackJobs(context.Background()); err != nil {
 			return err
 		}
 		return httpapi.BindOwnerRoutes(mux, deps, "module.reference_data", map[string]http.HandlerFunc{
@@ -162,11 +159,7 @@ func (s *Service) registerJobHandler() error {
 	if s == nil || s.jobRunner == nil {
 		return nil
 	}
-	err := s.jobRunner.RegisterHandler(LifecycleWorkerKind, s.executeReferencePackJob)
-	if errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
-		return nil
-	}
-	return err
+	return s.jobRunner.RegisterHandler(LifecycleWorkerKind, s.executeReferencePackJob)
 }
 
 func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
@@ -597,13 +590,6 @@ func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, prin
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) recoverReferencePackJobs(ctx context.Context) error {
-	if s == nil || s.jobRunner == nil {
-		return nil
-	}
-	return s.jobRunner.RecoverHandler(ctx, LifecycleWorkerKind)
-}
-
 func (s *Service) dispatchReferencePackJob(jobID string) {
 	parsed, err := uuid.Parse(jobID)
 	if err != nil {
@@ -612,13 +598,17 @@ func (s *Service) dispatchReferencePackJob(jobID string) {
 	if s == nil || s.jobRunner == nil {
 		return
 	}
-	_ = s.jobRunner.DispatchJobID(LifecycleWorkerKind, parsed)
+	s.jobRunner.Notify(parsed)
 }
 
-func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) error {
+func (s *Service) executeReferencePackJob(ctx context.Context, execution jobs.Execution) error {
+	jobID := execution.JobID()
+	if _, err := s.jobManager.ObserveExecution(ctx, execution); err != nil {
+		return err
+	}
 	payload, err := s.store.JobPayload(ctx, jobID)
 	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 		return fmt.Errorf("load reference pack job payload: %w", err)
 	}
 	runReferencePackWorkerStartHook(payload.JobKind)
@@ -626,7 +616,7 @@ func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) 
 	if payload.JobKind == "refresh" && len(payload.ResolvedPackKeys) > 0 {
 		total = len(payload.ResolvedPackKeys)
 	}
-	if ok := s.markJobRunningOrResume(ctx, jobID, total); !ok {
+	if ok := s.prepareClaimedJob(ctx, execution, total); !ok {
 		if payload.JobKind == "import" && payload.BundleStagingRef != nil {
 			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
 		}
@@ -634,34 +624,31 @@ func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) 
 	}
 	switch payload.JobKind {
 	case "import":
-		return s.executeImportJob(ctx, payload)
+		return s.executeImportJob(ctx, execution, payload)
 	case "reverify":
-		return s.executeReverifyJob(ctx, payload)
+		return s.executeReverifyJob(ctx, execution, payload)
 	case "refresh":
-		return s.executeRefreshJob(ctx, payload)
+		return s.executeRefreshJob(ctx, execution, payload)
 	default:
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{"job_kind": payload.JobKind}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{"job_kind": payload.JobKind}))
 	}
 	return nil
 }
 
-func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
+func (s *Service) prepareClaimedJob(ctx context.Context, execution jobs.Execution, total int) bool {
 	if total <= 0 {
 		total = 1
 	}
-	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err == nil {
-		return true
-	}
-	job, err := s.jobManager.Get(ctx, jobID)
+	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	if err != nil {
 		return false
 	}
 	switch job.Status {
 	case jobs.StatusRunning:
-		return true
+		_, err := s.jobManager.UpdateProgress(ctx, execution, jobs.Progress{Completed: 0, Total: &total}, nil)
+		return err == nil
 	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-			JobID:    jobID,
+		_, _ = s.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
 			Progress: jobs.Progress{Completed: 0, Total: &total},
 		})
 		return false
@@ -670,9 +657,9 @@ func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, t
 	}
 }
 
-func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) error {
+func (s *Service) executeImportJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
 	if payload.BundleStagingRef == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 		return nil
 	}
 	removeStaging := true
@@ -681,37 +668,37 @@ func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) erro
 			_ = s.storage.RemoveStaged(*payload.BundleStagingRef)
 		}
 	}()
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
 	data, err := s.storage.ReadStaged(*payload.BundleStagingRef, referencePackStorageReadLimit(s.limits.ReferencePacks.MaxExtractedBytes))
 	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_verification_failed", map[string]any{"reason_code": "payload_missing"}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": "payload_missing"}))
 		return nil
 	}
 	verification, verificationErr := s.verifyUpload(data, MediaTypeOctetStream)
 	if verificationErr != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}))
 		return nil
 	}
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
 	bundleRef, err := s.storage.Publish(ctx, verification.BundleSHA256, data)
 	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 		return nil
 	}
-	if s.jobCancelRequested(ctx, payload.JobID) {
+	if s.jobCancelRequested(ctx, execution) {
 		_ = s.storage.RemovePublished(bundleRef)
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
-	err = s.finalizeReferencePackJobSuccess(ctx, payload, jobs.TransitionParams{
-		JobID: payload.JobID, Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
+	err = s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
+		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+		ResultSummary: jobs.ResultSummary{
 			Code: ResultReferencePackImported, Message: "Reference pack imported.",
 			ResourceRefs: []jobs.ResourceRef{jobs.ResourceRef(referencePackResourceRef(verification.PackKey, verification.PackVersion))},
 		},
@@ -731,40 +718,43 @@ func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) erro
 	return err
 }
 
-func (s *Service) executeReverifyJob(ctx context.Context, payload JobPayload) error {
+func (s *Service) executeReverifyJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
 	if payload.PackKey == nil || payload.PackVersion == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 		return nil
 	}
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
 	record, err := s.store.GetVersion(ctx, *payload.PackKey, *payload.PackVersion)
 	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_not_found", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("reference_pack_not_found", map[string]any{}))
 		return nil
 	}
 	verification, verificationErr := s.verifyStoredBundle(record)
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
 	if verificationErr != nil {
-		if _, err := s.store.ApplyVerificationResult(ctx, record, verification, verificationErr, "reverify", payload.ActorUserID, payload.JobID, s.now()); err != nil {
-			_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-			return nil
-		}
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}))
+		_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobFailure(ctx, JobFailureFinalization{
+			Execution:  execution,
+			Completion: failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}),
+			Mutate: func(ctx context.Context, tx pgx.Tx) error {
+				_, err := s.store.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, "reverify", payload.ActorUserID, payload.JobID, s.now())
+				return err
+			},
+		})
+		return err
+	}
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, 1)
 		return nil
 	}
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, 1)
-		return nil
-	}
-	return s.finalizeReferencePackJobSuccess(ctx, payload, jobs.TransitionParams{
-		JobID: payload.JobID, Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
+	return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
+		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+		ResultSummary: jobs.ResultSummary{
 			Code: ResultReferencePackReverified, Message: "Reference pack reverified.",
 			ResourceRefs: []jobs.ResourceRef{jobs.ResourceRef(referencePackResourceRef(record.PackKey, record.PackVersion))},
 		},
@@ -774,19 +764,19 @@ func (s *Service) executeReverifyJob(ctx context.Context, payload JobPayload) er
 	})
 }
 
-func (s *Service) executeRefreshJob(ctx context.Context, payload JobPayload) error {
+func (s *Service) executeRefreshJob(ctx context.Context, execution jobs.Execution, payload JobPayload) error {
 	total := len(payload.ResolvedPackKeys)
 	if total == 0 {
-		return s.finalizeReferencePackJobSuccess(ctx, payload, jobs.TransitionParams{
-			JobID: payload.JobID, Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-			ResultSummary: &jobs.ResultSummary{
+		return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
+			Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+			ResultSummary: jobs.ResultSummary{
 				Code: ResultReferencePacksRefreshed, Message: "Reference packs refreshed.",
 			},
 		})
 	}
 	records, err := s.store.ListVersionsForPackKeys(ctx, payload.ResolvedPackKeys)
 	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		_, _ = s.jobManager.CompleteFailed(ctx, execution, failedCompletion("internal_error", map[string]any{}))
 		return nil
 	}
 	type verifiedRecord struct {
@@ -795,32 +785,35 @@ func (s *Service) executeRefreshJob(ctx context.Context, payload JobPayload) err
 	}
 	verified := make([]verifiedRecord, 0, len(records))
 	for i, record := range records {
-		if s.jobCancelRequested(ctx, payload.JobID) {
-			s.completeCanceled(ctx, payload.JobID, i, total)
+		if s.jobCancelRequested(ctx, execution) {
+			s.completeCanceled(ctx, execution, i, total)
 			return nil
 		}
 		verification, verificationErr := s.verifyStoredBundle(record)
-		if s.jobCancelRequested(ctx, payload.JobID) {
-			s.completeCanceled(ctx, payload.JobID, i, total)
+		if s.jobCancelRequested(ctx, execution) {
+			s.completeCanceled(ctx, execution, i, total)
 			return nil
 		}
 		if verificationErr != nil {
-			if _, err := s.store.ApplyVerificationResult(ctx, record, verification, verificationErr, "refresh", payload.ActorUserID, payload.JobID, s.now()); err != nil {
-				_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-				return nil
-			}
-			_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}))
-			return nil
+			_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobFailure(ctx, JobFailureFinalization{
+				Execution:  execution,
+				Completion: failedCompletion("reference_pack_verification_failed", map[string]any{"reason_code": verificationErr.ReasonCode}),
+				Mutate: func(ctx context.Context, tx pgx.Tx) error {
+					_, err := s.store.ApplyVerificationResultTx(ctx, tx, record, verification, verificationErr, "refresh", payload.ActorUserID, payload.JobID, s.now())
+					return err
+				},
+			})
+			return err
 		}
 		verified = append(verified, verifiedRecord{record: record, verification: verification})
 	}
-	if s.jobCancelRequested(ctx, payload.JobID) {
-		s.completeCanceled(ctx, payload.JobID, 0, total)
+	if s.jobCancelRequested(ctx, execution) {
+		s.completeCanceled(ctx, execution, 0, total)
 		return nil
 	}
-	return s.finalizeReferencePackJobSuccess(ctx, payload, jobs.TransitionParams{
-		JobID: payload.JobID, Progress: jobs.Progress{Completed: total, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
+	return s.finalizeReferencePackJobSuccess(ctx, execution, payload, jobs.SuccessCompletion{
+		Progress: jobs.Progress{Completed: total, Total: &total},
+		ResultSummary: jobs.ResultSummary{
 			Code: ResultReferencePacksRefreshed, Message: "Reference packs refreshed.",
 			ResourceRefs: sortedRefs(records),
 		},
@@ -836,8 +829,9 @@ func (s *Service) executeRefreshJob(ctx context.Context, payload JobPayload) err
 
 func (s *Service) finalizeReferencePackJobSuccess(
 	ctx context.Context,
+	execution jobs.Execution,
 	payload JobPayload,
-	transition jobs.TransitionParams,
+	completion jobs.SuccessCompletion,
 	mutations ...JobSuccessMutation,
 ) error {
 	if s.jobSuccessFinalizer == nil {
@@ -848,21 +842,21 @@ func (s *Service) finalizeReferencePackJobSuccess(
 		mutation = mutations[0]
 	}
 	_, err := s.jobSuccessFinalizer.FinalizeReferencePackJobSuccess(ctx, JobSuccessFinalization{
-		Transition:    transition,
+		Execution:     execution,
+		Completion:    completion,
 		FinalCommitID: ProfileID + "." + payload.JobKind + ":" + payload.JobID.String(),
 		Mutate:        mutation,
 	})
 	return err
 }
 
-func (s *Service) jobCancelRequested(ctx context.Context, jobID uuid.UUID) bool {
-	job, err := s.jobManager.Get(ctx, jobID)
+func (s *Service) jobCancelRequested(ctx context.Context, execution jobs.Execution) bool {
+	job, err := s.jobManager.ObserveExecution(ctx, execution)
 	return err == nil && job.Status == jobs.StatusCancelRequested
 }
 
-func (s *Service) completeCanceled(ctx context.Context, jobID uuid.UUID, completed int, total int) {
-	_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-		JobID:    jobID,
+func (s *Service) completeCanceled(ctx context.Context, execution jobs.Execution, completed int, total int) {
+	_, _ = s.jobManager.CompleteCanceled(ctx, execution, jobs.CancellationCompletion{
 		Progress: jobs.Progress{Completed: completed, Total: &total},
 	})
 }
@@ -883,11 +877,10 @@ func sameStringSet(left []string, right []string) bool {
 	return true
 }
 
-func failedTransition(jobID uuid.UUID, code string, details map[string]any) jobs.TransitionParams {
-	return jobs.TransitionParams{
-		JobID:    jobID,
+func failedCompletion(code string, details map[string]any) jobs.FailureCompletion {
+	return jobs.FailureCompletion{
 		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ErrorSummary: &jobs.ErrorSummary{
+		ErrorSummary: jobs.ErrorSummary{
 			Code:      code,
 			Message:   code,
 			Retryable: false,

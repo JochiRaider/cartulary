@@ -665,6 +665,10 @@ func (jobFinalizerStub) FinalizeIncidentBundleJobSuccessTx(context.Context, cros
 	return jobs.Resource{}, nil
 }
 
+func (jobFinalizerStub) FinalizeIncidentBundleJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error) {
+	return jobs.Resource{}, nil
+}
+
 type bundleStorageStub struct{}
 
 func (bundleStorageStub) Stage(context.Context, string, []byte) (BundleStagingRef, error) {
@@ -694,12 +698,11 @@ func (projectionRebuilderStub) RebuildImportedIncidentTx(context.Context, pgx.Tx
 }
 
 func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
-	jobID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 	incidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
 
-	exportTransition := exportSuccessTransition(jobID, bundleID)
-	if exportTransition.JobID != jobID || exportTransition.ResultSummary == nil {
+	exportTransition := exportSuccessCompletion(bundleID)
+	if exportTransition.ResultSummary.Code == "" {
 		t.Fatalf("export success transition missing summary: %#v", exportTransition)
 	}
 	if exportTransition.ResultSummary.Code != ResultIncidentBundleExported || len(exportTransition.ResultSummary.ResourceRefs) != 1 {
@@ -710,8 +713,8 @@ func TestWorkerResultTransitionsPreservePublicSummaries_Unit(t *testing.T) {
 		t.Fatalf("export resource ref mismatch: %#v", exportRef)
 	}
 
-	importTransition := importSuccessTransition(jobID, incidentID)
-	if importTransition.JobID != jobID || importTransition.ResultSummary == nil {
+	importTransition := importSuccessCompletion(incidentID)
+	if importTransition.ResultSummary.Code == "" {
 		t.Fatalf("import success transition missing summary: %#v", importTransition)
 	}
 	if importTransition.ResultSummary.Code != ResultIncidentBundleImported || len(importTransition.ResultSummary.ResourceRefs) != 1 {
@@ -764,9 +767,6 @@ func TestIncidentBundleWorkerRequiresNamedRunner_Unit(t *testing.T) {
 	worker := &incidentBundleWorker{}
 	if err := worker.registerJobHandler(); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("register without named runner error = %v; want ErrNotConfigured", err)
-	}
-	if err := worker.recoverJobs(context.Background()); !errors.Is(err, jobs.ErrNotConfigured) {
-		t.Fatalf("recover without named runner error = %v; want ErrNotConfigured", err)
 	}
 	if err := worker.dispatch(uuid.NewString()); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("dispatch without named runner error = %v; want ErrNotConfigured", err)

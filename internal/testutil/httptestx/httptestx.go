@@ -45,36 +45,29 @@ type Server struct {
 }
 
 type JobsCapability struct {
-	manager *jobs.Manager
-	runner  *jobs.Runner
+	manager      *jobs.Manager
+	transactions *jobs.TransactionService
+	pool         *pgxpool.Pool
+	now          func() time.Time
 }
 
-func (capability *JobsCapability) Create(ctx context.Context, params jobs.CreateParams) (jobs.Resource, error) {
-	if capability == nil || capability.manager == nil {
+func (capability *JobsCapability) Create(ctx context.Context, params jobs.EnqueueParams) (jobs.Resource, error) {
+	if capability == nil || capability.transactions == nil || capability.pool == nil || capability.now == nil {
 		return jobs.Resource{}, errors.New("jobs create capability is unavailable")
 	}
-	return capability.manager.Create(ctx, params)
-}
-
-func (capability *JobsCapability) ConfigureDequeueGate(gate jobs.DequeueGate) {
-	if capability == nil || capability.runner == nil {
-		return
+	tx, err := capability.pool.Begin(ctx)
+	if err != nil {
+		return jobs.Resource{}, err
 	}
-	capability.runner.ConfigureDequeueGate(gate)
-}
-
-func (capability *JobsCapability) RecoverHandler(ctx context.Context, handlerName string) error {
-	if capability == nil || capability.runner == nil {
-		return errors.New("jobs recovery capability is unavailable")
+	defer func() { _ = tx.Rollback(ctx) }()
+	resource, err := capability.transactions.CreateQueuedTx(ctx, tx, params, capability.now())
+	if err != nil {
+		return jobs.Resource{}, err
 	}
-	return capability.runner.RecoverHandler(ctx, handlerName)
-}
-
-func (capability *JobsCapability) Activate(ctx context.Context) error {
-	if capability == nil || capability.runner == nil {
-		return errors.New("jobs activation capability is unavailable")
+	if err := tx.Commit(ctx); err != nil {
+		return jobs.Resource{}, err
 	}
-	return capability.runner.Activate(ctx)
+	return resource, nil
 }
 
 type CollaborationCapability struct {
@@ -275,8 +268,8 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		Now:         clock.Now,
 		Postgres:    options.Postgres,
 		ObjectStore: options.ObjectStore,
-		ObserveJobs: func(manager *jobs.Manager, runner *jobs.Runner) {
-			jobsCapability = &JobsCapability{manager: manager, runner: runner}
+		ObserveJobs: func(manager *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, pool *pgxpool.Pool) {
+			jobsCapability = &JobsCapability{manager: manager, transactions: transactions, pool: pool, now: clock.Now}
 		},
 		ObserveCollaboration: func(hub *collaboration.Hub, dispatcher *collaboration.Dispatcher, intents collaboration.IntentAppender) {
 			collaborationCapability = &CollaborationCapability{hub: hub, dispatcher: dispatcher, intents: intents}

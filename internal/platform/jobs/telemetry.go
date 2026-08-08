@@ -39,9 +39,9 @@ func (m *Manager) observeActiveJobs(ctx context.Context, observer metric.Int64Ob
 		defer cancel()
 	}
 	counts := map[string]int64{"unknown": 0}
-	definitions := map[string]ExtensionJobContract(nil)
-	if m.definitions != nil {
-		definitions = m.definitions.byKind
+	definitions := map[string]Definition(nil)
+	if m.catalog != nil {
+		definitions = m.catalog.byKind
 	}
 	kinds := make([]string, 0, len(definitions)+1)
 	for kind := range definitions {
@@ -54,7 +54,7 @@ func (m *Manager) observeActiveJobs(ctx context.Context, observer metric.Int64Ob
 SELECT job_kind, COUNT(*)::bigint
   FROM jobs
  WHERE status = 'running'
- GROUP BY scope_kind
+ GROUP BY job_kind
 `)
 	if err != nil {
 		return err
@@ -134,6 +134,49 @@ func (m *Manager) recordJobDuration(ctx context.Context, resource Resource, jobK
 	duration.Record(ctx, resource.FinishedAt.Sub(*resource.StartedAt).Seconds(), metric.WithAttributes(attrs...))
 }
 
+func (m *Manager) recordAttempt(ctx context.Context, jobKind string, result string) {
+	counter, _ := telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion()).Int64Counter(
+		"cartulary.jobs.attempts",
+		metric.WithUnit("{attempt}"),
+		metric.WithDescription("Completed handler attempts by kind and closed outcome."),
+	)
+	counter.Add(ctx, 1, metric.WithAttributes(telemetry.SafeAttributes(
+		attribute.String("cartulary.job_kind", m.catalogJobKind(jobKind)),
+		attribute.String("cartulary.result", result),
+	)...))
+}
+
+func (m *Manager) recordLeaseRenewalFailure(ctx context.Context, jobKind string, result string) {
+	counter, _ := telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion()).Int64Counter(
+		"cartulary.jobs.lease_renewal.failures",
+		metric.WithUnit("{failure}"),
+		metric.WithDescription("Failed lease renewals by kind and closed outcome."),
+	)
+	counter.Add(ctx, 1, metric.WithAttributes(telemetry.SafeAttributes(
+		attribute.String("cartulary.job_kind", m.catalogJobKind(jobKind)),
+		attribute.String("cartulary.result", result),
+	)...))
+}
+
+func (m *Manager) recordExpiredJobs(ctx context.Context, counts map[string]int64) {
+	if len(counts) == 0 {
+		return
+	}
+	counter, _ := telemetry.Meter(telemetry.ScopeJobs, m.telemetryServiceVersion()).Int64Counter(
+		"cartulary.jobs.expired",
+		metric.WithUnit("{job}"),
+		metric.WithDescription("Job resources compacted after logical expiry."),
+	)
+	for jobKind, count := range counts {
+		if count <= 0 {
+			continue
+		}
+		counter.Add(ctx, count, metric.WithAttributes(telemetry.SafeAttributes(
+			attribute.String("cartulary.job_kind", m.catalogJobKind(jobKind)),
+		)...))
+	}
+}
+
 func (m *Manager) telemetryServiceVersion() string {
 	if m != nil && strings.TrimSpace(m.serviceVersion) != "" {
 		return m.serviceVersion
@@ -145,20 +188,13 @@ func (m *Manager) catalogJobKind(jobKind string) string {
 	if m == nil || !safeJobTelemetryToken(jobKind) {
 		return "unknown"
 	}
-	if m.definitions == nil {
+	if m.catalog == nil {
 		return "unknown"
 	}
-	if _, present := m.definitions.byKind[jobKind]; !present {
+	if _, present := m.catalog.byKind[jobKind]; !present {
 		return "unknown"
 	}
 	return jobKind
-}
-
-func resultForJobError(err error) string {
-	if err == nil {
-		return "success"
-	}
-	return "failed"
 }
 
 func resultForTerminalStatus(status string) string {
