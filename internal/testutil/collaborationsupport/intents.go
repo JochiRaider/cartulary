@@ -92,10 +92,14 @@ func NewJobCatalog() *jobs.Catalog {
 
 func NewJobTransactionsForCatalog(catalog *jobs.Catalog) *jobs.TransactionService {
 	ownerPorts := NewJobOwnerTransactionAdapters()
+	selection, err := jobs.FullRuntimeSelection(catalog)
+	if err != nil {
+		panic(err)
+	}
 	service, err := jobs.NewTransactionService(NewIntentAdapters(), jobs.OwnerTransactionPorts{
 		RouteIdempotency:      ownerPorts,
 		ExtensionCancellation: ownerPorts,
-	}, catalog)
+	}, catalog, selection)
 	if err != nil {
 		panic(err)
 	}

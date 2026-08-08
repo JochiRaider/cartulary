@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -269,6 +270,13 @@ func run() error {
 		targetPool.Close()
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("load target configuration: %w", err)
+	}
+	sourceClaims := sourceConfig.RequestedClaims().ProfileIDs()
+	targetClaims := cfg.RequestedClaims().ProfileIDs()
+	if !slices.Equal(sourceClaims, targetClaims) {
+		targetPool.Close()
+		_ = targetObjectStore.Close()
+		return fmt.Errorf("restore source and target claim postures differ: source=%v target=%v", sourceClaims, targetClaims)
 	}
 	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
 		Postgres:    targetPool,
@@ -662,10 +670,6 @@ func targetConfig(root string, origin string, runtimeEnv map[string]string) (con
 		"CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH":                      filepath.Join(root, "export-outputs"),
 		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH":             filepath.Join(root, "bootstrap-admin.json"),
 		"CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH": filepath.Join(root, "revisions-conflict-token-key-ring.json"),
-		"CARTULARY__IMPORT__CLAIMED":                                  "false",
-		"CARTULARY__INCIDENT_PORTABILITY__CLAIMED":                    "false",
-		"CARTULARY__REFERENCE_PACK__CLAIMED":                          "false",
-		"CARTULARY__SNAPSHOT_REPORTING__CLAIMED":                      "false",
 	}
 	for key, value := range runtimeEnv {
 		env[key] = value

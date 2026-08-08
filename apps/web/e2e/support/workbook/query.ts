@@ -22,6 +22,7 @@ type WorkbookMutationOperationID = "createViewRow" | "patchRecord";
 
 type ViewRowPollOptions = {
   readonly diagnosticContext?: string;
+  readonly mode?: "poll" | "single_attempt";
   readonly timeout?: number;
 };
 
@@ -124,15 +125,19 @@ async function waitForMatchingViewRow({
 }): Promise<ViewRow> {
   let lastRows: ViewRow[] = [];
   let matched: ViewRow | undefined;
+  const queryForMatch = async () => {
+    lastRows = await queryViewRows(page, incidentId, viewSchemaId);
+    matched = lastRows.find(matcher);
+    return matched !== undefined;
+  };
   try {
-    await expect
-      .poll(
-        async () => {
-          lastRows = await queryViewRows(page, incidentId, viewSchemaId);
-          matched = lastRows.find(matcher);
-          return matched !== undefined;
-        },
-        {
+    if (options.mode === "single_attempt") {
+      if (!(await queryForMatch())) {
+        throw new Error("single workbook row query did not match");
+      }
+    } else {
+      await expect
+        .poll(queryForMatch, {
           message: pollDiagnostic(
             diagnostic,
             incidentId,
@@ -140,9 +145,9 @@ async function waitForMatchingViewRow({
             options.diagnosticContext,
           ),
           timeout: options.timeout ?? 10_000,
-        },
-      )
-      .toBe(true);
+        })
+        .toBe(true);
+    }
   } catch (error) {
     throw new Error(
       [

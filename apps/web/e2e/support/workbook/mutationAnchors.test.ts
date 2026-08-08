@@ -33,12 +33,18 @@ describe("workbook row mutation support", () => {
 
     await expect(
       waitForViewRow(page, "incident-1", surface, "record-missing", {
-        timeout: 1,
+        mode: "single_attempt",
       }),
     ).rejects.toThrow(
-      "cartulary.view.timeline.v2 default query should include created row record-missing",
+      /cartulary\.view\.timeline\.v2 default query should include created row record-missing[\s\S]*incident_id=incident-1[\s\S]*view_schema_id=cartulary\.view\.timeline\.v2[\s\S]*last_rows=\[\]/u,
     );
-    expect(fetch).toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /\/api\/v1\/incidents\/incident-1\/views\/cartulary\.view\.timeline\.v2\/query$/u,
+      ),
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("reports the view field and context when cell polling times out", async () => {
@@ -59,10 +65,20 @@ describe("workbook row mutation support", () => {
         surface,
         "timeline.activity_synopsis_text",
         "missing projection",
-        { diagnosticContext: "assessment projection", timeout: 1 },
+        {
+          diagnosticContext: "assessment projection",
+          mode: "single_attempt",
+        },
       ),
     ).rejects.toThrow(
-      /view_schema_id=cartulary\.view\.timeline\.v2[\s\S]*context=assessment projection[\s\S]*last_rows=\[\]/u,
+      /timeline\.activity_synopsis_text="missing projection"[\s\S]*incident_id=incident-1[\s\S]*view_schema_id=cartulary\.view\.timeline\.v2[\s\S]*context=assessment projection[\s\S]*last_rows=\[\]/u,
+    );
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /\/api\/v1\/incidents\/incident-1\/views\/cartulary\.view\.timeline\.v2\/query$/u,
+      ),
+      expect.objectContaining({ method: "POST" }),
     );
   });
 

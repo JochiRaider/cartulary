@@ -187,6 +187,77 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	later.Close()
 }
 
+func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "all-optional-profiles-unclaimed")
+	pool, err := pgxpool.New(ctx, testDB.DSN)
+	if err != nil {
+		t.Fatalf("open all-unclaimed postgres pool: %v", err)
+	}
+	defer pool.Close()
+	store, err := objectstore.NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("open all-unclaimed object store: %v", err)
+	}
+	defer store.Close()
+
+	cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, configtest.Overlay(
+		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
+		"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED", "false",
+		"CARTULARY__IMPORT__CLAIMED", "false",
+		"CARTULARY__INCIDENT_PORTABILITY__CLAIMED", "false",
+		"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED", "false",
+		"CARTULARY__REFERENCE_PACK__CLAIMED", "false",
+		"CARTULARY__SNAPSHOT_REPORTING__CLAIMED", "false",
+	)), testDB.Env())
+
+	var jobTransactions *jobs.TransactionService
+	runtime, err := NewRuntime(ctx, cfg, Options{
+		Postgres:    pool,
+		ObjectStore: store,
+		ObserveJobs: func(_ *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, _ *pgxpool.Pool) {
+			jobTransactions = transactions
+		},
+	})
+	if err != nil {
+		t.Fatalf("start all-unclaimed runtime: %v", err)
+	}
+	defer runtime.Close()
+	if err := runtime.ActivatePublication(); err != nil {
+		t.Fatalf("activate all-unclaimed publication: %v", err)
+	}
+
+	claims := runtime.publication.claims()
+	if len(claims) != 6 {
+		t.Fatalf("all-unclaimed claim count = %d: %#v", len(claims), claims)
+	}
+	for _, claim := range claims {
+		if claim.Claimed {
+			t.Fatalf("all-unclaimed runtime admitted profile %q", claim.ProfileID)
+		}
+	}
+	components := runtime.publication.expectedComponents()
+	for _, componentID := range []string{"http", "job_dequeue", "websocket"} {
+		if components[componentID] == "" {
+			t.Fatalf("all-unclaimed publication omitted %q", componentID)
+		}
+	}
+	for componentID := range components {
+		if strings.HasPrefix(componentID, "worker:") {
+			t.Fatalf("all-unclaimed publication admitted worker %q", componentID)
+		}
+	}
+	if jobTransactions == nil {
+		t.Fatal("all-unclaimed runtime did not expose Jobs composition")
+	}
+	if _, err := jobTransactions.CreateQueuedTx(ctx, nil, jobs.EnqueueParams{
+		JobKind: "import.discovery_v1",
+	}, time.Now().UTC()); !errors.Is(err, jobs.ErrInvalidJobDefinition) {
+		t.Fatalf("all-unclaimed Jobs admission error = %v", err)
+	}
+}
+
 func TestFirstAdminBootstrap_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	s3Harness := s3test.Start(t)

@@ -38,7 +38,7 @@ type Runner struct {
 	closed          bool
 	activated       bool
 	manager         *Manager
-	catalog         *Catalog
+	selection       *RuntimeSelection
 	policy          RuntimePolicy
 	handlers        map[string]HandlerFunc
 	gate            DequeueGate
@@ -48,11 +48,16 @@ type Runner struct {
 	attemptSlots    chan struct{}
 	onComponentLoss func()
 	lossOnce        sync.Once
+	shutdownErr     error
+	renewalTicks    func(time.Duration) (<-chan time.Time, func())
+	renewExecution  func(context.Context, Execution) error
+	beforeWait      func()
 }
 
 func NewRunner(options RunnerOptions) (*Runner, error) {
 	if options.Manager == nil || options.Catalog == nil || options.DequeueGate == nil ||
-		options.Manager.catalog != options.Catalog {
+		options.Manager.catalog != options.Catalog || options.Manager.transactions.selection == nil ||
+		options.Manager.transactions.selection.catalog != options.Catalog {
 		return nil, ErrNotConfigured
 	}
 	if err := options.Policy.validate(); err != nil {
@@ -63,7 +68,7 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		ctx:             ctx,
 		cancel:          cancel,
 		manager:         options.Manager,
-		catalog:         options.Catalog,
+		selection:       options.Manager.transactions.selection,
 		policy:          cloneRuntimePolicy(options.Policy),
 		handlers:        map[string]HandlerFunc{},
 		gate:            options.DequeueGate,
@@ -72,6 +77,11 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		inFlight:        map[uuid.UUID]struct{}{},
 		attemptSlots:    make(chan struct{}, options.Policy.HandlerConcurrency),
 		onComponentLoss: options.OnComponentLoss,
+		renewalTicks: func(interval time.Duration) (<-chan time.Time, func()) {
+			ticker := time.NewTicker(interval)
+			return ticker.C, ticker.Stop
+		},
+		renewExecution: options.Manager.RenewExecution,
 	}, nil
 }
 
@@ -87,7 +97,7 @@ func (r *Runner) RegisterHandler(name string, handler HandlerFunc) error {
 	if r.activated {
 		return ErrRunnerActivated
 	}
-	if !r.catalog.hasHandlerName(name) {
+	if !r.selection.hasHandlerName(name) {
 		return fmt.Errorf("%w: %s", ErrHandlerNotInCatalog, name)
 	}
 	if _, exists := r.handlers[name]; exists {
@@ -134,13 +144,13 @@ func (r *Runner) Activate(ctx context.Context) error {
 		r.mu.Unlock()
 		return ErrRunnerActivated
 	}
-	for _, handlerName := range r.catalog.handlerNames() {
+	for _, handlerName := range r.selection.handlerNames() {
 		if r.handlers[handlerName] == nil {
 			r.mu.Unlock()
 			return fmt.Errorf("%w: %s", ErrHandlerNotRegistered, handlerName)
 		}
 	}
-	if len(r.handlers) != len(r.catalog.handlerNames()) {
+	if len(r.handlers) != len(r.selection.handlerNames()) {
 		r.mu.Unlock()
 		return ErrHandlerNotInCatalog
 	}
@@ -159,7 +169,7 @@ func (r *Runner) Activate(ctx context.Context) error {
 }
 
 func (r *Runner) scan(ctx context.Context) error {
-	jobIDs, err := r.manager.RecoverableJobs(ctx, r.policy.RecoveryBatch)
+	jobIDs, err := r.manager.recoverableJobsForSelection(ctx, r.policy.RecoveryBatch, r.selection)
 	if err != nil {
 		return err
 	}
@@ -234,7 +244,7 @@ func (r *Runner) execute(jobID uuid.UUID) {
 		r.mu.Unlock()
 		r.wg.Done()
 	}()
-	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunner(r.ctx, jobID)
+	execution, handlerName, jobKind, claimed, err := r.manager.claimForRunnerSelection(r.ctx, jobID, r.selection)
 	if err != nil || !claimed {
 		return
 	}
@@ -296,19 +306,26 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 		}()
 		outcome.err = handler(handlerCtx, execution)
 	}()
-	renewal := time.NewTicker(r.policy.LeaseRenewal)
-	defer renewal.Stop()
+	renewal, stopRenewal := r.renewalTicks(r.policy.LeaseRenewal)
+	defer stopRenewal()
 	for {
+		if r.beforeWait != nil {
+			r.beforeWait()
+		}
 		select {
 		case <-r.ctx.Done():
-			cancelHandler()
-			r.withAttemptTimeout(func(ctx context.Context) {
-				_ = r.manager.ReleaseExecution(ctx, execution)
-			})
-			attemptOutcome = r.classifyAttempt(execution.JobID(), "canceled")
+			attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
 			return
-		case <-renewal.C:
-			if err := r.manager.RenewExecution(r.ctx, execution); err != nil {
+		case <-renewal:
+			if r.ctx.Err() != nil {
+				attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
+				return
+			}
+			if err := r.renewExecution(r.ctx, execution); err != nil {
+				if r.ctx.Err() != nil {
+					attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
+					return
+				}
 				result := "failed"
 				if errors.Is(err, ErrExecutionLost) {
 					result = "conflict"
@@ -324,6 +341,10 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 				return
 			}
 		case handlerOutcome := <-result:
+			if r.ctx.Err() != nil {
+				attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, true)
+				return
+			}
 			cancelHandler()
 			fallback := "failed"
 			switch {
@@ -348,6 +369,37 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 			attemptOutcome = r.classifyAttempt(execution.JobID(), fallback)
 			return
 		}
+	}
+}
+
+func (r *Runner) releaseForShutdown(
+	execution Execution,
+	cancelHandler context.CancelFunc,
+	handlerResult <-chan handlerResult,
+	handlerDrained bool,
+) attemptTelemetryOutcome {
+	cancelHandler()
+	var releaseErr error
+	r.withAttemptTimeout(func(ctx context.Context) {
+		releaseErr = r.manager.ReleaseExecution(ctx, execution)
+	})
+	if releaseErr != nil && !errors.Is(releaseErr, ErrExecutionLost) {
+		r.recordShutdownError(fmt.Errorf("release execution during runner shutdown: %w", releaseErr))
+	}
+	if !handlerDrained {
+		<-handlerResult
+	}
+	return r.classifyAttempt(execution.JobID(), "canceled")
+}
+
+func (r *Runner) recordShutdownError(err error) {
+	if err == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.shutdownErr == nil {
+		r.shutdownErr = err
 	}
 }
 
@@ -410,7 +462,9 @@ func (r *Runner) Close(ctx context.Context) error {
 	}()
 	select {
 	case <-done:
-		return nil
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		return r.shutdownErr
 	case <-ctx.Done():
 		return ctx.Err()
 	}

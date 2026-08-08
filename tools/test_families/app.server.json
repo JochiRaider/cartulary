@@ -36,6 +36,35 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "app.server.integration.all_optional_profiles_unclaimed_publish_quiescen_fb3409e200",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [
+        "module.extensions",
+        "platform.config",
+        "platform.jobs",
+        "platform.objectstore",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
       "owner_id": "app.server",
       "family_id": "app.server.integration",

@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -38,5 +39,18 @@ func TestImmutableCompositionContract_Unit(t *testing.T) {
 	}
 	if _, err := NewRunner(RunnerOptions{}); err == nil {
 		t.Fatal("NewRunner accepted missing dependencies")
+	}
+	emptySelection, err := NewRuntimeSelection(catalog, nil)
+	if err != nil || len(emptySelection.jobKinds()) != 0 || len(emptySelection.handlerNames()) != 0 {
+		t.Fatalf("empty runtime selection = %#v/%v", emptySelection, err)
+	}
+	if _, err := NewRuntimeSelection(catalog, []string{"unknown.run_v1"}); !errors.Is(err, ErrInvalidJobDefinition) {
+		t.Fatalf("unknown runtime selection error = %v", err)
+	}
+	if _, err := NewRuntimeSelection(catalog, []string{"test_profile.run_v1", "test_profile.run_v1"}); !errors.Is(err, ErrInvalidJobDefinition) {
+		t.Fatalf("duplicate runtime selection error = %v", err)
+	}
+	if _, err := NewCatalog(nil); !errors.Is(err, ErrInvalidJobDefinition) {
+		t.Fatalf("empty catalog error = %v", err)
 	}
 }

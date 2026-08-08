@@ -2840,6 +2840,19 @@ The v2 adoption is a clean internal cutover. No active runtime input may use
 `cartulary.extension_job_kind_contract.v1`, and no v1 reader, alias, defaulted
 unit, mixed catalog, or dual digest path is permitted.
 
+The one immutable Jobs definition catalog MUST include every packaged,
+recognized current contract required to validate retained jobs and reconcile
+inactive profiles. The resolved claim set MUST derive a separate immutable
+runnable selection that contains exactly the admitted job kinds and MAY be
+empty. An empty runnable selection is the required all-unclaimed Base Profile
+case: the common job-dequeue component remains quiescent, performs no
+profile-local work, and registers or invokes no profile handler. The
+implementation MUST NOT substitute an empty definition catalog, a synthetic
+job kind, permissive catalog validation, or inactive handler registration.
+Inactive-job reconciliation uses the complete catalog before publication;
+admission, recovery, claiming, renewal, and execution use only the runnable
+selection.
+
 Profiles: base
 Verified by: EXT-AC-115
 

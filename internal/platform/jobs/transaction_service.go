@@ -36,6 +36,7 @@ type TransactionService struct {
 	routeIdempotency      RouteIdempotencyPort
 	extensionCancellation ExtensionCancellationPort
 	catalog               *Catalog
+	selection             *RuntimeSelection
 }
 
 type ExtensionFinalizationContext struct {
@@ -48,8 +49,9 @@ type ExtensionFinalizationContext struct {
 	ClientTxnID             string
 }
 
-func NewTransactionService(progressIntents ProgressIntentAppender, ownerPorts OwnerTransactionPorts, catalog *Catalog) (*TransactionService, error) {
-	if progressIntents == nil || ownerPorts.RouteIdempotency == nil || ownerPorts.ExtensionCancellation == nil || catalog == nil {
+func NewTransactionService(progressIntents ProgressIntentAppender, ownerPorts OwnerTransactionPorts, catalog *Catalog, selection *RuntimeSelection) (*TransactionService, error) {
+	if progressIntents == nil || ownerPorts.RouteIdempotency == nil || ownerPorts.ExtensionCancellation == nil || catalog == nil ||
+		selection == nil || selection.catalog != catalog {
 		return nil, errors.New("jobs transaction service requires progress, route idempotency, and extension cancellation ports")
 	}
 	return &TransactionService{
@@ -57,6 +59,7 @@ func NewTransactionService(progressIntents ProgressIntentAppender, ownerPorts Ow
 		routeIdempotency:      ownerPorts.RouteIdempotency,
 		extensionCancellation: ownerPorts.ExtensionCancellation,
 		catalog:               catalog,
+		selection:             selection,
 	}, nil
 }
 
@@ -65,6 +68,9 @@ func (s *TransactionService) CreateQueuedTx(ctx context.Context, tx pgx.Tx, para
 		return Resource{}, ErrNotConfigured
 	}
 	jobKind := params.JobKind
+	if !s.selection.containsJobKind(jobKind) {
+		return Resource{}, fmt.Errorf("%w: job kind is not admitted", ErrInvalidJobDefinition)
+	}
 	definition, present := s.catalog.definition(jobKind)
 	if !present {
 		return Resource{}, fmt.Errorf("%w: unknown job kind", ErrInvalidJobDefinition)

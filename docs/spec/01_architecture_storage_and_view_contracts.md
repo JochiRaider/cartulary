@@ -7896,6 +7896,15 @@ kind, progress-unit identity, handler identity, and optional owner policy. Job
 admission supplies the job kind as its sole definition selector; Jobs derives
 the other identities from that catalog. Every retained job row MUST carry a
 non-null catalog-backed job kind, progress-unit identity, and handler identity.
+The catalog MUST contain every packaged, recognized job definition needed to
+validate retained state and inactive-owner reconciliation. A separate
+immutable runtime selection MUST contain exactly the definitions admitted for
+execution by the resolved deployment profile and MAY be empty. An empty
+runtime selection MUST NOT be represented by an empty catalog, a placeholder
+definition, weakened catalog validation, or registration of an inactive
+owner's handler. Admission, recovery scans, claims, renewals, and handler
+registration MUST use the runtime selection; retained-state validation and
+inactive-owner reconciliation MUST use the complete catalog.
 
 A queued durable-job claim MUST atomically commit `running`, `started_at`, a
 unique opaque execution identity, and lease expiry before invoking the
@@ -7933,7 +7942,14 @@ recovery. Transient scan errors remain inside the live supervisor. An
 unexpected supervisor exit or panic is required publication-component loss;
 an ordinary handler failure is not. Graceful shutdown stops new claims,
 cancels handlers, conditionally releases still-owned executions, and drains
-under the application shutdown deadline.
+under the application shutdown deadline. Once runner shutdown is observable,
+it is authoritative over any simultaneously ready renewal tick or handler
+outcome that has not already committed a terminal transition. Such an outcome
+MUST follow conditional release and MUST NOT consume a failure. A renewal or
+handler error observed without runner shutdown retains its ordinary failure or
+execution-loss semantics. A successful runner close MUST mean that supervised
+handler goroutines have drained; deadline expiry remains an unsuccessful
+close.
 
 Terminal state and progress are immutable. Progress `completed` MUST never
 decrease; a known `total` MUST never clear or decrease; the transition from an

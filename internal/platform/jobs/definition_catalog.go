@@ -37,6 +37,14 @@ type Catalog struct {
 	byKind map[string]Definition
 }
 
+// RuntimeSelection is the immutable subset of a Catalog admitted for
+// execution by the resolved deployment profile. Unlike Catalog, it may be
+// empty.
+type RuntimeSelection struct {
+	catalog *Catalog
+	byKind  map[string]Definition
+}
+
 func NewCatalog(definitions []Definition) (*Catalog, error) {
 	indexed := make(map[string]Definition, len(definitions))
 	for _, definition := range definitions {
@@ -58,6 +66,31 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 		return nil, fmt.Errorf("%w: empty job definition catalog", ErrInvalidJobDefinition)
 	}
 	return &Catalog{byKind: indexed}, nil
+}
+
+func NewRuntimeSelection(catalog *Catalog, jobKinds []string) (*RuntimeSelection, error) {
+	if catalog == nil {
+		return nil, ErrNotConfigured
+	}
+	selected := make(map[string]Definition, len(jobKinds))
+	for _, jobKind := range jobKinds {
+		if _, duplicate := selected[jobKind]; duplicate {
+			return nil, fmt.Errorf("%w: duplicate runtime job definition %q", ErrInvalidJobDefinition, jobKind)
+		}
+		definition, present := catalog.definition(jobKind)
+		if !present {
+			return nil, fmt.Errorf("%w: unknown runtime job definition %q", ErrInvalidJobDefinition, jobKind)
+		}
+		selected[jobKind] = definition
+	}
+	return &RuntimeSelection{catalog: catalog, byKind: selected}, nil
+}
+
+func FullRuntimeSelection(catalog *Catalog) (*RuntimeSelection, error) {
+	if catalog == nil {
+		return nil, ErrNotConfigured
+	}
+	return NewRuntimeSelection(catalog, catalog.jobKinds())
 }
 
 func cloneDefinition(definition Definition) (Definition, error) {
@@ -104,32 +137,64 @@ func (catalog *Catalog) definition(jobKind string) (Definition, bool) {
 	return clone, true
 }
 
-func (catalog *Catalog) handlerNames() []string {
+func (catalog *Catalog) jobKinds() []string {
 	if catalog == nil {
 		return nil
 	}
-	unique := map[string]struct{}{}
-	for _, definition := range catalog.byKind {
-		unique[definition.HandlerName] = struct{}{}
-	}
-	result := make([]string, 0, len(unique))
-	for name := range unique {
-		result = append(result, name)
+	result := make([]string, 0, len(catalog.byKind))
+	for jobKind := range catalog.byKind {
+		result = append(result, jobKind)
 	}
 	sort.Strings(result)
 	return result
 }
 
-func (catalog *Catalog) hasHandlerName(handlerName string) bool {
-	if catalog == nil || handlerName == "" {
+func (selection *RuntimeSelection) jobKinds() []string {
+	if selection == nil {
+		return nil
+	}
+	result := make([]string, 0, len(selection.byKind))
+	for jobKind := range selection.byKind {
+		result = append(result, jobKind)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (selection *RuntimeSelection) handlerNames() []string {
+	if selection == nil {
+		return nil
+	}
+	unique := map[string]struct{}{}
+	for _, definition := range selection.byKind {
+		unique[definition.HandlerName] = struct{}{}
+	}
+	result := make([]string, 0, len(unique))
+	for handlerName := range unique {
+		result = append(result, handlerName)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func (selection *RuntimeSelection) hasHandlerName(handlerName string) bool {
+	if selection == nil || handlerName == "" {
 		return false
 	}
-	for _, definition := range catalog.byKind {
+	for _, definition := range selection.byKind {
 		if definition.HandlerName == handlerName {
 			return true
 		}
 	}
 	return false
+}
+
+func (selection *RuntimeSelection) containsJobKind(jobKind string) bool {
+	if selection == nil {
+		return false
+	}
+	_, present := selection.byKind[jobKind]
+	return present
 }
 
 // ValidateStorageCatalog is the startup compatibility gate. It reports only

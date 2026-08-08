@@ -581,15 +581,25 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose extension job definitions: %w", err)
 	}
-	jobCatalog, err := jobs.NewCatalog(extensionJobDefinitions)
+	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts())
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
+	}
+	jobCatalog, err := jobs.NewCatalog(recognizedJobDefinitions)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs catalog: %w", err)
 	}
+	jobSelection, err := jobs.NewRuntimeSelection(jobCatalog, extensionassembly.JobKinds(extensionJobDefinitions))
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Jobs runtime selection: %w", err)
+	}
 	jobTransactions, err := jobs.NewTransactionService(intentAdapters, jobs.OwnerTransactionPorts{
 		RouteIdempotency:      jobOwnerPorts,
 		ExtensionCancellation: jobOwnerPorts,
-	}, jobCatalog)
+	}, jobCatalog, jobSelection)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs transaction service: %w", err)

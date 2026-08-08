@@ -166,10 +166,30 @@ func (m *Manager) RecoverableJobs(ctx context.Context, limit int) ([]uuid.UUID, 
 	if err := m.ensureConfigured(); err != nil {
 		return nil, err
 	}
+	return m.recoverableJobsForSelection(ctx, limit, m.transactions.selection)
+}
+
+func (m *Manager) recoverableJobsForSelection(ctx context.Context, limit int, selection *RuntimeSelection) ([]uuid.UUID, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return nil, err
+	}
+	if selection == nil || selection.catalog != m.catalog {
+		return nil, ErrNotConfigured
+	}
+	return m.recoverableJobs(ctx, limit, selection.jobKinds())
+}
+
+func (m *Manager) recoverableJobs(ctx context.Context, limit int, jobKinds []string) ([]uuid.UUID, error) {
+	if err := m.ensureConfigured(); err != nil {
+		return nil, err
+	}
+	if len(jobKinds) == 0 {
+		return nil, nil
+	}
 	if limit <= 0 || limit > m.policy.RecoveryBatch {
 		limit = m.policy.RecoveryBatch
 	}
-	if err := m.classifyExpiredAttempts(ctx, limit); err != nil {
+	if err := m.classifyExpiredAttempts(ctx, limit, jobKinds); err != nil {
 		return nil, err
 	}
 	rows, err := m.pool.Query(ctx, `
@@ -179,9 +199,10 @@ SELECT job_id
    AND handler_failure_count < $1
    AND handler_attempt_id IS NULL
    AND (handler_next_attempt_at IS NULL OR handler_next_attempt_at <= $2)
+   AND job_kind = ANY($4::text[])
  ORDER BY COALESCE(handler_next_attempt_at, submitted_at), submitted_at, job_id
  LIMIT $3
-`, m.policy.MaximumFailures, m.now().UTC(), limit)
+`, m.policy.MaximumFailures, m.now().UTC(), limit, jobKinds)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +219,11 @@ SELECT job_id
 }
 
 func (m *Manager) Claim(ctx context.Context, jobID uuid.UUID) (Execution, bool, error) {
-	execution, _, _, claimed, err := m.claimForRunner(ctx, jobID)
+	execution, _, _, claimed, err := m.claimForRunnerSelection(ctx, jobID, m.transactions.selection)
 	return execution, claimed, err
 }
 
-func (m *Manager) claimForRunner(ctx context.Context, jobID uuid.UUID) (Execution, string, string, bool, error) {
+func (m *Manager) claimForRunnerSelection(ctx context.Context, jobID uuid.UUID, selection *RuntimeSelection) (Execution, string, string, bool, error) {
 	if err := m.ensureConfigured(); err != nil {
 		return Execution{}, "", "", false, err
 	}
@@ -217,6 +238,14 @@ func (m *Manager) claimForRunner(ctx context.Context, jobID uuid.UUID) (Executio
 	definition, present := m.catalog.definition(jobKind)
 	if !present {
 		return Execution{}, "", "", false, ErrInvalidJobDefinition
+	}
+	if selection != nil {
+		if selection.catalog != m.catalog {
+			return Execution{}, "", "", false, ErrNotConfigured
+		}
+		if !selection.containsJobKind(jobKind) {
+			return Execution{}, "", "", false, nil
+		}
 	}
 	execution, claimed, err := m.claimExecution(ctx, jobID, definition.HandlerName)
 	return execution, definition.HandlerName, definition.JobKind, claimed, err
@@ -405,16 +434,17 @@ UPDATE jobs
 	return true, nil
 }
 
-func (m *Manager) classifyExpiredAttempts(ctx context.Context, limit int) error {
+func (m *Manager) classifyExpiredAttempts(ctx context.Context, limit int, jobKinds []string) error {
 	rows, err := m.pool.Query(ctx, `
 SELECT job_id
   FROM jobs
  WHERE status IN ('running', 'cancel_requested')
    AND handler_attempt_id IS NOT NULL
    AND handler_lease_expires_at <= $1
+   AND job_kind = ANY($3::text[])
  ORDER BY handler_lease_expires_at, job_id
  LIMIT $2
-`, m.now().UTC(), limit)
+`, m.now().UTC(), limit, jobKinds)
 	if err != nil {
 		return err
 	}
