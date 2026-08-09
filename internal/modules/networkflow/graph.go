@@ -1271,7 +1271,7 @@ func (s *Service) recordGraphQueryAudit(ctx context.Context, incidentID uuid.UUI
 			truncatedCount += len(edge.Rows) - limit
 		}
 	}
-	err = s.store.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err = withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		return s.store.appendAuditEventTx(ctx, tx, networkFlowAuditEvent{
 			ActorUserID: &actorUserID,
 			IncidentID:  &incidentID,

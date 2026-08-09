@@ -5,14 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestGraphProjectionMigration32ResetsUnreferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "graph-projection-32-reset", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "graph-projection-32-reset", 31)
+	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO graph_projection_views (
@@ -22,7 +21,7 @@ INSERT INTO graph_projection_views (
 `); err != nil {
 		t.Fatalf("seed legacy graph view: %v", err)
 	}
-	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 32); err != nil {
+	if err := migrationDB.ApplyThrough(ctx, 32); err != nil {
 		t.Fatalf("migrate graph projection state to 32: %v", err)
 	}
 	var viewCount int
@@ -51,7 +50,8 @@ SELECT count(*)
 
 func TestGraphProjectionMigration32BlocksReferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "graph-projection-32-referenced", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "graph-projection-32-referenced", 31)
+	db := migrationDB.SQL()
 	ctx := context.Background()
 	digest := strings.Repeat("a", 64)
 	if _, err := db.ExecContext(ctx, `
@@ -98,7 +98,7 @@ INSERT INTO reporting_releases (
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 		t.Fatalf("restore fixture foreign-key triggers: %v", err)
 	}
-	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 32)
+	err := migrationDB.ApplyThrough(ctx, 32)
 	if err == nil || !strings.Contains(err.Error(), "referenced_projection_run_count=1") {
 		t.Fatalf("migration reference preflight err = %v", err)
 	}

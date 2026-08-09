@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
@@ -18,8 +17,8 @@ type migrateRunner struct {
 	stderr     io.Writer
 	loadConfig func() (configassembly.Loaded, error)
 	openSQL    func(postgres.Settings) (*sql.DB, error)
-	apply      func(context.Context, *sql.DB, database_migrations.MigrationSource) (database_migrations.MigrationStatus, error)
-	source     database_migrations.MigrationSource
+	apply      func(context.Context, *sql.DB, database_migrations.Source) error
+	source     func() (database_migrations.Source, error)
 }
 
 func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) int {
@@ -38,7 +37,7 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 		},
 		openSQL: postgres.OpenSQL,
 		apply:   database_migrations.Apply,
-		source:  dbmigrations.Source(),
+		source:  dbmigrations.Source,
 	}
 }
 
@@ -49,11 +48,18 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	}
 
 	if err := runner.run(ctx); err != nil {
-		var remediation *database_migrations.MigrationRemediationError
+		var remediation database_migrations.RemediationReporter
 		if errors.As(err, &remediation) {
-			_, _ = fmt.Fprintln(runner.stderr, remediation.ReportJSON())
+			_, _ = io.WriteString(runner.stderr, remediation.RemediationReportJSON())
+			_, _ = io.WriteString(runner.stderr, "\n")
+			return 1
 		}
-		runner.logger().Error("migrate failed", "error", err)
+		var migrationFailure database_migrations.MigrationFailure
+		if errors.As(err, &migrationFailure) {
+			_, _ = fmt.Fprintln(runner.stderr, migrationFailure.ReasonCode())
+			return 1
+		}
+		_, _ = fmt.Fprintln(runner.stderr, "migration_operation_failed")
 		return 1
 	}
 
@@ -61,6 +67,10 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 }
 
 func (runner migrateRunner) run(ctx context.Context) error {
+	source, err := runner.source()
+	if err != nil {
+		return fmt.Errorf("load migration source: %w", err)
+	}
 	loaded, err := runner.loadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -79,12 +89,7 @@ func (runner migrateRunner) run(ctx context.Context) error {
 		defer db.Close()
 	}
 
-	_, err = runner.apply(ctx, db, runner.source)
-	return err
-}
-
-func (runner migrateRunner) logger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(runner.stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	return runner.apply(ctx, db, source)
 }
 
 func isExactMigrateUp(args []string) bool {

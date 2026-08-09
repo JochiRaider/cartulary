@@ -3,7 +3,6 @@ package database_migrations_test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -11,7 +10,6 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -20,7 +18,7 @@ func TestEnsureSchemaReadyAllowsCurrentHead(t *testing.T) {
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "schema-ready-head")
 	pool := openSchemaReadinessPool(t, testDB.DSN)
 
-	if err := postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source()); err != nil {
+	if err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)); err != nil {
 		t.Fatalf("current head schema should be ready: %v", err)
 	}
 }
@@ -30,14 +28,14 @@ func TestEnsureSchemaReadyRejectsEmptyDatabase(t *testing.T) {
 	testDB := postgresHarness.NewMigrationDatabaseT(t, "schema-ready-empty")
 	pool := openSchemaReadinessPool(t, testDB.DSN)
 
-	err := postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source())
+	err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t))
 	requireSchemaReadinessDiagnostic(t, err, "schema_migration_required")
 }
 
 func TestEnsureSchemaReadyRejectsBehindCurrentLine(t *testing.T) {
 	_, pool := migratedSchemaReadinessDatabase(t, "schema-ready-behind", 1)
 
-	err := postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source())
+	err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t))
 	requireSchemaReadinessDiagnostic(t, err, "schema_migration_required")
 }
 
@@ -51,7 +49,7 @@ func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
 		t.Fatalf("seed ahead migration version: %v", err)
 	}
 
-	err := postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source())
+	err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t))
 	requireSchemaReadinessDiagnostic(t, err, "schema_version_ahead")
 }
 
@@ -64,12 +62,12 @@ INSERT INTO goose_db_version (version_id, is_applied) VALUES (61, true);
 		t.Fatalf("seed historical migration line above head: %v", err)
 	}
 
-	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source()))
+	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
 	if report.Boundary != dbmigrations.LineageBoundary || report.FromVersion != 61 || report.ToVersion != 60 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
 	finding := report.Findings[0]
-	if finding.ReasonCode != "historical_migration_lineage" || finding.RawValue != nil || finding.RawValuePair["lineage_table_present"] != false {
+	if finding.ReasonCode != "historical_migration_lineage" || finding.RawValue != nil || finding.RawValuePair.LineageTablePresent {
 		t.Fatalf("unexpected remediation finding: %#v", finding)
 	}
 }
@@ -84,13 +82,77 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 		t.Fatalf("seed wrong lineage: %v", err)
 	}
 
-	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, dbmigrations.Source()))
+	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
 	finding := report.Findings[0]
 	if finding.RawValue == nil || *finding.RawValue != "cartulary.legacy_line.v1" {
 		t.Fatalf("expected observed wrong lineage in raw_value: %#v", finding)
 	}
-	if finding.RawValuePair["expected_lineage_id"] != dbmigrations.LineageID || finding.RawValuePair["lineage_table_present"] != true {
+	if finding.RawValuePair.ExpectedLineageID != dbmigrations.LineageID || !finding.RawValuePair.LineageTablePresent {
 		t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
+	}
+}
+
+func TestEnsureSchemaReadyRejectsZeroOnlyHistory(t *testing.T) {
+	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-zero-only", 1)
+	if _, err := db.ExecContext(context.Background(), `
+DELETE FROM goose_db_version WHERE version_id <> 0;
+DROP TABLE schema_migration_lineage;
+`); err != nil {
+		t.Fatalf("seed zero-only history: %v", err)
+	}
+	requireSchemaReadinessDiagnostic(
+		t,
+		postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)),
+		"schema_migration_required",
+	)
+}
+
+func TestEnsureSchemaReadyRejectsInvalidHistoryMatrix(t *testing.T) {
+	tests := []struct {
+		name    string
+		through int64
+		mutate  string
+	}{
+		{name: "duplicate", through: 2, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (2, true)`},
+		{name: "false", through: 1, mutate: `UPDATE goose_db_version SET is_applied = false WHERE version_id = 1`},
+		{name: "gap", through: 3, mutate: `DELETE FROM goose_db_version WHERE version_id = 2`},
+		{name: "out of order", through: 2, mutate: `UPDATE goose_db_version SET version_id = CASE version_id WHEN 1 THEN 2 WHEN 2 THEN 1 ELSE version_id END WHERE version_id IN (1, 2)`},
+		{name: "lineage without history", through: 1, mutate: `DELETE FROM goose_db_version WHERE version_id <> 0`},
+		{name: "corruption before wrong lineage", through: 3, mutate: `
+DELETE FROM goose_db_version WHERE version_id = 2;
+DELETE FROM schema_migration_lineage;
+INSERT INTO schema_migration_lineage (lineage_id, description)
+VALUES ('cartulary.legacy_line.v1', 'legacy test line');
+`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-invalid-"+test.name, test.through)
+			if _, err := db.ExecContext(context.Background(), test.mutate); err != nil {
+				t.Fatalf("seed invalid migration history: %v", err)
+			}
+			requireSchemaReadinessDiagnostic(
+				t,
+				postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)),
+				"schema_migration_history_invalid",
+			)
+		})
+	}
+}
+
+func TestEnsureSchemaReadyRejectsMixedLineage(t *testing.T) {
+	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-mixed-lineage", 1)
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO schema_migration_lineage (lineage_id, description)
+VALUES ('cartulary.legacy_line.v1', 'legacy test line');
+`); err != nil {
+		t.Fatalf("seed mixed migration lineage: %v", err)
+	}
+	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
+	facts := report.Findings[0].RawValuePair
+	if len(facts.ObservedLineageIDs) != 2 || facts.ObservedLineageIDs[0] != "cartulary.legacy_line.v1" || facts.ObservedLineageIDs[1] != dbmigrations.LineageID {
+		t.Fatalf("unexpected mixed lineage report: %#v", report)
 	}
 }
 
@@ -98,18 +160,25 @@ func migratedSchemaReadinessDatabase(t testing.TB, prefix string, throughVersion
 	t.Helper()
 
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.NewMigrationDatabaseT(t, prefix)
-	db := openSchemaReadinessSQL(t, testDB.DSN)
-	var err error
+	var migrationDB *pgtest.MigrationDatabase
 	if throughVersion == 0 {
-		_, err = postgres.Apply(context.Background(), db, dbmigrations.Source())
+		migrationDB = postgresHarness.MigrationDatabaseT(t, prefix)
 	} else {
-		_, err = postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), throughVersion)
+		migrationDB = postgresHarness.MigrationDatabaseThroughT(t, prefix, throughVersion)
 	}
-	if err != nil {
-		t.Fatalf("migrate schema readiness database: %v", err)
+	db := migrationDB.SQL()
+	databaseName := migrationScratchDatabaseName(t, db)
+	return db, openSchemaReadinessPoolForDatabase(t, postgresHarness.AdminDSN(), databaseName)
+}
+
+func migrationScratchDatabaseName(t testing.TB, db *sql.DB) string {
+	t.Helper()
+
+	var databaseName string
+	if err := db.QueryRowContext(context.Background(), `SELECT current_database()`).Scan(&databaseName); err != nil {
+		t.Fatalf("resolve migration scratch database name: %v", err)
 	}
-	return db, openSchemaReadinessPool(t, testDB.DSN)
+	return databaseName
 }
 
 func openSchemaReadinessSQL(t testing.TB, dsn string) *sql.DB {
@@ -134,30 +203,23 @@ func openSchemaReadinessPool(t testing.TB, dsn string) *pgxpool.Pool {
 	return pool
 }
 
-func requireSchemaReadinessDiagnostic(t testing.TB, err error, reasonCode string) {
+func openSchemaReadinessPoolForDatabase(t testing.TB, adminDSN string, databaseName string) *pgxpool.Pool {
 	t.Helper()
 
-	var diagnosticsErr *config.DiagnosticsError
-	if !errors.As(err, &diagnosticsErr) {
-		t.Fatalf("expected diagnostics error, got %T %[1]v", err)
+	config, err := pgxpool.ParseConfig(adminDSN)
+	if err != nil {
+		t.Fatalf("parse postgres harness admin binding: %v", err)
 	}
-	for _, diagnostic := range diagnosticsErr.Diagnostics {
-		if diagnostic.ReasonCode == reasonCode {
-			return
-		}
+	config.ConnConfig.Database = databaseName
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		t.Fatalf("open migration scratch pgx pool: %v", err)
 	}
-	t.Fatalf("missing reason_code=%q in %#v", reasonCode, diagnosticsErr.Diagnostics)
+	t.Cleanup(pool.Close)
+	return pool
 }
 
-func requireMigrationRemediation(t testing.TB, err error) postgres.MigrationRemediationReport {
+func requireSchemaReadinessDiagnostic(t testing.TB, err error, reasonCode string) {
 	t.Helper()
-
-	var remediationErr *postgres.MigrationRemediationError
-	if !errors.As(err, &remediationErr) {
-		t.Fatalf("expected migration remediation error, got %T %[1]v", err)
-	}
-	if len(remediationErr.Report.Findings) != 1 {
-		t.Fatalf("unexpected remediation report: %#v", remediationErr.Report)
-	}
-	return remediationErr.Report
+	requireExternalMigrationFailureReason(t, err, reasonCode)
 }

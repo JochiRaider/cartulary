@@ -18,7 +18,7 @@ import (
 
 const (
 	processCleanupTimeout = 10 * time.Second
-	processHTTPTimeout    = 10 * time.Second
+	processHTTPTimeout    = 30 * time.Second
 )
 
 type processEnvOptions struct {

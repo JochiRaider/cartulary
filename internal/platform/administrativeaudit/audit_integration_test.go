@@ -11,8 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/administrativeaudit"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -116,11 +114,12 @@ SELECT raw.created_at, projected.occurred_at, projected.changes
 
 func TestAdministrativeAuditLegacyProjectionCleanupPreservesRawJournal_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "administrative-audit-cleanup", 38)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "administrative-audit-cleanup", 38)
+	db := migrationDB.SQL()
 	insertLegacyRaw(t, db, "auth", "user_created")
 	insertLegacyRaw(t, db, "network_flow", "network_flow_import_started")
 
-	if _, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 39); err != nil {
+	if err := migrationDB.ApplyThrough(context.Background(), 39); err != nil {
 		t.Fatalf("apply administrative audit migration: %v", err)
 	}
 	var projectedCount int
@@ -136,7 +135,7 @@ SELECT count(*)
 	}
 
 	rawCountBefore, rawDigestBefore := rawJournalIdentity(t, db)
-	if _, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 40); err != nil {
+	if err := migrationDB.ApplyThrough(context.Background(), 40); err != nil {
 		t.Fatalf("apply administrative audit cleanup migration: %v", err)
 	}
 	rawCountAfter, rawDigestAfter := rawJournalIdentity(t, db)

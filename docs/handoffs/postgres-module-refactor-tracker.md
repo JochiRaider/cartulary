@@ -5,9 +5,9 @@
 - **Target path:** `internal/platform/postgres`
 - **Target label:** `postgres`, derived from the final path segment and already valid lowercase kebab case.
 - **Output path:** `docs/handoffs/postgres-module-refactor-tracker.md`
-- **Repository snapshot:** branch `main`, commit `3be8ddda38deb7b28734e78e487dc229be300585`, revalidated on 2026-08-08.
-- **Status:** iteration one, S-00 through S-12, is complete, including the former IG-004 broad-gate blocker. N-00 has rebaselined the tracker and admitted a decision-complete second iteration; N-01 through N-09 remain planned.
-- **Allowed change in this session:** only `docs/handoffs/postgres-module-refactor-tracker.md`. No product, specification, test, harness input, generated artifact, SQL, or other documentation change is authorized by this document-maintenance step.
+- **Repository snapshot:** branch `main`, commit `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`, revalidated on 2026-08-08. N-00 remains historical evidence at `3be8ddda38deb7b28734e78e487dc229be300585`.
+- **Status:** iteration one, S-00 through S-12, and iteration-two N-00 through N-05 are complete. N-06 readiness and remediation hardening is the next checkpoint; N-07 through N-09 remain ordered future work.
+- **Allowed change in the N-01 checkpoint:** this tracker, Core 01, Core 04, and the adopted Testing Harness NLSpec only. Product code, tests, verification inputs, generated artifacts, SQL, guides, `AGENTS.md`, and `docs/domain.md` remain unchanged until their owning implementation checkpoint.
 - **Non-goals:** no authored SQL or migration-history rewrite, data migration, frontend/browser change, PostgreSQL telemetry redesign, source-owner schema-semantic change, or compatibility forwarding package.
 - **Implementation authorization:** the user authorized S-00 through S-12 on 2026-08-08 and authorized N-00 as a tracker-only planning slice on 2026-08-08. N-01 through N-09 define later implementation work. Each slice is a separate workstream, and this tracker MUST be updated after completing one slice and before beginning the next.
 
@@ -18,7 +18,7 @@ Normative terms in this tracker use the meanings below:
 | MUST / MUST NOT | A binary condition for the later refactor. An implementation that violates it is incomplete. |
 | SHOULD / SHOULD NOT | The required default. A deviation requires an owner-approved amendment to this tracker before implementation. |
 | MAY | Intentional implementation freedom that does not alter an observable contract. |
-| Current | A fact inspected at commit `3be8ddda38deb7b28734e78e487dc229be300585`. |
+| Current | A fact inspected at commit `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`. |
 | Final | The required post-refactor state after all implementation gates and acceptance criteria pass. |
 
 Sections 2 through 12 preserve the completed first iteration as historical
@@ -503,7 +503,7 @@ The first refactor iteration is complete and PGT-AC-001 through PGT-AC-012 pass.
 
 - **Implementation status:** S-00 through S-12 and PGT-AC-001 through PGT-AC-012 are complete. IG-004 is closed without waiver. N-00 is the completed document-only admission slice for iteration two; N-01 through N-09 are not implemented by this update.
 - **Iteration-one planning baseline:** branch `main` at `6ff1f1e7d00608f85846aaa242aab89472a18ce3`; that rebaseline found 29 target files, 158 importers, 60 migrations, 40 top-level target tests, 18 initially unselected tests, 13 target rows, and ten source-owner migration files.
-- **Iteration-two planning baseline:** branch `main` at `3be8ddda38deb7b28734e78e487dc229be300585`; the current inventory and new final-state decisions are in Sections 13 through 20. `docs/domain.md` remains intentionally unchanged.
+- **Iteration-two planning baseline:** N-00 remains historical at `3be8ddda38deb7b28734e78e487dc229be300585`; N-01 revalidated the unchanged scoped backend inventory at `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`. The current inventory and final-state decisions are in Sections 13 through 20. `docs/domain.md` remains intentionally unchanged.
 - **S-00 changed paths:** `AGENTS.md`; Core 00, Core 01, and Core 04; `docs/guides/cartulary-dev-guide.md`; and this tracker.
 - **S-01 through S-03 changed paths:** `contracts/verification/owners/{app.migrate,module.database_migrations,platform.postgres}.json`, `contracts/verification/registry.json`, `tools/test_catalog_owner.json`, `tools/test_families/{app.migrate,module.database_migrations,platform.postgres}.json`, the initial database-migrations characterization tests, and `internal/platform/postgres/transaction_runner_test.go`.
 - **S-04 and S-05 changed paths:** migration production/tests formerly below `internal/platform/postgres/**`, their final `internal/modules/database_migrations/**` paths, `db/migrations/source.go`, `internal/app/{migrate,operator,recoveryassembly,server}/**`, `internal/testutil/pgtest/**`, `tools/recoverybrowserrestore/main.go`, and `tools/testservices/main.go`.
@@ -529,13 +529,18 @@ deliberate internal API contraction, not a behavior-preservation exercise.
 
 ### 13.1 Rebaseline
 
-The N-00 inventory at `3be8ddda38deb7b28734e78e487dc229be300585` is:
+N-00 remains immutable historical evidence at
+`3be8ddda38deb7b28734e78e487dc229be300585`. Before N-01, the scoped inventory
+was revalidated at `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`.
+The intervening revision changes UI/design artifacts and this tracker but does
+not change any scoped PostgreSQL, Database Migrations, migration SQL,
+verification-owner, or targeted-call input. The current inventory is therefore:
 
 | Surface | Current count | Rebaseline finding |
 | --- | ---: | --- |
 | Tracked `internal/platform/postgres` paths | 8 | `db.go`, `postgres.go`, `postgres_settings_test.go`, `telemetry.go`, `telemetry_test.go`, `transaction_runner.go`, `transaction_runner_test.go`, and redundant `.gitkeep`. |
 | Tracked `internal/modules/database_migrations` paths | 14 | Five production files and nine test files, including the `migrationevidence` subpackage. |
-| Go imports of `database_migrations` | 35 | Thirty-five import declarations across 34 files; one operator integration test imports both the root and `migrationevidence` subpackage. Includes composition roots, migration-owning modules, test support, source-owner migration tests, and tools. |
+| Imports of `database_migrations` | 35 | Thirty-five import declarations across 34 Go files; one operator integration test imports both the root and `migrationevidence` subpackage. Includes composition roots, migration-owning modules, test support, source-owner migration tests, and tools. |
 | Authored numbered SQL migrations | 60 | Immutable for this iteration. |
 | Direct targeted-operation calls | 32 | 26 `ApplyThrough` calls and 6 `RollbackThrough` calls. |
 | `module.database_migrations` owner rows | 12 | Five service-backed and seven unit rows. |
@@ -550,7 +555,7 @@ exported. These surfaces are not retained merely because iteration one retained
 or introduced them.
 
 `docs/domain.md` remains unchanged. Migration runners, PostgreSQL adapters,
-verification rows, test harnesses, and package topology remain
+transaction helpers, test fixtures, verification rows, test harnesses, and package topology remain
 implementation-support concepts under its Section 6 classification. Core 00's
 logical ownership assignment also remains unchanged.
 
@@ -577,14 +582,14 @@ logical ownership assignment also remains unchanged.
 
 | Gap | Areas and remediation | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Complete when |
 | --- | --- | --- | --- | --- | --- | --- |
-| N-G01: Completion posture and inventory were stale | Documentation and planning. Close IG-004, PGT-017, and PGT-AC-012 with the supplied successful evidence; rebaseline all counts and make Sections 13 through 20 controlling for iteration two. | A blocked historical posture and first-iteration counts cannot safely govern new structural work. | Later sessions start from current evidence and do not rediscover or accidentally reopen completed work. | Documentation only; no runtime impact. | Work may target retired paths, preserve temporary surfaces, or misreport repository health. | N-00 records the exact commit, inventory, prior closure roots, new decisions, and tracker-only validation. |
-| N-G02: Production source and result types expose mutable or meaningless state | Specification, implementation, tests, and documentation. Replace `MigrationSource` with opaque `Source`, remove `MigrationStatus`, require explicit filesystem/root/lineage construction, and make `Apply` error-only. Reject zero, nil-filesystem, invalid-root, missing-lineage, empty, malformed, duplicate-version, and non-contiguous sources before database access. | Public fields, path defaulting, and empty success make invalid production states easy to construct and give callers result data they do not use. | Immutable fail-closed input, smaller API, deterministic validation, and room for later catalog metadata without caller coupling. | Internal callers break atomically; `db/migrations.Source()` becomes the canonical embedded source. No data or CLI migration. | Invalid or attacker-controlled catalogs can reach the database; callers remain coupled to source layout and vestigial status fields. | Only opaque `Source`, `NewSource`, error-only `Apply`, readiness, ledger reader, remediation reporter, and recovery contribution remain exported; source matrix passes before-access assertions. |
-| N-G03: Test-only version targeting is a production-module capability | Specification, implementation, test support, tests, and verification. Move apply-through and rollback-through to `internal/testutil/pgtest`, bind them to the canonical embedded repository source and disposable scratch databases, convert all 32 calls, and remove production exports. | Production rollback/version targeting increases API and safety burden solely to support migration contract tests. | Production expresses only deployable behavior; the harness owns destructive historical-state construction. | Test call sites and selectors change; apply targets `<=0` and rollback targets `<0` fail before database access. No production rollback compatibility. | A production caller can accidentally depend on down migrations or arbitrary targets, making future migration policy brittle. | No production or source-owner test imports `ApplyThrough`/`RollbackThrough`; only the two pgtest helpers implement targeted mechanics and their validation row passes. |
-| N-G04: Migration execution is not process-safe and leaks vendor/logging concerns | Specification, implementation, security tests, and application facade tests. Serialize every production apply with advisory lock `4097083626`, run preflight after acquisition, use a discard Provider logger, remove environment log files, sanitize failures, and emit one remediation object. | Invocation-local Provider state removed process globals but did not prevent concurrent processes, and Goose/log-path errors expose unstable or sensitive implementation detail. | Deterministic cross-process deployment, prompt cancellation, bounded cleanup, stable diagnostics, and reduced secret/SQL disclosure. | Non-contractual Goose error wording and log files disappear. Borrowed `*sql.DB` remains open; CLI grammar and remediation schema ID remain. | Concurrent migrators can interleave; lock leaks can stall deploys; logs/errors can disclose SQL, DSNs, paths, or upstream details. | Lock stress, cancellation, failed-operation unlock, borrowed-handle, exact-stderr, and forbidden-data tests pass repeatedly. |
-| N-G05: Readiness and preflight accept ambiguous database histories | Specification, implementation, tests, and remediation documentation. Require an exact catalog prefix in applied nonzero Goose rows and exactly one expected lineage; fail closed for nil pools and invalid/empty sources. | Maximum-version and expected-lineage-membership checks do not detect gaps, duplicates, unknown migrations, or mixed lineages. | Readiness and execution share a comprehensible integrity model that supports future phases without accepting corrupt history. | Newly detected invalid databases fail startup/apply with `schema_migration_history_invalid`; ahead databases retain `schema_version_ahead`; historical lineage keeps the v1 remediation schema. | Corrupt or mixed history can appear ready and receive further DDL, making recovery unsafe. | Missing/wrong/mixed lineage and duplicate/gapped/unknown/behind/ahead/current matrices produce exactly the specified reason/report outcomes. |
+| N-G01: Completion posture and inventory were stale | Documentation and planning. Revalidate against current HEAD, preserve N-00 history, and amend counts, decisions, row accounting, and snapshot assumptions before implementation. | Intervening UI/design work changed the repository snapshot and browser baseline without changing scoped backend state. | Later sessions receive accurate history without reopening iteration one or relying on stale repository-wide evidence. | Tracker-only; no runtime compatibility effect. | Failures can be misattributed, selectors can be obsolete, or final evidence can claim the wrong snapshot. | N-01 records the current commit and exact inventory; unique-ID, Markdown, and diff checks pass. |
+| N-G02: Production source and result types expose mutable or meaningless state | Specification, implementation, tests, application facades, and guide. Replace `MigrationSource` with opaque immutable `Source`, remove `MigrationStatus`, make construction fallible, cache one canonical embedded snapshot, and make `Apply` error-only. Reject zero, nil-filesystem, invalid or escaping roots, absent lineage, empty or malformed catalogs, unexpected entries, invalid filenames, duplicate or non-contiguous versions, malformed markers, unsupported directives, and unbalanced statement blocks before database access. | Returning an apparently valid source without an error hides invalid state inside the opaque value; public fields and lazy filesystem reads also permit mutation and time-of-check/time-of-use drift. | Deterministic catalogs, smaller caller coupling, and a safe foundation for future catalog metadata. | Internal compile-time break across callers; no data, CLI grammar, or SQL migration. | Invalid or mutable catalogs may reach the database and future callers remain coupled to source layout. | Constructor/catalog, mutation-after-construction, zero-source, before-access, public-surface, and application-build checks pass. |
+| N-G03: Test-only version targeting is a production-module capability | Testing Harness specification, pgtest implementation, source-owner tests, verification, and guide. Move apply-through and rollback-through behind an opaque pgtest-issued `MigrationDatabase` capability, bind it to the canonical embedded source and disposable scratch databases, convert all 32 calls, and remove production operations in the same checkpoint. | Free functions accepting arbitrary `*sql.DB` cannot enforce the scratch-database boundary. | Production expresses only deployable apply-to-head behavior while destructive history construction is explicitly harness-owned. | Test-only API break; no production rollback support or compatibility alias. Apply targets `<=0` and rollback targets `<0` fail before source or database access; rollback zero remains allowed. | Production or ordinary tests can silently depend on arbitrary rollback/version targeting. | The exact 26/6 inventory is converted; invalid-target and construction tests pass; no retired import or symbol remains. |
+| N-G04: Migration execution is not process-safe and leaks vendor/logging concerns | Core specification, implementation, security tests, migrate/server facade tests, and documentation. Use Goose `SessionLocker` integration with advisory lock `4097083626`, locked initial/provider/final classification, one-second acquisition retries for at most five minutes, one bounded detached release path for at most 30 seconds, discarded logging, safe typed failures, exact facade output, and borrowed-handle protection. | Invocation-local providers do not serialize processes, and holding an external lock connection while Goose waits for another pool connection can deadlock a constrained pool. Raw provider/log errors are unstable and potentially sensitive. | Deterministic deployment behavior, bounded cleanup, prompt cancellation, and a reviewable diagnostic surface. | Goose log files and vendor wording disappear intentionally; successful grammar and exit mapping remain. | Interleaved DDL, leaked locks, blocked deployment, duplicate output, or secret and SQL disclosure. | Repeated concurrency, cancellation, preflight/provider/panic cleanup, unlock bounds, borrowed-handle, exact-stderr, and forbidden-data tests pass. |
+| N-G05: Readiness and preflight accept ambiguous database histories | Core specification, implementation, readiness/remediation tests, and operator guidance. Introduce one pure catalog/history classifier used by Apply preflight, final verification, and readiness, with structural-invalid precedence over lineage mismatch and exact pristine/behind/current/ahead outcomes. | Maximum-version and lineage-membership checks accept gaps, duplicates, unknown versions, false rows, and mixed lineages. | One integrity model supports future migrations without normalizing or advancing corrupt databases. | Previously accepted corrupt databases fail closed; no automatic repair or historical-line bridge is added. | Corrupt state may be called ready or receive additional DDL, making recovery unsafe. | Pristine, zero-only, behind, current, ahead, duplicate, gap, unknown, false, out-of-order, missing/wrong/mixed lineage, combined-failure, nil-pool, and invalid-source matrices pass. |
 | N-G06: Remediation and pgtest retain open-ended or duplicate evidence structures | Implementation, tests, and documentation. Replace exported remediation DTOs and `map[string]any` facts with private typed structures, remove unused `incident_id` and nil fallbacks, remove `PreparationStatus`, and make preparation events authoritative. | Open maps weaken schema review; unused/nil compatibility behavior increases states; status duplicates retained event evidence. | Closed schemas, simpler callers, and one test-preparation evidence path. | Callers use `RemediationReporter` rather than concrete DTOs; `PrepareDatabase` returns only database/error. JSON schema and meaningful fields remain stable. | Schema drift, unreviewed fields, and conflicting template/migration evidence can accumulate. | Public-surface tests, exact remediation JSON, preparation events, and stale-symbol scans pass. |
 | N-G07: PostgreSQL retains dead exports and a low-cohesion transaction facade | Implementation, tests, boundaries, and verification. Delete `.gitkeep`; privatize DSN fragments; move the test DSN key to test support; delete the transaction runner; let Network Flow own a private helper over its existing `postgres.DB`; remove redundant server wiring. | These symbols either have no production consumer or abstract behavior used by a single module. | A smaller adapter centered on configuration, connections, DB operations, and telemetry; Network Flow transaction behavior evolves with its owner. | Network Flow dependency construction and a row owner change atomically. Transaction ordering is preserved; no other DB API changes. | Dead public API invites coupling, and a shared facade obscures the only behavior owner. | Old symbols/files/options are absent, Network Flow owns the exact lifecycle test, and adapter/build/boundary checks pass. |
-| N-G08: Authority and verification still describe iteration-one compatibility | Specification, contracts, tests, generated artifacts, and documentation. Amend Core 01/Core 04, add Testing Harness ownership for targeted helpers, update guide/AGENTS, add replacement rows before retiring old ones, and regenerate from authored inputs. | Implementation must not get ahead of authority, and evidence must follow semantic ownership. | Durable ownership, exact selection, and topology that supports later phases without temporary exceptions. | Row IDs listed in Section 16 retire; unaffected identities remain immutable. Generated projections change only through `make generate`. | Requirements contradict code, tests become orphaned/duplicated, or generated evidence masks stale paths. | IDs and selectors resolve exactly once; JSON, harness, boundary, generation, and protected-artifact checks pass with zero stale references. |
+| N-G08: Authority and verification still describe iteration-one compatibility | Core 01, Core 04, Testing Harness NLSpec, verification contracts, generated topology, guide, `AGENTS.md`, and tracker. Amend authority in N-01, then transition each executable row and implementation guide only when its corresponding code exists. | Active rows cannot select nonexistent or deliberately failing future tests, and guides must not describe topology that has not landed. | Specifications lead implementation while executable routing remains truthful at every checkpoint. | Rows transition atomically with their executable tests; unaffected IDs remain unchanged. | Contradictory owners, orphaned tests, false verification claims, or generated topology masking stale selectors. | IDs are unique; every active selector resolves exactly once; row edits regenerate clean topology; no executable crosswalk remains. |
 | N-G09: Production completion lacks second-iteration evidence | Tests, security, builds, documentation, and handoff. Run narrow-to-broad validation at one source snapshot and close every criterion with retained roots and failure classification. | A clean design is not complete without evidence for concurrency, safety, migrations, owners, and aggregate repository behavior. | Auditable release readiness and a continuation point that does not depend on session memory. | No runtime impact beyond the implemented slices. | Partial success can be mistaken for production readiness or omit an owner gate. | N-09 records every applicable result, every failure/retry, migration immutability, no unexplained diff, and no skipped applicable check. |
 
 ## 15. Final Iteration-Two Interfaces and Behavioral Rules
@@ -596,7 +601,7 @@ The final exported production surface under
 
 ```go
 type Source struct {
-	// unexported immutable state
+	// unexported immutable catalog snapshot and lineage metadata
 }
 
 func NewSource(
@@ -604,7 +609,7 @@ func NewSource(
 	root string,
 	lineageID string,
 	lineageBoundary string,
-) Source
+) (Source, error)
 
 func Apply(context.Context, *sql.DB, Source) error
 
@@ -615,23 +620,30 @@ type LedgerReader interface {
 
 func EnsureSchemaReady(context.Context, *pgxpool.Pool, Source) error
 
-type RemediationReporter interface {
+type MigrationFailure interface {
 	error
+	ReasonCode() string
+}
+
+type RemediationReporter interface {
+	MigrationFailure
 	RemediationReportJSON() string
 }
 
 func RecoveryStateContribution() recoverystate.Contribution
 ```
 
-`Source` MUST expose no fields or filesystem/path accessors. `NewSource` copies
-and validates scalar metadata but does not read a database. Catalog inspection
-MUST be deterministic and MUST reject, before database access, a zero `Source`,
-nil filesystem, absolute/root-escaping/invalid root, missing lineage ID or
-boundary, empty catalog, invalid filename, invalid Goose markers, duplicate
-version, or non-contiguous sequence. There is no `"."` default, path-only
-constructor, operating-system filesystem discovery, or empty-source success.
-`db/migrations.Source()` returns the one production canonical, embedded,
-lineage-bound source.
+`Source` MUST expose no fields or filesystem/path accessors. `NewSource` reads
+and copies its catalog into private immutable storage and validates it without
+database access. It rejects a zero source, nil filesystem, absolute,
+root-escaping, or otherwise invalid root, missing lineage ID or boundary, empty
+catalog, unexpected entry, filename outside the five-digit lower-snake form,
+duplicate or non-contiguous versions, missing or repeated Up/Down markers,
+unsupported directives, and unbalanced statement blocks. There is no `"."`
+default, path-only constructor, operating-system filesystem discovery, or
+empty-source success. `db/migrations.Source()` returns `(Source, error)` and
+caches one validated immutable snapshot of the canonical embedded catalog; it
+does not panic.
 
 The following are removed without aliases or re-exports:
 
@@ -645,18 +657,25 @@ The following are removed without aliases or re-exports:
 
 ### 15.2 Test-only targeted mechanics
 
-`internal/testutil/pgtest` owns exactly these targeted helpers:
+`internal/testutil/pgtest` owns one opaque targeted capability:
 
 ```go
-func ApplyMigrationsThrough(context.Context, *sql.DB, int64) error
-func RollbackMigrationsThrough(context.Context, *sql.DB, int64) error
+type MigrationDatabase struct {
+	// unexported harness identity and *sql.DB
+}
+
+func (db *MigrationDatabase) SQL() *sql.DB
+func (db *MigrationDatabase) ApplyThrough(context.Context, int64) error
+func (db *MigrationDatabase) RollbackThrough(context.Context, int64) error
 ```
 
-They always use `db/migrations.Source()`, are limited to disposable
-migration-scratch databases created by the repository test harness, and do not
-accept a source. Apply targets `<= 0` and rollback targets `< 0` fail before
-database access; rollback target zero is allowed. These helpers do not create a
-production rollback contract. `PreparationStatus` is deleted and
+`Harness.MigrationDatabaseT` and `MigrationDatabaseThroughT` return this
+capability. It cannot be constructed around an arbitrary database outside
+pgtest, always uses `db/migrations.Source()`, is limited to disposable
+migration-scratch databases created by the repository test harness, and does
+not accept a source. Apply targets `<= 0` and rollback targets `< 0` fail before
+source or database access; rollback target zero is allowed. The capability does
+not create a production rollback contract. `PreparationStatus` is deleted and
 `PrepareDatabase` returns only `(*TestDatabase, error)`; existing suite
 preparation events remain the authoritative template-clone and migration
 evidence. The process-wide Goose environment shim in `tools/testservices` is
@@ -668,58 +687,74 @@ Every `Apply` performs the following ordered lifecycle:
 
 1. Validate context, borrowed database handle, and complete source without
    database access. A canceled context returns promptly.
-2. Borrow one `*sql.Conn`, preserving ownership of the caller's `*sql.DB`.
-3. Attempt `pg_try_advisory_lock(4097083626)` immediately. When unavailable,
-   wait in cancellation-aware one-second intervals and perform no more than 300
-   additional acquisition retries. Exhaustion returns a stable lock-acquisition
-   failure.
-4. After acquisition, run lineage and ledger preflight through the lock-holding
-   connection. No Goose execution begins unless preflight passes.
-5. Construct one Goose Provider with the validated embedded source, PostgreSQL
-   dialect, disabled global Go-migration registry, and per-provider discard
-   logger, then apply to head. Provider execution MUST NOT close the borrowed
+2. Acquire a session lock for an initial classification. Use advisory lock
+   `4097083626`, cancellation-aware one-second retry intervals, and a five-minute
+   acquisition ceiling. If this preflight fails after acquisition, explicitly
+   release through the common cleanup path before returning.
+3. If no migration is required, release the initial session lock and continue
+   to the final locked classification. If work is required, release it and
+   construct one Goose Provider with the immutable source, PostgreSQL dialect,
+   disabled global Go-migration registry, and `io.Discard` logging.
+4. Supply Goose with a validating `SessionLocker`. After it acquires the
+   execution lock, it reclassifies through that same `*sql.Conn` before Goose
+   executes SQL. This makes the migration SQL connection and execution lock
+   session-identical and avoids holding an external pool connection while
+   Goose waits for another.
+5. Apply to head and never call `Provider.Close`, because the caller owns the
    `*sql.DB`.
-6. On every path after acquisition, release the session lock through the same
-   connection. Unlock is detached from the caller's canceled context, bounded
-   to at most 30 attempts, and never hides an earlier primary failure. A sole
-   unlock failure is returned as the stable cleanup failure. Finally close only
-   the borrowed `*sql.Conn`.
+6. Perform a final locked classification before returning success.
+7. Cancellation, classification failure, provider failure, panic recovery, and
+   cleanup failure all use one release path detached from the canceled caller
+   context and bounded to 30 seconds. Cleanup never hides an earlier primary
+   failure; a sole unlock failure is the stable cleanup failure.
 
-Concurrent cooperating applies therefore serialize even if Goose performs DDL
-through another pooled connection. Preflight failure, provider failure, panic
-recovery if present, and cancellation MUST all enter the same bounded unlock
-path. Tests MUST prove the caller can still use and close its `*sql.DB` after
-every outcome.
+Tests MUST prove all acquisition/release ceilings, session identity, explicit
+unlock after locked preflight failure, primary-error precedence, and continued
+caller use and closure of its own `*sql.DB` after every outcome.
 
 ### 15.4 Safe failures, remediation, and readiness
 
-Ordinary execution errors expose only stable operation stage/reason identifiers
-and safe numeric source/current/target versions when relevant. Their `Error()`
-text, wrapping chain, remediation JSON, application stderr, and test-retained
-logs MUST NOT contain SQL text, bind values, DSNs, filesystem paths, server
-identity, environment values, or upstream/Goose error text. Internal causes may
-be observed only by existing telemetry mechanisms that already satisfy their
-redaction contract; no new raw-error attribute or log is added.
+`MigrationFailure` exposes a closed safe reason set covering source invalidity,
+unavailable database, lock acquisition, invalid history, required or ahead
+schema, migration execution, cleanup, and failed postcondition. Context
+cancellation remains `errors.Is`-compatible. `Error()` text, wrapping chain,
+remediation JSON, application stderr, and retained logs MUST NOT contain SQL
+text, bind values, DSNs, filesystem paths, server identity, environment values,
+constraints, endpoints, or upstream/Goose error text.
 
 The schema ID `cartulary.migration_remediation_report.v1`, existing historical
-lineage reason, and meaningful JSON member names remain. Implementation uses
-private typed facts. Remediation-capable errors satisfy `RemediationReporter`.
+lineage reason, meaningful JSON member names, member order, and output bytes
+remain. Implementation uses private typed facts with no `incident_id` or
+nil-receiver fallback. Remediation-capable errors satisfy
+`RemediationReporter`.
 The migrate facade writes exactly `RemediationReportJSON() + "\n"` once to
 stderr and suppresses a second generic error line for that failure; other
 failures retain the existing exit-code framing without vendor detail.
 
-Applied `goose_db_version` rows with version zero excluded MUST describe the
-exact ordered prefix of the validated source catalog: no duplicate, gap,
-unknown version, or out-of-order applied state is accepted. Such histories use
-`schema_migration_history_invalid`. A valid prefix behind head uses
-`schema_migration_required`; a version above source head retains
-`schema_version_ahead`; an exact prefix through head is current.
+A shared pure classifier consumes snapshots acquired through separate
+`database/sql` and pgx adapters. Its precedence is:
 
-When the lineage table is present, its distinct lineage set MUST equal the
-single expected source lineage. Missing, wrong, or mixed lineages use the
-existing historical-lineage remediation schema. Apply preflight and readiness
-share the same catalog/history classifier. A nil readiness pool or invalid or
-empty source fails closed rather than reporting ready.
+1. invalid context, source, or database capability;
+2. malformed ledger structure, including duplicate, false, non-positive,
+   out-of-order, gapped, or unknown in-range versions, reported as
+   `schema_migration_history_invalid`;
+3. for structurally valid nonzero histories, a lineage set other than exactly
+   the expected singleton, including missing, empty, wrong, or mixed lineage,
+   reported through the existing historical-lineage remediation report;
+4. a contiguous history beyond source head, reported as `schema_version_ahead`;
+5. a valid prefix behind head, reported as `schema_migration_required` for
+   readiness and eligible for `Apply`;
+6. an exact prefix through head, classified current; and
+7. no nonzero history and no lineage, classified pristine: readiness reports
+   `schema_migration_required`, while `Apply` may initialize it.
+
+Structural corruption wins when it coexists with lineage mismatch. Apply
+preflight, provider-lock validation, final postcondition, and readiness use this
+one classifier. A nil readiness pool and invalid source fail closed. No
+automatic ledger repair or historical-lineage bridge is added. Migrate and
+server facades detect `RemediationReporter`; server maps failures to its current
+diagnostic envelope without making Database Migrations depend on
+`platform/config`.
 
 ### 15.5 PostgreSQL and Network Flow boundary
 
@@ -734,15 +769,17 @@ Network Flow replaces `ModuleDependencies.Transactions` and
 `WithTransactionRunner` with a private helper over its existing `postgres.DB`.
 Server composition no longer constructs or injects the redundant facade. Its
 lifecycle remains begin, callback, rollback attempt after callback failure,
-commit attempt after callback success, surfaced commit failure, and successful
-return only after commit. The helper MUST preserve the original primary error
-when a rollback attempt also fails.
+commit attempt after callback success, defensive deferred rollback after
+successful commit, surfaced commit failure, and successful return only after
+commit. The helper MUST preserve the original primary error when a rollback
+attempt also fails.
 
 ## 16. Specification and Verification Admission
 
-N-01 MUST land authority and replacement verification admission before code is
-contracted. Identifier availability was confirmed at N-00 and MUST be rescanned
-if HEAD changes.
+N-01 lands normative authority before code is contracted. Active replacement
+rows and implementation guidance land only with the code and executable tests
+they describe. Identifier availability was confirmed again at
+`d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`.
 
 ### 16.1 Owner-document changes
 
@@ -755,32 +792,36 @@ if HEAD changes.
   locking, cancellation and bounded unlock, safe failure disclosure, exact
   history/lineage, single remediation emission, and borrowed-handle criteria.
 - Add snapshot-available `TH-HARNESS-REQ-810` and `TH-HARNESS-AC-094` to the
-  Testing Harness NLSpec. They own canonical-source targeted migration helpers
-  only for disposable scratch databases and the exact invalid-target evidence.
-- Update `docs/guides/cartulary-dev-guide.md` and `AGENTS.md` to state the
-  production/test boundary and new PostgreSQL/Network Flow ownership. Leave
-  Core 00 and `docs/domain.md` unchanged.
+  Testing Harness NLSpec. They own the opaque canonical-source targeted
+  migration capability only for disposable scratch databases, invalid-target
+  before-access behavior, and preparation-event authority.
+- Update `docs/guides/cartulary-dev-guide.md` and `AGENTS.md` only in the
+  implementation checkpoint where their described production/test or
+  PostgreSQL/Network Flow boundary lands. Leave Core 00 and `docs/domain.md`
+  unchanged.
 
 ### 16.2 Verification-row transition
 
-Replacement rows MUST be added and resolve exactly once before their retired
-rows are removed. An old and new row may coexist only within N-01 admission and
-MUST NOT select the same symbol in a validation checkpoint.
+Each replacement row is admitted atomically with its executable replacement
+test and generated topology. No active row may select a nonexistent or
+deliberately failing future test, and old and new rows MUST NOT coexist at a
+checkpoint.
 
 | Retired row | Final row or rows | Final selector intent |
 | --- | --- | --- |
+| `module.database_migrations.integration.long_running_migration_cancellation` | `module.database_migrations.integration.concurrent_apply_locking` | Cross-process serialization, lock-wait cancellation, provider cancellation, and bounded release integration cases. |
 | `module.database_migrations.integration.migration_lineage_remediation_matrix` | `module.database_migrations.integration.production_preflight_state_matrix` | Exact current, missing/wrong/mixed lineage, and invalid ledger-prefix integration cases. |
 | `module.database_migrations.unit.defaults_logger_and_remediation_contract` | `module.database_migrations.unit.fail_closed_source_and_remediation_contract` | Zero/nil/empty/malformed source, nil readiness, and exact internal-facts remediation JSON. |
-| `module.database_migrations.unit.provider_context_source_logger_isolation` | `module.database_migrations.unit.provider_source_and_safe_error_isolation`; `module.database_migrations.integration.concurrent_apply_locking` | Embedded root/provider/error-redaction unit evidence plus concurrent/canceled/failing apply integration evidence. |
+| `module.database_migrations.unit.provider_context_source_logger_isolation` | `module.database_migrations.unit.provider_source_and_safe_error_isolation` | Embedded root/provider isolation and safe error-redaction unit evidence. |
 | `module.database_migrations.unit.targeted_operation_validation` | `module.database_migrations.unit.test_harness_targeted_operation_validation` | Exact pgtest-package target validation; the semantic owner remains Database Migrations while the executable helper is harness-only. |
 | `platform.postgres.unit.transaction_lifecycle` | `module.networkflow.unit.transaction_lifecycle` | Network Flow's private helper and preserved begin/callback/rollback/commit ordering. |
 
 Unchanged Database Migrations rows, all source-owner migration row identities,
 and `app.migrate`, `app.server`, and `app.operator` facade rows retain their IDs.
-The final manifests MUST have 12 Database Migrations rows and two PostgreSQL
-rows unless N-01 collision/selector discovery records and approves an explicit
-tracker amendment before implementation. No executable crosswalk remains after
-N-08.
+The final manifests MUST have 12 Database Migrations rows, two PostgreSQL rows,
+and one additional Network Flow row unless collision/selector discovery records
+and approves an explicit tracker amendment before implementation. No executable
+crosswalk remains after N-08.
 
 ## 17. Ordered Iteration-Two Workstreams
 
@@ -794,9 +835,9 @@ slice reopens that slice; database rollback is never a code rollback strategy.
 | Slice | Depends on | Work and checkpoint | Principal risk and rollback | Exit criteria |
 | --- | --- | --- | --- | --- |
 | N-00 — Rebaseline and prior closure | None | Recount the current tree, close IG-004/PGT-017/PGT-AC-012 from supplied evidence, and append this second-iteration decision record. Change only this tracker. | Misstated history or snapshot. Correct the tracker; do not touch product state. | Tracker-only diff; current inventory and decisions are explicit; Markdown and diff checks pass. |
-| N-01 — Authority and verification admission | N-00 | Adopt the Core 01/Core 04/Testing Harness/guide/AGENTS changes; rescan identifiers; add replacement owner rows and exact selectors before retiring conflicting old rows. | Owner contradiction, identifier collision, or duplicate selection. Stop and record the blocker; revert owner and row admission together. | IDs are unique, selectors and owners resolve exactly once, old requirements no longer promise legacy behavior, and Markdown/JSON/harness checks pass. |
-| N-02 — Retained baseline | N-01 | Retain Database Migrations, PostgreSQL, Network Flow, migrate, server, operator, pgtest, Platform Jobs, and all affected source-owner unit/service-backed results at one pre-change product snapshot. | Missing pre-change evidence makes drift unattributable. Rerun the missing exact owner; do not accept a broad substitute. | Every changing row and caller group has a named successful baseline root. |
-| N-03 — Test mechanics relocation | N-02 | Add the two pgtest targeted helpers, limit them to canonical embedded source/disposable scratch databases, convert all 32 direct calls, remove stale `postgres` aliases, and move target-validation evidence. | Source-owner migration tests may silently target the wrong phase. Revert each call conversion with its helper/selector change. | 26 apply-through and 6 rollback-through call sites are converted; no production/source-owner import of the retired operations remains; exact phase tests pass. |
+| N-01 — Authority and tracker reconciliation | N-00 | Revalidate the tracker at current HEAD; adopt Core 01, Core 04, and Testing Harness authority; reserve and collision-check final IDs. Do not create active replacement rows or update implementation guides. | Owner contradiction or identifier collision. Revert the specification set and record the blocker. | One non-contradictory production/test contract; IDs are free; Markdown and diff checks pass; tracker checkpoint is appended. |
+| N-02 — Retained baseline | N-01 | At one unchanged product snapshot retain Database Migrations, PostgreSQL, Network Flow, migrate, server, operator, pgtest topology, Platform Jobs, Platform Audit, Indicators, Entities, Evidence, Extensions, Graph Projection, Incident Bundles, Reference Data, and Saved Views results, plus the browser baseline. | Missing evidence prevents attribution. Rerun the missing exact owner; broad results do not substitute. | Every changing test and caller group has a successful named root. |
+| N-03 — Test mechanics relocation | N-02 | Add the opaque pgtest migration capability, convert all 32 calls and affected raw-DB access, delete production targeted operations/tests, replace the targeted-validation row, regenerate topology, and update Harness/development guidance. | Wrong migration phase or scratch lifetime. Revert capability, callers, row, and generated output together. | Exact 26/6 conversion; no retired targeted symbol/import; affected owner and pgtest integration evidence passes. |
 | N-04 — Migration API contraction | N-03 | Introduce opaque `Source` and error-only `Apply`; update `db/migrations.Source()` and all production callers; remove status, old constructors, path/default/empty-source behavior, production targeted operations, log environment/file creation, `PreparationStatus`, and the harness environment shim; update recovery restore to use the canonical source. | Startup, CLI, recovery, or provider resource behavior may drift. Revert this entire API slice to the N-03 checkpoint, without aliases. | Public-surface/stale-symbol scans are empty, source validation is fail-closed, preparation events remain, recovery behavior passes, and all three application builds pass. |
 | N-05 — Locking and safe failure handling | N-04 | Implement the Section 15.3 lock lifecycle and safe stage/reason errors; use a discard Provider logger; simplify remediation transport and exact migrate stderr; add concurrency, cancellation, cleanup, borrowed-handle, and leak tests. | Session locks can leak, errors can hide primary failures, or diagnostics can disclose secrets/SQL. Revert only this slice to the validated N-04 apply implementation. | Repeated concurrent stress passes; all exits release the lock or report bounded cleanup failure; borrowed handles stay open; forbidden-data scans and exact stderr pass. |
 | N-06 — Readiness and remediation hardening | N-05 | Share validated catalog/history classification across preflight and readiness; require exact prefix and exact lineage; replace exported/open remediation facts; remove incident/nil compatibility; add the full state matrix. | A classifier difference between apply and readiness can admit inconsistent state. Revert classifier and tests as a unit. | Invalid source/nil pool/missing-wrong-mixed lineage/duplicate-gap-unknown/behind-ahead-current cases return only their specified reason/report outcomes. |
@@ -809,21 +850,30 @@ slice reopens that slice; database rollback is never a code rollback strategy.
 | ID | Slice | Status | Depends on | Required artifact or evidence | Next action |
 | --- | --- | --- | --- | --- | --- |
 | PGT-018 | N-00 — Rebaseline and prior closure | DONE | None | Sections 13 through 20; tracker-only path inspection; Markdown root `20260808T213800Z-p749418`; clean diff check. | Stop this document-only session; N-01 is the next separately checkpointed slice. |
-| PGT-019 | N-01 — Authority and verification admission | PLANNED | PGT-018 | Adopted owner text, unique IDs, admitted rows/selectors, Markdown/JSON/harness evidence. | Do not begin before PGT-018 is DONE. |
-| PGT-020 | N-02 — Retained baseline | PLANNED | PGT-019 | Named pre-change owner and caller-group run roots. | Do not begin before PGT-019 is DONE. |
-| PGT-021 | N-03 — Test mechanics relocation | PLANNED | PGT-020 | Converted 32-call inventory, pgtest API/tests, final target-validation row. | Do not begin before PGT-020 is DONE. |
-| PGT-022 | N-04 — Migration API contraction | PLANNED | PGT-021 | Final public-surface scan, source validation, callers, recovery, builds. | Do not begin before PGT-021 is DONE. |
-| PGT-023 | N-05 — Locking and safe failure handling | PLANNED | PGT-022 | Lock/concurrency stress, cancellation/cleanup, borrowed-handle, safe-error and exact-stderr evidence. | Do not begin before PGT-022 is DONE. |
-| PGT-024 | N-06 — Readiness and remediation hardening | PLANNED | PGT-023 | Production preflight/readiness matrices and typed remediation JSON evidence. | Do not begin before PGT-023 is DONE. |
-| PGT-025 | N-07 — PostgreSQL and Network Flow cleanup | PLANNED | PGT-024 | Final adapter inventory, Network Flow transaction row, boundary/build evidence. | Do not begin before PGT-024 is DONE. |
-| PGT-026 | N-08 — Boundary and generation reconciliation | PLANNED | PGT-025 | Stale scans, row reconciliation, generated/JSON/boundary/migration evidence. | Do not begin before PGT-025 is DONE. |
-| PGT-027 | N-09 — Validation and handoff | PLANNED | PGT-026 | Single-snapshot final matrix and closed PGT-AC-013 through PGT-AC-022. | Do not begin before PGT-026 is DONE. |
+| PGT-019 | N-01 — Authority and tracker reconciliation | DONE | PGT-018 | Revalidated snapshot; adopted Core 01, Core 04, and Testing Harness owner text; unique reserved IDs; Markdown root `20260809T001329Z-p1999360`; clean diff check. | Begin N-02 retained baseline at the unchanged product snapshot. |
+| PGT-020 | N-02 — Retained baseline | DONE | PGT-019 | Successful unit and service-backed owner roots, pgtest topology root `20260809T003124Z-p2441154`, and browser root `20260809T003211Z-p2445605`. | Begin N-03 test-mechanics relocation. |
+| PGT-021 | N-03 — Test mechanics relocation | DONE | PGT-020 | Opaque pgtest capability and exact 26/6 disposition; targeted row and generated topology; owner roots; backend-integration root `20260809T005219Z-p2663445`; clean contract/drift scans. | Begin N-04 source and Apply contraction. |
+| PGT-022 | N-04 — Migration API contraction | DONE | PGT-021 | Immutable fallible source, error-only apply, caller/recovery conversion, preparation-event simplification, final public-surface scans, owner roots, backend integration, builds, and contract/drift evidence. | Begin N-05 locking and safe failure handling. |
+| PGT-023 | N-05 — Locking and safe failure handling | DONE | PGT-022 | Bounded session-lock lifecycle, validating execution locker, safe failure interfaces, exact facade output, repeated concurrency/cancellation roots, cleanup/postcondition tests, security/static/build evidence. | Begin N-06 readiness and remediation hardening. |
+| PGT-024 | N-06 — Readiness and remediation hardening | DONE | PGT-023 | Shared pure classifier, SQL/pgx snapshots, production preflight/readiness matrices, exact private typed remediation JSON, and facade diagnostic evidence. | Begin N-07 PostgreSQL and Network Flow cleanup. |
+| PGT-025 | N-07 — PostgreSQL and Network Flow cleanup | DONE | PGT-024 | Two-row PostgreSQL adapter inventory, owner-private Network Flow transaction helper and row, exact lifecycle tests, boundary and server build evidence. | Begin N-08 boundary and generation reconciliation. |
+| PGT-026 | N-08 — Boundary and generation reconciliation | DONE | PGT-025 | Removed temporary boundary exception; exact six-row transition; stale scans; generated, JSON, harness, artifact, boundary, and migration evidence. | Begin N-09 final validation and handoff. |
+| PGT-027 | N-09 — Validation and handoff | DONE | PGT-026 | Final product-source digest `e745f9a901556a638d251102a3410ff8a5d1f6534695df45b0125a5d19023ecf`; focused, static, security, build, browser, broad, finalization, and release evidence; closed PGT-AC-013 through PGT-AC-022. | Stop; iteration two is complete. |
 
 ### Iteration-two checkpoint log
 
 | Time | Slice | Current state | Changed paths | Commands and retained roots | Failures or blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-08-08 EDT | N-00 | Prior iteration closed; current inventory and decision-complete second iteration admitted. | Only `docs/handoffs/postgres-module-refactor-tracker.md`; `docs/domain.md` and every product/specification/test/generated path are unchanged. | HEAD and tracked-path inventory; import/call/row/ID scans; owner discovery for Database Migrations and PostgreSQL; `git diff --check` passed; `make lint-markdown` passed at `.cartulary/test-results/20260808T213800Z-p749418`. | No failure or blocker. This evidence append receives one final Markdown/diff revalidation before handoff. | Stop this document-only session. Begin N-01 later as a separate authority-and-verification checkpoint. |
+| 2026-08-08 EDT | N-01 | Authority and tracker reconciliation complete at `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`; domain vocabulary unchanged. | `docs/handoffs/postgres-module-refactor-tracker.md`, Core 01, Core 04, and `docs/testing-harness-nlspec.md`; product, test, verification-row, generated, SQL, guide, `AGENTS.md`, and `docs/domain.md` paths unchanged. | Revalidated 8 PostgreSQL paths, 14 Database Migrations paths, 35 imports across 34 Go files, 60 migrations, 32 substantive targeted calls, and 12/3 owner rows; unique definition scans for `REQ-01-657`, `AC-537`, `TH-HARNESS-REQ-810`, and `TH-HARNESS-AC-094`; `git diff --check` passed; `make lint-markdown` passed at `.cartulary/test-results/20260809T001329Z-p1999360`. | No failure or blocker. The revalidation corrected the supplied “35 files” shorthand to 35 declarations across 34 files; no active row or implementation guide was changed early. | Run final Markdown/diff hygiene for this append, then begin N-02 retained baseline without changing product files. |
+| 2026-08-08 EDT | N-02 | Complete retained pre-change baseline at the unchanged product snapshot; domain vocabulary unchanged. | Evidence only plus this tracker checkpoint; product, specification, test, verification, generated, SQL, guide, `AGENTS.md`, and `docs/domain.md` inputs unchanged from N-01. | Unit roots: Database Migrations `20260809T001517Z-p2004614`, PostgreSQL `20260809T001532Z-p2007116`, Network Flow `20260809T001535Z-p2007628`, migrate `20260809T001711Z-p2040206`, server `20260809T001714Z-p2040554`, operator `20260809T001744Z-p2064190`, Jobs `20260809T001807Z-p2084778`, Audit `20260809T001829Z-p2086935`, Indicators `20260809T001840Z-p2088469`, Entities `20260809T001853Z-p2091704`, Evidence `20260809T002013Z-p2123199`, Extensions `20260809T002109Z-p2151697`, Graph Projection `20260809T002141Z-p2175793`, Incident Bundles `20260809T002156Z-p2177583`, Reference Data `20260809T002212Z-p2180250`, and Saved Views `20260809T002240Z-p2203238`. Service-backed roots in the same order excluding PostgreSQL and migrate: `20260809T002334Z-p2230944`, `20260809T002347Z-p2232748`, `20260809T002515Z-p2261315`, `20260809T002543Z-p2283464`, `20260809T002602Z-p2302932`, `20260809T002623Z-p2304691`, `20260809T002633Z-p2306133`, `20260809T002644Z-p2307563`, `20260809T002749Z-p2338034`, `20260809T002842Z-p2365334`, `20260809T002911Z-p2388212`, `20260809T002925Z-p2389652`, `20260809T002943Z-p2391219`, and `20260809T003012Z-p2413502`. `make backend-integration` passed 211/211 at `20260809T003124Z-p2441154`, including the pgtest topology work unit. `make browser-e2e` passed 53/53 at `20260809T003211Z-p2445605`. | No failure, retry, or blocker. Unit and service-backed results were retained separately; neither broad backend nor browser success substitutes for an owner root. | Run Markdown/diff hygiene for this checkpoint, then begin N-03 and update the tracker before N-04. |
+| 2026-08-08 EDT | N-03 | Targeted history construction exists only behind the pgtest-issued `MigrationDatabase`; production exports are apply-to-head only; domain vocabulary unchanged. | `internal/testutil/pgtest`, Database Migrations runner/contract/readiness/remediation tests, ten source-owner migration test files, four Platform Jobs test files, Platform Audit migration evidence, the Database Migrations family input and generated render index, development guide, and this tracker. `docs/domain.md`, `AGENTS.md`, and all SQL/manifest bytes are unchanged. | Original 26 apply-through calls: 20 became direct capability calls, three scratch initializations became `MigrationDatabaseThroughT`, and three production lineage tests became apply-to-head checks. Original six rollback-through calls: five became direct capability calls and the removed production-rollback remediation test became an apply-to-head remediation check. The new invalid-target test also covers zero/unissued capability behavior before access. Format `20260809T005454Z-p2686184`; generation `20260809T004345Z-p2488506`; Database Migrations unit `20260809T004558Z-p2498696` and service `20260809T004620Z-p2501408`; Jobs through Saved Views service roots `20260809T004634Z-p2503202` through `20260809T005123Z-p2633914`; backend integration 211/211 at `20260809T005219Z-p2663445`; JSON `20260809T005457Z-p2689233`; harness `20260809T005500Z-p2689697`; generation drift `20260809T005503Z-p2690085`; migration drift `20260809T005511Z-p2692829`; boundary `20260809T005519Z-p2695613`; Markdown `20260809T005520Z-p2696005`; diff check passed. | Initial format failed before mutation because the amended selector list was not ASCII-sorted; it was sorted. Initial Database Migrations root `20260809T004356Z-p2490980` exposed a related scratch-pool binding defect: pgx `ConnString()` retained the admin database after field mutation. Pool creation now uses the parsed config with an explicit scratch database, and the exact failed owner slice passes. No unrelated failure or blocker. | Run final Markdown/diff hygiene for this append, then begin N-04 source and Apply contraction. |
+| 2026-08-08 EDT | N-04 | Migration source construction is immutable and fail-closed, production apply is error-only, callers propagate source errors, and duplicate preparation status/log-file behavior is gone; domain vocabulary unchanged. | `db/migrations/source.go`; Database Migrations source, readiness/remediation, and contract tests; migrate/server assembly and tests; operator/evidence/recovery callers; pgtest/testservices preparation code and tests; affected source-owner tests; Database Migrations family input and generated render index; development guide; this tracker. `docs/domain.md`, `AGENTS.md`, and all 60 authored SQL files are unchanged. | Generation `20260809T010708Z-p2702686`; final format `20260809T010817Z-p2712260`; Database Migrations unit `20260809T010820Z-p2715326` and service `20260809T011041Z-p2803088`; migrate `20260809T010850Z-p2718227`; server unit/service `20260809T010853Z-p2718612` and `20260809T011054Z-p2804902`; operator unit/service `20260809T010932Z-p2745992` and `20260809T011121Z-p2827030`; recovery unit/service `20260809T010955Z-p2766829` and `20260809T011140Z-p2846464`; backend integration 211/211 at `20260809T011220Z-p2879432`; migrate/server/operator builds `20260809T011428Z-p2908435`, `20260809T011429Z-p2910265`, and `20260809T011440Z-p2921132`; migration drift `20260809T011525Z-p2932102`; generation drift `20260809T011534Z-p2934989`; artifact policy `20260809T011541Z-p2937706`; JSON `20260809T011542Z-p2938101`; harness `20260809T011545Z-p2938571`; boundary `20260809T011548Z-p2939018`; Markdown `20260809T011643Z-p2939635`; diff check passed. Exact scans find no retired source/status/path constructor, log environment/shim, preparation status, or production targeted operation; SQL diff is empty and preparation-event tests pass. | Initial Database Migrations root `20260809T010729Z-p2708390` found two related compile leftovers: one two-result `Apply` assignment and one unused import. Both were corrected, and the exact 14-row slice passes. No unrelated failure or blocker. | Run final Markdown/diff hygiene for this append, then begin N-05 locking and safe failure handling. |
+| 2026-08-08 EDT | N-05 | Every production apply now uses the bounded advisory-lock lifecycle and one invocation-local, discard-logging Goose provider; safe migration interfaces drive exact migrate/server output; domain vocabulary unchanged. | Database Migrations failure, lock, apply, remediation, contract, concurrency, and public-surface code/tests; migrate/server facades and tests; Database Migrations, migrate, and server family inputs; generated render index; development guide; this tracker. `docs/domain.md`, `AGENTS.md`, and all authored SQL remain unchanged. | Final generation `20260809T013728Z-p2985281` and format `20260809T013736Z-p2987733`; Database Migrations unit `20260809T013842Z-p2996568` and service `20260809T013903Z-p2999238`; repeated exact concurrency/cancellation roots `20260809T013759Z-p2992240`, `20260809T013811Z-p2993670`, and `20260809T013823Z-p2995099`; migrate facade `20260809T013739Z-p2990813`; server facade `20260809T013742Z-p2991257`; provider/failure isolation `20260809T013746Z-p2991699`; boundary `20260809T013956Z-p3001331`; telemetry `20260809T013957Z-p3001619`; JSON `20260809T014003Z-p3006345`; harness `20260809T014006Z-p3006814`; migration drift `20260809T014009Z-p3007221`; generation drift `20260809T014016Z-p3010097`; artifact policy `20260809T014024Z-p3012845`; migrate/server builds `20260809T014025Z-p3013366` and `20260809T014027Z-p3015407`; targeted Gosec `20260809T014038Z-p3026270`; Markdown `20260809T014556Z-p3084274`; diff check passed. Tests cover shared execution-lock session identity, five-minute/one-second acquisition policy, 30-second detached release, preflight/provider/panic/postcondition cleanup, primary-error precedence, context identity, safe forbidden-data corpus, one-line facade output, and borrowed-handle usability. SQL diff and stale Provider-close/log scans are empty. | Early focused roots `20260809T012638Z-p2955043` through `20260809T013506Z-p2981555` exposed related synthetic-fixture and normalization issues: custom sources lacked lineage, PL/pgSQL blocks lacked Goose statement markers, and canceled execution could be hidden by cleanup. The fixtures and primary-error normalization were corrected. One manual server-row command used a nonexistent row ID; the exact current row then passed. Extra broad root `20260809T014104Z-p3050755` passed 210/211 but hit an unrelated Imports cancellation-convergence timeout; the exact failed row passed at `20260809T014439Z-p3082511`. No N-05 blocker remains; N-09 still requires a successful final broad run. | Run final Markdown/diff hygiene for this append, then begin N-06 readiness and remediation hardening. |
+| 2026-08-08 EDT | N-06 | Apply preflight, execution-lock validation, final postcondition, and readiness now use one structural-first migration classifier; remediation transport is private and byte-stable; domain vocabulary unchanged. | Database Migrations state snapshot/classifier, readiness, apply preflight, remediation, contract and matrix tests; server readiness mapping and facade tests; Database Migrations and server family inputs; generated render index; development guide; this tracker. `docs/domain.md`, `AGENTS.md`, owner specifications, and all authored SQL remain unchanged. | Final generation `20260809T020145Z-p3171061` and format `20260809T020415Z-p3207507`; Database Migrations unit `20260809T020202Z-p3176727` and service `20260809T020232Z-p3179953`; server service `20260809T020259Z-p3181910`; migrate/server unit `20260809T020423Z-p3210812` and `20260809T020423Z-p3210853`; boundary `20260809T020423Z-p3211031`; JSON `20260809T020423Z-p3210738`; telemetry `20260809T020504Z-p3238211`; harness `20260809T020504Z-p3238914`; migration drift `20260809T020504Z-p3238418`; generation drift `20260809T020504Z-p3238362`; artifact policy `20260809T020504Z-p3238353`; migrate/server/operator builds `20260809T020505Z-p3239364`, `20260809T020505Z-p3239366`, and `20260809T020505Z-p3239395`; targeted Gosec `20260809T020635Z-p3273908`; Markdown `20260809T020635Z-p3273853`; diff check passed. Matrices cover pristine, zero-only, behind, current, ahead, duplicate, false, negative, repeated-zero, out-of-order, gap, missing/empty/wrong/mixed lineage, lineage without history, combined-failure precedence, nil pool, invalid source, and forged unknown in-range versions. Exact missing/wrong/mixed v1 JSON bytes pass; export/open-map/incident/platform-config/stale-row scans and SQL diff are empty. | Initial unit roots `20260809T015434Z-p3094318` and `20260809T015459Z-p3099840` exposed related compile and synthetic-fixture defects: the SQL reader interface had been removed during extraction, and the postcondition fixture represented an invalid zero-history-with-lineage state. Both were corrected. Initial server root `20260809T015803Z-p3116523` exposed one missing Database Migrations import and one stale test import; both were corrected. No unrelated failure or blocker. | Run final Markdown/diff hygiene for this append, then begin N-07 PostgreSQL and Network Flow cleanup. |
+| 2026-08-08 EDT | N-07 | PostgreSQL now owns only its narrow DB/settings/binding/connection/telemetry adapter surface; Network Flow owns its private transaction lifecycle; domain vocabulary unchanged. | Deleted PostgreSQL `.gitkeep`, transaction facade, and facade test; privatized managed-service DSN fragments; moved the generic DSN test key to suiteservices; localized Network Flow transaction code/tests; removed module/server injection; moved the verification row; regenerated the render index; updated `AGENTS.md`, the development guide, and this tracker. `docs/domain.md` and all authored SQL remain unchanged. | Generation `20260809T021029Z-p3301661`; format `20260809T021037Z-p3304132`; PostgreSQL unit `20260809T021103Z-p3307729`; Network Flow unit `20260809T021103Z-p3307735`; server unit `20260809T021103Z-p3307740`; exact lifecycle row `20260809T021328Z-p3390172`; Network Flow/server service `20260809T021336Z-p3390640` and `20260809T021336Z-p3390649`; boundary `20260809T021518Z-p3442114`; JSON `20260809T021518Z-p3441705`; harness `20260809T021518Z-p3442204`; generation drift `20260809T021518Z-p3441716`; artifact policy `20260809T021518Z-p3441751`; migration drift `20260809T021518Z-p3441858`; server build `20260809T021518Z-p3442621`; Markdown `20260809T021613Z-p3459932`; diff check passed. Exact lifecycle evidence preserves begin/callback/rollback/commit order, defensive rollback after successful commit, commit failure, and primary callback error when rollback also fails. Counts are 12 Database Migrations rows, two PostgreSQL rows, and 60 Network Flow rows including the one moved row. Retired facade, injection, constant, row-ID, and test-key ownership scans are empty; the PostgreSQL directory has five retained files and SQL diff is empty. | No related or unrelated failure, retry, or blocker. | Run final Markdown/diff hygiene for this append, then begin N-08 reconciliation. |
+| 2026-08-08 EDT | N-08 | Authored boundaries, owner families, test-support ownership, and generated topology now describe only the final iteration-two state; domain vocabulary unchanged. | Removed the obsolete Database Migrations deployment-config boundary allowlist; revalidated all family/owner inputs; regenerated the execution-topology render index; updated this tracker. `docs/domain.md`, product behavior, `AGENTS.md`, specifications, guides, and all authored SQL remain unchanged from N-07. | Final generation `20260809T021741Z-p3462258` and format `20260809T021749Z-p3464733`; boundary `20260809T021759Z-p3468410`; JSON `20260809T021758Z-p3468059`; harness `20260809T021759Z-p3468506`; generation drift `20260809T021759Z-p3468082`; artifact policy `20260809T021759Z-p3468120`; migration drift `20260809T021759Z-p3468182`; Markdown `20260809T021919Z-p3475659`; diff check passed. Global family-row IDs are unique. The exact manifest delta is five Database Migrations row replacements plus removal/addition of the PostgreSQL-to-Network-Flow lifecycle row; all unaffected row identities remain. Counts are 12 Database Migrations, two PostgreSQL, and 60 Network Flow rows. Retired IDs/symbols/paths/aliases/constants/log-environment and production targeted-operation scans are empty. All 60 tracked SQL files have an empty worktree diff and ordered filename/content aggregate SHA-256 `089cdbab837bee70ae09e710f9015dc66ad1198d6f55b499c3a47e84de910605`; lineage remains `cartulary.prod_ddl_rebaseline.v1` at boundary `prod_ddl_rebaseline_v1`. | No related or unrelated failure, retry, or blocker. | Run final Markdown/diff hygiene for this append, then begin N-09 discovery and single-snapshot final validation. |
+| 2026-08-09 EDT | N-09 | Iteration-two validation and handoff are complete at one final product-source snapshot; domain vocabulary unchanged. | Evidence-only final tracker closure plus three validation-stability repairs: deterministic outside hover and a load-tolerant E2E observation ceiling, a load-tolerant Imports convergence ceiling, and a load-tolerant server-process HTTP ceiling. The new Network Flow fallback error was lowercased for staticcheck. `docs/domain.md`, all authored SQL, migration lineage, production behavior beyond the planned slices, and generated roots other than the Make-generated execution-topology render index are unchanged. | Section 19.4 records discovery, every focused root, repeated lock rows, static/security/build roots, finalization, browser/broad/release roots, failures, retries, skipped retained-run maintenance, source/SQL digests, row reconciliation, and final scans. Final broad roots are browser `20260809T034016Z-p804709`, fast `20260809T034327Z-p839765`, full `20260809T035917Z-p1071026`, check `20260809T040702Z-p1163900`, and release `20260809T040915Z-p1264344`. | Related N-09 findings were repaired and revalidated. Unrelated load-sensitive Imports, server-process, incident E2E, and collaboration E2E failures are retained and classified in Section 19.4; every required final gate subsequently passed. No blocker remains. | Stop; N-09 and iteration two are complete. |
 
 ## 19. Iteration-Two Validation and Handoff
 
@@ -832,9 +882,10 @@ slice reopens that slice; database rollback is never a code rollback strategy.
 Run the narrowest affected owner rows after each implementation slice. Before
 choosing a command, inspect the current Make-owned task surface. Record the
 result root, including related discovery failures and their repairs, in Section
-18 before advancing. `make lint-markdown` and `git diff --check` validate N-00;
-product, generated, conformance, and release checks are intentionally not run
-for this tracker-only edit.
+18 before advancing. Documentation-only authority checkpoints use
+`make lint-markdown` and `git diff --check`; product, generated, conformance,
+and release checks begin only when their owning implementation or final slice
+requires them.
 
 ### 19.2 Final validation order
 
@@ -875,18 +926,154 @@ for this tracker-only edit.
    - `make lint-markdown`
    - `git diff --check`
 
-4. Broad completion:
+4. Finalize before broad verification:
+
+   - `make agent-finalize`; pass `RESULTS_DIR` only for a successful compatible
+     same-snapshot warm full-check root, otherwise leave it unset and record the
+     skipped retained-run maintenance
+
+5. Broad completion:
 
    - `make browser-e2e`
    - `make test-fast`
-   - `make agent-finalize`; pass `RESULTS_DIR` only for a successful
-     same-snapshot warm full-check root
+   - `make test`
    - `make check`
    - `make release-check`
 
 Browser validation is included because the user requires it for final
 repository readiness, even though no browser implementation is planned. A
 browser failure is recorded and classified; it is not waived as irrelevant.
+
+### 19.4 Final N-09 evidence
+
+#### Snapshot and workstream reconciliation
+
+- N-00 planning began from `3be8ddda38deb7b28734e78e487dc229be300585`;
+  N-01 revalidated and implementation began from clean HEAD
+  `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`. The final base commit remains
+  `d2b70af6c1e1bed34cd3ab53744344ad8d2ad44c`; the complete final non-tracker
+  diff plus intended new-source content has SHA-256
+  `e745f9a901556a638d251102a3410ff8a5d1f6534695df45b0125a5d19023ecf`.
+- N-01 changed Core 01, Core 04, and Testing Harness authority. N-02 retained
+  the pre-change owner and browser baseline. N-03 moved all targeted history
+  construction to the opaque pgtest capability. N-04 contracted source,
+  apply, preparation, and caller APIs. N-05 added the bounded locked provider
+  lifecycle and safe failure interfaces. N-06 added the shared structural-first
+  classifier and private remediation projection. N-07 removed PostgreSQL dead
+  exports and moved transaction ownership to Network Flow. N-08 reconciled
+  boundaries, owner rows, and the generated render index. N-09 changed only
+  validation stability and the staticcheck-safe Network Flow fallback text
+  before retaining the final matrix. The individual Section 18 checkpoints
+  contain the exact paths for every workstream.
+- The final production API is the Section 15.1 API. Tests prove opaque,
+  immutable, fail-closed sources; apply-to-head-only production behavior;
+  pgtest-only targeted execution; bounded same-session locking; safe closed
+  reason codes; byte-stable remediation JSON; structural-first readiness; and
+  borrowed database ownership. PostgreSQL now owns connection/query/telemetry
+  plumbing only, while Network Flow privately owns its transaction lifecycle.
+
+#### Discovery and focused behavior
+
+- `make task-guide ROLE=module-author` and `make explain-test-owner` succeeded
+  for `module.database_migrations`, `platform.postgres`, and
+  `module.networkflow`. `make explain-target ... DETAIL=rows` resolved every
+  final affected target. The final topology is 12 Database Migrations rows,
+  two PostgreSQL rows, and 60 Network Flow rows.
+- Final-matrix unit roots: Database Migrations
+  `20260809T022114Z-p3484005`; PostgreSQL `20260809T022114Z-p3484001`;
+  Network Flow `20260809T022114Z-p3484010`; migrate
+  `20260809T022114Z-p3484019`; server `20260809T022247Z-p3516109`;
+  operator `20260809T022247Z-p3516104`; Jobs
+  `20260809T022247Z-p3516110`; Audit `20260809T022247Z-p3516119`;
+  Indicators `20260809T022330Z-p3563967`; Entities
+  `20260809T022330Z-p3563966`; Evidence `20260809T022330Z-p3563975`;
+  Extensions `20260809T022330Z-p3563974`; Graph Projection
+  `20260809T022513Z-p3659681`; Incident Bundles
+  `20260809T022513Z-p3659690`; Reference Data
+  `20260809T022513Z-p3659680`; and Saved Views
+  `20260809T022513Z-p3659700`.
+- Final-matrix service-backed roots: Database Migrations
+  `20260809T022625Z-p3720943`; Network Flow `20260809T022625Z-p3720950`;
+  server `20260809T022625Z-p3720957`; operator
+  `20260809T022757Z-p3773536`; Jobs `20260809T022757Z-p3773534`;
+  Audit `20260809T022757Z-p3773545`; Indicators
+  `20260809T022757Z-p3773552`; Entities `20260809T022831Z-p3797739`;
+  Evidence `20260809T022831Z-p3797746`; Extensions
+  `20260809T022831Z-p3797731`; Graph Projection
+  `20260809T022831Z-p3797729`; Incident Bundles
+  `20260809T022948Z-p3879492`; Reference Data
+  `20260809T022948Z-p3879491`; and Saved Views
+  `20260809T022948Z-p3879504`.
+- The exact pgtest topology row passed at `20260809T023046Z-p3930127`.
+  Exact concurrent-apply serialization and cancellation passed three
+  consecutive times at `20260809T023053Z-p3930539`,
+  `20260809T023109Z-p3932027`, and `20260809T023128Z-p3933550`.
+  After the final staticcheck repair, the exact Network Flow lifecycle row
+  passed at `20260809T033930Z-p799527`.
+
+#### Static, security, build, finalization, and broad gates
+
+- Final-snapshot roots: boundary `20260809T041848Z-p1436148`; telemetry
+  `20260809T041849Z-p1436442`; JSON `20260809T041854Z-p1440277`; harness
+  `20260809T041857Z-p1440746`; migration drift
+  `20260809T041900Z-p1441160`; generation drift
+  `20260809T041906Z-p1443859`; artifact policy
+  `20260809T041913Z-p1446582`; migrate build
+  `20260809T041915Z-p1447100`; server build
+  `20260809T041916Z-p1448918`; operator build
+  `20260809T041926Z-p1459766`; targeted Gosec
+  `20260809T041935Z-p1470604`; and vulnerability analysis
+  `20260809T041943Z-p1494488`. The completed tracker draft passed Markdown
+  lint at `20260809T042222Z-p1495792`; `git diff --check` also passed.
+- `make agent-finalize` passed after the final production-source edit at
+  `20260809T033949Z-p801954`. `RESULTS_DIR` was unset, so retained successful
+  warm-run maintenance was intentionally skipped; no compatible same-snapshot
+  warm full-check root existed at finalization time.
+- Final broad roots on the unchanged product-source digest are
+  `make browser-e2e` 53/53 at `20260809T034016Z-p804709`,
+  `make test-fast` 353/353 at `20260809T034327Z-p839765`,
+  `make test` 876/876 at `20260809T035917Z-p1071026`,
+  `make check` 744/744 at `20260809T040702Z-p1163900`, and
+  `make release-check` 915/915 at `20260809T040915Z-p1264344`.
+
+#### Failures, retries, and final integrity
+
+- The first full run, `20260809T023911Z-p4101301`, exposed an incident E2E
+  pointer-leave race. Its first exact reproduction failed at
+  `20260809T025018Z-p53233`; using a stable outside locator and retaining the
+  exact 5,000 ms fake-timer contract produced exact pass
+  `20260809T025408Z-p80098`. The next full run,
+  `20260809T030025Z-p191717`, exposed aggregate-load ceilings in Imports,
+  server-process reset, and that same real-browser timer. Their isolated rows
+  passed at `20260809T031603Z-p371261`, `20260809T031633Z-p372807`, and
+  `20260809T031459Z-p347297`; load-tolerant evidence ceilings then passed at
+  `20260809T031718Z-p395480`, `20260809T031733Z-p396995`, and
+  `20260809T031804Z-p417303`. A parallel Imports diagnostic root
+  `20260809T031459Z-p347281` hit an unrelated PostgreSQL deadlock and was not
+  used as completion evidence.
+- A post-stability full run passed 876/876 at
+  `20260809T032418Z-p528414`. The following check root
+  `20260809T033628Z-p680225` found the related lowercase-error staticcheck
+  defect; the exact owner row and staticcheck then passed before finalization.
+  The first final-snapshot full attempt, `20260809T034533Z-p893855`, hit an
+  unrelated load-sensitive Collaboration offline-projection race; its exact
+  work unit passed 12/12 at `20260809T035801Z-p1048366`, and the unchanged
+  aggregate retry passed 876/876. No failed browser or other applicable gate is
+  being waived.
+- All six row transitions occurred exactly once; unaffected identities remain;
+  global row IDs are unique. Retired row IDs, source/status/logger APIs,
+  production targeted operations, compatibility aliases, forwarding paths,
+  PostgreSQL transaction facade/injection, and stale selectors have zero live
+  references. The only generated diff is the Make-generated
+  `tools/execution_topology_render_index.json` projection.
+- All 60 tracked SQL filenames and bytes have an empty worktree diff and the
+  same ordered filename/content aggregate SHA-256
+  `089cdbab837bee70ae09e710f9015dc66ad1198d6f55b499c3a47e84de910605`.
+  Lineage remains `cartulary.prod_ddl_rebaseline.v1` at boundary
+  `prod_ddl_rebaseline_v1`. `docs/domain.md` is unchanged. Every untracked
+  source is an intentional new implementation/test path named by its
+  workstream; no untracked generated, runtime, or product artifact and no
+  unexplained diff remains.
 
 ### 19.3 Required final handoff
 
@@ -904,16 +1091,16 @@ product artifact remains. An applicable failed gate keeps PGT-027 open.
 | Acceptance ID | Required postcondition | Required evidence | Status |
 | --- | --- | --- | --- |
 | PGT-AC-013 | The tracker is rebaselined to `3be8ddda38deb7b28734e78e487dc229be300585`; IG-004, PGT-017, and PGT-AC-012 are closed from named successful evidence; the exact current inventory and decision-complete N-01 through N-09 plan are recorded; only this tracker changes. | N-00 inventory commands, path-scoped diff, Markdown lint root `20260808T213800Z-p749418`, and `git diff --check`. | PASS |
-| PGT-AC-014 | Amended `REQ-01-657` and `AC-537`, new `TH-HARNESS-REQ-810` and `TH-HARNESS-AC-094`, guide, AGENTS, and row admission define one non-contradictory production/test boundary. | Owner/identifier review, exact owner and selector resolution, Markdown, JSON, and harness checks. | PLANNED |
-| PGT-AC-015 | The production export set is exactly Section 15.1; `Source` is opaque and fail-closed; `Apply` is error-only; no retired source/status/logger/targeted symbol or compatibility surface exists. | Public-surface method-set tests, invalid-source before-access tests, exact stale-symbol scans, and three builds. | PLANNED |
-| PGT-AC-016 | All 32 targeted call sites use the two canonical-source disposable-database pgtest helpers; invalid targets fail before access; `PreparationStatus` and the environment shim are absent. | Converted-call inventory, pgtest target-validation row, preparation event tests, and stale import/environment scans. | PLANNED |
-| PGT-AC-017 | Every production apply uses lock `4097083626` with one-second waits, no more than 300 acquisition retries, no more than 30 detached unlock retries, locked-connection preflight, and caller-owned DB lifetime. | Repeated concurrent, cancel-wait, preflight-failure, execution-failure, unlock, and borrowed-handle tests. | PLANNED |
-| PGT-AC-018 | Provider logging is discarded; ordinary and remediation failures expose only safe stable information; migrate emits one remediation JSON object plus LF and no duplicate line. | Unit leak corpus covering SQL/binds/DSNs/paths/server/upstream text, exact stderr bytes, telemetry conformance, and targeted security check. | PLANNED |
-| PGT-AC-019 | Source catalog, applied nonzero ledger rows, and lineage set satisfy the exact validation rules; nil readiness and invalid/empty sources fail closed; all specified reason/report codes are stable. | Production preflight and readiness state matrices plus exact remediation JSON tests. | PLANNED |
-| PGT-AC-020 | PostgreSQL retains only DB/settings/binding/connection/telemetry responsibility; dead constants/files and shared transaction facade are absent; Network Flow privately preserves transaction ordering and error precedence. | Final adapter/export inventory, Network Flow lifecycle row, PostgreSQL/Network Flow/server slices, boundary and build checks. | PLANNED |
-| PGT-AC-021 | Every row transition is reconciled exactly once; unaffected identities remain; authored inputs generate clean projections; all 60 migrations and lineage identifiers are byte-for-byte unchanged; no stale path/ID/alias exists. | Owner explanations, exact scans, JSON/harness/boundary checks, `make generate-drift`, artifact policy, migration drift, and SQL diff. | PLANNED |
-| PGT-AC-022 | Every applicable focused, static, security, build, browser, broad, finalization, and release gate passes at one final product snapshot; the handoff contains complete evidence and the scoped tree has no unexplained change. | Section 19 matrix and final Section 18 checkpoint, including failure classification and retained roots. | PLANNED |
+| PGT-AC-014 | Amended `REQ-01-657` and `AC-537` plus new `TH-HARNESS-REQ-810` and `TH-HARNESS-AC-094` define one non-contradictory production/test boundary; active rows and implementation guides remain truthful until their implementation checkpoints. | Owner/identifier review, scoped-diff review, Markdown root `20260809T001329Z-p1999360`, and clean diff check. | PASS |
+| PGT-AC-015 | The production export set is exactly Section 15.1; `Source` is opaque and fail-closed; `Apply` is error-only; no retired source/status/logger/targeted symbol or compatibility surface exists. | Public-surface method-set tests, invalid-source before-access tests, exact stale-symbol scans, and three builds. | PASS |
+| PGT-AC-016 | All 32 targeted call sites use the two canonical-source disposable-database pgtest helpers; invalid targets fail before access; `PreparationStatus` and the environment shim are absent. | Converted-call inventory, pgtest target-validation row, preparation event tests, and stale import/environment scans. | PASS |
+| PGT-AC-017 | Every production apply uses lock `4097083626` with one-second waits and a five-minute acquisition ceiling; initial, Goose execution-session, and final classifications are locked; detached release is bounded to 30 seconds; and caller-owned DB lifetime is preserved. | Repeated concurrent, cancel-wait, preflight-failure, execution-failure, unlock, session-identity, final-postcondition, and borrowed-handle tests. | PASS |
+| PGT-AC-018 | Provider logging is discarded; ordinary and remediation failures expose only safe stable information; migrate emits one remediation JSON object plus LF and no duplicate line. | Unit leak corpus covering SQL/binds/DSNs/paths/server/upstream text, exact stderr bytes, telemetry conformance, and targeted security check. | PASS |
+| PGT-AC-019 | Source catalog, applied nonzero ledger rows, and lineage set satisfy the exact validation rules; nil readiness and invalid/empty sources fail closed; all specified reason/report codes are stable. | Production preflight and readiness state matrices plus exact remediation JSON tests. | PASS |
+| PGT-AC-020 | PostgreSQL retains only DB/settings/binding/connection/telemetry responsibility; dead constants/files and shared transaction facade are absent; Network Flow privately preserves transaction ordering and error precedence. | Final adapter/export inventory, Network Flow lifecycle row, PostgreSQL/Network Flow/server slices, boundary and build checks. | PASS |
+| PGT-AC-021 | Every row transition is reconciled exactly once; unaffected identities remain; authored inputs generate clean projections; all 60 migrations and lineage identifiers are byte-for-byte unchanged; no stale path/ID/alias exists. | Owner explanations, exact scans, JSON/harness/boundary checks, `make generate-drift`, artifact policy, migration drift, and SQL diff. | PASS |
+| PGT-AC-022 | Every applicable focused, static, security, build, browser, broad, finalization, and release gate passes at one final product snapshot; the handoff contains complete evidence and the scoped tree has no unexplained change. | Section 19 matrix and final Section 18 checkpoint, including failure classification and retained roots. | PASS |
 
-No PGT-AC-014 through PGT-AC-022 criterion is satisfied by this document-only
-update. N-01 is the next permitted slice after N-00 is marked complete; it MUST
-not be combined with N-02 or any implementation change.
+PGT-AC-013 through PGT-AC-022 are complete. Any future PostgreSQL migration
+change begins as a new, separately planned iteration; it does not reopen or
+rewrite the retained N-00 through N-09 evidence.

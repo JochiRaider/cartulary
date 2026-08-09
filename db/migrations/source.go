@@ -2,13 +2,13 @@ package migrations
 
 import (
 	"embed"
+	"sync"
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 )
 
 const (
-	EmbeddedPath   = "."
-	RepositoryPath = "db/migrations"
+	EmbeddedPath = "."
 
 	LineageID       = "cartulary.prod_ddl_rebaseline.v1"
 	LineageBoundary = "prod_ddl_rebaseline_v1"
@@ -19,9 +19,15 @@ const (
 //go:embed *.sql
 var Files embed.FS
 
-func Source() database_migrations.MigrationSource {
-	source := database_migrations.NewEmbeddedMigrationSource(Files, EmbeddedPath, RepositoryPath)
-	source.ExpectedLineageID = LineageID
-	source.ExpectedLineageBoundary = LineageBoundary
-	return source
+var (
+	sourceOnce sync.Once
+	source     database_migrations.Source
+	sourceErr  error
+)
+
+func Source() (database_migrations.Source, error) {
+	sourceOnce.Do(func() {
+		source, sourceErr = database_migrations.NewSource(Files, EmbeddedPath, LineageID, LineageBoundary)
+	})
+	return source, sourceErr
 }

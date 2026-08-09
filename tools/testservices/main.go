@@ -404,9 +404,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
 	templateStart := time.Now().UTC()
-	err = withSuiteGooseLog(ownedEnv, func() error {
-		return deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
-	})
+	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
 	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
@@ -599,9 +597,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 
 	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
 	templateStart := time.Now().UTC()
-	err = withSuiteGooseLog(ownedEnv, func() error {
-		return deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
-	})
+	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
 	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
 	cancelTemplate()
 	if err != nil {
@@ -1425,7 +1421,12 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 	if err != nil {
 		return fmt.Errorf("open template database: %w", err)
 	}
-	if _, err := database_migrations.Apply(ctx, db, dbmigrations.Source()); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		_ = db.Close()
+		return fmt.Errorf("load migration source: %w", err)
+	}
+	if err := database_migrations.Apply(ctx, db, source); err != nil {
 		_ = db.Close()
 		return err
 	}
@@ -1449,32 +1450,6 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		return fmt.Errorf("mark template database as template: %w", err)
 	}
 	return nil
-}
-
-func withSuiteGooseLog(env map[string]string, run func() error) error {
-	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(env)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return run()
-	}
-	if err := os.MkdirAll(suiteDir, 0o700); err != nil {
-		return fmt.Errorf("create suite artifact dir: %w", err)
-	}
-	logPath := filepath.Join(suiteDir, "goose.log")
-	previous, hadPrevious := os.LookupEnv(database_migrations.GooseLogFileEnv)
-	if err := os.Setenv(database_migrations.GooseLogFileEnv, logPath); err != nil {
-		return fmt.Errorf("set goose log file env: %w", err)
-	}
-	defer func() {
-		if hadPrevious {
-			_ = os.Setenv(database_migrations.GooseLogFileEnv, previous)
-			return
-		}
-		_ = os.Unsetenv(database_migrations.GooseLogFileEnv)
-	}()
-	return run()
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string) error {
@@ -1535,7 +1510,7 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 	if err != nil {
 		return webE2EFixture{}, fmt.Errorf("attach suite postgres: %w", err)
 	}
-	testDB, _, err := postgresHarness.PrepareDatabase(ctx, "web_e2e")
+	testDB, err := postgresHarness.PrepareDatabase(ctx, "web_e2e")
 	if err != nil {
 		return webE2EFixture{}, fmt.Errorf("prepare browser e2e database: %w", err)
 	}

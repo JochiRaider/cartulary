@@ -52,31 +52,6 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast"
-    },
-    {
-      "row_id": "platform.postgres.unit.transaction_lifecycle",
-      "owner_id": "platform.postgres",
-      "family_id": "platform.postgres.unit",
-      "collaborator_ids": [
-        "module.networkflow"
-      ],
-      "verification_ids": [
-        "platform.postgres.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/postgres",
-        "tests": [
-          "TestTransactionRunnerLifecycle"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast"
     }
   ]
 }

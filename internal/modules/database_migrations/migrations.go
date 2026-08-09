@@ -8,262 +8,259 @@ import (
 	"io"
 	"io/fs"
 	"log"
-	"os"
-	"path/filepath"
+	"path"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"testing/fstest"
 
 	"github.com/pressly/goose/v3"
+	gooselock "github.com/pressly/goose/v3/lock"
 )
-
-const GooseLogFileEnv = "CARTULARY_GOOSE_LOG_FILE"
 
 var errNilMigrateContext = errors.New("postgres migrate: nil context")
 
-type MigrationSource struct {
-	BaseFS                  fs.FS
-	Path                    string
-	Name                    string
-	ExpectedLineageID       string
-	ExpectedLineageBoundary string
+var migrationFilenamePattern = regexp.MustCompile(`^([0-9]{5})_[a-z0-9]+(?:_[a-z0-9]+)*\.sql$`)
+
+// Source is an immutable validated snapshot of one migration catalog and its
+// lineage identity. Its storage and metadata are intentionally private.
+type Source struct {
+	catalog         fstest.MapFS
+	versions        []int64
+	lineageID       string
+	lineageBoundary string
 }
 
-type MigrationStatus struct {
-	SourceName string
-	Empty      bool
-}
-
-func NewMigrationSource(path string) MigrationSource {
-	return MigrationSource{Path: path}
-}
-
-func NewEmbeddedMigrationSource(fsys fs.FS, path string, name string) MigrationSource {
-	return MigrationSource{
-		BaseFS: fsys,
-		Path:   path,
-		Name:   name,
+// NewSource copies and validates a migration catalog without database access.
+func NewSource(fsys fs.FS, root string, lineageID string, lineageBoundary string) (Source, error) {
+	if fsys == nil {
+		return Source{}, errors.New("migration source filesystem is nil")
 	}
-}
-
-// Apply advances the database to the migration source head.
-func Apply(ctx context.Context, db *sql.DB, source MigrationSource) (MigrationStatus, error) {
-	return runMigrationOperation(ctx, db, source, migrationOperationApply, 0)
-}
-
-// ApplyThrough advances the database through the positive target version.
-// It is intended for tests and repository test harnesses, not deployable CLI grammar.
-func ApplyThrough(ctx context.Context, db *sql.DB, source MigrationSource, version int64) (MigrationStatus, error) {
-	if version <= 0 {
-		return migrationStatus(source), errors.New("migration apply-through version must be positive")
+	if root == "" || !fs.ValidPath(root) || path.Clean(root) != root {
+		return Source{}, errors.New("migration source root is invalid")
 	}
-	return runMigrationOperation(ctx, db, source, migrationOperationApplyThrough, version)
-}
-
-// RollbackThrough rolls the database back through the non-negative target version.
-// It is intended for tests and repository test harnesses, not deployable CLI grammar.
-func RollbackThrough(ctx context.Context, db *sql.DB, source MigrationSource, version int64) (MigrationStatus, error) {
-	if version < 0 {
-		return migrationStatus(source), errors.New("migration rollback-through version must be non-negative")
-	}
-	return runMigrationOperation(ctx, db, source, migrationOperationRollbackThrough, version)
-}
-
-type migrationOperation uint8
-
-const (
-	migrationOperationApply migrationOperation = iota
-	migrationOperationApplyThrough
-	migrationOperationRollbackThrough
-)
-
-func (operation migrationOperation) gooseName() string {
-	switch operation {
-	case migrationOperationApply:
-		return "up"
-	case migrationOperationApplyThrough:
-		return "up-to"
-	case migrationOperationRollbackThrough:
-		return "down-to"
-	default:
-		return "unknown"
-	}
-}
-
-func runMigrationOperation(ctx context.Context, db *sql.DB, source MigrationSource, operation migrationOperation, version int64) (MigrationStatus, error) {
-	source = normalizeMigrationSource(source)
-	status := migrationStatus(source)
-
-	if ctx == nil {
-		return status, errNilMigrateContext
-	}
-	if err := ctx.Err(); err != nil {
-		return status, err
+	lineageID = strings.TrimSpace(lineageID)
+	lineageBoundary = strings.TrimSpace(lineageBoundary)
+	if lineageID == "" || lineageBoundary == "" {
+		return Source{}, errors.New("migration source lineage metadata is required")
 	}
 
-	empty, err := migrationSourceEmpty(source)
+	entries, err := fs.ReadDir(fsys, root)
 	if err != nil {
-		return status, fmt.Errorf("inspect migration directory: %w", err)
+		return Source{}, fmt.Errorf("read migration source root: %w", err)
 	}
-	if err := ctx.Err(); err != nil {
-		return status, err
-	}
-	if empty {
-		status.Empty = true
-		return status, nil
+	if len(entries) == 0 {
+		return Source{}, errors.New("migration source catalog is empty")
 	}
 
-	if err := runMigrationPreflights(ctx, db, source, operation, version); err != nil {
-		return status, err
-	}
-	if err := runGooseProvider(ctx, db, source, operation, version); err != nil {
-		return status, fmt.Errorf("run goose %q: %w", operation.gooseName(), err)
-	}
-
-	return status, nil
-}
-
-func migrationStatus(source MigrationSource) MigrationStatus {
-	source = normalizeMigrationSource(source)
-	return MigrationStatus{SourceName: source.displayName()}
-}
-
-func normalizeMigrationSource(source MigrationSource) MigrationSource {
-	if source.Path == "" {
-		source.Path = "."
-	}
-	return source
-}
-
-func (source MigrationSource) displayName() string {
-	if source.Name != "" {
-		return source.Name
-	}
-	if source.Path == "" {
-		return "."
-	}
-	return source.Path
-}
-
-func migrationSourceEmpty(source MigrationSource) (bool, error) {
-	if source.BaseFS != nil {
-		return migrationFSEmpty(source.BaseFS, source.Path)
-	}
-	return migrationDirectoryEmpty(source.Path)
-}
-
-func migrationDirectoryEmpty(directory string) (bool, error) {
-	found := false
-	err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	catalog := make(fstest.MapFS, len(entries))
+	versions := make([]int64, 0, len(entries))
+	seenVersions := make(map[int64]string, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 {
+			return Source{}, fmt.Errorf("migration source contains unexpected entry %q", entry.Name())
 		}
-		if entry.IsDir() {
-			return nil
+		info, infoErr := entry.Info()
+		if infoErr != nil {
+			return Source{}, fmt.Errorf("inspect migration source entry %q: %w", entry.Name(), infoErr)
 		}
-		if entry.Name() == ".gitkeep" {
-			return nil
+		if !info.Mode().IsRegular() {
+			return Source{}, fmt.Errorf("migration source contains unexpected entry %q", entry.Name())
+		}
+		match := migrationFilenamePattern.FindStringSubmatch(entry.Name())
+		if match == nil {
+			return Source{}, fmt.Errorf("migration source filename %q is invalid", entry.Name())
+		}
+		version, parseErr := strconv.ParseInt(match[1], 10, 64)
+		if parseErr != nil || version <= 0 {
+			return Source{}, fmt.Errorf("migration source version in %q is invalid", entry.Name())
+		}
+		if previous, exists := seenVersions[version]; exists {
+			return Source{}, fmt.Errorf("migration source version %05d is duplicated by %q and %q", version, previous, entry.Name())
 		}
 
-		found = true
-		return fs.SkipAll
-	})
-	if err != nil && err != fs.SkipAll {
-		return false, err
+		name := path.Join(root, entry.Name())
+		body, readErr := fs.ReadFile(fsys, name)
+		if readErr != nil {
+			return Source{}, fmt.Errorf("read migration source file %q: %w", entry.Name(), readErr)
+		}
+		if markerErr := validateMigrationMarkers(entry.Name(), body); markerErr != nil {
+			return Source{}, markerErr
+		}
+
+		copied := append([]byte(nil), body...)
+		catalog[entry.Name()] = &fstest.MapFile{Data: copied, Mode: 0o444}
+		versions = append(versions, version)
+		seenVersions[version] = entry.Name()
 	}
 
-	return !found, nil
-}
-
-func migrationFSEmpty(fsys fs.FS, directory string) (bool, error) {
-	found := false
-	err := fs.WalkDir(fsys, directory, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	sort.Slice(versions, func(left, right int) bool { return versions[left] < versions[right] })
+	for index, version := range versions {
+		want := int64(index + 1)
+		if version != want {
+			return Source{}, fmt.Errorf("migration source versions are not contiguous: got %05d want %05d", version, want)
 		}
-		if entry.IsDir() {
-			return nil
-		}
-		if entry.Name() == ".gitkeep" {
-			return nil
-		}
-
-		found = true
-		return fs.SkipAll
-	})
-	if err != nil && err != fs.SkipAll {
-		return false, err
 	}
 
-	return !found, nil
+	return Source{
+		catalog:         catalog,
+		versions:        append([]int64(nil), versions...),
+		lineageID:       lineageID,
+		lineageBoundary: lineageBoundary,
+	}, nil
 }
 
-func runGooseProvider(ctx context.Context, db *sql.DB, source MigrationSource, operation migrationOperation, version int64) error {
+func validateMigrationMarkers(name string, body []byte) error {
+	upCount := 0
+	downCount := 0
+	upSeen := false
+	downSeen := false
+	statementDepth := 0
+	for _, rawLine := range strings.Split(string(body), "\n") {
+		line := strings.TrimSpace(rawLine)
+		if !strings.HasPrefix(line, "-- +goose") {
+			continue
+		}
+		switch line {
+		case "-- +goose Up":
+			upCount++
+			upSeen = true
+			if downSeen || statementDepth != 0 {
+				return fmt.Errorf("migration source file %q has an invalid Up marker", name)
+			}
+		case "-- +goose Down":
+			downCount++
+			downSeen = true
+			if !upSeen || statementDepth != 0 {
+				return fmt.Errorf("migration source file %q has an invalid Down marker", name)
+			}
+		case "-- +goose NO TRANSACTION":
+			if statementDepth != 0 {
+				return fmt.Errorf("migration source file %q has a misplaced NO TRANSACTION directive", name)
+			}
+		case "-- +goose StatementBegin":
+			if !upSeen || statementDepth != 0 {
+				return fmt.Errorf("migration source file %q has an unbalanced StatementBegin directive", name)
+			}
+			statementDepth = 1
+		case "-- +goose StatementEnd":
+			if statementDepth != 1 {
+				return fmt.Errorf("migration source file %q has an unbalanced StatementEnd directive", name)
+			}
+			statementDepth = 0
+		default:
+			return fmt.Errorf("migration source file %q has unsupported directive %q", name, line)
+		}
+	}
+	if upCount != 1 || downCount != 1 {
+		return fmt.Errorf("migration source file %q must contain exactly one Up and one Down marker", name)
+	}
+	if statementDepth != 0 {
+		return fmt.Errorf("migration source file %q has an unbalanced statement block", name)
+	}
+	return nil
+}
+
+func (source Source) validate() error {
+	if source.catalog == nil || len(source.versions) == 0 || source.lineageID == "" || source.lineageBoundary == "" {
+		return errors.New("migration source is invalid")
+	}
+	return nil
+}
+
+func (source Source) headVersion() int64 {
+	if len(source.versions) == 0 {
+		return 0
+	}
+	return source.versions[len(source.versions)-1]
+}
+
+func (source Source) hasVersion(version int64) bool {
+	index := version - 1
+	return index >= 0 && index < int64(len(source.versions)) && source.versions[index] == version
+}
+
+// Apply advances the database to the validated source head.
+func Apply(ctx context.Context, db *sql.DB, source Source) (retErr error) {
 	if ctx == nil {
-		return errNilMigrateContext
+		return newMigrationFailure(reasonMigrationContextInvalid, errNilMigrateContext)
 	}
 	if err := ctx.Err(); err != nil {
+		return newMigrationFailure(reasonSchemaMigrationExecutionFailed, err)
+	}
+	if err := source.validate(); err != nil {
+		return newMigrationFailure(reasonMigrationSourceInvalid, err)
+	}
+	if db == nil {
+		return newMigrationFailure(reasonMigrationDatabaseUnavailable, nil)
+	}
+
+	locker, err := newMigrationSessionLocker()
+	if err != nil {
+		return newMigrationFailure(reasonMigrationLockAcquisitionFailed, err)
+	}
+	workNeeded := false
+	if err := withLockedMigrationSession(ctx, db, locker, func(ctx context.Context, conn *sql.Conn) error {
+		var classifyErr error
+		workNeeded, classifyErr = migrationWorkNeeded(ctx, conn, source)
+		return classifyErr
+	}); err != nil {
 		return err
 	}
 
-	providerFS, err := migrationProviderFS(source)
-	if err != nil {
-		return fmt.Errorf("resolve migration source: %w", err)
+	if workNeeded {
+		providerLocker := &validatingSessionLocker{
+			delegate: locker,
+			validate: func(ctx context.Context, conn *sql.Conn) error {
+				_, classifyErr := migrationWorkNeeded(ctx, conn, source)
+				return classifyErr
+			},
+			lockTimeout:   migrationLockTimeout,
+			unlockTimeout: migrationUnlockTimeout,
+		}
+		if err := runGooseProvider(ctx, db, source, providerLocker); err != nil {
+			return normalizeProviderFailure(err)
+		}
 	}
-	logger, closer, err := newGooseLogger(os.Getenv(GooseLogFileEnv))
+
+	if err := withLockedMigrationSession(ctx, db, locker, func(ctx context.Context, conn *sql.Conn) error {
+		return verifyMigrationPostcondition(ctx, conn, source)
+	}); err != nil {
+		var failure MigrationFailure
+		if errors.As(err, &failure) && failure.ReasonCode() == reasonMigrationLockAcquisitionFailed {
+			return err
+		}
+		return normalizeMigrationFailure(err, reasonSchemaMigrationPostcondition)
+	}
+	return nil
+}
+
+func runGooseProvider(ctx context.Context, db *sql.DB, source Source, locker gooselock.SessionLocker) (retErr error) {
+	defer recoverProviderPanic(&retErr)
+	provider, err := newGooseProvider(db, source.catalog, log.New(io.Discard, "", 0), locker)
 	if err != nil {
 		return err
 	}
-	if closer != nil {
-		defer closer.Close()
-	}
-
-	provider, err := newGooseProvider(db, providerFS, logger)
-	if err != nil {
-		return fmt.Errorf("create goose provider: %w", err)
-	}
-
-	switch operation {
-	case migrationOperationApply:
-		_, err = provider.Up(ctx)
-	case migrationOperationApplyThrough:
-		_, err = provider.UpTo(ctx, version)
-	case migrationOperationRollbackThrough:
-		_, err = provider.DownTo(ctx, version)
-	default:
-		err = errors.New("unsupported migration operation")
+	_, err = provider.Up(ctx)
+	if err != nil && ctx.Err() != nil {
+		return newMigrationFailure(reasonSchemaMigrationExecutionFailed, ctx.Err())
 	}
 	return err
 }
 
-func newGooseProvider(db *sql.DB, sourceFS fs.FS, logger goose.Logger) (*goose.Provider, error) {
+func newGooseProvider(db *sql.DB, sourceFS fs.FS, logger goose.Logger, sessionLockers ...gooselock.SessionLocker) (*goose.Provider, error) {
+	options := []goose.ProviderOption{
+		goose.WithDisableGlobalRegistry(true),
+		goose.WithLogger(logger),
+	}
+	if len(sessionLockers) > 0 && sessionLockers[0] != nil {
+		options = append(options, goose.WithSessionLocker(sessionLockers[0]))
+	}
 	return goose.NewProvider(
 		goose.DialectPostgres,
 		db,
 		sourceFS,
-		goose.WithDisableGlobalRegistry(true),
-		goose.WithLogger(logger),
+		options...,
 	)
-}
-
-func migrationProviderFS(source MigrationSource) (fs.FS, error) {
-	if source.BaseFS == nil {
-		return os.DirFS(source.Path), nil
-	}
-	if source.Path == "." {
-		return source.BaseFS, nil
-	}
-	return fs.Sub(source.BaseFS, source.Path)
-}
-
-func newGooseLogger(logPath string) (goose.Logger, io.Closer, error) {
-	if logPath == "" {
-		return log.New(os.Stderr, "", log.LstdFlags), nil, nil
-	}
-
-	if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
-		return nil, nil, fmt.Errorf("create goose log directory: %w", err)
-	}
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 -- logPath is an artifact path provided by the repo-local runner.
-	if err != nil {
-		return nil, nil, fmt.Errorf("open goose log file: %w", err)
-	}
-	return log.New(file, "", log.LstdFlags), file, nil
 }

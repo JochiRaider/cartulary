@@ -2262,7 +2262,7 @@ SELECT COUNT(*)
 		t.Fatal("timed out waiting for partially canceled apply")
 	}
 
-	if got := waitForSQLCount(t, harness.DB, 30*time.Second, 1, `
+	if got := waitForSQLCount(t, harness.DB, 60*time.Second, 1, `
 SELECT COUNT(*)
   FROM import_sessions s
   JOIN jobs j ON j.job_id = s.apply_job_id

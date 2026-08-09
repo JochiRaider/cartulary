@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 func TestEffectiveConfigBackupRoot_Process(t *testing.T) {
@@ -150,9 +151,9 @@ func requireProcessHarnessStartupErrorContract(t *testing.T) {
 
 func requireProcessEnvBuilderContract(t *testing.T) {
 	database := map[string]string{
-		postgres.PostgresDSNEnv: "postgres://source",
-		"COPY_DATABASE":         "database",
-		"PRECEDENCE":            "database",
+		suiteservices.PostgresDSNEnv: "postgres://source",
+		"COPY_DATABASE":              "database",
+		"PRECEDENCE":                 "database",
 	}
 	objectStore := map[string]string{
 		"COPY_OBJECT_STORE": "object-store",
@@ -160,7 +161,7 @@ func requireProcessEnvBuilderContract(t *testing.T) {
 	}
 	overrideRoot := filepath.Join(t.TempDir(), "final-database-root")
 	overrides := map[string]string{
-		postgres.PostgresDSNEnv:                    "postgres://override",
+		suiteservices.PostgresDSNEnv:               "postgres://override",
 		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH": overrideRoot,
 		"CARTULARY_CONFIG_FILE":                    "override-config.toml",
 		"PRECEDENCE":                               "override",

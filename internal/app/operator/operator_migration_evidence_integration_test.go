@@ -31,7 +31,11 @@ func TestMigrationEvidenceTransport_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
-	if _, err := database_migrations.Apply(ctx, sqlDB, dbmigrations.Source()); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		t.Fatalf("load migration source: %v", err)
+	}
+	if err := database_migrations.Apply(ctx, sqlDB, source); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
 	capture := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN)
@@ -58,7 +62,11 @@ func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
-	if _, err := database_migrations.Apply(ctx, sqlDB, dbmigrations.Source()); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		t.Fatalf("load migration source: %v", err)
+	}
+	if err := database_migrations.Apply(ctx, sqlDB, source); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
 	payload := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload

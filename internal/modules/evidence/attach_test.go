@@ -417,7 +417,11 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database_migrations.Apply(context.Background(), migrationDB, dbmigrations.Source()); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		t.Fatalf("load migration source: %v", err)
+	}
+	if err := database_migrations.Apply(context.Background(), migrationDB, source); err != nil {
 		_ = migrationDB.Close()
 		t.Fatalf("migrate concurrent association database: %v", err)
 	}

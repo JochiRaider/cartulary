@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"log"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
@@ -89,6 +93,18 @@ type TestDatabase struct {
 	DSN  string
 }
 
+// MigrationDatabase is a harness-issued capability for constructing migration
+// history in a disposable scratch database. Its unexported identity prevents
+// callers from wrapping an arbitrary database handle.
+type MigrationDatabase struct {
+	db       *sql.DB
+	identity *migrationDatabaseIdentity
+}
+
+type migrationDatabaseIdentity struct{}
+
+var issuedMigrationDatabaseIdentity = &migrationDatabaseIdentity{}
+
 type StartOptions struct {
 	Labels         map[string]string
 	Observer       testcontainersx.StartObserver
@@ -139,15 +155,16 @@ var (
 	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
 	}
-	startPreflightFn    func(context.Context) (string, error)
-	startSleepFn        func(context.Context, time.Duration) error
-	pingAdminDSNFn      = pingAdminDSN
-	migrateDatabaseFn   = database_migrations.Apply
-	migrateThroughFn    = database_migrations.ApplyThrough
-	createDatabaseFn    = createDatabase
-	dropDatabaseFn      = dropDatabase
-	markTemplateDBFn    = markTemplateDatabase
-	listMutableTablesFn = listMutableTables
+	startPreflightFn          func(context.Context) (string, error)
+	startSleepFn              func(context.Context, time.Duration) error
+	pingAdminDSNFn            = pingAdminDSN
+	migrateDatabaseFn         = database_migrations.Apply
+	applyMigrationsThrough    = applyCanonicalMigrationsThrough
+	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
+	createDatabaseFn          = createDatabase
+	dropDatabaseFn            = dropDatabase
+	markTemplateDBFn          = markTemplateDatabase
+	listMutableTablesFn       = listMutableTables
 )
 
 func Start(t testing.TB) *Harness {
@@ -462,28 +479,21 @@ func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope str
 	}, nil
 }
 
-type PreparationStatus struct {
-	SourceName       string
-	Empty            bool
-	TemplateClone    bool
-	TemplateDatabase string
-}
-
-func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, PreparationStatus, error) {
+func (h *Harness) PrepareDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
 	return h.prepareDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 }
 
-func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, PreparationStatus, error) {
+func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
 	if h.templateDB == "" && !h.attached {
 		if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
-			return nil, PreparationStatus{}, err
+			return nil, err
 		}
 	}
 	if h.templateDB != "" {
 		name := h.nextDatabaseName(prefix)
 		start := time.Now()
 		if err := h.createDatabase(ctx, name, h.templateDB); err != nil {
-			return nil, PreparationStatus{}, err
+			return nil, err
 		}
 		recordSuiteEvent(suiteservices.Event{
 			Type:    suiteservices.EventPostgresDBCreated,
@@ -501,30 +511,30 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		})
 
 		return &TestDatabase{
-				Name: name,
-				DSN:  h.dsnFor(name),
-			}, PreparationStatus{
-				SourceName:       dbmigrations.RepositoryPath,
-				TemplateClone:    true,
-				TemplateDatabase: h.templateDB,
-			}, nil
+			Name: name,
+			DSN:  h.dsnFor(name),
+		}, nil
 	}
 
 	testDB, err := h.newDatabase(ctx, prefix, reuseScope, attribution)
 	if err != nil {
-		return nil, PreparationStatus{}, err
+		return nil, err
 	}
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
-		return nil, PreparationStatus{}, fmt.Errorf("open test database handle: %w", err)
+		return nil, fmt.Errorf("open test database handle: %w", err)
 	}
 	defer db.Close()
 
 	migrateStart := time.Now()
-	status, err := migrateDatabaseFn(ctx, db, dbmigrations.Source())
+	source, err := dbmigrations.Source()
 	if err != nil {
-		return nil, PreparationStatus{}, err
+		return nil, fmt.Errorf("load migration source: %w", err)
+	}
+	err = migrateDatabaseFn(ctx, db, source)
+	if err != nil {
+		return nil, err
 	}
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBMigrated,
@@ -533,7 +543,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", reuseScope, attribution, time.Since(migrateStart)),
 	})
 
-	return testDB, PreparationStatus{SourceName: status.SourceName, Empty: status.Empty}, nil
+	return testDB, nil
 }
 
 func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
@@ -562,7 +572,13 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		return fmt.Errorf("open local postgres template database: %w", err)
 	}
 	migrateStart := time.Now()
-	if _, err := migrateDatabaseFn(ctx, db, dbmigrations.Source()); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		_ = db.Close()
+		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
+		return fmt.Errorf("load migration source: %w", err)
+	}
+	if err := migrateDatabaseFn(ctx, db, source); err != nil {
 		_ = db.Close()
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("migrate local postgres template database: %w", err)
@@ -599,7 +615,7 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
-	testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
+	testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
 	if err != nil {
 		t.Fatalf("prepare postgres database: %v", err)
 	}
@@ -634,21 +650,23 @@ func (h *Harness) NewMigrationDatabaseT(t testing.TB, prefix string) *TestDataba
 	return testDB
 }
 
-func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string) *sql.DB {
-	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *sql.DB) error {
-		_, err := migrateDatabaseFn(ctx, db, dbmigrations.Source())
-		return err
+func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string) *MigrationDatabase {
+	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *MigrationDatabase) error {
+		source, err := dbmigrations.Source()
+		if err != nil {
+			return err
+		}
+		return migrateDatabaseFn(ctx, db.SQL(), source)
 	})
 }
 
-func (h *Harness) MigrationDatabaseThroughT(t testing.TB, prefix string, version int64) *sql.DB {
-	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *sql.DB) error {
-		_, err := migrateThroughFn(ctx, db, dbmigrations.Source(), version)
-		return err
+func (h *Harness) MigrationDatabaseThroughT(t testing.TB, prefix string, version int64) *MigrationDatabase {
+	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *MigrationDatabase) error {
+		return db.ApplyThrough(ctx, version)
 	})
 }
 
-func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(context.Context, *sql.DB) error) *sql.DB {
+func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(context.Context, *MigrationDatabase) error) *MigrationDatabase {
 	t.Helper()
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
@@ -670,9 +688,10 @@ func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(con
 		t.Fatalf("open migration scratch database: %v", err)
 	}
 	db = openedDB
+	migrationDB := &MigrationDatabase{db: db, identity: issuedMigrationDatabaseIdentity}
 
 	migrateStart := time.Now()
-	if err := apply(context.Background(), db); err != nil {
+	if err := apply(context.Background(), migrationDB); err != nil {
 		t.Fatalf("migrate scratch database: %v", err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -682,7 +701,74 @@ func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(con
 		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), time.Since(migrateStart)),
 	})
 
-	return db
+	return migrationDB
+}
+
+// SQL returns the database handle owned by this disposable migration-scratch
+// capability. The harness closes it during test cleanup.
+func (db *MigrationDatabase) SQL() *sql.DB {
+	if !db.valid() {
+		return nil
+	}
+	return db.db
+}
+
+// ApplyThrough advances this scratch database through a positive target.
+func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) error {
+	if version <= 0 {
+		return errors.New("migration apply-through version must be positive")
+	}
+	if !db.valid() {
+		return errors.New("migration database capability is not harness-issued")
+	}
+	return applyMigrationsThrough(ctx, db.db, version)
+}
+
+// RollbackThrough rolls this scratch database back through a non-negative target.
+func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64) error {
+	if version < 0 {
+		return errors.New("migration rollback-through version must be non-negative")
+	}
+	if !db.valid() {
+		return errors.New("migration database capability is not harness-issued")
+	}
+	return rollbackMigrationsThrough(ctx, db.db, version)
+}
+
+func (db *MigrationDatabase) valid() bool {
+	return db != nil && db.identity == issuedMigrationDatabaseIdentity && db.db != nil
+}
+
+func applyCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version int64) error {
+	provider, err := newCanonicalMigrationProvider(db)
+	if err != nil {
+		return err
+	}
+	_, err = provider.UpTo(ctx, version)
+	return err
+}
+
+func rollbackCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version int64) error {
+	provider, err := newCanonicalMigrationProvider(db)
+	if err != nil {
+		return err
+	}
+	_, err = provider.DownTo(ctx, version)
+	return err
+}
+
+func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
+	sourceFS, err := fs.Sub(dbmigrations.Files, dbmigrations.EmbeddedPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve canonical migration source: %w", err)
+	}
+	return goose.NewProvider(
+		goose.DialectPostgres,
+		db,
+		sourceFS,
+		goose.WithDisableGlobalRegistry(true),
+		goose.WithLogger(log.New(io.Discard, "", 0)),
+	)
 }
 
 func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *TestDatabase {
@@ -706,7 +792,7 @@ func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *Tes
 	fixture.mu.Lock()
 
 	if fixture.db == nil {
-		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
+		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
 		if err != nil {
 			fixture.mu.Unlock()
 			t.Fatalf("prepare package postgres database: %v", err)
@@ -738,7 +824,7 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	fixture.mu.Lock()
 
 	if fixture.db == nil {
-		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
+		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePackage, attribution)
 		if err != nil {
 			fixture.mu.Unlock()
 			t.Fatalf("prepare transaction postgres database: %v", err)
@@ -796,7 +882,7 @@ func (h *Harness) prepareGroupDatabaseT(t testing.TB, prefix string, groupKey st
 	defer fixture.mu.Unlock()
 
 	if fixture.db == nil {
-		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseGroup, attribution)
+		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseGroup, attribution)
 		if err != nil {
 			t.Fatalf("prepare grouped postgres database: %v", err)
 		}
@@ -1252,7 +1338,7 @@ func cloneLabels(labels map[string]string) map[string]string {
 
 func (db *TestDatabase) Env() map[string]string {
 	return map[string]string{
-		postgres.PostgresDSNEnv: db.DSN,
+		suiteservices.PostgresDSNEnv: db.DSN,
 	}
 }
 

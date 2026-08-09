@@ -197,9 +197,20 @@ func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, act
 		_, _ = io.WriteString(runner.stderr, "\n")
 		return
 	}
-	var remediationErr *database_migrations.MigrationRemediationError
+	var remediationErr database_migrations.RemediationReporter
 	if errors.As(err, &remediationErr) {
-		_, _ = io.WriteString(runner.stderr, remediationErr.ReportJSON())
+		_, _ = io.WriteString(runner.stderr, remediationErr.RemediationReportJSON())
+		_, _ = io.WriteString(runner.stderr, "\n")
+		return
+	}
+	var migrationFailure database_migrations.MigrationFailure
+	if errors.As(err, &migrationFailure) {
+		diagnostics := config.NewDiagnosticsError(config.Diagnostic{
+			Path:       "database.schema_version",
+			ReasonCode: migrationFailure.ReasonCode(),
+			Message:    "Database migration validation failed.",
+		})
+		_, _ = io.WriteString(runner.stderr, diagnostics.JSON())
 		_, _ = io.WriteString(runner.stderr, "\n")
 		return
 	}

@@ -3,7 +3,7 @@
   "owner_id": "module.database_migrations",
   "rows": [
     {
-      "row_id": "module.database_migrations.integration.long_running_migration_cancellation",
+      "row_id": "module.database_migrations.integration.concurrent_apply_locking",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
       "collaborator_ids": [
@@ -16,7 +16,12 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestMigrateCancelsLongRunningMigration"
+          "TestApplyCancellationWhileWaitingForLock",
+          "TestApplyCancelsLongRunningMigration",
+          "TestApplyExecutionFailureIsSafeAndReleasesLock",
+          "TestApplyFailedPostconditionReleasesLock",
+          "TestApplyPreflightFailureReleasesLock",
+          "TestConcurrentApplyLocking"
         ]
       },
       "evidence_class": "integration",
@@ -54,7 +59,7 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.database_migrations.integration.migration_lineage_remediation_matrix",
+      "row_id": "module.database_migrations.integration.production_preflight_state_matrix",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
       "collaborator_ids": [
@@ -70,8 +75,9 @@
         "tests": [
           "TestMigrationLineagePreflightAllowsCurrentLine",
           "TestMigrationLineagePreflightRejectsHistoricalLine",
+          "TestMigrationLineagePreflightReportsApplyHeadTarget",
           "TestMigrationLineagePreflightReportsObservedWrongLineage",
-          "TestMigrationLineagePreflightReportsRollbackTarget"
+          "TestProductionPreflightStateMatrix"
         ]
       },
       "evidence_class": "integration",
@@ -125,6 +131,9 @@
           "TestEnsureSchemaReadyRejectsBehindCurrentLine",
           "TestEnsureSchemaReadyRejectsEmptyDatabase",
           "TestEnsureSchemaReadyRejectsHistoricalLineAboveHead",
+          "TestEnsureSchemaReadyRejectsInvalidHistoryMatrix",
+          "TestEnsureSchemaReadyRejectsMixedLineage",
+          "TestEnsureSchemaReadyRejectsZeroOnlyHistory",
           "TestEnsureSchemaReadyReportsWrongLineage"
         ]
       },
@@ -137,7 +146,7 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.database_migrations.unit.defaults_logger_and_remediation_contract",
+      "row_id": "module.database_migrations.unit.fail_closed_source_and_remediation_contract",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.unit",
       "collaborator_ids": [
@@ -152,11 +161,13 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestGooseLoggerConfigurationLifecycle",
-          "TestMigrationOperationRejectsNilContextBeforeInspection",
+          "TestApplyRejectsInvalidInputsBeforeDatabaseAccess",
+          "TestClassifyMigrationStateMatrix",
           "TestMigrationRemediationReportJSONContract",
-          "TestMigrationSourceDefaultsAndEmptyBehavior",
-          "TestSchemaReadinessHandlesNilPoolAndEmptySource"
+          "TestMigrationRemediationReportVariantJSONContracts",
+          "TestNewSourceRejectsInvalidCatalogs",
+          "TestSchemaReadinessRejectsInvalidSourceAndNilPool",
+          "TestSourceSnapshotIsImmutable"
         ]
       },
       "evidence_class": "unit",
@@ -220,7 +231,7 @@
       "minimum_tier": "fast"
     },
     {
-      "row_id": "module.database_migrations.unit.provider_context_source_logger_isolation",
+      "row_id": "module.database_migrations.unit.provider_source_and_safe_error_isolation",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.unit",
       "collaborator_ids": [],
@@ -231,9 +242,14 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
-          "TestApplyCanceledContextSkipsSourceInspection",
-          "TestMigrationProviderFSRootsEmbeddedSources",
-          "TestProviderContextSourceLoggerIsolation"
+          "TestApplyCanceledContextSkipsDatabaseAccess",
+          "TestMigrationLockPolicyConstants",
+          "TestMigrationProviderUsesImmutableRoot",
+          "TestProviderFailureNormalizationPreservesPrimaryError",
+          "TestProviderSourceIsolation",
+          "TestValidatingSessionLockerBoundsDetachedUnlock",
+          "TestValidatingSessionLockerRecoversPanicAndReleases",
+          "TestValidatingSessionLockerReleasesAfterPreflightFailure"
         ]
       },
       "evidence_class": "unit",
@@ -295,7 +311,7 @@
       "minimum_tier": "full"
     },
     {
-      "row_id": "module.database_migrations.unit.targeted_operation_validation",
+      "row_id": "module.database_migrations.unit.test_harness_targeted_operation_validation",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.unit",
       "collaborator_ids": [],
@@ -305,9 +321,9 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/database_migrations",
+        "package": "./internal/testutil/pgtest",
         "tests": [
-          "TestTargetedOperationValidation"
+          "TestMigrationDatabaseTargetedOperationValidation"
         ]
       },
       "evidence_class": "unit",

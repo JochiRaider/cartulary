@@ -5,15 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestJobsExpiryMigration60FreshAndGuarded_Integration(t *testing.T) {
 	t.Run("fresh shape and ordinary downgrade", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseThroughT(t, "jobs-expiry-fresh", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-expiry-fresh", 60)
+		db := migrationDB.SQL()
 		ctx := context.Background()
 		var columns, indexes int
 		if err := db.QueryRowContext(ctx, `
@@ -27,14 +26,15 @@ SELECT (SELECT count(*) FROM information_schema.columns
 		if columns != 1 || indexes != 1 {
 			t.Fatalf("migration 60 shape = columns %d indexes %d; want 1/1", columns, indexes)
 		}
-		if _, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 59); err != nil {
+		if err := migrationDB.RollbackThrough(ctx, 59); err != nil {
 			t.Fatalf("ordinary downgrade before compaction: %v", err)
 		}
 	})
 
 	t.Run("tombstone blocks downgrade without partial mutation", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseThroughT(t, "jobs-expiry-guarded", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-expiry-guarded", 60)
+		db := migrationDB.SQL()
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `
 INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
@@ -53,7 +53,7 @@ INSERT INTO jobs (
 `); err != nil {
 			t.Fatal(err)
 		}
-		_, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 59)
+		err := migrationDB.RollbackThrough(ctx, 59)
 		if err == nil || !strings.Contains(err.Error(), "jobs expiry downgrade blocked") {
 			t.Fatalf("guarded downgrade error = %v", err)
 		}

@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/diagnosticstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 type TempRoots struct {
@@ -170,7 +171,7 @@ func BindPostgresDSNToDatabaseRoot(t testing.TB, rootPath string, dsn string) {
 func BindPostgresEnvToDatabaseRoot(t testing.TB, rootPath string, env map[string]string) {
 	t.Helper()
 
-	if dsn, ok := env[postgres.PostgresDSNEnv]; ok {
+	if dsn, ok := env[suiteservices.PostgresDSNEnv]; ok {
 		BindPostgresDSNToDatabaseRoot(t, rootPath, dsn)
 	}
 }

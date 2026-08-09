@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
@@ -709,7 +710,12 @@ func createAndMigrateDB(ctx context.Context, baseDSN string, databaseName string
 		return "", fmt.Errorf("open migration db: %w", err)
 	}
 	defer db.Close()
-	if _, err := database_migrations.Apply(ctx, db, database_migrations.NewMigrationSource("db/migrations")); err != nil {
+	source, err := dbmigrations.Source()
+	if err != nil {
+		_ = dropDatabase(context.Background(), baseDSN, databaseName)
+		return "", fmt.Errorf("load migration source: %w", err)
+	}
+	if err := database_migrations.Apply(ctx, db, source); err != nil {
 		_ = dropDatabase(context.Background(), baseDSN, databaseName)
 		return "", fmt.Errorf("migrate db %s: %w", databaseName, err)
 	}

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -29,13 +27,15 @@ var jobsV2Bindings = map[string]string{
 func TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration(t *testing.T) {
 	t.Run("fresh", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseThroughT(t, "jobs-definition-fresh", 58)
+		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-fresh", 58)
+		db := migrationDB.SQL()
 		assertJobsV2Shape(t, db)
 	})
 
 	t.Run("exact backfill and legacy terminal", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		db := harness.MigrationDatabaseThroughT(t, "jobs-definition-upgrade", 57)
+		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-upgrade", 57)
+		db := migrationDB.SQL()
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 			t.Fatal(err)
@@ -64,7 +64,7 @@ INSERT INTO jobs (
 		if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
+		if err := migrationDB.ApplyThrough(ctx, 58); err != nil {
 			t.Fatal(err)
 		}
 		assertJobsV2Shape(t, db)
@@ -155,9 +155,10 @@ INSERT INTO collaboration_event_intents (
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseThroughT(t, "jobs-definition-reject", 57)
+			migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-reject", 57)
+			db := migrationDB.SQL()
 			testCase.seed(t, db)
-			_, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 58)
+			err := migrationDB.ApplyThrough(context.Background(), 58)
 			if err == nil || !strings.Contains(err.Error(), "jobs v2 compatibility preflight failed") ||
 				!strings.Contains(err.Error(), testCase.wantMetric) {
 				t.Fatalf("preflight error = %v; want %s", err, testCase.wantMetric)

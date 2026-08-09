@@ -1,4 +1,4 @@
-package postgres
+package networkflow
 
 import (
 	"context"
@@ -7,17 +7,20 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func TestTransactionRunnerLifecycle(t *testing.T) {
+func TestTransactionLifecycle(t *testing.T) {
 	ctx := context.Background()
 	operationErr := errors.New("operation failed")
 	beginErr := errors.New("begin failed")
 	commitErr := errors.New("commit failed")
+	rollbackErr := errors.New("rollback failed")
 
 	tests := []struct {
 		name      string
-		db        DB
+		db        postgres.DB
 		operation func(pgx.Tx) error
 		wantErr   error
 		wantCalls []string
@@ -36,8 +39,8 @@ func TestTransactionRunnerLifecycle(t *testing.T) {
 			wantCalls: []string{"begin"},
 		},
 		{
-			name: "operation failure rolls back",
-			db:   &transactionLifecycleDB{tx: &transactionLifecycleTx{}},
+			name: "operation failure preserves the primary error after rollback failure",
+			db:   &transactionLifecycleDB{tx: &transactionLifecycleTx{rollbackErr: rollbackErr}},
 			operation: func(tx pgx.Tx) error {
 				tx.(*transactionLifecycleTx).calls = append(tx.(*transactionLifecycleTx).calls, "operation")
 				return operationErr
@@ -68,16 +71,15 @@ func TestTransactionRunnerLifecycle(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runner := NewTransactionRunner(test.db)
-			err := runner.WithinTx(ctx, pgx.TxOptions{}, test.operation)
+			err := withinTransaction(ctx, test.db, pgx.TxOptions{}, test.operation)
 			if test.db == nil {
 				if err == nil {
-					t.Fatal("expected unavailable-runner error")
+					t.Fatal("expected unavailable-transaction error")
 				}
 				return
 			}
 			if !errors.Is(err, test.wantErr) {
-				t.Fatalf("WithinTx error = %v, want %v", err, test.wantErr)
+				t.Fatalf("transaction error = %v, want %v", err, test.wantErr)
 			}
 			db := test.db.(*transactionLifecycleDB)
 			gotCalls := append([]string{}, db.calls...)
@@ -92,7 +94,7 @@ func TestTransactionRunnerLifecycle(t *testing.T) {
 }
 
 type transactionLifecycleDB struct {
-	DB
+	postgres.DB
 	tx       pgx.Tx
 	beginErr error
 	calls    []string
@@ -105,8 +107,9 @@ func (db *transactionLifecycleDB) BeginTx(context.Context, pgx.TxOptions) (pgx.T
 
 type transactionLifecycleTx struct {
 	pgx.Tx
-	calls     []string
-	commitErr error
+	calls       []string
+	commitErr   error
+	rollbackErr error
 }
 
 func (tx *transactionLifecycleTx) Commit(context.Context) error {
@@ -116,5 +119,5 @@ func (tx *transactionLifecycleTx) Commit(context.Context) error {
 
 func (tx *transactionLifecycleTx) Rollback(context.Context) error {
 	tx.calls = append(tx.calls, "rollback")
-	return nil
+	return tx.rollbackErr
 }

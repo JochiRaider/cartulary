@@ -626,6 +626,7 @@
           "TestServerRunnerMapsRuntimeSetupFailure",
           "TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad",
           "TestServerRunnerWritesDiagnosticsAndReturnsFailure",
+          "TestServerRunnerWritesMigrationFailureDiagnostic",
           "TestServerRunnerWritesMigrationRemediationToStderr"
         ]
       },

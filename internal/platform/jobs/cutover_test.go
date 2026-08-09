@@ -16,8 +16,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -27,15 +25,9 @@ import (
 func TestDrainedV2CutoverAndRecovery_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := pgtest.Start(t)
-	testDB := harness.NewMigrationDatabaseT(t, "jobs-drained-v2-cutover")
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 57); err != nil {
-		t.Fatal(err)
-	}
+	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-drained-v2-cutover", 57)
+	db := migrationDB.SQL()
+	migrationDatabaseName := jobsMigrationScratchDatabaseName(t, ctx, db)
 
 	actorID := uuid.MustParse("58000000-0000-4000-8000-000000000081")
 	jobID := uuid.MustParse("58000000-0000-4000-8000-000000000082")
@@ -84,7 +76,12 @@ INSERT INTO jobs (
 		t.Fatal(err)
 	}
 
-	pool, err := pgxpool.New(ctx, testDB.DSN)
+	poolConfig, err := pgxpool.ParseConfig(harness.AdminDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	poolConfig.ConnConfig.Database = migrationDatabaseName
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +111,11 @@ SELECT (SELECT count(*)
 	if activeLeaseCount != 0 || illegalReplayCount != 0 {
 		t.Fatalf("cutover was not drained: active_leases=%d replay_candidates=%d", activeLeaseCount, illegalReplayCount)
 	}
-	backupPath := createJobsCutoverBackup(t, ctx, testDB.DSN)
+	backupPath := createJobsCutoverBackup(t, ctx, harness.AdminDSN(), migrationDatabaseName)
 	if err := oldWriterLease.Release(ctx); err != nil {
 		t.Fatalf("stop old writer under process lease: %v", err)
 	}
-	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 60); err != nil {
+	if err := migrationDB.ApplyThrough(ctx, 60); err != nil {
 		t.Fatal(err)
 	}
 	if info, err := os.Stat(backupPath); err != nil || info.Size() == 0 {
@@ -248,15 +245,8 @@ SELECT (SELECT count(*)
 func TestDrainedJobsCutoverRollbackBeforeFirstCompaction_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := pgtest.Start(t)
-	testDB := harness.NewMigrationDatabaseT(t, "jobs-drained-rollback")
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
-		t.Fatal(err)
-	}
+	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-drained-rollback", 58)
+	db := migrationDB.SQL()
 	actorID := uuid.MustParse("58000000-0000-4000-8000-000000000091")
 	jobID := uuid.MustParse("58000000-0000-4000-8000-000000000092")
 	if _, err := db.ExecContext(ctx, `
@@ -281,10 +271,10 @@ INSERT INTO jobs (
 	if err := db.QueryRowContext(ctx, `SELECT job_kind, progress_unit_id, handler_name FROM jobs WHERE job_id = $1`, jobID).Scan(&beforeKind, &beforeUnit, &beforeHandler); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 60); err != nil {
+	if err := migrationDB.ApplyThrough(ctx, 60); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.RollbackThrough(ctx, db, dbmigrations.Source(), 58); err != nil {
+	if err := migrationDB.RollbackThrough(ctx, 58); err != nil {
 		t.Fatalf("guarded rollback before corrected writes or compaction: %v", err)
 	}
 	var afterKind, afterUnit, afterHandler string
@@ -308,12 +298,22 @@ SELECT count(*) FILTER (WHERE column_name IN ('handler_attempts', 'handler_max_a
 	}
 }
 
-func createJobsCutoverBackup(t testing.TB, ctx context.Context, dsn string) string {
+func jobsMigrationScratchDatabaseName(t testing.TB, ctx context.Context, db *sql.DB) string {
 	t.Helper()
-	config, err := pgx.ParseConfig(dsn)
+	var databaseName string
+	if err := db.QueryRowContext(ctx, `SELECT current_database()`).Scan(&databaseName); err != nil {
+		t.Fatalf("resolve migration scratch database name: %v", err)
+	}
+	return databaseName
+}
+
+func createJobsCutoverBackup(t testing.TB, ctx context.Context, adminDSN string, databaseName string) string {
+	t.Helper()
+	config, err := pgx.ParseConfig(adminDSN)
 	if err != nil {
 		t.Fatalf("parse cutover backup database binding: %v", err)
 	}
+	config.Database = databaseName
 	backupPath := filepath.Join(t.TempDir(), "jobs-pre-cutover.dump")
 	command := exec.CommandContext(ctx, "pg_dump", "--format=custom", "--no-owner", "--file", backupPath)
 	command.Env = append(os.Environ(),

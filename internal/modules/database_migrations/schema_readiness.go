@@ -6,8 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
 // LedgerReader is the complete read-only database capability required by
@@ -19,110 +17,87 @@ type LedgerReader interface {
 
 // EnsureSchemaReady verifies that an already-open database matches the
 // repository migration source before runtime subsystems touch schema objects.
-func EnsureSchemaReady(ctx context.Context, pool *pgxpool.Pool, source MigrationSource) error {
+func EnsureSchemaReady(ctx context.Context, pool *pgxpool.Pool, source Source) error {
 	if ctx == nil {
-		return errNilMigrateContext
+		return newMigrationFailure(reasonMigrationContextInvalid, errNilMigrateContext)
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
+	}
+	if err := source.validate(); err != nil {
+		return newMigrationFailure(reasonMigrationSourceInvalid, err)
 	}
 	if pool == nil {
+		return newMigrationFailure(reasonMigrationDatabaseUnavailable, nil)
+	}
+
+	snapshot, err := readPGXMigrationState(ctx, pool)
+	if err != nil {
+		return newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
+	}
+	classification, err := classifyMigrationState(source, snapshot)
+	if err != nil {
+		return err
+	}
+	switch classification.State {
+	case migrationStatePristine, migrationStateBehind:
+		return newMigrationFailure(reasonSchemaMigrationRequired, nil)
+	case migrationStateCurrent:
 		return nil
-	}
-
-	source = normalizeMigrationSource(source)
-	empty, err := migrationSourceEmpty(source)
-	if err != nil {
-		return fmt.Errorf("inspect migration directory: %w", err)
-	}
-	if empty {
-		return nil
-	}
-
-	repositoryHeadVersion, err := migrationSourceHeadVersion(source)
-	if err != nil {
-		return fmt.Errorf("inspect migration source head: %w", err)
-	}
-
-	currentVersion, metadataPresent, err := currentGooseVersionPGX(ctx, pool)
-	if err != nil {
-		return fmt.Errorf("inspect migration version: %w", err)
-	}
-	if !metadataPresent || currentVersion == 0 {
-		return schemaReadinessDiagnostics("schema_migration_required", fmt.Sprintf("database has no applied migration metadata; run migrate up before server startup so schema reaches repository migration head %d", repositoryHeadVersion))
-	}
-
-	if source.ExpectedLineageID != "" {
-		lineageState, err := inspectMigrationLineagePGX(ctx, pool)
-		if err != nil {
-			return fmt.Errorf("inspect migration lineage: %w", err)
-		}
-		if !lineageState.HasExpected(source.ExpectedLineageID) {
-			return &MigrationRemediationError{
-				Report: migrationLineageRemediationReport(source, lineageState, currentVersion, repositoryHeadVersion, repositoryHeadVersion),
-			}
-		}
-	}
-
-	switch {
-	case currentVersion < repositoryHeadVersion:
-		return schemaReadinessDiagnostics("schema_migration_required", fmt.Sprintf("database schema version %d is behind repository migration head %d; run migrate up before server startup", currentVersion, repositoryHeadVersion))
-	case currentVersion > repositoryHeadVersion:
-		return schemaReadinessDiagnostics("schema_version_ahead", fmt.Sprintf("database schema version %d is ahead of repository migration head %d; start a server built from the matching repository version or restore a compatible database", currentVersion, repositoryHeadVersion))
+	case migrationStateAhead:
+		return newMigrationFailure(reasonSchemaVersionAhead, nil)
 	default:
-		return nil
+		return newMigrationFailure(reasonSchemaMigrationHistoryInvalid, nil)
 	}
 }
 
-func currentGooseVersionPGX(ctx context.Context, reader LedgerReader) (int64, bool, error) {
-	var tableExists bool
-	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&tableExists); err != nil {
-		return 0, false, err
+func readPGXMigrationState(ctx context.Context, reader LedgerReader) (migrationStateSnapshot, error) {
+	var snapshot migrationStateSnapshot
+	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&snapshot.LedgerTablePresent); err != nil {
+		return migrationStateSnapshot{}, fmt.Errorf("inspect migration ledger: %w", err)
 	}
-	if !tableExists {
-		return 0, false, nil
+	if snapshot.LedgerTablePresent {
+		rows, err := reader.Query(ctx, `SELECT version_id, is_applied FROM goose_db_version ORDER BY id ASC`)
+		if err != nil {
+			return migrationStateSnapshot{}, fmt.Errorf("read migration ledger: %w", err)
+		}
+		for rows.Next() {
+			var row migrationLedgerRow
+			if err := rows.Scan(&row.Version, &row.IsApplied); err != nil {
+				rows.Close()
+				return migrationStateSnapshot{}, fmt.Errorf("scan migration ledger: %w", err)
+			}
+			snapshot.LedgerRows = append(snapshot.LedgerRows, row)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return migrationStateSnapshot{}, fmt.Errorf("iterate migration ledger: %w", err)
+		}
+		rows.Close()
 	}
 
-	var version int64
-	if err := reader.QueryRow(ctx, `SELECT COALESCE(MAX(version_id), 0)::bigint FROM goose_db_version WHERE is_applied = true`).Scan(&version); err != nil {
-		return 0, true, err
+	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&snapshot.LineageTablePresent); err != nil {
+		return migrationStateSnapshot{}, fmt.Errorf("inspect migration lineage: %w", err)
 	}
-	return version, true, nil
-}
-
-func inspectMigrationLineagePGX(ctx context.Context, reader LedgerReader) (migrationLineageState, error) {
-	var tableExists bool
-	if err := reader.QueryRow(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&tableExists); err != nil {
-		return migrationLineageState{}, err
+	if !snapshot.LineageTablePresent {
+		return snapshot, nil
 	}
-	if !tableExists {
-		return migrationLineageState{TablePresent: false}, nil
-	}
-
 	rows, err := reader.Query(ctx, `SELECT lineage_id FROM schema_migration_lineage ORDER BY lineage_id ASC`)
 	if err != nil {
-		return migrationLineageState{}, err
+		return migrationStateSnapshot{}, fmt.Errorf("read migration lineage: %w", err)
 	}
-	defer rows.Close()
-
-	state := migrationLineageState{TablePresent: true}
 	for rows.Next() {
 		var lineageID string
 		if err := rows.Scan(&lineageID); err != nil {
-			return migrationLineageState{}, err
+			rows.Close()
+			return migrationStateSnapshot{}, fmt.Errorf("scan migration lineage: %w", err)
 		}
-		state.ObservedIDs = append(state.ObservedIDs, lineageID)
+		snapshot.LineageIDs = append(snapshot.LineageIDs, lineageID)
 	}
 	if err := rows.Err(); err != nil {
-		return migrationLineageState{}, err
+		rows.Close()
+		return migrationStateSnapshot{}, fmt.Errorf("iterate migration lineage: %w", err)
 	}
-	return state, nil
-}
-
-func schemaReadinessDiagnostics(reasonCode string, message string) error {
-	return config.NewDiagnosticsError(config.Diagnostic{
-		Path:       "database.schema_version",
-		ReasonCode: reasonCode,
-		Message:    message,
-	})
+	rows.Close()
+	return snapshot, nil
 }

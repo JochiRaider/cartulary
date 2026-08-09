@@ -6,14 +6,13 @@ import (
 	"testing"
 	"time"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestExtensionJobCutoverMigration34FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-fresh", 34)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-fresh", 34)
+	db := migrationDB.SQL()
 	var metadataColumns int
 	if err := db.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -47,7 +46,8 @@ func TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_
 	for _, handlerName := range retiredHandlers {
 		t.Run(handlerName, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			db := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-reject", 33)
+			migrationDB := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-reject", 33)
+			db := migrationDB.SQL()
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 				t.Fatal(err)
@@ -68,7 +68,7 @@ INSERT INTO jobs (
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 				t.Fatal(err)
 			}
-			_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 34)
+			err := migrationDB.ApplyThrough(ctx, 34)
 			if err == nil {
 				t.Fatal("expected clean-cutover migration rejection")
 			}

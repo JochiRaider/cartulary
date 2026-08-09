@@ -454,10 +454,7 @@
         "internal/modules/**",
         "internal/platform/httpapi/**"
       ],
-      "allowed_paths": [
-        "internal/modules/database_migrations/schema_readiness.go",
-        "internal/modules/database_migrations/schema_readiness_test.go"
-      ],
+      "allowed_paths": [],
       "production_only": false
     },
     {

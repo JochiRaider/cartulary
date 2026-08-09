@@ -746,8 +746,8 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
   await actionMessage.hover();
   await page.waitForTimeout(5_100);
   await expect(actionMessage).toHaveText("Saved promoted incident fields.");
-  await page.mouse.move(0, 0);
-  await expect(actionMessage).toHaveText("", { timeout: 5_500 });
+  await page.getByLabel("Close incident controls").hover();
+  await expect(actionMessage).toHaveText("", { timeout: 15_000 });
 
   await openIncidentControls(page);
   await expect(

@@ -20,6 +20,7 @@
           "TestMigrateRunnerConfigLoadFailure",
           "TestMigrateRunnerDBOpenFailure",
           "TestMigrateRunnerPrintsMigrationRemediationReport",
+          "TestMigrateRunnerPrintsSafeMigrationReason",
           "TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration",
           "TestMigrateRunnerRunPassesContextToMigration"
         ]

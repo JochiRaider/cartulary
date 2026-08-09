@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -393,8 +394,25 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	})
 
-	if err := dependencies.ensureSchemaReady(ctx, postgresPool, dbmigrations.Source()); err != nil {
+	migrationSource, err := dbmigrations.Source()
+	if err != nil {
 		runtime.Close()
+		return nil, fmt.Errorf("load migration source: %w", err)
+	}
+	if err := dependencies.ensureSchemaReady(ctx, postgresPool, migrationSource); err != nil {
+		runtime.Close()
+		var remediation database_migrations.RemediationReporter
+		if errors.As(err, &remediation) {
+			return nil, remediation
+		}
+		var migrationFailure database_migrations.MigrationFailure
+		if errors.As(err, &migrationFailure) {
+			return nil, config.NewDiagnosticsError(config.Diagnostic{
+				Path:       "database.schema_version",
+				ReasonCode: migrationFailure.ReasonCode(),
+				Message:    "Database migration validation failed.",
+			})
+		}
 		return nil, err
 	}
 	var extensionStateStore *extensionstore.Store
@@ -784,7 +802,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		ImportSources:   importStore,
 		KeyRings:        networkFlowKeyRings,
 		Now:             now,
-		Transactions:    postgres.NewTransactionRunner(postgresHandle),
 		IncidentLocks:   incidents.NewTransactionParticipant(),
 		AuditAppender:   authn.NewAdministrativeAuditAppender(),
 		Indicators:      indicatorOwner,

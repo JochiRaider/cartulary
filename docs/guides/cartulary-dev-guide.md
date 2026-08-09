@@ -601,16 +601,21 @@ receive a generic platform Hub.
 
 `internal/platform/postgres` owns:
 
-- `pgx/v5` pool creation,
+- `pgx/v5` pool and `database/sql` handle creation,
 - filesystem-root and managed-service PostgreSQL binding resolution,
-- transaction helpers,
-- query-execution helpers shared across modules,
+- the narrow `postgres.DB` query and transaction-capability port implemented by
+  pools and test fixtures,
 - PostgreSQL dependency telemetry.
+
+It does not own a generic transaction lifecycle facade. Network Flow performs
+its begin/callback/commit/deferred-rollback lifecycle through a private helper
+over its existing `postgres.DB`; this keeps transaction ordering and error
+precedence with the module behavior that depends on them.
 
 `internal/modules/database_migrations` owns:
 
 - migration-source identity and inspection,
-- production apply-to-head execution and explicitly typed test-only targeted operations,
+- production apply-to-head execution,
 - per-invocation Goose Provider filesystem and logger binding,
 - migration lineage preflight, schema readiness, and typed remediation,
 - migration-history evidence and migration recovery metadata.
@@ -620,8 +625,32 @@ not resolve configuration or secrets, create connections, own generic query or
 transaction ports, own PostgreSQL telemetry, define source-owner schema meaning,
 or own the SQL files under `db/migrations`. Source-owner production packages
 must not invoke migration execution. The deployable migration grammar remains
-exactly `migrate up`; targeted apply and rollback operations are repository test
-support only.
+exactly `migrate up`; it has no version-targeted apply or rollback operation.
+Each apply invocation uses the PostgreSQL advisory lock identified by
+`4097083626`, retries acquisition once per second for at most five minutes, and
+bounds detached unlock cleanup to 30 seconds. Initial classification,
+Goose-backed execution, and final postcondition checks are separately locked;
+the Goose session locker keeps execution on the same database session as its
+lock. Provider output is discarded. Migrate and server entrypoints emit only
+the migration owner's stable reason code or remediation report, never raw SQL,
+binds, DSNs, filesystem paths, server text, or Goose errors.
+
+Apply preflight, final postcondition validation, and server readiness use one
+ordered migration-state classifier over independently acquired SQL and pgx
+snapshots. It rejects malformed ledger structure before evaluating lineage,
+then requires the exact expected lineage singleton for every nonzero history,
+then distinguishes an ahead source, a valid behind prefix, and the exact
+current prefix. A database without nonzero history or lineage is pristine:
+readiness requires migration while apply may initialize it. The runtime does
+not repair a malformed ledger or bridge a historical migration lineage.
+
+`internal/testutil/pgtest.MigrationDatabase` is the only targeted migration
+capability. `Harness.MigrationDatabaseT` and `MigrationDatabaseThroughT` issue
+it only for disposable migration-scratch databases. Tests use `SQL()` for
+assertions and the capability's apply-through or rollback-through methods to
+construct history from the canonical embedded migration files. The capability
+accepts neither an arbitrary database handle nor a caller-selected source and
+does not define production rollback or recovery behavior.
 
 `internal/platform/objectstore` owns:
 

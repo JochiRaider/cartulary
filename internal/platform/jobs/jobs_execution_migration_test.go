@@ -5,14 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestJobsExecutionMigration59FreshAndGuarded_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "jobs-execution-fresh", 59)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-execution-fresh", 59)
+	db := migrationDB.SQL()
 	var columns int
 	if err := db.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -30,7 +29,8 @@ SELECT count(*)
 
 func TestJobsExecutionMigration59RejectsUnsafeIdentityBeforeMutation_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "jobs-execution-reject", 58)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-execution-reject", 58)
+	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ INSERT INTO jobs (
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
 		t.Fatal(err)
 	}
-	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 59)
+	err := migrationDB.ApplyThrough(ctx, 59)
 	if err == nil || !strings.Contains(err.Error(), "jobs execution preflight failed") ||
 		strings.Contains(err.Error(), "59000000-0000-4000-8000-000000000099") {
 		t.Fatalf("migration 59 preflight error = %v", err)

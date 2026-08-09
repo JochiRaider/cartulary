@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 func TestPostgresRootBindingResolution(t *testing.T) {
@@ -17,7 +18,7 @@ func TestPostgresRootBindingResolution(t *testing.T) {
 		}
 
 		settings, err := postgres.ResolveSettings(cfg, map[string]string{
-			postgres.PostgresDSNEnv: "postgres://generic-env",
+			suiteservices.PostgresDSNEnv: "postgres://generic-env",
 		})
 		if err != nil {
 			t.Fatalf("resolve filesystem-root postgres settings: %v", err)
@@ -123,7 +124,7 @@ func TestPostgresRootBindingResolution(t *testing.T) {
 	t.Run("managed service ignores generic DSN env and fails closed", func(t *testing.T) {
 		cfg := postgresSettingsConfig(t, "managed_service")
 		_, err := postgres.ResolveSettings(cfg, map[string]string{
-			postgres.PostgresDSNEnv: "postgres://generic-env",
+			suiteservices.PostgresDSNEnv: "postgres://generic-env",
 		})
 		if err == nil {
 			t.Fatal("expected managed-service postgres settings to reject generic DSN env")

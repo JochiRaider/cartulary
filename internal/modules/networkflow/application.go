@@ -18,7 +18,7 @@ func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UU
 	}
 	var table TableRecord
 	var payload map[string]any
-	err := s.store.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.store.renameTableTx(ctx, tx, RenameTableParams{
 			IncidentID:       incidentID,
@@ -56,7 +56,7 @@ func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uui
 	}
 	var table TableRecord
 	var payload map[string]any
-	err := s.store.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err := withinTransaction(ctx, s.store.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.store.softDeleteTableTx(ctx, tx, SoftDeleteTableParams{
 			IncidentID:       incidentID,

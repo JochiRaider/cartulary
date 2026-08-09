@@ -99,24 +99,55 @@ New migration files SHOULD use behavior- or owner-shaped names instead of histor
 
 **REQ-01-657**
 The internal `database_migrations` refinement owns repository migration-source
-identity and inspection, production apply-to-head execution, explicitly typed
-test-only apply-through and rollback-through operations, per-invocation
-migration-runner coordination, lineage preflight, repository-head and lineage
-readiness, typed remediation, migration-history evidence, migration recovery
-metadata, and the narrow read-only migration-ledger capability. The production
-surface MUST NOT expose generic Goose command grammar. Test-only targeted
-operations MUST NOT be callable from source-owner production code.
+identity and inspection, production apply-to-head execution, cross-process
+migration-runner coordination, migration-history classification, lineage and
+repository-head readiness, typed safe failures, typed remediation,
+migration-history evidence, migration recovery metadata, and the narrow
+read-only migration-ledger capability. Its production surface MUST NOT expose
+generic Goose command grammar, version-targeted apply, rollback, filesystem
+discovery, or caller-selected migration sources.
+
+The production source MUST be an opaque immutable snapshot constructed
+fallibly from an explicit filesystem root and non-empty lineage metadata.
+Construction and zero-source validation MUST occur without database access and
+MUST reject an invalid or escaping root; an empty or malformed catalog;
+unexpected entries; invalid, duplicate, or non-contiguous versions; malformed
+Up or Down markers; unsupported directives; and unbalanced statement blocks.
+The canonical repository source MUST be one cached validated snapshot of the
+embedded authored catalog and MUST NOT panic or expose filesystem accessors.
+
+Production apply MUST validate the source and borrowed database capability,
+serialize cooperating processes with the repository migration advisory lock,
+classify state while locked before execution, reclassify on the exact Goose
+execution session after that session acquires the lock, and prove the final
+locked postcondition before success. Lock acquisition and detached release MUST
+be bounded and cancellation-aware, all post-acquisition exits MUST use the same
+release path, and a primary failure MUST NOT be hidden by cleanup failure.
+Migration execution MUST use one invocation-local provider with the global Go
+migration registry disabled and logging discarded. It MUST NOT close the
+caller-owned database handle.
+
+The shared state classifier MUST reject malformed migration history before
+lineage mismatch, require structurally valid nonzero history to use exactly the
+expected singleton lineage, distinguish a valid prefix behind head from an
+exact current prefix and a contiguous history beyond head, and treat a database
+with no nonzero history and no lineage as pristine but migration-required for
+readiness. It MUST NOT repair ledger state or bridge historical lineages.
+Migration failures MUST expose only the closed safe reason set owned by this
+contract, preserve context cancellation compatibility, and MUST NOT disclose
+vendor error text or sensitive database, SQL, filesystem, environment, or
+server data.
 
 `database_migrations` MUST receive already-opened database handles and MUST NOT
 accept, resolve, retain, log, serialize, or expose a raw DSN, credential,
 database-root path, secret-bearing settings or binding object, or service
 secret. It MUST NOT own PostgreSQL connectivity, generic query or transaction
 ports, PostgreSQL telemetry, application transport, recovery orchestration,
-source-owner schema meaning, or authored SQL. Migration execution MUST bind its
-filesystem and logger per invocation and MUST NOT depend on process-global
-migration filesystem or logger state. Physical package placement, migration SQL
-placement, test placement, and verification routing do not transfer this
-lifecycle ownership.
+source-owner schema meaning, authored SQL, or test-only targeted migration
+mechanics. Disposable migration-scratch history construction belongs to the
+Testing Harness owner and MUST NOT create a production rollback contract.
+Physical package placement, migration SQL placement, test placement, and
+verification routing do not transfer this lifecycle ownership.
 Profiles: base
 Verified by: AC-537
 

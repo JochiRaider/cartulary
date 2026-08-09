@@ -35,7 +35,6 @@ type ModuleDependencies struct {
 	KeyRings        *KeyRings
 	Limits          Limits
 	Now             func() time.Time
-	Transactions    postgres.TransactionRunner
 	IncidentLocks   IncidentLockPort
 	AuditAppender   AdministrativeAuditPort
 	Indicators      IndicatorParticipationPort
@@ -69,10 +68,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	transactions := dependencies.Transactions
-	if transactions == nil {
-		transactions = postgres.NewTransactionRunner(dependencies.Postgres)
-	}
 	if dependencies.IncidentLocks == nil || dependencies.AuditAppender == nil || dependencies.Indicators == nil || dependencies.ResourceIntents == nil {
 		return nil, errors.New("network flow owner transaction participants are required")
 	}
@@ -93,7 +88,6 @@ func NewModule(dependencies ModuleDependencies) (*Module, error) {
 		dependencies.Postgres,
 		WithLimits(limits),
 		WithOwnerParticipants(dependencies.IncidentLocks, dependencies.AuditAppender, dependencies.Indicators),
-		WithTransactionRunner(transactions),
 		WithSafeDigester(safeDigester),
 		WithResourceIntentAppender(dependencies.ResourceIntents),
 	)

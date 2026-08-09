@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -17,7 +18,6 @@ import (
 	"github.com/moby/moby/api/types/network"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -327,9 +327,9 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
 		migrateCalls++
-		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+		return nil
 	}
 
 	harness := &Harness{
@@ -340,7 +340,7 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 		processHash: "procaaaa",
 	}
 
-	testDB, status, err := harness.PrepareDatabase(context.Background(), "bootstrap")
+	testDB, err := harness.PrepareDatabase(context.Background(), "bootstrap")
 	if err != nil {
 		t.Fatalf("prepare database from template: %v", err)
 	}
@@ -352,15 +352,6 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 	if migrateCalls != 0 {
 		t.Fatalf("expected template mode to skip per-database migrations, got %d calls", migrateCalls)
-	}
-	if !status.TemplateClone {
-		t.Fatal("expected migration status to mark template clone mode")
-	}
-	if status.SourceName != dbmigrations.RepositoryPath {
-		t.Fatalf("unexpected migration source in status: got %q want %q", status.SourceName, dbmigrations.RepositoryPath)
-	}
-	if status.TemplateDatabase != "suite_template" {
-		t.Fatalf("unexpected template database in status: got %q", status.TemplateDatabase)
 	}
 	if testDB.Name == "" || !strings.Contains(testDB.DSN, testDB.Name) {
 		t.Fatalf("expected prepared database dsn to reference the cloned database, got %#v", testDB)
@@ -694,8 +685,8 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		dropped = append(dropped, name)
 		return nil
 	}
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
-		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+		return nil
 	}
 
 	harness := &Harness{
@@ -724,11 +715,11 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 
 	oldCreate := createDatabaseFn
 	oldDrop := dropDatabaseFn
-	oldMigrate := migrateThroughFn
+	oldMigrate := applyMigrationsThrough
 	t.Cleanup(func() {
 		createDatabaseFn = oldCreate
 		dropDatabaseFn = oldDrop
-		migrateThroughFn = oldMigrate
+		applyMigrationsThrough = oldMigrate
 	})
 
 	var scratchName string
@@ -741,8 +732,8 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 		dropCalls++
 		return nil
 	}
-	migrateThroughFn = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource, version int64) (database_migrations.MigrationStatus, error) {
-		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+	applyMigrationsThrough = func(ctx context.Context, db *sql.DB, version int64) error {
+		return nil
 	}
 
 	harness := &Harness{
@@ -781,10 +772,77 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 	}
 }
 
+func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
+	oldApply := applyMigrationsThrough
+	oldRollback := rollbackMigrationsThrough
+	t.Cleanup(func() {
+		applyMigrationsThrough = oldApply
+		rollbackMigrationsThrough = oldRollback
+	})
+
+	applyCalls := 0
+	rollbackCalls := 0
+	applyMigrationsThrough = func(context.Context, *sql.DB, int64) error {
+		applyCalls++
+		return nil
+	}
+	rollbackMigrationsThrough = func(context.Context, *sql.DB, int64) error {
+		rollbackCalls++
+		return nil
+	}
+
+	capabilityType := reflect.TypeOf(MigrationDatabase{})
+	for index := 0; index < capabilityType.NumField(); index++ {
+		if capabilityType.Field(index).PkgPath == "" {
+			t.Fatalf("migration capability field %q must be unexported", capabilityType.Field(index).Name)
+		}
+	}
+	methodType := reflect.TypeOf((*MigrationDatabase)(nil))
+	if methodType.NumMethod() != 3 {
+		t.Fatalf("migration capability method count = %d, want 3", methodType.NumMethod())
+	}
+	for index, name := range []string{"ApplyThrough", "RollbackThrough", "SQL"} {
+		if got := methodType.Method(index).Name; got != name {
+			t.Fatalf("migration capability method %d = %q, want %q", index, got, name)
+		}
+	}
+
+	var zero MigrationDatabase
+	if err := zero.ApplyThrough(context.Background(), 0); err == nil || err.Error() != "migration apply-through version must be positive" {
+		t.Fatalf("unexpected apply target validation error: %v", err)
+	}
+	if err := zero.RollbackThrough(context.Background(), -1); err == nil || err.Error() != "migration rollback-through version must be non-negative" {
+		t.Fatalf("unexpected rollback target validation error: %v", err)
+	}
+	if applyCalls != 0 || rollbackCalls != 0 {
+		t.Fatalf("invalid targets reached migration access: apply=%d rollback=%d", applyCalls, rollbackCalls)
+	}
+	if zero.SQL() != nil {
+		t.Fatal("zero capability exposed a database handle")
+	}
+	if err := zero.ApplyThrough(context.Background(), 1); err == nil || err.Error() != "migration database capability is not harness-issued" {
+		t.Fatalf("unexpected zero capability error: %v", err)
+	}
+
+	issued := &MigrationDatabase{db: &sql.DB{}, identity: issuedMigrationDatabaseIdentity}
+	if issued.SQL() == nil {
+		t.Fatal("issued capability did not expose its scratch handle")
+	}
+	if err := issued.ApplyThrough(context.Background(), 1); err != nil {
+		t.Fatalf("apply through issued capability: %v", err)
+	}
+	if err := issued.RollbackThrough(context.Background(), 0); err != nil {
+		t.Fatalf("rollback through zero issued capability: %v", err)
+	}
+	if applyCalls != 1 || rollbackCalls != 1 {
+		t.Fatalf("unexpected targeted call counts: apply=%d rollback=%d", applyCalls, rollbackCalls)
+	}
+}
+
 func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	harness := Start(t)
 
-	testDB, status, err := harness.PrepareDatabase(context.Background(), "bootstrap")
+	testDB, err := harness.PrepareDatabase(context.Background(), "bootstrap")
 	if err != nil {
 		t.Fatalf("prepare database: %v", err)
 	}
@@ -800,9 +858,6 @@ func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 
 	if testDB.DSN == "" {
 		t.Fatal("expected database dsn")
-	}
-	if status.Empty {
-		t.Fatal("expected the current bootstrap migration set to include numbered migrations")
 	}
 }
 

@@ -5,20 +5,19 @@ import (
 	"database/sql"
 	"testing"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestSchemaBootstrap_Integration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "bootstrap-i-0-01")
-	source := dbmigrations.Source()
+	db := postgresHarness.MigrationDatabaseT(t, "bootstrap-i-0-01").SQL()
+	source := canonicalMigrationSource(t)
 
 	assertCount(t, db, `SELECT COUNT(*) FROM pg_extension WHERE extname IN ('pgcrypto', 'citext')`, 2)
 	assertCount(t, db, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'deployment_bootstrap_state', 'deployment_admin_audit_events')`, 3)
 
-	if _, err := database_migrations.Apply(context.Background(), db, source); err != nil {
+	if err := database_migrations.Apply(context.Background(), db, source); err != nil {
 		t.Fatalf("run second schema bootstrap: %v", err)
 	}
 	if err := db.PingContext(context.Background()); err != nil {

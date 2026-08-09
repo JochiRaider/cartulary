@@ -14,12 +14,11 @@ import (
 )
 
 const (
-	PostgresDSNEnv          = "CARTULARY_POSTGRES_DSN"
-	FilesystemRootDSNFile   = "postgres.dsn"
-	ManagedServiceDSNPrefix = "CARTULARY_POSTGRES_"
-	ManagedServiceDSNSuffix = "_DSN"
+	FilesystemRootDSNFile = "postgres.dsn"
 
 	filesystemRootDSNMaximumBytes int64 = 65536
+	managedServiceDSNPrefix             = "CARTULARY_POSTGRES_"
+	managedServiceDSNSuffix             = "_DSN"
 )
 
 type Settings struct {
@@ -105,7 +104,7 @@ func EnvKeyForServiceRef(serviceRef string) (string, error) {
 	if normalized == "" {
 		return "", fmt.Errorf("resolve managed postgres env key: service_ref must contain at least one letter or digit")
 	}
-	return ManagedServiceDSNPrefix + normalized + ManagedServiceDSNSuffix, nil
+	return managedServiceDSNPrefix + normalized + managedServiceDSNSuffix, nil
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

@@ -24,7 +24,6 @@ type Store struct {
 	incidentLocks   IncidentLockPort
 	auditAppender   AdministrativeAuditPort
 	indicators      IndicatorParticipationPort
-	transactionRun  postgres.TransactionRunner
 	safeDigester    SafeDigester
 	resourceIntents ResourceIntentAppender
 }
@@ -43,10 +42,6 @@ func WithOwnerParticipants(incidentLocks IncidentLockPort, auditAppender Adminis
 		s.auditAppender = auditAppender
 		s.indicators = indicatorParticipant
 	}
-}
-
-func WithTransactionRunner(runner postgres.TransactionRunner) StoreOption {
-	return func(s *Store) { s.transactionRun = runner }
 }
 
 func WithSafeDigester(digester SafeDigester) StoreOption {
@@ -177,9 +172,8 @@ type RetainedCounts struct {
 
 func NewStore(pool postgres.DB, options ...StoreOption) *Store {
 	store := &Store{
-		pool:           pool,
-		limits:         DefaultLimits(),
-		transactionRun: postgres.NewTransactionRunner(pool),
+		pool:   pool,
+		limits: DefaultLimits(),
 	}
 	for _, option := range options {
 		option(store)
@@ -190,7 +184,7 @@ func NewStore(pool postgres.DB, options ...StoreOption) *Store {
 
 func (s *Store) CreateTable(ctx context.Context, params CreateTableParams) (TableRecord, error) {
 	var table TableRecord
-	err := s.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.CreateTableTx(ctx, tx, params)
 		return err
@@ -323,7 +317,7 @@ func (s *Store) RetainedCounts(ctx context.Context, incidentID uuid.UUID) (Retai
 
 func (s *Store) RenameTable(ctx context.Context, params RenameTableParams) (TableRecord, error) {
 	var table TableRecord
-	err := s.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.renameTableTx(ctx, tx, params)
 		return err
@@ -422,7 +416,7 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 
 func (s *Store) SoftDeleteTable(ctx context.Context, params SoftDeleteTableParams) (TableRecord, error) {
 	var table TableRecord
-	err := s.transactionRun.WithinTx(ctx, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err := withinTransaction(ctx, s.pool, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var err error
 		table, err = s.softDeleteTableTx(ctx, tx, params)
 		return err

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/stagedobjects"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -262,22 +261,11 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := newServerRunner(&stdout, &stderr)
 	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	remediation := fakeServerRemediationFailure{
+		report: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v1","from_version":40,"to_version":33,"findings":[{"field":"schema_migration_lineage","reason_code":"historical_migration_lineage","remediation_hint":"reset"}]}`,
+	}
 	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
-		return serverRuntime{}, &database_migrations.MigrationRemediationError{
-			Report: database_migrations.MigrationRemediationReport{
-				SchemaID:    "cartulary.migration_remediation_report.v1",
-				Boundary:    "prod_ddl_rebaseline_v1",
-				FromVersion: 40,
-				ToVersion:   33,
-				Findings: []database_migrations.MigrationRemediationFinding{
-					{
-						Field:           "schema_migration_lineage",
-						ReasonCode:      "historical_migration_lineage",
-						RemediationHint: "reset",
-					},
-				},
-			},
-		}
+		return serverRuntime{}, remediation
 	}
 	if exitCode := runner.run(context.Background()); exitCode != 2 {
 		t.Fatalf("exit code got %d want 2", exitCode)
@@ -285,9 +273,61 @@ func TestServerRunnerWritesMigrationRemediationToStderr(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Fatalf("migration remediation emitted stdout: %q", stdout.String())
 	}
-	if got := stderr.String(); !strings.Contains(got, `"schema_id":"cartulary.migration_remediation_report.v1"`) ||
-		!strings.Contains(got, `"reason_code":"historical_migration_lineage"`) {
-		t.Fatalf("missing remediation JSON in stderr: %q", got)
+	if got, want := stderr.String(), remediation.RemediationReportJSON()+"\n"; got != want {
+		t.Fatalf("unexpected remediation JSON: got %q want %q", got, want)
+	}
+}
+
+type fakeServerRemediationFailure struct {
+	report string
+}
+
+func (failure fakeServerRemediationFailure) Error() string {
+	return "private remediation transport"
+}
+
+func (failure fakeServerRemediationFailure) ReasonCode() string {
+	return "historical_migration_lineage"
+}
+
+func (failure fakeServerRemediationFailure) RemediationReportJSON() string {
+	return failure.report
+}
+
+type fakeServerMigrationFailure struct {
+	reason string
+}
+
+func (failure fakeServerMigrationFailure) Error() string {
+	return "postgres://secret@private-host SELECT sensitive bind=password /private/migrations"
+}
+
+func (failure fakeServerMigrationFailure) ReasonCode() string {
+	return failure.reason
+}
+
+func TestServerRunnerWritesMigrationFailureDiagnostic(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	runner := newServerRunner(&stdout, &stderr)
+	runner.loadConfig = func() (configassembly.Loaded, error) { return configassembly.Loaded{}, nil }
+	runner.buildRuntime = func(context.Context, configassembly.Loaded, Options) (serverRuntime, error) {
+		return serverRuntime{}, fakeServerMigrationFailure{reason: "schema_migration_execution_failed"}
+	}
+
+	if exitCode := runner.run(context.Background()); exitCode != 2 {
+		t.Fatalf("exit code got %d want 2", exitCode)
+	}
+	want := config.NewDiagnosticsError(config.Diagnostic{
+		Path:       "database.schema_version",
+		ReasonCode: "schema_migration_execution_failed",
+		Message:    "Database migration validation failed.",
+	}).JSON() + "\n"
+	if got := stderr.String(); got != want {
+		t.Fatalf("unexpected migration diagnostic: got %q want %q", got, want)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("migration failure emitted stdout: %q", stdout.String())
 	}
 }
 

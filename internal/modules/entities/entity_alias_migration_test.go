@@ -11,14 +11,13 @@ import (
 
 	"github.com/google/uuid"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestEntityAliasMigration31EmptyUpgrade(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "entity-alias-31-empty", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-empty", 31)
+	db := migrationDB.SQL()
 
 	var udtName string
 	if err := db.QueryRowContext(context.Background(), `
@@ -37,14 +36,15 @@ SELECT udt_name
 
 func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "entity-alias-31-dedupe", 30)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-dedupe", 30)
+	db := migrationDB.SQL()
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "dedupe")
 	oldestID := uuid.MustParse("31000000-0000-4000-8000-000000000001")
 	newestID := uuid.MustParse("31000000-0000-4000-8000-000000000002")
 	insertLegacyAlias(t, db, oldestID, incidentID, recordID, actorID, "Case Alias", time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC))
 	insertLegacyAlias(t, db, newestID, incidentID, recordID, actorID, "case alias", time.Date(2026, 7, 11, 12, 1, 0, 0, time.UTC))
 
-	if _, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 31); err != nil {
+	if err := migrationDB.ApplyThrough(context.Background(), 31); err != nil {
 		t.Fatalf("migrate alias duplicate fixture to 31: %v", err)
 	}
 	var oldestDeletedAt, newestDeletedAt sql.NullTime
@@ -61,7 +61,8 @@ func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *test
 
 func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "entity-alias-31-invalid", 30)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-invalid", 30)
+	db := migrationDB.SQL()
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "invalid")
 	invalid := []struct {
 		id   uuid.UUID
@@ -75,7 +76,7 @@ func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *tes
 		insertLegacyAlias(t, db, fixture.id, incidentID, recordID, actorID, fixture.text, time.Date(2026, 7, 11, 13, index, 0, 0, time.UTC))
 	}
 
-	_, err := postgres.ApplyThrough(context.Background(), db, dbmigrations.Source(), 31)
+	err := migrationDB.ApplyThrough(context.Background(), 31)
 	if err == nil {
 		t.Fatal("expected migration 31 to reject invalid legacy aliases")
 	}

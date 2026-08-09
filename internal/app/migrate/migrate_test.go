@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -20,9 +21,9 @@ func TestMigrateRunnerAcceptsOnlyExplicitUp(t *testing.T) {
 	gotApply := false
 
 	runner := newTestMigrateRunner(t)
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
 		gotApply = true
-		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+		return nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 0 {
@@ -74,9 +75,9 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	}
 
 	migrateCalled := false
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
 		migrateCalled = true
-		return database_migrations.MigrationStatus{}, nil
+		return nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
@@ -88,8 +89,8 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	if migrateCalled {
 		t.Fatal("expected config failure to stop before running migrations")
 	}
-	if output := stderr.String(); !strings.Contains(output, "load config: config unavailable") {
-		t.Fatalf("expected config failure in stderr, got %q", output)
+	if output := stderr.String(); output != "migration_operation_failed\n" {
+		t.Fatalf("unexpected safe config failure: %q", output)
 	}
 }
 
@@ -102,9 +103,9 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
 		migrateCalled = true
-		return database_migrations.MigrationStatus{}, nil
+		return nil
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
@@ -113,8 +114,8 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	if migrateCalled {
 		t.Fatal("expected db-open failure to stop before running migrations")
 	}
-	if output := stderr.String(); !strings.Contains(output, "open postgres: dsn rejected") {
-		t.Fatalf("expected db-open failure in stderr, got %q", output)
+	if output := stderr.String(); output != "migration_operation_failed\n" {
+		t.Fatalf("unexpected safe db-open failure: %q", output)
 	}
 }
 
@@ -122,40 +123,60 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	rawLineageID := "cartulary.prod_ddl_rebaseline.v1"
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
-		return database_migrations.MigrationStatus{}, &database_migrations.MigrationRemediationError{
-			Report: database_migrations.MigrationRemediationReport{
-				SchemaID:    "cartulary.migration_remediation_report.v1",
-				Boundary:    "prod_ddl_rebaseline_v1",
-				FromVersion: 49,
-				ToVersion:   23,
-				Findings: []database_migrations.MigrationRemediationFinding{
-					{
-						Field:           "schema_migration_lineage",
-						RawValue:        &rawLineageID,
-						ReasonCode:      "historical_migration_lineage",
-						RemediationHint: "reset or export/import",
-					},
-				},
-			},
-		}
+	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v1","from_version":49,"to_version":23,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"reset or export/import"}]}` + "\n"
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+		return fakeRemediationFailure{report: strings.TrimSuffix(want, "\n")}
 	}
 
 	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
-	output := stderr.String()
-	required := []string{
-		`"schema_id":"cartulary.migration_remediation_report.v1"`,
-		`"boundary":"prod_ddl_rebaseline_v1"`,
-		`"reason_code":"historical_migration_lineage"`,
-		"migrate failed",
+	if output := stderr.String(); output != want {
+		t.Fatalf("unexpected remediation stderr\n got: %q\nwant: %q", output, want)
 	}
-	for _, needle := range required {
-		if !strings.Contains(output, needle) {
-			t.Fatalf("expected stderr to contain %q, got %q", needle, output)
-		}
+}
+
+type fakeRemediationFailure struct {
+	report string
+}
+
+func (failure fakeRemediationFailure) Error() string {
+	return "private remediation transport"
+}
+
+func (failure fakeRemediationFailure) ReasonCode() string {
+	return "historical_migration_lineage"
+}
+
+func (failure fakeRemediationFailure) RemediationReportJSON() string {
+	return failure.report
+}
+
+type fakeMigrationFailure struct {
+	reason string
+}
+
+func (failure fakeMigrationFailure) Error() string {
+	return "vendor=postgres://secret@private-host query=SELECT_sensitive bind=password path=/private/migrations"
+}
+
+func (failure fakeMigrationFailure) ReasonCode() string {
+	return failure.reason
+}
+
+func TestMigrateRunnerPrintsSafeMigrationReason(t *testing.T) {
+	stderr := &bytes.Buffer{}
+	runner := newTestMigrateRunner(t)
+	runner.stderr = stderr
+	runner.apply = func(context.Context, *sql.DB, database_migrations.Source) error {
+		return fakeMigrationFailure{reason: "schema_migration_execution_failed"}
+	}
+
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
+		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
+	}
+	if output := stderr.String(); output != "schema_migration_execution_failed\n" {
+		t.Fatalf("unexpected safe migration stderr: %q", output)
 	}
 }
 
@@ -166,9 +187,9 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 	ctx := context.WithValue(context.Background(), migrateContextMarkerKey{}, "marker")
 
 	var gotMarker any
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
+	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
 		gotMarker = ctx.Value(migrateContextMarkerKey{})
-		return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+		return nil
 	}
 
 	if err := runner.run(ctx); err != nil {
@@ -197,6 +218,16 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		_ = db.Close()
 	})
 
+	source, err := database_migrations.NewSource(
+		fstest.MapFS{"00001_test.sql": &fstest.MapFile{Data: []byte("-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n")}},
+		".",
+		"test.lineage.v1",
+		"test_lineage_v1",
+	)
+	if err != nil {
+		t.Fatalf("construct test migration source: %v", err)
+	}
+
 	return migrateRunner{
 		stderr: bytes.NewBuffer(nil),
 		loadConfig: func() (configassembly.Loaded, error) {
@@ -205,12 +236,11 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		openSQL: func(settings postgres.Settings) (*sql.DB, error) {
 			return db, nil
 		},
-		apply: func(ctx context.Context, db *sql.DB, source database_migrations.MigrationSource) (database_migrations.MigrationStatus, error) {
-			return database_migrations.MigrationStatus{SourceName: source.Name}, nil
+		apply: func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+			return nil
 		},
-		source: database_migrations.MigrationSource{
-			Path: "db/migrations",
-			Name: "db/migrations",
+		source: func() (database_migrations.Source, error) {
+			return source, nil
 		},
 	}
 }

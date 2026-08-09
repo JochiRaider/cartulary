@@ -5,14 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
-	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestSavedViewsStorageHardeningMigration52FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-fresh", 52)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-fresh", 52)
+	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -89,7 +88,8 @@ $4, $5, $6, $7
 
 func TestSavedViewsStorageHardeningMigration52PreflightReportsOnlyCounts_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-preflight", 51)
+	migrationDB := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-preflight", 51)
+	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ VALUES
 		t.Fatal(err)
 	}
 
-	_, err := postgres.ApplyThrough(ctx, db, dbmigrations.Source(), 52)
+	err := migrationDB.ApplyThrough(ctx, 52)
 	if err == nil {
 		t.Fatal("expected saved-view storage-hardening preflight rejection")
 	}
