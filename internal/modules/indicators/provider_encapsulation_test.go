@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 )
 
 const indicatorProviderImportPrefix = "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/"
@@ -49,9 +51,12 @@ func TestIndicatorProviderImplementationsAreInternal(t *testing.T) {
 		}
 	}
 
-	projection := NewProjectionContribution()
-	if projection.Source() == nil || len(projection.QuerySurfaces()) != 1 {
-		t.Fatalf("incomplete Indicator projection contribution: %#v", projection.QuerySurfaces())
+	projection, err := indicatorprojection.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Indicator projection contribution: %v", err)
+	}
+	if projection.Source() == nil || len(projection.ProjectionContribution().SurfaceIntents()) != 1 {
+		t.Fatalf("incomplete Indicator projection contribution: %#v", projection.ProjectionContribution().SurfaceIntents())
 	}
 	bundle := NewIncidentBundleContribution()
 	if bundle.SourcePort == nil || bundle.SubtypePresence.Source == nil {

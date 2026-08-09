@@ -5,13 +5,17 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -22,10 +26,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
+type projectionQueryCatalog interface {
+	WorkbookQueryProvider(string) (workbook.QueryProvider, bool)
+}
+
 func NewContributionCatalog(
 	pool postgres.DB,
-	projectionCatalog *projections.Catalog,
-	projectionQuery *projections.QueryService,
+	projectionDescriptors providercontract.DescriptorSet,
+	projectionQueries projectionQueryCatalog,
+	entityProjections entityprojection.Ports,
+	assessmentProjections assessmentprojection.Rows,
+	artifactProjections artifactprojection.Rows,
+	partyProjections partyprojection.Rows,
 	indicatorOwner *indicators.Store,
 	timelineOwner *timeline.Facade,
 	evidenceOwner evidence.WorkbookContribution,
@@ -35,11 +47,23 @@ func NewContributionCatalog(
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
 ) (*workbook.WorkbookContributionCatalog, error) {
-	if projectionCatalog == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: projection catalog is required")
+	if projectionDescriptors.Len() == 0 {
+		return nil, fmt.Errorf("compose workbook contribution catalog: projection descriptors are required")
 	}
-	if projectionQuery == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: projection query service is required")
+	if projectionQueries == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: projection queries are required")
+	}
+	if !entityProjections.Ready() {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
+	}
+	if assessmentProjections == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
+	}
+	if artifactProjections == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Artifacts projection rows are required")
+	}
+	if partyProjections == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Parties projection rows are required")
 	}
 	if indicatorOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Indicators owner is required")
@@ -61,13 +85,38 @@ func NewContributionCatalog(
 	}
 	keepSaved := NewConflictIdempotencyPort(pool)
 
-	entityStore := hostidentity.NewStore(pool, appender, keepSaved)
-	assessmentFacade, err := newAssessmentFacade(pool, projectionCatalog, entityStore, appender)
+	entityStore := hostidentity.NewStore(
+		pool,
+		appender,
+		keepSaved,
+		entityProjections.Writer,
+		hostidentity.WithProjectionReader(entityProjections.Reader),
+	)
+	assessmentFacade, err := newAssessmentFacade(
+		pool,
+		assessmentProjections,
+		entityStore,
+		appender,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
-	artifactOwner := artifacts.NewWorkbookFacade(pool, conflictTokens, appender, conflictFields, keepSaved)
-	partyOwner := parties.NewWorkbookFacade(pool, conflictTokens, appender, conflictFields, keepSaved)
+	artifactOwner := artifacts.NewWorkbookFacade(
+		pool,
+		conflictTokens,
+		appender,
+		conflictFields,
+		keepSaved,
+		artifactProjections,
+	)
+	partyOwner := parties.NewWorkbookFacade(
+		pool,
+		conflictTokens,
+		appender,
+		conflictFields,
+		keepSaved,
+		partyProjections,
+	)
 	sourceQueries := map[string]workbook.QueryProvider{
 		hostidentity.HostsViewSchemaID: workbook.QueryProviderFunc(
 			func(
@@ -124,54 +173,38 @@ func NewContributionCatalog(
 		workbook.DecisionsViewSchemaID:    workbook.NewTaskDecisionCreateProvider(workbook.DecisionsViewSchemaID, taskDecisionOwner),
 	}
 
-	descriptors := projectionCatalog.Descriptors()
+	descriptors := projectionDescriptors.All()
 	queryContributions := make([]workbook.QueryContribution, 0, len(viewschema.ListPublicResources()))
 	createContributions := make([]workbook.CreateContribution, 0, len(viewschema.ListPublicResources()))
 	for _, descriptor := range descriptors {
-		if descriptor.Status != projections.ProviderStatusActive {
+		if descriptor.Status != providercontract.ProviderStatusActive {
 			continue
 		}
 		for _, viewSchemaID := range descriptor.ViewSchemaIDs {
 			provider := sourceQueries[viewSchemaID]
 			backendKind := workbook.QueryBackendSourceOwner
 			if descriptor.Capabilities.Query {
-				if !projectionQuery.Supports(viewSchemaID) {
+				backendKind = workbook.QueryBackendProjection
+				if provider != nil {
+					// Typed projection readers may select bounded derived rows and
+					// delegate exact-ID authoritative hydration to the source owner.
+					// They intentionally do not register a generic raw-SQL surface.
+				} else if projectionProvider, ok := projectionQueries.WorkbookQueryProvider(viewSchemaID); !ok {
 					return nil, fmt.Errorf(
 						"compose workbook contribution catalog: projection descriptor %q declares unsupported query surface %q",
-						descriptor.ProviderKey,
+						descriptor.ProviderID,
 						viewSchemaID,
 					)
+				} else {
+					provider = projectionProvider
 				}
-				boundViewSchemaID := viewSchemaID
-				backendKind = workbook.QueryBackendProjection
-				provider = workbook.QueryProviderFunc(
-					func(
-						ctx context.Context,
-						command workbook.QueryCommand,
-					) (querypage.Result, error) {
-						if command.ViewSchemaID != boundViewSchemaID {
-							return querypage.Result{}, fmt.Errorf(
-								"projection query contribution %q received view schema %q",
-								boundViewSchemaID,
-								command.ViewSchemaID,
-							)
-						}
-						return projectionQuery.QueryRowsPage(
-							ctx,
-							command.IncidentID,
-							boundViewSchemaID,
-							command.Query,
-							command.Window,
-						)
-					},
-				)
 			}
 			if provider == nil {
 				continue
 			}
 			queryContributions = append(queryContributions, workbook.QueryContribution{
 				ViewSchemaID:      viewSchemaID,
-				SourceOwnerKey:    descriptor.SourceOwnerKey,
+				SourceOwnerKey:    descriptor.SourceOwnerModule,
 				SourceRecordTypes: append([]string(nil), descriptor.SourceRecordTypes...),
 				BackendKind:       backendKind,
 				Provider:          provider,
@@ -180,7 +213,7 @@ func NewContributionCatalog(
 			if createProvider != nil {
 				createContributions = append(createContributions, workbook.CreateContribution{
 					ViewSchemaID:      viewSchemaID,
-					SourceOwnerKey:    descriptor.SourceOwnerKey,
+					SourceOwnerKey:    descriptor.SourceOwnerModule,
 					SourceRecordTypes: append([]string(nil), descriptor.SourceRecordTypes...),
 					Provider:          createProvider,
 				})
@@ -306,7 +339,7 @@ func NewContributionCatalog(
 		},
 	}
 	catalog, err := workbook.NewWorkbookContributionCatalog(
-		descriptors,
+		projectionDescriptors,
 		queryContributions,
 		createContributions,
 		patchContributions,

@@ -1,262 +1,176 @@
 package projectionassembly
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	entitycontract "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	partycontract "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
-	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	taskdecisioncontract "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
+// Bundle is the application-composition view of the sole Projections adapter.
+// Concrete runtime, catalog, storage, and query-engine values never cross this
+// boundary.
 type Bundle struct {
-	Catalog          *projections.Catalog
-	Query            *projections.QueryService
-	Rebuild          *projections.RebuildService
-	Coordinator      *projections.Coordinator
-	AssessmentSource projections.AssessmentSource
-	Timeline         *projections.TimelineRows
-	Entities         *projections.EntityRows
-	Assessments      *projections.AssessmentRows
-	Artifacts        *projections.ArtifactRows
-	Evidence         *projections.EvidenceRows
-	Parties          *projections.PartyRows
-	TaskDecisions    *projections.TaskDecisionRows
+	ports projectionadapters.Ports
 }
 
-func NewBundle(pool postgres.DB, timelineSource projections.TimelineSource) (*Bundle, error) {
-	assessmentSource := newAssessmentProjectionSource()
-	taskDecisionContribution := tasksdecisions.NewProjectionContribution()
-	catalog, err := newCatalog(timelineSource, assessmentSource, taskDecisionContribution)
+type ImportRebuilder interface {
+	RebuildImportedIncidentTx(context.Context, pgx.Tx, uuid.UUID) error
+}
+
+func NewBundle(
+	pool postgres.DB,
+	timelineContribution timelineprojection.Contribution,
+	entitiesContribution entitycontract.Contribution,
+	indicatorsContribution indicatorcontract.Contribution,
+	assessmentsContribution assessmentcontract.Contribution,
+	artifactsContribution artifactcontract.Contribution,
+	evidenceContribution evidencecontract.Contribution,
+	partiesContribution partycontract.Contribution,
+	taskDecisionContribution taskdecisioncontract.Contribution,
+) (*Bundle, error) {
+	ports, err := projectionadapters.New(projectionadapters.Dependencies{
+		Postgres:       pool,
+		Timeline:       timelineContribution,
+		Entities:       entitiesContribution,
+		Indicators:     indicatorsContribution,
+		Assessments:    assessmentsContribution,
+		Artifacts:      artifactsContribution,
+		Evidence:       evidenceContribution,
+		Parties:        partiesContribution,
+		TasksDecisions: taskDecisionContribution,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("assemble projection adapter: %w", err)
 	}
-	return &Bundle{
-		Catalog:          catalog,
-		Query:            projections.NewQueryService(pool, catalog),
-		Rebuild:          projections.NewRebuildService(pool, catalog),
-		Coordinator:      projections.NewCoordinator(pool, catalog),
-		AssessmentSource: assessmentSource,
-		Timeline:         projections.NewTimelineRows(pool),
-		Entities:         projections.NewEntityRows(pool),
-		Assessments: projections.NewAssessmentRows(
-			pool,
-			assessmentSource,
-			assessmentprojection.QuerySurfaces()...,
-		),
-		Artifacts: projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...),
-		Evidence:  projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...),
-		Parties:   projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
-		TaskDecisions: projections.NewTaskDecisionRows(
-			pool,
-			taskDecisionContribution.Source(),
-			taskDecisionContribution.QuerySurfaces()...,
-		),
-	}, nil
+	return &Bundle{ports: ports}, nil
 }
 
-func NewCatalog(timelineSource projections.TimelineSource) (*projections.Catalog, error) {
-	return newCatalog(
-		timelineSource,
-		newAssessmentProjectionSource(),
-		tasksdecisions.NewProjectionContribution(),
-	)
+func (bundle *Bundle) DescriptorSet() providercontract.DescriptorSet {
+	if bundle == nil {
+		return providercontract.DescriptorSet{}
+	}
+	return bundle.ports.DescriptorSet()
 }
 
-func newCatalog(
-	timelineSource projections.TimelineSource,
-	assessmentSource projections.AssessmentSource,
-	taskDecisionContribution tasksdecisions.ProjectionContribution,
-) (*projections.Catalog, error) {
-	indicatorContribution := indicators.NewProjectionContribution()
-	providers := []projections.Provider{
-		projections.NewTimelineProvider(descriptor(
-			"timeline",
-			"timeline",
-			[]string{timeline.TimelineViewSchemaID},
-			[]string{"timeline_event"},
-			[]string{"entities", "evidence", "links", "records", "timeline"},
-			[]string{"timeline_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			timelineprojection.QuerySurfaces(),
-			nil,
-			[]string{"internal/modules/timeline"},
-			[]string{"internal/modules/timeline/projection_contract_test.go"},
-		), timelineSource),
-		projections.NewHostProvider(descriptor(
-			"host",
-			"entities",
-			[]string{hostidentity.HostsViewSchemaID},
-			[]string{"host"},
-			[]string{"entities", "evidence", "links", "records"},
-			[]string{"host_grid_projection"},
-			projections.ProviderCapabilities{RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			nil,
-			[]string{"timeline"},
-			[]string{"internal/modules/entities/hostidentity"},
-			[]string{"internal/modules/entities/resolution_integration_test.go"},
-		)),
-		projections.NewIdentityProvider(descriptor(
-			"identity",
-			"entities",
-			[]string{hostidentity.IdentitiesViewSchemaID},
-			[]string{"identity"},
-			[]string{"entities", "evidence", "links", "records"},
-			[]string{"identity_grid_projection"},
-			projections.ProviderCapabilities{RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			nil,
-			[]string{"host"},
-			[]string{"internal/modules/entities/hostidentity"},
-			[]string{"internal/modules/entities/resolution_integration_test.go"},
-		)),
-		projections.NewIndicatorProvider(descriptor(
-			"indicator",
-			"indicators",
-			[]string{indicators.ViewSchemaID},
-			[]string{"indicator"},
-			[]string{"indicators", "links", "records"},
-			[]string{"indicator_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			indicatorContribution.QuerySurfaces(),
-			[]string{"identity"},
-			[]string{"internal/modules/indicators"},
-			[]string{"internal/modules/indicators/indicators_test.go"},
-		), indicatorContribution.Source()),
-		projections.NewAssessmentProvider(descriptor(
-			"assessment",
-			"assessments",
-			[]string{assessments.AssessmentsViewSchemaID},
-			[]string{"assessment"},
-			[]string{"assessments", "links", "records"},
-			[]string{"assessment_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			assessmentprojection.QuerySurfaces(),
-			[]string{"indicator"},
-			[]string{"internal/modules/assessments"},
-			[]string{"internal/modules/assessments/assessment_contract_test.go", "internal/modules/projections/query_test.go"},
-		), assessmentSource),
-		projections.NewArtifactProvider(descriptor(
-			"artifact",
-			"artifacts",
-			[]string{
-				artifacts.NotesViewSchemaID,
-				artifacts.CommLogViewSchemaID,
-				artifacts.HandoffViewSchemaID,
-				artifacts.StatusReviewViewSchemaID,
-				artifacts.LessonViewSchemaID,
-				artifacts.FindingsViewSchemaID,
-				artifacts.InvestigativeQueriesViewSchemaID,
-				artifacts.ForensicKeywordsViewSchemaID,
-			},
-			[]string{"artifact"},
-			[]string{"artifacts", "links", "parties", "records"},
-			[]string{"artifact_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			artifactprojection.QuerySurfaces(),
-			[]string{"assessment"},
-			[]string{"internal/modules/artifacts", "internal/modules/workbook"},
-			[]string{"internal/modules/workbook/coordination_surfaces_test.go", "internal/modules/projections/query_test.go"},
-		)),
-		projections.NewEvidenceProvider(descriptor(
-			"evidence",
-			"evidence",
-			[]string{evidence.ViewSchemaID},
-			[]string{"evidence"},
-			[]string{"evidence", "links", "records"},
-			[]string{"evidence_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			evidenceprojection.QuerySurfaces(),
-			[]string{"artifact"},
-			[]string{"internal/modules/evidence"},
-			[]string{"internal/modules/evidence/integration_test.go", "internal/modules/projections/query_test.go"},
-		)),
-		projections.NewPartyProvider(descriptor(
-			"party",
-			"parties",
-			[]string{parties.ViewSchemaID},
-			[]string{"party"},
-			[]string{"parties", "records"},
-			[]string{"party_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			partyprojection.QuerySurfaces(),
-			[]string{"evidence"},
-			[]string{"internal/modules/parties"},
-			[]string{"internal/modules/workbook/parties_integration_test.go", "internal/modules/projections/query_test.go"},
-		)),
-		projections.NewTaskRequestProvider(descriptor(
-			"task_request",
-			"tasksdecisions",
-			[]string{tasksdecisions.TaskRequestsViewSchemaID},
-			[]string{"task_request"},
-			[]string{"links", "records", "tasksdecisions"},
-			[]string{"task_request_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			taskDecisionContribution.TaskRequestQuerySurfaces(),
-			[]string{"party"},
-			[]string{"internal/modules/tasksdecisions"},
-			[]string{"internal/modules/tasksdecisions/task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
-		), taskDecisionContribution.Source()),
-		projections.NewDecisionProvider(descriptor(
-			"decision",
-			"tasksdecisions",
-			[]string{tasksdecisions.DecisionsViewSchemaID},
-			[]string{"decision"},
-			[]string{"links", "records", "tasksdecisions"},
-			[]string{"decision_grid_projection"},
-			projections.ProviderCapabilities{Query: true, RefreshRow: true, RestoreRebuild: true, IncidentRebuild: true},
-			taskDecisionContribution.DecisionQuerySurfaces(),
-			[]string{"task_request"},
-			[]string{"internal/modules/tasksdecisions"},
-			[]string{"internal/modules/tasksdecisions/task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
-		), taskDecisionContribution.Source()),
+func (bundle *Bundle) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryProvider, bool) {
+	if bundle == nil {
+		return nil, false
 	}
-	catalog, err := projections.NewCatalog(providers)
-	if err != nil {
-		return nil, fmt.Errorf("assemble projection catalog: %w", err)
-	}
-	return catalog, nil
+	return bundle.ports.WorkbookQueryProvider(viewSchemaID)
 }
 
-func descriptor(
-	providerKey string,
-	sourceOwner string,
-	viewSchemaIDs []string,
-	recordTypes []string,
-	sourceAuthorities []string,
-	tableFamilies []string,
-	capabilities projections.ProviderCapabilities,
-	querySurfaces []providercontract.QuerySurface,
-	rebuildAfter []string,
-	facadePackages []string,
-	characterizationRefs []string,
-) projections.ProviderDescriptor {
-	return projections.ProviderDescriptor{
-		SchemaVersion:             providercontract.DescriptorSchemaVersion,
-		Status:                    projections.ProviderStatusActive,
-		ProviderKey:               providerKey,
-		SourceOwnerKey:            sourceOwner,
-		ViewSchemaIDs:             viewSchemaIDs,
-		SourceRecordTypes:         recordTypes,
-		SourceAuthorityModules:    sourceAuthorities,
-		ProjectionTableFamilies:   tableFamilies,
-		ProjectionStorageOwnerKey: "projections",
-		Capabilities:              capabilities,
-		QuerySurfaces:             querySurfaces,
-		RestoreRebuild:            projections.RestoreRebuildRequired,
-		FacadePackages:            facadePackages,
-		RebuildAfter:              rebuildAfter,
-		CharacterizationRefs:      characterizationRefs,
+func (bundle *Bundle) RecoveryPorts() restorecontract.ProjectionPorts {
+	if bundle == nil {
+		return restorecontract.ProjectionPorts{}
 	}
+	return bundle.ports.RecoveryPorts()
+}
+
+func (bundle *Bundle) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
+	if bundle == nil {
+		return nil
+	}
+	return bundle.ports.RestoreProbeQuery()
+}
+
+func (bundle *Bundle) RevisionServices() revisions.ProjectionServices {
+	if bundle == nil {
+		return nil
+	}
+	return bundle.ports.RevisionServices()
+}
+
+func (bundle *Bundle) SourceTextRows() projectionadapters.SourceTextRows {
+	if bundle == nil {
+		return nil
+	}
+	return bundle.ports.SourceTextRows()
+}
+
+func (bundle *Bundle) ImportRebuilder() ImportRebuilder {
+	if bundle == nil {
+		return nil
+	}
+	return bundle.ports.ImportRebuilder()
+}
+
+func (bundle *Bundle) TimelinePorts() timelineprojection.Ports {
+	if bundle == nil {
+		return timelineprojection.Ports{}
+	}
+	return bundle.ports.Timeline()
+}
+
+func (bundle *Bundle) EntityPorts() entitycontract.Ports {
+	if bundle == nil {
+		return entitycontract.Ports{}
+	}
+	return bundle.ports.Entities()
+}
+
+func (bundle *Bundle) IndicatorPorts() indicatorcontract.Ports {
+	if bundle == nil {
+		return indicatorcontract.Ports{}
+	}
+	return bundle.ports.Indicators()
+}
+
+func (bundle *Bundle) AssessmentPorts() assessmentcontract.Ports {
+	if bundle == nil {
+		return assessmentcontract.Ports{}
+	}
+	return bundle.ports.Assessments()
+}
+
+func (bundle *Bundle) ArtifactPorts() artifactcontract.Ports {
+	if bundle == nil {
+		return artifactcontract.Ports{}
+	}
+	return bundle.ports.Artifacts()
+}
+
+func (bundle *Bundle) EvidencePorts() evidencecontract.Ports {
+	if bundle == nil {
+		return evidencecontract.Ports{}
+	}
+	return bundle.ports.Evidence()
+}
+
+func (bundle *Bundle) PartyPorts() partycontract.Ports {
+	if bundle == nil {
+		return partycontract.Ports{}
+	}
+	return bundle.ports.Parties()
+}
+
+func (bundle *Bundle) TaskDecisionPorts() taskdecisioncontract.Ports {
+	if bundle == nil {
+		return taskdecisioncontract.Ports{}
+	}
+	return bundle.ports.TasksDecisions()
+}
+
+// NewEvidenceContribution keeps executable Evidence source construction at
+// application composition while returning only the owner facade contract.
+func NewEvidenceContribution() (evidencecontract.Contribution, error) {
+	return evidenceprojection.NewContribution()
 }

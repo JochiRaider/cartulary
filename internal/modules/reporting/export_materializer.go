@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactreporting "github.com/JochiRaider/cartulary/internal/modules/artifacts/reportingprovider"
-	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
 	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/reportingprovider"
 	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
@@ -73,10 +71,8 @@ func newReportingExportMaterializer(
 	fieldProviders := []exportprovider.FieldProvider{
 		reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
-		reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
-		reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFactsTx},
 		reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 )
 
 // ErrIdempotencyNotFound is returned when no committed route result exists.
@@ -131,16 +132,6 @@ type LinkCapability interface {
 	InsertSupersedesCommandTx(context.Context, pgx.Tx, links.InsertSupersedesCommand) (links.SupersedesLink, error)
 }
 
-// ProjectionCapability supplies authoritative projection refresh/load facts in
-// the transaction owned by the facade.
-type ProjectionCapability interface {
-	RefreshTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) error
-	RefreshDecisionTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	LoadTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
-}
-
 // RevisionCapability is the exact revision append/history surface consumed by
 // Task/Decision mutations. It does not publish, retry, or commit.
 type RevisionCapability interface {
@@ -158,7 +149,7 @@ type MutationDependencies struct {
 	Idempotency          IdempotencyCapability
 	RecordEnvelopes      RecordEnvelopeCapability
 	Links                LinkCapability
-	Projections          ProjectionCapability
+	Projections          taskdecisionprojection.Rows
 	Revisions            RevisionCapability
 	ConflictFields       conflicts.FieldResolver
 	KeepSavedIdempotency conflicts.IdempotencyPort

@@ -12,8 +12,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -186,7 +186,12 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	return changeSetID, nil
 }
 
-func newAssessmentFacade(pool postgres.DB, projectionCatalog *projections.Catalog, entityStore *hostidentity.Store, appender *revisions.Appender) (*assessments.Facade, error) {
+func newAssessmentFacade(
+	pool postgres.DB,
+	projectionRows assessmentprojection.Rows,
+	entityStore *hostidentity.Store,
+	appender *revisions.Appender,
+) (*assessments.Facade, error) {
 	if appender == nil {
 		return nil, errors.New("compose assessment facade: revision appender is required")
 	}
@@ -199,6 +204,6 @@ func newAssessmentFacade(pool postgres.DB, projectionCatalog *projections.Catalo
 		Records:        assessmentassembly.NewRecordEnvelopeCreator(pool),
 		SupportLinks:   assessmentassembly.NewSupportLinkApplier(),
 		Revisions:      assessmentRevisionAdapter{appender: appender},
-		Projections:    assessmentassembly.NewProjectionPort(pool, projectionCatalog),
+		Projections:    assessmentassembly.NewProjectionPort(projectionRows),
 	})
 }

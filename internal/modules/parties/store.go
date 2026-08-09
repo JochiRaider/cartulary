@@ -9,8 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -22,7 +21,7 @@ type Store struct {
 	pool           postgres.DB
 	recordStore    *records.Store
 	revisionStore  revisionAppendPort
-	projectionRows *projections.PartyRows
+	projectionRows partyprojection.Rows
 }
 
 type FieldValue struct {
@@ -46,12 +45,19 @@ func (e *ValidationError) Error() string {
 	return "parties: invalid mutation request"
 }
 
-func NewStore(pool postgres.DB, appender *revisions.Appender) *Store {
+func NewStore(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	projectionRows partyprojection.Rows,
+) *Store {
+	if projectionRows == nil {
+		panic("compose Parties store: projection rows are required")
+	}
 	return &Store{
 		pool:           pool,
 		recordStore:    records.NewStore(),
 		revisionStore:  newRevisionAppendAdapter(appender),
-		projectionRows: projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
+		projectionRows: projectionRows,
 	}
 }
 
@@ -155,11 +161,11 @@ func (s *Store) revisions() revisionAppendPort {
 	return s.revisionStore
 }
 
-func (s *Store) rowProjections() *projections.PartyRows {
+func (s *Store) rowProjections() partyprojection.Rows {
 	if s != nil && s.projectionRows != nil {
 		return s.projectionRows
 	}
-	return projections.NewPartyRows(nil, partyprojection.QuerySurfaces()...)
+	return nil
 }
 
 func findUniqueReusablePartyByFieldTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, column string, normalizedValue string) (uuid.UUID, bool, error) {

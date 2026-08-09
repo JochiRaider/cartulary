@@ -11,7 +11,9 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/internal/providers/projection"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -24,7 +26,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	owner, err := NewStore(StoreDependencies{
 		Postgres:    db,
 		Revisions:   &revisions.Appender{},
-		Projections: transactionTestProjectionPort{},
+		Projections: newTransactionTestProjectionPort(t, db),
 		SourceText:  transactionTestSourceTextPort{},
 	})
 	if err != nil {
@@ -65,7 +67,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 		t.Fatalf("create projection failure = %v", projectionErr)
 	}
 	requireIndicatorAtomicCounts(t, db, incidentID, projectionFailureCommand.ClientTxnID, 0, 0, 0, 0, 0, 0)
-	owner.projections = transactionTestProjectionPort{}
+	owner.projections = newTransactionTestProjectionPort(t, db)
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -130,15 +132,21 @@ var errInjectedIndicatorProjection = errors.New("injected Indicator projection f
 
 type failingIndicatorProjectionPort struct{}
 
-func (failingIndicatorProjectionPort) RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error {
+func (failingIndicatorProjectionPort) RefreshIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
 	return errInjectedIndicatorProjection
 }
 
-func (failingIndicatorProjectionPort) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
-	panic("LoadRowTx must not follow a failed projection refresh")
+func (failingIndicatorProjectionPort) LoadIndicatorTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+	panic("LoadIndicatorTx must not follow a failed projection refresh")
 }
 
-type transactionTestProjectionPort struct{}
+func (failingIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected DeleteIndicatorTx")
+}
+
+func (failingIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected RebuildIndicatorsTx")
+}
 
 type transactionTestSourceTextPort struct{}
 
@@ -155,27 +163,13 @@ func (transactionTestSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx
 	return map[string]any{"view_schema_id": "cartulary.view.timeline.v2", "cells": map[string]any{}}, nil
 }
 
-func (transactionTestProjectionPort) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
-	if viewSchemaID != ViewSchemaID {
-		return errors.New("unexpected projection view")
+func newTransactionTestProjectionPort(t testing.TB, db postgres.DB) indicatorcontract.Rows {
+	t.Helper()
+	contribution, err := indicatorprojection.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}
-	return indicatorprojection.RefreshIndicatorTx(ctx, tx, recordID)
-}
-
-func (transactionTestProjectionPort) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	if viewSchemaID != ViewSchemaID {
-		return nil, errors.New("unexpected projection view")
-	}
-	var rowVersion int64
-	if err := tx.QueryRow(ctx, `SELECT row_version FROM indicator_grid_projection WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
-		return nil, err
-	}
-	return map[string]any{
-		"view_schema_id": ViewSchemaID,
-		"record_id":      recordID.String(),
-		"row_version":    rowVersion,
-		"cells":          map[string]any{},
-	}, nil
+	return projectiontestsupport.NewIndicatorRows(db, contribution.Source())
 }
 
 type failingIndicatorRevisionPort struct {

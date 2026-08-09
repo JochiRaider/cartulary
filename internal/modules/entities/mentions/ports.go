@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -44,6 +44,12 @@ func WithCollaborationIntents(appender collaboration.IntentAppender) StoreOption
 	}
 }
 
+func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
+	return func(ports *storePorts) {
+		ports.projections = writer
+	}
+}
+
 func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
 	ports := newStorePorts(pool)
 	ports.revisions = revisionAdapter{appender: appender}
@@ -51,6 +57,9 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 		if option != nil {
 			option(&ports)
 		}
+	}
+	if ports.projections == nil {
+		panic("compose entity mention store: workbook projection writer is required")
 	}
 	return &Store{
 		pool:           pool,
@@ -64,7 +73,7 @@ type storePorts struct {
 	records       recordPort
 	revisions     revisionPort
 	links         linkPort
-	projections   projectionPort
+	projections   workbookprojection.Writer
 	timeline      TimelineEffectsPort
 	collaboration collaboration.IntentAppender
 }
@@ -83,10 +92,6 @@ type linkPort interface {
 	GetActiveLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string) (recordLink, error)
 	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (recordLink, bool, error)
 	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (recordLink, error)
-}
-
-type projectionPort interface {
-	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
 type TimelineEffectsPort interface {
@@ -143,9 +148,8 @@ var errRecordLinkNotFound = links.ErrRecordLinkNotFound
 
 func newStorePorts(pool postgres.DB) storePorts {
 	return storePorts{
-		records:     recordAdapter{store: records.NewStore()},
-		links:       linkAdapter{store: links.NewStore()},
-		projections: projectionAdapter{rows: projections.NewEntityRows(pool)},
+		records: recordAdapter{store: records.NewStore()},
+		links:   linkAdapter{store: links.NewStore()},
 	}
 }
 
@@ -214,21 +218,6 @@ func recordLinkFromLinks(link links.RecordLink) recordLink {
 		DecidedAt:    link.DecidedAt,
 		CreatedAt:    link.CreatedAt,
 		DeletedAt:    link.DeletedAt,
-	}
-}
-
-type projectionAdapter struct {
-	rows *projections.EntityRows
-}
-
-func (a projectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return a.rows.RefreshHostTx(ctx, tx, recordID)
-	case "identity":
-		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
-	default:
-		return nil
 	}
 }
 

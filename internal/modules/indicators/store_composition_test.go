@@ -74,7 +74,7 @@ func TestIndicatorStoreDelegatesProjectionRefreshAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("refresh and load Indicator projection row: %v", err)
 	}
-	if len(port.calls) != 2 || port.calls[0] != "refresh:"+ViewSchemaID+":"+recordID.String() || port.calls[1] != "load:"+ViewSchemaID+":"+recordID.String() {
+	if len(port.calls) != 2 || port.calls[0] != "refresh:"+recordID.String() || port.calls[1] != "load:"+recordID.String() {
 		t.Fatalf("projection delegation calls = %#v", port.calls)
 	}
 	if gotRow["record_id"] != wantRow["record_id"] || gotRow["row_version"] != wantRow["row_version"] {
@@ -93,22 +93,38 @@ type recordingIndicatorProjectionPort struct {
 	row   map[string]any
 }
 
-func (port *recordingIndicatorProjectionPort) RefreshRowTx(_ context.Context, _ pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
-	port.calls = append(port.calls, "refresh:"+viewSchemaID+":"+recordID.String())
+func (port *recordingIndicatorProjectionPort) RefreshIndicatorTx(_ context.Context, _ pgx.Tx, recordID uuid.UUID) error {
+	port.calls = append(port.calls, "refresh:"+recordID.String())
 	return nil
 }
 
-func (port *recordingIndicatorProjectionPort) LoadRowTx(_ context.Context, _ pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	port.calls = append(port.calls, "load:"+viewSchemaID+":"+recordID.String())
+func (port *recordingIndicatorProjectionPort) LoadIndicatorTx(_ context.Context, _ pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+	port.calls = append(port.calls, "load:"+recordID.String())
 	return port.row, nil
 }
 
-func (inertIndicatorProjectionPort) RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error {
-	panic("unexpected RefreshRowTx")
+func (inertIndicatorProjectionPort) RefreshIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected RefreshIndicatorTx")
 }
 
-func (inertIndicatorProjectionPort) LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
-	panic("unexpected LoadRowTx")
+func (inertIndicatorProjectionPort) LoadIndicatorTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+	panic("unexpected LoadIndicatorTx")
+}
+
+func (inertIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected DeleteIndicatorTx")
+}
+
+func (inertIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected RebuildIndicatorsTx")
+}
+
+func (port *recordingIndicatorProjectionPort) DeleteIndicatorTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected DeleteIndicatorTx")
+}
+
+func (port *recordingIndicatorProjectionPort) RebuildIndicatorsTx(context.Context, pgx.Tx, uuid.UUID) error {
+	panic("unexpected RebuildIndicatorsTx")
 }
 
 func (inertIndicatorSourceTextPort) LoadTextTx(context.Context, pgx.Tx, uuid.UUID, string, string) (SourceTextValue, error) {

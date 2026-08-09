@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -39,9 +40,20 @@ type ContextualNoteFacade struct {
 	owner *WorkbookFacade
 }
 
-func NewContextualNoteFacade(pool postgres.DB, appender *revisions.Appender) *ContextualNoteFacade {
+func NewContextualNoteFacade(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	projectionRows artifactprojection.Rows,
+) *ContextualNoteFacade {
 	return &ContextualNoteFacade{
-		owner: NewWorkbookFacade(pool, conflicttokens.ConflictTokenCodec{}, appender, nil, nil),
+		owner: NewWorkbookFacade(
+			pool,
+			conflicttokens.ConflictTokenCodec{},
+			appender,
+			nil,
+			nil,
+			projectionRows,
+		),
 	}
 }
 

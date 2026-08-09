@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/envelopetest"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -75,12 +75,7 @@ VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
 			t.Fatalf("begin seeded assessment projection: %v", err)
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		rows := projections.NewAssessmentRows(
-			database,
-			nil,
-			assessmentprojection.QuerySurfaces()...,
-		)
-		if err := rows.ApplyMutationTx(ctx, tx, mutation); err != nil {
+		if err := projectiontestsupport.ApplyAssessmentFixtureMutationTx(ctx, database, tx, mutation); err != nil {
 			t.Fatalf("apply seeded assessment projection: %v", err)
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -92,7 +87,7 @@ VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
 			t.Fatalf("begin seeded assessment SQL projection: %v", err)
 		}
 		defer func() { _ = tx.Rollback() }()
-		if err := projections.ApplyAssessmentMutationSQLTx(
+		if err := applyAssessmentMutationSQLTx(
 			ctx,
 			tx,
 			mutation,
@@ -106,6 +101,61 @@ VALUES ($1, $2, $3, $4, $5, 'Seeded test assessment rationale.', $6, $7)
 		t.Fatalf("seed assessment projection participant: unsupported database %T", db)
 	}
 }
+
+func applyAssessmentMutationSQLTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	mutation assessmentprojection.ProjectionMutation,
+) error {
+	if err := mutation.Validate(); err != nil {
+		return err
+	}
+	switch mutation.Kind {
+	case assessmentprojection.ProjectionMutationUpsert:
+		input := mutation.Input
+		if _, err := tx.ExecContext(ctx, assessmentFixtureUpsertSQL,
+			input.RecordID, input.IncidentID, input.RowVersion, input.SubjectRef,
+			input.SubjectType, input.AssessmentState, input.ConfidenceScore,
+			input.ConfidenceBand, input.Rationale, input.Assessor,
+			input.AssessedAt.UTC(), input.SupportingLinkCount,
+		); err != nil {
+			return fmt.Errorf("upsert assessment projection fixture row: %w", err)
+		}
+		return nil
+	case assessmentprojection.ProjectionMutationDelete:
+		if _, err := tx.ExecContext(
+			ctx,
+			`DELETE FROM assessment_grid_projection WHERE record_id = $1`,
+			mutation.RecordID,
+		); err != nil {
+			return fmt.Errorf("delete assessment projection fixture row: %w", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported assessment projection fixture mutation kind %q", mutation.Kind)
+	}
+}
+
+const assessmentFixtureUpsertSQL = `
+INSERT INTO assessment_grid_projection (
+    record_id, incident_id, row_version, subject_ref, subject_type,
+    assessment_state, confidence_score, confidence_band, rationale,
+    assessor, assessed_at, supporting_link_count
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+ON CONFLICT (record_id) DO UPDATE
+SET incident_id = EXCLUDED.incident_id,
+    row_version = EXCLUDED.row_version,
+    subject_ref = EXCLUDED.subject_ref,
+    subject_type = EXCLUDED.subject_type,
+    assessment_state = EXCLUDED.assessment_state,
+    confidence_score = EXCLUDED.confidence_score,
+    confidence_band = EXCLUDED.confidence_band,
+    rationale = EXCLUDED.rationale,
+    assessor = EXCLUDED.assessor,
+    assessed_at = EXCLUDED.assessed_at,
+    supporting_link_count = EXCLUDED.supporting_link_count
+`
 
 func LookupAssessmentSubject(t testing.TB, db any, assessmentID uuid.UUID) uuid.UUID {
 	t.Helper()

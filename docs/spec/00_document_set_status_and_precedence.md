@@ -246,8 +246,29 @@ responsibilities.
 Profiles: base
 Verified by: AC-537
 
+**REQ-00-070**
+`docs/decisions/projections-module-boundary.md` is an adopted implementation
+architecture decision for the workbook-grid Projections module only. It owns
+the exact Go package topology, constructor boundary, internal transition order,
+and removal of repository-internal compatibility surfaces named in that
+decision. It MUST NOT define or change public workbook query behavior,
+`view_row_v1`, saved-view behavior, cursor semantics, authorization,
+Collaboration publication, restore result vocabulary, projection descriptor
+wire shape, database schema, or source-owner semantics.
+
+Core 01 remains the behavioral owner for workbook-grid projections, provider
+descriptors, query behavior, physical projection storage, and restore rebuilds.
+Core 04 remains the conformance owner. The adopted Graph Projection NLSpec
+remains authoritative only for the graph-projection subsystem. The adopted
+implementation decision MUST be revised or withdrawn when it conflicts with a
+later adopted behavioral owner; implementation or tracker text MUST NOT be used
+to settle such a conflict.
+Profiles: base
+Verified by: AC-539
+
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Workbook-grid Projections implementation topology and repository-internal compatibility removal | `docs/decisions/projections-module-boundary.md` for implementation structure; Core 01 §8 and §12.2 for behavior | Core 04 §9.1A; Appendix I; implementation guides and trackers | The adopted decision owns exact package and constructor structure only. It cannot redefine projection behavior, storage meaning, source semantics, public contracts, or conformance. | REQ-00-070 | base | AC-539 |
 | Current record-envelope authority versus retained record history | Core 02 §3 for envelope meaning and record-type membership; Core 01 §1 and §12.3 for implementation ownership and portability | Core 01 record mutation/history routes; Core 02 history substrate; Core 04 conformance; `docs/domain.md` for vocabulary only | The current-envelope owner controls current envelope persistence and transaction ports. Revisions controls history and destructive coordination but MUST NOT become current-envelope authority. | REQ-00-067 | base, incident_portability | AC-509..AC-512, AC-514 |
 | Collaboration stream-quarantine requeue transition | Core 03 §4.3.3 | Core 01 §12.2.2 transport; Core 04 §2 security and conformance; `docs/domain.md` vocabulary; implementation guide | Core 03 alone owns admission, repaired-state proof, locking, preserved/reset fields, atomic journal participation, concurrency, typed semantic outcomes, and forbidden semantic effects. | REQ-00-068 | base | AC-535 |
 | Collaboration requeue deployment-local CLI grammar, result envelope, and error/exit registry | Core 01 §12.2.2 | Core 03 §4.3.3 transition; Core 04 §2 security and conformance; typed projections under `contracts/collaboration` | Core 01 alone owns accepted tokens and values, config/timeout flags, schema/member/order rules, closed code/reason pairs, stream behavior, and exit mapping. The typed contract family is a projection, not an owner. | REQ-00-068 | base | AC-535 |

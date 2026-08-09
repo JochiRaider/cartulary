@@ -39,12 +39,12 @@ func (s *store) refreshMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx
 	slices.SortFunc(hostIDs, compareUUIDs)
 	slices.SortFunc(identityIDs, compareUUIDs)
 	for _, recordID := range hostIDs {
-		if err := s.projectionStore.RefreshHostTx(ctx, tx, recordID); err != nil {
+		if err := s.entityProjections.RefreshHostTx(ctx, tx, recordID); err != nil {
 			return err
 		}
 	}
 	for _, recordID := range identityIDs {
-		if err := s.projectionStore.RefreshIdentityTx(ctx, tx, recordID); err != nil {
+		if err := s.entityProjections.RefreshIdentityTx(ctx, tx, recordID); err != nil {
 			return err
 		}
 	}

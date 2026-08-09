@@ -73,7 +73,7 @@ func (f *MutationFacade) loadConflictTarget(
 	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflictresolution.Target{}, err
 	}
-	row, err := f.projectionRows.LoadTx(
+	row, err := f.loadProjectionRowTx(
 		ctx,
 		tx,
 		command.Claims.ViewSchemaID,

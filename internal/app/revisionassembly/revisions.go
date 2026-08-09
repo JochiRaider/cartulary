@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
@@ -23,10 +22,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
-
-type projectionServices interface {
-	revisions.ProjectionServices
-}
 
 type Dependencies struct {
 	HistoricalIntentPolicy revisions.HistoricalIntentPolicy
@@ -68,34 +63,19 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	if err := revisions.ValidateProviderContributions(copied); err != nil {
 		return nil, fmt.Errorf("revision assembly: validate provider contributions: %w", err)
 	}
-	projectionCatalog, err := projectionassembly.NewCatalog(nil)
-	if err != nil {
-		return nil, fmt.Errorf("revision assembly: build projection descriptor catalog: %w", err)
-	}
 	publicResources := viewschema.ListPublicResources()
 	viewSchemaIDs := make([]string, 0, len(publicResources))
+	recordViewSurfaces := make([]revisions.RecordViewSurface, 0, len(publicResources))
 	for _, resource := range publicResources {
 		viewSchemaIDs = append(viewSchemaIDs, resource.ViewSchemaID)
-	}
-	projectionDescriptors := projectionCatalog.Descriptors()
-	recordViewProjectionDescriptors := make(
-		[]revisions.RecordViewProjectionDescriptor,
-		0,
-		len(projectionDescriptors),
-	)
-	for _, descriptor := range projectionDescriptors {
-		recordViewProjectionDescriptors = append(
-			recordViewProjectionDescriptors,
-			revisions.RecordViewProjectionDescriptor{
-				Active:            descriptor.Status == "active",
-				SourceRecordTypes: append([]string(nil), descriptor.SourceRecordTypes...),
-				ViewSchemaIDs:     append([]string(nil), descriptor.ViewSchemaIDs...),
-			},
-		)
+		recordViewSurfaces = append(recordViewSurfaces, revisions.RecordViewSurface{
+			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
+			ViewSchemaID:      resource.ViewSchemaID,
+		})
 	}
 	recordViews, err := revisions.NewRecordViewCatalog(
 		copied,
-		recordViewProjectionDescriptors,
+		recordViewSurfaces,
 		viewSchemaIDs,
 	)
 	if err != nil {
@@ -141,7 +121,7 @@ func (r *Runtime) RecordViewCatalog() *revisions.RecordViewCatalog {
 func (r *Runtime) NewCommandService(
 	db postgres.DB,
 	attributionResolver revisions.ImportedAttributionResolver,
-	projections projectionServices,
+	projections revisions.ProjectionServices,
 	clock func() time.Time,
 ) (*revisions.CommandService, error) {
 	if r == nil || r.appender == nil || r.recordViews == nil {

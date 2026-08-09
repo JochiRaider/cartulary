@@ -341,7 +341,7 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 	store, err := revisionRuntime.NewCommandService(
 		harness.DB,
 		partyTestAttributionResolver{},
-		timelineBundle.ProjectionCoordinator,
+		timelineBundle.Projections.RevisionServices(),
 		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC) },
 	)
 	if err != nil {

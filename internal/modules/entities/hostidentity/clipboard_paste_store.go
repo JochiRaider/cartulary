@@ -114,7 +114,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
-			if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
+			if err := s.ports.projections.RefreshHostTx(ctx, tx, record.RecordID); err != nil {
 				return ClipboardPasteResult{}, err
 			}
 			recordID = record.RecordID
@@ -128,7 +128,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
-			if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
+			if err := s.ports.projections.RefreshIdentityTx(ctx, tx, record.RecordID); err != nil {
 				return ClipboardPasteResult{}, err
 			}
 			recordID = record.RecordID

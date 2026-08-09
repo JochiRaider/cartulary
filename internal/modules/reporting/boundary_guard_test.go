@@ -16,9 +16,6 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 		reportingRepoImportPrefix + "internal/modules/artifacts/reportingprovider": {
 			"export_materializer.go": true,
 		},
-		reportingRepoImportPrefix + "internal/modules/entities/hostidentity/reportingprovider": {
-			"export_materializer.go": true,
-		},
 		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
 			"export_materializer.go": true,
 		},
@@ -168,7 +165,7 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", fileName, err)
 		}
-		if !strings.Contains(string(data), "func CollectFactsTx(") {
+		if !strings.Contains(string(data), "CollectFactsTx(") {
 			t.Fatalf("%s does not expose typed reporting provider facts", fileName)
 		}
 	}

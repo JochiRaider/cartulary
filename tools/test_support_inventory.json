@@ -83,6 +83,15 @@
       "rationale": "Network Flow guarded runtime-control registries and route contribution for test-only fault, randomness, auth-transition, and audit assertions."
     },
     {
+      "path": "internal/modules/projections/testsupport",
+      "owner": "projections",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Named typed projection capabilities for shared application tests without production assembly or storage access."
+    },
+    {
       "path": "internal/modules/records/testsupport",
       "owner": "records",
       "posture": "owner_local",

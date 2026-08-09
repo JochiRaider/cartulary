@@ -15,7 +15,16 @@ or release checks.
 
 Core 00 REQ-00-062 is the authority rule for projections. Adoption or substantive revision of a projections-specific NLSpec requires projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests to be re-audited before accepting new projection changes.
 
-Accepted workbook projection boundary: Timeline owns authoritative Timeline source semantics, canonical source snapshots, projection-input meaning, and the provider-contract query descriptor. Projections owns physical `timeline_grid_projection` SQL, closed upsert/delete application, query compilation and execution, keyset paging, incident rebuild orchestration, and restore rebuild orchestration. Timeline source enumeration is deterministic and keyset-paged; projection storage never becomes source authority. Core 01 and Core 03 explain observable workbook query and startup behavior. Graph Projection NLSpec rules remain out of scope for workbook-grid projection tables, workbook query routes, saved views, restore rebuilds, and `view_row_v1`.
+Accepted workbook projection boundary: each named source owner owns authoritative
+source semantics, canonical source snapshots, typed projection inputs, semantic
+query intent, and Reporting fact meaning. Projections owns every production SQL
+operation against the ten descriptor-owned `*_grid_projection` tables, private
+query compilation and execution, keyset paging, incident rebuild mechanics, and
+restore rebuild mechanics. Source enumeration remains source-owner supplied and
+deterministic; projection storage never becomes source authority. Core 01 and
+Core 03 explain observable workbook query and startup behavior. Graph Projection
+NLSpec rules remain out of scope for workbook-grid projection tables, workbook
+query routes, saved views, restore rebuilds, and `view_row_v1`.
 
 ## I.2 R01 Through R09 Evidence Crosswalk
 
@@ -27,22 +36,31 @@ Accepted workbook projection boundary: Timeline owns authoritative Timeline sour
 | R04 | TODO: evidence report path required before citation. | Q-003 | No | Recovery adapter ownership is now Core-owned. |
 | R05 | TODO: evidence report path required before citation. | Q-003 | No | Restore characterization evidence only. |
 | R06 | TODO: evidence report path required before citation. | Q-004 | No | Descriptor manifest remains validation-only. |
-| R07 | TODO: evidence report path required before citation. | Q-004 | No | Code-backed registry remains authoritative. |
+| R07 | TODO: evidence report path required before citation. | Q-004 | No | The application-composed, code-backed descriptor registry remains authoritative. |
 | R08 | TODO: evidence report path required before citation. | Q-005 | No | Import-graph evidence only. |
 | R09 | TODO: evidence report path required before citation. | Q-005 | No | Boundary guard allowlist requires owner approval before expansion. |
 
 ## I.3 Query Characterization Matrix
 
-Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modules/projections/query.go` is the generic projection-backed facade and delegates SQL construction, scanning, and row materialization to the private `internal/modules/projections/queryengine` package; neither is a normative source of truth. The production workbook port supplies a validated `querypage.Window`, every generic and specialized provider applies a normalized keyset predicate plus `LIMIT limit+1`, and workbook alone encodes the last emitted row into the existing opaque cursor token.
+Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. Source-owner
+`workbookprojection` packages contribute immutable semantic `SurfaceIntent`
+values. Private `internal/modules/projections/internal/queryengine` plans bind
+those intents to physical tables, expressions, joins, scanning, and row
+materialization; `internal/modules/projections/internal/runtime` coordinates the
+validated plans. Neither package is a normative source of truth. The production
+Workbook port supplies a validated `querypage.Window`, each provider applies a
+normalized keyset predicate plus `LIMIT limit+1`, and Workbook alone encodes the
+last emitted row into the existing opaque cursor token.
 
-| Surface family | Current query path | Behavior to characterize before movement | Current evidence | Required parity posture |
-| -------------- | ------------------ | ---------------------------------------- | ---------------- | ----------------------- |
-| Assessment rows | `internal/modules/projections/query.go` via workbook query dispatch. | Field-key validation, null cells, collection cells, sort/filter/group, pagination, row envelope. | `internal/modules/projections/query_test.go`; provider registry tests. | Store-backed tests must fail on `view_row_v1` or query-contract drift. |
-| Artifact-backed rows | `internal/modules/projections/query.go` for notes, communications log, handoff, status review, lesson, findings, investigative queries, and forensic keywords. | Artifact subtype filtering, collection cell shape, default sort, unsupported field behavior, saved-view validation. | `internal/modules/projections/query_test.go`; workbook coordination-surface tests. | Split only behind a stable provider interface with parity tests. |
-| Evidence rows | `internal/modules/projections/query.go` through generic evidence surface. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | `internal/modules/projections/query_test.go`; evidence integration tests. | Preserve route-owned validation and `internal_error` behavior for unexpected provider failures. |
-| Parties rows | `internal/modules/projections/query.go` through generic party surface. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | `internal/modules/projections/query_test.go`; workbook parties integration tests. | Characterize before moving owner-specific logic. |
-| Task and decision rows | `internal/modules/projections/query.go` through generic task/decision surfaces. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | `internal/modules/projections/query_test.go`; task/decision store tests. | Preserve revision/change-set row snapshots. |
-| Timeline, hosts, identities, indicators | Owner-specific source descriptors feed Projections-owned physical query and storage paths; Timeline source extraction remains Timeline-owned. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests; affected catalog owner slices. | Each provider implements the same neutral page window and nulls-last keyset semantics without moving source intent into Projections. |
+| Surface family | Current query path | Characterized behavior | Current evidence | Required parity posture |
+| -------------- | ------------------ | ---------------------- | ---------------- | ----------------------- |
+| Assessment rows | Assessment `SurfaceIntent` to private compiled plan and bound Workbook query port. | Field-key validation, null cells, collection cells, sort/filter/group, pagination, row envelope. | Private runtime query tests, compiled-plan parity, and provider-registry tests. | Store-backed tests fail on `view_row_v1` or query-contract drift. |
+| Artifact-backed rows | Artifact intents to private plans for notes, communications log, handoff, status review, lesson, findings, investigative queries, and forensic keywords. | Artifact subtype filtering, collection cell shape, default sort, unsupported field behavior, saved-view validation. | Private runtime query tests and Workbook coordination-surface tests. | Every artifact discriminator remains private and exactly matches its semantic intent and view schema. |
+| Evidence rows | Evidence intent to private compiled plan and bound Workbook query port. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | Private runtime query tests and Evidence integration tests. | Route-owned validation and `internal_error` behavior remain unchanged for unexpected provider failures. |
+| Parties rows | Party intent to private compiled plan and bound Workbook query port. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | Private runtime query tests and Workbook party integration tests. | Party source meaning remains Party-owned while table access remains Projections-owned. |
+| Task and decision rows | Separate task-request and decision intents to separate private plans and one typed source-owner facade. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | Private runtime query tests and Tasks/Decisions store tests. | Revision and change-set row snapshots remain stable. |
+| Timeline and indicators | Owner-specific semantic intents to private compiled plans and bound Workbook query ports. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline and Indicator integration tests, compiled-plan equality, and manifest parity tests. | Each provider implements the same neutral page window and nulls-last keyset semantics without moving source meaning into Projections. |
+| Hosts and identities | Typed Entities query readers call private Projections host/identity plans, then hydrate only the returned bounded identifiers through Entities. | Differential filter/sort/null-order behavior, `limit+1`, exact-ID hydration, complete rows, and continuation pages. | Private query-engine differential tests and Entities/Workbook integration tests. | Host and Identity remain query-capable descriptors without leaking through the generic Workbook adapter. |
 
 Keyset continuation preserves the normalized sort tuple, default sort tail, final `record_id` tie-breaker, direction, and nulls-last behavior. Provider queries bind cursor values and the bounded limit as SQL parameters and do not use pagination `OFFSET`. Host and Identity alias/identifier hydration is restricted to the bounded page record identifiers rather than the entire incident.
 
@@ -63,7 +81,15 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 
 ## I.5 Provider Descriptor Manifest Design
 
-The current runtime authority is the code-backed registry rooted at `internal/modules/projections/provider_registry.go`. `contracts/projection-providers/index.json` is an authored canonical validation artifact for drift detection and review only. It is outside generated-artifact policy roots and has no generator. Descriptor changes update the code-backed registry first and the manifest in the same change; manifest shape versions change only when the JSON shape changes.
+The current runtime authority is the code-backed descriptor registry assembled
+by `internal/app/projectionassembly/catalog.go` from eight required typed owner
+contributions. Runtime validation and executable provider coordination are
+private to Projections. `contracts/projection-providers/index.json` is an
+authored canonical validation artifact for drift detection and review only. It
+is outside generated-artifact policy roots and has no generator. Descriptor
+changes update the owner contribution and assembled code-backed registry first,
+then the manifest in the same change; manifest shape versions change only when
+the JSON shape changes.
 
 | Field | Purpose | Validation posture |
 | ----- | ------- | ------------------ |
@@ -81,13 +107,26 @@ The current runtime authority is the code-backed registry rooted at `internal/mo
 | `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection` so source extraction stays timeline-owned while projection storage writes stay in `projections`. |
 | `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
-`make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`. `contracts/projection-providers/README.md` owns the short registry-first maintenance procedure.
+`make json-shape-check` validates the manifest shape.
+`internal/app/projectionassembly/catalog_manifest_test.go` compares the
+manifest to the fully assembled immutable descriptor set and checks consumer
+port completeness. `contracts/projection-providers/README.md` owns the short
+registry-first maintenance procedure.
 
-The provider `QuerySurface` descriptor is intentionally an internal PostgreSQL persistence contract, not a domain API or public query-language definition. Source-owner providers declare compiled SQL expressions and projection mappings; the projections query engine binds every runtime value as a parameter. Registry/schema parity and source-ownership tests constrain the compiled descriptors. A new descriptor version is required if the descriptor shape changes, but validation hardening alone does not require a version bump.
+The provider-facing `SurfaceIntent` contract is semantic and immutable. It
+contains stable view and field identities plus optional semantic source-filter
+tokens; it contains no table name, join, expression, predicate, alias, scan
+strategy, or executable callback. Private Projections plans own all physical
+SQL and bind every runtime value as a parameter. Exact intent/plan/view-schema
+equality and source-ownership tests constrain the compiled plans. A new
+descriptor version is required if the serialized descriptor shape changes, but
+an intent-value or validation change alone does not require a version bump.
 
 ## I.6 Import Graph Characterization
 
-S-04 production import guardrails are package-import based and distinguish production imports from test-only imports. The current validation-manifest import policy is:
+Production import guardrails are package-import based and distinguish
+production imports from test-only imports. The current validation-manifest
+import policy is:
 
 | Policy member | Approved values |
 | ------------- | --------------- |
@@ -95,10 +134,27 @@ S-04 production import guardrails are package-import based and distinguish produ
 | `approved_adapter_packages` | `internal/modules/projections/adapters` |
 | `approved_contract_packages` | `internal/modules/projections/providercontract` |
 
-Test-only imports are intentionally not production permissions. Production imports of projection internals, projection provider internals, rebuild internals, and projection test fixtures remain forbidden outside approved adapters/contracts. Exact production imports of the stable projection provider contract package are allowed so source-owner providers can publish descriptors without importing the projection runtime.
+Test-only imports are intentionally not production permissions. Production
+imports of Projections internals, source-owner projection-provider internals,
+rebuild internals, and projection test fixtures remain forbidden outside exact
+assembly allowances. Only `internal/app/projectionassembly` imports the adapter.
+Source-owner `workbookprojection` facades may import the stable provider
+contract so they can contribute descriptors and semantic intent without
+importing Projections runtime code.
 
 ## I.7 Boundary Guard Test Guide
 
-The S-04 guard test lives at `internal/modules/projections/boundary_guard_test.go`. It parses Go imports with `go/parser`, ignores `_test.go` files, fails on every production root import of `github.com/JochiRaider/cartulary/internal/modules/projections`, allows the exact adapter and contract packages listed in the validation manifest, and fails on other projections subpackages.
+The package boundary guard lives at
+`internal/modules/projections/adapters/boundary_guard_test.go`. It parses Go
+imports with `go/parser`, ignores `_test.go` files and registered runtime-excluded
+test-support roots, requires the Projections root directory to contain no Go
+files, permits only `internal/app/projectionassembly` to import `adapters`,
+permits the stable `providercontract`, and rejects every production import of a
+private Projections package. It also enforces exact assembly allowances for
+source-owner `projectionprovider` constructors.
 
-To add a new production adapter or contract package, first update the owner-approved list in this appendix and the validation-only manifest if provider ownership is affected. Then update the guard policy with the exact package path. Do not add permissions for incidental file structure, test fixtures, provider internals, root imports, or temporary migration helpers.
+To change the construction or contract boundary, first update the adopted ADR
+and applicable Core owner if behavior or ownership changes. Then update the
+validation-only manifest and guard policy with exact package paths. Do not add
+permissions for incidental file structure, test fixtures, runtime internals,
+root imports, or temporary migration helpers.

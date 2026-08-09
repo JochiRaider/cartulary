@@ -6,11 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
 type providerSQLSource struct {
@@ -38,18 +39,111 @@ type providerSQLReference struct {
 	table     string
 }
 
+type projectionBoundaryManifest struct {
+	SQLTableAccess []struct {
+		ID                    string   `json:"id"`
+		Table                 string   `json:"table"`
+		TestReadAllowedPaths  []string `json:"test_read_allowed_paths"`
+		TestWriteAllowedPaths []string `json:"test_write_allowed_paths"`
+	} `json:"sql_table_access"`
+}
+
 var providerSQLReferencePattern = regexp.MustCompile(`(?i)\b(FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([a-z_][a-z0-9_]*)`)
+var migrationCreateTablePattern = regexp.MustCompile(`(?im)\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z_][a-z0-9_]*)\b`)
+
+func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+	bundle, err := NewBundle(
+		&projectionManifestDB{},
+		projectionManifestTimelineContribution(t),
+		projectionManifestEntitiesContribution(t),
+		projectionManifestIndicatorsContribution(t),
+		projectionManifestAssessmentsContribution(t),
+		projectionManifestArtifactsContribution(t),
+		projectionManifestEvidenceContribution(t),
+		projectionManifestPartiesContribution(t),
+		projectionManifestTaskDecisionContribution(t),
+	)
+	if err != nil {
+		t.Fatalf("assemble projection adapter: %v", err)
+	}
+
+	descriptorTables := make([]string, 0, bundle.DescriptorSet().Len())
+	for _, descriptor := range bundle.DescriptorSet().All() {
+		if descriptor.Status == providercontract.ProviderStatusActive {
+			descriptorTables = append(descriptorTables, descriptor.ProjectionTableIDs...)
+		}
+	}
+	descriptorTables = sortedUniqueStrings(t, "active descriptor tables", descriptorTables)
+
+	boundaryData, err := os.ReadFile(filepath.Join(root, "tools", "backend_module_boundaries.json"))
+	if err != nil {
+		t.Fatalf("read backend boundary manifest: %v", err)
+	}
+	var boundary projectionBoundaryManifest
+	if err := json.Unmarshal(boundaryData, &boundary); err != nil {
+		t.Fatalf("decode backend boundary manifest: %v", err)
+	}
+	boundaryTables := make([]string, 0, len(descriptorTables))
+	fixturePermissions := map[string][]string{}
+	for _, rule := range boundary.SQLTableAccess {
+		if !strings.HasSuffix(rule.ID, "-projection-storage-access") {
+			continue
+		}
+		boundaryTables = append(boundaryTables, rule.Table)
+		fixturePermissions[rule.Table] = append(
+			append([]string(nil), rule.TestReadAllowedPaths...),
+			rule.TestWriteAllowedPaths...,
+		)
+	}
+	boundaryTables = sortedUniqueStrings(t, "projection table policies", boundaryTables)
+
+	migrationTables := migrationOwnedProjectionTables(t, root, loadSchemaOwnerPatterns(t, root))
+	recoveryTables := sortedUniqueStrings(t, "recovery projection tables", providercontract.RecoveryProjectionTableIDs())
+	for label, actual := range map[string][]string{
+		"boundary policy":  boundaryTables,
+		"recovery state":   recoveryTables,
+		"migration schema": migrationTables,
+	} {
+		if !slices.Equal(descriptorTables, actual) {
+			t.Fatalf("active descriptor tables differ from %s:\ndescriptors=%q\n%s=%q", label, descriptorTables, label, actual)
+		}
+	}
+
+	wantFixturePermissions := map[string][]string{
+		"assessment_grid_projection": {"internal/modules/assessments/testsupport/assessments.go"},
+		"timeline_grid_projection":   {"internal/modules/timeline/testsupport/asserttest/assertions.go"},
+	}
+	for table, paths := range fixturePermissions {
+		sort.Strings(paths)
+		want := wantFixturePermissions[table]
+		sort.Strings(want)
+		if !slices.Equal(paths, want) {
+			t.Fatalf("projection table %q test-fixture permissions = %q, want %q", table, paths, want)
+		}
+	}
+}
 
 func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	ownerPatterns := loadSchemaOwnerPatterns(t, root)
-	catalog, err := NewCatalog(nil)
+	bundle, err := NewBundle(
+		&projectionManifestDB{},
+		projectionManifestTimelineContribution(t),
+		projectionManifestEntitiesContribution(t),
+		projectionManifestIndicatorsContribution(t),
+		projectionManifestAssessmentsContribution(t),
+		projectionManifestArtifactsContribution(t),
+		projectionManifestEvidenceContribution(t),
+		projectionManifestPartiesContribution(t),
+		projectionManifestTaskDecisionContribution(t),
+	)
 	if err != nil {
-		t.Fatalf("assemble projection catalog: %v", err)
+		t.Fatalf("assemble projection adapter: %v", err)
 	}
-	descriptors := map[string]projections.ProviderDescriptor{}
-	for _, descriptor := range catalog.Descriptors() {
-		descriptors[descriptor.ProviderKey] = descriptor
+	descriptors := map[string]providercontract.ProviderDescriptor{}
+	for _, descriptor := range bundle.DescriptorSet().All() {
+		descriptors[descriptor.ProviderID] = descriptor
 	}
 
 	sources := []providerSQLSource{
@@ -57,23 +151,35 @@ func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 		{path: "internal/modules/entities/timelinefacts/reader.go", provider: "timeline"},
 		{path: "internal/modules/links/timeline_facts.go", provider: "timeline"},
 		{path: "internal/modules/evidence/timeline_facts.go", provider: "timeline"},
-		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "host"},
-		{path: "internal/modules/entities/hostidentity/projectionprovider/provider.go", provider: "identity"},
-		{path: "internal/modules/indicators/internal/providers/projection/provider.go", provider: "indicator"},
-		{path: "internal/modules/indicators/internal/providers/projection/query_surfaces.go", provider: "indicator"},
+		{path: "internal/modules/projections/internal/storage/timeline.go", provider: "timeline"},
+		{path: "internal/modules/projections/internal/queryengine/timeline.go", provider: "timeline"},
+		{path: "internal/modules/entities/hostidentity/projectionprovider/host_source.go", provider: "host"},
+		{path: "internal/modules/projections/internal/storage/host.go", provider: "host"},
+		{path: "internal/modules/projections/internal/queryengine/host.go", provider: "host"},
+		{path: "internal/modules/entities/hostidentity/projectionprovider/identity_source.go", provider: "identity"},
+		{path: "internal/modules/projections/internal/storage/identity.go", provider: "identity"},
+		{path: "internal/modules/projections/internal/queryengine/identity.go", provider: "identity"},
+		{path: "internal/modules/indicators/internal/providers/projection/source.go", provider: "indicator"},
+		{path: "internal/modules/projections/internal/storage/indicator.go", provider: "indicator"},
+		{path: "internal/modules/projections/internal/queryengine/indicator.go", provider: "indicator"},
 		{path: "internal/modules/assessments/projectionprovider/provider.go", provider: "assessment"},
-		{path: "internal/modules/assessments/projectionprovider/query_surfaces.go", provider: "assessment"},
-		{path: "internal/modules/projections/assessments.go", provider: "assessment"},
-		{path: "internal/modules/artifacts/projectionprovider/provider.go", provider: "artifact"},
-		{path: "internal/modules/artifacts/projectionprovider/query_surfaces.go", provider: "artifact"},
-		{path: "internal/modules/evidence/projectionprovider/provider.go", provider: "evidence"},
-		{path: "internal/modules/evidence/projectionprovider/query_surfaces.go", provider: "evidence"},
-		{path: "internal/modules/parties/projectionprovider/provider.go", provider: "party"},
-		{path: "internal/modules/parties/projectionprovider/query_surfaces.go", provider: "party"},
-		{path: "internal/modules/tasksdecisions/internal/providers/projection/provider.go", provider: "task_request"},
-		{path: "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go", provider: "task_request"},
-		{path: "internal/modules/tasksdecisions/internal/providers/projection/provider.go", provider: "decision"},
-		{path: "internal/modules/tasksdecisions/internal/providers/projection/query_surfaces.go", provider: "decision"},
+		{path: "internal/modules/projections/internal/storage/assessment.go", provider: "assessment"},
+		{path: "internal/modules/projections/internal/queryengine/assessment.go", provider: "assessment"},
+		{path: "internal/modules/artifacts/projectionprovider/source.go", provider: "artifact"},
+		{path: "internal/modules/projections/internal/storage/artifact.go", provider: "artifact"},
+		{path: "internal/modules/projections/internal/queryengine/artifact.go", provider: "artifact"},
+		{path: "internal/modules/evidence/projectionprovider/source.go", provider: "evidence"},
+		{path: "internal/modules/projections/internal/storage/evidence.go", provider: "evidence"},
+		{path: "internal/modules/projections/internal/queryengine/evidence.go", provider: "evidence"},
+		{path: "internal/modules/parties/projectionprovider/source.go", provider: "party"},
+		{path: "internal/modules/projections/internal/storage/party.go", provider: "party"},
+		{path: "internal/modules/projections/internal/queryengine/party.go", provider: "party"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/task_source.go", provider: "task_request"},
+		{path: "internal/modules/projections/internal/storage/task_request.go", provider: "task_request"},
+		{path: "internal/modules/projections/internal/queryengine/task_request.go", provider: "task_request"},
+		{path: "internal/modules/tasksdecisions/internal/providers/projection/decision_source.go", provider: "decision"},
+		{path: "internal/modules/projections/internal/storage/decision.go", provider: "decision"},
+		{path: "internal/modules/projections/internal/queryengine/decision.go", provider: "decision"},
 	}
 	covered := map[string]bool{}
 	for _, source := range sources {
@@ -111,9 +217,10 @@ func TestValidateProjectionProviderSQLReference(t *testing.T) {
 		{owner: "records", pattern: regexp.MustCompile(`^records$`)},
 		{owner: "projections", pattern: regexp.MustCompile(`^host_grid_projection$`)},
 	}
-	descriptor := projections.ProviderDescriptor{
-		ProviderKey:            "host",
+	descriptor := providercontract.ProviderDescriptor{
+		ProviderID:             "host",
 		SourceAuthorityModules: []string{"entities"},
+		ProjectionTableIDs:     []string{"host_grid_projection"},
 	}
 	tests := []struct {
 		name string
@@ -163,6 +270,50 @@ func loadSchemaOwnerPatterns(t testing.TB, root string) []schemaOwnerPattern {
 	return patterns
 }
 
+func migrationOwnedProjectionTables(t testing.TB, root string, patterns []schemaOwnerPattern) []string {
+	t.Helper()
+	migrationPaths, err := filepath.Glob(filepath.Join(root, "db", "migrations", "*.sql"))
+	if err != nil {
+		t.Fatalf("list migrations: %v", err)
+	}
+	tables := make([]string, 0)
+	for _, migrationPath := range migrationPaths {
+		body, err := os.ReadFile(migrationPath)
+		if err != nil {
+			t.Fatalf("read migration %s: %v", migrationPath, err)
+		}
+		for _, match := range migrationCreateTablePattern.FindAllStringSubmatch(string(body), -1) {
+			table := strings.ToLower(match[1])
+			owners := map[string]struct{}{}
+			for _, pattern := range patterns {
+				if pattern.pattern.MatchString(table) {
+					owners[pattern.owner] = struct{}{}
+				}
+			}
+			if _, owned := owners["projections"]; !owned {
+				continue
+			}
+			if len(owners) != 1 {
+				t.Fatalf("migration-created projection table %q maps to %d schema owners", table, len(owners))
+			}
+			tables = append(tables, table)
+		}
+	}
+	return sortedUniqueStrings(t, "migration-owned projection tables", tables)
+}
+
+func sortedUniqueStrings(t testing.TB, label string, values []string) []string {
+	t.Helper()
+	result := append([]string(nil), values...)
+	sort.Strings(result)
+	for index := 1; index < len(result); index++ {
+		if result[index] == result[index-1] {
+			t.Fatalf("%s contain duplicate %q", label, result[index])
+		}
+	}
+	return result
+}
+
 func namedSQLSection(body string, name string) (string, error) {
 	marker := "-- name: " + name + " "
 	start := strings.Index(body, marker)
@@ -204,7 +355,7 @@ func providerSQLReferences(body string) []providerSQLReference {
 	return refs
 }
 
-func validateProviderSQLReference(descriptor projections.ProviderDescriptor, ref providerSQLReference, patterns []schemaOwnerPattern) error {
+func validateProviderSQLReference(descriptor providercontract.ProviderDescriptor, ref providerSQLReference, patterns []schemaOwnerPattern) error {
 	owners := map[string]struct{}{}
 	for _, pattern := range patterns {
 		if pattern.pattern.MatchString(ref.table) {
@@ -222,9 +373,15 @@ func validateProviderSQLReference(descriptor projections.ProviderDescriptor, ref
 		if owner != "projections" {
 			return fmt.Errorf("SQL %s %s writes authoritative owner %q", ref.operation, ref.table, owner)
 		}
+		if !slices.Contains(descriptor.ProjectionTableIDs, ref.table) {
+			return fmt.Errorf("SQL %s %s writes undeclared projection table", ref.operation, ref.table)
+		}
 		return nil
 	}
 	if owner == "projections" {
+		if !slices.Contains(descriptor.ProjectionTableIDs, ref.table) {
+			return fmt.Errorf("SQL %s %s reads undeclared projection table", ref.operation, ref.table)
+		}
 		return nil
 	}
 	for _, declared := range descriptor.SourceAuthorityModules {

@@ -151,9 +151,11 @@ func (compositionOperations) LoadDecisionTx(context.Context, pgx.Tx, uuid.UUID) 
 	return map[string]any{}, nil
 }
 
-func (compositionOperations) LoadTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error) {
-	return map[string]any{}, nil
+func (compositionOperations) RebuildTaskRequestsTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
 }
+
+func (compositionOperations) RebuildDecisionsTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 
 func (compositionOperations) AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error) {
 	return uuid.New(), nil

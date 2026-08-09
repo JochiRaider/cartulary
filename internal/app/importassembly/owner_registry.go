@@ -5,29 +5,39 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/gen/importtargetregistry"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type OwnerRegistryDependencies struct {
-	Postgres          postgres.DB
-	RevisionAppender  *revisions.Appender
-	Intents           collaboration.IntentAppender
-	Timeline          *timeline.Facade
-	ProjectionCatalog *projections.Catalog
-	Indicators        *indicators.Store
+	Postgres                postgres.DB
+	RevisionAppender        *revisions.Appender
+	Intents                 collaboration.IntentAppender
+	Timeline                *timeline.Facade
+	EntityProjections       entityprojection.Writer
+	AssessmentProjections   assessmentprojection.Rows
+	ArtifactProjections     artifactprojection.Rows
+	EvidenceProjections     evidenceprojection.Rows
+	PartyProjections        partyprojection.Rows
+	TaskDecisionProjections taskdecisionprojection.Rows
+	Indicators              *indicators.Store
 }
 
 func NewOwnerCreateRegistry(
@@ -51,9 +61,34 @@ func NewOwnerCreateRegistry(
 			"compose import owner-create registry: Timeline owner is required",
 		)
 	}
-	if dependencies.ProjectionCatalog == nil {
+	if dependencies.EntityProjections == nil {
 		return nil, fmt.Errorf(
-			"compose import owner-create registry: projection catalog is required",
+			"compose import owner-create registry: Entities projection writer is required",
+		)
+	}
+	if dependencies.AssessmentProjections == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Assessments projection rows are required",
+		)
+	}
+	if dependencies.ArtifactProjections == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Artifacts projection rows are required",
+		)
+	}
+	if dependencies.EvidenceProjections == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Evidence projection rows are required",
+		)
+	}
+	if dependencies.PartyProjections == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Parties projection rows are required",
+		)
+	}
+	if dependencies.TaskDecisionProjections == nil {
+		return nil, fmt.Errorf(
+			"compose import owner-create registry: Tasks/Decisions projection rows are required",
 		)
 	}
 	if dependencies.Indicators == nil {
@@ -62,16 +97,11 @@ func NewOwnerCreateRegistry(
 		)
 	}
 
-	taskDecisionProjectionContribution := tasksdecisions.NewProjectionContribution()
 	taskDecisionImportDependencies := tasksdecisions.ImportDependencies{
 		RecordEnvelopes: records.NewStore(),
 		Links:           links.NewStore(),
-		Projections: projections.NewTaskDecisionRows(
-			dependencies.Postgres,
-			taskDecisionProjectionContribution.Source(),
-			taskDecisionProjectionContribution.QuerySurfaces()...,
-		),
-		Revisions: dependencies.RevisionAppender,
+		Projections:     dependencies.TaskDecisionProjections,
+		Revisions:       dependencies.RevisionAppender,
 	}
 
 	facades := make([]ownerfacade.ImportOwnerCreateFacade, 0)
@@ -122,14 +152,16 @@ func newOwnerCreateFacade(
 			targetViewSchemaID,
 			facadeID,
 			dependencies.RevisionAppender,
+			dependencies.ArtifactProjections,
 		)
 	case "module.assessments@1":
 		return newAssessmentImportCreateFacade(
 			targetViewSchemaID,
 			facadeID,
 			dependencies.Postgres,
-			dependencies.ProjectionCatalog,
+			dependencies.AssessmentProjections,
 			dependencies.RevisionAppender,
+			dependencies.EntityProjections,
 		)
 	case "module.entities@1":
 		return hostidentity.NewImportCreateFacade(
@@ -137,6 +169,7 @@ func newOwnerCreateFacade(
 			facadeID,
 			dependencies.Postgres,
 			dependencies.RevisionAppender,
+			dependencies.EntityProjections,
 		)
 	case "module.evidence@1":
 		return evidence.NewImportCreateFacade(
@@ -145,6 +178,7 @@ func newOwnerCreateFacade(
 			dependencies.Postgres,
 			dependencies.RevisionAppender,
 			dependencies.Intents,
+			dependencies.EvidenceProjections,
 		)
 	case "module.indicators@1":
 		return indicators.NewImportCreateFacade(
@@ -158,6 +192,7 @@ func newOwnerCreateFacade(
 			facadeID,
 			dependencies.Postgres,
 			dependencies.RevisionAppender,
+			dependencies.PartyProjections,
 		)
 	case "module.tasksdecisions@1":
 		return tasksdecisions.NewImportContribution(

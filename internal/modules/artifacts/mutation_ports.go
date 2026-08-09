@@ -23,11 +23,6 @@ type artifactRecordEnvelopePort interface {
 	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (records.Envelope, error)
 }
 
-type artifactProjectionRowPort interface {
-	RefreshTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
-}
-
 type artifactRevisionPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error

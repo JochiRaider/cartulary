@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -82,7 +82,7 @@ type WorkbookContributionCatalog struct {
 }
 
 func NewWorkbookContributionCatalog(
-	descriptors []projections.ProviderDescriptor,
+	descriptors providercontract.DescriptorSet,
 	queryContributions []QueryContribution,
 	createContributions []CreateContribution,
 	patchContributions []PatchContribution,
@@ -443,10 +443,10 @@ func schemaHasWritableField(schema viewschema.Schema) bool {
 	return false
 }
 
-func expectedQuerySurfaces(descriptors []projections.ProviderDescriptor) (map[string]expectedQuerySurface, error) {
-	descriptorByView := make(map[string]projections.ProviderDescriptor)
-	for _, descriptor := range descriptors {
-		if descriptor.Status != projections.ProviderStatusActive {
+func expectedQuerySurfaces(descriptors providercontract.DescriptorSet) (map[string]expectedQuerySurface, error) {
+	descriptorByView := make(map[string]providercontract.ProviderDescriptor)
+	for _, descriptor := range descriptors.All() {
+		if descriptor.Status != providercontract.ProviderStatusActive {
 			continue
 		}
 		for _, viewSchemaID := range descriptor.ViewSchemaIDs {
@@ -454,8 +454,8 @@ func expectedQuerySurfaces(descriptors []projections.ProviderDescriptor) (map[st
 				return nil, fmt.Errorf(
 					"duplicate active projection descriptor ownership for %q: %q and %q",
 					viewSchemaID,
-					prior.ProviderKey,
-					descriptor.ProviderKey,
+					prior.ProviderID,
+					descriptor.ProviderID,
 				)
 			}
 			descriptorByView[viewSchemaID] = descriptor
@@ -478,7 +478,7 @@ func expectedQuerySurfaces(descriptors []projections.ProviderDescriptor) (map[st
 				"active workbook surface %q record types %v do not match projection descriptor %q record types %v",
 				resource.ViewSchemaID,
 				recordTypes,
-				descriptor.ProviderKey,
+				descriptor.ProviderID,
 				descriptorRecordTypes,
 			)
 		}
@@ -487,7 +487,7 @@ func expectedQuerySurfaces(descriptors []projections.ProviderDescriptor) (map[st
 			backendKind = QueryBackendProjection
 		}
 		expected[resource.ViewSchemaID] = expectedQuerySurface{
-			sourceOwnerKey:    descriptor.SourceOwnerKey,
+			sourceOwnerKey:    descriptor.SourceOwnerModule,
 			sourceRecordTypes: recordTypes,
 			backendKind:       backendKind,
 		}
@@ -496,7 +496,7 @@ func expectedQuerySurfaces(descriptors []projections.ProviderDescriptor) (map[st
 		if _, ok := expected[viewSchemaID]; !ok {
 			return nil, fmt.Errorf(
 				"active projection descriptor %q references unknown workbook surface %q",
-				descriptor.ProviderKey,
+				descriptor.ProviderID,
 				viewSchemaID,
 			)
 		}

@@ -39,7 +39,11 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		"IR-ARTIFACTS-LINKED-NOTE",
 		"Artifact linked note contract",
 	)
-	facade := artifacts.NewContextualNoteFacade(harness.DB, revisionsupport.MustAppender(t))
+	facade := artifacts.NewContextualNoteFacade(
+		harness.DB,
+		revisionsupport.MustAppender(t),
+		appsupport.ArtifactProjectionRows(harness.DB),
+	)
 	now := time.Date(2026, 7, 30, 16, 0, 0, 0, time.UTC)
 
 	for index, recordType := range []string{"timeline_event", "host", "identity", "evidence"} {

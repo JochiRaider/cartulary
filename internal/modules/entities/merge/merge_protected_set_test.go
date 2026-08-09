@@ -11,12 +11,17 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
+
+type mergeProjectionWriterStub struct {
+	workbookprojection.Writer
+}
 
 func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set")
@@ -34,6 +39,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 		WithAssessmentEffects(assessments.NewMergeEffects(
 			mergeAssessmentProjectionStub{},
 		)),
+		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
 
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
@@ -62,6 +68,7 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 		WithAssessmentEffects(assessments.NewMergeEffects(
 			mergeAssessmentProjectionStub{},
 		)),
+		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
 	actor := seedMergeProtectedSetUser(t, db, "merge-protected-revalidate@example.test", "Merge Protected Revalidate")
 	incident := createMergeProtectedSetIncident(t, db, actor, "txn-merge-protected-revalidate-incident", "IR-MERGE-PROTECTED-R", "Merge protected set revalidate")
@@ -90,10 +97,9 @@ func newMergeProtectedSetAppender(t testing.TB) *revisions.Appender {
 
 	recordViews, err := revisions.NewRecordViewCatalog(
 		[]revisions.ProviderContribution{assessments.RevisionProviderContribution()},
-		[]revisions.RecordViewProjectionDescriptor{{
-			Active:            true,
+		[]revisions.RecordViewSurface{{
 			SourceRecordTypes: []string{"assessment"},
-			ViewSchemaIDs:     []string{assessments.AssessmentsViewSchemaID},
+			ViewSchemaID:      assessments.AssessmentsViewSchemaID,
 		}},
 		[]string{assessments.AssessmentsViewSchemaID},
 	)

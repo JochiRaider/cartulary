@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -41,6 +42,7 @@ func NewOwnerRuntime(
 	objects objectstore.Store,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
+	projectionRows evidenceprojection.Rows,
 	options ...StoreOption,
 ) *OwnerRuntime {
 	if appender == nil {
@@ -49,16 +51,20 @@ func NewOwnerRuntime(
 	if intents == nil {
 		panic("compose Evidence owner runtime: Collaboration intent appender is required")
 	}
+	if projectionRows == nil {
+		panic("compose Evidence owner runtime: projection rows are required")
+	}
 	storeOptions := append([]StoreOption{
 		WithRevisionAppender(appender),
 		WithCollaborationIntents(intents),
+		WithWorkbookProjections(projectionRows),
 	}, options...)
 	store := NewStore(pool, storeOptions...)
-	workbook := newWorkbookFacade(pool, conflictTokens, appender, intents, store, objects, conflictFields, keepSaved)
+	workbook := newWorkbookFacade(pool, conflictTokens, appender, intents, store, objects, conflictFields, keepSaved, projectionRows)
 	return &OwnerRuntime{
 		routes:      store,
 		workbook:    workbook,
-		attachments: store,
+		attachments: timelineAttachmentReader{},
 	}
 }
 
@@ -76,6 +82,6 @@ func (runtime *OwnerRuntime) TimelineAttachmentContribution() TimelineAttachment
 
 // NewTimelineAttachmentContribution is an explicit narrow composition helper
 // for focused tests that do not construct the Server runtime.
-func NewTimelineAttachmentContribution(pool postgres.DB) TimelineAttachmentContribution {
-	return NewStore(pool)
+func NewTimelineAttachmentContribution(_ postgres.DB) TimelineAttachmentContribution {
+	return timelineAttachmentReader{}
 }

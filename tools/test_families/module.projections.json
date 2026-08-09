@@ -14,7 +14,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/adapters",
         "tests": [
           "TestProductionProjectionImportsUseApprovedFacades"
         ]
@@ -35,18 +35,56 @@
         "harness.evidence_accounting"
       ],
       "verification_ids": [
-        "module.projections.verification.provider_architecture"
+        "module.projections.verification.provider_architecture",
+        "module.projections.verification.storage_ownership"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/app/projectionassembly",
         "tests": [
+          "TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable",
           "TestProjectionProviderManifestMirrorsCodeBackedRegistry",
           "TestProjectionProviderSQLSourceOwnership",
+          "TestProjectionTableOwnershipSetsAreExactlyEqual",
           "TestValidateProjectionProviderSQLReference"
         ]
       },
       "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.foundation.adapter_contract_48f57d6542",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.foundation",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/adapters",
+        "tests": [
+          "TestFoundationProviderContractContainsNoPhysicalQueryFields",
+          "TestNewRejectsInvalidCatalogAndIntentMatrix",
+          "TestNewRejectsMissingDependencies",
+          "TestNewReturnsReadyPortsAndImmutableDescriptorSet"
+        ]
+      },
+      "evidence_class": "unit",
       "runtime_profile_id": "default",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -66,7 +104,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
           "TestProjectionProviderRegistryOrdersAndIndexesContributions",
           "TestProjectionProviderRegistryRejectsInvalidContributions"
@@ -93,7 +131,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
           "TestArtifactProjectionSurfacesUseContractFilters",
           "TestGenericProjectionCollectionAcceptsDecodedJSONB",
@@ -126,7 +164,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
           "TestTimelinePageSQLIsKeysetBounded"
         ]
@@ -154,12 +192,16 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
           "TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged",
           "TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails",
           "TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess",
           "TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows",
+          "TestRestoreProjectionRebuildCancellationAndSourceReferenceValidation",
+          "TestRestoreProjectionRebuildNoProvidersIsNotApplicable",
+          "TestRestoreProjectionRebuildParticipationMatrix",
+          "TestRestoreProjectionRebuildProviderFailureRollsBackEveryPosition",
           "TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged"
         ]
       },
@@ -184,9 +226,10 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
-          "TestProjectionStoreQueryRowsAndLoadRowTxParity"
+          "TestProjectionStoreQueryRowsAndLoadRowTxParity",
+          "TestTypedEntityProjectionDeletionUsesCallerTransaction"
         ]
       },
       "evidence_class": "integration",
@@ -207,10 +250,36 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/projections",
+        "package": "./internal/modules/projections/internal/runtime",
         "tests": [
           "TestProjectionTelemetryNoSDK",
           "TestProjectionTelemetrySafeVocabulary"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.testsupport.projection_capability_caller_matrix_6f21615b92",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.testsupport",
+      "collaborator_ids": [
+        "app.server",
+        "harness.evidence_accounting"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/httptestx",
+        "tests": [
+          "TestProjectionCapabilityCallerMatrix"
         ]
       },
       "evidence_class": "static",

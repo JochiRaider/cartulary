@@ -81,7 +81,7 @@ func (f *WorkbookFacade) loadConflictTarget(
 	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return conflictresolution.Target{}, err
 	}
-	row, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+	row, err := f.projectionRows.LoadEvidenceTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}

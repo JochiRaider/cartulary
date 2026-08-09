@@ -53,6 +53,7 @@ func TestArtifactWorkbookMutationContractMatrix(t *testing.T) {
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		workbookassembly.NewConflictIdempotencyPort(harness.DB),
+		appsupport.ArtifactProjectionRows(harness.DB),
 	)
 	now := time.Date(2026, 7, 30, 14, 0, 0, 0, time.UTC)
 
@@ -222,6 +223,7 @@ func TestArtifactCollectionMutationContractMatrix(t *testing.T) {
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		workbookassembly.NewConflictIdempotencyPort(harness.DB),
+		appsupport.ArtifactProjectionRows(harness.DB),
 	)
 
 	wantPolicies := map[string]artifacts.CollectionFamily{
@@ -457,7 +459,12 @@ func TestArtifactImportCreateFacadeContract(t *testing.T) {
 		if target.AvailabilityKind != "enabled" || target.FacadeID == nil {
 			t.Fatalf("%s target = %#v, want enabled owner-create facade", tc.viewSchemaID, target)
 		}
-		facade, err := artifacts.NewImportCreateFacade(tc.viewSchemaID, *target.FacadeID, appender)
+		facade, err := artifacts.NewImportCreateFacade(
+			tc.viewSchemaID,
+			*target.FacadeID,
+			appender,
+			appsupport.ArtifactProjectionRows(harness.DB),
+		)
 		if err != nil {
 			t.Fatalf("construct %s import facade: %v", tc.viewSchemaID, err)
 		}
@@ -523,7 +530,12 @@ func TestArtifactImportCreateFacadeContract(t *testing.T) {
 	}
 
 	target := artifactTargets[artifacts.NotesViewSchemaID]
-	facade, err := artifacts.NewImportCreateFacade(artifacts.NotesViewSchemaID, *target.FacadeID, appender)
+	facade, err := artifacts.NewImportCreateFacade(
+		artifacts.NotesViewSchemaID,
+		*target.FacadeID,
+		appender,
+		appsupport.ArtifactProjectionRows(harness.DB),
+	)
 	if err != nil {
 		t.Fatalf("construct rollback import facade: %v", err)
 	}
@@ -586,6 +598,7 @@ func TestArtifactConflictSourceRevalidation(t *testing.T) {
 		revisionsupport.MustAppender(t),
 		mustConflictFieldResolver(t),
 		workbookassembly.NewConflictIdempotencyPort(harness.DB),
+		appsupport.ArtifactProjectionRows(harness.DB),
 	)
 	now := time.Date(2026, 7, 30, 18, 0, 0, 0, time.UTC)
 	created, err := facade.Create(ctx, artifacts.WorkbookCreateCommand{

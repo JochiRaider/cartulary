@@ -17,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	referencedatarecovery "github.com/JochiRaider/cartulary/internal/modules/reference_data/recoverycontribution"
@@ -53,7 +53,7 @@ func CurrentRecoveryStateContributions() []recoverystate.Contribution {
 		networkflow.RecoveryStateContribution(),
 		parties.RecoveryStateContribution(),
 		jobs.RecoveryStateContribution(),
-		projections.RecoveryStateContribution(),
+		providercontract.RecoveryStateContribution(),
 		records.RecoveryStateContribution(),
 		recovery.RecoveryStateContribution(),
 		referencedatarecovery.RecoveryStateContribution(),

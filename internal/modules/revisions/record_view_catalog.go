@@ -24,13 +24,11 @@ type RecordViewDescriptor struct {
 	ViewSchemaIDs  []string
 }
 
-// RecordViewProjectionDescriptor is the projection fact shape consumed by the
-// Revisions catalog. Application assembly projects the concrete projection
-// owner descriptor into this narrow input.
-type RecordViewProjectionDescriptor struct {
-	Active            bool
+// RecordViewSurface is the owner-neutral public view fact consumed by the
+// Revisions catalog. Projection runtime capabilities are intentionally absent.
+type RecordViewSurface struct {
 	SourceRecordTypes []string
-	ViewSchemaIDs     []string
+	ViewSchemaID      string
 }
 
 type recordViewRoute struct {
@@ -38,7 +36,7 @@ type recordViewRoute struct {
 }
 
 // RecordViewCatalog is the immutable, composition-scoped resolver compiled
-// from source-owner contributions and validated against current projections.
+// from source-owner contributions and validated against public view surfaces.
 type RecordViewCatalog struct {
 	ordered  []recordViewRoute
 	byRecord map[string][]recordViewRoute
@@ -46,7 +44,7 @@ type RecordViewCatalog struct {
 
 func NewRecordViewCatalog(
 	contributions []ProviderContribution,
-	projectionDescriptors []RecordViewProjectionDescriptor,
+	surfaces []RecordViewSurface,
 	knownViewSchemaIDs []string,
 ) (*RecordViewCatalog, error) {
 	knownViews := make(map[string]struct{}, len(knownViewSchemaIDs))
@@ -55,7 +53,10 @@ func NewRecordViewCatalog(
 			knownViews[viewSchemaID] = struct{}{}
 		}
 	}
-	expected := expectedRecordViews(projectionDescriptors)
+	expected, err := expectedRecordViews(surfaces, knownViews)
+	if err != nil {
+		return nil, err
+	}
 	seenContributionIDs := map[string]struct{}{}
 	seenViews := map[string]string{}
 	seenSelectors := map[string]string{}
@@ -213,22 +214,34 @@ func normalizeRecordViewRoute(
 	}, nil
 }
 
-func expectedRecordViews(descriptors []RecordViewProjectionDescriptor) map[string]map[string]struct{} {
+func expectedRecordViews(
+	surfaces []RecordViewSurface,
+	knownViews map[string]struct{},
+) (map[string]map[string]struct{}, error) {
 	expected := map[string]map[string]struct{}{}
-	for _, descriptor := range descriptors {
-		if !descriptor.Active {
-			continue
+	seenViews := map[string]struct{}{}
+	for _, surface := range surfaces {
+		if _, known := knownViews[surface.ViewSchemaID]; !known {
+			return nil, fmt.Errorf("%w: %q", ErrUnknownRecordViewSchema, surface.ViewSchemaID)
 		}
-		for _, recordType := range descriptor.SourceRecordTypes {
+		if _, duplicate := seenViews[surface.ViewSchemaID]; duplicate {
+			return nil, fmt.Errorf("%w: public surface %q", ErrDuplicateRecordViewRoute, surface.ViewSchemaID)
+		}
+		seenViews[surface.ViewSchemaID] = struct{}{}
+		if len(surface.SourceRecordTypes) == 0 {
+			return nil, fmt.Errorf("%w: public surface %q has no source record types", ErrUnexpectedRecordViewRoute, surface.ViewSchemaID)
+		}
+		for _, recordType := range surface.SourceRecordTypes {
+			if strings.TrimSpace(recordType) == "" {
+				return nil, fmt.Errorf("%w: public surface %q has an empty source record type", ErrUnexpectedRecordViewRoute, surface.ViewSchemaID)
+			}
 			if expected[recordType] == nil {
 				expected[recordType] = map[string]struct{}{}
 			}
-			for _, viewSchemaID := range descriptor.ViewSchemaIDs {
-				expected[recordType][viewSchemaID] = struct{}{}
-			}
+			expected[recordType][surface.ViewSchemaID] = struct{}{}
 		}
 	}
-	return expected
+	return expected, nil
 }
 
 func recordViewSelectorKey(recordType string, variant *RecordVariant) string {

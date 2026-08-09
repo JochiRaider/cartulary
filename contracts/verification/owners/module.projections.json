@@ -26,6 +26,15 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.projections.verification.storage_ownership",
+      "behavior_class": "architecture",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test",
+        "static_check"
+      ]
     }
   ]
 }

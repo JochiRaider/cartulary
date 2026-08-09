@@ -187,11 +187,11 @@ func indicatorInputFromCreateCommand(command CreateCommand) (indicatorUpsertInpu
 }
 
 func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.projections.RefreshRowTx(ctx, tx, ViewSchemaID, recordID)
+	return s.projections.RefreshIndicatorTx(ctx, tx, recordID)
 }
 
 func (s *Store) loadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return s.projections.LoadRowTx(ctx, tx, ViewSchemaID, recordID)
+	return s.projections.LoadIndicatorTx(ctx, tx, recordID)
 }
 
 func (s *Store) refreshAndLoadProjectionRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {

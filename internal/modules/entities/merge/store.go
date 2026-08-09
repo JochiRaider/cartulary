@@ -8,6 +8,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
@@ -48,8 +50,14 @@ func WithAssessmentEffects(effects *assessments.MergeEffects) StoreOption {
 	}
 }
 
+func WithWorkbookProjection(writer workbookprojection.Writer) StoreOption {
+	return func(ports *entityStorePorts) {
+		ports.projections = writer
+	}
+}
+
 func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOption) *Store {
-	ports := newEntityStorePorts(pool, appender)
+	ports := newEntityStorePorts(pool, appender, nil)
 	for _, option := range options {
 		if option != nil {
 			option(&ports)
@@ -58,6 +66,14 @@ func NewStore(pool postgres.DB, appender *revisions.Appender, options ...StoreOp
 	if ports.assessments == nil {
 		panic("compose entity merge store: assessment effects are required")
 	}
+	if ports.projections == nil {
+		panic("compose entity merge store: workbook projection writer is required")
+	}
+	ports.mentions = entityMentionAdapter{store: mentions.NewStore(
+		pool,
+		appender,
+		mentions.WithWorkbookProjection(ports.projections),
+	)}
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),

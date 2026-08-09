@@ -17,11 +17,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -141,9 +140,18 @@ func (e *SameFieldConflictError) Error() string {
 	return "artifacts: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec, appender *revisions.Appender, conflictFields conflicttokens.FieldResolver, keepSaved conflicttokens.IdempotencyPort) *WorkbookFacade {
+func NewWorkbookFacade(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
+	projectionRows artifactprojection.Rows,
+) *WorkbookFacade {
+	if projectionRows == nil {
+		panic("compose Artifacts workbook facade: projection rows are required")
+	}
 	authStore := authn.NewStore(pool)
-	projectionRows := projections.NewArtifactRows(pool, artifactprojection.QuerySurfaces()...)
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authStore,
@@ -289,7 +297,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingArtifactPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.source.projections.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+			current, err := f.source.projections.LoadArtifactTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -314,7 +322,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.source.projections.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	beforeRow, err := f.source.projections.LoadArtifactTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -335,10 +343,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.source.rows.TouchRowTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.source.projections.RefreshTx(ctx, tx, command.RecordID); err != nil {
+	if err := f.source.projections.RefreshArtifactTx(ctx, tx, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.source.projections.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	afterRow, err := f.source.projections.LoadArtifactTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}

@@ -22,12 +22,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
+	artifactreporting "github.com/JochiRaider/cartulary/internal/modules/artifacts/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
@@ -759,7 +761,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		objectStore,
 		revisionRuntime.ConflictFieldResolver(),
 		workbookassembly.NewConflictIdempotencyPort(postgresHandle),
-		evidence.WithProjectionPort(timelineProjection.EvidenceProjectionPort()),
+		timelineProjection.Evidence.Rows,
 	)
 	timelineBundle := timelineassembly.NewBundleWithProjection(
 		postgresHandle,
@@ -772,8 +774,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    postgresHandle,
 		Revisions:   revisionRuntime.Appender(),
-		Projections: timelineBundle.ProjectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
+		Projections: timelineBundle.IndicatorProjections.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
 		Clock:       now,
 	})
 	if err != nil {
@@ -783,7 +785,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
-		timelineBundle.ProjectionCoordinator,
+		timelineProjection.Revisions,
 		now,
 	)
 	if err != nil {
@@ -815,7 +817,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		postgresPool,
 		objectStore,
 		incidentBundleImportFinalizer,
-		timelineBundle.ProjectionCatalog.Rebuild,
+		timelineBundle.Projections.ImportRebuilder(),
 		historicalIntentPolicy,
 		jobTransactions,
 		now,
@@ -881,19 +883,24 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			extensionassembly.NewIncidentBundleJobSuccessFinalizer(extensionJobFinalizer, now),
 		),
 		incidentbundles.WithPortability(portability, crossOwnerCoordinator),
-		incidentbundles.WithProjectionRebuild(timelineBundle.ProjectionCatalog.Rebuild),
+		incidentbundles.WithProjectionRebuild(timelineBundle.Projections.ImportRebuilder()),
 		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
 		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
 	)
 	importOwnerLimits, importArchiveLimits := settingsProjection.Imports()
 	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(
 		importassembly.OwnerRegistryDependencies{
-			Postgres:          postgresHandle,
-			RevisionAppender:  revisionRuntime.Appender(),
-			Intents:           intentAppender,
-			Timeline:          timelineFacade,
-			ProjectionCatalog: timelineBundle.ProjectionCatalog.Catalog,
-			Indicators:        indicatorOwner,
+			Postgres:                postgresHandle,
+			RevisionAppender:        revisionRuntime.Appender(),
+			Intents:                 intentAppender,
+			Timeline:                timelineFacade,
+			EntityProjections:       timelineBundle.EntityProjections.Writer,
+			AssessmentProjections:   timelineBundle.AssessmentProjections.Rows,
+			ArtifactProjections:     timelineBundle.ArtifactProjections.Rows,
+			EvidenceProjections:     timelineBundle.EvidenceProjections.Rows,
+			PartyProjections:        timelineBundle.PartyProjections.Rows,
+			TaskDecisionProjections: timelineBundle.TaskDecisionProjections.Rows,
+			Indicators:              indicatorOwner,
 		},
 	)
 	if err != nil {
@@ -935,11 +942,28 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("compose Snapshot/Reporting participant: %w", err)
 		}
 	}
+	hostIdentityReporting, err := hostidentityreporting.New(timelineBundle.EntityProjections.Reader)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	artifactReporting, err := artifactreporting.New(timelineBundle.ArtifactProjections.Reader)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	taskDecisionReporting, err := tasksdecisions.NewReportingContribution(timelineBundle.TaskDecisionProjections.Reader)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
 		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
 		ExportFieldProviders: []exportprovider.FieldProvider{
-			tasksdecisions.NewReportingContribution(),
+			artifactReporting,
+			hostIdentityReporting,
+			taskDecisionReporting,
 		},
 	}, jobTransactions, jobManager, runtime.jobRunner)
 	reportingRoutes := reporting.RegisterRoutes(reportingRouteOptions)
@@ -970,6 +994,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		workbookConflictTokens,
 		revisionRuntime.Appender(),
 		revisionRuntime.ConflictFieldResolver(),
+		timelineBundle.TaskDecisionProjections.Rows,
 	)
 	if err != nil {
 		runtime.Close()
@@ -977,8 +1002,12 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		postgresHandle,
-		timelineBundle.ProjectionCatalog.Catalog,
-		timelineBundle.ProjectionCatalog.Query,
+		timelineBundle.Projections.DescriptorSet(),
+		timelineBundle.Projections,
+		timelineBundle.EntityProjections,
+		timelineBundle.AssessmentProjections.Rows,
+		timelineBundle.ArtifactProjections.Rows,
+		timelineBundle.PartyProjections.Rows,
 		indicatorOwner,
 		timelineFacade,
 		evidenceOwner.WorkbookContribution(),
@@ -997,6 +1026,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		workbookContributionCatalog,
 		revisionRuntime.Appender(),
 		taskDecisionMutation,
+		timelineBundle.ArtifactProjections.Rows,
 	)
 	if err != nil {
 		runtime.Close()
@@ -1021,9 +1051,15 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
-				TimelineOwner:       timelineFacade,
-				MutationStore:       workbookMutationStore,
-				EntityOwner:         hostidentity.NewStore(postgresHandle, revisionRuntime.Appender(), workbookassembly.NewConflictIdempotencyPort(postgresHandle)),
+				TimelineOwner: timelineFacade,
+				MutationStore: workbookMutationStore,
+				EntityOwner: hostidentity.NewStore(
+					postgresHandle,
+					revisionRuntime.Appender(),
+					workbookassembly.NewConflictIdempotencyPort(postgresHandle),
+					timelineBundle.EntityProjections.Writer,
+					hostidentity.WithProjectionReader(timelineBundle.EntityProjections.Reader),
+				),
 				ConflictTokens:      workbookConflictTokens,
 				StartupStoreFactory: workbookassembly.NewStartupStoreFromDependencies,
 			}),

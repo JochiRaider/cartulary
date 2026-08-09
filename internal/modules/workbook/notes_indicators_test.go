@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -126,8 +126,8 @@ func TestNotesAndIndicatorsQueryThroughWorkbookProjections_Integration(t *testin
 	indicatorStore, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    harness.DB,
 		Revisions:   appender,
-		Projections: timelineBundle.ProjectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
+		Projections: timelineBundle.IndicatorProjections.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)
@@ -335,7 +335,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle := timelineassembly.NewBundle(harness.DB, workbookTestConflictTokens(), appender, revisionComposition.Intents, evidence.NewTimelineAttachmentContribution(harness.DB))
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, appender, revisionComposition.Intents)
-	projectionStore := projections.NewStore(harness.DB, timelineBundle.ProjectionCatalog.Catalog)
+	projectionRebuilder := timelineBundle.Projections.RevisionServices()
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector workbook-interaction hot projections")
 
@@ -390,9 +390,6 @@ SELECT count(*)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
 
 	sourceBefore := snapshotHotProjectionSourceState(t, harness, incident.ID)
 	execProjectionSQL(t, harness, `DELETE FROM party_grid_projection WHERE record_id = $1`, party.RecordID)
@@ -408,21 +405,20 @@ SELECT count(*)
 		t.Fatalf("artifact query ignored projection table deletion")
 	}
 
-	if err := projectionStore.RebuildIncidentParties(ctx, incident.ID); err != nil {
-		t.Fatalf("rebuild party projections: %v", err)
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin projection rebuild transaction: %v", err)
 	}
-	if err := projectionStore.RebuildIncidentEvidence(ctx, incident.ID); err != nil {
-		t.Fatalf("rebuild evidence projections: %v", err)
+	if err := projectionRebuilder.RebuildIncidentTx(ctx, tx, incident.ID); err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("rebuild incident projections: %v", err)
 	}
-	if err := projectionStore.RebuildIncidentArtifacts(ctx, incident.ID); err != nil {
-		t.Fatalf("rebuild artifact projections: %v", err)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit projection rebuild transaction: %v", err)
 	}
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
 	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
-	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
 	if sourceAfter := snapshotHotProjectionSourceState(t, harness, incident.ID); sourceAfter != sourceBefore {
 		t.Fatalf("projection rebuild mutated source/history state: before=%+v after=%+v", sourceBefore, sourceAfter)
 	}
@@ -568,24 +564,42 @@ func newCatalogBackedWorkbookStore(
 	if err != nil {
 		t.Fatalf("compose conflict field resolver: %v", err)
 	}
-	evidenceContribution := evidence.NewWorkbookContribution(pool, conflictTokens, appender, intents, conflictFields, workbookassembly.NewConflictIdempotencyPort(pool))
-	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(pool, conflictTokens, appender, conflictFields)
+	evidenceContribution := evidence.NewWorkbookContribution(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		conflictFields,
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		timelineBundle.EvidenceProjections.Rows,
+	)
+	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
+		pool,
+		conflictTokens,
+		appender,
+		conflictFields,
+		timelineBundle.TaskDecisionProjections.Rows,
+	)
 	if err != nil {
 		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
 	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    pool,
 		Revisions:   appender,
-		Projections: timelineBundle.ProjectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
+		Projections: timelineBundle.IndicatorProjections.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
-		timelineBundle.ProjectionCatalog.Catalog,
-		timelineBundle.ProjectionCatalog.Query,
+		timelineBundle.Projections.DescriptorSet(),
+		timelineBundle.Projections,
+		timelineBundle.EntityProjections,
+		timelineBundle.AssessmentProjections.Rows,
+		timelineBundle.ArtifactProjections.Rows,
+		timelineBundle.PartyProjections.Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
@@ -603,6 +617,7 @@ func newCatalogBackedWorkbookStore(
 		catalog,
 		appender,
 		taskDecisionMutation,
+		timelineBundle.ArtifactProjections.Rows,
 	)
 	if err != nil {
 		t.Fatalf("compose Workbook mutation store: %v", err)
@@ -624,15 +639,6 @@ func mustProjectionRows(t testing.TB, store *workbook.Store, incidentID uuid.UUI
 	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
 	if err != nil {
 		t.Fatalf("query %s projection rows: %v", viewSchemaID, err)
-	}
-	return rows
-}
-
-func mustProjectionStoreRows(t testing.TB, store *projections.Store, incidentID uuid.UUID, viewSchemaID string) []map[string]any {
-	t.Helper()
-	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
-	if err != nil {
-		t.Fatalf("query %s through projection store: %v", viewSchemaID, err)
 	}
 	return rows
 }

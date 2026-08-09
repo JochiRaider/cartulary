@@ -16,9 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -32,7 +31,7 @@ type WorkbookFacade struct {
 	authStore        *authn.Store
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
-	projectionRows   *projections.EvidenceRows
+	projectionRows   evidenceprojection.Rows
 	revisionHistory  conflicttokens.RevisionWindowReader
 	revisionAppender *revisions.Appender
 	store            *Store
@@ -123,16 +122,21 @@ func NewWorkbookFacade(
 	intents collaboration.IntentAppender,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
+	projectionRows evidenceprojection.Rows,
 ) *WorkbookFacade {
 	if intents == nil {
 		panic("compose Evidence workbook facade: Collaboration intent appender is required")
+	}
+	if projectionRows == nil {
+		panic("compose Evidence workbook facade: projection rows are required")
 	}
 	store := NewStore(
 		pool,
 		WithRevisionAppender(appender),
 		WithCollaborationIntents(intents),
+		WithWorkbookProjections(projectionRows),
 	)
-	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil, conflictFields, keepSaved)
+	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil, conflictFields, keepSaved, projectionRows)
 }
 
 func newWorkbookFacade(
@@ -144,9 +148,12 @@ func newWorkbookFacade(
 	objects objectstore.Store,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
+	projectionRows evidenceprojection.Rows,
 ) *WorkbookFacade {
+	if projectionRows == nil {
+		panic("compose Evidence workbook facade: projection rows are required")
+	}
 	recordStore := records.NewStore()
-	projectionRows := projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...)
 	incidentAccess := incidents.NewAccess(pool)
 	return &WorkbookFacade{
 		pool:             pool,
@@ -327,7 +334,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingEvidencePatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+			current, err := f.projectionRows.LoadEvidenceTx(ctx, tx, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -352,7 +359,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+	beforeRow, err := f.projectionRows.LoadEvidenceTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -376,10 +383,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.store.TouchWorkbookRowTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.projectionRows.RefreshTx(ctx, tx, command.RecordID); err != nil {
+	if err := f.projectionRows.RefreshEvidenceTx(ctx, tx, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+	afterRow, err := f.projectionRows.LoadEvidenceTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}

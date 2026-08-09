@@ -1,0 +1,95 @@
+package runtime
+
+import (
+	"slices"
+	"testing"
+
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+)
+
+func contractPlansForTest() map[string]genericSurface {
+	plans := make([]queryengine.Surface, 0)
+	plans = append(plans, queryengine.TimelinePlans()...)
+	plans = append(plans, queryengine.IndicatorPlans()...)
+	plans = append(plans, queryengine.AssessmentPlans()...)
+	plans = append(plans, queryengine.ArtifactPlans()...)
+	plans = append(plans, queryengine.EvidencePlans()...)
+	plans = append(plans, queryengine.PartyPlans()...)
+	plans = append(plans, queryengine.TaskRequestPlans()...)
+	plans = append(plans, queryengine.DecisionPlans()...)
+	surfaces := make(map[string]genericSurface, len(plans))
+	for _, plan := range plans {
+		surface, err := genericSurfaceFromPlan(plan)
+		if err != nil {
+			panic(err)
+		}
+		if _, exists := surfaces[surface.viewSchemaID]; exists {
+			panic("duplicate query surface " + surface.viewSchemaID)
+		}
+		surfaces[surface.viewSchemaID] = surface
+	}
+	return surfaces
+}
+
+func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testing.T) {
+	intents := []providercontract.SurfaceIntent{
+		timelineprojection.SurfaceIntent(),
+		indicatorprojection.SurfaceIntent(),
+		assessmentprojection.SurfaceIntent(),
+		evidenceprojection.SurfaceIntent(),
+		partyprojection.SurfaceIntent(),
+	}
+	intents = append(intents, artifactprojection.SurfaceIntents()...)
+	intents = append(intents, taskdecisionprojection.SurfaceIntents()...)
+	intentByView := make(map[string]providercontract.SurfaceIntent, len(intents))
+	for _, intent := range intents {
+		if _, exists := intentByView[intent.ViewSchemaID]; exists {
+			t.Fatalf("duplicate semantic intent %s", intent.ViewSchemaID)
+		}
+		intentByView[intent.ViewSchemaID] = intent
+	}
+
+	plans := contractPlansForTest()
+	if len(plans) != len(intentByView) {
+		t.Fatalf("compiled plan count = %d, semantic intent count = %d", len(plans), len(intentByView))
+	}
+	for viewSchemaID, intent := range intentByView {
+		plan, exists := plans[viewSchemaID]
+		if !exists {
+			t.Errorf("semantic intent %s has no private compiled plan", viewSchemaID)
+			continue
+		}
+		planFields := make([]string, 0, len(plan.fields))
+		for _, field := range plan.fields {
+			planFields = append(planFields, field.key)
+		}
+		slices.Sort(planFields)
+		intentFields := slices.Clone(intent.FieldKeys)
+		slices.Sort(intentFields)
+		if !slices.Equal(planFields, intentFields) {
+			t.Errorf("%s compiled fields = %v, semantic fields = %v", viewSchemaID, planFields, intentFields)
+		}
+		schema, ok := viewschema.Lookup(viewSchemaID)
+		if !ok {
+			t.Errorf("%s has no view schema", viewSchemaID)
+			continue
+		}
+		schemaFields := make([]string, 0, len(schema.Fields()))
+		for fieldKey := range schema.Fields() {
+			schemaFields = append(schemaFields, fieldKey)
+		}
+		slices.Sort(schemaFields)
+		if !slices.Equal(planFields, schemaFields) {
+			t.Errorf("%s compiled fields = %v, schema fields = %v", viewSchemaID, planFields, schemaFields)
+		}
+	}
+}

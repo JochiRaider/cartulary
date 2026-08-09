@@ -8,8 +8,35 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	evidencecontract "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	partyprovider "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
+	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
+
+type projectionManifestDB struct {
+	postgres.DB
+}
+
+type projectionManifestTimelineSource struct {
+	timelineprojection.SourceReader
+}
+
+type projectionManifestEntitySource struct {
+	entityprojection.SourceReader
+}
 
 type projectionProviderManifest struct {
 	SchemaID        string                            `json:"schema_id"`
@@ -71,20 +98,30 @@ func TestProjectionProviderManifestMirrorsCodeBackedRegistry(t *testing.T) {
 func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest {
 	t.Helper()
 
-	catalog, err := NewCatalog(nil)
+	bundle, err := NewBundle(
+		&projectionManifestDB{},
+		projectionManifestTimelineContribution(t),
+		projectionManifestEntitiesContribution(t),
+		projectionManifestIndicatorsContribution(t),
+		projectionManifestAssessmentsContribution(t),
+		projectionManifestArtifactsContribution(t),
+		projectionManifestEvidenceContribution(t),
+		projectionManifestPartiesContribution(t),
+		projectionManifestTaskDecisionContribution(t),
+	)
 	if err != nil {
-		t.Fatalf("assemble projection catalog: %v", err)
+		t.Fatalf("assemble projection adapter: %v", err)
 	}
-	descriptors := catalog.Descriptors()
+	descriptors := bundle.DescriptorSet().All()
 	entries := make([]projectionProviderManifestEntry, 0, len(descriptors))
 	for _, descriptor := range descriptors {
 		entries = append(entries, projectionProviderManifestEntry{
-			ProviderID:                   descriptor.ProviderKey,
+			ProviderID:                   descriptor.ProviderID,
 			SchemaVersion:                descriptor.SchemaVersion,
-			SourceOwnerModule:            descriptor.SourceOwnerKey,
-			ProjectionStorageOwnerModule: descriptor.ProjectionStorageOwnerKey,
+			SourceOwnerModule:            descriptor.SourceOwnerModule,
+			ProjectionStorageOwnerModule: descriptor.ProjectionStorageOwnerModule,
 			ViewSchemaIDs:                manifestStrings(descriptor.ViewSchemaIDs),
-			ProjectionTableIDs:           manifestStrings(descriptor.ProjectionTableFamilies),
+			ProjectionTableIDs:           manifestStrings(descriptor.ProjectionTableIDs),
 			SourceRecordTypes:            manifestSortedStrings(descriptor.SourceRecordTypes),
 			SourceAuthorityModules:       manifestSortedStrings(descriptor.SourceAuthorityModules),
 			Capabilities: projectionProviderManifestCapability{
@@ -101,19 +138,136 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 		})
 	}
 
-	importPolicy := projections.ProductionImportPolicy()
 	return projectionProviderManifest{
 		SchemaID:        "cartulary.projection_provider_manifest.v4",
 		ManifestVersion: 4,
 		Authority:       "validation_only_code_backed_registry_authoritative",
 		SourceRegistry:  "internal/app/projectionassembly/catalog.go",
 		ImportPolicy: projectionProviderImportPolicy{
-			ApprovedRootImporters:    importPolicy.ApprovedRootImporters,
-			ApprovedAdapterPackages:  importPolicy.ApprovedAdapterPackages,
-			ApprovedContractPackages: importPolicy.ApprovedContractPackages,
+			ApprovedRootImporters:    []string{},
+			ApprovedAdapterPackages:  []string{"internal/modules/projections/adapters"},
+			ApprovedContractPackages: []string{"internal/modules/projections/providercontract"},
 		},
 		Providers: entries,
 	}
+}
+
+func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T) {
+	bundle, err := NewBundle(
+		&projectionManifestDB{},
+		projectionManifestTimelineContribution(t),
+		projectionManifestEntitiesContribution(t),
+		projectionManifestIndicatorsContribution(t),
+		projectionManifestAssessmentsContribution(t),
+		projectionManifestArtifactsContribution(t),
+		projectionManifestEvidenceContribution(t),
+		projectionManifestPartiesContribution(t),
+		projectionManifestTaskDecisionContribution(t),
+	)
+	if err != nil {
+		t.Fatalf("assemble projection adapter: %v", err)
+	}
+	if !bundle.ports.Ready() || bundle.DescriptorSet().Len() != 10 {
+		t.Fatalf("projection adapter ports are incomplete: ready=%v descriptors=%d", bundle.ports.Ready(), bundle.DescriptorSet().Len())
+	}
+	if !bundle.RecoveryPorts().Ready() || !bundle.TimelinePorts().Ready() || !bundle.EntityPorts().Ready() || !bundle.IndicatorPorts().Ready() || !bundle.AssessmentPorts().Ready() || !bundle.ArtifactPorts().Ready() || !bundle.EvidencePorts().Ready() || !bundle.PartyPorts().Ready() || !bundle.TaskDecisionPorts().Ready() || bundle.RestoreProbeQuery() == nil || bundle.RevisionServices() == nil || bundle.SourceTextRows() == nil {
+		t.Fatalf("projection assembly consumer ports are incomplete")
+	}
+	for _, descriptor := range bundle.DescriptorSet().All() {
+		if descriptor.Capabilities.Query {
+			for _, viewSchemaID := range descriptor.ViewSchemaIDs {
+				provider, ok := bundle.WorkbookQueryProvider(viewSchemaID)
+				if descriptor.ProviderID == "host" || descriptor.ProviderID == "identity" {
+					if ok || provider != nil {
+						t.Fatalf("typed entity query provider %q leaked through the generic adapter", viewSchemaID)
+					}
+					continue
+				}
+				if !ok || provider == nil {
+					t.Fatalf("projection query provider %q is unavailable", viewSchemaID)
+				}
+			}
+		}
+	}
+
+	descriptors := bundle.DescriptorSet().All()
+	descriptors[0].ViewSchemaIDs[0] = "mutated.snapshot"
+	again, _ := bundle.DescriptorSet().Lookup("timeline")
+	if again.SchemaVersion != providercontract.DescriptorSchemaVersion || reflect.DeepEqual(again.ViewSchemaIDs, descriptors[0].ViewSchemaIDs) {
+		t.Fatalf("projection assembly exposed mutable descriptors: %#v", again)
+	}
+}
+
+func projectionManifestTimelineContribution(t testing.TB) timelineprojection.Contribution {
+	t.Helper()
+	contribution, err := timelineprojection.NewRuntimeContribution(&projectionManifestTimelineSource{})
+	if err != nil {
+		t.Fatalf("construct Timeline projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestEntitiesContribution(t testing.TB) entityprojection.Contribution {
+	t.Helper()
+	contribution, err := entityprojection.NewRuntimeContribution(&projectionManifestEntitySource{})
+	if err != nil {
+		t.Fatalf("construct Entities projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestIndicatorsContribution(t testing.TB) indicatorprojection.Contribution {
+	t.Helper()
+	contribution, err := indicatorprovider.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Indicators projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestAssessmentsContribution(t testing.TB) assessmentcontract.Contribution {
+	t.Helper()
+	contribution, err := assessmentassembly.NewProjectionContribution()
+	if err != nil {
+		t.Fatalf("construct Assessments projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestArtifactsContribution(t testing.TB) artifactcontract.Contribution {
+	t.Helper()
+	contribution, err := artifactprojection.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Artifacts projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestEvidenceContribution(t testing.TB) evidencecontract.Contribution {
+	t.Helper()
+	contribution, err := evidenceprojection.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Evidence projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestPartiesContribution(t testing.TB) partyprojection.Contribution {
+	t.Helper()
+	contribution, err := partyprovider.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Parties projection contribution: %v", err)
+	}
+	return contribution
+}
+
+func projectionManifestTaskDecisionContribution(t testing.TB) taskdecisionprojection.Contribution {
+	t.Helper()
+	contribution, err := taskdecisionprovider.NewContribution()
+	if err != nil {
+		t.Fatalf("construct Tasks/Decisions projection contribution: %v", err)
+	}
+	return contribution
 }
 
 func manifestSortedStrings(values []string) []string {

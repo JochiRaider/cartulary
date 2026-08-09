@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -19,11 +20,15 @@ func NewImportCreateFacade(
 	facadeID string,
 	pool postgres.DB,
 	appender *revisions.Appender,
+	projectionRows partyprojection.Rows,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != ViewSchemaID {
 		return nil, fmt.Errorf("party import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(pool, appender)
+	if projectionRows == nil {
+		return nil, fmt.Errorf("party import projection rows are required")
+	}
+	store := NewStore(pool, appender, projectionRows)
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,

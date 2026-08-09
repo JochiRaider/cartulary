@@ -5902,6 +5902,39 @@ Boundary enforcement MUST be based on package import paths and approved facade c
 Profiles: base
 Verified by: AC-473
 
+**REQ-01-658**
+Every projection refresh, typed projection deletion, row load, interactive
+query, incident rebuild, restore rebuild, projection-backed report read, table
+cleanup, lock, and row-count operation MUST preserve the ownership split below.
+
+- The named source owner owns authoritative source reads, typed source inputs,
+  derivation meaning, field meaning, report-fact meaning, and semantic query
+  intent.
+- Projections owns every production SQL statement that reads, inserts, updates,
+  deletes, locks, cleans, or counts a projection table declared by an active
+  projection provider descriptor.
+- A projection writer invoked during a source mutation MUST use the caller's
+  transaction. It MUST NOT begin, commit, roll back, replace, or detach that
+  transaction. A projection-writer failure MUST remain part of the caller's
+  atomic source-mutation failure.
+- Projection code MUST NOT authorize a request, mutate authoritative source or
+  retained-history state, publish Collaboration events, or reinterpret a
+  source-owner error as successful projection work.
+- Test-only direct projection-table access MUST be declared separately and
+  MUST NOT grant a production permission.
+
+For the current active provider set, boundary evidence MUST prove exact set
+equality among descriptor-owned projection table IDs, production table-access
+rules, Projections recovery-state table IDs, and the projection tables assigned
+to Projections by schema ownership. A missing, duplicate, extra, inactive, or
+differently named member MUST fail validation.
+
+This requirement changes no public route, query, row, cursor, saved-view,
+authorization, Collaboration, restore-result, descriptor-version, or database
+schema contract.
+Profiles: base
+Verified by: AC-539
+
 ## 9. Canonical derivation layer
 
 **REQ-01-367**

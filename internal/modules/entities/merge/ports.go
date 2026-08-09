@@ -11,8 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -24,7 +24,7 @@ type entityStorePorts struct {
 	records       entityRecordPort
 	revisions     entityRevisionPort
 	links         entityLinkPort
-	projections   entityProjectionPort
+	projections   workbookprojection.Writer
 	timeline      entityTimelinePort
 	collaboration collaboration.IntentAppender
 }
@@ -48,12 +48,6 @@ type entityLinkPort interface {
 	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (entityRecordLink, error)
 	RepointMergedLinksTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, map[uuid.UUID][]string, error)
 	RepointMergedTagsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, error)
-}
-
-type entityProjectionPort interface {
-	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
-	DeleteEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
-	RebuildEntityProjectionTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
 type entityAssessmentPort interface {
@@ -133,13 +127,16 @@ func (e *entityRecordLockedError) Error() string {
 	return "entities: record envelope locked"
 }
 
-func newEntityStorePorts(pool postgres.DB, appender *revisions.Appender) entityStorePorts {
+func newEntityStorePorts(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	projectionWriter workbookprojection.Writer,
+) entityStorePorts {
 	return entityStorePorts{
-		mentions:    entityMentionAdapter{store: mentions.NewStore(pool, appender)},
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
 		links:       entityLinkAdapter{store: links.NewStore()},
-		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
+		projections: projectionWriter,
 	}
 }
 
@@ -357,41 +354,4 @@ func mergeMutationsFromMentionMutations(mutations []mentions.MergeMutation) []me
 		})
 	}
 	return result
-}
-
-type entityProjectionAdapter struct {
-	rows *projections.EntityRows
-}
-
-func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return a.rows.RefreshHostTx(ctx, tx, recordID)
-	case "identity":
-		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
-	default:
-		return nil
-	}
-}
-
-func (a entityProjectionAdapter) DeleteEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return a.rows.DeleteHostTx(ctx, tx, recordID)
-	case "identity":
-		return a.rows.DeleteIdentityTx(ctx, tx, recordID)
-	default:
-		return nil
-	}
-}
-
-func (a entityProjectionAdapter) RebuildEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return a.rows.RebuildHostsTx(ctx, tx, incidentID)
-	case "identity":
-		return a.rows.RebuildIdentitiesTx(ctx, tx, incidentID)
-	default:
-		return nil
-	}
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/querypage"
@@ -17,7 +17,7 @@ import (
 func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *testing.T) {
 	descriptors, queryContributions, createContributions, patchContributions, conflictContributions := validCatalogInputs(t)
 	catalog, err := NewWorkbookContributionCatalog(
-		descriptors,
+		mustDescriptorSet(t, descriptors),
 		queryContributions,
 		createContributions,
 		patchContributions,
@@ -41,26 +41,26 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 
 	tests := []struct {
 		name string
-		edit func([]projections.ProviderDescriptor, []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution)
+		edit func([]providercontract.ProviderDescriptor, []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution)
 		want string
 	}{
 		{
 			name: "duplicate contribution",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				return descriptors, append(contributions, contributions[0])
 			},
 			want: "duplicate workbook query contribution",
 		},
 		{
 			name: "missing contribution",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				return descriptors, contributions[1:]
 			},
 			want: "missing active surface",
 		},
 		{
 			name: "unknown contribution",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				contributions[0].ViewSchemaID = "cartulary.view.unknown.v1"
 				return descriptors, contributions
 			},
@@ -68,7 +68,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "owner mismatch",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				contributions[0].SourceOwnerKey = "wrong-owner"
 				return descriptors, contributions
 			},
@@ -76,7 +76,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "record type mismatch",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				contributions[0].SourceRecordTypes = []string{"wrong_record"}
 				return descriptors, contributions
 			},
@@ -84,7 +84,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "backend capability mismatch",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				contributions[0].BackendKind = QueryBackendSourceOwner
 				return descriptors, contributions
 			},
@@ -92,7 +92,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "nil provider",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				contributions[0].Provider = nil
 				return descriptors, contributions
 			},
@@ -100,7 +100,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "descriptor record type mismatch",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				descriptors[0].SourceRecordTypes = []string{"wrong_record"}
 				return descriptors, contributions
 			},
@@ -108,16 +108,16 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 		},
 		{
 			name: "duplicate descriptor view",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				duplicate := descriptors[0]
-				duplicate.ProviderKey += "-duplicate"
+				duplicate.ProviderID += "-duplicate"
 				return append(descriptors, duplicate), contributions
 			},
 			want: "duplicate active projection descriptor ownership",
 		},
 		{
 			name: "missing descriptor",
-			edit: func(descriptors []projections.ProviderDescriptor, contributions []QueryContribution) ([]projections.ProviderDescriptor, []QueryContribution) {
+			edit: func(descriptors []providercontract.ProviderDescriptor, contributions []QueryContribution) ([]providercontract.ProviderDescriptor, []QueryContribution) {
 				return descriptors[1:], contributions
 			},
 			want: "has no active projection descriptor",
@@ -130,7 +130,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 			testContributions := cloneQueryContributions(queryContributions)
 			testDescriptors, testContributions = test.edit(testDescriptors, testContributions)
 			_, err := NewWorkbookContributionCatalog(
-				testDescriptors,
+				mustDescriptorSet(t, testDescriptors),
 				testContributions,
 				createContributions,
 				patchContributions,
@@ -146,7 +146,7 @@ func TestWorkbookContributionCatalogValidatesEveryActiveQuerySurface_Unit(t *tes
 func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *testing.T) {
 	descriptors, queries, creates, patches, conflicts := validCatalogInputs(t)
 	catalog, err := NewWorkbookContributionCatalog(
-		descriptors,
+		mustDescriptorSet(t, descriptors),
 		queries,
 		creates,
 		patches,
@@ -234,7 +234,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	for _, test := range createTests {
 		t.Run("create/"+test.name, func(t *testing.T) {
 			_, err := NewWorkbookContributionCatalog(
-				descriptors,
+				mustDescriptorSet(t, descriptors),
 				queries,
 				test.edit(cloneCreateContributions(creates)),
 				patches,
@@ -293,7 +293,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	for _, test := range patchTests {
 		t.Run("patch/"+test.name, func(t *testing.T) {
 			_, err := NewWorkbookContributionCatalog(
-				descriptors,
+				mustDescriptorSet(t, descriptors),
 				queries,
 				creates,
 				test.edit(clonePatchContributions(patches)),
@@ -352,7 +352,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 	for _, test := range conflictTests {
 		t.Run("conflict/"+test.name, func(t *testing.T) {
 			_, err := NewWorkbookContributionCatalog(
-				descriptors,
+				mustDescriptorSet(t, descriptors),
 				queries,
 				creates,
 				patches,
@@ -366,7 +366,7 @@ func TestWorkbookContributionCatalogValidatesCreateAndPatchRequirements_Unit(t *
 }
 
 func validCatalogInputs(t testing.TB) (
-	[]projections.ProviderDescriptor,
+	[]providercontract.ProviderDescriptor,
 	[]QueryContribution,
 	[]CreateContribution,
 	[]PatchContribution,
@@ -374,7 +374,7 @@ func validCatalogInputs(t testing.TB) (
 ) {
 	t.Helper()
 	resources := viewschema.ListPublicResources()
-	descriptors := make([]projections.ProviderDescriptor, 0, len(resources))
+	descriptors := make([]providercontract.ProviderDescriptor, 0, len(resources))
 	contributions := make([]QueryContribution, 0, len(resources))
 	creates := make([]CreateContribution, 0, len(resources))
 	createProvider := createProvider{
@@ -387,13 +387,13 @@ func validCatalogInputs(t testing.TB) (
 	}
 	for _, resource := range resources {
 		ownerKey := "owner:" + resource.ViewSchemaID
-		descriptors = append(descriptors, projections.ProviderDescriptor{
-			Status:            projections.ProviderStatusActive,
-			ProviderKey:       "provider:" + resource.ViewSchemaID,
-			SourceOwnerKey:    ownerKey,
+		descriptors = append(descriptors, providercontract.ProviderDescriptor{
+			Status:            providercontract.ProviderStatusActive,
+			ProviderID:        "provider:" + resource.ViewSchemaID,
+			SourceOwnerModule: ownerKey,
 			ViewSchemaIDs:     []string{resource.ViewSchemaID},
 			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
-			Capabilities:      projections.ProviderCapabilities{Query: true},
+			Capabilities:      providercontract.ProviderCapabilities{Query: true},
 		})
 		contributions = append(contributions, QueryContribution{
 			ViewSchemaID:      resource.ViewSchemaID,
@@ -455,13 +455,22 @@ func validCatalogInputs(t testing.TB) (
 	return descriptors, contributions, creates, patches, conflicts
 }
 
-func cloneProviderDescriptors(input []projections.ProviderDescriptor) []projections.ProviderDescriptor {
-	cloned := append([]projections.ProviderDescriptor(nil), input...)
+func cloneProviderDescriptors(input []providercontract.ProviderDescriptor) []providercontract.ProviderDescriptor {
+	cloned := append([]providercontract.ProviderDescriptor(nil), input...)
 	for index := range cloned {
 		cloned[index].ViewSchemaIDs = append([]string(nil), cloned[index].ViewSchemaIDs...)
 		cloned[index].SourceRecordTypes = append([]string(nil), cloned[index].SourceRecordTypes...)
 	}
 	return cloned
+}
+
+func mustDescriptorSet(t testing.TB, descriptors []providercontract.ProviderDescriptor) providercontract.DescriptorSet {
+	t.Helper()
+	set, err := providercontract.NewDescriptorSet(descriptors)
+	if err != nil {
+		t.Fatalf("construct projection descriptor set: %v", err)
+	}
+	return set
 }
 
 func cloneQueryContributions(input []QueryContribution) []QueryContribution {

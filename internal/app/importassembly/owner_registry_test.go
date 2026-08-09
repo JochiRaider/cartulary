@@ -7,12 +7,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
@@ -20,12 +25,17 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 	t.Parallel()
 
 	registry, err := NewOwnerCreateRegistry(OwnerRegistryDependencies{
-		Postgres:          inertOwnerRegistryDB{},
-		RevisionAppender:  &revisions.Appender{},
-		Intents:           inertIntentAppender{},
-		Timeline:          inertTimelineFacade(),
-		ProjectionCatalog: &projections.Catalog{},
-		Indicators:        inertIndicatorOwner(),
+		Postgres:                inertOwnerRegistryDB{},
+		RevisionAppender:        &revisions.Appender{},
+		Intents:                 inertIntentAppender{},
+		Timeline:                inertTimelineFacade(),
+		EntityProjections:       inertEntityProjectionWriter{},
+		AssessmentProjections:   inertAssessmentProjectionRows{},
+		ArtifactProjections:     inertArtifactProjectionRows{},
+		EvidenceProjections:     inertEvidenceProjectionRows{},
+		PartyProjections:        inertPartyProjectionRows{},
+		TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+		Indicators:              inertIndicatorOwner(),
 	})
 	if err != nil {
 		t.Fatalf("compose owner-create registry: %v", err)
@@ -66,61 +76,182 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 		{
 			name: "postgres",
 			deps: OwnerRegistryDependencies{
-				RevisionAppender:  &revisions.Appender{},
-				Intents:           inertIntentAppender{},
-				Timeline:          inertTimelineFacade(),
-				ProjectionCatalog: &projections.Catalog{},
-				Indicators:        inertIndicatorOwner(),
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
 			},
 		},
 		{
 			name: "revisions",
 			deps: OwnerRegistryDependencies{
-				Postgres:          inertOwnerRegistryDB{},
-				Intents:           inertIntentAppender{},
-				Timeline:          inertTimelineFacade(),
-				ProjectionCatalog: &projections.Catalog{},
-				Indicators:        inertIndicatorOwner(),
+				Postgres:                inertOwnerRegistryDB{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
 			},
 		},
 		{
 			name: "intents",
 			deps: OwnerRegistryDependencies{
-				Postgres:          inertOwnerRegistryDB{},
-				RevisionAppender:  &revisions.Appender{},
-				Timeline:          inertTimelineFacade(),
-				ProjectionCatalog: &projections.Catalog{},
-				Indicators:        inertIndicatorOwner(),
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
 			},
 		},
 		{
 			name: "timeline",
 			deps: OwnerRegistryDependencies{
-				Postgres:          inertOwnerRegistryDB{},
-				RevisionAppender:  &revisions.Appender{},
-				Intents:           inertIntentAppender{},
-				ProjectionCatalog: &projections.Catalog{},
-				Indicators:        inertIndicatorOwner(),
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
 			},
 		},
 		{
 			name: "projection catalog",
 			deps: OwnerRegistryDependencies{
-				Postgres:         inertOwnerRegistryDB{},
-				RevisionAppender: &revisions.Appender{},
-				Intents:          inertIntentAppender{},
-				Timeline:         inertTimelineFacade(),
-				Indicators:       inertIndicatorOwner(),
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				Indicators:              inertIndicatorOwner(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+			},
+		},
+		{
+			name: "entity projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "assessment projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "artifact projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "evidence projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "party projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
+				Indicators:              inertIndicatorOwner(),
+			},
+		},
+		{
+			name: "task/decision projections",
+			deps: OwnerRegistryDependencies{
+				Postgres:              inertOwnerRegistryDB{},
+				RevisionAppender:      &revisions.Appender{},
+				Intents:               inertIntentAppender{},
+				Timeline:              inertTimelineFacade(),
+				EntityProjections:     inertEntityProjectionWriter{},
+				AssessmentProjections: inertAssessmentProjectionRows{},
+				ArtifactProjections:   inertArtifactProjectionRows{},
+				EvidenceProjections:   inertEvidenceProjectionRows{},
+				PartyProjections:      inertPartyProjectionRows{},
+				Indicators:            inertIndicatorOwner(),
 			},
 		},
 		{
 			name: "indicators",
 			deps: OwnerRegistryDependencies{
-				Postgres:          inertOwnerRegistryDB{},
-				RevisionAppender:  &revisions.Appender{},
-				Intents:           inertIntentAppender{},
-				Timeline:          inertTimelineFacade(),
-				ProjectionCatalog: &projections.Catalog{},
+				Postgres:                inertOwnerRegistryDB{},
+				RevisionAppender:        &revisions.Appender{},
+				Intents:                 inertIntentAppender{},
+				Timeline:                inertTimelineFacade(),
+				EntityProjections:       inertEntityProjectionWriter{},
+				AssessmentProjections:   inertAssessmentProjectionRows{},
+				ArtifactProjections:     inertArtifactProjectionRows{},
+				EvidenceProjections:     inertEvidenceProjectionRows{},
+				PartyProjections:        inertPartyProjectionRows{},
+				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 			},
 		},
 	}
@@ -135,13 +266,44 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 	}
 }
 
+type inertEntityProjectionWriter struct {
+	entityprojection.Writer
+}
+
+type inertAssessmentProjectionRows struct {
+	assessmentprojection.Rows
+}
+
+type inertArtifactProjectionRows struct {
+	artifactprojection.Rows
+}
+
+type inertEvidenceProjectionRows struct {
+	evidenceprojection.Rows
+}
+
+type inertPartyProjectionRows struct {
+	partyprojection.Rows
+}
+
+type inertTaskDecisionProjectionRows struct {
+	taskdecisionprojection.Rows
+}
+
+type inertIndicatorProjectionRows struct {
+	indicatorprojection.Rows
+}
+
+type inertIndicatorSourceText struct {
+	indicators.SourceTextPort
+}
+
 func inertIndicatorOwner() *indicators.Store {
-	coordinator := projections.NewCoordinator(inertOwnerRegistryDB{}, &projections.Catalog{})
 	owner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    inertOwnerRegistryDB{},
 		Revisions:   &revisions.Appender{},
-		Projections: coordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(coordinator),
+		Projections: inertIndicatorProjectionRows{},
+		SourceText:  inertIndicatorSourceText{},
 	})
 	if err != nil {
 		panic(err)

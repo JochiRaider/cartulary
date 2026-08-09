@@ -28,6 +28,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")

@@ -212,7 +212,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err := updateHostTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, next.RecordID, "host"); err != nil {
+	if err := s.ports.projections.RefreshHostTx(ctx, tx, next.RecordID); err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
@@ -318,7 +318,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err := updateIdentityTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, next.RecordID, "identity"); err != nil {
+	if err := s.ports.projections.RefreshIdentityTx(ctx, tx, next.RecordID); err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {

@@ -18,6 +18,7 @@ import (
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -31,7 +32,7 @@ type MutationFacade struct {
 	memberReferences MemberReferenceCapability
 	recordStore      RecordEnvelopeCapability
 	linkStore        LinkCapability
-	projectionRows   ProjectionCapability
+	projectionRows   taskdecisionprojection.Rows
 	revisions        RevisionCapability
 	conflictTokens   conflicttokens.ConflictTokenCodec
 	conflictFields   conflicttokens.FieldResolver
@@ -229,7 +230,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, recordID)
+	row, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -347,7 +348,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+			current, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -372,7 +373,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	beforeRow, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -396,7 +397,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.refreshRowTx(ctx, tx, request.ViewSchemaID, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.projectionRows.LoadTx(ctx, tx, request.ViewSchemaID, command.RecordID)
+	afterRow, err := f.loadProjectionRowTx(ctx, tx, request.ViewSchemaID, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -744,6 +745,22 @@ func (f *MutationFacade) refreshRowTx(ctx context.Context, tx pgx.Tx, viewSchema
 		return f.projectionRows.RefreshDecisionTx(ctx, tx, recordID)
 	default:
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
+	}
+}
+
+func (f *MutationFacade) loadProjectionRowTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	viewSchemaID string,
+	recordID uuid.UUID,
+) (map[string]any, error) {
+	switch viewSchemaID {
+	case TaskRequestsViewSchemaID:
+		return f.projectionRows.LoadTaskRequestTx(ctx, tx, recordID)
+	case DecisionsViewSchemaID:
+		return f.projectionRows.LoadDecisionTx(ctx, tx, recordID)
+	default:
+		return nil, &ValidationError{Field: "view_schema_id", ReasonCode: "unknown_view_schema"}
 	}
 }
 

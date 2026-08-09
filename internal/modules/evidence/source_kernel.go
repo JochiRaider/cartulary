@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
@@ -15,7 +16,7 @@ import (
 type evidenceSourceKernel struct {
 	records     evidenceRecordEnvelopePort
 	rows        evidenceSourceMutationPort
-	projections evidenceProjectionRowPort
+	projections evidenceprojection.Rows
 }
 
 func (kernel evidenceSourceKernel) createRecordTx(
@@ -49,8 +50,8 @@ func (kernel evidenceSourceKernel) refreshRowTx(
 	tx pgx.Tx,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
-	if err := kernel.projections.RefreshTx(ctx, tx, recordID); err != nil {
+	if err := kernel.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}
-	return kernel.projections.LoadTx(ctx, tx, recordID)
+	return kernel.projections.LoadEvidenceTx(ctx, tx, recordID)
 }

@@ -1,15 +1,121 @@
 package httptestx
 
 import (
+	"bytes"
 	"context"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
+
+func TestProjectionCapabilityCallerMatrix(t *testing.T) {
+	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	harnessSource, err := os.ReadFile(filepath.Join(repoRoot, "internal", "testutil", "httptestx", "httptestx.go"))
+	if err != nil {
+		t.Fatalf("read httptestx source: %v", err)
+	}
+	for _, forbidden := range []string{
+		"type ProjectionCapability struct",
+		"ProjectionCapability{bundle:",
+		"ProjectionCatalog",
+		"EvidenceProjectionPortFor",
+	} {
+		if bytes.Contains(harnessSource, []byte(forbidden)) {
+			t.Fatalf("httptestx retains forbidden Timeline-owned projection capability %q", forbidden)
+		}
+	}
+	if !bytes.Contains(harnessSource, []byte("projectiontestsupport.New(")) {
+		t.Fatal("httptestx does not construct the typed Projections-owned test capability")
+	}
+
+	capabilityType := reflect.TypeOf(ProjectionCapability{})
+	for index := 0; index < capabilityType.NumField(); index++ {
+		if capabilityType.Field(index).IsExported() {
+			t.Fatalf("projection test capability unexpectedly exports field %q", capabilityType.Field(index).Name)
+		}
+	}
+
+	want := map[string][]string{
+		"internal/modules/entities/resolution_integration_test.go": {
+			".Projections.RebuildHosts(",
+		},
+		"internal/modules/evidence/integration_test.go": {
+			".Projections.EvidencePort(",
+			".Projections.RebuildTimeline(",
+		},
+		"internal/modules/indicators/resolution_integration_test.go": {
+			".Projections.RebuildIndicators(",
+		},
+		"internal/modules/revisions/indicator_children_test.go": {
+			".Projections.IndicatorProjectionPort(",
+		},
+		"internal/modules/timeline/resolution_integration_test.go": {
+			".Projections.RebuildTimeline(",
+		},
+		"internal/modules/timeline/timeline_event_integration_test.go": {
+			".Projections.RebuildTimeline(",
+		},
+		"internal/testutil/appsupport/runtime.go": {
+			"server.ProjectionCapability()",
+		},
+	}
+
+	got := map[string][]string{}
+	err = filepath.WalkDir(filepath.Join(repoRoot, "internal"), func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".go" {
+			return nil
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		relative, relativeErr := filepath.Rel(repoRoot, path)
+		if relativeErr != nil {
+			return relativeErr
+		}
+		relative = filepath.ToSlash(relative)
+		if relative == "internal/testutil/httptestx/httptestx_test.go" {
+			return nil
+		}
+		for _, marker := range []string{
+			".Projections.RebuildHosts(",
+			".Projections.RebuildIdentities(",
+			".Projections.RebuildIndicators(",
+			".Projections.RebuildTimeline(",
+			".Projections.IndicatorProjectionPort(",
+			".Projections.EvidencePort(",
+			"server.ProjectionCapability()",
+		} {
+			if bytes.Contains(content, []byte(marker)) {
+				got[relative] = append(got[relative], marker)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("inventory projection capability callers: %v", err)
+	}
+	for path := range want {
+		sort.Strings(want[path])
+	}
+	for path := range got {
+		sort.Strings(got[path])
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("projection capability caller matrix changed:\ngot  %#v\nwant %#v", got, want)
+	}
+}
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	serverType := reflect.TypeOf(Server{})

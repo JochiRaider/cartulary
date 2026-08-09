@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
@@ -16,7 +17,7 @@ import (
 type artifactSourceKernel struct {
 	records     artifactRecordEnvelopePort
 	rows        artifactSourceMutationPort
-	projections artifactProjectionRowPort
+	projections artifactprojection.Rows
 }
 
 func (k artifactSourceKernel) createRecordTx(
@@ -59,8 +60,8 @@ func (k artifactSourceKernel) refreshRowTx(
 	viewSchemaID string,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
-	if err := k.projections.RefreshTx(ctx, tx, recordID); err != nil {
+	if err := k.projections.RefreshArtifactTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}
-	return k.projections.LoadTx(ctx, tx, viewSchemaID, recordID)
+	return k.projections.LoadArtifactTx(ctx, tx, viewSchemaID, recordID)
 }

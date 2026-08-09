@@ -1,6 +1,7 @@
 package timeline
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -10,6 +11,33 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 )
+
+type projectionContractSource struct {
+	workbookprojection.SourceReader
+}
+
+func TestWorkbookProjectionContributionOwnsTypedRuntimeFacts_Unit(t *testing.T) {
+	source := &projectionContractSource{}
+	contribution, err := workbookprojection.NewRuntimeContribution(source)
+	if err != nil {
+		t.Fatalf("construct Timeline projection contribution: %v", err)
+	}
+	if contribution.Source() != source {
+		t.Fatal("Timeline projection contribution did not preserve its typed source")
+	}
+	contract := contribution.ProjectionContribution()
+	descriptors := contract.Descriptors()
+	intents := contract.SurfaceIntents()
+	if len(descriptors) != 1 || !reflect.DeepEqual(descriptors[0], workbookprojection.Descriptor()) {
+		t.Fatalf("Timeline projection descriptor facts = %#v", descriptors)
+	}
+	if len(intents) != 1 || !reflect.DeepEqual(intents[0], workbookprojection.SurfaceIntent()) {
+		t.Fatalf("Timeline projection semantic intent = %#v", intents)
+	}
+	if descriptors[0].FacadePackages[0] != "internal/modules/timeline/workbookprojection" {
+		t.Fatalf("Timeline projection facade package = %v", descriptors[0].FacadePackages)
+	}
+}
 
 func TestProjectionContract_Unit(t *testing.T) {
 	recordID := uuid.MustParse("11111111-1111-1111-1111-111111111111")

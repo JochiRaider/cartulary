@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -36,17 +37,41 @@ type Store struct {
 	revisionAppender *revisions.Appender
 	keepSaved        conflicts.IdempotencyPort
 	ports            entityStorePorts
+	projectionReader workbookprojection.Reader
 }
 
-func NewStore(pool postgres.DB, appender *revisions.Appender, keepSaved conflicts.IdempotencyPort) *Store {
-	return &Store{
+type StoreOption func(*Store)
+
+func WithProjectionReader(reader workbookprojection.Reader) StoreOption {
+	return func(store *Store) {
+		store.projectionReader = reader
+	}
+}
+
+func NewStore(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	keepSaved conflicts.IdempotencyPort,
+	projectionWriter workbookprojection.Writer,
+	options ...StoreOption,
+) *Store {
+	if projectionWriter == nil {
+		panic("compose entity store: workbook projection writer is required")
+	}
+	store := &Store{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		revisionAppender: appender,
 		keepSaved:        keepSaved,
-		ports:            newEntityStorePorts(pool, appender),
+		ports:            newEntityStorePorts(pool, appender, projectionWriter),
 	}
+	for _, option := range options {
+		if option != nil {
+			option(store)
+		}
+	}
+	return store
 }
 
 func (s *Store) QueryHostRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
@@ -58,41 +83,132 @@ func (s *Store) QueryHostRowsPage(ctx context.Context, incidentID uuid.UUID, que
 	if s.pool == nil {
 		return querypage.Result{}, fmt.Errorf("query host rows: store pool is nil")
 	}
-
-	sqlText, args, err := buildHostQueryPageSQL(incidentID, query, window)
+	if s.projectionReader == nil {
+		return querypage.Result{}, fmt.Errorf("query host rows: projection reader is required")
+	}
+	projections, err := s.projectionReader.SelectHostQueryProjections(ctx, incidentID, query, window)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	rows, err := s.pool.Query(ctx, sqlText, args...)
+	recordIDs := make([]uuid.UUID, 0, len(projections))
+	for _, projection := range projections {
+		recordIDs = append(recordIDs, projection.RecordID)
+	}
+	recordsByID, err := loadHostSourceRecordsByID(ctx, s.pool, incidentID, recordIDs)
 	if err != nil {
-		return querypage.Result{}, fmt.Errorf("query host rows: %w", err)
+		return querypage.Result{}, err
 	}
-	defer rows.Close()
-
-	records := make([]HostRecord, 0)
-	recordIDs := make([]uuid.UUID, 0)
-	for rows.Next() {
-		record, err := scanHostQueryRecord(rows)
-		if err != nil {
-			return querypage.Result{}, err
-		}
-		records = append(records, record)
-		recordIDs = append(recordIDs, record.RecordID)
-	}
-	if err := rows.Err(); err != nil {
-		return querypage.Result{}, fmt.Errorf("iterate host rows: %w", err)
-	}
-	rows.Close()
 	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "host", recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	result := make([]map[string]any, 0, len(records))
-	for index := range records {
-		applyHostRowHydration(&records[index], hydration)
-		result = append(result, BuildHostRow(records[index]))
+	result := make([]map[string]any, 0, len(projections))
+	for _, projection := range projections {
+		record, ok := recordsByID[projection.RecordID]
+		if !ok {
+			return querypage.Result{}, fmt.Errorf("hydrate host projection %s: authoritative source row is missing", projection.RecordID)
+		}
+		applyHostProjection(&record, projection)
+		applyHostRowHydration(&record, hydration)
+		result = append(result, BuildHostRow(record))
 	}
 	return querypage.Finish(result, window.Limit), nil
+}
+
+func loadHostSourceRecordsByID(
+	ctx context.Context,
+	querier entityAliasQueryer,
+	incidentID uuid.UUID,
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]HostRecord, error) {
+	if len(recordIDs) == 0 {
+		return map[uuid.UUID]HostRecord{}, nil
+	}
+	rows, err := querier.Query(ctx, `
+SELECT
+    h.record_id,
+    h.incident_id,
+    h.display_name,
+    h.aad_device_id,
+    h.fqdn,
+    h.hostname,
+    h.merged_into_record_id,
+    h.entity_origin,
+    h.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM hosts h
+  JOIN records r ON r.record_id = h.record_id
+ WHERE h.incident_id = $1
+   AND h.record_id = ANY($2::uuid[])
+   AND r.deleted_at IS NULL
+`, incidentID, recordIDs)
+	if err != nil {
+		return nil, fmt.Errorf("load bounded host source rows: %w", err)
+	}
+	defer rows.Close()
+
+	records := make(map[uuid.UUID]HostRecord, len(recordIDs))
+	for rows.Next() {
+		record, scanErr := scanHostSourceRecord(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		records[record.RecordID] = record
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate bounded host source rows: %w", err)
+	}
+	return records, nil
+}
+
+func scanHostSourceRecord(scanner interface{ Scan(...any) error }) (HostRecord, error) {
+	var (
+		record      HostRecord
+		aadDeviceID pgtype.Text
+		fqdn        pgtype.Text
+		hostname    pgtype.Text
+		mergedInto  pgtype.UUID
+		seedMention pgtype.UUID
+	)
+	if err := scanner.Scan(
+		&record.RecordID,
+		&record.IncidentID,
+		&record.DisplayName,
+		&aadDeviceID,
+		&fqdn,
+		&hostname,
+		&mergedInto,
+		&record.EntityOrigin,
+		&seedMention,
+		&record.RowVersion,
+		&record.CreatedAt,
+		&record.UpdatedAt,
+		&record.CreatedByUser,
+		&record.UpdatedByUser,
+	); err != nil {
+		return HostRecord{}, fmt.Errorf("scan bounded host source row: %w", err)
+	}
+	record.AADDeviceID = textPointer(aadDeviceID)
+	record.FQDN = textPointer(fqdn)
+	record.Hostname = textPointer(hostname)
+	record.MergedIntoRecordID = uuidPointerFromPG(mergedInto)
+	record.SeedMentionID = uuidPointerFromPG(seedMention)
+	return record, nil
+}
+
+func applyHostProjection(record *HostRecord, projection workbookprojection.HostQueryProjection) {
+	record.HostState = projection.HostState
+	record.LinkedEventCount = projection.LinkedEventCount
+	record.EvidenceCount = projection.EvidenceCount
+	record.Location = projection.Location
+	record.OSPlatform = projection.OSPlatform
+	record.BusinessOwner = projection.BusinessOwner
+	record.Criticality = projection.Criticality
+	record.ContainmentStatus = projection.ContainmentStatus
 }
 
 func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
@@ -104,155 +220,48 @@ func (s *Store) QueryIdentityRowsPage(ctx context.Context, incidentID uuid.UUID,
 	if s.pool == nil {
 		return querypage.Result{}, fmt.Errorf("query identity rows: store pool is nil")
 	}
-
-	sqlText, args, err := buildIdentityQueryPageSQL(incidentID, query, window)
+	if s.projectionReader == nil {
+		return querypage.Result{}, fmt.Errorf("query identity rows: projection reader is required")
+	}
+	projections, err := s.projectionReader.SelectIdentityQueryProjections(ctx, incidentID, query, window)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	rows, err := s.pool.Query(ctx, sqlText, args...)
+	recordIDs := make([]uuid.UUID, 0, len(projections))
+	for _, projection := range projections {
+		recordIDs = append(recordIDs, projection.RecordID)
+	}
+	recordsByID, err := loadIdentitySourceRecordsByID(ctx, s.pool, incidentID, recordIDs)
 	if err != nil {
-		return querypage.Result{}, fmt.Errorf("query identity rows: %w", err)
+		return querypage.Result{}, err
 	}
-	defer rows.Close()
-
-	records := make([]IdentityRecord, 0)
-	recordIDs := make([]uuid.UUID, 0)
-	for rows.Next() {
-		record, err := scanIdentityQueryRecord(rows)
-		if err != nil {
-			return querypage.Result{}, err
-		}
-		records = append(records, record)
-		recordIDs = append(recordIDs, record.RecordID)
-	}
-	if err := rows.Err(); err != nil {
-		return querypage.Result{}, fmt.Errorf("iterate identity rows: %w", err)
-	}
-	rows.Close()
 	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "identity", recordIDs)
 	if err != nil {
 		return querypage.Result{}, err
 	}
-	result := make([]map[string]any, 0, len(records))
-	for index := range records {
-		applyIdentityRowHydration(&records[index], hydration)
-		result = append(result, BuildIdentityRow(records[index]))
+	result := make([]map[string]any, 0, len(projections))
+	for _, projection := range projections {
+		record, ok := recordsByID[projection.RecordID]
+		if !ok {
+			return querypage.Result{}, fmt.Errorf("hydrate identity projection %s: authoritative source row is missing", projection.RecordID)
+		}
+		applyIdentityProjection(&record, projection)
+		applyIdentityRowHydration(&record, hydration)
+		result = append(result, BuildIdentityRow(record))
 	}
 	return querypage.Finish(result, window.Limit), nil
 }
 
-var hostSortExpressions = map[string]string{
-	"record_id":               "h.record_id",
-	"host.display_name":       "p.display_name",
-	"host.hostname":           "p.hostname",
-	"host.host_state":         "p.host_state",
-	"host.linked_event_count": "p.linked_event_count",
-	"host.evidence_count":     "p.evidence_count",
-	"host.location":           "p.location",
-	"host.os_platform":        "p.os_platform",
-	"host.business_owner":     "p.business_owner",
-	"host.criticality":        "p.criticality",
-	"host.containment_status": "p.containment_status",
-	"host.edited_at":          "p.edited_at",
-}
-
-var identitySortExpressions = map[string]string{
-	"record_id":                   "i.record_id",
-	"identity.display_name":       "p.display_name",
-	"identity.upn":                "p.upn",
-	"identity.email":              "p.email",
-	"identity.sam_account_name":   "p.sam_account_name",
-	"identity.identity_state":     "p.identity_state",
-	"identity.linked_event_count": "p.linked_event_count",
-	"identity.evidence_count":     "p.evidence_count",
-	"identity.privilege_level":    "p.privilege_level",
-	"identity.mfa_state":          "p.mfa_state",
-	"identity.reset_status":       "p.reset_status",
-	"identity.edited_at":          "p.edited_at",
-}
-
-func buildHostQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString(`
-SELECT
-    h.record_id,
-    h.incident_id,
-    h.display_name,
-    h.aad_device_id,
-    h.fqdn,
-    h.hostname,
-    p.host_state,
-    p.linked_event_count,
-    p.evidence_count,
-    p.location,
-    p.os_platform,
-    p.business_owner,
-    p.criticality,
-    p.containment_status,
-    h.merged_into_record_id,
-    h.entity_origin,
-    h.seed_entity_mention_id,
-    r.row_version,
-    r.created_at,
-    r.updated_at,
-    r.created_by_user_id,
-    r.updated_by_user_id
-  FROM hosts h
-  JOIN records r
-    ON r.record_id = h.record_id
-  JOIN host_grid_projection p
-    ON p.record_id = h.record_id
- WHERE h.incident_id = $1
-   AND r.deleted_at IS NULL
-   AND p.host_state IN ('stub', 'canonical')`)
-	args := []any{incidentID}
-
-	for _, filter := range query.Filters {
-		switch filter.FieldKey {
-		case "host.host_state":
-			if err := appendQueryTextClause(&builder, &args, "p.host_state", filter); err != nil {
-				return "", nil, err
-			}
-		case "host.location":
-			if err := appendQueryTextClause(&builder, &args, "p.location", filter); err != nil {
-				return "", nil, err
-			}
-		case "host.os_platform":
-			if err := appendQueryTextClause(&builder, &args, "p.os_platform", filter); err != nil {
-				return "", nil, err
-			}
-		case "host.business_owner":
-			if err := appendQueryTextClause(&builder, &args, "p.business_owner", filter); err != nil {
-				return "", nil, err
-			}
-		case "host.criticality":
-			if err := appendQueryTextClause(&builder, &args, "p.criticality", filter); err != nil {
-				return "", nil, err
-			}
-		case "host.containment_status":
-			if err := appendQueryTextClause(&builder, &args, "p.containment_status", filter); err != nil {
-				return "", nil, err
-			}
-		default:
-			return "", nil, fmt.Errorf("host query filter field %q not mapped", filter.FieldKey)
-		}
+func loadIdentitySourceRecordsByID(
+	ctx context.Context,
+	querier entityAliasQueryer,
+	incidentID uuid.UUID,
+	recordIDs []uuid.UUID,
+) (map[uuid.UUID]IdentityRecord, error) {
+	if len(recordIDs) == 0 {
+		return map[uuid.UUID]IdentityRecord{}, nil
 	}
-
-	if err := querypage.AppendKeyset(&builder, &args, query.Sort, entityPageFields(hostSortExpressions), window.Position); err != nil {
-		return "", nil, err
-	}
-	if err := appendOrderBy(&builder, query.Sort, hostSortExpressions); err != nil {
-		return "", nil, err
-	}
-	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
-		return "", nil, err
-	}
-	return builder.String(), args, nil
-}
-
-func buildIdentityQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString(`
+	rows, err := querier.Query(ctx, `
 SELECT
     i.record_id,
     i.incident_id,
@@ -262,12 +271,6 @@ SELECT
     i.upn,
     i.email::text,
     i.sam_account_name,
-    p.identity_state,
-    p.linked_event_count,
-    p.evidence_count,
-    p.privilege_level,
-    p.mfa_state,
-    p.reset_status,
     i.merged_into_record_id,
     i.entity_origin,
     i.seed_entity_mention_id,
@@ -277,263 +280,78 @@ SELECT
     r.created_by_user_id,
     r.updated_by_user_id
   FROM identities i
-  JOIN records r
-    ON r.record_id = i.record_id
-  JOIN identity_grid_projection p
-    ON p.record_id = i.record_id
+  JOIN records r ON r.record_id = i.record_id
  WHERE i.incident_id = $1
+   AND i.record_id = ANY($2::uuid[])
    AND r.deleted_at IS NULL
-   AND p.identity_state IN ('stub', 'canonical')`)
-	args := []any{incidentID}
+`, incidentID, recordIDs)
+	if err != nil {
+		return nil, fmt.Errorf("load bounded identity source rows: %w", err)
+	}
+	defer rows.Close()
 
-	for _, filter := range query.Filters {
-		switch filter.FieldKey {
-		case "identity.identity_state":
-			if err := appendQueryTextClause(&builder, &args, "p.identity_state", filter); err != nil {
-				return "", nil, err
-			}
-		case "identity.privilege_level":
-			if err := appendQueryTextClause(&builder, &args, "p.privilege_level", filter); err != nil {
-				return "", nil, err
-			}
-		case "identity.mfa_state":
-			if err := appendQueryTextClause(&builder, &args, "p.mfa_state", filter); err != nil {
-				return "", nil, err
-			}
-		case "identity.reset_status":
-			if err := appendQueryTextClause(&builder, &args, "p.reset_status", filter); err != nil {
-				return "", nil, err
-			}
-		default:
-			return "", nil, fmt.Errorf("identity query filter field %q not mapped", filter.FieldKey)
+	records := make(map[uuid.UUID]IdentityRecord, len(recordIDs))
+	for rows.Next() {
+		record, scanErr := scanIdentitySourceRecord(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
+		records[record.RecordID] = record
 	}
-
-	if err := querypage.AppendKeyset(&builder, &args, query.Sort, entityPageFields(identitySortExpressions), window.Position); err != nil {
-		return "", nil, err
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate bounded identity source rows: %w", err)
 	}
-	if err := appendOrderBy(&builder, query.Sort, identitySortExpressions); err != nil {
-		return "", nil, err
-	}
-	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
-		return "", nil, err
-	}
-	return builder.String(), args, nil
+	return records, nil
 }
 
-func entityPageFields(expressions map[string]string) map[string]querypage.Field {
-	fields := make(map[string]querypage.Field, len(expressions))
-	for key, expression := range expressions {
-		cast := ""
-		switch {
-		case key == "record_id":
-			cast = "uuid"
-		case strings.HasSuffix(key, "_count"):
-			cast = "bigint"
-		case strings.HasSuffix(key, ".edited_at"):
-			cast = "timestamptz"
-		}
-		fields[key] = querypage.Field{Expression: expression, Cast: cast}
-	}
-	return fields
-}
-
-func appendOrderBy(builder *strings.Builder, sort []viewschema.SortEntry, expressions map[string]string) error {
-	builder.WriteString(" ORDER BY ")
-	for index, sortEntry := range sort {
-		if index > 0 {
-			builder.WriteString(", ")
-		}
-		expr, ok := expressions[sortEntry.FieldKey]
-		if !ok {
-			return fmt.Errorf("query sort field %q not mapped", sortEntry.FieldKey)
-		}
-		builder.WriteString(expr)
-		if sortEntry.Direction == "desc" {
-			builder.WriteString(" DESC")
-		} else {
-			builder.WriteString(" ASC")
-		}
-		builder.WriteString(" NULLS LAST")
-	}
-	return nil
-}
-
-func appendQueryTextClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
-	switch filter.Op {
-	case "eq":
-		return appendQueryCaseFoldedEqualityClause(builder, args, expr, filter.Arg)
-	case "prefix":
-		value, _ := filter.Arg["value"].(string)
-		builder.WriteString("\n   AND left(lower(coalesce((")
-		builder.WriteString(expr)
-		builder.WriteString(")::text, '')), char_length(")
-		builder.WriteString(bindQueryValue(args, value, ""))
-		builder.WriteString(")) = ")
-		builder.WriteString(bindQueryValue(args, value, ""))
-		return nil
-	default:
-		return fmt.Errorf("text filter operator %q not mapped", filter.Op)
-	}
-}
-
-func appendQueryCaseFoldedEqualityClause(builder *strings.Builder, args *[]any, expr string, arg map[string]any) error {
-	if value, ok := arg["value"]; ok {
-		if value == nil {
-			builder.WriteString("\n   AND ")
-			builder.WriteString(expr)
-			builder.WriteString(" IS NULL")
-			return nil
-		}
-		builder.WriteString("\n   AND lower(coalesce((")
-		builder.WriteString(expr)
-		builder.WriteString(")::text, '')) = ")
-		builder.WriteString(bindQueryValue(args, value, ""))
-		return nil
-	}
-	values, ok := arg["values"].([]any)
-	if !ok || len(values) == 0 {
-		return fmt.Errorf("missing equality values for %s", expr)
-	}
-	builder.WriteString("\n   AND (")
-	for index, value := range values {
-		if index > 0 {
-			builder.WriteString(" OR ")
-		}
-		builder.WriteString("lower(coalesce((")
-		builder.WriteString(expr)
-		builder.WriteString(")::text, '')) = ")
-		builder.WriteString(bindQueryValue(args, value, ""))
-	}
-	builder.WriteString(")")
-	return nil
-}
-
-func bindQueryValue(args *[]any, value any, cast string) string {
-	*args = append(*args, value)
-	placeholder := fmt.Sprintf("$%d", len(*args))
-	if cast == "" {
-		return placeholder
-	}
-	return placeholder + "::" + cast
-}
-
-func scanHostQueryRecord(scanner interface {
-	Scan(dest ...any) error
-}) (HostRecord, error) {
+func scanIdentitySourceRecord(scanner interface{ Scan(...any) error }) (IdentityRecord, error) {
 	var (
-		record           HostRecord
-		rawAADDeviceID   pgtype.Text
-		rawFQDN          pgtype.Text
-		rawHostname      pgtype.Text
-		rawLocation      pgtype.Text
-		rawOSPlatform    pgtype.Text
-		rawBusinessOwner pgtype.Text
-		rawCriticality   pgtype.Text
-		rawContainment   pgtype.Text
-		rawMergedInto    pgtype.UUID
-		rawSeedMention   pgtype.UUID
-		linkedEventCount int32
-		evidenceCount    int32
+		record         IdentityRecord
+		aadObjectID    pgtype.Text
+		sid            pgtype.Text
+		upn            pgtype.Text
+		email          pgtype.Text
+		samAccountName pgtype.Text
+		mergedInto     pgtype.UUID
+		seedMention    pgtype.UUID
 	)
 	if err := scanner.Scan(
 		&record.RecordID,
 		&record.IncidentID,
 		&record.DisplayName,
-		&rawAADDeviceID,
-		&rawFQDN,
-		&rawHostname,
-		&record.HostState,
-		&linkedEventCount,
-		&evidenceCount,
-		&rawLocation,
-		&rawOSPlatform,
-		&rawBusinessOwner,
-		&rawCriticality,
-		&rawContainment,
-		&rawMergedInto,
+		&aadObjectID,
+		&sid,
+		&upn,
+		&email,
+		&samAccountName,
+		&mergedInto,
 		&record.EntityOrigin,
-		&rawSeedMention,
+		&seedMention,
 		&record.RowVersion,
 		&record.CreatedAt,
 		&record.UpdatedAt,
 		&record.CreatedByUser,
 		&record.UpdatedByUser,
 	); err != nil {
-		return HostRecord{}, fmt.Errorf("scan host query record: %w", err)
+		return IdentityRecord{}, fmt.Errorf("scan bounded identity source row: %w", err)
 	}
-	record.AADDeviceID = textPointer(rawAADDeviceID)
-	record.FQDN = textPointer(rawFQDN)
-	record.Hostname = textPointer(rawHostname)
-	record.Location = textPointer(rawLocation)
-	record.OSPlatform = textPointer(rawOSPlatform)
-	record.BusinessOwner = textPointer(rawBusinessOwner)
-	record.Criticality = textPointer(rawCriticality)
-	record.ContainmentStatus = textPointer(rawContainment)
-	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
-	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
-	record.LinkedEventCount = int(linkedEventCount)
-	record.EvidenceCount = int(evidenceCount)
+	record.AADObjectID = textPointer(aadObjectID)
+	record.SID = textPointer(sid)
+	record.UPN = textPointer(upn)
+	record.Email = textPointer(email)
+	record.SamAccountName = textPointer(samAccountName)
+	record.MergedIntoRecordID = uuidPointerFromPG(mergedInto)
+	record.SeedMentionID = uuidPointerFromPG(seedMention)
 	return record, nil
 }
 
-func scanIdentityQueryRecord(scanner interface {
-	Scan(dest ...any) error
-}) (IdentityRecord, error) {
-	var (
-		record            IdentityRecord
-		rawAADObjectID    pgtype.Text
-		rawSID            pgtype.Text
-		rawUPN            pgtype.Text
-		rawEmail          pgtype.Text
-		rawSamAccountName pgtype.Text
-		rawPrivilegeLevel pgtype.Text
-		rawMFAState       pgtype.Text
-		rawResetStatus    pgtype.Text
-		rawMergedInto     pgtype.UUID
-		rawSeedMention    pgtype.UUID
-		linkedEventCount  int32
-		evidenceCount     int32
-	)
-	if err := scanner.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.DisplayName,
-		&rawAADObjectID,
-		&rawSID,
-		&rawUPN,
-		&rawEmail,
-		&rawSamAccountName,
-		&record.IdentityState,
-		&linkedEventCount,
-		&evidenceCount,
-		&rawPrivilegeLevel,
-		&rawMFAState,
-		&rawResetStatus,
-		&rawMergedInto,
-		&record.EntityOrigin,
-		&rawSeedMention,
-		&record.RowVersion,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.CreatedByUser,
-		&record.UpdatedByUser,
-	); err != nil {
-		return IdentityRecord{}, fmt.Errorf("scan identity query record: %w", err)
-	}
-	record.AADObjectID = textPointer(rawAADObjectID)
-	record.SID = textPointer(rawSID)
-	record.UPN = textPointer(rawUPN)
-	record.Email = textPointer(rawEmail)
-	record.SamAccountName = textPointer(rawSamAccountName)
-	record.PrivilegeLevel = textPointer(rawPrivilegeLevel)
-	record.MFAState = textPointer(rawMFAState)
-	record.ResetStatus = textPointer(rawResetStatus)
-	record.MergedIntoRecordID = uuidPointerFromPG(rawMergedInto)
-	record.SeedMentionID = uuidPointerFromPG(rawSeedMention)
-	record.LinkedEventCount = int(linkedEventCount)
-	record.EvidenceCount = int(evidenceCount)
-	return record, nil
+func applyIdentityProjection(record *IdentityRecord, projection workbookprojection.IdentityQueryProjection) {
+	record.IdentityState = projection.IdentityState
+	record.LinkedEventCount = projection.LinkedEventCount
+	record.EvidenceCount = projection.EvidenceCount
+	record.PrivilegeLevel = projection.PrivilegeLevel
+	record.MFAState = projection.MFAState
+	record.ResetStatus = projection.ResetStatus
 }
 
 func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
@@ -581,7 +399,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
+	if err := s.ports.projections.RefreshHostTx(ctx, tx, record.RecordID); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -701,7 +519,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
+	if err := s.ports.projections.RefreshIdentityTx(ctx, tx, record.RecordID); err != nil {
 		return MutationResult{}, err
 	}
 

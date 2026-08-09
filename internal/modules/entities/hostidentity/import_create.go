@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -21,11 +22,12 @@ func NewImportCreateFacade(
 	facadeID string,
 	pool postgres.DB,
 	appender *revisions.Appender,
+	projectionWriter workbookprojection.Writer,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if targetViewSchemaID != HostsViewSchemaID && targetViewSchemaID != IdentitiesViewSchemaID {
 		return nil, fmt.Errorf("entity import surface %q not mapped", targetViewSchemaID)
 	}
-	store := NewStore(pool, appender, nil)
+	store := NewStore(pool, appender, nil, projectionWriter)
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
 			TargetViewSchemaID: targetViewSchemaID,
@@ -55,7 +57,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
+		if err := s.ports.projections.RefreshHostTx(ctx, tx, record.RecordID); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID = record.RecordID
@@ -69,7 +71,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
+		if err := s.ports.projections.RefreshIdentityTx(ctx, tx, record.RecordID); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID = record.RecordID

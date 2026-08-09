@@ -12,13 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
-	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -40,16 +39,12 @@ func newTestNetworkFlowStore(
 	options ...StoreOption,
 ) *Store {
 	t.Helper()
-	projectionCatalog, err := projectionassembly.NewCatalog(nil)
-	if err != nil {
-		t.Fatalf("compose Indicator projection catalog: %v", err)
-	}
-	projectionCoordinator := projections.NewCoordinator(db, projectionCatalog)
+	projection := timelineassembly.NewProjectionBundle(db)
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    db,
 		Revisions:   appender,
-		Projections: projectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(projectionCoordinator),
+		Projections: projection.Indicators.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

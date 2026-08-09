@@ -31,7 +31,12 @@ import (
 func TestBindingMode_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-01")
 	timelineStore := newResolutionTimelineCommands(t, harness.DB)
-	entityStore := hostidentity.NewStore(harness.DB, revisionsupport.MustAppender(t), nil)
+	entityStore := hostidentity.NewStore(
+		harness.DB,
+		revisionsupport.MustAppender(t),
+		nil,
+		timelineassembly.NewProjectionBundle(harness.DB).Entities.Writer,
+	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
 

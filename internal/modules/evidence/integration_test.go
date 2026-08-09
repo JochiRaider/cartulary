@@ -659,7 +659,7 @@ func newEvidenceLifecycleTestStore(harness *appsupport.ServerHarness) *evidence.
 		harness.Pool,
 		evidence.WithRevisionAppender(harness.Revisions.Appender()),
 		evidence.WithCollaborationIntents(harness.Collaboration.IntentAppender()),
-		evidence.WithProjectionPort(
+		evidence.WithWorkbookProjections(
 			harness.Projections.EvidencePort(),
 		),
 	)

@@ -4,38 +4,10 @@
   "authority": "validation_only_code_backed_registry_authoritative",
   "source_registry": "internal/app/projectionassembly/catalog.go",
   "import_policy": {
-    "approved_root_importers": [
-      "internal/app/assessmentassembly/adapters.go",
-      "internal/app/importassembly/assessment_facade.go",
-      "internal/app/importassembly/owner_registry.go",
-      "internal/app/projectionassembly/assessment_source.go",
-      "internal/app/projectionassembly/catalog.go",
-      "internal/app/recoveryassembly/state_catalog.go",
-      "internal/app/timelineassembly/assembly.go",
-      "internal/app/workbookassembly/assessment_facade.go",
-      "internal/app/workbookassembly/catalog.go",
-      "internal/app/workbookassembly/tasksdecisions_capabilities.go",
-      "internal/modules/artifacts/import_projection.go",
-      "internal/modules/artifacts/workbook_facade.go",
-      "internal/modules/assessments/testsupport/assessments.go",
-      "internal/modules/entities/hostidentity/ports.go",
-      "internal/modules/entities/mentions/ports.go",
-      "internal/modules/entities/merge/ports.go",
-      "internal/modules/evidence/import_projection.go",
-      "internal/modules/evidence/store.go",
-      "internal/modules/evidence/workbook_facade.go",
-      "internal/modules/indicators/projection_contribution.go",
-      "internal/modules/parties/store.go",
-      "internal/modules/parties/workbook_facade.go",
-      "internal/modules/tasksdecisions/import_projection.go",
-      "internal/modules/tasksdecisions/projection_contribution.go",
-      "internal/modules/tasksdecisions/supersede_facade.go",
-      "internal/modules/tasksdecisions/workbook_facade.go",
-      "internal/modules/workbook/contribution_catalog.go",
-      "internal/modules/workbook/routes.go",
-      "internal/modules/workbook/store.go"
+    "approved_root_importers": [],
+    "approved_adapter_packages": [
+      "internal/modules/projections/adapters"
     ],
-    "approved_adapter_packages": [],
     "approved_contract_packages": [
       "internal/modules/projections/providercontract"
     ]
@@ -71,7 +43,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/timeline"
+        "internal/modules/timeline/workbookprojection"
       ],
       "rebuild_after": [],
       "characterization_refs": [
@@ -99,7 +71,7 @@
         "records"
       ],
       "capabilities": {
-        "query": false,
+        "query": true,
         "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
@@ -107,7 +79,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities/hostidentity"
+        "internal/modules/entities/workbookprojection"
       ],
       "rebuild_after": [
         "timeline"
@@ -137,7 +109,7 @@
         "records"
       ],
       "capabilities": {
-        "query": false,
+        "query": true,
         "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
@@ -145,7 +117,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities/hostidentity"
+        "internal/modules/entities/workbookprojection"
       ],
       "rebuild_after": [
         "host"
@@ -182,7 +154,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/indicators"
+        "internal/modules/indicators/workbookprojection"
       ],
       "rebuild_after": [
         "identity"
@@ -219,14 +191,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/assessments"
+        "internal/modules/assessments/workbookprojection"
       ],
       "rebuild_after": [
         "indicator"
       ],
       "characterization_refs": [
         "internal/modules/assessments/assessment_contract_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
     {
@@ -265,15 +237,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/artifacts",
-        "internal/modules/workbook"
+        "internal/modules/artifacts/workbookprojection"
       ],
       "rebuild_after": [
         "assessment"
       ],
       "characterization_refs": [
         "internal/modules/workbook/coordination_surfaces_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
     {
@@ -304,14 +275,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/evidence"
+        "internal/modules/evidence/workbookprojection"
       ],
       "rebuild_after": [
         "artifact"
       ],
       "characterization_refs": [
         "internal/modules/evidence/integration_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
     {
@@ -341,14 +312,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/parties"
+        "internal/modules/parties/workbookprojection"
       ],
       "rebuild_after": [
         "evidence"
       ],
       "characterization_refs": [
         "internal/modules/workbook/parties_integration_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
     {
@@ -379,14 +350,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/tasksdecisions"
+        "internal/modules/tasksdecisions/workbookprojection"
       ],
       "rebuild_after": [
         "party"
       ],
       "characterization_refs": [
         "internal/modules/tasksdecisions/task_decisions_store_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     },
     {
@@ -417,14 +388,14 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/tasksdecisions"
+        "internal/modules/tasksdecisions/workbookprojection"
       ],
       "rebuild_after": [
         "task_request"
       ],
       "characterization_refs": [
         "internal/modules/tasksdecisions/task_decisions_store_test.go",
-        "internal/modules/projections/query_test.go"
+        "internal/modules/projections/internal/runtime/query_test.go"
       ]
     }
   ]

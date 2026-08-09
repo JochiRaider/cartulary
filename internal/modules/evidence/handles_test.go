@@ -93,6 +93,7 @@ func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")

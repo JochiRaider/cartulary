@@ -39,8 +39,9 @@ type CollectionCollaborators struct {
 }
 
 type CommitCollaborators struct {
-	Projection    ProjectionPort
-	Collaboration CollaborationPort
+	Projection       workbookprojection.Writer
+	EntityProjection EntityProjectionPort
+	Collaboration    CollaborationPort
 }
 
 type IdempotencyPort interface {
@@ -118,8 +119,7 @@ type RecordRevisionWindowEntry struct {
 	CreatedAt   time.Time
 }
 
-type ProjectionPort interface {
-	ApplyTimelineMutationTx(context.Context, pgx.Tx, workbookprojection.ProjectionMutation) error
+type EntityProjectionPort interface {
 	RefreshHostTx(context.Context, pgx.Tx, uuid.UUID) error
 	RefreshIdentityTx(context.Context, pgx.Tx, uuid.UUID) error
 }

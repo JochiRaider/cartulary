@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
-const ProviderRegistryRefCodeBacked = "internal/modules/projections/provider_registry.go#projection_provider_descriptor.v3"
+const ProviderRegistryRefCodeBacked = "internal/modules/projections/providercontract/descriptor.go#projection_provider_descriptor.v3"
 
 type ProjectionRebuildScope string
 
@@ -101,4 +103,17 @@ type ProjectionRebuildMessage struct {
 
 type ProjectionRebuilder interface {
 	RebuildRestoreProjections(ctx context.Context, request ProjectionRebuildRequest) (ProjectionRebuildResult, error)
+}
+
+// ProjectionPorts is the complete Projections capability Recovery receives.
+// It contains no runtime catalog, coordinator, store, or provider callback.
+type ProjectionPorts struct {
+	Rebuilder         ProjectionRebuilder
+	StateContribution recoverystate.Contribution
+}
+
+func (ports ProjectionPorts) Ready() bool {
+	return ports.Rebuilder != nil &&
+		ports.StateContribution.OwnerID == "module.projections" &&
+		len(ports.StateContribution.Tables) > 0
 }

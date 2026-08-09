@@ -49,7 +49,14 @@ func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassemb
 
 func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
 	t.Helper()
-	return hostidentity.NewStore(pool, revisionsupport.MustAppender(t), nil)
+	projection := timelineassembly.NewProjectionBundle(pool)
+	return hostidentity.NewStore(
+		pool,
+		revisionsupport.MustAppender(t),
+		nil,
+		projection.Entities.Writer,
+		hostidentity.WithProjectionReader(projection.Entities.Reader),
+	)
 }
 
 func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
@@ -203,7 +210,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	timelineBundle := newEntityTestTimelineBundle(t, harness.DB)
 	mentionStore := timelineBundle.EntityMentionStore
 	timelineFacade := timelineBundle.Facade
-	timelineProjectionStore := timelineBundle.ProjectionCatalog.Query
+	timelineProjectionStore := timelineBundle.Projections.RestoreProbeQuery()
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
 

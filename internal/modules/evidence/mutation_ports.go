@@ -19,11 +19,6 @@ type evidenceRecordEnvelopePort interface {
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 }
 
-type evidenceProjectionRowPort interface {
-	RefreshTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-}
-
 type evidenceSourceMutationPort interface {
 	InsertWorkbookRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, WorkbookCreateParams, time.Time) error
 	ValidateWorkbookLifecyclePatchTx(context.Context, pgx.Tx, uuid.UUID, []WorkbookLifecyclePatchChange) error

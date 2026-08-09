@@ -287,6 +287,14 @@ function normalizeManifest(raw) {
           rule?.write_allowed_paths ?? [],
           `sql_table_access[${index + 1}].write_allowed_paths`,
         ).map(normalizePath),
+        testReadAllowedPaths: requireStringArray(
+          rule?.test_read_allowed_paths ?? [],
+          `sql_table_access[${index + 1}].test_read_allowed_paths`,
+        ).map(normalizePath),
+        testWriteAllowedPaths: requireStringArray(
+          rule?.test_write_allowed_paths ?? [],
+          `sql_table_access[${index + 1}].test_write_allowed_paths`,
+        ).map(normalizePath),
         lockAllowedPaths: rule?.lock_allowed_paths === undefined
           ? null
           : requireStringArray(
@@ -660,7 +668,7 @@ function checkSQLTableAllowlists(files, rules) {
   return violations;
 }
 
-function checkSQLTableAccess(files, rules) {
+function checkSQLTableAccess(files, rules, accessScope = "production") {
   const violations = [];
   const sourceFiles = files.filter((entry) => {
     if (entry.relative.endsWith("_test.go")) {
@@ -677,26 +685,35 @@ function checkSQLTableAccess(files, rules) {
         if (access.table !== rule.table) {
           continue;
         }
-        const allowedPaths =
-          access.operation === "read" ? rule.readAllowedPaths : rule.writeAllowedPaths;
+        const allowedPaths = access.operation === "read"
+          ? accessScope === "test_fixture"
+            ? rule.testReadAllowedPaths
+            : rule.readAllowedPaths
+          : accessScope === "test_fixture"
+            ? rule.testWriteAllowedPaths
+            : rule.writeAllowedPaths;
         if (!pathMatchesAny(file.relative, allowedPaths)) {
           violations.push(
             violation(
               access.operation === "read" ? "sql_table_read_access" : "sql_table_write_access",
               file,
               rule.table,
-              { rule_id: rule.id },
+              { rule_id: rule.id, access_scope: accessScope },
             ),
           );
         }
       }
+      const lockAllowedPaths = accessScope === "test_fixture" ? [] : rule.lockAllowedPaths;
       if (
-        rule.lockAllowedPaths !== null &&
+        lockAllowedPaths !== null &&
         mentionsSQLTableLock(file.content, rule.table) &&
-        !pathMatchesAny(file.relative, rule.lockAllowedPaths)
+        !pathMatchesAny(file.relative, lockAllowedPaths)
       ) {
         violations.push(
-          violation("sql_table_lock_access", file, rule.table, { rule_id: rule.id }),
+          violation("sql_table_lock_access", file, rule.table, {
+            rule_id: rule.id,
+            access_scope: accessScope,
+          }),
         );
       }
     }
@@ -775,6 +792,96 @@ function assertBoundaryFixtures(manifest) {
   ];
   for (const fixture of fixtureFiles) {
     const violations = checkSQLTableAccess([fixture.file], [recordsRule]);
+    if (fixture.wantCode === null && violations.length !== 0) {
+      throw new Error(`${fixture.label} boundary fixture must pass`);
+    }
+    if (
+      fixture.wantCode !== null &&
+      (violations.length !== 1 || violations[0].code !== fixture.wantCode)
+    ) {
+      throw new Error(`${fixture.label} boundary fixture must fail with ${fixture.wantCode}`);
+    }
+  }
+
+  const projectionRules = manifest.sqlTableAccess.filter((rule) =>
+    rule.id.endsWith("-projection-storage-access"),
+  );
+  if (projectionRules.length !== 10 || new Set(projectionRules.map((rule) => rule.table)).size !== 10) {
+    throw new Error("exactly ten distinct projection storage access rules are required");
+  }
+  const timelineProjectionRule = projectionRules.find(
+    (rule) => rule.table === "timeline_grid_projection",
+  );
+  const assessmentProjectionRule = projectionRules.find(
+    (rule) => rule.table === "assessment_grid_projection",
+  );
+  const projectionFixtures = [
+    {
+      label: "private projection query read",
+      scope: "production",
+      rule: timelineProjectionRule,
+      file: {
+        relative: "internal/modules/projections/internal/queryengine/timeline.go",
+        content: "package queryengine\nconst sql = `SELECT record_id FROM timeline_grid_projection`",
+      },
+      wantCode: null,
+    },
+    {
+      label: "source-owner projection read",
+      scope: "production",
+      rule: timelineProjectionRule,
+      file: {
+        relative: "internal/modules/timeline/store.go",
+        content: "package timeline\nconst sql = `SELECT record_id FROM timeline_grid_projection`",
+      },
+      wantCode: "sql_table_read_access",
+    },
+    {
+      label: "Timeline test-support projection read",
+      scope: "test_fixture",
+      rule: timelineProjectionRule,
+      file: {
+        relative: "internal/modules/timeline/testsupport/asserttest/assertions.go",
+        content: "package asserttest\nconst sql = `SELECT COUNT(*) FROM timeline_grid_projection`",
+      },
+      wantCode: null,
+    },
+    {
+      label: "Assessment test-support projection write",
+      scope: "test_fixture",
+      rule: assessmentProjectionRule,
+      file: {
+        relative: "internal/modules/assessments/testsupport/assessments.go",
+        content: "package testsupport\nconst sql = `INSERT INTO assessment_grid_projection (record_id) VALUES ($1)`",
+      },
+      wantCode: null,
+    },
+    {
+      label: "Assessment test-support path is not a production permission",
+      scope: "production",
+      rule: assessmentProjectionRule,
+      file: {
+        relative: "internal/modules/assessments/testsupport/assessments.go",
+        content: "package testsupport\nconst sql = `INSERT INTO assessment_grid_projection (record_id) VALUES ($1)`",
+      },
+      wantCode: "sql_table_write_access",
+    },
+    {
+      label: "unapproved projection fixture write",
+      scope: "test_fixture",
+      rule: assessmentProjectionRule,
+      file: {
+        relative: "internal/modules/entities/testsupport/fixture.go",
+        content: "package testsupport\nconst sql = `DELETE FROM assessment_grid_projection`",
+      },
+      wantCode: "sql_table_write_access",
+    },
+  ];
+  for (const fixture of projectionFixtures) {
+    if (!fixture.rule) {
+      throw new Error(`${fixture.label} boundary rule is required`);
+    }
+    const violations = checkSQLTableAccess([fixture.file], [fixture.rule], fixture.scope);
     if (fixture.wantCode === null && violations.length !== 0) {
       throw new Error(`${fixture.label} boundary fixture must pass`);
     }
@@ -1297,6 +1404,13 @@ function main() {
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
   const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
+  const testSupportRoots = supportInventory.roots
+    .filter((entry) => entry.runtimeScan === "excluded" && entry.supportScan === "included")
+    .map((entry) => entry.path);
+  const testSupportFiles = collectFiles(options.root, testSupportRoots, manifest.scanExcludes);
+  const projectionStorageRules = manifest.sqlTableAccess.filter((rule) =>
+    rule.id.endsWith("-projection-storage-access"),
+  );
   assertBoundaryFixtures(manifest);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
@@ -1308,6 +1422,7 @@ function main() {
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
     ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists),
     ...checkSQLTableAccess(files, manifest.sqlTableAccess),
+    ...checkSQLTableAccess(testSupportFiles, projectionStorageRules, "test_fixture"),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkCommandRootShape(files, manifest.commandRootShape),
     ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens),

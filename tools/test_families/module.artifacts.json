@@ -209,7 +209,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/artifacts/projectionprovider",
+        "package": "./internal/modules/projections/internal/queryengine",
         "tests": [
           "TestArtifactProjectionProviderSurfaceContractMatrix"
         ]

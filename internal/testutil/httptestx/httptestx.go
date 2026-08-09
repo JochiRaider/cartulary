@@ -21,8 +21,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -42,6 +42,7 @@ type Server struct {
 	collaboration *CollaborationCapability
 	revisions     *RevisionsCapability
 	projections   *ProjectionCapability
+	indicatorText indicators.SourceTextPort
 }
 
 type JobsCapability struct {
@@ -122,58 +123,7 @@ func (capability *RevisionsCapability) Appender() *revisions.Appender {
 	return capability.runtime.Appender()
 }
 
-type ProjectionCapability struct {
-	bundle *timelineassembly.Bundle
-}
-
-func (capability *ProjectionCapability) RebuildTimeline(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
-		return errors.New("timeline projection rebuild capability is unavailable")
-	}
-	return capability.bundle.ProjectionCatalog.Rebuild.RebuildTimeline(ctx, incidentID)
-}
-
-func (capability *ProjectionCapability) RebuildHosts(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
-		return errors.New("host projection rebuild capability is unavailable")
-	}
-	return capability.bundle.ProjectionCatalog.Rebuild.RebuildHosts(ctx, incidentID)
-}
-
-func (capability *ProjectionCapability) RebuildIdentities(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
-		return errors.New("identity projection rebuild capability is unavailable")
-	}
-	return capability.bundle.ProjectionCatalog.Rebuild.RebuildIdentities(ctx, incidentID)
-}
-
-func (capability *ProjectionCapability) RebuildIndicators(ctx context.Context, incidentID uuid.UUID) error {
-	if capability == nil || capability.bundle == nil || capability.bundle.ProjectionCatalog == nil {
-		return errors.New("indicator projection rebuild capability is unavailable")
-	}
-	return capability.bundle.ProjectionCatalog.Rebuild.RebuildIndicators(ctx, incidentID)
-}
-
-func (capability *ProjectionCapability) IndicatorProjectionPort() indicators.ProjectionPort {
-	if capability == nil || capability.bundle == nil {
-		return nil
-	}
-	return capability.bundle.ProjectionCoordinator
-}
-
-func (capability *ProjectionCapability) IndicatorSourceTextPort() indicators.SourceTextPort {
-	if capability == nil || capability.bundle == nil {
-		return nil
-	}
-	return indicatorassembly.NewSourceTextPort(capability.bundle.ProjectionCoordinator)
-}
-
-func (capability *ProjectionCapability) EvidencePort() evidence.ProjectionPort {
-	if capability == nil || capability.bundle == nil {
-		return nil
-	}
-	return timelineassembly.EvidenceProjectionPortFor(capability.bundle.ProjectionCatalog)
-}
+type ProjectionCapability = projectiontestsupport.Capability
 
 func (s *Server) JobsCapability() *JobsCapability {
 	if s == nil {
@@ -201,6 +151,13 @@ func (s *Server) ProjectionCapability() *ProjectionCapability {
 		return nil
 	}
 	return s.projections
+}
+
+func (s *Server) IndicatorSourceTextPort() indicators.SourceTextPort {
+	if s == nil {
+		return nil
+	}
+	return s.indicatorText
 }
 
 type TestRouteMode string
@@ -262,6 +219,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		collaborationCapability *CollaborationCapability
 		revisionsCapability     *RevisionsCapability
 		projectionCapability    *ProjectionCapability
+		indicatorSourceText     indicators.SourceTextPort
 	)
 	runtime, err := server.NewRuntime(context.Background(), loaded, server.Options{
 		Env:         env,
@@ -275,7 +233,14 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 			collaborationCapability = &CollaborationCapability{hub: hub, dispatcher: dispatcher, intents: intents}
 		},
 		ObserveTimeline: func(bundle *timelineassembly.Bundle) {
-			projectionCapability = &ProjectionCapability{bundle: bundle}
+			projectionCapability = projectiontestsupport.New(projectiontestsupport.Dependencies{
+				TimelineRebuilder:  bundle.TimelineProjections.Rebuilder,
+				EntityRebuilder:    bundle.EntityProjections.Rebuilder,
+				IndicatorRebuilder: bundle.IndicatorProjections.Rebuilder,
+				IndicatorRows:      bundle.IndicatorProjections.Rows,
+				EvidenceRows:       bundle.EvidenceProjections.Rows,
+			})
+			indicatorSourceText = indicatorassembly.NewSourceTextPort(bundle.ProjectionSourceTextRows)
 		},
 		ObserveRevisions: func(runtime *revisionassembly.Runtime) {
 			revisionsCapability = &RevisionsCapability{runtime: runtime}
@@ -302,6 +267,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		collaboration: collaborationCapability,
 		revisions:     revisionsCapability,
 		projections:   projectionCapability,
+		indicatorText: indicatorSourceText,
 	}
 	t.Cleanup(func() {
 		server.Close()

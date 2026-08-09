@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -179,16 +179,13 @@ func (a supportLinkApplier) ApplyInitialAssessmentSupportLinksTx(
 }
 
 type projectionPort struct {
-	coordinator *projections.Coordinator
+	rows assessmentprojection.Rows
 }
 
 func NewProjectionPort(
-	pool postgres.DB,
-	catalog *projections.Catalog,
+	rows assessmentprojection.Rows,
 ) assessments.AssessmentProjectionPort {
-	return projectionPort{
-		coordinator: projections.NewCoordinator(pool, catalog),
-	}
+	return projectionPort{rows: rows}
 }
 
 func (a projectionPort) RefreshAndLoadAssessmentRowTx(
@@ -196,33 +193,18 @@ func (a projectionPort) RefreshAndLoadAssessmentRowTx(
 	tx pgx.Tx,
 	recordID uuid.UUID,
 ) (map[string]any, error) {
-	if err := a.coordinator.RefreshRowTx(
-		ctx,
-		tx,
-		assessments.AssessmentsViewSchemaID,
-		recordID,
-	); err != nil {
+	if err := a.rows.RefreshAssessmentTx(ctx, tx, recordID); err != nil {
 		return nil, err
 	}
-	return a.coordinator.LoadRowTx(
-		ctx,
-		tx,
-		assessments.AssessmentsViewSchemaID,
-		recordID,
-	)
+	return a.rows.LoadAssessmentTx(ctx, tx, recordID)
 }
 
 type mergeProjectionPort struct {
-	coordinator *projections.Coordinator
+	rows assessmentprojection.Rows
 }
 
-func NewMergeEffects(
-	pool postgres.DB,
-	catalog *projections.Catalog,
-) *assessments.MergeEffects {
-	return assessments.NewMergeEffects(mergeProjectionPort{
-		coordinator: projections.NewCoordinator(pool, catalog),
-	})
+func NewMergeEffects(rows assessmentprojection.Rows) *assessments.MergeEffects {
+	return assessments.NewMergeEffects(mergeProjectionPort{rows: rows})
 }
 
 func (a mergeProjectionPort) RefreshAssessmentProjectionTx(
@@ -230,10 +212,5 @@ func (a mergeProjectionPort) RefreshAssessmentProjectionTx(
 	tx pgx.Tx,
 	recordID uuid.UUID,
 ) error {
-	return a.coordinator.RefreshRowTx(
-		ctx,
-		tx,
-		assessments.AssessmentsViewSchemaID,
-		recordID,
-	)
+	return a.rows.RefreshAssessmentTx(ctx, tx, recordID)
 }

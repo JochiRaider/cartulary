@@ -26,7 +26,7 @@ func TestIndicatorChildHistoryRollback_Integration(t *testing.T) {
 		Postgres:    harness.Pool,
 		Revisions:   harness.Revisions.Appender(),
 		Projections: harness.Projections.IndicatorProjectionPort(),
-		SourceText:  harness.Projections.IndicatorSourceTextPort(),
+		SourceText:  harness.IndicatorSourceText,
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

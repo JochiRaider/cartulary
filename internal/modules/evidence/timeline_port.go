@@ -7,7 +7,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (*Store) ValidateTimelineAttachmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) error {
+type timelineAttachmentReader struct{}
+
+func (timelineAttachmentReader) ValidateTimelineAttachmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) error {
 	for _, recordID := range recordIDs {
 		var exists bool
 		if err := tx.QueryRow(ctx, `

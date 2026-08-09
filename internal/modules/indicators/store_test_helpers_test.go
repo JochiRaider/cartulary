@@ -11,19 +11,19 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Store {
 	t.Helper()
-	coordinator := newIndicatorTestProjectionCoordinator(t, db)
+	projection := timelineassembly.NewProjectionBundle(db)
 	store, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    db,
 		Revisions:   appender,
-		Projections: coordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(coordinator),
+		Projections: projection.Indicators.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test store: %v", err)
@@ -31,9 +31,9 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 	return store
 }
 
-func newIndicatorTestProjectionCoordinator(t testing.TB, db postgres.DB) *projections.Coordinator {
+func newIndicatorTestProjectionRows(t testing.TB, db postgres.DB) indicatorprojection.Rows {
 	t.Helper()
-	return timelineassembly.NewProjectionBundle(db).Coordinator
+	return timelineassembly.NewProjectionBundle(db).Indicators.Rows
 }
 
 func manualObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey string, resolvedID *uuid.UUID, clientTxnID string) indicators.IndicatorObservationCreateParams {
@@ -78,10 +78,9 @@ func lookupIndicatorProjection(t testing.TB, db postgres.DB, recordID uuid.UUID)
 		t.Fatalf("begin projection lookup: %v", err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	projected, err := newIndicatorTestProjectionCoordinator(t, db).LoadRowTx(
+	projected, err := newIndicatorTestProjectionRows(t, db).LoadIndicatorTx(
 		context.Background(),
 		tx,
-		indicators.ViewSchemaID,
 		recordID,
 	)
 	if err != nil {

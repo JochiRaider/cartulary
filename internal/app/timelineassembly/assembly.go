@@ -11,18 +11,29 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
+	artifactprovider "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	partyprovider "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	taskdecisionprovider "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
@@ -33,34 +44,66 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/workbookprobe"
 )
 
+type projectionSourceTextRows interface {
+	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
+	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
+}
+
 type Bundle struct {
-	Facade                *timeline.Facade
-	ProjectionSource      *timeline.ProjectionSource
-	MentionEffects        *mentioneffects.Provider
-	EntityMentionStore    *mentions.Store
-	EntityMergeStore      *merge.Store
-	ProjectionCatalog     *projectionassembly.Bundle
-	ProjectionCoordinator *projections.Coordinator
-	RestoreRebuilder      restorecontract.ProjectionRebuilder
-	Collaborators         timeline.Collaborators
+	Facade                   *timeline.Facade
+	ProjectionSource         *workbookprojection.Source
+	MentionEffects           *mentioneffects.Provider
+	EntityMentionStore       *mentions.Store
+	EntityMergeStore         *merge.Store
+	Projections              *projectionassembly.Bundle
+	ProjectionSourceTextRows projectionSourceTextRows
+	TimelineProjections      workbookprojection.Ports
+	EntityProjections        entityprojection.Ports
+	IndicatorProjections     indicatorprojection.Ports
+	AssessmentProjections    assessmentprojection.Ports
+	ArtifactProjections      artifactprojection.Ports
+	EvidenceProjections      evidenceprojection.Ports
+	PartyProjections         partyprojection.Ports
+	TaskDecisionProjections  taskdecisionprojection.Ports
+	RestoreRebuilder         restorecontract.ProjectionRebuilder
+	Collaborators            timeline.Collaborators
 }
 
 type composition struct {
-	projectionSource      *timeline.ProjectionSource
-	mentionEffects        *mentioneffects.Provider
-	entityMentionStore    *mentions.Store
-	entityMergeStore      *merge.Store
-	projectionCatalog     *projectionassembly.Bundle
-	projectionCoordinator *projections.Coordinator
-	restoreRebuilder      restorecontract.ProjectionRebuilder
-	collaborators         timeline.Collaborators
+	projectionSource         *workbookprojection.Source
+	mentionEffects           *mentioneffects.Provider
+	entityMentionStore       *mentions.Store
+	entityMergeStore         *merge.Store
+	projections              *projectionassembly.Bundle
+	projectionSourceTextRows projectionSourceTextRows
+	timelineProjections      workbookprojection.Ports
+	entityProjections        entityprojection.Ports
+	indicatorProjections     indicatorprojection.Ports
+	assessmentProjections    assessmentprojection.Ports
+	artifactProjections      artifactprojection.Ports
+	evidenceProjections      evidenceprojection.Ports
+	partyProjections         partyprojection.Ports
+	taskDecisionProjections  taskdecisionprojection.Ports
+	restoreRebuilder         restorecontract.ProjectionRebuilder
+	collaborators            timeline.Collaborators
 }
 
 type ProjectionBundle struct {
-	Source      *timeline.ProjectionSource
-	Catalog     *projectionassembly.Bundle
-	Coordinator *projections.Coordinator
-	Rebuilder   restorecontract.ProjectionRebuilder
+	Source           *workbookprojection.Source
+	Projections      *projectionassembly.Bundle
+	SourceTextRows   projectionSourceTextRows
+	Timeline         workbookprojection.Ports
+	Entities         entityprojection.Ports
+	Indicators       indicatorprojection.Ports
+	Assessments      assessmentprojection.Ports
+	Artifacts        artifactprojection.Ports
+	Evidence         evidenceprojection.Ports
+	Parties          partyprojection.Ports
+	TasksDecisions   taskdecisionprojection.Ports
+	AssessmentSource assessmentprojection.SourceReader
+	Recovery         restorecontract.ProjectionPorts
+	Revisions        revisions.ProjectionServices
+	RestoreQuery     workbookrestoreprobe.ProjectionQuery
 }
 
 func NewBundle(
@@ -102,15 +145,23 @@ func NewBundleWithProjection(
 	}
 	components := compose(pool, appender, intents, projection, evidenceAttachments)
 	return &Bundle{
-		Facade:                timeline.NewFacade(pool, components.collaborators, conflictTokens),
-		ProjectionSource:      components.projectionSource,
-		MentionEffects:        components.mentionEffects,
-		EntityMentionStore:    components.entityMentionStore,
-		EntityMergeStore:      components.entityMergeStore,
-		ProjectionCatalog:     components.projectionCatalog,
-		ProjectionCoordinator: components.projectionCoordinator,
-		RestoreRebuilder:      components.restoreRebuilder,
-		Collaborators:         components.collaborators,
+		Facade:                   timeline.NewFacade(pool, components.collaborators, conflictTokens),
+		ProjectionSource:         components.projectionSource,
+		MentionEffects:           components.mentionEffects,
+		EntityMentionStore:       components.entityMentionStore,
+		EntityMergeStore:         components.entityMergeStore,
+		Projections:              components.projections,
+		ProjectionSourceTextRows: components.projectionSourceTextRows,
+		TimelineProjections:      components.timelineProjections,
+		EntityProjections:        components.entityProjections,
+		IndicatorProjections:     components.indicatorProjections,
+		AssessmentProjections:    components.assessmentProjections,
+		ArtifactProjections:      components.artifactProjections,
+		EvidenceProjections:      components.evidenceProjections,
+		PartyProjections:         components.partyProjections,
+		TaskDecisionProjections:  components.taskDecisionProjections,
+		RestoreRebuilder:         components.restoreRebuilder,
+		Collaborators:            components.collaborators,
 	}
 }
 
@@ -135,19 +186,19 @@ func NewCollaborators(
 }
 
 func NewRestoreRebuilder(pool postgres.DB) restorecontract.ProjectionRebuilder {
-	return NewProjectionBundle(pool).Rebuilder
+	return NewProjectionBundle(pool).Recovery.Rebuilder
 }
 
 func NewRecoveryProjectionServices(pool postgres.DB) (restorecontract.ProjectionRebuilder, workbookprobe.Executor, error) {
 	components := NewProjectionBundle(pool)
 	registry, err := workbookrestoreprobe.NewRegistry(
-		components.Catalog.Query,
+		components.RestoreQuery,
 		timeline.RestoreWorkbookProbeRegistration(),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("compose restore workbook probe registry: %w", err)
 	}
-	return components.Rebuilder, registry, nil
+	return components.Recovery.Rebuilder, registry, nil
 }
 
 func compose(
@@ -162,10 +213,8 @@ func compose(
 		targets: records.NewRouteTargetResolver(pool),
 	}
 	collectionFacts := newCollectionReadAdapter()
-	timelineWriter := timelineProjectionAdapter{
-		timeline: projection.Catalog.Timeline,
-		entities: projection.Catalog.Entities,
-	}
+	timelineWriter := projection.Timeline.Writer
+	entityProjectionWriter := projection.Entities.Writer
 	mentionEffects := mentioneffects.NewProvider(recordsPort, collectionFacts, timelineWriter)
 	collaborators := timeline.Collaborators{
 		Core: timeline.CoreCollaborators{
@@ -175,15 +224,25 @@ func compose(
 			Revisions:   revisionAdapter{appender: appender, reader: conflicttokens.NewRevisionWindowReader()},
 		},
 		Collections: timeline.CollectionCollaborators{
-			Links:    linkAdapter{store: links.NewStore()},
-			Mentions: mentionAdapter{store: mentions.NewStore(nil, appender)},
-			Entities: entityAdapter{store: hostidentity.NewStore(pool, appender, nil)},
+			Links: linkAdapter{store: links.NewStore()},
+			Mentions: mentionAdapter{store: mentions.NewStore(
+				nil,
+				appender,
+				mentions.WithWorkbookProjection(entityProjectionWriter),
+			)},
+			Entities: entityAdapter{store: hostidentity.NewStore(
+				pool,
+				appender,
+				nil,
+				entityProjectionWriter,
+			)},
 			Evidence: evidenceAdapter{attachments: evidenceAttachments},
 			Facts:    collectionFacts,
 		},
 		Commit: timeline.CommitCollaborators{
-			Projection:    timelineWriter,
-			Collaboration: collaborationAdapter{appender: intents},
+			Projection:       timelineWriter,
+			EntityProjection: entityProjectionWriter,
+			Collaboration:    collaborationAdapter{appender: intents},
 		},
 	}
 	return composition{
@@ -194,21 +253,30 @@ func compose(
 			appender,
 			mentions.WithTimelineEffects(mentionEffects),
 			mentions.WithCollaborationIntents(intents),
+			mentions.WithWorkbookProjection(entityProjectionWriter),
 		),
 		entityMergeStore: merge.NewStore(
 			pool,
 			appender,
 			merge.WithAssessmentEffects(assessmentassembly.NewMergeEffects(
-				pool,
-				projection.Catalog.Catalog,
+				projection.Assessments.Rows,
 			)),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(intents),
+			merge.WithWorkbookProjection(entityProjectionWriter),
 		),
-		projectionCatalog:     projection.Catalog,
-		projectionCoordinator: projection.Coordinator,
-		restoreRebuilder:      projection.Rebuilder,
-		collaborators:         collaborators,
+		projections:              projection.Projections,
+		projectionSourceTextRows: projection.SourceTextRows,
+		timelineProjections:      projection.Timeline,
+		entityProjections:        projection.Entities,
+		indicatorProjections:     projection.Indicators,
+		assessmentProjections:    projection.Assessments,
+		artifactProjections:      projection.Artifacts,
+		evidenceProjections:      projection.Evidence,
+		partyProjections:         projection.Parties,
+		taskDecisionProjections:  projection.TasksDecisions,
+		restoreRebuilder:         projection.Recovery.Rebuilder,
+		collaborators:            collaborators,
 	}
 }
 
@@ -218,62 +286,113 @@ func NewProjectionBundle(pool postgres.DB) *ProjectionBundle {
 		targets: records.NewRouteTargetResolver(pool),
 	}
 	collectionFacts := newCollectionReadAdapter()
-	source := timeline.NewProjectionSource(recordsPort, collectionFacts)
-	catalog, err := projectionassembly.NewBundle(pool, source)
+	source := workbookprojection.NewSource(recordsPort, collectionFacts)
+	timelineContribution, err := workbookprojection.NewRuntimeContribution(source)
+	if err != nil {
+		panic(fmt.Sprintf("compose Timeline projection contribution: %v", err))
+	}
+	entitiesContribution, err := entityprojection.NewRuntimeContribution(entityprovider.NewSource())
+	if err != nil {
+		panic(fmt.Sprintf("compose Entities projection contribution: %v", err))
+	}
+	indicatorsContribution, err := indicatorprovider.NewContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Indicators projection contribution: %v", err))
+	}
+	assessmentsContribution, err := assessmentassembly.NewProjectionContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Assessments projection contribution: %v", err))
+	}
+	artifactsContribution, err := artifactprovider.NewContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Artifacts projection contribution: %v", err))
+	}
+	evidenceContribution, err := projectionassembly.NewEvidenceContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Evidence projection contribution: %v", err))
+	}
+	partiesContribution, err := partyprovider.NewContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Parties projection contribution: %v", err))
+	}
+	taskDecisionContribution, err := taskdecisionprovider.NewContribution()
+	if err != nil {
+		panic(fmt.Sprintf("compose Tasks/Decisions projection contribution: %v", err))
+	}
+	catalog, err := projectionassembly.NewBundle(
+		pool,
+		timelineContribution,
+		entitiesContribution,
+		indicatorsContribution,
+		assessmentsContribution,
+		artifactsContribution,
+		evidenceContribution,
+		partiesContribution,
+		taskDecisionContribution,
+	)
 	if err != nil {
 		panic(fmt.Sprintf("compose projection catalog: %v", err))
 	}
+	recoveryPorts := catalog.RecoveryPorts()
+	if !recoveryPorts.Ready() {
+		panic("compose projection catalog: Recovery ports are incomplete")
+	}
+	timelinePorts := catalog.TimelinePorts()
+	if !timelinePorts.Ready() {
+		panic("compose projection catalog: Timeline ports are incomplete")
+	}
+	entityPorts := catalog.EntityPorts()
+	if !entityPorts.Ready() {
+		panic("compose projection catalog: Entities ports are incomplete")
+	}
+	indicatorPorts := catalog.IndicatorPorts()
+	if !indicatorPorts.Ready() {
+		panic("compose projection catalog: Indicators ports are incomplete")
+	}
+	assessmentPorts := catalog.AssessmentPorts()
+	if !assessmentPorts.Ready() {
+		panic("compose projection catalog: Assessments ports are incomplete")
+	}
+	artifactPorts := catalog.ArtifactPorts()
+	if !artifactPorts.Ready() {
+		panic("compose projection catalog: Artifacts ports are incomplete")
+	}
+	evidencePorts := catalog.EvidencePorts()
+	if !evidencePorts.Ready() {
+		panic("compose projection catalog: Evidence ports are incomplete")
+	}
+	partyPorts := catalog.PartyPorts()
+	if !partyPorts.Ready() {
+		panic("compose projection catalog: Parties ports are incomplete")
+	}
+	taskDecisionPorts := catalog.TaskDecisionPorts()
+	if !taskDecisionPorts.Ready() {
+		panic("compose projection catalog: Tasks/Decisions ports are incomplete")
+	}
 	return &ProjectionBundle{
-		Source:      source,
-		Catalog:     catalog,
-		Coordinator: catalog.Coordinator,
-		Rebuilder:   catalog.Rebuild.RestoreRebuilder(),
+		Source:           source,
+		Projections:      catalog,
+		SourceTextRows:   catalog.SourceTextRows(),
+		Timeline:         timelinePorts,
+		Entities:         entityPorts,
+		Indicators:       indicatorPorts,
+		Assessments:      assessmentPorts,
+		Artifacts:        artifactPorts,
+		Evidence:         evidencePorts,
+		Parties:          partyPorts,
+		TasksDecisions:   taskDecisionPorts,
+		AssessmentSource: assessmentsContribution.Source(),
+		Recovery:         recoveryPorts,
+		Revisions:        catalog.RevisionServices(),
+		RestoreQuery:     catalog.RestoreProbeQuery(),
 	}
 }
 
-func (bundle *ProjectionBundle) EvidenceProjectionPort() evidence.ProjectionPort {
-	return EvidenceProjectionPortFor(bundle.Catalog)
-}
-
-func EvidenceProjectionPortFor(catalog *projectionassembly.Bundle) evidence.ProjectionPort {
-	if catalog == nil {
-		panic("compose Evidence projection port: projection catalog is required")
+func (bundle *ProjectionBundle) EvidenceProjectionPort() evidenceprojection.Rows {
+	if bundle == nil {
+		return nil
 	}
-	return evidenceProjectionAdapter{rows: catalog.Evidence, rebuild: catalog.Rebuild}
-}
-
-type timelineProjectionAdapter struct {
-	timeline *projections.TimelineRows
-	entities *projections.EntityRows
-}
-
-func (a timelineProjectionAdapter) ApplyTimelineMutationTx(ctx context.Context, tx pgx.Tx, mutation workbookprojection.ProjectionMutation) error {
-	return a.timeline.ApplyTimelineMutationTx(ctx, tx, mutation)
-}
-
-func (a timelineProjectionAdapter) RefreshHostTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return a.entities.RefreshHostTx(ctx, tx, recordID)
-}
-
-func (a timelineProjectionAdapter) RefreshIdentityTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return a.entities.RefreshIdentityTx(ctx, tx, recordID)
-}
-
-type evidenceProjectionAdapter struct {
-	rows    *projections.EvidenceRows
-	rebuild *projections.RebuildService
-}
-
-func (a evidenceProjectionAdapter) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return a.rows.RefreshTx(ctx, tx, recordID)
-}
-
-func (a evidenceProjectionAdapter) RefreshEvidenceSupportTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return a.rebuild.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
-		timeline.TimelineViewSchemaID,
-		hostidentity.HostsViewSchemaID,
-		hostidentity.IdentitiesViewSchemaID,
-	})
+	return bundle.Evidence.Rows
 }
 
 type collaborationAdapter struct {

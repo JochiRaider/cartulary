@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -24,15 +25,19 @@ func NewImportCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
 	appender *revisions.Appender,
+	projectionRows artifactprojection.Rows,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if !IsArtifactBackedView(targetViewSchemaID) {
 		return nil, fmt.Errorf("artifact import surface %q not mapped", targetViewSchemaID)
+	}
+	if projectionRows == nil {
+		return nil, fmt.Errorf("artifact import projection rows are required")
 	}
 	adapter := &artifactImportCreateAdapter{
 		source: artifactSourceKernel{
 			records:     records.NewStore(),
 			rows:        newSourceStore(appender),
-			projections: newArtifactImportProjectionPort(),
+			projections: projectionRows,
 		},
 		revisionAppender: appender,
 	}

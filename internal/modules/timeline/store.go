@@ -80,20 +80,21 @@ type patchChangedField struct {
 }
 
 type store struct {
-	pool             postgres.DB
-	idempotencyStore IdempotencyPort
-	incidentAccess   IncidentPort
-	recordStore      RecordPort
-	revisionsStore   RevisionPort
-	projectionStore  ProjectionPort
-	linkStore        LinkPort
-	mentionStore     MentionPort
-	entityStore      EntityPort
-	evidenceStore    EvidencePort
-	collectionReader CollectionFactPort
-	collaboration    CollaborationPort
-	sourceRepository *sourcerepository.Repository
-	conflictTokens   conflicttokens.ConflictTokenCodec
+	pool              postgres.DB
+	idempotencyStore  IdempotencyPort
+	incidentAccess    IncidentPort
+	recordStore       RecordPort
+	revisionsStore    RevisionPort
+	projectionStore   workbookprojection.Writer
+	entityProjections EntityProjectionPort
+	linkStore         LinkPort
+	mentionStore      MentionPort
+	entityStore       EntityPort
+	evidenceStore     EvidencePort
+	collectionReader  CollectionFactPort
+	collaboration     CollaborationPort
+	sourceRepository  *sourcerepository.Repository
+	conflictTokens    conflicttokens.ConflictTokenCodec
 }
 
 type attachedEvidenceMutation struct {
@@ -127,20 +128,21 @@ type createRowOptions struct {
 
 func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conflicttokens.ConflictTokenCodec) *store {
 	return &store{
-		pool:             pool,
-		idempotencyStore: collaborators.Core.Idempotency,
-		incidentAccess:   collaborators.Core.Incidents,
-		recordStore:      collaborators.Core.Records,
-		revisionsStore:   collaborators.Core.Revisions,
-		projectionStore:  collaborators.Commit.Projection,
-		linkStore:        collaborators.Collections.Links,
-		mentionStore:     collaborators.Collections.Mentions,
-		entityStore:      collaborators.Collections.Entities,
-		evidenceStore:    collaborators.Collections.Evidence,
-		collectionReader: collaborators.Collections.Facts,
-		collaboration:    collaborators.Commit.Collaboration,
-		sourceRepository: sourcerepository.New(collaborators.Core.Records),
-		conflictTokens:   conflictTokens,
+		pool:              pool,
+		idempotencyStore:  collaborators.Core.Idempotency,
+		incidentAccess:    collaborators.Core.Incidents,
+		recordStore:       collaborators.Core.Records,
+		revisionsStore:    collaborators.Core.Revisions,
+		projectionStore:   collaborators.Commit.Projection,
+		entityProjections: collaborators.Commit.EntityProjection,
+		linkStore:         collaborators.Collections.Links,
+		mentionStore:      collaborators.Collections.Mentions,
+		entityStore:       collaborators.Collections.Entities,
+		evidenceStore:     collaborators.Collections.Evidence,
+		collectionReader:  collaborators.Collections.Facts,
+		collaboration:     collaborators.Commit.Collaboration,
+		sourceRepository:  sourcerepository.New(collaborators.Core.Records),
+		conflictTokens:    conflictTokens,
 	}
 }
 

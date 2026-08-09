@@ -134,12 +134,12 @@ type coordinatorProjectionRows struct {
 	recordID uuid.UUID
 }
 
-func (port coordinatorProjectionRows) RefreshTx(context.Context, pgx.Tx, uuid.UUID) error {
+func (port coordinatorProjectionRows) RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
 	*port.events = append(*port.events, "projection-refresh")
 	return nil
 }
 
-func (port coordinatorProjectionRows) LoadTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+func (port coordinatorProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
 	*port.events = append(*port.events, "projection-load")
 	return map[string]any{
 		"record_id": port.recordID.String(),
@@ -147,6 +147,14 @@ func (port coordinatorProjectionRows) LoadTx(context.Context, pgx.Tx, uuid.UUID)
 			"evidence.title": map[string]any{"value": "Disk image"},
 		},
 	}, nil
+}
+
+func (coordinatorProjectionRows) RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("unexpected RefreshEvidenceSupportTx")
+}
+
+func (coordinatorProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("unexpected RebuildEvidenceTx")
 }
 
 type coordinatorRevisions struct {

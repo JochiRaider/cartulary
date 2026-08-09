@@ -202,19 +202,24 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    storeHarness.DB,
 		Revisions:   appender,
-		Projections: timelineBundle.ProjectionCoordinator,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionCoordinator),
+		Projections: timelineBundle.IndicatorProjections.Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
 	registry, err := importassembly.NewOwnerCreateRegistry(importassembly.OwnerRegistryDependencies{
-		Postgres:          storeHarness.DB,
-		RevisionAppender:  appender,
-		Intents:           intents,
-		Timeline:          timelineBundle.Facade,
-		ProjectionCatalog: timelineBundle.ProjectionCatalog.Catalog,
-		Indicators:        indicatorOwner,
+		Postgres:                storeHarness.DB,
+		RevisionAppender:        appender,
+		Intents:                 intents,
+		Timeline:                timelineBundle.Facade,
+		EntityProjections:       timelineBundle.EntityProjections.Writer,
+		AssessmentProjections:   timelineBundle.AssessmentProjections.Rows,
+		ArtifactProjections:     timelineBundle.ArtifactProjections.Rows,
+		EvidenceProjections:     timelineBundle.EvidenceProjections.Rows,
+		PartyProjections:        timelineBundle.PartyProjections.Rows,
+		TaskDecisionProjections: timelineBundle.TaskDecisionProjections.Rows,
+		Indicators:              indicatorOwner,
 	})
 	if err != nil {
 		t.Fatalf("compose application import owner registry: %v", err)

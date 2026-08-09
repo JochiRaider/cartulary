@@ -16,7 +16,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
@@ -907,7 +906,11 @@ func requireTimelineRecordOrder(t testing.TB, rows []map[string]any, wantRecordI
 
 type eventTimelineCommands struct {
 	facade      *timeline.Facade
-	projections *projections.QueryService
+	projections timelineProjectionQuery
+}
+
+type timelineProjectionQuery interface {
+	QueryRows(context.Context, uuid.UUID, string, viewschema.QueryMeta) ([]map[string]any, error)
 }
 
 func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineCommands {
@@ -915,7 +918,7 @@ func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineComm
 	bundle := newTestTimelineBundle(t, pool, conflicttest.NewCodec("timeline"))
 	return &eventTimelineCommands{
 		facade:      bundle.Facade,
-		projections: bundle.ProjectionCatalog.Query,
+		projections: bundle.Projections.RestoreProbeQuery(),
 	}
 }
 
@@ -939,7 +942,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
 		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),
-		projections: bundle.ProjectionCatalog.Query,
+		projections: bundle.Projections.RestoreProbeQuery(),
 	}
 }
 

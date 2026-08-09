@@ -17,8 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -31,7 +30,7 @@ type WorkbookFacade struct {
 	authStore        *authn.Store
 	incidentAccess   incidents.Access
 	recordStore      *records.Store
-	projectionRows   *projections.PartyRows
+	projectionRows   partyprojection.Rows
 	revisionHistory  conflicttokens.RevisionWindowReader
 	revisionAppender *revisions.Appender
 	store            *Store
@@ -111,16 +110,26 @@ func (e *SameFieldConflictError) Error() string {
 	return "parties: same field conflict"
 }
 
-func NewWorkbookFacade(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec, appender *revisions.Appender, conflictFields conflicttokens.FieldResolver, keepSaved conflicttokens.IdempotencyPort) *WorkbookFacade {
+func NewWorkbookFacade(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
+	projectionRows partyprojection.Rows,
+) *WorkbookFacade {
+	if projectionRows == nil {
+		panic("compose Parties Workbook facade: projection rows are required")
+	}
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authn.NewStore(pool),
 		incidentAccess:   incidents.NewAccess(pool),
 		recordStore:      records.NewStore(),
-		projectionRows:   projections.NewPartyRows(pool, partyprojection.QuerySurfaces()...),
+		projectionRows:   projectionRows,
 		revisionHistory:  conflicttokens.NewRevisionWindowReader(),
 		revisionAppender: appender,
-		store:            NewStore(pool, appender),
+		store:            NewStore(pool, appender, projectionRows),
 		conflictTokens:   conflictTokens,
 		conflictFields:   conflictFields,
 		keepSaved:        keepSaved,
@@ -195,10 +204,10 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.store.InsertPartyTx(ctx, tx, recordID, command.IncidentID, params, now); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
+	if err := f.projectionRows.RefreshPartyTx(ctx, tx, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.projectionRows.LoadTx(ctx, tx, recordID)
+	row, err := f.projectionRows.LoadPartyTx(ctx, tx, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -258,10 +267,10 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 
 func (f *WorkbookFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command WorkbookCreateCommand, idempotencyKey authn.RouteIdempotencyKey, recordID uuid.UUID, now time.Time) (WorkbookMutationResult, error) {
 	request := command.Request
-	if err := f.projectionRows.RefreshTx(ctx, tx, recordID); err != nil {
+	if err := f.projectionRows.RefreshPartyTx(ctx, tx, recordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	row, err := f.projectionRows.LoadTx(ctx, tx, recordID)
+	row, err := f.projectionRows.LoadPartyTx(ctx, tx, recordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -367,7 +376,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
 		if change, changed, ok := overlappingPartyPatchChange(request.Changes, window.ChangedFields); ok {
-			current, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+			current, err := f.projectionRows.LoadPartyTx(ctx, tx, command.RecordID)
 			if err != nil {
 				return WorkbookMutationResult{}, err
 			}
@@ -392,7 +401,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		}
 		effectiveBeforeVersion = meta.RowVersion
 	}
-	beforeRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+	beforeRow, err := f.projectionRows.LoadPartyTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -410,10 +419,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.store.TouchPartyTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.projectionRows.RefreshTx(ctx, tx, command.RecordID); err != nil {
+	if err := f.projectionRows.RefreshPartyTx(ctx, tx, command.RecordID); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	afterRow, err := f.projectionRows.LoadTx(ctx, tx, command.RecordID)
+	afterRow, err := f.projectionRows.LoadPartyTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}

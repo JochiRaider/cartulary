@@ -1197,6 +1197,26 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-01-621, REQ-01-624, REQ-01-625
 - **AC-473**: S-04 package-level import guard evidence distinguishes production imports from test-only imports and proves production code outside the projections subsystem imports projections only through owner-approved facades, adapters, or contracts rather than projection internals, provider internals, rebuild internals, or test fixtures.
   - Verifies: REQ-01-626
+- **AC-539**: Workbook-grid Projections boundary evidence proves that the
+  adopted implementation ADR is limited to package topology; that source
+  owners retain authoritative source reads, typed derivation inputs, semantic
+  query intent, and Reporting fact meaning; that every production read, write,
+  delete, lock, cleanup, and count against each of the ten active projection
+  tables executes inside compiler-contained Projections storage or query code;
+  that projection writers use caller-owned transactions without beginning,
+  committing, rolling back, authorizing, publishing Collaboration events, or
+  mutating source/history state; and that production and test-only permissions
+  remain distinct. Exact equality holds among active descriptor table IDs,
+  production table-access rules, Projections recovery-state IDs, and
+  schema-owned projection tables. Differential fixtures preserve public query,
+  keyset bounds, complete `view_row_v1` shape, Reporting facts, typed deletion,
+  rollback, deterministic rebuild order, restore failure closure, and
+  pre-commit claim suppression across the package migration. The root
+  `internal/modules/projections` package has no production API or production
+  importer after migration, and no runtime, generator, test-routing,
+  conformance, or release-evidence path consumes the ADR, tracker, Appendix I,
+  or other Markdown.
+  - Verifies: REQ-00-070, REQ-01-351, REQ-01-621..REQ-01-626, REQ-01-658
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -30,6 +31,7 @@ type ServerHarness struct {
 	Collaboration             *httptestx.CollaborationCapability
 	Revisions                 *httptestx.RevisionsCapability
 	Projections               *httptestx.ProjectionCapability
+	IndicatorSourceText       indicators.SourceTextPort
 	IncidentCreateCommitFault *IncidentCreateCommitFaultCapability
 }
 
@@ -274,13 +276,14 @@ func serverHarnessForDatabase(
 		_ = db.Close()
 	})
 	return &ServerHarness{
-		Server:        server,
-		DB:            db,
-		Pool:          pool,
-		ObjectStore:   store,
-		Jobs:          server.JobsCapability(),
-		Collaboration: server.CollaborationCapability(),
-		Revisions:     server.RevisionsCapability(),
-		Projections:   server.ProjectionCapability(),
+		Server:              server,
+		DB:                  db,
+		Pool:                pool,
+		ObjectStore:         store,
+		Jobs:                server.JobsCapability(),
+		Collaboration:       server.CollaborationCapability(),
+		Revisions:           server.RevisionsCapability(),
+		Projections:         server.ProjectionCapability(),
+		IndicatorSourceText: server.IndicatorSourceTextPort(),
 	}
 }

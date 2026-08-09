@@ -485,8 +485,17 @@ func (s *Store) refreshMentionEntityRowsTx(ctx context.Context, tx pgx.Tx, befor
 			continue
 		}
 		seen[*recordID] = struct{}{}
-		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, *recordID, after.EntityType); err != nil {
-			return err
+		var refreshErr error
+		switch after.EntityType {
+		case "host":
+			refreshErr = s.ports.projections.RefreshHostTx(ctx, tx, *recordID)
+		case "identity":
+			refreshErr = s.ports.projections.RefreshIdentityTx(ctx, tx, *recordID)
+		default:
+			return fmt.Errorf("refresh entity mention projection: unsupported entity type %q", after.EntityType)
+		}
+		if refreshErr != nil {
+			return refreshErr
 		}
 	}
 	return nil

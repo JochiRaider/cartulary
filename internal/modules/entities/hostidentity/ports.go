@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -16,7 +16,7 @@ import (
 type entityStorePorts struct {
 	records     entityRecordPort
 	revisions   entityRevisionPort
-	projections entityProjectionPort
+	projections workbookprojection.Writer
 }
 
 type entityRecordPort interface {
@@ -29,10 +29,6 @@ type entityRevisionPort interface {
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
 	AppendRecordRevisionTx(context.Context, pgx.Tx, entityRecordRevisionParams) error
-}
-
-type entityProjectionPort interface {
-	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
 type entityChangeSetParams struct {
@@ -77,11 +73,15 @@ type entityRecordRevisionParams struct {
 	AfterValue  any
 }
 
-func newEntityStorePorts(pool postgres.DB, appender *revisions.Appender) entityStorePorts {
+func newEntityStorePorts(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	projectionWriter workbookprojection.Writer,
+) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{appender: appender},
-		projections: entityProjectionAdapter{rows: projections.NewEntityRows(pool)},
+		projections: projectionWriter,
 	}
 }
 
@@ -115,19 +115,4 @@ func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, 
 
 func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params entityRecordRevisionParams) error {
 	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
-}
-
-type entityProjectionAdapter struct {
-	rows *projections.EntityRows
-}
-
-func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return a.rows.RefreshHostTx(ctx, tx, recordID)
-	case "identity":
-		return a.rows.RefreshIdentityTx(ctx, tx, recordID)
-	default:
-		return nil
-	}
 }

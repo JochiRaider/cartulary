@@ -14,9 +14,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -66,7 +65,7 @@ type Store struct {
 	authStore      *authn.Store
 	incidentAccess incidents.Access
 	revisionStore  revisionAppendPort
-	projections    ProjectionPort
+	projections    evidenceprojection.Rows
 	collaboration  collaboration.IntentAppender
 	source         evidenceSourceKernel
 	blobSlots      blobSlotRepository
@@ -76,16 +75,12 @@ type Store struct {
 	accessHandles  accessHandleRepository
 }
 
-type ProjectionPort interface {
-	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
-	RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error
-}
-
 type StoreOption func(*Store)
 
-func WithProjectionPort(port ProjectionPort) StoreOption {
+func WithWorkbookProjections(rows evidenceprojection.Rows) StoreOption {
 	return func(store *Store) {
-		store.projections = port
+		store.projections = rows
+		store.source.projections = rows
 	}
 }
 
@@ -219,12 +214,12 @@ type HandleRecord struct {
 }
 
 func NewStore(pool postgres.DB, options ...StoreOption) *Store {
-	projectionRows := projections.NewEvidenceRows(pool, evidenceprojection.QuerySurfaces()...)
+	projectionRows := missingProjectionRows{}
 	store := &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		incidentAccess: incidents.NewAccess(pool),
-		projections:    evidenceProjectionAdapter{rows: projectionRows},
+		projections:    projectionRows,
 		blobSlots:      blobSlotRepository{},
 		blobs:          blobRepository{db: pool},
 		evidenceRows:   evidenceRecordRepository{},
@@ -1090,16 +1085,22 @@ func (s *Store) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.
 	return changes, nil
 }
 
-type evidenceProjectionAdapter struct {
-	rows *projections.EvidenceRows
+type missingProjectionRows struct{}
+
+func (missingProjectionRows) RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("evidence projection rows are required")
 }
 
-func (a evidenceProjectionAdapter) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return a.rows.RefreshTx(ctx, tx, recordID)
+func (missingProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+	return nil, errors.New("evidence projection rows are required")
 }
 
-func (a evidenceProjectionAdapter) RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return nil
+func (missingProjectionRows) RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("evidence projection rows are required")
+}
+
+func (missingProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return errors.New("evidence projection rows are required")
 }
 
 func loadEvidenceSupportRecordChangesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {

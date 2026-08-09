@@ -216,6 +216,7 @@ func TestBlobCreateIdempotency_Unit(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actorA := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
 	actorB := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)

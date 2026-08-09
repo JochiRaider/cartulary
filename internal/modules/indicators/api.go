@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -42,7 +43,7 @@ type Store struct {
 	incidentAccess     incidentLifecycleAccess
 	recordStore        *records.Store
 	revisionsStore     revisionAppendPort
-	projections        ProjectionPort
+	projections        indicatorprojection.Rows
 	sourceText         SourceTextPort
 	now                func() time.Time
 	sources            sourceRepository
@@ -56,14 +57,9 @@ type Store struct {
 type StoreDependencies struct {
 	Postgres    postgres.DB
 	Revisions   *revisions.Appender
-	Projections ProjectionPort
+	Projections indicatorprojection.Rows
 	SourceText  SourceTextPort
 	Clock       func() time.Time
-}
-
-type ProjectionPort interface {
-	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
-	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
 }
 
 // SourceTextPort is the narrow transaction-visible read boundary used by

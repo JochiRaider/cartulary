@@ -405,7 +405,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := hostidentity.UpdateHostTx(ctx, tx, nextSurvivor); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, nextSurvivor.RecordID, "host"); err != nil {
+		if err := s.ports.projections.RefreshHostTx(ctx, tx, nextSurvivor.RecordID); err != nil {
 			return MergeResult{}, err
 		}
 
@@ -421,7 +421,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := hostidentity.UpdateHostTx(ctx, tx, nextLoser); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.projections.DeleteEntityRowTx(ctx, tx, nextLoser.RecordID, "host"); err != nil {
+		if err := s.ports.projections.DeleteHostTx(ctx, tx, nextLoser.RecordID); err != nil {
 			return MergeResult{}, err
 		}
 
@@ -446,7 +446,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := hostidentity.UpdateIdentityTx(ctx, tx, nextSurvivor); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, nextSurvivor.RecordID, "identity"); err != nil {
+		if err := s.ports.projections.RefreshIdentityTx(ctx, tx, nextSurvivor.RecordID); err != nil {
 			return MergeResult{}, err
 		}
 
@@ -462,7 +462,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := hostidentity.UpdateIdentityTx(ctx, tx, nextLoser); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.projections.DeleteEntityRowTx(ctx, tx, nextLoser.RecordID, "identity"); err != nil {
+		if err := s.ports.projections.DeleteIdentityTx(ctx, tx, nextLoser.RecordID); err != nil {
 			return MergeResult{}, err
 		}
 

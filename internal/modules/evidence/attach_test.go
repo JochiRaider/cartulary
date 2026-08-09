@@ -53,6 +53,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
@@ -368,6 +369,7 @@ func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
@@ -439,6 +441,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 		harness.DB,
 		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
 		evidence.WithCollaborationIntents(revisionComposition.Intents),
+		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")

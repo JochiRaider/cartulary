@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
 )
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
@@ -30,16 +31,10 @@ type ImportLinkCapability interface {
 	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
 }
 
-type ImportProjectionCapability interface {
-	RefreshTaskRequestTx(context.Context, pgx.Tx, uuid.UUID) error
-	RefreshDecisionTx(context.Context, pgx.Tx, uuid.UUID) error
-	LoadTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
-}
-
 type ImportDependencies struct {
 	RecordEnvelopes ImportRecordEnvelopeCapability
 	Links           ImportLinkCapability
-	Projections     ImportProjectionCapability
+	Projections     taskdecisionprojection.Rows
 	Revisions       ownerfacade.RevisionAppender
 }
 
@@ -191,14 +186,15 @@ func (o *importOwner) refreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSch
 		if err := o.dependencies.Projections.RefreshTaskRequestTx(ctx, tx, recordID); err != nil {
 			return nil, err
 		}
+		return o.dependencies.Projections.LoadTaskRequestTx(ctx, tx, recordID)
 	case DecisionsViewSchemaID:
 		if err := o.dependencies.Projections.RefreshDecisionTx(ctx, tx, recordID); err != nil {
 			return nil, err
 		}
+		return o.dependencies.Projections.LoadDecisionTx(ctx, tx, recordID)
 	default:
 		return nil, fmt.Errorf("tasks/decisions import projection surface %q not mapped", viewSchemaID)
 	}
-	return o.dependencies.Projections.LoadTx(ctx, tx, viewSchemaID, recordID)
 }
 
 func taskDecisionValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {

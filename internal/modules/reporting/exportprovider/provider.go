@@ -175,6 +175,14 @@ func CollectQueryProviderOutputTx(ctx context.Context, tx pgx.Tx, incidentID uui
 		}
 		rows.Close()
 	}
+	return NewProviderOutput(providerKey, fields)
+}
+
+// NewProviderOutput constructs and validates the complete owner output from
+// typed field facts. It supports owners whose derived facts arrive through a
+// typed reader instead of an owner-authored SQL query contract.
+func NewProviderOutput(providerKey string, fields []FieldFact) (ProviderOutput, error) {
+	fields = append([]FieldFact(nil), fields...)
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].Path < fields[j].Path
 	})

@@ -28,19 +28,15 @@ type CollectionPort interface {
 	LoadTimelineCollectionFactsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (workbookprojection.CollectionFacts, error)
 }
 
-type ProjectionPort interface {
-	ApplyTimelineMutationTx(context.Context, pgx.Tx, workbookprojection.ProjectionMutation) error
-}
-
 type Provider struct {
 	records          RecordPort
 	collections      CollectionPort
-	projections      ProjectionPort
+	projections      workbookprojection.Writer
 	source           *sourcerepository.Repository
 	projectionSource *workbookprojection.Source
 }
 
-func NewProvider(records RecordPort, collections CollectionPort, projections ProjectionPort) *Provider {
+func NewProvider(records RecordPort, collections CollectionPort, projections workbookprojection.Writer) *Provider {
 	return &Provider{
 		records:          records,
 		collections:      collections,
