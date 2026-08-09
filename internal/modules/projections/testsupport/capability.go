@@ -14,7 +14,7 @@ import (
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
-	projectionruntime "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
+	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -25,14 +25,21 @@ func ApplyAssessmentFixtureMutationTx(
 	tx pgx.Tx,
 	mutation assessmentprojection.ProjectionMutation,
 ) error {
-	return projectionruntime.NewAssessmentRows(db, nil).ApplyAssessmentMutationTx(ctx, tx, mutation)
-}
-
-func NewIndicatorRows(
-	db postgres.DB,
-	source indicatorprojection.SourceReader,
-) indicatorprojection.Rows {
-	return projectionruntime.NewIndicatorRows(db, source)
+	if err := mutation.Validate(); err != nil {
+		return err
+	}
+	store, err := projectionstorage.New(db)
+	if err != nil {
+		return err
+	}
+	switch mutation.Kind {
+	case assessmentprojection.ProjectionMutationUpsert:
+		return store.UpsertAssessmentTx(ctx, tx, mutation.Input)
+	case assessmentprojection.ProjectionMutationDelete:
+		return store.DeleteAssessmentRowTx(ctx, tx, mutation.RecordID)
+	default:
+		return errors.New("unsupported assessment projection fixture mutation")
+	}
 }
 
 type Dependencies struct {

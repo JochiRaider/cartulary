@@ -12,7 +12,7 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 )
 
-func (s *Store) RebuildIncidentHosts(ctx context.Context, incidentID uuid.UUID) (err error) {
+func (s *Store) RebuildHosts(ctx context.Context, incidentID uuid.UUID) (err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, hostsViewSchemaID)
 	defer func() { finishTelemetry(err) }()
 
@@ -92,7 +92,7 @@ func (s *Store) rebuildIncidentHostsTxCore(
 	}
 }
 
-func (s *Store) RebuildIncidentIdentities(ctx context.Context, incidentID uuid.UUID) (err error) {
+func (s *Store) RebuildIdentities(ctx context.Context, incidentID uuid.UUID) (err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, identitiesViewSchemaID)
 	defer func() { finishTelemetry(err) }()
 
@@ -172,7 +172,7 @@ func (s *Store) rebuildIncidentIdentitiesTxCore(
 	}
 }
 
-func (s *Store) RebuildIncidentIndicators(ctx context.Context, incidentID uuid.UUID) (err error) {
+func (s *Store) RebuildIndicators(ctx context.Context, incidentID uuid.UUID) (err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, indicatorsViewSchemaID)
 	defer func() { finishTelemetry(err) }()
 

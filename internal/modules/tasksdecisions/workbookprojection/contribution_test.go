@@ -8,6 +8,25 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func TestNewContributionRequiresBothSources(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		taskRequests TaskRequestSourceReader
+		decisions    DecisionSourceReader
+	}{
+		"task requests": {decisions: contractSource{}},
+		"decisions":     {taskRequests: contractSource{}},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := NewContribution(test.taskRequests, test.decisions); err == nil {
+				t.Fatalf("Tasks/Decisions contribution without %s source unexpectedly constructed", name)
+			}
+		})
+	}
+}
+
 func TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces(t *testing.T) {
 	descriptors := Descriptors()
 	if len(descriptors) != 2 ||
@@ -23,14 +42,24 @@ func TestTaskDecisionProjectionContractOwnsTwoSemanticSurfaces(t *testing.T) {
 			t.Fatalf("unexpected Tasks/Decisions descriptor: %#v", descriptor)
 		}
 	}
-	intents := SurfaceIntents()
+	intents, err := SurfaceIntents()
+	if err != nil {
+		t.Fatalf("Tasks/Decisions semantic intents: %v", err)
+	}
 	if len(intents) != 2 || len(intents[0].FieldKeys) == 0 || len(intents[1].FieldKeys) == 0 {
 		t.Fatalf("incomplete Tasks/Decisions semantic intents: %#v", intents)
 	}
 }
 
+func TestTaskDecisionProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
+	t.Parallel()
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+		t.Fatal("unknown Tasks/Decisions view schema produced a semantic intent")
+	}
+}
+
 func TestTaskDecisionProjectionContributionDefensivelyCopiesFactsAndRetainsTypedSources(t *testing.T) {
-	contribution, err := NewRuntimeContribution(
+	contribution, err := NewContribution(
 		contractSource{},
 		contractSource{},
 	)

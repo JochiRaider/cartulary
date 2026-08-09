@@ -21,6 +21,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
@@ -263,13 +264,24 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
 	revisionComposition := revisionsupport.MustComposition(t)
-	timelineFacade := timelineassembly.NewBundle(
-		harness.DB,
-		conflicttest.NewCodec("timeline"),
-		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(harness.DB),
-	).Facade
+	projections, err := projectionassembly.Build(harness.DB)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
+	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            harness.DB,
+		ConflictTokens:      conflicttest.NewCodec("timeline"),
+		Revisions:           revisionComposition.Runtime.Appender(),
+		Collaboration:       revisionComposition.Intents,
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(harness.DB),
+		TimelineProjection:  projections.TimelinePorts().Writer,
+		EntityProjection:    projections.EntityPorts().Writer,
+		AssessmentRows:      projections.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		t.Fatalf("compose Timeline: %v", err)
+	}
+	timelineFacade := timelineBundle.Facade
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {
 		baseTokens := []string{

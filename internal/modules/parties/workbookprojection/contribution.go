@@ -55,43 +55,28 @@ type Ports struct {
 	Rebuilder Rebuilder
 }
 
-func (ports Ports) Ready() bool {
-	return ports.Rows != nil && ports.Rebuilder != nil
-}
-
 type Contribution struct {
 	contract providercontract.Contribution
 	source   SourceReader
 }
 
-func NewContribution(
-	descriptors []providercontract.ProviderDescriptor,
-	intents []providercontract.SurfaceIntent,
-	sources ...SourceReader,
-) (Contribution, error) {
-	if len(sources) > 1 {
-		return Contribution{}, fmt.Errorf("parties projection contribution accepts at most one source")
-	}
-	contract, err := providercontract.NewContribution("parties", descriptors, intents)
-	if err != nil {
-		return Contribution{}, err
-	}
-	var source SourceReader
-	if len(sources) == 1 {
-		source = sources[0]
-	}
-	return Contribution{contract: contract, source: source}, nil
-}
-
-func NewRuntimeContribution(source SourceReader) (Contribution, error) {
+func NewContribution(source SourceReader) (Contribution, error) {
 	if source == nil {
 		return Contribution{}, fmt.Errorf("parties projection source is required")
 	}
-	return NewContribution(
+	intent, err := SurfaceIntent()
+	if err != nil {
+		return Contribution{}, err
+	}
+	contract, err := providercontract.NewContribution(
+		"parties",
 		[]providercontract.ProviderDescriptor{Descriptor()},
-		[]providercontract.SurfaceIntent{SurfaceIntent()},
-		source,
+		[]providercontract.SurfaceIntent{intent},
 	)
+	if err != nil {
+		return Contribution{}, err
+	}
+	return Contribution{contract: contract, source: source}, nil
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {
@@ -129,10 +114,14 @@ func Descriptor() providercontract.ProviderDescriptor {
 	}
 }
 
-func SurfaceIntent() providercontract.SurfaceIntent {
-	schema, ok := viewschema.Lookup(partyViewSchemaID)
+func SurfaceIntent() (providercontract.SurfaceIntent, error) {
+	return surfaceIntent(partyViewSchemaID)
+}
+
+func surfaceIntent(viewSchemaID string) (providercontract.SurfaceIntent, error) {
+	schema, ok := viewschema.Lookup(viewSchemaID)
 	if !ok {
-		panic("Parties projection surface has no view-schema contract")
+		return providercontract.SurfaceIntent{}, fmt.Errorf("parties projection surface %q has no view-schema contract", viewSchemaID)
 	}
 	fields := schema.Fields()
 	fieldKeys := make([]string, 0, len(fields))
@@ -141,7 +130,7 @@ func SurfaceIntent() providercontract.SurfaceIntent {
 	}
 	slices.Sort(fieldKeys)
 	return providercontract.SurfaceIntent{
-		ViewSchemaID: partyViewSchemaID,
+		ViewSchemaID: viewSchemaID,
 		FieldKeys:    fieldKeys,
-	}
+	}, nil
 }

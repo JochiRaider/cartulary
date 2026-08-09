@@ -7,8 +7,15 @@ import (
 
 type contributionSource struct{ SourceReader }
 
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Entities projection contribution unexpectedly constructed")
+	}
+}
+
 func TestRuntimeContributionOwnsTypedEntityDescriptorFacts(t *testing.T) {
-	contribution, err := NewRuntimeContribution(&contributionSource{})
+	contribution, err := NewContribution(&contributionSource{})
 	if err != nil {
 		t.Fatalf("construct Entities projection contribution: %v", err)
 	}

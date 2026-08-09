@@ -30,43 +30,24 @@ type Ports struct {
 	Rebuilder Rebuilder
 }
 
-func (ports Ports) Ready() bool {
-	return ports.Writer != nil && ports.Rebuilder != nil
-}
-
 type Contribution struct {
 	contract providercontract.Contribution
 	source   SourceReader
 }
 
-func NewContribution(
-	descriptors []providercontract.ProviderDescriptor,
-	intents []providercontract.SurfaceIntent,
-	sources ...SourceReader,
-) (Contribution, error) {
-	if len(sources) > 1 {
-		return Contribution{}, fmt.Errorf("timeline projection contribution accepts at most one source")
-	}
-	contract, err := providercontract.NewContribution("timeline", descriptors, intents)
-	if err != nil {
-		return Contribution{}, err
-	}
-	var source SourceReader
-	if len(sources) == 1 {
-		source = sources[0]
-	}
-	return Contribution{contract: contract, source: source}, nil
-}
-
-func NewRuntimeContribution(source SourceReader) (Contribution, error) {
+func NewContribution(source SourceReader) (Contribution, error) {
 	if source == nil {
 		return Contribution{}, fmt.Errorf("timeline projection source is required")
 	}
-	return NewContribution(
+	contract, err := providercontract.NewContribution(
+		"timeline",
 		[]providercontract.ProviderDescriptor{Descriptor()},
 		[]providercontract.SurfaceIntent{SurfaceIntent()},
-		source,
 	)
+	if err != nil {
+		return Contribution{}, err
+	}
+	return Contribution{contract: contract, source: source}, nil
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {

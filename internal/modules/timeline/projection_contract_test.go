@@ -18,7 +18,7 @@ type projectionContractSource struct {
 
 func TestWorkbookProjectionContributionOwnsTypedRuntimeFacts_Unit(t *testing.T) {
 	source := &projectionContractSource{}
-	contribution, err := workbookprojection.NewRuntimeContribution(source)
+	contribution, err := workbookprojection.NewContribution(source)
 	if err != nil {
 		t.Fatalf("construct Timeline projection contribution: %v", err)
 	}

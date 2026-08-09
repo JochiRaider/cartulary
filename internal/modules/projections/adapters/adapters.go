@@ -15,7 +15,6 @@ import (
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	projectionruntime "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
 	projectionstorage "github.com/JochiRaider/cartulary/internal/modules/projections/internal/storage"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
@@ -47,15 +46,9 @@ type Dependencies struct {
 // immutable descriptor facts, consumer-owned interfaces, and typed owner
 // facades; concrete runtime, storage, and query implementations remain private.
 type Ports struct {
-	descriptors    providercontract.DescriptorSet
-	recoveryState  recoverystate.Contribution
-	declarative    *projectionruntime.DeclarativeCatalog
-	storage        *projectionstorage.Store
-	semanticQuery  *queryengine.Engine
-	operational    *projectionruntime.Catalog
-	query          *projectionruntime.QueryService
-	rebuild        *projectionruntime.RebuildService
-	coordinator    *projectionruntime.Coordinator
+	catalog        *projectionruntime.Catalog
+	store          *projectionruntime.Store
+	restore        *projectionruntime.RestoreRebuilder
 	timeline       timelineprojection.Ports
 	entities       entityprojection.Ports
 	indicators     indicatorprojection.Ports
@@ -91,25 +84,9 @@ func New(dependencies Dependencies) (Ports, error) {
 		contracts = append(contracts, contribution.contract)
 	}
 
-	catalog, err := projectionruntime.NewDeclarativeCatalog(contracts)
-	if err != nil {
-		return Ports{}, fmt.Errorf("compose Projections catalog: %w", err)
-	}
-	store, err := projectionstorage.New(dependencies.Postgres)
-	if err != nil {
-		return Ports{}, fmt.Errorf("compose Projections storage: %w", err)
-	}
-	query, err := queryengine.New(catalog.SurfaceIntents())
-	if err != nil {
-		return Ports{}, fmt.Errorf("compose Projections query engine: %w", err)
-	}
-	recoveryState := providercontract.RecoveryStateContribution()
-	if err := validateRecoveryState(catalog.DescriptorSet(), recoveryState); err != nil {
-		return Ports{}, fmt.Errorf("compose Projections recovery state: %w", err)
-	}
-	operational, err := projectionruntime.NewOperationalCatalog(
-		catalog.DescriptorSet(),
-		projectionruntime.OperationalDependencies{
+	catalog, err := projectionruntime.NewCatalog(
+		contracts,
+		projectionruntime.ProviderSources{
 			Timeline:     dependencies.Timeline.Source(),
 			Entities:     dependencies.Entities.Source(),
 			Indicators:   dependencies.Indicators.Source(),
@@ -122,82 +99,89 @@ func New(dependencies Dependencies) (Ports, error) {
 		},
 	)
 	if err != nil {
-		return Ports{}, fmt.Errorf("compose Projections operational catalog: %w", err)
+		return Ports{}, fmt.Errorf("compose Projections catalog: %w", err)
 	}
-	queryService := projectionruntime.NewQueryService(dependencies.Postgres, operational)
-	rebuildService := projectionruntime.NewRebuildService(dependencies.Postgres, operational)
-	coordinator := projectionruntime.NewCoordinator(dependencies.Postgres, operational)
-	entityRows := projectionruntime.NewEntityRows(dependencies.Postgres, dependencies.Entities.Source())
-	artifactRows := projectionruntime.NewArtifactRows(dependencies.Postgres, dependencies.Artifacts.Source())
-	taskDecisionRows := projectionruntime.NewTaskDecisionRows(
-		dependencies.Postgres,
+	physical, err := projectionstorage.New(dependencies.Postgres)
+	if err != nil {
+		return Ports{}, fmt.Errorf("compose Projections storage: %w", err)
+	}
+	store, err := projectionruntime.NewStore(dependencies.Postgres, catalog, physical)
+	if err != nil {
+		return Ports{}, fmt.Errorf("compose Projections store: %w", err)
+	}
+	recoveryState := providercontract.RecoveryStateContribution()
+	if err := validateRecoveryState(catalog.DescriptorSet(), recoveryState); err != nil {
+		return Ports{}, fmt.Errorf("compose Projections recovery state: %w", err)
+	}
+	restoreRebuilder := projectionruntime.NewRestoreRebuilderFromStore(store)
+	entityRows := projectionruntime.NewEntityRowsFromStore(store, dependencies.Entities.Source())
+	artifactRows := projectionruntime.NewArtifactRowsFromStore(store, dependencies.Artifacts.Source())
+	taskDecisionRows := projectionruntime.NewTaskDecisionRowsFromStore(
+		store,
 		dependencies.TasksDecisions.TaskRequestSource(),
 		dependencies.TasksDecisions.DecisionSource(),
 	)
 	evidenceRows := &evidencePort{
-		rows:    projectionruntime.NewEvidenceRows(dependencies.Postgres, dependencies.Evidence.Source()),
-		rebuild: rebuildService,
+		rows:    projectionruntime.NewEvidenceRowsFromStore(store, dependencies.Evidence.Source()),
+		rebuild: store,
 	}
 	ports := Ports{
-		descriptors:   catalog.DescriptorSet(),
-		recoveryState: recoveryState,
-		declarative:   catalog,
-		storage:       store,
-		semanticQuery: query,
-		operational:   operational,
-		query:         queryService,
-		rebuild:       rebuildService,
-		coordinator:   coordinator,
+		catalog: catalog,
+		store:   store,
+		restore: restoreRebuilder,
 		timeline: timelineprojection.Ports{
-			Writer:    projectionruntime.NewTimelineRows(dependencies.Postgres),
-			Rebuilder: rebuildService,
+			Writer:    projectionruntime.NewTimelineRowsFromStore(store),
+			Rebuilder: store,
 		},
 		entities: entityprojection.Ports{
 			Writer:    entityRows,
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 			Reader:    entityRows,
 		},
 		indicators: indicatorprojection.Ports{
-			Rows: projectionruntime.NewIndicatorRows(
-				dependencies.Postgres,
+			Rows: projectionruntime.NewIndicatorRowsFromStore(
+				store,
 				dependencies.Indicators.Source(),
 			),
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 		},
 		assessments: assessmentprojection.Ports{
-			Rows: projectionruntime.NewAssessmentRows(
-				dependencies.Postgres,
+			Rows: projectionruntime.NewAssessmentRowsFromStore(
+				store,
 				dependencies.Assessments.Source(),
 			),
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 		},
 		artifacts: artifactprojection.Ports{
 			Rows:      artifactRows,
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 			Reader:    artifactRows,
 		},
 		evidence: evidenceprojection.Ports{
 			Rows:      evidenceRows,
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 		},
 		parties: partyprojection.Ports{
-			Rows:      projectionruntime.NewPartyRows(dependencies.Postgres, dependencies.Parties.Source()),
-			Rebuilder: rebuildService,
+			Rows:      projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
+			Rebuilder: store,
 		},
 		tasksDecisions: taskdecisionprojection.Ports{
 			Rows:      taskDecisionRows,
-			Rebuilder: rebuildService,
+			Rebuilder: store,
 			Reader:    taskDecisionRows,
 		},
 	}
-	if !ports.Ready() {
-		return Ports{}, fmt.Errorf("compose Projections: incomplete ports")
+	if err := ports.validate(); err != nil {
+		return Ports{}, fmt.Errorf("compose Projections ports: %w", err)
 	}
 	return ports, nil
 }
 
 func (ports Ports) DescriptorSet() providercontract.DescriptorSet {
-	return ports.descriptors
+	if ports.catalog == nil {
+		return providercontract.DescriptorSet{}
+	}
+	return ports.catalog.DescriptorSet()
 }
 
 func (ports Ports) RecoveryStateContribution() recoverystate.Contribution {
@@ -205,7 +189,7 @@ func (ports Ports) RecoveryStateContribution() recoverystate.Contribution {
 }
 
 func (ports Ports) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryProvider, bool) {
-	if ports.query == nil || !ports.query.Supports(viewSchemaID) {
+	if ports.store == nil || !ports.store.Supports(viewSchemaID) {
 		return nil, false
 	}
 	return workbook.QueryProviderFunc(func(ctx context.Context, command workbook.QueryCommand) (querypage.Result, error) {
@@ -216,7 +200,7 @@ func (ports Ports) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryPro
 				command.ViewSchemaID,
 			)
 		}
-		return ports.query.QueryRowsPage(
+		return ports.store.QueryRowsPage(
 			ctx,
 			command.IncidentID,
 			viewSchemaID,
@@ -227,21 +211,27 @@ func (ports Ports) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryPro
 }
 
 func (ports Ports) RecoveryPorts() restorecontract.ProjectionPorts {
-	if ports.rebuild == nil {
+	if ports.restore == nil {
 		return restorecontract.ProjectionPorts{}
 	}
 	return restorecontract.ProjectionPorts{
-		Rebuilder:         ports.rebuild.RestoreRebuilder(),
+		Rebuilder:         ports.restore,
 		StateContribution: ports.RecoveryStateContribution(),
 	}
 }
 
 func (ports Ports) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
-	return ports.query
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
 }
 
 func (ports Ports) RevisionServices() revisions.ProjectionServices {
-	return ports.coordinator
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
 }
 
 type SourceTextRows interface {
@@ -254,11 +244,17 @@ type ImportRebuilder interface {
 }
 
 func (ports Ports) SourceTextRows() SourceTextRows {
-	return ports.coordinator
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
 }
 
 func (ports Ports) ImportRebuilder() ImportRebuilder {
-	return ports.rebuild
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
 }
 
 func (ports Ports) Timeline() timelineprojection.Ports { return ports.timeline }
@@ -277,21 +273,42 @@ func (ports Ports) Parties() partyprojection.Ports { return ports.parties }
 
 func (ports Ports) TasksDecisions() taskdecisionprojection.Ports { return ports.tasksDecisions }
 
-func (ports Ports) Ready() bool {
-	return ports.descriptors.Len() > 0 &&
-		ports.recoveryState.OwnerID == "module.projections" &&
-		ports.declarative != nil && ports.declarative.Ready() &&
-		ports.storage != nil && ports.storage.Ready() &&
-		ports.semanticQuery != nil && ports.semanticQuery.Ready() &&
-		ports.operational != nil && ports.query != nil && ports.rebuild != nil && ports.coordinator != nil &&
-		ports.timeline.Ready() && ports.entities.Ready() && ports.indicators.Ready() &&
-		ports.assessments.Ready() && ports.artifacts.Ready() && ports.evidence.Ready() &&
-		ports.parties.Ready() && ports.tasksDecisions.Ready()
+func (ports Ports) validate() error {
+	if ports.catalog == nil || ports.DescriptorSet().Len() == 0 {
+		return fmt.Errorf("descriptor catalog is required")
+	}
+	if ports.store == nil {
+		return fmt.Errorf("runtime store is required")
+	}
+	if ports.restore == nil {
+		return fmt.Errorf("restore rebuilder is required")
+	}
+	ownerPorts := []struct {
+		name  string
+		ready bool
+	}{
+		{name: "Timeline", ready: ports.timeline.Writer != nil && ports.timeline.Rebuilder != nil},
+		{name: "Entities", ready: ports.entities.Writer != nil && ports.entities.Rebuilder != nil && ports.entities.Reader != nil},
+		{name: "Indicators", ready: ports.indicators.Rows != nil && ports.indicators.Rebuilder != nil},
+		{name: "Assessments", ready: ports.assessments.Rows != nil && ports.assessments.Rebuilder != nil},
+		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Rebuilder != nil && ports.artifacts.Reader != nil},
+		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.Rebuilder != nil},
+		{name: "Parties", ready: ports.parties.Rows != nil && ports.parties.Rebuilder != nil},
+		{name: "Tasks/Decisions", ready: ports.tasksDecisions.Rows != nil && ports.tasksDecisions.Rebuilder != nil && ports.tasksDecisions.Reader != nil},
+	}
+	for _, owner := range ownerPorts {
+		if !owner.ready {
+			return fmt.Errorf("%s ports are incomplete", owner.name)
+		}
+	}
+	return nil
 }
 
 type evidencePort struct {
 	rows    *projectionruntime.EvidenceRows
-	rebuild *projectionruntime.RebuildService
+	rebuild interface {
+		RebuildIncidentViewsTx(context.Context, pgx.Tx, uuid.UUID, []string) error
+	}
 }
 
 func (port *evidencePort) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

@@ -25,15 +25,21 @@ type TimelineSource interface {
 	ListProjectionInputsTx(context.Context, pgx.Tx, uuid.UUID, *uuid.UUID, int) (timelineprojection.ProjectionInputPage, error)
 }
 
-func NewStore(pool postgres.DB, catalog *Catalog) *Store {
-	store := &Store{pool: pool}
-	if pool != nil {
-		store.physical, _ = projectionstorage.New(pool)
+func NewStore(
+	pool postgres.DB,
+	catalog *Catalog,
+	physical *projectionstorage.Store,
+) (*Store, error) {
+	if pool == nil {
+		return nil, errors.New("projection database is required")
 	}
-	if catalog != nil {
-		store.registry = catalog.registry
+	if catalog == nil || catalog.registry == nil {
+		return nil, errors.New("projection catalog is required")
 	}
-	return store
+	if physical == nil {
+		return nil, errors.New("projection physical storage is required")
+	}
+	return &Store{pool: pool, registry: catalog.registry, physical: physical}, nil
 }
 
 func (s *Store) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
@@ -71,7 +77,7 @@ func (s *Store) refreshTimelineTxCore(ctx context.Context, tx pgx.Tx, recordID u
 	return s.ApplyTimelineMutationTx(ctx, tx, mutation)
 }
 
-func (s *Store) RebuildIncidentTimeline(ctx context.Context, incidentID uuid.UUID) (err error) {
+func (s *Store) RebuildTimeline(ctx context.Context, incidentID uuid.UUID) (err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, timelineViewSchemaID)
 	defer func() { finishTelemetry(err) }()
 

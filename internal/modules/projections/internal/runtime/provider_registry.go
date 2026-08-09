@@ -11,51 +11,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
-const projectionProviderDescriptorSchemaVersion = providercontract.DescriptorSchemaVersion
-
-type ProviderStatus string
+type queryStrategy uint8
 
 const (
-	ProviderStatusActive       ProviderStatus = "active"
-	ProviderStatusDeprecated   ProviderStatus = "deprecated"
-	ProviderStatusExperimental ProviderStatus = "experimental"
+	queryStrategyNone queryStrategy = iota
+	queryStrategyCompiledPlan
+	queryStrategySourceOwnerHydration
 )
-
-type RestoreRebuildParticipation string
-
-const (
-	RestoreRebuildRequired         RestoreRebuildParticipation = "required"
-	RestoreRebuildNonparticipating RestoreRebuildParticipation = "nonparticipating"
-	RestoreRebuildUnsupported      RestoreRebuildParticipation = "unsupported"
-)
-
-type ProviderCapabilities struct {
-	Query           bool
-	RefreshRow      bool
-	RestoreRebuild  bool
-	IncidentRebuild bool
-}
-
-type ProviderDescriptor struct {
-	SchemaVersion             string
-	Status                    ProviderStatus
-	ProviderKey               string
-	SourceOwnerKey            string
-	ViewSchemaIDs             []string
-	SourceRecordTypes         []string
-	SourceAuthorityModules    []string
-	ProjectionTableFamilies   []string
-	ProjectionStorageOwnerKey string
-	Capabilities              ProviderCapabilities
-	RestoreRebuild            RestoreRebuildParticipation
-	FacadePackages            []string
-	RebuildAfter              []string
-	CharacterizationRefs      []string
-}
 
 type Provider struct {
-	descriptor        ProviderDescriptor
-	typedQuery        bool
+	descriptor        providercontract.ProviderDescriptor
+	queryStrategy     queryStrategy
 	queryPlans        []queryengine.Surface
 	refreshRowTx      func(context.Context, *Store, pgx.Tx, uuid.UUID) error
 	rebuildIncidentTx func(context.Context, *Store, pgx.Tx, uuid.UUID) error
@@ -69,52 +35,30 @@ type providerRegistry struct {
 }
 
 type Catalog struct {
-	registry *providerRegistry
+	descriptors providercontract.DescriptorSet
+	registry    *providerRegistry
 }
 
-func NewCatalog(providers []Provider) (*Catalog, error) {
+func newCatalog(descriptors providercontract.DescriptorSet, providers []Provider) (*Catalog, error) {
 	registry, err := newProviderRegistry(providers)
 	if err != nil {
 		return nil, err
 	}
-	return &Catalog{registry: registry}, nil
+	return &Catalog{descriptors: descriptors, registry: registry}, nil
 }
 
-func (c *Catalog) Descriptors() []ProviderDescriptor {
-	if c == nil || c.registry == nil {
-		return []ProviderDescriptor{}
+func (c *Catalog) DescriptorSet() providercontract.DescriptorSet {
+	if c == nil {
+		return providercontract.DescriptorSet{}
 	}
-	descriptors := make([]ProviderDescriptor, 0, len(c.registry.providers))
-	for _, provider := range c.registry.providers {
-		descriptor := provider.descriptor
-		descriptor.ViewSchemaIDs = append([]string(nil), descriptor.ViewSchemaIDs...)
-		descriptor.SourceRecordTypes = append([]string(nil), descriptor.SourceRecordTypes...)
-		descriptor.SourceAuthorityModules = append([]string(nil), descriptor.SourceAuthorityModules...)
-		descriptor.ProjectionTableFamilies = append([]string(nil), descriptor.ProjectionTableFamilies...)
-		descriptor.FacadePackages = append([]string(nil), descriptor.FacadePackages...)
-		descriptor.RebuildAfter = append([]string(nil), descriptor.RebuildAfter...)
-		descriptor.CharacterizationRefs = append([]string(nil), descriptor.CharacterizationRefs...)
-		descriptors = append(descriptors, descriptor)
-	}
-	return descriptors
+	return c.descriptors
 }
 
-func (c *Catalog) RebuildOrder() []string {
-	if c == nil || c.registry == nil {
-		return []string{}
-	}
-	keys := make([]string, 0, len(c.registry.rebuildOrder))
-	for _, provider := range c.registry.rebuildOrder {
-		keys = append(keys, provider.descriptor.ProviderKey)
-	}
-	return keys
-}
-
-func (s *Store) providerRegistry() *providerRegistry {
+func (s *Store) providerRegistry() (*providerRegistry, error) {
 	if s == nil || s.registry == nil {
-		panic("projection catalog is required")
+		return nil, fmt.Errorf("projection catalog is required")
 	}
-	return s.registry
+	return s.registry, nil
 }
 
 func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
@@ -126,27 +70,39 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 		byViewSchema:  map[string]*Provider{},
 		querySurfaces: map[string]genericSurface{},
 	}
-	byProviderKey := map[string]*Provider{}
+	byProviderID := map[string]*Provider{}
+	tableOwners := map[string]string{}
 	for index := range providers {
 		provider := providers[index]
 		if err := validateProvider(provider); err != nil {
 			return nil, err
 		}
-		if _, exists := byProviderKey[provider.descriptor.ProviderKey]; exists {
-			return nil, fmt.Errorf("duplicate projection provider key %q", provider.descriptor.ProviderKey)
+		if _, exists := byProviderID[provider.descriptor.ProviderID]; exists {
+			return nil, fmt.Errorf("duplicate projection provider_id %q", provider.descriptor.ProviderID)
 		}
 		providerCopy := provider
 		providerPointer := &providerCopy
-		byProviderKey[provider.descriptor.ProviderKey] = providerPointer
+		byProviderID[provider.descriptor.ProviderID] = providerPointer
 		registry.providers = append(registry.providers, providerPointer)
+		for _, tableID := range provider.descriptor.ProjectionTableIDs {
+			if existing := tableOwners[tableID]; existing != "" {
+				return nil, fmt.Errorf(
+					"duplicate projection table ownership for %q: %q and %q",
+					tableID,
+					existing,
+					provider.descriptor.ProviderID,
+				)
+			}
+			tableOwners[tableID] = provider.descriptor.ProviderID
+		}
 		seenViews := map[string]struct{}{}
 		for _, viewSchemaID := range provider.descriptor.ViewSchemaIDs {
 			if _, exists := seenViews[viewSchemaID]; exists {
-				return nil, fmt.Errorf("projection provider %q declares duplicate view_schema_id %q", provider.descriptor.ProviderKey, viewSchemaID)
+				return nil, fmt.Errorf("projection provider %q declares duplicate view_schema_id %q", provider.descriptor.ProviderID, viewSchemaID)
 			}
 			seenViews[viewSchemaID] = struct{}{}
 			if existing := registry.byViewSchema[viewSchemaID]; existing != nil {
-				return nil, fmt.Errorf("duplicate projection provider ownership for %q: %q and %q", viewSchemaID, existing.descriptor.ProviderKey, provider.descriptor.ProviderKey)
+				return nil, fmt.Errorf("duplicate projection view ownership for %q: %q and %q", viewSchemaID, existing.descriptor.ProviderID, provider.descriptor.ProviderID)
 			}
 			registry.byViewSchema[viewSchemaID] = providerPointer
 		}
@@ -156,12 +112,12 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 		}
 		for _, surface := range querySurfaces {
 			if existing, exists := registry.querySurfaces[surface.viewSchemaID]; exists {
-				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.viewSchemaID, existing.viewSchemaID, provider.descriptor.ProviderKey)
+				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.viewSchemaID, existing.viewSchemaID, provider.descriptor.ProviderID)
 			}
 			registry.querySurfaces[surface.viewSchemaID] = surface
 		}
 	}
-	rebuildOrder, err := topologicalProviderOrder(registry.providers, byProviderKey)
+	rebuildOrder, err := topologicalProviderOrder(registry.providers, byProviderID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +142,11 @@ func (r *providerRegistry) querySurfaceForView(viewSchemaID string) (genericSurf
 }
 
 func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
-	provider, ok := s.providerRegistry().providerForView(viewSchemaID)
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return err
+	}
+	provider, ok := registry.providerForView(viewSchemaID)
 	if !ok || !provider.descriptor.Capabilities.RefreshRow || provider.refreshRowTx == nil {
 		return fmt.Errorf("projection refresh surface %q not mapped", viewSchemaID)
 	}
@@ -198,19 +158,22 @@ func (s *Store) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string
 }
 
 func (s *Store) rebuildProjectionIncidentTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
-	provider, ok := s.providerRegistry().providerForView(viewSchemaID)
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return err
+	}
+	provider, ok := registry.providerForView(viewSchemaID)
 	if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
 		return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
 	}
 	return provider.rebuildIncidentTx(ctx, s, tx, incidentID)
 }
 
-func (s *Store) RebuildIncidentViewTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
-	return s.rebuildProjectionIncidentTx(ctx, tx, viewSchemaID, incidentID)
-}
-
 func (s *Store) RebuildIncidentViewsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, viewSchemaIDs []string) error {
-	registry := s.providerRegistry()
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return err
+	}
 	selectedViews := make(map[string]struct{}, len(viewSchemaIDs))
 	selectedProviders := make(map[string]struct{}, len(viewSchemaIDs))
 	for _, viewSchemaID := range viewSchemaIDs {
@@ -219,10 +182,10 @@ func (s *Store) RebuildIncidentViewsTx(ctx context.Context, tx pgx.Tx, incidentI
 			return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
 		}
 		selectedViews[viewSchemaID] = struct{}{}
-		selectedProviders[provider.descriptor.ProviderKey] = struct{}{}
+		selectedProviders[provider.descriptor.ProviderID] = struct{}{}
 	}
 	for _, provider := range registry.rebuildOrder {
-		if _, ok := selectedProviders[provider.descriptor.ProviderKey]; !ok {
+		if _, ok := selectedProviders[provider.descriptor.ProviderID]; !ok {
 			continue
 		}
 		if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
@@ -241,7 +204,11 @@ func (s *Store) RebuildIncidentViewsTx(ctx context.Context, tx pgx.Tx, incidentI
 }
 
 func (s *Store) RebuildIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	for _, provider := range s.providerRegistry().rebuildOrder {
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return err
+	}
+	for _, provider := range registry.rebuildOrder {
 		if !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
 			continue
 		}
@@ -250,4 +217,8 @@ func (s *Store) RebuildIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uui
 		}
 	}
 	return nil
+}
+
+func (s *Store) RebuildImportedIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	return s.RebuildIncidentTx(ctx, tx, incidentID)
 }

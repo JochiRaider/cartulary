@@ -25,17 +25,6 @@ const (
 	artifactForensicKeywordsViewSchemaID     = "cartulary.view.forensic_keywords.v1"
 )
 
-var artifactSurfaceTypes = map[string]string{
-	artifactNotesViewSchemaID:                "note",
-	artifactCommLogViewSchemaID:              "comm_log",
-	artifactHandoffViewSchemaID:              "handoff",
-	artifactStatusReviewViewSchemaID:         "status_review",
-	artifactLessonViewSchemaID:               "lesson",
-	artifactFindingsViewSchemaID:             "finding",
-	artifactInvestigativeQueriesViewSchemaID: "investigative_query",
-	artifactForensicKeywordsViewSchemaID:     "forensic_keyword",
-}
-
 type ArtifactReader struct{}
 
 func NewArtifactReader() *ArtifactReader { return &ArtifactReader{} }
@@ -88,7 +77,7 @@ SELECT a.record_id, a.artifact_type, a.finding_kind, to_jsonb(a) - 'incident_id'
 
 func ArtifactPlans() []Surface {
 	return []Surface{
-		artifactSurface(artifactFindingsViewSchemaID, []Field{
+		artifactSurface(artifactFindingsViewSchemaID, "finding", []Field{
 			{Key: "finding.statement", Expr: "p.finding_statement", Kind: FieldKindText},
 			{Key: "finding.kind", Expr: "p.finding_kind", SortExpr: enumSortExpr("p.finding_kind", "finding", "hypothesis"), Kind: FieldKindText},
 			{Key: "finding.state", Expr: "p.finding_state", SortExpr: enumSortExpr("p.finding_state", "open", "closed"), Kind: FieldKindText},
@@ -100,7 +89,7 @@ func ArtifactPlans() []Surface {
 			{Key: "finding.contradictory_refs", Expr: recordRefCollectionExprFor("p", "finding.contradictory_refs", "references_record"), Kind: FieldKindCollection},
 			{Key: "finding.confidence_band", Expr: "p.finding_confidence_band", SortExpr: enumSortExpr("p.finding_confidence_band", "unset", "low", "medium", "high"), Kind: FieldKindText},
 		}),
-		artifactSurface(artifactForensicKeywordsViewSchemaID, []Field{
+		artifactSurface(artifactForensicKeywordsViewSchemaID, "forensic_keyword", []Field{
 			{Key: "forensic_keyword.pattern", Expr: "p.forensic_keyword_pattern", Kind: FieldKindText},
 			{Key: "forensic_keyword.reason", Expr: "p.forensic_keyword_reason", Kind: FieldKindText},
 			{Key: "forensic_keyword.match_mode", Expr: "p.forensic_keyword_match_mode", SortExpr: enumSortExpr("p.forensic_keyword_match_mode", "literal", "regex"), Kind: FieldKindText},
@@ -109,7 +98,7 @@ func ArtifactPlans() []Surface {
 			{Key: "forensic_keyword.keyword_id", Expr: "p.forensic_keyword_keyword_id", Kind: FieldKindText},
 			{Key: "forensic_keyword.created_day", Expr: "p.forensic_keyword_created_day", Kind: FieldKindDate},
 		}),
-		artifactSurface(artifactInvestigativeQueriesViewSchemaID, []Field{
+		artifactSurface(artifactInvestigativeQueriesViewSchemaID, "investigative_query", []Field{
 			{Key: "investigative_query.platform", Expr: "p.investigative_query_platform", Kind: FieldKindText},
 			{Key: "investigative_query.purpose", Expr: "p.investigative_query_purpose", Kind: FieldKindText},
 			{Key: "investigative_query.query_text", Expr: "p.investigative_query_query_text", Kind: FieldKindText},
@@ -118,7 +107,7 @@ func ArtifactPlans() []Surface {
 			{Key: "investigative_query.query_id", Expr: "p.investigative_query_query_id", Kind: FieldKindText},
 			{Key: "investigative_query.created_day", Expr: "p.investigative_query_created_day", Kind: FieldKindDate},
 		}),
-		artifactSurface(artifactNotesViewSchemaID, []Field{
+		artifactSurface(artifactNotesViewSchemaID, "note", []Field{
 			{Key: "note.title", Expr: "p.title", Kind: FieldKindText},
 			{Key: "note.body", Expr: "p.body", Kind: FieldKindText},
 			{Key: "note.tags", Expr: tagCollectionExprFor("p"), Kind: FieldKindCollection},
@@ -126,7 +115,7 @@ func ArtifactPlans() []Surface {
 			{Key: "note.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
 			{Key: "note.created_by_user_id", Expr: "p.created_by_user_id", Kind: FieldKindText},
 		}),
-		artifactSurface(artifactCommLogViewSchemaID, []Field{
+		artifactSurface(artifactCommLogViewSchemaID, "comm_log", []Field{
 			{Key: "comm_log.timestamp_utc", Expr: "p.timestamp_utc", Kind: FieldKindTimestamp},
 			{Key: "comm_log.comm_type", Expr: "p.comm_type", Kind: FieldKindText},
 			{Key: "comm_log.audience", Expr: "p.audience", Kind: FieldKindText},
@@ -143,7 +132,7 @@ func ArtifactPlans() []Surface {
 			{Key: "comm_log.next_report_day", Expr: "p.next_report_day", Kind: FieldKindDate},
 			{Key: "comm_log.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
 		}),
-		artifactSurface(artifactHandoffViewSchemaID, []Field{
+		artifactSurface(artifactHandoffViewSchemaID, "handoff", []Field{
 			{Key: "handoff.timestamp_utc", Expr: "p.timestamp_utc", Kind: FieldKindTimestamp},
 			{Key: "handoff.outgoing_owner_user_id", Expr: "p.outgoing_owner_user_id", Kind: FieldKindText},
 			{Key: "handoff.incoming_owner_user_id", Expr: "p.incoming_owner_user_id", Kind: FieldKindText},
@@ -158,7 +147,7 @@ func ArtifactPlans() []Surface {
 			{Key: "handoff.ack_state", Expr: "p.ack_state", SortExpr: enumSortExpr("p.ack_state", "pending", "acknowledged"), Kind: FieldKindText},
 			{Key: "handoff.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
 		}),
-		artifactSurface(artifactStatusReviewViewSchemaID, []Field{
+		artifactSurface(artifactStatusReviewViewSchemaID, "status_review", []Field{
 			{Key: "status_review.timestamp_utc", Expr: "p.timestamp_utc", Kind: FieldKindTimestamp},
 			{Key: "status_review.review_owner_user_id", Expr: "p.review_owner_user_id", Kind: FieldKindText},
 			{Key: "status_review.current_state_summary", Expr: "p.current_state_summary", Kind: FieldKindText},
@@ -172,7 +161,7 @@ func ArtifactPlans() []Surface {
 			{Key: "status_review.next_report_day", Expr: "p.next_report_day", Kind: FieldKindDate},
 			{Key: "status_review.updated_at", Expr: "p.updated_at", Kind: FieldKindTimestamp},
 		}),
-		artifactSurface(artifactLessonViewSchemaID, []Field{
+		artifactSurface(artifactLessonViewSchemaID, "lesson", []Field{
 			{Key: "lesson.timestamp_utc", Expr: "p.timestamp_utc", Kind: FieldKindTimestamp},
 			{Key: "lesson.summary", Expr: "p.summary", Kind: FieldKindText},
 			{Key: "lesson.owner_user_id", Expr: "p.owner_user_id", Kind: FieldKindText},
@@ -186,11 +175,7 @@ func ArtifactPlans() []Surface {
 	}
 }
 
-func artifactSurface(viewSchemaID string, fields []Field) Surface {
-	artifactType, ok := artifactSurfaceTypes[viewSchemaID]
-	if !ok {
-		panic("projection provider requested an unregistered artifact surface: " + viewSchemaID)
-	}
+func artifactSurface(viewSchemaID string, artifactType string, fields []Field) Surface {
 	return Surface{
 		ViewSchemaID: viewSchemaID,
 		FromSQL:      "FROM artifact_grid_projection p JOIN records r ON r.record_id = p.record_id",

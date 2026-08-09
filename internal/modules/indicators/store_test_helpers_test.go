@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -18,12 +18,15 @@ import (
 
 func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.Appender) *indicators.Store {
 	t.Helper()
-	projection := timelineassembly.NewProjectionBundle(db)
+	projection, err := projectionassembly.Build(db)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
 	store, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    db,
 		Revisions:   appender,
-		Projections: projection.Indicators.Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows),
+		Projections: projection.IndicatorPorts().Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test store: %v", err)
@@ -33,7 +36,11 @@ func newIndicatorTestStore(t testing.TB, db postgres.DB, appender *revisions.App
 
 func newIndicatorTestProjectionRows(t testing.TB, db postgres.DB) indicatorprojection.Rows {
 	t.Helper()
-	return timelineassembly.NewProjectionBundle(db).Indicators.Rows
+	projection, err := projectionassembly.Build(db)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
+	return projection.IndicatorPorts().Rows
 }
 
 func manualObservationParams(incidentID uuid.UUID, sourceID uuid.UUID, fieldKey string, resolvedID *uuid.UUID, clientTxnID string) indicators.IndicatorObservationCreateParams {

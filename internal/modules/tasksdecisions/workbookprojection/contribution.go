@@ -116,42 +116,13 @@ type Ports struct {
 	Reader    Reader
 }
 
-func (ports Ports) Ready() bool {
-	return ports.Rows != nil && ports.Rebuilder != nil && ports.Reader != nil
-}
-
 type Contribution struct {
 	contract          providercontract.Contribution
 	taskRequestSource TaskRequestSourceReader
 	decisionSource    DecisionSourceReader
 }
 
-type Sources struct {
-	TaskRequests TaskRequestSourceReader
-	Decisions    DecisionSourceReader
-}
-
 func NewContribution(
-	descriptors []providercontract.ProviderDescriptor,
-	intents []providercontract.SurfaceIntent,
-	sources ...Sources,
-) (Contribution, error) {
-	if len(sources) > 1 {
-		return Contribution{}, fmt.Errorf("Tasks/Decisions projection contribution accepts at most one source set")
-	}
-	contract, err := providercontract.NewContribution("tasksdecisions", descriptors, intents)
-	if err != nil {
-		return Contribution{}, err
-	}
-	contribution := Contribution{contract: contract}
-	if len(sources) == 1 {
-		contribution.taskRequestSource = sources[0].TaskRequests
-		contribution.decisionSource = sources[0].Decisions
-	}
-	return contribution, nil
-}
-
-func NewRuntimeContribution(
 	taskRequestSource TaskRequestSourceReader,
 	decisionSource DecisionSourceReader,
 ) (Contribution, error) {
@@ -161,14 +132,19 @@ func NewRuntimeContribution(
 	if decisionSource == nil {
 		return Contribution{}, fmt.Errorf("decision projection source is required")
 	}
-	contribution, err := NewContribution(Descriptors(), SurfaceIntents(), Sources{
-		TaskRequests: taskRequestSource,
-		Decisions:    decisionSource,
-	})
+	intents, err := SurfaceIntents()
 	if err != nil {
 		return Contribution{}, err
 	}
-	return contribution, nil
+	contract, err := providercontract.NewContribution("tasksdecisions", Descriptors(), intents)
+	if err != nil {
+		return Contribution{}, err
+	}
+	return Contribution{
+		contract:          contract,
+		taskRequestSource: taskRequestSource,
+		decisionSource:    decisionSource,
+	}, nil
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {
@@ -230,17 +206,22 @@ func Descriptors() []providercontract.ProviderDescriptor {
 	}
 }
 
-func SurfaceIntents() []providercontract.SurfaceIntent {
-	return []providercontract.SurfaceIntent{
-		surfaceIntent(taskRequestsViewSchemaID),
-		surfaceIntent(decisionsViewSchemaID),
+func SurfaceIntents() ([]providercontract.SurfaceIntent, error) {
+	intents := make([]providercontract.SurfaceIntent, 0, 2)
+	for _, viewSchemaID := range []string{taskRequestsViewSchemaID, decisionsViewSchemaID} {
+		intent, err := surfaceIntent(viewSchemaID)
+		if err != nil {
+			return nil, err
+		}
+		intents = append(intents, intent)
 	}
+	return intents, nil
 }
 
-func surfaceIntent(viewSchemaID string) providercontract.SurfaceIntent {
+func surfaceIntent(viewSchemaID string) (providercontract.SurfaceIntent, error) {
 	schema, ok := viewschema.Lookup(viewSchemaID)
 	if !ok {
-		panic("Tasks/Decisions projection surface has no view-schema contract: " + viewSchemaID)
+		return providercontract.SurfaceIntent{}, fmt.Errorf("Tasks/Decisions projection surface %q has no view-schema contract", viewSchemaID)
 	}
 	fields := schema.Fields()
 	fieldKeys := make([]string, 0, len(fields))
@@ -248,5 +229,5 @@ func surfaceIntent(viewSchemaID string) providercontract.SurfaceIntent {
 		fieldKeys = append(fieldKeys, fieldKey)
 	}
 	slices.Sort(fieldKeys)
-	return providercontract.SurfaceIntent{ViewSchemaID: viewSchemaID, FieldKeys: fieldKeys}
+	return providercontract.SurfaceIntent{ViewSchemaID: viewSchemaID, FieldKeys: fieldKeys}, nil
 }

@@ -1866,7 +1866,6 @@
         "func NewStore(",
         "records.NewStore(",
         "links.NewStore(",
-        "projections.NewTaskDecisionRows(",
         "revisions.NewAppender("
       ],
       "scan_paths": ["internal/modules/tasksdecisions/**"],

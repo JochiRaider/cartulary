@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -181,11 +181,15 @@ INSERT INTO object_blobs (
 	} else if len(objects) != 0 {
 		t.Fatalf("fresh target SeaweedFS bucket is not empty before restore: %#v", objects)
 	}
+	projectionRuntime, err := projectionassembly.Build(targetPool)
+	if err != nil {
+		t.Fatalf("compose target projection runtime: %v", err)
+	}
 	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage, testExtensionBackupCatalog(t)).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:        targetPool,
 		ObjectStore:     targetObjectStore,
 		EvidenceObjects: recoveryprovider.New(targetPool),
-		Projections:     timelineassembly.NewRestoreRebuilder(targetPool),
+		Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
 	}, asOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)

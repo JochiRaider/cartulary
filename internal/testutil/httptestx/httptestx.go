@@ -17,9 +17,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
@@ -232,15 +232,15 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		ObserveCollaboration: func(hub *collaboration.Hub, dispatcher *collaboration.Dispatcher, intents collaboration.IntentAppender) {
 			collaborationCapability = &CollaborationCapability{hub: hub, dispatcher: dispatcher, intents: intents}
 		},
-		ObserveTimeline: func(bundle *timelineassembly.Bundle) {
+		ObserveProjections: func(runtime *projectionassembly.Runtime) {
 			projectionCapability = projectiontestsupport.New(projectiontestsupport.Dependencies{
-				TimelineRebuilder:  bundle.TimelineProjections.Rebuilder,
-				EntityRebuilder:    bundle.EntityProjections.Rebuilder,
-				IndicatorRebuilder: bundle.IndicatorProjections.Rebuilder,
-				IndicatorRows:      bundle.IndicatorProjections.Rows,
-				EvidenceRows:       bundle.EvidenceProjections.Rows,
+				TimelineRebuilder:  runtime.TimelinePorts().Rebuilder,
+				EntityRebuilder:    runtime.EntityPorts().Rebuilder,
+				IndicatorRebuilder: runtime.IndicatorPorts().Rebuilder,
+				IndicatorRows:      runtime.IndicatorPorts().Rows,
+				EvidenceRows:       runtime.EvidencePorts().Rows,
 			})
-			indicatorSourceText = indicatorassembly.NewSourceTextPort(bundle.ProjectionSourceTextRows)
+			indicatorSourceText = indicatorassembly.NewSourceTextPort(runtime.SourceTextRows())
 		},
 		ObserveRevisions: func(runtime *revisionassembly.Runtime) {
 			revisionsCapability = &RevisionsCapability{runtime: runtime}

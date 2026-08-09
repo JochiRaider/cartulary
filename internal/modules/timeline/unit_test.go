@@ -10,10 +10,8 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -35,7 +33,7 @@ func TestBindingMode_Unit(t *testing.T) {
 		harness.DB,
 		revisionsupport.MustAppender(t),
 		nil,
-		timelineassembly.NewProjectionBundle(harness.DB).Entities.Writer,
+		mustBuildProjectionRuntime(t, harness.DB).EntityPorts().Writer,
 	)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
@@ -318,15 +316,8 @@ type resolutionTimelineCommands struct {
 
 func newResolutionTimelineCommands(t testing.TB, pool postgres.DB) *resolutionTimelineCommands {
 	t.Helper()
-	revisionComposition := revisionsupport.MustComposition(t)
 	return &resolutionTimelineCommands{
-		facade: timelineassembly.NewBundle(
-			pool,
-			conflicttest.NewCodec("timeline"),
-			revisionComposition.Runtime.Appender(),
-			revisionComposition.Intents,
-			evidence.NewTimelineAttachmentContribution(pool),
-		).Facade,
+		facade: newTestTimelineBundle(t, pool, conflicttest.NewCodec("timeline")).Facade,
 	}
 }
 

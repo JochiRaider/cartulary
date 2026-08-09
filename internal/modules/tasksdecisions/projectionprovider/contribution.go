@@ -6,7 +6,7 @@ import (
 )
 
 func NewContribution() (workbookprojection.Contribution, error) {
-	return workbookprojection.NewRuntimeContribution(
+	return workbookprojection.NewContribution(
 		internalprojection.NewTaskRequestSource(),
 		internalprojection.NewDecisionSource(),
 	)

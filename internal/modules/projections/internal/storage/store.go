@@ -18,7 +18,3 @@ func New(db postgres.DB) (*Store, error) {
 	}
 	return &Store{db: db}, nil
 }
-
-func (store *Store) Ready() bool {
-	return store != nil && store.db != nil
-}

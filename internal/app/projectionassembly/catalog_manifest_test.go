@@ -98,7 +98,7 @@ func TestProjectionProviderManifestMirrorsCodeBackedRegistry(t *testing.T) {
 func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest {
 	t.Helper()
 
-	bundle, err := NewBundle(
+	bundle, err := buildRuntime(
 		&projectionManifestDB{},
 		projectionManifestTimelineContribution(t),
 		projectionManifestEntitiesContribution(t),
@@ -153,7 +153,7 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 }
 
 func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T) {
-	bundle, err := NewBundle(
+	bundle, err := buildRuntime(
 		&projectionManifestDB{},
 		projectionManifestTimelineContribution(t),
 		projectionManifestEntitiesContribution(t),
@@ -167,10 +167,19 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 	if err != nil {
 		t.Fatalf("assemble projection adapter: %v", err)
 	}
-	if !bundle.ports.Ready() || bundle.DescriptorSet().Len() != 10 {
-		t.Fatalf("projection adapter ports are incomplete: ready=%v descriptors=%d", bundle.ports.Ready(), bundle.DescriptorSet().Len())
+	if bundle.DescriptorSet().Len() != 10 {
+		t.Fatalf("projection adapter descriptors are incomplete: %d", bundle.DescriptorSet().Len())
 	}
-	if !bundle.RecoveryPorts().Ready() || !bundle.TimelinePorts().Ready() || !bundle.EntityPorts().Ready() || !bundle.IndicatorPorts().Ready() || !bundle.AssessmentPorts().Ready() || !bundle.ArtifactPorts().Ready() || !bundle.EvidencePorts().Ready() || !bundle.PartyPorts().Ready() || !bundle.TaskDecisionPorts().Ready() || bundle.RestoreProbeQuery() == nil || bundle.RevisionServices() == nil || bundle.SourceTextRows() == nil {
+	if !bundle.RecoveryPorts().Ready() ||
+		bundle.TimelinePorts().Writer == nil || bundle.TimelinePorts().Rebuilder == nil ||
+		bundle.EntityPorts().Writer == nil || bundle.EntityPorts().Rebuilder == nil || bundle.EntityPorts().Reader == nil ||
+		bundle.IndicatorPorts().Rows == nil || bundle.IndicatorPorts().Rebuilder == nil ||
+		bundle.AssessmentPorts().Rows == nil || bundle.AssessmentPorts().Rebuilder == nil ||
+		bundle.ArtifactPorts().Rows == nil || bundle.ArtifactPorts().Rebuilder == nil || bundle.ArtifactPorts().Reader == nil ||
+		bundle.EvidencePorts().Rows == nil || bundle.EvidencePorts().Rebuilder == nil ||
+		bundle.PartyPorts().Rows == nil || bundle.PartyPorts().Rebuilder == nil ||
+		bundle.TaskDecisionPorts().Rows == nil || bundle.TaskDecisionPorts().Rebuilder == nil || bundle.TaskDecisionPorts().Reader == nil ||
+		bundle.RestoreProbeQuery() == nil || bundle.RevisionServices() == nil || bundle.SourceTextRows() == nil {
 		t.Fatalf("projection assembly consumer ports are incomplete")
 	}
 	for _, descriptor := range bundle.DescriptorSet().All() {
@@ -200,7 +209,7 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 
 func projectionManifestTimelineContribution(t testing.TB) timelineprojection.Contribution {
 	t.Helper()
-	contribution, err := timelineprojection.NewRuntimeContribution(&projectionManifestTimelineSource{})
+	contribution, err := timelineprojection.NewContribution(&projectionManifestTimelineSource{})
 	if err != nil {
 		t.Fatalf("construct Timeline projection contribution: %v", err)
 	}
@@ -209,7 +218,7 @@ func projectionManifestTimelineContribution(t testing.TB) timelineprojection.Con
 
 func projectionManifestEntitiesContribution(t testing.TB) entityprojection.Contribution {
 	t.Helper()
-	contribution, err := entityprojection.NewRuntimeContribution(&projectionManifestEntitySource{})
+	contribution, err := entityprojection.NewContribution(&projectionManifestEntitySource{})
 	if err != nil {
 		t.Fatalf("construct Entities projection contribution: %v", err)
 	}

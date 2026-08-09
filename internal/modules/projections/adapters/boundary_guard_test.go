@@ -122,18 +122,55 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 			cartularyImportPrefix + "internal/modules/assessments/projectionprovider": {},
 		},
 		"internal/app/projectionassembly": {
-			cartularyImportPrefix + "internal/modules/evidence/projectionprovider": {},
-		},
-		"internal/app/timelineassembly": {
 			cartularyImportPrefix + "internal/modules/artifacts/projectionprovider":             {},
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
+			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
 			cartularyImportPrefix + "internal/modules/indicators/projectionprovider":            {},
 			cartularyImportPrefix + "internal/modules/parties/projectionprovider":               {},
 			cartularyImportPrefix + "internal/modules/tasksdecisions/projectionprovider":        {},
+			cartularyImportPrefix + "internal/modules/timeline/projectionprovider":              {},
 		},
 	}
 	_, ok := allowed[filepath.ToSlash(filepath.Dir(relPath))][importPath]
 	return ok
+}
+
+func TestProjectionProviderAssemblyAllowlistMatchesFinalTopology(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		path       string
+		importPath string
+		want       bool
+	}{
+		"global projection assembly": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/timeline/projectionprovider",
+			want:       true,
+		},
+		"assessment source seam": {
+			path:       "internal/app/assessmentassembly/projection_source.go",
+			importPath: cartularyImportPrefix + "internal/modules/assessments/projectionprovider",
+			want:       true,
+		},
+		"timeline is not a composition root": {
+			path:       "internal/app/timelineassembly/assembly.go",
+			importPath: cartularyImportPrefix + "internal/modules/timeline/projectionprovider",
+			want:       false,
+		},
+		"projection assembly cannot bypass assessment seam": {
+			path:       "internal/app/projectionassembly/build.go",
+			importPath: cartularyImportPrefix + "internal/modules/assessments/projectionprovider",
+			want:       false,
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := projectionProviderAssemblyImportAllowed(test.path, test.importPath); got != test.want {
+				t.Fatalf("allowance for %s importing %s = %v, want %v", test.path, test.importPath, got, test.want)
+			}
+		})
+	}
 }
 
 func loadRuntimeExcludedSupportRoots(t testing.TB, repoRoot string) map[string]struct{} {

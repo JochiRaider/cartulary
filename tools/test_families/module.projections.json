@@ -16,7 +16,8 @@
       "selector": {
         "package": "./internal/modules/projections/adapters",
         "tests": [
-          "TestProductionProjectionImportsUseApprovedFacades"
+          "TestProductionProjectionImportsUseApprovedFacades",
+          "TestProjectionProviderAssemblyAllowlistMatchesFinalTopology"
         ]
       },
       "evidence_class": "static",
@@ -58,6 +59,106 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.projections.construction.artifact_intent_errors_iteration2",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.construction",
+      "collaborator_ids": [
+        "module.artifacts"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/workbookprojection",
+        "tests": [
+          "TestArtifactProjectionIntentRejectsUnknownViewSchema"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.construction.evidence_intent_errors_iteration2",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.construction",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/workbookprojection",
+        "tests": [
+          "TestEvidenceProjectionIntentRejectsUnknownViewSchema"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.construction.party_intent_errors_iteration2",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.construction",
+      "collaborator_ids": [
+        "module.parties"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/workbookprojection",
+        "tests": [
+          "TestPartyProjectionIntentRejectsUnknownViewSchema"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.construction.tasksdecisions_intent_errors_iteration2",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.construction",
+      "collaborator_ids": [
+        "module.tasksdecisions"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions/workbookprojection",
+        "tests": [
+          "TestTaskDecisionProjectionIntentRejectsUnknownViewSchema"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.projections.foundation.adapter_contract_48f57d6542",
       "owner_id": "module.projections",
       "family_id": "module.projections.foundation",
@@ -79,9 +180,45 @@
         "package": "./internal/modules/projections/adapters",
         "tests": [
           "TestFoundationProviderContractContainsNoPhysicalQueryFields",
-          "TestNewRejectsInvalidCatalogAndIntentMatrix",
           "TestNewRejectsMissingDependencies",
           "TestNewReturnsReadyPortsAndImmutableDescriptorSet"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.projections.foundation.private_catalog_validation_iteration2",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.foundation",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.projections.verification.provider_architecture"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/runtime",
+        "tests": [
+          "TestCanonicalCatalogIsExecutableRuntimeGraph",
+          "TestCanonicalCatalogRejectsInvalidContractFacts",
+          "TestCanonicalCatalogRejectsMissingProviderSources",
+          "TestCanonicalRuntimeServicesShareOneStore",
+          "TestCanonicalStoreRejectsIncompleteConstruction",
+          "TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas"
         ]
       },
       "evidence_class": "unit",

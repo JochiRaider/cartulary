@@ -48,7 +48,7 @@ type inertDecisionSource struct {
 }
 
 func TestNewRejectsMissingDependencies(t *testing.T) {
-	valid := validDependencies(t, validFoundationModel())
+	valid := validDependencies(t)
 
 	t.Run("Postgres", func(t *testing.T) {
 		dependencies := valid
@@ -91,107 +91,24 @@ func TestNewRejectsMissingDependencies(t *testing.T) {
 	}
 }
 
-func TestNewRejectsInvalidCatalogAndIntentMatrix(t *testing.T) {
-	tests := map[string]struct {
-		mutate func(*foundationModel)
-		want   string
-	}{
-		"duplicate provider": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "host", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.ProviderID = "timeline"
-				})
-			},
-			want: "duplicate projection provider_id",
-		},
-		"duplicate table": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "identity", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.ProjectionTableIDs = []string{"host_grid_projection"}
-				})
-			},
-			want: "duplicate projection table ownership",
-		},
-		"duplicate view": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "identity", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.ViewSchemaIDs = []string{"cartulary.view.hosts.v1"}
-				})
-			},
-			want: "duplicate projection view ownership",
-		},
-		"missing provider": {
-			mutate: func(model *foundationModel) {
-				model.descriptors["entities"] = model.descriptors["entities"][:1]
-			},
-			want: "missing active projection provider \"identity\"",
-		},
-		"unsupported descriptor version": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "host", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.SchemaVersion = "projection_provider_descriptor.v2"
-				})
-			},
-			want: "unsupported schema version",
-		},
-		"unresolved surface": {
-			mutate: func(model *foundationModel) {
-				model.intents["entities"] = model.intents["entities"][:1]
-			},
-			want: "has no semantic intent",
-		},
-		"invalid semantic fields": {
-			mutate: func(model *foundationModel) {
-				model.intents["entities"][0].FieldKeys = nil
-			},
-			want: "has no field keys",
-		},
-		"source ownership mismatch": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "host", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.SourceOwnerModule = "timeline"
-				})
-			},
-			want: "source owner",
-		},
-		"storage ownership mismatch": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "host", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.ProjectionStorageOwnerModule = "entities"
-				})
-			},
-			want: "storage owner",
-		},
-		"rebuild cycle": {
-			mutate: func(model *foundationModel) {
-				mutateFoundationDescriptor(model, "timeline", func(descriptor *providercontract.ProviderDescriptor) {
-					descriptor.RebuildAfter = []string{"decision"}
-				})
-			},
-			want: "rebuild graph has a cycle",
-		},
-	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			model := validFoundationModel()
-			test.mutate(&model)
-			requireCompositionError(t, validDependencies(t, model), test.want)
-		})
-	}
-}
-
 func TestNewReturnsReadyPortsAndImmutableDescriptorSet(t *testing.T) {
-	model := validFoundationModel()
-	dependencies := validDependencies(t, model)
+	dependencies := validDependencies(t)
 	ports, err := adapters.New(dependencies)
 	if err != nil {
 		t.Fatalf("compose projection foundation: %v", err)
 	}
-	if !ports.Ready() || ports.DescriptorSet().Len() != 10 {
-		t.Fatalf("projection ports are incomplete: ready=%v descriptors=%d", ports.Ready(), ports.DescriptorSet().Len())
+	if ports.DescriptorSet().Len() != 10 || !ports.RecoveryPorts().Ready() ||
+		ports.Timeline().Writer == nil || ports.Timeline().Rebuilder == nil ||
+		ports.Entities().Writer == nil || ports.Entities().Rebuilder == nil || ports.Entities().Reader == nil ||
+		ports.Indicators().Rows == nil || ports.Indicators().Rebuilder == nil ||
+		ports.Assessments().Rows == nil || ports.Assessments().Rebuilder == nil ||
+		ports.Artifacts().Rows == nil || ports.Artifacts().Rebuilder == nil || ports.Artifacts().Reader == nil ||
+		ports.Evidence().Rows == nil || ports.Evidence().Rebuilder == nil ||
+		ports.Parties().Rows == nil || ports.Parties().Rebuilder == nil ||
+		ports.TasksDecisions().Rows == nil || ports.TasksDecisions().Rebuilder == nil || ports.TasksDecisions().Reader == nil {
+		t.Fatalf("projection ports are incomplete: %#v", ports)
 	}
 
-	model.descriptors["entities"][0].ViewSchemaIDs[0] = "mutated.before.compose.return"
 	first := ports.DescriptorSet().All()
 	first[0].ViewSchemaIDs[0] = "mutated.returned.copy"
 	second := ports.DescriptorSet().All()
@@ -264,183 +181,94 @@ func TestFoundationProviderContractContainsNoPhysicalQueryFields(t *testing.T) {
 	}
 }
 
-type foundationModel struct {
-	descriptors map[string][]providercontract.ProviderDescriptor
-	intents     map[string][]providercontract.SurfaceIntent
-}
-
-func validFoundationModel() foundationModel {
-	providers := []struct {
-		owner string
-		id    string
-		table string
-		views []string
-		after []string
-	}{
-		{owner: "timeline", id: "timeline", table: "timeline_grid_projection", views: []string{"cartulary.view.timeline.v2"}},
-		{owner: "entities", id: "host", table: "host_grid_projection", views: []string{"cartulary.view.hosts.v1"}, after: []string{"timeline"}},
-		{owner: "entities", id: "identity", table: "identity_grid_projection", views: []string{"cartulary.view.identities.v1"}, after: []string{"host"}},
-		{owner: "indicators", id: "indicator", table: "indicator_grid_projection", views: []string{"cartulary.view.indicators.v1"}, after: []string{"identity"}},
-		{owner: "assessments", id: "assessment", table: "assessment_grid_projection", views: []string{"cartulary.view.assessments.v1"}, after: []string{"indicator"}},
-		{owner: "artifacts", id: "artifact", table: "artifact_grid_projection", views: []string{
-			"cartulary.view.notes.v1",
-			"cartulary.view.comm_log.v1",
-			"cartulary.view.handoff.v1",
-			"cartulary.view.status_review.v1",
-			"cartulary.view.lesson.v1",
-			"cartulary.view.findings.v1",
-			"cartulary.view.investigative_queries.v1",
-			"cartulary.view.forensic_keywords.v1",
-		}, after: []string{"assessment"}},
-		{owner: "evidence", id: "evidence", table: "evidence_grid_projection", views: []string{"cartulary.view.evidence.v1"}, after: []string{"artifact"}},
-		{owner: "parties", id: "party", table: "party_grid_projection", views: []string{"cartulary.view.parties.v1"}, after: []string{"evidence"}},
-		{owner: "tasksdecisions", id: "task_request", table: "task_request_grid_projection", views: []string{"cartulary.view.task_requests.v1"}, after: []string{"party"}},
-		{owner: "tasksdecisions", id: "decision", table: "decision_grid_projection", views: []string{"cartulary.view.decisions.v1"}, after: []string{"task_request"}},
-	}
-	model := foundationModel{
-		descriptors: map[string][]providercontract.ProviderDescriptor{},
-		intents:     map[string][]providercontract.SurfaceIntent{},
-	}
-	for _, provider := range providers {
-		model.descriptors[provider.owner] = append(model.descriptors[provider.owner], providercontract.ProviderDescriptor{
-			SchemaVersion:                providercontract.DescriptorSchemaVersion,
-			Status:                       providercontract.ProviderStatusActive,
-			ProviderID:                   provider.id,
-			SourceOwnerModule:            provider.owner,
-			ViewSchemaIDs:                append([]string(nil), provider.views...),
-			SourceRecordTypes:            []string{provider.id},
-			SourceAuthorityModules:       []string{provider.owner},
-			ProjectionTableIDs:           []string{provider.table},
-			ProjectionStorageOwnerModule: "projections",
-			Capabilities: providercontract.ProviderCapabilities{
-				Query:           true,
-				RefreshRow:      true,
-				RestoreRebuild:  true,
-				IncidentRebuild: true,
-			},
-			RestoreRebuild: providercontract.RestoreRebuildRequired,
-			FacadePackages: []string{"internal/modules/" + provider.owner + "/workbookprojection"},
-			RebuildAfter:   append([]string(nil), provider.after...),
-		})
-		for _, viewSchemaID := range provider.views {
-			model.intents[provider.owner] = append(model.intents[provider.owner], providercontract.SurfaceIntent{
-				ViewSchemaID: viewSchemaID,
-				FieldKeys:    []string{provider.id + ".record_id"},
-			})
-		}
-	}
-	return model
-}
-
-func validDependencies(t testing.TB, model foundationModel) adapters.Dependencies {
+func validDependencies(t testing.TB) adapters.Dependencies {
 	t.Helper()
 	return adapters.Dependencies{
 		Postgres:       &inertDB{},
-		Timeline:       mustTimelineContribution(t, model),
-		Entities:       mustEntitiesContribution(t, model),
-		Indicators:     mustIndicatorsContribution(t, model),
-		Assessments:    mustAssessmentsContribution(t, model),
-		Artifacts:      mustArtifactsContribution(t, model),
-		Evidence:       mustEvidenceContribution(t, model),
-		Parties:        mustPartiesContribution(t, model),
-		TasksDecisions: mustTasksDecisionsContribution(t, model),
+		Timeline:       mustTimelineContribution(t),
+		Entities:       mustEntitiesContribution(t),
+		Indicators:     mustIndicatorsContribution(t),
+		Assessments:    mustAssessmentsContribution(t),
+		Artifacts:      mustArtifactsContribution(t),
+		Evidence:       mustEvidenceContribution(t),
+		Parties:        mustPartiesContribution(t),
+		TasksDecisions: mustTasksDecisionsContribution(t),
 	}
 }
 
-func mustTimelineContribution(t testing.TB, model foundationModel) timelineprojection.Contribution {
+func mustTimelineContribution(t testing.TB) timelineprojection.Contribution {
 	t.Helper()
-	contribution, err := timelineprojection.NewContribution(model.descriptors["timeline"], model.intents["timeline"], &inertTimelineSource{})
+	contribution, err := timelineprojection.NewContribution(&inertTimelineSource{})
 	if err != nil {
 		t.Fatalf("timeline contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustEntitiesContribution(t testing.TB, model foundationModel) entityprojection.Contribution {
+func mustEntitiesContribution(t testing.TB) entityprojection.Contribution {
 	t.Helper()
-	contribution, err := entityprojection.NewContribution(model.descriptors["entities"], model.intents["entities"], &inertEntitySource{})
+	contribution, err := entityprojection.NewContribution(&inertEntitySource{})
 	if err != nil {
 		t.Fatalf("entities contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustIndicatorsContribution(t testing.TB, model foundationModel) indicatorprojection.Contribution {
+func mustIndicatorsContribution(t testing.TB) indicatorprojection.Contribution {
 	t.Helper()
-	contribution, err := indicatorprojection.NewContribution(model.descriptors["indicators"], model.intents["indicators"], &inertIndicatorSource{})
+	contribution, err := indicatorprojection.NewContribution(&inertIndicatorSource{})
 	if err != nil {
 		t.Fatalf("indicators contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustAssessmentsContribution(t testing.TB, model foundationModel) assessmentprojection.Contribution {
+func mustAssessmentsContribution(t testing.TB) assessmentprojection.Contribution {
 	t.Helper()
-	contribution, err := assessmentprojection.NewContribution(model.descriptors["assessments"], model.intents["assessments"], &inertAssessmentSource{})
+	contribution, err := assessmentprojection.NewContribution(&inertAssessmentSource{})
 	if err != nil {
 		t.Fatalf("assessments contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustArtifactsContribution(t testing.TB, model foundationModel) artifactprojection.Contribution {
+func mustArtifactsContribution(t testing.TB) artifactprojection.Contribution {
 	t.Helper()
-	contribution, err := artifactprojection.NewContribution(model.descriptors["artifacts"], model.intents["artifacts"], &inertArtifactSource{})
+	contribution, err := artifactprojection.NewContribution(&inertArtifactSource{})
 	if err != nil {
 		t.Fatalf("artifacts contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustEvidenceContribution(t testing.TB, model foundationModel) evidenceprojection.Contribution {
+func mustEvidenceContribution(t testing.TB) evidenceprojection.Contribution {
 	t.Helper()
-	contribution, err := evidenceprojection.NewContribution(model.descriptors["evidence"], model.intents["evidence"], &inertEvidenceSource{})
+	contribution, err := evidenceprojection.NewContribution(&inertEvidenceSource{})
 	if err != nil {
 		t.Fatalf("evidence contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustPartiesContribution(t testing.TB, model foundationModel) partyprojection.Contribution {
+func mustPartiesContribution(t testing.TB) partyprojection.Contribution {
 	t.Helper()
-	contribution, err := partyprojection.NewContribution(model.descriptors["parties"], model.intents["parties"], &inertPartySource{})
+	contribution, err := partyprojection.NewContribution(&inertPartySource{})
 	if err != nil {
 		t.Fatalf("parties contribution: %v", err)
 	}
 	return contribution
 }
 
-func mustTasksDecisionsContribution(t testing.TB, model foundationModel) taskdecisionprojection.Contribution {
+func mustTasksDecisionsContribution(t testing.TB) taskdecisionprojection.Contribution {
 	t.Helper()
 	contribution, err := taskdecisionprojection.NewContribution(
-		model.descriptors["tasksdecisions"],
-		model.intents["tasksdecisions"],
-		taskdecisionprojection.Sources{
-			TaskRequests: &inertTaskRequestSource{},
-			Decisions:    &inertDecisionSource{},
-		},
+		&inertTaskRequestSource{},
+		&inertDecisionSource{},
 	)
 	if err != nil {
 		t.Fatalf("tasks/decisions contribution: %v", err)
 	}
 	return contribution
-}
-
-func mutateFoundationDescriptor(
-	model *foundationModel,
-	providerID string,
-	mutate func(*providercontract.ProviderDescriptor),
-) {
-	for owner, descriptors := range model.descriptors {
-		for index := range descriptors {
-			if descriptors[index].ProviderID == providerID {
-				mutate(&descriptors[index])
-				model.descriptors[owner] = descriptors
-				return
-			}
-		}
-	}
-	panic("missing projection descriptor fixture " + providerID)
 }
 
 func requireCompositionError(t testing.TB, dependencies adapters.Dependencies, want string) {
@@ -449,7 +277,7 @@ func requireCompositionError(t testing.TB, dependencies adapters.Dependencies, w
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Fatalf("adapters.New ports=%#v error=%v, want containing %q", ports, err, want)
 	}
-	if ports.Ready() || ports.DescriptorSet().Len() != 0 {
+	if ports.DescriptorSet().Len() != 0 || ports.RecoveryPorts().Ready() {
 		t.Fatalf("failed composition returned usable ports: %#v", ports)
 	}
 }

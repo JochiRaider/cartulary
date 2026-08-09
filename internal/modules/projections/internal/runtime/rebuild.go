@@ -8,16 +8,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type RestoreRebuilder struct {
 	store *Store
-}
-
-func NewRestoreRebuilder(pool postgres.DB, catalog *Catalog) *RestoreRebuilder {
-	return NewRestoreRebuilderFromStore(NewStore(pool, catalog))
 }
 
 func NewRestoreRebuilderFromStore(store *Store) *RestoreRebuilder {
@@ -83,7 +79,14 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 		})
 		return result, err
 	}
-	registry := s.providerRegistry()
+	registry, registryErr := s.providerRegistry()
+	if registryErr != nil {
+		result.Errors = append(result.Errors, restorecontract.ProjectionRebuildMessage{
+			Code:    "projection_catalog_required",
+			Message: registryErr.Error(),
+		})
+		return result, fmt.Errorf("rebuild restore projections: %w", registryErr)
+	}
 	participatingProviders := 0
 	type pendingProviderSuccess struct {
 		resultIndex   int
@@ -93,22 +96,22 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 	pendingSuccesses := make([]pendingProviderSuccess, 0, len(registry.rebuildOrder))
 	for _, provider := range registry.rebuildOrder {
 		providerResult := restorecontract.ProjectionProviderResult{
-			ProviderKey:             provider.descriptor.ProviderKey,
+			ProviderKey:             provider.descriptor.ProviderID,
 			Status:                  restorecontract.ProjectionProviderResultFailed,
 			RebuiltViewSchemaIDs:    []string{},
 			RebuiltProjectionTables: []restorecontract.ProjectionTableResult{},
 			Warnings:                []string{},
 		}
-		if provider.descriptor.RestoreRebuild == RestoreRebuildNonparticipating {
+		if provider.descriptor.RestoreRebuild == providercontract.RestoreRebuildNonparticipating {
 			providerResult.Status = restorecontract.ProjectionProviderResultSkippedNonparticipating
 			result.ProviderResults = append(result.ProviderResults, providerResult)
 			continue
 		}
-		if provider.descriptor.RestoreRebuild != RestoreRebuildRequired ||
+		if provider.descriptor.RestoreRebuild != providercontract.RestoreRebuildRequired ||
 			!provider.descriptor.Capabilities.RestoreRebuild ||
 			!provider.descriptor.Capabilities.IncidentRebuild ||
 			provider.rebuildIncidentTx == nil {
-			err := fmt.Errorf("projection provider %q is not restore-rebuild ready", provider.descriptor.ProviderKey)
+			err := fmt.Errorf("projection provider %q is not restore-rebuild ready", provider.descriptor.ProviderID)
 			providerResult.Status = restorecontract.ProjectionProviderResultFailed
 			providerResult.Error = err.Error()
 			result.ProviderResults = append(result.ProviderResults, providerResult)
@@ -116,7 +119,7 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 			result.Errors = append(result.Errors, restorecontract.ProjectionRebuildMessage{
 				Code:        "restore_projection_provider_not_ready",
 				Message:     err.Error(),
-				ProviderKey: provider.descriptor.ProviderKey,
+				ProviderKey: provider.descriptor.ProviderID,
 			})
 			return result, err
 		}
@@ -124,7 +127,7 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 		providerResult.IncidentCount = len(incidentIDs)
 		for _, incidentID := range incidentIDs {
 			if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
-				wrapped := fmt.Errorf("rebuild %s projection for incident %s: %w", provider.descriptor.ProviderKey, incidentID, err)
+				wrapped := fmt.Errorf("rebuild %s projection for incident %s: %w", provider.descriptor.ProviderID, incidentID, err)
 				providerResult.Status = restorecontract.ProjectionProviderResultFailed
 				providerResult.Error = wrapped.Error()
 				result.ProviderResults = append(result.ProviderResults, providerResult)
@@ -132,14 +135,14 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 				result.Errors = append(result.Errors, restorecontract.ProjectionRebuildMessage{
 					Code:        "restore_projection_provider_rebuild_failed",
 					Message:     wrapped.Error(),
-					ProviderKey: provider.descriptor.ProviderKey,
+					ProviderKey: provider.descriptor.ProviderID,
 				})
 				return result, wrapped
 			}
 		}
-		tableResults, err := restoreProjectionProviderTableResults(ctx, tx, provider.descriptor.ProjectionTableFamilies)
+		tableResults, err := restoreProjectionProviderTableResults(ctx, tx, provider.descriptor.ProjectionTableIDs)
 		if err != nil {
-			wrapped := fmt.Errorf("count %s projection rows after restore rebuild: %w", provider.descriptor.ProviderKey, err)
+			wrapped := fmt.Errorf("count %s projection rows after restore rebuild: %w", provider.descriptor.ProviderID, err)
 			providerResult.Status = restorecontract.ProjectionProviderResultFailed
 			providerResult.Error = wrapped.Error()
 			result.ProviderResults = append(result.ProviderResults, providerResult)
@@ -147,7 +150,7 @@ func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecon
 			result.Errors = append(result.Errors, restorecontract.ProjectionRebuildMessage{
 				Code:        "restore_projection_provider_row_count_failed",
 				Message:     wrapped.Error(),
-				ProviderKey: provider.descriptor.ProviderKey,
+				ProviderKey: provider.descriptor.ProviderID,
 			})
 			return result, wrapped
 		}

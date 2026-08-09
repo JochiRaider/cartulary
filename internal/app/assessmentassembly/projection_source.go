@@ -22,19 +22,19 @@ func NewProjectionContribution() (assessmentprojection.Contribution, error) {
 			records: recordStore,
 		},
 	)
-	return assessmentprojection.NewRuntimeContribution(source)
+	return assessmentprojection.NewContribution(source)
 }
 
 type assessmentEnvelopeAdapter struct {
 	records *records.Store
 }
 
-func (a assessmentEnvelopeAdapter) LoadAssessmentProjectionEnvelopeTx(
+func (adapter assessmentEnvelopeAdapter) LoadAssessmentProjectionEnvelopeTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
 ) (assessmentprojection.Envelope, bool, error) {
-	envelope, err := a.records.LoadEnvelopeTx(ctx, tx, recordID, false)
+	envelope, err := adapter.records.LoadEnvelopeTx(ctx, tx, recordID, false)
 	if errors.Is(err, records.ErrEnvelopeNotFound) {
 		return assessmentprojection.Envelope{}, false, nil
 	}
@@ -55,17 +55,17 @@ type assessmentSupportAdapter struct {
 	records *records.Store
 }
 
-func (a assessmentSupportAdapter) LoadAssessmentProjectionSupportFactsTx(
+func (adapter assessmentSupportAdapter) LoadAssessmentProjectionSupportFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	assessmentID uuid.UUID,
 ) (assessmentprojection.SupportFacts, error) {
-	linkFacts, err := a.links.LoadSupportFactsTx(ctx, tx, incidentID, assessmentID)
+	linkFacts, err := adapter.links.LoadSupportFactsTx(ctx, tx, incidentID, assessmentID)
 	if err != nil {
 		return assessmentprojection.SupportFacts{}, err
 	}
-	envelopes, err := a.records.LoadEnvelopesTx(ctx, tx, linkFacts.TargetRecordIDs, false)
+	envelopes, err := adapter.records.LoadEnvelopesTx(ctx, tx, linkFacts.TargetRecordIDs, false)
 	if err != nil {
 		return assessmentprojection.SupportFacts{}, err
 	}

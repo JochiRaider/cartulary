@@ -112,43 +112,28 @@ type Ports struct {
 	Reader    Reader
 }
 
-func (ports Ports) Ready() bool {
-	return ports.Rows != nil && ports.Rebuilder != nil && ports.Reader != nil
-}
-
 type Contribution struct {
 	contract providercontract.Contribution
 	source   SourceReader
 }
 
-func NewContribution(
-	descriptors []providercontract.ProviderDescriptor,
-	intents []providercontract.SurfaceIntent,
-	sources ...SourceReader,
-) (Contribution, error) {
-	if len(sources) > 1 {
-		return Contribution{}, fmt.Errorf("artifacts projection contribution accepts at most one source")
-	}
-	contract, err := providercontract.NewContribution("artifacts", descriptors, intents)
-	if err != nil {
-		return Contribution{}, err
-	}
-	var source SourceReader
-	if len(sources) == 1 {
-		source = sources[0]
-	}
-	return Contribution{contract: contract, source: source}, nil
-}
-
-func NewRuntimeContribution(source SourceReader) (Contribution, error) {
+func NewContribution(source SourceReader) (Contribution, error) {
 	if source == nil {
 		return Contribution{}, fmt.Errorf("artifacts projection source is required")
 	}
-	return NewContribution(
+	intents, err := SurfaceIntents()
+	if err != nil {
+		return Contribution{}, err
+	}
+	contract, err := providercontract.NewContribution(
+		"artifacts",
 		[]providercontract.ProviderDescriptor{Descriptor()},
-		SurfaceIntents(),
-		source,
+		intents,
 	)
+	if err != nil {
+		return Contribution{}, err
+	}
+	return Contribution{contract: contract, source: source}, nil
 }
 
 func (contribution Contribution) ProjectionContribution() providercontract.Contribution {
@@ -195,29 +180,41 @@ func Descriptor() providercontract.ProviderDescriptor {
 	}
 }
 
-func SurfaceIntents() []providercontract.SurfaceIntent {
-	surfaces := surfacecatalog.All()
-	intents := make([]providercontract.SurfaceIntent, 0, len(surfaces))
-	for _, surface := range surfaces {
-		schema, ok := viewschema.Lookup(surface.ViewSchemaID)
-		if !ok {
-			panic("artifact projection surface has no view-schema contract: " + surface.ViewSchemaID)
+func SurfaceIntents() ([]providercontract.SurfaceIntent, error) {
+	descriptor := Descriptor()
+	intents := make([]providercontract.SurfaceIntent, 0, len(descriptor.ViewSchemaIDs))
+	for _, viewSchemaID := range descriptor.ViewSchemaIDs {
+		intent, err := surfaceIntent(viewSchemaID)
+		if err != nil {
+			return nil, err
 		}
-		fields := schema.Fields()
-		fieldKeys := make([]string, 0, len(fields))
-		for fieldKey := range fields {
-			fieldKeys = append(fieldKeys, fieldKey)
-		}
-		slices.Sort(fieldKeys)
-		intents = append(intents, providercontract.SurfaceIntent{
-			ViewSchemaID: surface.ViewSchemaID,
-			FieldKeys:    fieldKeys,
-			CanonicalSourceFilter: &providercontract.SourceFilterIntent{
-				Kind:  "artifact_type",
-				Field: "artifact_type",
-				Value: surface.ArtifactType,
-			},
-		})
+		intents = append(intents, intent)
 	}
-	return intents
+	return intents, nil
+}
+
+func surfaceIntent(viewSchemaID string) (providercontract.SurfaceIntent, error) {
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		return providercontract.SurfaceIntent{}, fmt.Errorf("artifact projection surface %q has no view-schema contract", viewSchemaID)
+	}
+	filter, ok := schema.CanonicalSourceFilter()
+	if !ok || filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value == "" {
+		return providercontract.SurfaceIntent{}, fmt.Errorf("artifact projection surface %q has no canonical artifact_type filter", viewSchemaID)
+	}
+	fields := schema.Fields()
+	fieldKeys := make([]string, 0, len(fields))
+	for fieldKey := range fields {
+		fieldKeys = append(fieldKeys, fieldKey)
+	}
+	slices.Sort(fieldKeys)
+	return providercontract.SurfaceIntent{
+		ViewSchemaID: viewSchemaID,
+		FieldKeys:    fieldKeys,
+		CanonicalSourceFilter: &providercontract.SourceFilterIntent{
+			Kind:  "artifact_type",
+			Field: "artifact_type",
+			Value: filter.Value,
+		},
+	}, nil
 }

@@ -2,6 +2,13 @@ package workbookprojection
 
 import "testing"
 
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Artifact projection contribution unexpectedly constructed")
+	}
+}
+
 func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 	descriptor := Descriptor()
 	if descriptor.ProviderID != "artifact" ||
@@ -12,7 +19,10 @@ func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 		descriptor.FacadePackages[0] != "internal/modules/artifacts/workbookprojection" {
 		t.Fatalf("unexpected Artifact descriptor: %#v", descriptor)
 	}
-	intents := SurfaceIntents()
+	intents, err := SurfaceIntents()
+	if err != nil {
+		t.Fatalf("Artifact semantic intents: %v", err)
+	}
 	if len(intents) != 8 {
 		t.Fatalf("Artifact semantic intents = %d, want 8", len(intents))
 	}
@@ -30,8 +40,15 @@ func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 	}
 }
 
+func TestArtifactProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
+	t.Parallel()
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+		t.Fatal("unknown Artifact view schema produced a semantic intent")
+	}
+}
+
 func TestArtifactProjectionContributionDefensivelyCopiesFacts(t *testing.T) {
-	contribution, err := NewRuntimeContribution(artifactSourceStub{})
+	contribution, err := NewContribution(artifactSourceStub{})
 	if err != nil {
 		t.Fatalf("construct Artifact projection contribution: %v", err)
 	}

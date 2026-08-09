@@ -29,9 +29,9 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -237,7 +237,7 @@ func run() error {
 		return fmt.Errorf("open target object store: %w", err)
 	}
 
-	projectionRebuilder, workbookProbe, err := timelineassembly.NewRecoveryProjectionServices(targetPool)
+	projectionRebuilder, workbookProbe, err := projectionassembly.NewRecoveryServices(targetPool)
 	if err != nil {
 		targetPool.Close()
 		_ = targetObjectStore.Close()
@@ -728,7 +728,10 @@ func createDatabase(ctx context.Context, adminDSN string, name string) error {
 		return fmt.Errorf("open admin db: %w", err)
 	}
 	defer admin.Close()
-	quoted := pgIdentifier(name)
+	quoted, err := pgIdentifier(name)
+	if err != nil {
+		return err
+	}
 	if _, err := admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+quoted+` WITH (FORCE)`); err != nil {
 		return fmt.Errorf("drop existing target db: %w", err)
 	}
@@ -748,7 +751,11 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 		return err
 	}
 	defer admin.Close()
-	_, err = admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+pgIdentifier(name)+` WITH (FORCE)`)
+	quoted, err := pgIdentifier(name)
+	if err != nil {
+		return err
+	}
+	_, err = admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+quoted+` WITH (FORCE)`)
 	return err
 }
 
@@ -763,11 +770,11 @@ func databaseDSN(rawDSN string, database string) (string, error) {
 
 var identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-func pgIdentifier(value string) string {
+func pgIdentifier(value string) (string, error) {
 	if !identifierPattern.MatchString(value) {
-		panic("unsafe postgres identifier: " + value)
+		return "", fmt.Errorf("unsafe postgres identifier %q", value)
 	}
-	return `"` + value + `"`
+	return `"` + value + `"`, nil
 }
 
 func safeSuffix(value string) string {

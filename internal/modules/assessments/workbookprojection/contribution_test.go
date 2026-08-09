@@ -5,9 +5,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
+
+type assessmentContributionSource struct{ SourceReader }
+
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Assessment projection contribution unexpectedly constructed")
+	}
+}
 
 func TestAssessmentProjectionContractOwnsTypedImmutableFacts(t *testing.T) {
 	descriptor := Descriptor()
@@ -19,10 +26,7 @@ func TestAssessmentProjectionContractOwnsTypedImmutableFacts(t *testing.T) {
 		t.Fatalf("unexpected assessment descriptor: %#v", descriptor)
 	}
 
-	contribution, err := NewContribution(
-		[]providercontract.ProviderDescriptor{descriptor},
-		[]providercontract.SurfaceIntent{SurfaceIntent()},
-	)
+	contribution, err := NewContribution(&assessmentContributionSource{})
 	if err != nil {
 		t.Fatalf("construct assessment projection contribution: %v", err)
 	}

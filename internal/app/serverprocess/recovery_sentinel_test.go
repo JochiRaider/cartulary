@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -30,6 +30,10 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	ctx := t.Context()
 	fixture := captureRestoreSource(t, "backup_restore-i-10-02-source")
 	target := prepareRestoreTarget(t, "backup_restore-i-10-02-target")
+	projectionRuntime, err := projectionassembly.Build(target.Postgres)
+	if err != nil {
+		t.Fatalf("compose restore projection runtime: %v", err)
+	}
 
 	recoverytestsupport.RestoreLatest(t, ctx,
 		recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage, recoveryExtensionCatalog(t)),
@@ -38,7 +42,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 			Postgres:        target.Postgres,
 			ObjectStore:     target.ObjectStore,
 			EvidenceObjects: recoveryprovider.New(target.Postgres),
-			Projections:     timelineassembly.NewRestoreRebuilder(target.Postgres),
+			Projections:     projectionRuntime.RecoveryPorts().Rebuilder,
 		}, fixture.AsOf, recoverytestsupport.RestoreExpectation{
 			BackupSetID:             fixture.LatestBackupSetID,
 			ConsistencyPointAt:      fixture.ConsistencyPointAt,
@@ -61,7 +65,7 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 		CodecRegistrySHA256:        recovery.SHA256String("backup_restore-i-10-02-codecs"),
 	}
 	verificationTarget := prepareRestoreTarget(t, "backup_restore-i-10-02-verification-target")
-	verificationRebuilder, verificationQuery, err := timelineassembly.NewRecoveryProjectionServices(verificationTarget.Postgres)
+	verificationRebuilder, verificationQuery, err := projectionassembly.NewRecoveryServices(verificationTarget.Postgres)
 	if err != nil {
 		t.Fatalf("compose restore projection services: %v", err)
 	}

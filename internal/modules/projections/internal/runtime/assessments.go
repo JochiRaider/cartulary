@@ -56,6 +56,12 @@ func (s *Store) RebuildIncidentAssessmentsTx(
 	return s.rebuildProjectionIncidentTx(ctx, tx, assessmentsViewSchemaID, incidentID)
 }
 
+func (s *Store) RebuildAssessments(ctx context.Context, incidentID uuid.UUID) error {
+	return s.rebuildIncidentHotProjection(ctx, assessmentsViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
+		return s.RebuildIncidentAssessmentsTx(ctx, tx, incidentID)
+	})
+}
+
 func (s *Store) rebuildIncidentAssessmentsTxCore(
 	ctx context.Context,
 	tx pgx.Tx,

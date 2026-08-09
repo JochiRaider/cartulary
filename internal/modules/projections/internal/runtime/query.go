@@ -23,7 +23,7 @@ const (
 	statusReviewViewSchemaID         = "cartulary.view.status_review.v1"
 )
 
-func (s *Store) SupportsQuerySurface(viewSchemaID string) bool {
+func (s *Store) Supports(viewSchemaID string) bool {
 	if s == nil || s.registry == nil {
 		return false
 	}
@@ -37,7 +37,11 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaI
 }
 
 func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
-	definition, ok := s.providerRegistry().querySurfaceForView(viewSchemaID)
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return querypage.Result{}, err
+	}
+	definition, ok := registry.querySurfaceForView(viewSchemaID)
 	if !ok {
 		return querypage.Result{}, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}
@@ -59,7 +63,11 @@ func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSch
 }
 
 func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	definition, ok := s.providerRegistry().querySurfaceForView(viewSchemaID)
+	registry, err := s.providerRegistry()
+	if err != nil {
+		return nil, err
+	}
+	definition, ok := registry.querySurfaceForView(viewSchemaID)
 	if !ok {
 		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}

@@ -3,76 +3,96 @@ package runtime
 import (
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func validateProvider(provider Provider) error {
 	descriptor := provider.descriptor
-	if descriptor.SchemaVersion != projectionProviderDescriptorSchemaVersion {
-		return fmt.Errorf("projection provider %q declares unsupported schema_version %q", descriptor.ProviderKey, descriptor.SchemaVersion)
+	if descriptor.SchemaVersion != providercontract.DescriptorSchemaVersion {
+		return fmt.Errorf("projection provider %q declares unsupported schema_version %q", descriptor.ProviderID, descriptor.SchemaVersion)
 	}
 	switch descriptor.Status {
-	case ProviderStatusActive, ProviderStatusDeprecated, ProviderStatusExperimental:
+	case providercontract.ProviderStatusActive, providercontract.ProviderStatusDeprecated, providercontract.ProviderStatusExperimental:
 	default:
-		return fmt.Errorf("projection provider %q declares unsupported status %q", descriptor.ProviderKey, descriptor.Status)
+		return fmt.Errorf("projection provider %q declares unsupported status %q", descriptor.ProviderID, descriptor.Status)
 	}
-	if descriptor.ProviderKey == "" {
-		return fmt.Errorf("projection provider has empty provider_key")
+	if descriptor.ProviderID == "" {
+		return fmt.Errorf("projection provider has empty provider_id")
 	}
-	if descriptor.SourceOwnerKey == "" {
-		return fmt.Errorf("projection provider %q has empty source_owner_key", descriptor.ProviderKey)
+	if descriptor.SourceOwnerModule == "" {
+		return fmt.Errorf("projection provider %q has empty source_owner_module", descriptor.ProviderID)
 	}
 	if len(descriptor.ViewSchemaIDs) == 0 {
-		return fmt.Errorf("projection provider %q declares no view_schema_ids", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares no view_schema_ids", descriptor.ProviderID)
 	}
-	if err := validateUniqueStrings(descriptor.ProviderKey, "view_schema_ids", descriptor.ViewSchemaIDs); err != nil {
+	if err := validateUniqueStrings(descriptor.ProviderID, "view_schema_ids", descriptor.ViewSchemaIDs); err != nil {
 		return err
 	}
 	if len(descriptor.SourceRecordTypes) == 0 {
-		return fmt.Errorf("projection provider %q declares no source_record_types", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares no source_record_types", descriptor.ProviderID)
 	}
-	if err := validateUniqueStrings(descriptor.ProviderKey, "source_record_types", descriptor.SourceRecordTypes); err != nil {
+	if err := validateUniqueStrings(descriptor.ProviderID, "source_record_types", descriptor.SourceRecordTypes); err != nil {
 		return err
 	}
 	if len(descriptor.SourceAuthorityModules) == 0 {
-		return fmt.Errorf("projection provider %q declares no source_authority_modules", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares no source_authority_modules", descriptor.ProviderID)
 	}
 	if err := validateSourceAuthorityModules(descriptor); err != nil {
 		return err
 	}
-	if len(descriptor.ProjectionTableFamilies) == 0 {
-		return fmt.Errorf("projection provider %q declares no projection_table_families", descriptor.ProviderKey)
+	if len(descriptor.ProjectionTableIDs) == 0 {
+		return fmt.Errorf("projection provider %q declares no projection_table_ids", descriptor.ProviderID)
 	}
-	if err := validateUniqueStrings(descriptor.ProviderKey, "projection_table_families", descriptor.ProjectionTableFamilies); err != nil {
+	if err := validateUniqueStrings(descriptor.ProviderID, "projection_table_ids", descriptor.ProjectionTableIDs); err != nil {
 		return err
 	}
-	if err := validateUniqueStrings(descriptor.ProviderKey, "rebuild_after", descriptor.RebuildAfter); err != nil {
+	if err := validateUniqueStrings(descriptor.ProviderID, "rebuild_after", descriptor.RebuildAfter); err != nil {
 		return err
 	}
-	if err := validateUniqueStrings(descriptor.ProviderKey, "characterization_refs", descriptor.CharacterizationRefs); err != nil {
+	if err := validateUniqueStrings(descriptor.ProviderID, "characterization_refs", descriptor.CharacterizationRefs); err != nil {
 		return err
 	}
-	if descriptor.ProjectionStorageOwnerKey == "" {
-		return fmt.Errorf("projection provider %q has empty projection_storage_owner_key", descriptor.ProviderKey)
+	if descriptor.ProjectionStorageOwnerModule == "" {
+		return fmt.Errorf("projection provider %q has empty projection_storage_owner_module", descriptor.ProviderID)
 	}
 	if descriptor.Capabilities.RefreshRow && provider.refreshRowTx == nil {
-		return fmt.Errorf("projection provider %q declares refresh support without implementation", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares refresh support without implementation", descriptor.ProviderID)
 	}
 	if !descriptor.Capabilities.RefreshRow && provider.refreshRowTx != nil {
-		return fmt.Errorf("projection provider %q has refresh implementation without capability", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q has refresh implementation without capability", descriptor.ProviderID)
 	}
 	if descriptor.Capabilities.IncidentRebuild && provider.rebuildIncidentTx == nil {
-		return fmt.Errorf("projection provider %q declares incident rebuild support without implementation", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares incident rebuild support without implementation", descriptor.ProviderID)
 	}
 	if !descriptor.Capabilities.IncidentRebuild && provider.rebuildIncidentTx != nil {
-		return fmt.Errorf("projection provider %q has incident rebuild implementation without capability", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q has incident rebuild implementation without capability", descriptor.ProviderID)
 	}
 	if descriptor.Capabilities.RestoreRebuild && !descriptor.Capabilities.IncidentRebuild {
-		return fmt.Errorf("projection provider %q declares restore rebuild without incident rebuild capability", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares restore rebuild without incident rebuild capability", descriptor.ProviderID)
 	}
-	if descriptor.Capabilities.Query != (len(provider.queryPlans) > 0 || provider.typedQuery) {
-		return fmt.Errorf("projection provider %q query capability does not match registered query surfaces", descriptor.ProviderKey)
+	if descriptor.Capabilities.Query != (provider.queryStrategy != queryStrategyNone) {
+		return fmt.Errorf("projection provider %q query capability does not match registered query strategy", descriptor.ProviderID)
+	}
+	switch provider.queryStrategy {
+	case queryStrategyNone:
+		if len(provider.queryPlans) != 0 {
+			return fmt.Errorf("projection provider %q has compiled plans without a query strategy", descriptor.ProviderID)
+		}
+	case queryStrategyCompiledPlan:
+		if len(provider.queryPlans) == 0 {
+			return fmt.Errorf("projection provider %q compiled query strategy has no plans", descriptor.ProviderID)
+		}
+	case queryStrategySourceOwnerHydration:
+		if len(provider.queryPlans) != 0 {
+			return fmt.Errorf("projection provider %q source-owner hydration strategy has compiled plans", descriptor.ProviderID)
+		}
+	default:
+		return fmt.Errorf("projection provider %q has unsupported query strategy %d", descriptor.ProviderID, provider.queryStrategy)
 	}
 	declaredViews := map[string]struct{}{}
 	for _, viewSchemaID := range descriptor.ViewSchemaIDs {
@@ -85,55 +105,158 @@ func validateProvider(provider Provider) error {
 	}
 	for _, surface := range querySurfaces {
 		if surface.viewSchemaID == "" {
-			return fmt.Errorf("projection provider %q declares query surface with empty view_schema_id", descriptor.ProviderKey)
+			return fmt.Errorf("projection provider %q declares query surface with empty view_schema_id", descriptor.ProviderID)
 		}
 		if _, ok := declaredViews[surface.viewSchemaID]; !ok {
-			return fmt.Errorf("projection provider %q query surface %q is not one of its view_schema_ids", descriptor.ProviderKey, surface.viewSchemaID)
+			return fmt.Errorf("projection provider %q query surface %q is not one of its view_schema_ids", descriptor.ProviderID, surface.viewSchemaID)
 		}
 		if _, exists := seenPlans[surface.viewSchemaID]; exists {
-			return fmt.Errorf("projection provider %q declares duplicate query surface %q", descriptor.ProviderKey, surface.viewSchemaID)
+			return fmt.Errorf("projection provider %q declares duplicate query surface %q", descriptor.ProviderID, surface.viewSchemaID)
 		}
 		seenPlans[surface.viewSchemaID] = struct{}{}
 	}
 	switch descriptor.RestoreRebuild {
-	case RestoreRebuildRequired:
+	case providercontract.RestoreRebuildRequired:
 		if !descriptor.Capabilities.RestoreRebuild {
-			return fmt.Errorf("projection provider %q declares required restore rebuild without capability", descriptor.ProviderKey)
+			return fmt.Errorf("projection provider %q declares required restore rebuild without capability", descriptor.ProviderID)
 		}
 		if provider.rebuildIncidentTx == nil {
-			return fmt.Errorf("projection provider %q declares required restore rebuild without implementation", descriptor.ProviderKey)
+			return fmt.Errorf("projection provider %q declares required restore rebuild without implementation", descriptor.ProviderID)
 		}
-	case RestoreRebuildNonparticipating:
+	case providercontract.RestoreRebuildNonparticipating:
 		if descriptor.Capabilities.RestoreRebuild {
-			return fmt.Errorf("projection provider %q declares nonparticipating restore rebuild with capability", descriptor.ProviderKey)
+			return fmt.Errorf("projection provider %q declares nonparticipating restore rebuild with capability", descriptor.ProviderID)
 		}
-	case RestoreRebuildUnsupported:
-		if descriptor.Status == ProviderStatusActive {
-			return fmt.Errorf("projection provider %q is active but declares unsupported restore rebuild", descriptor.ProviderKey)
+	case providercontract.RestoreRebuildUnsupported:
+		if descriptor.Status == providercontract.ProviderStatusActive {
+			return fmt.Errorf("projection provider %q is active but declares unsupported restore rebuild", descriptor.ProviderID)
 		}
 		if descriptor.Capabilities.RestoreRebuild {
-			return fmt.Errorf("projection provider %q declares unsupported restore rebuild with capability", descriptor.ProviderKey)
+			return fmt.Errorf("projection provider %q declares unsupported restore rebuild with capability", descriptor.ProviderID)
 		}
 	default:
-		return fmt.Errorf("projection provider %q declares unsupported restore_rebuild %q", descriptor.ProviderKey, descriptor.RestoreRebuild)
+		return fmt.Errorf("projection provider %q declares unsupported restore_rebuild %q", descriptor.ProviderID, descriptor.RestoreRebuild)
 	}
 	if len(descriptor.FacadePackages) == 0 {
-		return fmt.Errorf("projection provider %q declares no facade_packages", descriptor.ProviderKey)
+		return fmt.Errorf("projection provider %q declares no facade_packages", descriptor.ProviderID)
 	}
 	seenFacadePackages := map[string]struct{}{}
 	for _, packagePath := range descriptor.FacadePackages {
 		if err := validateFacadePackagePath(packagePath); err != nil {
-			return fmt.Errorf("projection provider %q facade package %q: %w", descriptor.ProviderKey, packagePath, err)
+			return fmt.Errorf("projection provider %q facade package %q: %w", descriptor.ProviderID, packagePath, err)
 		}
 		if _, exists := seenFacadePackages[packagePath]; exists {
-			return fmt.Errorf("projection provider %q declares duplicate facade package %q", descriptor.ProviderKey, packagePath)
+			return fmt.Errorf("projection provider %q declares duplicate facade package %q", descriptor.ProviderID, packagePath)
 		}
 		seenFacadePackages[packagePath] = struct{}{}
 	}
-	if descriptor.ProjectionStorageOwnerKey != "projections" {
-		return fmt.Errorf("projection provider %q projection_storage_owner_key=%q must be projections", descriptor.ProviderKey, descriptor.ProjectionStorageOwnerKey)
+	if descriptor.ProjectionStorageOwnerModule != "projections" {
+		return fmt.Errorf("projection provider %q projection_storage_owner_module=%q must be projections", descriptor.ProviderID, descriptor.ProjectionStorageOwnerModule)
 	}
 	return nil
+}
+
+func validateSemanticIntents(
+	registry *providerRegistry,
+	intents []providercontract.SurfaceIntent,
+	intentOwners map[string]string,
+) error {
+	if registry == nil || len(intents) == 0 {
+		return fmt.Errorf("projection query intents are empty")
+	}
+	intentByView := make(map[string]providercontract.SurfaceIntent, len(intents))
+	for _, intent := range intents {
+		if strings.TrimSpace(intent.ViewSchemaID) == "" {
+			return fmt.Errorf("projection query intent has empty view_schema_id")
+		}
+		if len(intent.FieldKeys) == 0 {
+			return fmt.Errorf("projection query intent %q has no field keys", intent.ViewSchemaID)
+		}
+		if _, exists := intentByView[intent.ViewSchemaID]; exists {
+			return fmt.Errorf("duplicate projection query intent %q", intent.ViewSchemaID)
+		}
+		if err := validateUniqueStrings(intent.ViewSchemaID, "field_keys", intent.FieldKeys); err != nil {
+			return err
+		}
+		provider, exists := registry.providerForView(intent.ViewSchemaID)
+		if !exists {
+			return fmt.Errorf("projection surface intent %q has no provider", intent.ViewSchemaID)
+		}
+		if owner := intentOwners[intent.ViewSchemaID]; owner != provider.descriptor.SourceOwnerModule {
+			return fmt.Errorf(
+				"projection surface intent %q is supplied by owner %q, want %q",
+				intent.ViewSchemaID,
+				owner,
+				provider.descriptor.SourceOwnerModule,
+			)
+		}
+		if !provider.descriptor.Capabilities.Query {
+			return fmt.Errorf("projection provider %q has semantic intent without query capability", provider.descriptor.ProviderID)
+		}
+		schema, exists := viewschema.Lookup(intent.ViewSchemaID)
+		if !exists {
+			return fmt.Errorf("projection query intent %q has no view schema", intent.ViewSchemaID)
+		}
+		schemaFields := make([]string, 0, len(schema.Fields()))
+		for fieldKey := range schema.Fields() {
+			schemaFields = append(schemaFields, fieldKey)
+		}
+		if !equalStringSets(intent.FieldKeys, schemaFields) {
+			return fmt.Errorf(
+				"projection query intent %q fields do not match its view schema",
+				intent.ViewSchemaID,
+			)
+		}
+		if provider.queryStrategy == queryStrategyCompiledPlan {
+			plan, exists := registry.querySurfaces[intent.ViewSchemaID]
+			if !exists {
+				return fmt.Errorf("projection query intent %q has no private compiled plan", intent.ViewSchemaID)
+			}
+			planFields := make([]string, 0, len(plan.fields))
+			for _, field := range plan.fields {
+				planFields = append(planFields, field.key)
+			}
+			if !equalStringSets(intent.FieldKeys, planFields) {
+				return fmt.Errorf(
+					"projection query intent %q fields do not match its private compiled plan",
+					intent.ViewSchemaID,
+				)
+			}
+		}
+		intentByView[intent.ViewSchemaID] = intent.Clone()
+	}
+	for _, provider := range registry.providers {
+		for _, viewSchemaID := range provider.descriptor.ViewSchemaIDs {
+			_, hasIntent := intentByView[viewSchemaID]
+			if provider.descriptor.Capabilities.Query && !hasIntent {
+				return fmt.Errorf(
+					"projection provider %q query surface %q has no semantic intent",
+					provider.descriptor.ProviderID,
+					viewSchemaID,
+				)
+			}
+			if !provider.descriptor.Capabilities.Query && hasIntent {
+				return fmt.Errorf(
+					"projection provider %q has semantic intent without query capability",
+					provider.descriptor.ProviderID,
+				)
+			}
+		}
+	}
+	for viewSchemaID := range registry.querySurfaces {
+		if _, exists := intentByView[viewSchemaID]; !exists {
+			return fmt.Errorf("private compiled plan %q has no semantic intent", viewSchemaID)
+		}
+	}
+	return nil
+}
+
+func equalStringSets(left []string, right []string) bool {
+	leftCopy := slices.Clone(left)
+	rightCopy := slices.Clone(right)
+	slices.Sort(leftCopy)
+	slices.Sort(rightCopy)
+	return slices.Equal(leftCopy, rightCopy)
 }
 
 func validateUniqueStrings(providerKey string, field string, values []string) error {
@@ -150,18 +273,18 @@ func validateUniqueStrings(providerKey string, field string, values []string) er
 	return nil
 }
 
-func validateSourceAuthorityModules(descriptor ProviderDescriptor) error {
-	if err := validateUniqueStrings(descriptor.ProviderKey, "source_authority_modules", descriptor.SourceAuthorityModules); err != nil {
+func validateSourceAuthorityModules(descriptor providercontract.ProviderDescriptor) error {
+	if err := validateUniqueStrings(descriptor.ProviderID, "source_authority_modules", descriptor.SourceAuthorityModules); err != nil {
 		return err
 	}
 	includesSourceOwner := false
 	for _, module := range descriptor.SourceAuthorityModules {
-		if module == descriptor.SourceOwnerKey {
+		if module == descriptor.SourceOwnerModule {
 			includesSourceOwner = true
 		}
 	}
 	if !includesSourceOwner {
-		return fmt.Errorf("projection provider %q source_authority_modules omit source_owner_key %q", descriptor.ProviderKey, descriptor.SourceOwnerKey)
+		return fmt.Errorf("projection provider %q source_authority_modules omit source_owner_module %q", descriptor.ProviderID, descriptor.SourceOwnerModule)
 	}
 	return nil
 }
@@ -171,7 +294,7 @@ func providerPlans(provider Provider) ([]genericSurface, error) {
 	for _, surface := range provider.queryPlans {
 		converted, err := genericSurfaceFromPlan(surface)
 		if err != nil {
-			return nil, fmt.Errorf("projection provider %q query surface: %w", provider.descriptor.ProviderKey, err)
+			return nil, fmt.Errorf("projection provider %q query surface: %w", provider.descriptor.ProviderID, err)
 		}
 		surfaces = append(surfaces, converted)
 	}
@@ -202,12 +325,12 @@ func topologicalProviderOrder(providers []*Provider, byProviderKey map[string]*P
 	indegree := map[string]int{}
 	outgoing := map[string][]string{}
 	for _, provider := range providers {
-		key := provider.descriptor.ProviderKey
+		key := provider.descriptor.ProviderID
 		remaining[key] = provider
 		indegree[key] = 0
 	}
 	for _, provider := range providers {
-		key := provider.descriptor.ProviderKey
+		key := provider.descriptor.ProviderID
 		for _, dependency := range provider.descriptor.RebuildAfter {
 			if byProviderKey[dependency] == nil {
 				return nil, fmt.Errorf("projection provider %q rebuild_after references unknown provider %q", key, dependency)
@@ -231,7 +354,7 @@ func topologicalProviderOrder(providers []*Provider, byProviderKey map[string]*P
 			return providerSortKey(ready[left]) < providerSortKey(ready[right])
 		})
 		next := ready[0]
-		nextKey := next.descriptor.ProviderKey
+		nextKey := next.descriptor.ProviderID
 		ordered = append(ordered, next)
 		delete(remaining, nextKey)
 		for _, dependent := range outgoing[nextKey] {
@@ -248,5 +371,5 @@ func providerSortKey(provider *Provider) string {
 	if len(viewIDs) > 0 {
 		firstView = viewIDs[0]
 	}
-	return provider.descriptor.ProviderKey + "\x00" + firstView
+	return provider.descriptor.ProviderID + "\x00" + firstView
 }

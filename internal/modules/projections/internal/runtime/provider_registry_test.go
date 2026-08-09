@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
@@ -37,7 +39,7 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 		},
 		"unsupported status": {
 			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.Status = ProviderStatus("retired")
+				providers[0].descriptor.Status = providercontract.ProviderStatus("retired")
 				return providers
 			},
 			want: "unsupported status",
@@ -75,42 +77,72 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 				providers[0].descriptor.SourceAuthorityModules = []string{"links"}
 				return providers
 			},
-			want: "omit source_owner_key",
+			want: "omit source_owner_module",
 		},
 		"duplicate provider key": {
 			mutate: func(providers []Provider) []Provider {
-				providers[1].descriptor.ProviderKey = providers[0].descriptor.ProviderKey
+				providers[1].descriptor.ProviderID = providers[0].descriptor.ProviderID
 				return providers
 			},
-			want: "duplicate projection provider key",
+			want: "duplicate projection provider_id",
 		},
 		"duplicate view ownership": {
 			mutate: func(providers []Provider) []Provider {
 				providers[1].descriptor.ViewSchemaIDs = []string{hostsViewSchemaID}
 				return providers
 			},
-			want: "duplicate projection provider ownership",
+			want: "duplicate projection view ownership",
 		},
 		"duplicate projection table family": {
 			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.ProjectionTableFamilies = []string{"host_grid_projection", "host_grid_projection"}
+				providers[0].descriptor.ProjectionTableIDs = []string{"host_grid_projection", "host_grid_projection"}
 				return providers
 			},
-			want: "duplicate projection_table_families",
+			want: "duplicate projection_table_ids",
 		},
 		"projection storage owner mismatch": {
 			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.ProjectionStorageOwnerKey = "entities"
+				providers[0].descriptor.ProjectionStorageOwnerModule = "entities"
 				return providers
 			},
 			want: "must be projections",
 		},
 		"query capability mismatch": {
 			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.Capabilities.Query = true
+				providers[0].descriptor.Capabilities.Query = false
 				return providers
 			},
 			want: "query capability does not match",
+		},
+		"unsupported query strategy": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].queryStrategy = queryStrategy(255)
+				return providers
+			},
+			want: "unsupported query strategy",
+		},
+		"compiled query strategy without plans": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].queryStrategy = queryStrategyCompiledPlan
+				return providers
+			},
+			want: "compiled query strategy has no plans",
+		},
+		"source hydration strategy with compiled plans": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].queryPlans = queryengine.TimelinePlans()
+				return providers
+			},
+			want: "source-owner hydration strategy has compiled plans",
+		},
+		"compiled plans without query strategy": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].descriptor.Capabilities.Query = false
+				providers[0].queryStrategy = queryStrategyNone
+				providers[0].queryPlans = queryengine.TimelinePlans()
+				return providers
+			},
+			want: "compiled plans without a query strategy",
 		},
 		"refresh implementation without capability": {
 			mutate: func(providers []Provider) []Provider {
@@ -128,7 +160,7 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 		},
 		"active unsupported restore rebuild": {
 			mutate: func(providers []Provider) []Provider {
-				providers[0].descriptor.RestoreRebuild = RestoreRebuildUnsupported
+				providers[0].descriptor.RestoreRebuild = providercontract.RestoreRebuildUnsupported
 				providers[0].descriptor.Capabilities.RestoreRebuild = false
 				return providers
 			},
@@ -181,32 +213,35 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 }
 
 func registryValidationProviders() []Provider {
-	base := func(key, view, recordType, table string, after []string) ProviderDescriptor {
-		return ProviderDescriptor{
-			SchemaVersion:             providercontract.DescriptorSchemaVersion,
-			Status:                    ProviderStatusActive,
-			ProviderKey:               key,
-			SourceOwnerKey:            "entities",
-			ViewSchemaIDs:             []string{view},
-			SourceRecordTypes:         []string{recordType},
-			SourceAuthorityModules:    []string{"entities"},
-			ProjectionTableFamilies:   []string{table},
-			ProjectionStorageOwnerKey: "projections",
-			Capabilities: ProviderCapabilities{
+	base := func(key, view, recordType, table string, after []string) providercontract.ProviderDescriptor {
+		return providercontract.ProviderDescriptor{
+			SchemaVersion:                providercontract.DescriptorSchemaVersion,
+			Status:                       providercontract.ProviderStatusActive,
+			ProviderID:                   key,
+			SourceOwnerModule:            "entities",
+			ViewSchemaIDs:                []string{view},
+			SourceRecordTypes:            []string{recordType},
+			SourceAuthorityModules:       []string{"entities"},
+			ProjectionTableIDs:           []string{table},
+			ProjectionStorageOwnerModule: "projections",
+			Capabilities: providercontract.ProviderCapabilities{
+				Query:           true,
 				RefreshRow:      true,
 				RestoreRebuild:  true,
 				IncidentRebuild: true,
 			},
-			RestoreRebuild: RestoreRebuildRequired,
+			RestoreRebuild: providercontract.RestoreRebuildRequired,
 			FacadePackages: []string{"internal/modules/entities"},
 			RebuildAfter:   after,
 		}
 	}
 	return []Provider{
-		NewHostProvider(base("host", hostsViewSchemaID, "host", "host_grid_projection", nil)),
-		NewIdentityProvider(base("identity", identitiesViewSchemaID, "identity", "identity_grid_projection", []string{"host"})),
+		NewHostProvider(base("host", hostsViewSchemaID, "host", "host_grid_projection", nil), &registryEntitySource{}),
+		NewIdentityProvider(base("identity", identitiesViewSchemaID, "identity", "identity_grid_projection", []string{"host"}), &registryEntitySource{}),
 	}
 }
+
+type registryEntitySource struct{ entityprojection.SourceReader }
 
 func cloneProjectionProviders(providers []Provider) []Provider {
 	cloned := make([]Provider, len(providers))
@@ -215,7 +250,7 @@ func cloneProjectionProviders(providers []Provider) []Provider {
 		cloned[index].descriptor.ViewSchemaIDs = append([]string(nil), cloned[index].descriptor.ViewSchemaIDs...)
 		cloned[index].descriptor.SourceRecordTypes = append([]string(nil), cloned[index].descriptor.SourceRecordTypes...)
 		cloned[index].descriptor.SourceAuthorityModules = append([]string(nil), cloned[index].descriptor.SourceAuthorityModules...)
-		cloned[index].descriptor.ProjectionTableFamilies = append([]string(nil), cloned[index].descriptor.ProjectionTableFamilies...)
+		cloned[index].descriptor.ProjectionTableIDs = append([]string(nil), cloned[index].descriptor.ProjectionTableIDs...)
 		cloned[index].descriptor.FacadePackages = append([]string(nil), cloned[index].descriptor.FacadePackages...)
 		cloned[index].descriptor.RebuildAfter = append([]string(nil), cloned[index].descriptor.RebuildAfter...)
 	}
@@ -225,7 +260,7 @@ func cloneProjectionProviders(providers []Provider) []Provider {
 func providerKeys(providers []*Provider) []string {
 	keys := make([]string, 0, len(providers))
 	for _, provider := range providers {
-		keys = append(keys, provider.descriptor.ProviderKey)
+		keys = append(keys, provider.descriptor.ProviderID)
 	}
 	return keys
 }

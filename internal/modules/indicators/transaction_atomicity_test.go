@@ -11,9 +11,9 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
+	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	indicatorcontract "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
-	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
+	projectionfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/fixturewriter"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -165,11 +165,11 @@ func (transactionTestSourceTextPort) RefreshAndLoadRowTx(context.Context, pgx.Tx
 
 func newTransactionTestProjectionPort(t testing.TB, db postgres.DB) indicatorcontract.Rows {
 	t.Helper()
-	contribution, err := indicatorprojection.NewContribution()
+	contribution, err := indicatorprovider.NewContribution()
 	if err != nil {
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}
-	return projectiontestsupport.NewIndicatorRows(db, contribution.Source())
+	return projectionfixture.NewIndicatorFixtureWriter(t, db, contribution.Source())
 }
 
 type failingIndicatorRevisionPort struct {

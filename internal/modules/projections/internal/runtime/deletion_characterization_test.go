@@ -10,7 +10,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
-	projections "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
+	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
 
@@ -35,7 +35,7 @@ func TestTypedEntityProjectionDeletionUsesCallerTransaction(t *testing.T) {
 		"IR-PROJECTION-DELETE",
 		"Projection delete transaction ownership",
 	)
-	rows := projections.NewEntityRows(harness.DB)
+	rows := projectiontestsupport.MustBuild(t, harness.DB).Entities().Writer
 
 	tests := []struct {
 		name        string

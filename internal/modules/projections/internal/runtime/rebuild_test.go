@@ -17,14 +17,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	projections "github.com/JochiRaider/cartulary/internal/modules/projections/internal/runtime"
+	projectiontestsupport "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	timelineprovider "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
-	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
-	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
@@ -64,14 +62,7 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	revisionComposition := revisionsupport.MustComposition(t)
-	source := timelineassembly.NewBundle(
-		harness.DB,
-		conflicttest.NewCodec("timeline"),
-		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(harness.DB),
-	).ProjectionSource
+	source := timelineprovider.NewSource()
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
 		t.Fatalf("list first projection source page: %v", err)
@@ -148,7 +139,7 @@ func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *t
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	source := timelineassembly.NewProjectionBundle(harness.DB).AssessmentSource
+	source := projectiontestsupport.MustAssessmentSource(t)
 	first, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, nil, 2)
 	if err != nil {
 		t.Fatalf("list first assessment projection source page: %v", err)
@@ -197,14 +188,7 @@ func (commitFailTx) Commit(context.Context) error {
 func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 	harness := appsupport.StartStore(t, "projection-restore-commit-failure")
 	failingDB := commitFailDB{DB: harness.DB}
-	revisionComposition := revisionsupport.MustComposition(t)
-	rebuilder := timelineassembly.NewBundle(
-		failingDB,
-		conflicttest.NewCodec("timeline"),
-		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(failingDB),
-	).RestoreRebuilder
+	rebuilder := projectiontestsupport.MustBuild(t, failingDB).RecoveryPorts().Rebuilder
 	result, err := rebuilder.RebuildRestoreProjections(context.Background(), validProjectionRebuildRequest())
 	if err == nil || !strings.Contains(err.Error(), "injected commit failure") {
 		t.Fatalf("commit failure error = %v", err)
@@ -229,14 +213,7 @@ func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-restore-rebuild-result")
-	revisionComposition := revisionsupport.MustComposition(t)
-	rebuilder := timelineassembly.NewBundle(
-		harness.DB,
-		conflicttest.NewCodec("timeline"),
-		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(harness.DB),
-	).RestoreRebuilder
+	rebuilder := projectiontestsupport.MustBuild(t, harness.DB).RecoveryPorts().Rebuilder
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()

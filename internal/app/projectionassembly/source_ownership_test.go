@@ -53,7 +53,7 @@ var migrationCreateTablePattern = regexp.MustCompile(`(?im)\bCREATE\s+TABLE(?:\s
 
 func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
-	bundle, err := NewBundle(
+	bundle, err := buildRuntime(
 		&projectionManifestDB{},
 		projectionManifestTimelineContribution(t),
 		projectionManifestEntitiesContribution(t),
@@ -127,7 +127,7 @@ func TestProjectionTableOwnershipSetsAreExactlyEqual(t *testing.T) {
 func TestProjectionProviderSQLSourceOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	ownerPatterns := loadSchemaOwnerPatterns(t, root)
-	bundle, err := NewBundle(
+	bundle, err := buildRuntime(
 		&projectionManifestDB{},
 		projectionManifestTimelineContribution(t),
 		projectionManifestEntitiesContribution(t),

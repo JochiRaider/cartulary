@@ -53,7 +53,7 @@ func NewContributionCatalog(
 	if projectionQueries == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: projection queries are required")
 	}
-	if !entityProjections.Ready() {
+	if entityProjections.Writer == nil || entityProjections.Reader == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Entities projection ports are required")
 	}
 	if assessmentProjections == nil {

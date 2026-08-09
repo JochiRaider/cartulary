@@ -14,6 +14,7 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
@@ -37,25 +38,45 @@ import (
 
 func newEntityTestTimelineBundle(t testing.TB, pool postgres.DB) *timelineassembly.Bundle {
 	t.Helper()
+	bundle, _ := newEntityTestTimelineComposition(t, pool)
+	return bundle
+}
+
+func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timelineassembly.Bundle, *projectionassembly.Runtime) {
+	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
-	return timelineassembly.NewBundle(
-		pool,
-		conflicttest.NewCodec("timeline"),
-		revisionComposition.Runtime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(pool),
-	)
+	projections, err := projectionassembly.Build(pool)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
+	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            pool,
+		ConflictTokens:      conflicttest.NewCodec("timeline"),
+		Revisions:           revisionComposition.Runtime.Appender(),
+		Collaboration:       revisionComposition.Intents,
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(pool),
+		TimelineProjection:  projections.TimelinePorts().Writer,
+		EntityProjection:    projections.EntityPorts().Writer,
+		AssessmentRows:      projections.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		t.Fatalf("compose Timeline: %v", err)
+	}
+	return bundle, projections
 }
 
 func newEntityTestStore(t testing.TB, pool postgres.DB) *hostidentity.Store {
 	t.Helper()
-	projection := timelineassembly.NewProjectionBundle(pool)
+	projection, err := projectionassembly.Build(pool)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
 	return hostidentity.NewStore(
 		pool,
 		revisionsupport.MustAppender(t),
 		nil,
-		projection.Entities.Writer,
-		hostidentity.WithProjectionReader(projection.Entities.Reader),
+		projection.EntityPorts().Writer,
+		hostidentity.WithProjectionReader(projection.EntityPorts().Reader),
 	)
 }
 
@@ -207,10 +228,10 @@ SELECT display_name, hostname, host_state
 // entity-storage / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-04")
-	timelineBundle := newEntityTestTimelineBundle(t, harness.DB)
+	timelineBundle, projections := newEntityTestTimelineComposition(t, harness.DB)
 	mentionStore := timelineBundle.EntityMentionStore
 	timelineFacade := timelineBundle.Facade
-	timelineProjectionStore := timelineBundle.Projections.RestoreProbeQuery()
+	timelineProjectionStore := projections.RestoreProbeQuery()
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
 

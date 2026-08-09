@@ -41,15 +41,31 @@ func contractPlansForTest() map[string]genericSurface {
 }
 
 func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testing.T) {
+	evidenceIntent, err := evidenceprojection.SurfaceIntent()
+	if err != nil {
+		t.Fatalf("Evidence semantic intent: %v", err)
+	}
+	partyIntent, err := partyprojection.SurfaceIntent()
+	if err != nil {
+		t.Fatalf("Party semantic intent: %v", err)
+	}
+	artifactIntents, err := artifactprojection.SurfaceIntents()
+	if err != nil {
+		t.Fatalf("Artifact semantic intents: %v", err)
+	}
+	taskDecisionIntents, err := taskdecisionprojection.SurfaceIntents()
+	if err != nil {
+		t.Fatalf("Tasks/Decisions semantic intents: %v", err)
+	}
 	intents := []providercontract.SurfaceIntent{
 		timelineprojection.SurfaceIntent(),
 		indicatorprojection.SurfaceIntent(),
 		assessmentprojection.SurfaceIntent(),
-		evidenceprojection.SurfaceIntent(),
-		partyprojection.SurfaceIntent(),
+		evidenceIntent,
+		partyIntent,
 	}
-	intents = append(intents, artifactprojection.SurfaceIntents()...)
-	intents = append(intents, taskdecisionprojection.SurfaceIntents()...)
+	intents = append(intents, artifactIntents...)
+	intents = append(intents, taskDecisionIntents...)
 	intentByView := make(map[string]providercontract.SurfaceIntent, len(intents))
 	for _, intent := range intents {
 		if _, exists := intentByView[intent.ViewSchemaID]; exists {

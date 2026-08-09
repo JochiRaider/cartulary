@@ -2,6 +2,13 @@ package workbookprojection
 
 import "testing"
 
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Evidence projection contribution unexpectedly constructed")
+	}
+}
+
 func TestEvidenceProjectionContractOwnsSemanticSurface(t *testing.T) {
 	descriptor := Descriptor()
 	if descriptor.ProviderID != "evidence" ||
@@ -13,14 +20,24 @@ func TestEvidenceProjectionContractOwnsSemanticSurface(t *testing.T) {
 		descriptor.FacadePackages[0] != "internal/modules/evidence/workbookprojection" {
 		t.Fatalf("unexpected Evidence descriptor: %#v", descriptor)
 	}
-	intent := SurfaceIntent()
+	intent, err := SurfaceIntent()
+	if err != nil {
+		t.Fatalf("Evidence semantic intent: %v", err)
+	}
 	if intent.ViewSchemaID != evidenceViewSchemaID || len(intent.FieldKeys) == 0 {
 		t.Fatalf("incomplete Evidence semantic intent: %#v", intent)
 	}
 }
 
+func TestEvidenceProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
+	t.Parallel()
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+		t.Fatal("unknown Evidence view schema produced a semantic intent")
+	}
+}
+
 func TestEvidenceProjectionContributionDefensivelyCopiesFacts(t *testing.T) {
-	contribution, err := NewRuntimeContribution(evidenceSourceStub{})
+	contribution, err := NewContribution(evidenceSourceStub{})
 	if err != nil {
 		t.Fatalf("construct Evidence projection contribution: %v", err)
 	}

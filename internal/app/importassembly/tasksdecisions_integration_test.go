@@ -12,6 +12,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
@@ -192,18 +193,28 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
 	intents := revisionComposition.Intents
-	timelineBundle := timelineassembly.NewBundle(
-		storeHarness.DB,
-		conflicttest.NewCodec("tasks-decisions-import"),
-		appender,
-		intents,
-		evidence.NewTimelineAttachmentContribution(storeHarness.DB),
-	)
+	projections, err := projectionassembly.Build(storeHarness.DB)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
+	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            storeHarness.DB,
+		ConflictTokens:      conflicttest.NewCodec("tasks-decisions-import"),
+		Revisions:           appender,
+		Collaboration:       intents,
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(storeHarness.DB),
+		TimelineProjection:  projections.TimelinePorts().Writer,
+		EntityProjection:    projections.EntityPorts().Writer,
+		AssessmentRows:      projections.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		t.Fatalf("compose Timeline: %v", err)
+	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    storeHarness.DB,
 		Revisions:   appender,
-		Projections: timelineBundle.IndicatorProjections.Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
+		Projections: projections.IndicatorPorts().Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projections.SourceTextRows()),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
@@ -213,12 +224,12 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		RevisionAppender:        appender,
 		Intents:                 intents,
 		Timeline:                timelineBundle.Facade,
-		EntityProjections:       timelineBundle.EntityProjections.Writer,
-		AssessmentProjections:   timelineBundle.AssessmentProjections.Rows,
-		ArtifactProjections:     timelineBundle.ArtifactProjections.Rows,
-		EvidenceProjections:     timelineBundle.EvidenceProjections.Rows,
-		PartyProjections:        timelineBundle.PartyProjections.Rows,
-		TaskDecisionProjections: timelineBundle.TaskDecisionProjections.Rows,
+		EntityProjections:       projections.EntityPorts().Writer,
+		AssessmentProjections:   projections.AssessmentPorts().Rows,
+		ArtifactProjections:     projections.ArtifactPorts().Rows,
+		EvidenceProjections:     projections.EvidencePorts().Rows,
+		PartyProjections:        projections.PartyPorts().Rows,
+		TaskDecisionProjections: projections.TaskDecisionPorts().Rows,
 		Indicators:              indicatorOwner,
 	})
 	if err != nil {

@@ -82,7 +82,7 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 ## I.5 Provider Descriptor Manifest Design
 
 The current runtime authority is the code-backed descriptor registry assembled
-by `internal/app/projectionassembly/catalog.go` from eight required typed owner
+by `internal/app/projectionassembly/build.go` from eight required typed owner
 contributions. Runtime validation and executable provider coordination are
 private to Projections. `contracts/projection-providers/index.json` is an
 authored canonical validation artifact for drift detection and review only. It

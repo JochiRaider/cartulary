@@ -2,6 +2,7 @@ package appsupport
 
 import (
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
@@ -16,11 +17,11 @@ import (
 )
 
 func ArtifactProjectionRows(pool postgres.DB) artifactprojection.Rows {
-	return timelineassembly.NewProjectionBundle(pool).Artifacts.Rows
+	return mustBuildProjectionRuntime(pool).ArtifactPorts().Rows
 }
 
 func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.Rows {
-	return timelineassembly.NewProjectionBundle(pool).Evidence.Rows
+	return mustBuildProjectionRuntime(pool).EvidencePorts().Rows
 }
 
 // NewWorkbookStore composes the same code-backed projection catalog used by
@@ -40,12 +41,25 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	appender := revisionRuntime.Appender()
 	conflictFields := revisionRuntime.ConflictFieldResolver()
 	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
-	timelineBundle := timelineassembly.NewBundle(pool, conflictTokens, appender, intents, evidenceAttachments)
+	projectionRuntime := mustBuildProjectionRuntime(pool)
+	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            pool,
+		ConflictTokens:      conflictTokens,
+		Revisions:           appender,
+		Collaboration:       intents,
+		EvidenceAttachments: evidenceAttachments,
+		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
+		EntityProjection:    projectionRuntime.EntityPorts().Writer,
+		AssessmentRows:      projectionRuntime.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		panic(err)
+	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    pool,
 		Revisions:   appender,
-		Projections: timelineBundle.IndicatorProjections.Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(timelineBundle.ProjectionSourceTextRows),
+		Projections: projectionRuntime.IndicatorPorts().Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projectionRuntime.SourceTextRows()),
 	})
 	if err != nil {
 		panic(err)
@@ -57,26 +71,26 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		intents,
 		conflictFields,
 		workbookassembly.NewConflictIdempotencyPort(pool),
-		timelineBundle.EvidenceProjections.Rows,
+		projectionRuntime.EvidencePorts().Rows,
 	)
 	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
 		pool,
 		conflictTokens,
 		appender,
 		conflictFields,
-		timelineBundle.TaskDecisionProjections.Rows,
+		projectionRuntime.TaskDecisionPorts().Rows,
 	)
 	if err != nil {
 		panic(err)
 	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
-		timelineBundle.Projections.DescriptorSet(),
-		timelineBundle.Projections,
-		timelineBundle.EntityProjections,
-		timelineBundle.AssessmentProjections.Rows,
-		timelineBundle.ArtifactProjections.Rows,
-		timelineBundle.PartyProjections.Rows,
+		projectionRuntime.DescriptorSet(),
+		projectionRuntime,
+		projectionRuntime.EntityPorts(),
+		projectionRuntime.AssessmentPorts().Rows,
+		projectionRuntime.ArtifactPorts().Rows,
+		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
@@ -94,10 +108,18 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		catalog,
 		appender,
 		taskDecisionMutation,
-		timelineBundle.ArtifactProjections.Rows,
+		projectionRuntime.ArtifactPorts().Rows,
 	)
 	if err != nil {
 		panic(err)
 	}
 	return store
+}
+
+func mustBuildProjectionRuntime(pool postgres.DB) *projectionassembly.Runtime {
+	runtime, err := projectionassembly.Build(pool)
+	if err != nil {
+		panic(err)
+	}
+	return runtime
 }

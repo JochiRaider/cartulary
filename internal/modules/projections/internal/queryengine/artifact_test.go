@@ -12,7 +12,11 @@ func TestArtifactProjectionProviderSurfaceContractMatrix(t *testing.T) {
 	t.Parallel()
 
 	want := make(map[string]string)
-	for _, intent := range artifactprojection.SurfaceIntents() {
+	intents, err := artifactprojection.SurfaceIntents()
+	if err != nil {
+		t.Fatalf("Artifact semantic intents: %v", err)
+	}
+	for _, intent := range intents {
 		if intent.CanonicalSourceFilter == nil {
 			t.Fatalf("Artifact intent %s has no canonical source filter", intent.ViewSchemaID)
 		}

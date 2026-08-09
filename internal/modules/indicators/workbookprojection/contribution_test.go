@@ -5,9 +5,16 @@ import (
 	"testing"
 )
 
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Indicator projection contribution unexpectedly constructed")
+	}
+}
+
 func TestRuntimeContributionOwnsCompleteIndicatorProjectionContract(t *testing.T) {
 	t.Parallel()
-	contribution, err := NewRuntimeContribution(indicatorSourceStub{})
+	contribution, err := NewContribution(indicatorSourceStub{})
 	if err != nil {
 		t.Fatalf("construct Indicator projection contribution: %v", err)
 	}

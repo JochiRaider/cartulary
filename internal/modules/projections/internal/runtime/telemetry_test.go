@@ -17,7 +17,7 @@ func TestProjectionTelemetrySafeVocabulary(t *testing.T) {
 }
 
 func TestProjectionTelemetryNoSDK(t *testing.T) {
-	store := NewStore(nil, nil)
+	store := &Store{}
 	_, finish := store.startProjectionSpan(t.Context(), timelineViewSchemaID)
 	finish(nil)
 	_, finish = store.startProjectionSpan(t.Context(), "incident/10000000")

@@ -10,8 +10,7 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -331,17 +330,14 @@ func softDeletePartyFor(t testing.TB, harness *appsupport.StoreHarness, actor au
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	revisionRuntime := revisionComposition.Runtime
-	timelineBundle := timelineassembly.NewBundle(
-		harness.DB,
-		conflicttest.NewCodec("timeline"),
-		revisionRuntime.Appender(),
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(harness.DB),
-	)
+	projections, err := projectionassembly.Build(harness.DB)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
 	store, err := revisionRuntime.NewCommandService(
 		harness.DB,
 		partyTestAttributionResolver{},
-		timelineBundle.Projections.RevisionServices(),
+		projections.RevisionServices(),
 		func() time.Time { return time.Date(2026, 5, 18, 12, 4, 0, 0, time.UTC) },
 	)
 	if err != nil {

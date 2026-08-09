@@ -915,10 +915,10 @@ type timelineProjectionQuery interface {
 
 func newEventTimelineCommands(t testing.TB, pool postgres.DB) *eventTimelineCommands {
 	t.Helper()
-	bundle := newTestTimelineBundle(t, pool, conflicttest.NewCodec("timeline"))
+	bundle, projections := newTestTimelineComposition(t, pool, conflicttest.NewCodec("timeline"))
 	return &eventTimelineCommands{
 		facade:      bundle.Facade,
-		projections: bundle.Projections.RestoreProbeQuery(),
+		projections: projections.RestoreProbeQuery(),
 	}
 }
 
@@ -926,23 +926,25 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
-	bundle := timelineassembly.NewBundle(
-		pool,
-		conflicttest.NewCodec("timeline-query"),
-		appender,
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(pool),
-	)
-	collaborators := timelineassembly.NewCollaborators(
-		pool,
-		appender,
-		revisionComposition.Intents,
-		evidence.NewTimelineAttachmentContribution(pool),
-	)
+	projections := mustBuildProjectionRuntime(t, pool)
+	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
+		Postgres:            pool,
+		ConflictTokens:      conflicttest.NewCodec("timeline-query"),
+		Revisions:           appender,
+		Collaboration:       revisionComposition.Intents,
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(pool),
+		TimelineProjection:  projections.TimelinePorts().Writer,
+		EntityProjection:    projections.EntityPorts().Writer,
+		AssessmentRows:      projections.AssessmentPorts().Rows,
+	})
+	if err != nil {
+		t.Fatalf("compose Timeline bundle with projection failure: %v", err)
+	}
+	collaborators := bundle.Collaborators
 	collaborators.Commit.Projection = fakeports.Projection{Delegate: collaborators.Commit.Projection, FailApply: fail}
 	return &eventTimelineCommands{
 		facade:      timeline.NewFacade(pool, collaborators, conflicttest.NewCodec("timeline")),
-		projections: bundle.Projections.RestoreProbeQuery(),
+		projections: projections.RestoreProbeQuery(),
 	}
 }
 

@@ -13,12 +13,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestRestoreProjectionRebuildNoProvidersIsNotApplicable(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "projection-restore-no-providers")
-	rebuilder := NewRestoreRebuilderFromStore(NewStore(db, nil))
+	rebuilder := NewRestoreRebuilderFromStore(&Store{pool: db})
 
 	result, err := rebuilder.RebuildRestoreProjections(t.Context(), validCharacterizationRebuildRequest())
 	if err != nil {
@@ -41,11 +42,11 @@ func TestRestoreProjectionRebuildParticipationMatrix(t *testing.T) {
 				"cartulary.view.characterization.nonparticipating.v1",
 				"host_grid_projection",
 				nil,
-				ProviderStatusActive,
-				RestoreRebuildNonparticipating,
+				providercontract.ProviderStatusActive,
+				providercontract.RestoreRebuildNonparticipating,
 			),
 		}})
-		result, err := NewRestoreRebuilder(db, catalog).RebuildRestoreProjections(
+		result, err := newCharacterizationRebuilder(db, catalog).RebuildRestoreProjections(
 			t.Context(),
 			validCharacterizationRebuildRequest(),
 		)
@@ -67,11 +68,11 @@ func TestRestoreProjectionRebuildParticipationMatrix(t *testing.T) {
 				"cartulary.view.characterization.unsupported.v1",
 				"host_grid_projection",
 				nil,
-				ProviderStatusDeprecated,
-				RestoreRebuildUnsupported,
+				providercontract.ProviderStatusDeprecated,
+				providercontract.RestoreRebuildUnsupported,
 			),
 		}})
-		result, err := NewRestoreRebuilder(db, catalog).RebuildRestoreProjections(
+		result, err := newCharacterizationRebuilder(db, catalog).RebuildRestoreProjections(
 			t.Context(),
 			validCharacterizationRebuildRequest(),
 		)
@@ -147,12 +148,12 @@ INSERT INTO host_grid_projection (
 				descriptor := characterizationProviderDescriptor(
 					key,
 					"cartulary.view.characterization."+key+".v1",
-					"host_grid_projection",
+					[]string{"host_grid_projection", "identity_grid_projection", "indicator_grid_projection"}[index],
 					after,
-					ProviderStatusActive,
-					RestoreRebuildRequired,
+					providercontract.ProviderStatusActive,
+					providercontract.RestoreRebuildRequired,
 				)
-				descriptor.Capabilities = ProviderCapabilities{IncidentRebuild: true, RestoreRebuild: true}
+				descriptor.Capabilities = providercontract.ProviderCapabilities{IncidentRebuild: true, RestoreRebuild: true}
 				providers = append(providers, Provider{
 					descriptor: descriptor,
 					rebuildIncidentTx: func(ctx context.Context, _ *Store, tx pgx.Tx, gotIncidentID uuid.UUID) error {
@@ -171,7 +172,7 @@ INSERT INTO host_grid_projection (
 				})
 			}
 
-			result, err := NewRestoreRebuilder(db, mustCharacterizationCatalog(t, providers)).RebuildRestoreProjections(
+			result, err := newCharacterizationRebuilder(db, mustCharacterizationCatalog(t, providers)).RebuildRestoreProjections(
 				t.Context(),
 				validCharacterizationRebuildRequest(),
 			)
@@ -210,10 +211,10 @@ func TestRestoreProjectionRebuildCancellationAndSourceReferenceValidation(t *tes
 		"cartulary.view.characterization.required.v1",
 		"host_grid_projection",
 		nil,
-		ProviderStatusActive,
-		RestoreRebuildRequired,
+		providercontract.ProviderStatusActive,
+		providercontract.RestoreRebuildRequired,
 	)
-	descriptor.Capabilities = ProviderCapabilities{IncidentRebuild: true, RestoreRebuild: true}
+	descriptor.Capabilities = providercontract.ProviderCapabilities{IncidentRebuild: true, RestoreRebuild: true}
 	provider := Provider{
 		descriptor: descriptor,
 		rebuildIncidentTx: func(context.Context, *Store, pgx.Tx, uuid.UUID) error {
@@ -221,7 +222,7 @@ func TestRestoreProjectionRebuildCancellationAndSourceReferenceValidation(t *tes
 			return nil
 		},
 	}
-	rebuilder := NewRestoreRebuilder(db, mustCharacterizationCatalog(t, []Provider{provider}))
+	rebuilder := newCharacterizationRebuilder(db, mustCharacterizationCatalog(t, []Provider{provider}))
 
 	invalidRef := validCharacterizationRebuildRequest()
 	invalidRef.RestoredSourceStateRef = "   "
@@ -247,32 +248,44 @@ func characterizationProviderDescriptor(
 	viewSchemaID string,
 	table string,
 	rebuildAfter []string,
-	status ProviderStatus,
-	participation RestoreRebuildParticipation,
-) ProviderDescriptor {
-	return ProviderDescriptor{
-		SchemaVersion:             providercontract.DescriptorSchemaVersion,
-		Status:                    status,
-		ProviderKey:               providerKey,
-		SourceOwnerKey:            "entities",
-		ViewSchemaIDs:             []string{viewSchemaID},
-		SourceRecordTypes:         []string{providerKey},
-		SourceAuthorityModules:    []string{"entities"},
-		ProjectionTableFamilies:   []string{table},
-		ProjectionStorageOwnerKey: "projections",
-		RestoreRebuild:            participation,
-		FacadePackages:            []string{"internal/modules/entities"},
-		RebuildAfter:              rebuildAfter,
+	status providercontract.ProviderStatus,
+	participation providercontract.RestoreRebuildParticipation,
+) providercontract.ProviderDescriptor {
+	return providercontract.ProviderDescriptor{
+		SchemaVersion:                providercontract.DescriptorSchemaVersion,
+		Status:                       status,
+		ProviderID:                   providerKey,
+		SourceOwnerModule:            "entities",
+		ViewSchemaIDs:                []string{viewSchemaID},
+		SourceRecordTypes:            []string{providerKey},
+		SourceAuthorityModules:       []string{"entities"},
+		ProjectionTableIDs:           []string{table},
+		ProjectionStorageOwnerModule: "projections",
+		RestoreRebuild:               participation,
+		FacadePackages:               []string{"internal/modules/entities"},
+		RebuildAfter:                 rebuildAfter,
 	}
 }
 
 func mustCharacterizationCatalog(t testing.TB, providers []Provider) *Catalog {
 	t.Helper()
-	catalog, err := NewCatalog(providers)
+	descriptors := make([]providercontract.ProviderDescriptor, 0, len(providers))
+	for _, provider := range providers {
+		descriptors = append(descriptors, provider.descriptor)
+	}
+	descriptorSet, err := providercontract.NewDescriptorSet(descriptors)
+	if err != nil {
+		t.Fatalf("characterization descriptors: %v", err)
+	}
+	catalog, err := newCatalog(descriptorSet, providers)
 	if err != nil {
 		t.Fatalf("characterization catalog: %v", err)
 	}
 	return catalog
+}
+
+func newCharacterizationRebuilder(db postgres.DB, catalog *Catalog) *RestoreRebuilder {
+	return NewRestoreRebuilderFromStore(&Store{pool: db, registry: catalog.registry})
 }
 
 func validCharacterizationRebuildRequest() restorecontract.ProjectionRebuildRequest {

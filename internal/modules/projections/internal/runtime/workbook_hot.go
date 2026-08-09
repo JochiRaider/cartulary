@@ -37,7 +37,7 @@ func (s *Store) refreshArtifactTxCore(
 	return s.physical.InsertArtifactTx(ctx, tx, input)
 }
 
-func (s *Store) RebuildIncidentArtifacts(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildArtifacts(ctx context.Context, incidentID uuid.UUID) error {
 	return s.rebuildIncidentHotProjection(ctx, notesViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
 		return s.RebuildIncidentArtifactsTx(ctx, tx, incidentID)
 	})
@@ -105,7 +105,7 @@ func (s *Store) refreshEvidenceTxCore(
 	return s.physical.InsertEvidenceTx(ctx, tx, input)
 }
 
-func (s *Store) RebuildIncidentEvidence(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildEvidence(ctx context.Context, incidentID uuid.UUID) error {
 	return s.rebuildIncidentHotProjection(ctx, evidenceViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
 		return s.RebuildIncidentEvidenceTx(ctx, tx, incidentID)
 	})
@@ -173,7 +173,7 @@ func (s *Store) refreshPartyTxCore(
 	return s.physical.InsertPartyTx(ctx, tx, input)
 }
 
-func (s *Store) RebuildIncidentParties(ctx context.Context, incidentID uuid.UUID) error {
+func (s *Store) RebuildParties(ctx context.Context, incidentID uuid.UUID) error {
 	return s.rebuildIncidentHotProjection(ctx, partiesViewSchemaID, func(ctx context.Context, tx pgx.Tx) error {
 		return s.RebuildIncidentPartiesTx(ctx, tx, incidentID)
 	})

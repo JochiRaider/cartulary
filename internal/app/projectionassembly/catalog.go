@@ -25,10 +25,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-// Bundle is the application-composition view of the sole Projections adapter.
+// Runtime is the application-composition view of the sole Projections adapter.
 // Concrete runtime, catalog, storage, and query-engine values never cross this
 // boundary.
-type Bundle struct {
+type Runtime struct {
 	ports projectionadapters.Ports
 }
 
@@ -36,7 +36,7 @@ type ImportRebuilder interface {
 	RebuildImportedIncidentTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
-func NewBundle(
+func buildRuntime(
 	pool postgres.DB,
 	timelineContribution timelineprojection.Contribution,
 	entitiesContribution entitycontract.Contribution,
@@ -46,7 +46,7 @@ func NewBundle(
 	evidenceContribution evidencecontract.Contribution,
 	partiesContribution partycontract.Contribution,
 	taskDecisionContribution taskdecisioncontract.Contribution,
-) (*Bundle, error) {
+) (*Runtime, error) {
 	ports, err := projectionadapters.New(projectionadapters.Dependencies{
 		Postgres:       pool,
 		Timeline:       timelineContribution,
@@ -61,116 +61,116 @@ func NewBundle(
 	if err != nil {
 		return nil, fmt.Errorf("assemble projection adapter: %w", err)
 	}
-	return &Bundle{ports: ports}, nil
+	return &Runtime{ports: ports}, nil
 }
 
-func (bundle *Bundle) DescriptorSet() providercontract.DescriptorSet {
-	if bundle == nil {
+func (runtime *Runtime) DescriptorSet() providercontract.DescriptorSet {
+	if runtime == nil {
 		return providercontract.DescriptorSet{}
 	}
-	return bundle.ports.DescriptorSet()
+	return runtime.ports.DescriptorSet()
 }
 
-func (bundle *Bundle) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryProvider, bool) {
-	if bundle == nil {
+func (runtime *Runtime) WorkbookQueryProvider(viewSchemaID string) (workbook.QueryProvider, bool) {
+	if runtime == nil {
 		return nil, false
 	}
-	return bundle.ports.WorkbookQueryProvider(viewSchemaID)
+	return runtime.ports.WorkbookQueryProvider(viewSchemaID)
 }
 
-func (bundle *Bundle) RecoveryPorts() restorecontract.ProjectionPorts {
-	if bundle == nil {
+func (runtime *Runtime) RecoveryPorts() restorecontract.ProjectionPorts {
+	if runtime == nil {
 		return restorecontract.ProjectionPorts{}
 	}
-	return bundle.ports.RecoveryPorts()
+	return runtime.ports.RecoveryPorts()
 }
 
-func (bundle *Bundle) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
-	if bundle == nil {
+func (runtime *Runtime) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
+	if runtime == nil {
 		return nil
 	}
-	return bundle.ports.RestoreProbeQuery()
+	return runtime.ports.RestoreProbeQuery()
 }
 
-func (bundle *Bundle) RevisionServices() revisions.ProjectionServices {
-	if bundle == nil {
+func (runtime *Runtime) RevisionServices() revisions.ProjectionServices {
+	if runtime == nil {
 		return nil
 	}
-	return bundle.ports.RevisionServices()
+	return runtime.ports.RevisionServices()
 }
 
-func (bundle *Bundle) SourceTextRows() projectionadapters.SourceTextRows {
-	if bundle == nil {
+func (runtime *Runtime) SourceTextRows() projectionadapters.SourceTextRows {
+	if runtime == nil {
 		return nil
 	}
-	return bundle.ports.SourceTextRows()
+	return runtime.ports.SourceTextRows()
 }
 
-func (bundle *Bundle) ImportRebuilder() ImportRebuilder {
-	if bundle == nil {
+func (runtime *Runtime) ImportRebuilder() ImportRebuilder {
+	if runtime == nil {
 		return nil
 	}
-	return bundle.ports.ImportRebuilder()
+	return runtime.ports.ImportRebuilder()
 }
 
-func (bundle *Bundle) TimelinePorts() timelineprojection.Ports {
-	if bundle == nil {
+func (runtime *Runtime) TimelinePorts() timelineprojection.Ports {
+	if runtime == nil {
 		return timelineprojection.Ports{}
 	}
-	return bundle.ports.Timeline()
+	return runtime.ports.Timeline()
 }
 
-func (bundle *Bundle) EntityPorts() entitycontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) EntityPorts() entitycontract.Ports {
+	if runtime == nil {
 		return entitycontract.Ports{}
 	}
-	return bundle.ports.Entities()
+	return runtime.ports.Entities()
 }
 
-func (bundle *Bundle) IndicatorPorts() indicatorcontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) IndicatorPorts() indicatorcontract.Ports {
+	if runtime == nil {
 		return indicatorcontract.Ports{}
 	}
-	return bundle.ports.Indicators()
+	return runtime.ports.Indicators()
 }
 
-func (bundle *Bundle) AssessmentPorts() assessmentcontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) AssessmentPorts() assessmentcontract.Ports {
+	if runtime == nil {
 		return assessmentcontract.Ports{}
 	}
-	return bundle.ports.Assessments()
+	return runtime.ports.Assessments()
 }
 
-func (bundle *Bundle) ArtifactPorts() artifactcontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) ArtifactPorts() artifactcontract.Ports {
+	if runtime == nil {
 		return artifactcontract.Ports{}
 	}
-	return bundle.ports.Artifacts()
+	return runtime.ports.Artifacts()
 }
 
-func (bundle *Bundle) EvidencePorts() evidencecontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) EvidencePorts() evidencecontract.Ports {
+	if runtime == nil {
 		return evidencecontract.Ports{}
 	}
-	return bundle.ports.Evidence()
+	return runtime.ports.Evidence()
 }
 
-func (bundle *Bundle) PartyPorts() partycontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) PartyPorts() partycontract.Ports {
+	if runtime == nil {
 		return partycontract.Ports{}
 	}
-	return bundle.ports.Parties()
+	return runtime.ports.Parties()
 }
 
-func (bundle *Bundle) TaskDecisionPorts() taskdecisioncontract.Ports {
-	if bundle == nil {
+func (runtime *Runtime) TaskDecisionPorts() taskdecisioncontract.Ports {
+	if runtime == nil {
 		return taskdecisioncontract.Ports{}
 	}
-	return bundle.ports.TasksDecisions()
+	return runtime.ports.TasksDecisions()
 }
 
 // NewEvidenceContribution keeps executable Evidence source construction at
 // application composition while returning only the owner facade contract.
-func NewEvidenceContribution() (evidencecontract.Contribution, error) {
+func newEvidenceContribution() (evidencecontract.Contribution, error) {
 	return evidenceprojection.NewContribution()
 }

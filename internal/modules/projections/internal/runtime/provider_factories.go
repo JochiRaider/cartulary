@@ -13,12 +13,14 @@ import (
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/internal/queryengine"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
-func NewTimelineProvider(descriptor ProviderDescriptor, source TimelineSource) Provider {
+func NewTimelineProvider(descriptor providercontract.ProviderDescriptor, source TimelineSource) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.TimelinePlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.TimelinePlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshTimelineTxCore(ctx, tx, recordID, source)
 		},
@@ -28,14 +30,10 @@ func NewTimelineProvider(descriptor ProviderDescriptor, source TimelineSource) P
 	}
 }
 
-func NewHostProvider(descriptor ProviderDescriptor, sources ...entityprojection.SourceReader) Provider {
-	var source entityprojection.SourceReader
-	if len(sources) == 1 {
-		source = sources[0]
-	}
+func NewHostProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		typedQuery: source != nil,
+		descriptor:    descriptor,
+		queryStrategy: queryStrategySourceOwnerHydration,
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshHostTxCore(ctx, tx, recordID, source)
 		},
@@ -45,14 +43,10 @@ func NewHostProvider(descriptor ProviderDescriptor, sources ...entityprojection.
 	}
 }
 
-func NewIdentityProvider(descriptor ProviderDescriptor, sources ...entityprojection.SourceReader) Provider {
-	var source entityprojection.SourceReader
-	if len(sources) == 1 {
-		source = sources[0]
-	}
+func NewIdentityProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		typedQuery: source != nil,
+		descriptor:    descriptor,
+		queryStrategy: queryStrategySourceOwnerHydration,
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshIdentityTxCore(ctx, tx, recordID, source)
 		},
@@ -62,10 +56,11 @@ func NewIdentityProvider(descriptor ProviderDescriptor, sources ...entityproject
 	}
 }
 
-func NewIndicatorProvider(descriptor ProviderDescriptor, source indicatorprojection.SourceReader) Provider {
+func NewIndicatorProvider(descriptor providercontract.ProviderDescriptor, source indicatorprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.IndicatorPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.IndicatorPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshIndicatorTxCore(ctx, tx, recordID, source)
 		},
@@ -75,10 +70,11 @@ func NewIndicatorProvider(descriptor ProviderDescriptor, source indicatorproject
 	}
 }
 
-func NewAssessmentProvider(descriptor ProviderDescriptor, source assessmentprojection.SourceReader) Provider {
+func NewAssessmentProvider(descriptor providercontract.ProviderDescriptor, source assessmentprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.AssessmentPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.AssessmentPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshAssessmentTxCore(ctx, tx, recordID, source)
 		},
@@ -88,10 +84,11 @@ func NewAssessmentProvider(descriptor ProviderDescriptor, source assessmentproje
 	}
 }
 
-func NewArtifactProvider(descriptor ProviderDescriptor, source artifactprojection.SourceReader) Provider {
+func NewArtifactProvider(descriptor providercontract.ProviderDescriptor, source artifactprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.ArtifactPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.ArtifactPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshArtifactTxCore(ctx, tx, recordID, source)
 		},
@@ -101,10 +98,11 @@ func NewArtifactProvider(descriptor ProviderDescriptor, source artifactprojectio
 	}
 }
 
-func NewEvidenceProvider(descriptor ProviderDescriptor, source evidenceprojection.SourceReader) Provider {
+func NewEvidenceProvider(descriptor providercontract.ProviderDescriptor, source evidenceprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.EvidencePlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.EvidencePlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshEvidenceTxCore(ctx, tx, recordID, source)
 		},
@@ -114,10 +112,11 @@ func NewEvidenceProvider(descriptor ProviderDescriptor, source evidenceprojectio
 	}
 }
 
-func NewPartyProvider(descriptor ProviderDescriptor, source partyprojection.SourceReader) Provider {
+func NewPartyProvider(descriptor providercontract.ProviderDescriptor, source partyprojection.SourceReader) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.PartyPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.PartyPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshPartyTxCore(ctx, tx, recordID, source)
 		},
@@ -127,10 +126,11 @@ func NewPartyProvider(descriptor ProviderDescriptor, source partyprojection.Sour
 	}
 }
 
-func NewTaskRequestProvider(descriptor ProviderDescriptor, source TaskRequestSource) Provider {
+func NewTaskRequestProvider(descriptor providercontract.ProviderDescriptor, source TaskRequestSource) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.TaskRequestPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.TaskRequestPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshTaskRequestTxCore(ctx, tx, recordID, source)
 		},
@@ -140,10 +140,11 @@ func NewTaskRequestProvider(descriptor ProviderDescriptor, source TaskRequestSou
 	}
 }
 
-func NewDecisionProvider(descriptor ProviderDescriptor, source DecisionSource) Provider {
+func NewDecisionProvider(descriptor providercontract.ProviderDescriptor, source DecisionSource) Provider {
 	return Provider{
-		descriptor: descriptor,
-		queryPlans: queryengine.DecisionPlans(),
+		descriptor:    descriptor,
+		queryStrategy: queryStrategyCompiledPlan,
+		queryPlans:    queryengine.DecisionPlans(),
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshDecisionTxCore(ctx, tx, recordID, source)
 		},

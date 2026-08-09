@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
-	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
+	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
@@ -39,12 +39,15 @@ func newTestNetworkFlowStore(
 	options ...StoreOption,
 ) *Store {
 	t.Helper()
-	projection := timelineassembly.NewProjectionBundle(db)
+	projection, err := projectionassembly.Build(db)
+	if err != nil {
+		t.Fatalf("compose Projections: %v", err)
+	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    db,
 		Revisions:   appender,
-		Projections: projection.Indicators.Rows,
-		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows),
+		Projections: projection.IndicatorPorts().Rows,
+		SourceText:  indicatorassembly.NewSourceTextPort(projection.SourceTextRows()),
 	})
 	if err != nil {
 		t.Fatalf("compose Indicator test owner: %v", err)

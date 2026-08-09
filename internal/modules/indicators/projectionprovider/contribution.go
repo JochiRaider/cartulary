@@ -11,7 +11,7 @@ import (
 )
 
 func NewContribution() (workbookprojection.Contribution, error) {
-	return workbookprojection.NewRuntimeContribution(source{})
+	return workbookprojection.NewContribution(source{})
 }
 
 type source struct{}

@@ -10,6 +10,13 @@ import (
 
 type partyProjectionSourceStub struct{}
 
+func TestNewContributionRequiresSource(t *testing.T) {
+	t.Parallel()
+	if _, err := NewContribution(nil); err == nil {
+		t.Fatal("source-less Party projection contribution unexpectedly constructed")
+	}
+}
+
 func (*partyProjectionSourceStub) LoadProjectionInputTx(context.Context, pgx.Tx, uuid.UUID) (ProjectionInput, bool, error) {
 	return ProjectionInput{}, false, nil
 }
@@ -29,15 +36,25 @@ func TestPartyProjectionContractOwnsSemanticSurface(t *testing.T) {
 		descriptor.FacadePackages[0] != "internal/modules/parties/workbookprojection" {
 		t.Fatalf("unexpected Party descriptor: %#v", descriptor)
 	}
-	intent := SurfaceIntent()
+	intent, err := SurfaceIntent()
+	if err != nil {
+		t.Fatalf("Party semantic intent: %v", err)
+	}
 	if intent.ViewSchemaID != partyViewSchemaID || len(intent.FieldKeys) == 0 {
 		t.Fatalf("incomplete Party semantic intent: %#v", intent)
 	}
 }
 
+func TestPartyProjectionIntentRejectsUnknownViewSchema(t *testing.T) {
+	t.Parallel()
+	if _, err := surfaceIntent("cartulary.view.unknown.v1"); err == nil {
+		t.Fatal("unknown Party view schema produced a semantic intent")
+	}
+}
+
 func TestPartyProjectionContributionDefensivelyCopiesFactsAndRetainsTypedSource(t *testing.T) {
 	source := &partyProjectionSourceStub{}
-	contribution, err := NewRuntimeContribution(source)
+	contribution, err := NewContribution(source)
 	if err != nil {
 		t.Fatalf("construct Party projection contribution: %v", err)
 	}
