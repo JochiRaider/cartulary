@@ -15,7 +15,7 @@ import (
 // interactive mutation and import adapters. It owns record/source persistence
 // and projection refresh, but never begins, commits, or rolls back a transaction.
 type artifactSourceKernel struct {
-	records     artifactRecordEnvelopePort
+	records     RecordEnvelopeCapability
 	rows        artifactSourceMutationPort
 	projections artifactprojection.Rows
 }

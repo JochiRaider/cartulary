@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.artifacts.source_catalog.v1",
+  "catalog_id": "cartulary.artifacts.sources.v1",
+  "surfaces": [
+    {
+      "view_schema_id": "cartulary.view.comm_log.v1",
+      "artifact_type": "comm_log",
+      "direct_fields": [
+        { "field_key": "comm_log.audience", "table": "artifacts", "column": "audience" },
+        { "field_key": "comm_log.channel_or_meeting", "table": "artifacts", "column": "channel_or_meeting" },
+        { "field_key": "comm_log.comm_type", "table": "artifacts", "column": "comm_type" },
+        { "field_key": "comm_log.next_report_at", "table": "artifacts", "column": "next_report_at" },
+        { "field_key": "comm_log.privilege_tag", "table": "artifacts", "column": "privilege_tag" },
+        { "field_key": "comm_log.summary", "table": "artifacts", "column": "summary" },
+        { "field_key": "comm_log.timestamp_utc", "table": "artifacts", "column": "timestamp_utc" }
+      ],
+      "collection_fields": [
+        { "field_key": "comm_log.action_task_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "task_request" },
+        { "field_key": "comm_log.attendee_party_ids", "collection_family": "party_ref", "allowed_operations": ["add_party_ref", "remove_party_ref"], "link_type": "references_record", "expected_target_record_type": "party" },
+        { "field_key": "comm_log.audience_party_ids", "collection_family": "party_ref", "allowed_operations": ["add_party_ref", "remove_party_ref"], "link_type": "references_record", "expected_target_record_type": "party" },
+        { "field_key": "comm_log.decision_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "decision" }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.findings.v1",
+      "artifact_type": "finding",
+      "direct_fields": [
+        { "field_key": "finding.confidence_score", "table": "artifact_findings", "column": "confidence_score" },
+        { "field_key": "finding.kind", "table": "artifact_findings", "column": "kind" },
+        { "field_key": "finding.owner_user_id", "table": "artifact_findings", "column": "owner_user_id" },
+        { "field_key": "finding.state", "table": "artifact_findings", "column": "state" },
+        { "field_key": "finding.statement", "table": "artifact_findings", "column": "statement" }
+      ],
+      "collection_fields": [
+        { "field_key": "finding.contradictory_refs", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record" },
+        { "field_key": "finding.supporting_refs", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "supported_by" }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.forensic_keywords.v1",
+      "artifact_type": "forensic_keyword",
+      "direct_fields": [
+        { "field_key": "forensic_keyword.case_sensitive", "table": "artifact_forensic_keywords", "column": "case_sensitive" },
+        { "field_key": "forensic_keyword.match_mode", "table": "artifact_forensic_keywords", "column": "match_mode" },
+        { "field_key": "forensic_keyword.pattern", "table": "artifact_forensic_keywords", "column": "pattern" },
+        { "field_key": "forensic_keyword.reason", "table": "artifact_forensic_keywords", "column": "reason" }
+      ],
+      "collection_fields": []
+    },
+    {
+      "view_schema_id": "cartulary.view.handoff.v1",
+      "artifact_type": "handoff",
+      "direct_fields": [
+        { "field_key": "handoff.acknowledged_at", "table": "artifacts", "column": "acknowledged_at" },
+        { "field_key": "handoff.current_state_summary", "table": "artifacts", "column": "current_state_summary" },
+        { "field_key": "handoff.incoming_owner_user_id", "table": "artifacts", "column": "incoming_owner_user_id" },
+        { "field_key": "handoff.next_checks", "table": "artifacts", "column": "next_checks" },
+        { "field_key": "handoff.outgoing_owner_user_id", "table": "artifacts", "column": "outgoing_owner_user_id" },
+        { "field_key": "handoff.timestamp_utc", "table": "artifacts", "column": "timestamp_utc" }
+      ],
+      "collection_fields": [
+        { "field_key": "handoff.open_decision_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "decision" },
+        { "field_key": "handoff.open_risk_refs", "collection_family": "risk_ref", "allowed_operations": ["add_risk_ref", "remove_risk_ref"] },
+        { "field_key": "handoff.open_task_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "task_request" }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.investigative_queries.v1",
+      "artifact_type": "investigative_query",
+      "direct_fields": [
+        { "field_key": "investigative_query.platform", "table": "artifact_investigative_queries", "column": "platform" },
+        { "field_key": "investigative_query.purpose", "table": "artifact_investigative_queries", "column": "purpose" },
+        { "field_key": "investigative_query.query_text", "table": "artifact_investigative_queries", "column": "query_text" }
+      ],
+      "collection_fields": []
+    },
+    {
+      "view_schema_id": "cartulary.view.lesson.v1",
+      "artifact_type": "lesson",
+      "direct_fields": [
+        { "field_key": "lesson.closure_state", "table": "artifacts", "column": "closure_state" },
+        { "field_key": "lesson.owner_user_id", "table": "artifacts", "column": "owner_user_id" },
+        { "field_key": "lesson.summary", "table": "artifacts", "column": "summary" },
+        { "field_key": "lesson.timestamp_utc", "table": "artifacts", "column": "timestamp_utc" }
+      ],
+      "collection_fields": [
+        { "field_key": "lesson.evidence_refs", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "evidence" },
+        { "field_key": "lesson.follow_up_task_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "task_request" }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.notes.v1",
+      "artifact_type": "note",
+      "direct_fields": [
+        { "field_key": "note.body", "table": "artifacts", "column": "body" },
+        { "field_key": "note.title", "table": "artifacts", "column": "title" }
+      ],
+      "collection_fields": [
+        { "field_key": "note.tags", "collection_family": "record_tag", "allowed_operations": ["add_tag", "remove_tag"] }
+      ]
+    },
+    {
+      "view_schema_id": "cartulary.view.status_review.v1",
+      "artifact_type": "status_review",
+      "direct_fields": [
+        { "field_key": "status_review.active_risks_summary", "table": "artifacts", "column": "active_risks_summary" },
+        { "field_key": "status_review.current_state_summary", "table": "artifacts", "column": "current_state_summary" },
+        { "field_key": "status_review.next_report_at", "table": "artifacts", "column": "next_report_at" },
+        { "field_key": "status_review.review_owner_user_id", "table": "artifacts", "column": "review_owner_user_id" },
+        { "field_key": "status_review.timestamp_utc", "table": "artifacts", "column": "timestamp_utc" }
+      ],
+      "collection_fields": [
+        { "field_key": "status_review.blocked_task_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "task_request" },
+        { "field_key": "status_review.open_decision_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "decision" },
+        { "field_key": "status_review.pending_evidence_ids", "collection_family": "record_ref", "allowed_operations": ["add_record_ref", "remove_record_ref"], "link_type": "references_record", "expected_target_record_type": "evidence" }
+      ]
+    }
+  ]
+}

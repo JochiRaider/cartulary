@@ -453,15 +453,15 @@ func assessmentCreateRequestHash(request CreateRequest) []byte {
 	return hashRequestPayload(payload)
 }
 
-func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.WorkbookFacade) CreateProvider {
+func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.MutationFacade) CreateProvider {
 	return newGenericCreateProvider(viewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
 		result, err := owner.Create(ctx, artifacts.WorkbookCreateCommand{
-			Actor:       command.Actor,
+			ActorUserID: command.Actor.ID,
 			IncidentID:  command.IncidentID,
 			Request:     artifactCreateRequestFromWorkbook(request),
 			RequestHash: requestHash(command.RequestHash, CreateRequestHash(request)),
 			RequestID:   command.RequestID,
-			RouteKey:    workbookCreateRouteKey,
+			OperationID: artifacts.OperationWorkbookCreate,
 			Now:         command.Now,
 		})
 		return mutationResultFromArtifactWorkbook(result), adaptArtifactWorkbookOwnerError(err)
@@ -608,17 +608,17 @@ func newEntityPatchProvider(recordType string, viewSchemaID string, owner *hosti
 	}
 }
 
-func NewArtifactPatchProvider(owner *artifacts.WorkbookFacade) PatchProvider {
+func NewArtifactPatchProvider(owner *artifacts.MutationFacade) PatchProvider {
 	return newGenericPatchProvider("artifact", artifactViewSchemaIDs(), func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
 		result, err := owner.Patch(ctx, artifacts.WorkbookPatchCommand{
-			Actor:            command.Actor,
-			RecordID:         command.RecordID,
-			Request:          artifactPatchRequestFromWorkbook(request),
-			RequestHash:      requestHash(command.RequestHash, PatchRequestHash(request)),
-			RequestID:        command.RequestID,
-			RouteKey:         workbookPatchRouteKey,
-			ConflictRouteKey: workbookConflictResolveRouteKey,
-			Now:              command.Now,
+			ActorUserID:         command.Actor.ID,
+			RecordID:            command.RecordID,
+			Request:             artifactPatchRequestFromWorkbook(request),
+			RequestHash:         requestHash(command.RequestHash, PatchRequestHash(request)),
+			RequestID:           command.RequestID,
+			OperationID:         artifacts.OperationWorkbookPatch,
+			ConflictOperationID: artifacts.OperationConflictResolve,
+			Now:                 command.Now,
 		})
 		return mutationResultFromArtifactWorkbook(result), adaptArtifactWorkbookOwnerError(err)
 	})
@@ -791,7 +791,7 @@ func newEntityConflictProvider(
 	)
 }
 
-func NewArtifactConflictProvider(owner *artifacts.WorkbookFacade) ConflictProvider {
+func NewArtifactConflictProvider(owner *artifacts.MutationFacade) ConflictProvider {
 	return newGenericConflictProvider(
 		"artifact",
 		artifactViewSchemaIDs(),
@@ -808,7 +808,8 @@ func NewArtifactConflictProvider(owner *artifacts.WorkbookFacade) ConflictProvid
 			}
 			result, err := owner.ResolveConflict(ctx, artifacts.WorkbookConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
-				Actor:          command.Actor,
+				ActorUserID:    command.Actor.ID,
+				OperationID:    artifacts.OperationConflictResolve,
 				ResolutionKind: request.ResolutionKind,
 				Patch:          ownerPatch,
 				Now:            command.Now,

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	artifactcontract "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentcontract "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
@@ -245,7 +245,7 @@ func projectionManifestAssessmentsContribution(t testing.TB) assessmentcontract.
 
 func projectionManifestArtifactsContribution(t testing.TB) artifactcontract.Contribution {
 	t.Helper()
-	contribution, err := artifactprojection.NewContribution()
+	contribution, err := artifacts.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("construct Artifacts projection contribution: %v", err)
 	}

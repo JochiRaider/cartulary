@@ -2,43 +2,44 @@ package artifacts
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type WorkbookConflictCommand struct {
 	Mechanics      conflictresolution.Command
-	Actor          authn.UserRecord
+	ActorUserID    uuid.UUID
+	OperationID    OperationID
 	ResolutionKind string
 	Patch          *WorkbookPatchRequest
 	Now            time.Time
 }
 
-func (f *WorkbookFacade) ResolveConflict(
+func (f *MutationFacade) ResolveConflict(
 	ctx context.Context,
 	command WorkbookConflictCommand,
 ) (WorkbookMutationResult, error) {
+	if command.OperationID != OperationConflictResolve {
+		return WorkbookMutationResult{}, ErrStoredMutationKindMismatch
+	}
+	command.Mechanics.ActorUserID = command.ActorUserID
+	command.Mechanics.RouteKey = string(command.OperationID)
 	if command.ResolutionKind != "keep_saved" {
 		return f.Patch(ctx, WorkbookPatchCommand{
-			Actor:            command.Actor,
-			RecordID:         command.Mechanics.RecordID,
-			Request:          *command.Patch,
-			RequestHash:      command.Mechanics.RequestHash,
-			RequestID:        command.Mechanics.RequestID,
-			RouteKey:         command.Mechanics.RouteKey,
-			ConflictRouteKey: command.Mechanics.RouteKey,
-			Now:              command.Now,
+			ActorUserID:         command.ActorUserID,
+			RecordID:            command.Mechanics.RecordID,
+			Request:             *command.Patch,
+			RequestHash:         command.Mechanics.RequestHash,
+			RequestID:           command.Mechanics.RequestID,
+			OperationID:         command.OperationID,
+			ConflictOperationID: command.OperationID,
+			Now:                 command.Now,
 		})
-	}
-	if f.keepSaved == nil {
-		return WorkbookMutationResult{}, fmt.Errorf("artifacts: keep-saved idempotency is not configured")
 	}
 	result, err := conflictresolution.KeepSaved(
 		ctx,
@@ -51,8 +52,7 @@ func (f *WorkbookFacade) ResolveConflict(
 		return WorkbookMutationResult{}, err
 	}
 	return WorkbookMutationResult{
-		Payload:      result.Payload,
-		StatusCode:   http.StatusOK,
+		Row:          conflictResultRow(result.Payload),
 		Replayed:     result.Replayed,
 		IncidentID:   result.IncidentID,
 		RecordID:     result.RecordID,
@@ -62,12 +62,12 @@ func (f *WorkbookFacade) ResolveConflict(
 	}, nil
 }
 
-func (f *WorkbookFacade) loadConflictTarget(
+func (f *MutationFacade) loadConflictTarget(
 	ctx context.Context,
 	tx pgx.Tx,
 	command conflictresolution.Command,
 ) (conflictresolution.Target, error) {
-	meta, err := loadArtifactRecordMetaForUpdateTx(ctx, tx, command.RecordID)
+	meta, err := f.loadArtifactRecordMetaForUpdateTx(ctx, tx, command.RecordID)
 	if err != nil {
 		return conflictresolution.Target{}, err
 	}
@@ -99,4 +99,9 @@ func (f *WorkbookFacade) loadConflictTarget(
 		RowVersion: meta.RowVersion,
 		Row:        row,
 	}, nil
+}
+
+func conflictResultRow(payload map[string]any) map[string]any {
+	row, _ := payload["row"].(map[string]any)
+	return row
 }

@@ -1,4 +1,4 @@
-package riskrefs
+package artifacts
 
 import (
 	"testing"

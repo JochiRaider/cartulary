@@ -13,9 +13,6 @@ const reportingRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestReportingProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
-		reportingRepoImportPrefix + "internal/modules/artifacts/reportingprovider": {
-			"export_materializer.go": true,
-		},
 		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
 			"export_materializer.go": true,
 		},
@@ -150,7 +147,7 @@ func TestReportingProductionDoesNotReintroduceLegacyExportOrRenderPaths(t *testi
 
 func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 	providerFiles := []string{
-		"../artifacts/reportingprovider/provider.go",
+		"../artifacts/internal/providers/reporting/provider.go",
 		"../entities/hostidentity/reportingprovider/provider.go",
 		"../entities/mentions/reportingprovider/provider.go",
 		"../evidence/reportingprovider/provider.go",

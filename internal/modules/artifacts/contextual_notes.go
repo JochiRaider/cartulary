@@ -10,12 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type ContextualNoteCreateRequest struct {
@@ -25,48 +20,25 @@ type ContextualNoteCreateRequest struct {
 }
 
 type ContextualNoteCreateCommand struct {
-	Actor          authn.UserRecord
+	ActorUserID    uuid.UUID
 	SourceRecordID uuid.UUID
 	Request        ContextualNoteCreateRequest
 	RequestHash    []byte
 	RequestID      string
-	RouteKey       string
+	OperationID    OperationID
 	Now            time.Time
 }
 
-type ContextualNoteMutationResult = WorkbookMutationResult
-
-type ContextualNoteFacade struct {
-	owner *WorkbookFacade
-}
-
-func NewContextualNoteFacade(
-	pool postgres.DB,
-	appender *revisions.Appender,
-	projectionRows artifactprojection.Rows,
-) *ContextualNoteFacade {
-	return &ContextualNoteFacade{
-		owner: NewWorkbookFacade(
-			pool,
-			conflicttokens.ConflictTokenCodec{},
-			appender,
-			nil,
-			nil,
-			projectionRows,
-		),
-	}
-}
-
-func (f *ContextualNoteFacade) SourceIncident(
+func (f *MutationFacade) SourceIncident(
 	ctx context.Context,
 	sourceRecordID uuid.UUID,
 ) (uuid.UUID, error) {
-	tx, err := f.owner.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return uuid.UUID{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	incidentID, err := f.owner.contextIncidentTx(ctx, tx, sourceRecordID)
+	incidentID, err := f.contextIncidentTx(ctx, tx, sourceRecordID)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
@@ -76,12 +48,12 @@ func (f *ContextualNoteFacade) SourceIncident(
 	return incidentID, nil
 }
 
-func (f *ContextualNoteFacade) Create(
+func (f *MutationFacade) CreateContextualNote(
 	ctx context.Context,
 	command ContextualNoteCreateCommand,
-) (ContextualNoteMutationResult, error) {
-	if f == nil || f.owner == nil {
-		return ContextualNoteMutationResult{}, fmt.Errorf("artifacts: contextual note facade is not configured")
+) (WorkbookMutationResult, error) {
+	if f == nil {
+		return WorkbookMutationResult{}, fmt.Errorf("artifacts: mutation facade is not configured")
 	}
 	request := WorkbookCreateRequest{
 		ViewSchemaID: NotesViewSchemaID,
@@ -89,17 +61,17 @@ func (f *ContextualNoteFacade) Create(
 		Values:       command.Request.Values,
 		Collections:  command.Request.Collections,
 	}
-	return f.owner.create(ctx, WorkbookCreateCommand{
-		Actor:       command.Actor,
+	return f.create(ctx, WorkbookCreateCommand{
+		ActorUserID: command.ActorUserID,
 		Request:     request,
 		RequestHash: command.RequestHash,
 		RequestID:   command.RequestID,
-		RouteKey:    command.RouteKey,
+		OperationID: command.OperationID,
 		Now:         command.Now,
 	}, &command.SourceRecordID)
 }
 
-func (f *WorkbookFacade) contextIncidentTx(
+func (f *MutationFacade) contextIncidentTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	sourceRecordID uuid.UUID,

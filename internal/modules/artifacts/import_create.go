@@ -36,7 +36,7 @@ func NewImportCreateFacade(
 	adapter := &artifactImportCreateAdapter{
 		source: artifactSourceKernel{
 			records:     records.NewStore(),
-			rows:        newSourceStore(appender),
+			rows:        newSourceStore(),
 			projections: projectionRows,
 		},
 		revisionAppender: appender,

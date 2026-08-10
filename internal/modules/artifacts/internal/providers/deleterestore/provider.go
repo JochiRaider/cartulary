@@ -1,3 +1,4 @@
+// Package deleterestore implements the Artifacts-owned Revisions source adapter.
 package deleterestore
 
 import (

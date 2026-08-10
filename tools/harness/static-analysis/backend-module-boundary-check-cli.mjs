@@ -1124,7 +1124,7 @@ function assertBoundaryFixtures(manifest) {
     throw new Error("delete-restore-sources-no-generic-sql-metadata boundary rule is required");
   }
   const genericProvider = {
-    relative: "internal/modules/artifacts/deleterestore/fixture.go",
+    relative: "internal/modules/artifacts/internal/providers/deleterestore/fixture.go",
     content: "package deleterestore\ntype TableProvider struct { SourceTable string }",
   };
   const genericViolations = checkForbiddenSourceTokens(
@@ -1150,7 +1150,7 @@ function assertBoundaryFixtures(manifest) {
     {
       label: "source owner adapter contract import",
       file: {
-        relative: "internal/modules/artifacts/deleterestore/provider.go",
+        relative: "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         content: `package deleterestore\nimport "${contractImport}"`,
       },
       wantViolation: false,

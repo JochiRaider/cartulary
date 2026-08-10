@@ -61,10 +61,10 @@ func NewStore(dependencies StoreDependencies) *Store {
 }
 
 type workbookContextualNotePort interface {
-	Create(
+	CreateContextualNote(
 		ctx context.Context,
 		command artifacts.ContextualNoteCreateCommand,
-	) (artifacts.ContextualNoteMutationResult, error)
+	) (artifacts.WorkbookMutationResult, error)
 	SourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error)
 }
 

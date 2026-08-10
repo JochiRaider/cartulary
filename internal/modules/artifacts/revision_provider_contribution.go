@@ -1,8 +1,8 @@
 package artifacts
 
 import (
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore"
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers/rollback"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -19,7 +19,7 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			RecordType:          "artifact",
 			SnapshotSchemaID:    "cartulary.revisions.snapshot.artifact.v1",
 			DeleteRestoreSource: deleterestore.NewSource(),
-			RowRollbackProvider: rollbackprovider.NewProvider(),
+			RowRollbackProvider: rollback.NewProvider(),
 			RecordViewRoutes:    routes,
 		}},
 	}

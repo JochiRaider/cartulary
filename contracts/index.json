@@ -212,6 +212,20 @@
       ],
       "activation_dependency_ids": [],
       "description": "Cross-document Inspector vocabularies, required feature keys, specialized bindings, and resolution policy."
+    },
+    {
+      "family_id": "artifacts",
+      "contract_root": "contracts/artifacts",
+      "generation_status": "active",
+      "go_name": "ArtifactSourceArtifacts",
+      "output_order": 12,
+      "generated_outputs": [
+        "internal/gen/contractartifacts/artifacts_gen.go",
+        "internal/gen/contractartifacts/source_catalog_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Backend-only Artifacts source catalog and generated source policy bindings."
     }
   ]
 }

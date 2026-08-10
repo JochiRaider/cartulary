@@ -1147,6 +1147,48 @@ SELECT record_id::text FROM inserted
 `, incidentID, actorID, seed.artifactType, seed.title, seed.body)
 		seedReportingArtifactProjection(t, db, ids[seed.key])
 	}
+	ids["investigative_query"] = querySeedID(t, db, `
+WITH rec AS (
+    INSERT INTO records (incident_id, record_type, created_by_user_id, updated_by_user_id)
+    VALUES ($1, 'artifact', $2, $2)
+    RETURNING record_id
+), artifact AS (
+    INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
+    SELECT record_id, $1, 'investigative_query', 'Excluded reporting query', 'Query working material', $2
+      FROM rec
+    RETURNING record_id
+), query AS (
+    INSERT INTO artifact_investigative_queries (
+        record_id, incident_id, query_id, platform, purpose, query_text, created_by_user_id
+    )
+    SELECT record_id, $1, 'reporting-query-excluded', 'edr', 'coverage', 'excluded synthetic query', $2
+      FROM artifact
+    RETURNING record_id
+)
+SELECT record_id::text FROM query
+`, incidentID, actorID)
+	seedReportingArtifactProjection(t, db, ids["investigative_query"])
+	ids["forensic_keyword"] = querySeedID(t, db, `
+WITH rec AS (
+    INSERT INTO records (incident_id, record_type, created_by_user_id, updated_by_user_id)
+    VALUES ($1, 'artifact', $2, $2)
+    RETURNING record_id
+), artifact AS (
+    INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
+    SELECT record_id, $1, 'forensic_keyword', 'Excluded reporting keyword', 'Keyword working material', $2
+      FROM rec
+    RETURNING record_id
+), keyword AS (
+    INSERT INTO artifact_forensic_keywords (
+        record_id, incident_id, keyword_id, pattern, reason, match_mode, case_sensitive
+    )
+    SELECT record_id, $1, 'reporting-keyword-excluded', 'excluded-pattern', 'coverage', 'literal', false
+      FROM artifact
+    RETURNING record_id
+)
+SELECT record_id::text FROM keyword
+`, incidentID, actorID)
+	seedReportingArtifactProjection(t, db, ids["forensic_keyword"])
 	if _, err := db.Exec(`
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
@@ -1227,6 +1269,20 @@ INSERT INTO artifact_grid_projection (
     finding_closed_at,
     finding_updated_at,
     finding_confidence_band,
+    investigative_query_query_id,
+    investigative_query_platform,
+    investigative_query_purpose,
+    investigative_query_query_text,
+    investigative_query_created_by_user_id,
+    investigative_query_created_at,
+    investigative_query_created_day,
+    forensic_keyword_keyword_id,
+    forensic_keyword_pattern,
+    forensic_keyword_reason,
+    forensic_keyword_match_mode,
+    forensic_keyword_case_sensitive,
+    forensic_keyword_created_at,
+    forensic_keyword_created_day,
     timestamp_day,
     next_report_day,
     ack_state,
@@ -1270,6 +1326,20 @@ SELECT
     f.closed_at,
     GREATEST(a.updated_at, f.updated_at),
     cartulary_confidence_band(f.confidence_score),
+    q.query_id,
+    q.platform,
+    q.purpose,
+    q.query_text,
+    q.created_by_user_id,
+    q.created_at,
+    q.created_at::date,
+    k.keyword_id,
+    k.pattern,
+    k.reason,
+    k.match_mode,
+    k.case_sensitive,
+    k.created_at,
+    k.created_at::date,
     a.timestamp_utc::date,
     a.next_report_at::date,
     CASE WHEN a.acknowledged_at IS NULL THEN 'pending' ELSE 'acknowledged' END,
@@ -1282,6 +1352,12 @@ SELECT
   LEFT JOIN artifact_findings f
     ON f.incident_id = a.incident_id
    AND f.record_id = a.record_id
+  LEFT JOIN artifact_investigative_queries q
+    ON q.incident_id = a.incident_id
+   AND q.record_id = a.record_id
+  LEFT JOIN artifact_forensic_keywords k
+    ON k.incident_id = a.incident_id
+   AND k.record_id = a.record_id
  WHERE a.record_id::text = $1
 `, recordID); err != nil {
 		t.Fatalf("seed reporting artifact projection: %v", err)
@@ -1409,6 +1485,14 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 	for _, path := range wantPaths {
 		if byPath[path] == nil {
 			t.Fatalf("snapshot export model missing workbook path %s; paths=%#v", path, byPath)
+		}
+	}
+	for _, path := range []string{
+		"/investigative_queries/" + ids["investigative_query"],
+		"/forensic_keywords/" + ids["forensic_keyword"],
+	} {
+		if byPath[path] != nil {
+			t.Fatalf("reporting export admitted explicitly excluded artifact path %s", path)
 		}
 	}
 	wantFamilies := map[string]string{

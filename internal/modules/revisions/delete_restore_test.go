@@ -29,7 +29,7 @@ import (
 func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	t.Parallel()
 	wantAdapters := map[string]string{
-		"artifact":       "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore.Source",
+		"artifact":       "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers/deleterestore.Source",
 		"assessment":     "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore.Source",
 		"decision":       "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.DecisionSource",
 		"evidence":       "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore.Source",

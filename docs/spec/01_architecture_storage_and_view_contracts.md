@@ -5942,6 +5942,43 @@ schema contract.
 Profiles: base
 Verified by: AC-539
 
+**REQ-01-660**
+The internal `artifacts` refinement MUST own authoritative source state for
+records whose current envelope has `record_type='artifact'`. Its ownership
+includes the common artifact row, supported artifact-subtype rows,
+source-field validation and defaults, artifact-owned collection state,
+same-field conflict revalidation against authoritative artifact state, and
+construction of source-specific contributions consumed by Projections,
+Revisions, Reporting, Imports, Recovery, Incident Bundles, Links,
+Collaboration, and Workbook composition.
+
+The refinement MUST expose module-native mutation commands, results, errors,
+and narrow caller-transaction capabilities. It MUST NOT own or directly
+implement current record-envelope storage or standalone lookup, generic link
+or tag storage, HTTP status or payload translation, authentication-session
+types, physical projection storage, or generic revision, reporting, import,
+recovery, portability, link, collaboration, or workbook coordination. Current
+record-envelope lookup and deterministic locking MUST use the Records-owned
+caller-transaction capability required by REQ-01-649.
+
+Every supported artifact surface and writable source field MUST be admitted
+through one closed, versioned, machine-readable source catalog projected from
+this owner boundary. The catalog MUST distinguish source-owner facts from
+view-schema facts and MUST validate their exact agreement. Production
+construction and generation MUST fail closed on a missing, duplicate,
+cross-surface, read-only, unknown, or mismatched entry. Runtime SQL identifier
+selection, collection policy, conflict source-key admission, and revision
+source routing MUST derive from that validated catalog rather than independent
+handwritten allowlists.
+
+This refinement does not rename or relocate the Coordination bounded context
+or its workbook-native surfaces. It changes no public route, WebSocket,
+view-schema ID, field key, artifact-type token, canonical item reference,
+snapshot schema, transaction-atomicity, authorization, persisted-data, or
+physical projection ownership contract.
+Profiles: base, import, incident_portability, snapshot_reporting
+Verified by: AC-540, AC-541
+
 ## 9. Canonical derivation layer
 
 **REQ-01-367**

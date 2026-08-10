@@ -115,6 +115,8 @@ func validateContractInput(familyDir, relativePath string, value any) error {
 		return validateRecoveryContractInput(relativePath, value)
 	case "collaboration":
 		return validateCollaborationContractInput(relativePath, value)
+	case "artifacts":
+		return validateArtifactContractInput(relativePath, value)
 	default:
 		return nil
 	}
@@ -132,6 +134,9 @@ func validateContractFamily(root, familyDir string) error {
 	}
 	if familyDir == "collaboration" {
 		return validateCollaborationContractFamily(root)
+	}
+	if familyDir == "artifacts" {
+		return validateArtifactSourceCatalogFamily(root)
 	}
 	if familyDir != "view-schemas" {
 		return nil

@@ -1,4 +1,4 @@
-package linkednotes_test
+package artifacts_test
 
 import (
 	"context"
@@ -10,11 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
+	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -39,11 +41,20 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 		"IR-ARTIFACTS-LINKED-NOTE",
 		"Artifact linked note contract",
 	)
-	facade := artifacts.NewContextualNoteFacade(
+	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
+	if err != nil {
+		t.Fatalf("compose conflict field resolver: %v", err)
+	}
+	facade, err := workbookassembly.NewArtifactMutationContribution(
 		harness.DB,
+		conflicttest.NewCodec("artifacts-linked-notes"),
 		revisionsupport.MustAppender(t),
+		conflictFields,
 		appsupport.ArtifactProjectionRows(harness.DB),
 	)
+	if err != nil {
+		t.Fatalf("compose Artifacts mutation facade: %v", err)
+	}
 	now := time.Date(2026, 7, 30, 16, 0, 0, 0, time.UTC)
 
 	for index, recordType := range []string{"timeline_event", "host", "identity", "evidence"} {
@@ -53,7 +64,7 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 			title := "Synthetic " + recordType + " note"
 			clientTxnID := fmt.Sprintf("txn-artifacts-linked-note-%02d", index)
 			command := artifacts.ContextualNoteCreateCommand{
-				Actor:          actor,
+				ActorUserID:    actor.ID,
 				SourceRecordID: sourceRecordID,
 				Request: artifacts.ContextualNoteCreateRequest{
 					ClientTxnID: clientTxnID,
@@ -68,10 +79,10 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 				},
 				RequestHash: []byte("hash-" + clientTxnID),
 				RequestID:   "req-" + clientTxnID,
-				RouteKey:    "workbook.linked_notes.create",
+				OperationID: artifacts.OperationLinkedNoteCreate,
 				Now:         now.Add(time.Duration(index) * time.Minute),
 			}
-			result, err := facade.Create(ctx, command)
+			result, err := facade.CreateContextualNote(ctx, command)
 			if err != nil {
 				t.Fatalf("create linked note for %s: %v", recordType, err)
 			}
@@ -102,7 +113,7 @@ SELECT count(*)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_link'`, result.ChangeSetID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_tag'`, result.ChangeSetID, 1)
 
-			replayed, err := facade.Create(ctx, command)
+			replayed, err := facade.CreateContextualNote(ctx, command)
 			if err != nil {
 				t.Fatalf("replay linked note for %s: %v", recordType, err)
 			}
@@ -114,7 +125,7 @@ SELECT count(*)
 
 			conflicting := command
 			conflicting.RequestHash = []byte("changed-" + clientTxnID)
-			if _, err := facade.Create(ctx, conflicting); !errors.Is(err, authn.ErrClientTxnConflict) {
+			if _, err := facade.CreateContextualNote(ctx, conflicting); !errors.Is(err, artifacts.ErrClientTxnConflict) {
 				t.Fatalf("changed linked-note replay error = %v, want client transaction conflict", err)
 			}
 		})
@@ -122,12 +133,12 @@ SELECT count(*)
 
 	sourceRecordID := seedLinkedNoteSource(t, harness, incident.ID, actor.ID, "timeline_event", now.Add(time.Hour))
 	before := linkedNoteCount(t, harness, `SELECT count(*) FROM records WHERE incident_id = $1`, incident.ID)
-	_, err := facade.Create(ctx, artifacts.ContextualNoteCreateCommand{
-		Actor: actor, SourceRecordID: sourceRecordID,
+	_, err = facade.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
+		ActorUserID: actor.ID, SourceRecordID: sourceRecordID,
 		Request:     artifacts.ContextualNoteCreateRequest{ClientTxnID: "txn-artifacts-linked-note-no-signal"},
 		RequestHash: []byte("hash-artifacts-linked-note-no-signal"),
 		RequestID:   "req-artifacts-linked-note-no-signal",
-		RouteKey:    "workbook.linked_notes.create",
+		OperationID: artifacts.OperationLinkedNoteCreate,
 		Now:         now.Add(2 * time.Hour),
 	})
 	if err == nil {
@@ -165,8 +176,8 @@ SELECT count(*)
 			)
 			installLinkedNoteFailureTrigger(t, harness, fault.table, fault.name)
 			title := "Faulted " + fault.name + " note"
-			_, err := facade.Create(ctx, artifacts.ContextualNoteCreateCommand{
-				Actor:          actor,
+			_, err := facade.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
+				ActorUserID:    actor.ID,
 				SourceRecordID: sourceRecordID,
 				Request: artifacts.ContextualNoteCreateRequest{
 					ClientTxnID: clientTxnID,
@@ -176,7 +187,7 @@ SELECT count(*)
 				},
 				RequestHash: []byte("hash-" + clientTxnID),
 				RequestID:   "req-" + clientTxnID,
-				RouteKey:    "workbook.linked_notes.create",
+				OperationID: artifacts.OperationLinkedNoteCreate,
 				Now:         now.Add(time.Duration(index+3) * time.Hour),
 			})
 			if err == nil {

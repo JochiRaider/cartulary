@@ -22,7 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
-	artifactreporting "github.com/JochiRaider/cartulary/internal/modules/artifacts/reportingprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
@@ -962,7 +962,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	artifactReporting, err := artifactreporting.New(projectionRuntime.ArtifactPorts().Reader)
+	artifactReporting, err := artifacts.NewReportingContribution(projectionRuntime.ArtifactPorts().Reader)
 	if err != nil {
 		runtime.Close()
 		return nil, err
@@ -1015,17 +1015,28 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Workbook Tasks/Decisions mutation contribution: %w", err)
 	}
+	artifactMutation, err := workbookassembly.NewArtifactMutationContribution(
+		postgresHandle,
+		workbookConflictTokens,
+		revisionRuntime.Appender(),
+		revisionRuntime.ConflictFieldResolver(),
+		projectionRuntime.ArtifactPorts().Rows,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Workbook Artifacts mutation contribution: %w", err)
+	}
 	workbookContributionCatalog, err := workbookassembly.NewContributionCatalog(
 		postgresHandle,
 		projectionRuntime.DescriptorSet(),
 		projectionRuntime,
 		projectionRuntime.EntityPorts(),
 		projectionRuntime.AssessmentPorts().Rows,
-		projectionRuntime.ArtifactPorts().Rows,
 		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineFacade,
 		evidenceOwner.WorkbookContribution(),
+		artifactMutation,
 		taskDecisionMutation,
 		workbookConflictTokens,
 		revisionRuntime.ConflictFieldResolver(),
@@ -1039,9 +1050,8 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	workbookMutationStore, err := workbookassembly.NewMutationStore(
 		postgresHandle,
 		workbookContributionCatalog,
-		revisionRuntime.Appender(),
+		artifactMutation,
 		taskDecisionMutation,
-		projectionRuntime.ArtifactPorts().Rows,
 	)
 	if err != nil {
 		runtime.Close()

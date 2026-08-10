@@ -1217,6 +1217,31 @@ These criteria provide direct runtime-family verification for substantive base-p
   conformance, or release-evidence path consumes the ADR, tracker, Appendix I,
   or other Markdown.
   - Verifies: REQ-00-070, REQ-01-351, REQ-01-621..REQ-01-626, REQ-01-658
+- **AC-540**: Artifact mutation-boundary evidence proves that Artifacts
+  accepts and returns only module-native actor, operation, command, result,
+  and error types; that Workbook alone maps authenticated transport state,
+  route idempotency, HTTP statuses, and public payloads; that one complete,
+  fallibly constructed Artifacts mutation contribution is reused for create,
+  patch, conflict resolution, and contextual-note creation; and that every
+  standalone current-envelope lookup and deterministic lock uses the supplied
+  caller transaction through the Records-owned capability. Missing required
+  capabilities fail construction, wrong-type or absent envelopes retain
+  concealed-not-found behavior, deleted envelopes retain
+  `record_deleted_use_restore`, and exact committed idempotency replay remains
+  compatible with already stored durable response rows without duplicate
+  source, history, projection, link, or Collaboration effects.
+  - Verifies: REQ-01-649, REQ-01-660
+- **AC-541**: Artifact source-catalog evidence proves exact set equality among
+  the eight supported artifact surfaces, the 36 writable direct source
+  fields, the 15 writable collection fields, and the corresponding generated
+  view-schema source filters, writability, write kinds, reference contracts,
+  and nullability. Generation and production construction reject missing,
+  duplicate, cross-surface, read-only, unknown, or mismatched entries; direct
+  SQL identifier allowlists, collection policies, conflict source keys, and
+  revision source routes derive from the validated catalog; and adding a
+  surface or writable field through only one projection fails closed rather
+  than partially registering behavior.
+  - Verifies: REQ-01-660
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 

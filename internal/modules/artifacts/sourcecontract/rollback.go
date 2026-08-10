@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/gen/contractartifacts"
 )
 
 type StorageMapping struct {
@@ -16,44 +18,13 @@ type StorageMapping struct {
 // WritableDirectStorageMappings is the exact reviewed identifier allowlist for
 // artifact scalar mutation. Callers receive a copy.
 func WritableDirectStorageMappings() map[string]StorageMapping {
-	return map[string]StorageMapping{
-		"note.title":                          {Table: "artifacts", Column: "title"},
-		"note.body":                           {Table: "artifacts", Column: "body"},
-		"comm_log.timestamp_utc":              {Table: "artifacts", Column: "timestamp_utc"},
-		"comm_log.comm_type":                  {Table: "artifacts", Column: "comm_type"},
-		"comm_log.audience":                   {Table: "artifacts", Column: "audience"},
-		"comm_log.channel_or_meeting":         {Table: "artifacts", Column: "channel_or_meeting"},
-		"comm_log.summary":                    {Table: "artifacts", Column: "summary"},
-		"comm_log.next_report_at":             {Table: "artifacts", Column: "next_report_at"},
-		"comm_log.privilege_tag":              {Table: "artifacts", Column: "privilege_tag"},
-		"handoff.timestamp_utc":               {Table: "artifacts", Column: "timestamp_utc"},
-		"handoff.outgoing_owner_user_id":      {Table: "artifacts", Column: "outgoing_owner_user_id"},
-		"handoff.incoming_owner_user_id":      {Table: "artifacts", Column: "incoming_owner_user_id"},
-		"handoff.current_state_summary":       {Table: "artifacts", Column: "current_state_summary"},
-		"handoff.next_checks":                 {Table: "artifacts", Column: "next_checks"},
-		"handoff.acknowledged_at":             {Table: "artifacts", Column: "acknowledged_at"},
-		"status_review.timestamp_utc":         {Table: "artifacts", Column: "timestamp_utc"},
-		"status_review.review_owner_user_id":  {Table: "artifacts", Column: "review_owner_user_id"},
-		"status_review.current_state_summary": {Table: "artifacts", Column: "current_state_summary"},
-		"status_review.active_risks_summary":  {Table: "artifacts", Column: "active_risks_summary"},
-		"status_review.next_report_at":        {Table: "artifacts", Column: "next_report_at"},
-		"lesson.timestamp_utc":                {Table: "artifacts", Column: "timestamp_utc"},
-		"lesson.summary":                      {Table: "artifacts", Column: "summary"},
-		"lesson.owner_user_id":                {Table: "artifacts", Column: "owner_user_id"},
-		"lesson.closure_state":                {Table: "artifacts", Column: "closure_state"},
-		"finding.statement":                   {Table: "artifact_findings", Column: "statement"},
-		"finding.kind":                        {Table: "artifact_findings", Column: "kind"},
-		"finding.state":                       {Table: "artifact_findings", Column: "state"},
-		"finding.owner_user_id":               {Table: "artifact_findings", Column: "owner_user_id"},
-		"finding.confidence_score":            {Table: "artifact_findings", Column: "confidence_score"},
-		"investigative_query.platform":        {Table: "artifact_investigative_queries", Column: "platform"},
-		"investigative_query.purpose":         {Table: "artifact_investigative_queries", Column: "purpose"},
-		"investigative_query.query_text":      {Table: "artifact_investigative_queries", Column: "query_text"},
-		"forensic_keyword.pattern":            {Table: "artifact_forensic_keywords", Column: "pattern"},
-		"forensic_keyword.reason":             {Table: "artifact_forensic_keywords", Column: "reason"},
-		"forensic_keyword.match_mode":         {Table: "artifact_forensic_keywords", Column: "match_mode"},
-		"forensic_keyword.case_sensitive":     {Table: "artifact_forensic_keywords", Column: "case_sensitive"},
+	result := make(map[string]StorageMapping, 36)
+	for _, surface := range contractartifacts.SourceCatalog {
+		for _, field := range surface.DirectFields {
+			result[field.FieldKey] = StorageMapping{Table: field.Table, Column: field.Column}
+		}
 	}
+	return result
 }
 
 // ConflictFieldSourceKeys declares the source-owned scalar projection required

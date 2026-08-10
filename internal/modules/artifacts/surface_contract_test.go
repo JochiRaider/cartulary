@@ -98,6 +98,69 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 		}
 	}
 
+	t.Run("incident bundle descriptor is exact", func(t *testing.T) {
+		descriptor := NewIncidentBundleSourcePort().Descriptor()
+		if descriptor.FamilyID != "artifacts" || descriptor.ContractMajor != 1 || descriptor.OwnerID != "module.artifacts" {
+			t.Fatalf("artifact incident-bundle descriptor identity = %#v", descriptor)
+		}
+		if !slices.Equal(descriptor.OwnerRelationIDs, []string{"artifacts-and-optional-surfaces"}) ||
+			!slices.Equal(descriptor.Dependencies, []string{"indicators"}) {
+			t.Fatalf("artifact incident-bundle descriptor ownership/dependencies = %#v", descriptor)
+		}
+		wantPaths := []struct {
+			path     string
+			identity string
+		}{
+			{"data/artifacts.ndjson", "record_id"},
+			{"data/artifact_findings.ndjson", "record_id"},
+			{"data/artifact_investigative_queries.ndjson", "record_id"},
+			{"data/artifact_forensic_keywords.ndjson", "record_id"},
+			{"data/handoff_risk_refs.ndjson", "risk_ref_id"},
+		}
+		if len(descriptor.Paths) != len(wantPaths) {
+			t.Fatalf("artifact incident-bundle paths = %d, want %d", len(descriptor.Paths), len(wantPaths))
+		}
+		for index, wantPath := range wantPaths {
+			got := descriptor.Paths[index]
+			if got.LogicalPath != wantPath.path || got.ContentRole != "source_rows" ||
+				!slices.Equal(got.Versions, []int{1, 2}) || !slices.Equal(got.StableIdentity, []string{wantPath.identity}) {
+				t.Fatalf("artifact incident-bundle path %d = %#v, want %s/%s", index, got, wantPath.path, wantPath.identity)
+			}
+		}
+		wantInvariants := []string{
+			"artifacts.envelope_type_scope",
+			"artifacts.subtype_exact",
+			"artifacts.lifecycle_fields_legal",
+			"artifacts.handoff_risk_target",
+			"artifacts.references_same_incident",
+		}
+		if !slices.Equal(descriptor.InvariantIDs, wantInvariants) {
+			t.Fatalf("artifact incident-bundle invariants = %#v, want %#v", descriptor.InvariantIDs, wantInvariants)
+		}
+	})
+
+	t.Run("recovery contribution is exact", func(t *testing.T) {
+		contribution := RecoveryStateContribution()
+		if contribution.OwnerID != "module.artifacts" || len(contribution.ObjectFamilies) != 0 {
+			t.Fatalf("artifact recovery contribution identity = %#v", contribution)
+		}
+		tables := make([]string, 0, len(contribution.Tables))
+		for _, table := range contribution.Tables {
+			tables = append(tables, table.TableName)
+		}
+		slices.Sort(tables)
+		wantTables := []string{
+			"artifact_findings",
+			"artifact_forensic_keywords",
+			"artifact_investigative_queries",
+			"artifacts",
+			"handoff_risk_refs",
+		}
+		if !slices.Equal(tables, wantTables) {
+			t.Fatalf("artifact recovery tables = %#v, want %#v", tables, wantTables)
+		}
+	})
+
 	t.Run("exact_write_admission", func(t *testing.T) {
 		body := "Valid note signal"
 		number := int64(1)

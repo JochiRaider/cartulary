@@ -83,17 +83,27 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	if err != nil {
 		panic(err)
 	}
+	artifactMutation, err := workbookassembly.NewArtifactMutationContribution(
+		pool,
+		conflictTokens,
+		appender,
+		conflictFields,
+		projectionRuntime.ArtifactPorts().Rows,
+	)
+	if err != nil {
+		panic(err)
+	}
 	catalog, err := workbookassembly.NewContributionCatalog(
 		pool,
 		projectionRuntime.DescriptorSet(),
 		projectionRuntime,
 		projectionRuntime.EntityPorts(),
 		projectionRuntime.AssessmentPorts().Rows,
-		projectionRuntime.ArtifactPorts().Rows,
 		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
+		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
 		conflictFields,
@@ -106,9 +116,8 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	store, err := workbookassembly.NewMutationStore(
 		pool,
 		catalog,
-		appender,
+		artifactMutation,
 		taskDecisionMutation,
-		projectionRuntime.ArtifactPorts().Rows,
 	)
 	if err != nil {
 		panic(err)

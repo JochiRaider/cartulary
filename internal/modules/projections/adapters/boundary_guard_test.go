@@ -122,7 +122,6 @@ func projectionProviderAssemblyImportAllowed(relPath string, importPath string) 
 			cartularyImportPrefix + "internal/modules/assessments/projectionprovider": {},
 		},
 		"internal/app/projectionassembly": {
-			cartularyImportPrefix + "internal/modules/artifacts/projectionprovider":             {},
 			cartularyImportPrefix + "internal/modules/entities/hostidentity/projectionprovider": {},
 			cartularyImportPrefix + "internal/modules/evidence/projectionprovider":              {},
 			cartularyImportPrefix + "internal/modules/indicators/projectionprovider":            {},

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
-	artifactprovider "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
@@ -40,7 +40,7 @@ func MustBuild(t testing.TB, db postgres.DB) projectionadapters.Ports {
 	if err != nil {
 		t.Fatalf("compose Assessments projection contribution: %v", err)
 	}
-	artifactsContribution, err := artifactprovider.NewContribution()
+	artifactsContribution, err := artifacts.NewProjectionContribution()
 	if err != nil {
 		t.Fatalf("compose Artifacts projection contribution: %v", err)
 	}

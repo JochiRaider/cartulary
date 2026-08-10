@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 )
 
 const HandoffOpenRiskRefsFieldKey = "handoff.open_risk_refs"
@@ -134,11 +132,19 @@ SELECT EXISTS (
 }
 
 func RiskRefItemRef(riskRefID uuid.UUID) string {
-	return riskrefs.RiskRefItemRef(riskRefID)
+	return "risk_ref:" + riskRefID.String()
 }
 
 func ParseRiskRefItemRef(itemRef string) (uuid.UUID, error) {
-	return riskrefs.ParseRiskRefItemRef(itemRef)
+	if !strings.HasPrefix(itemRef, "risk_ref:") {
+		return uuid.UUID{}, fmt.Errorf("invalid risk ref item ref")
+	}
+	value := strings.TrimPrefix(itemRef, "risk_ref:")
+	parsed, err := uuid.Parse(value)
+	if err != nil || parsed.String() != value {
+		return uuid.UUID{}, fmt.Errorf("invalid risk ref item ref")
+	}
+	return parsed, nil
 }
 
 func riskRefValidationError() *ValidationError {

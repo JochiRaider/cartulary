@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -726,7 +726,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		if !ok {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		if _, err := riskrefs.ParseRiskRefItemRef(itemRef); err != nil {
+		if _, err := artifacts.ParseRiskRefItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef

@@ -164,9 +164,24 @@ func artifactWorkbookCollectionPayloadFromWorkbook(payload CollectionActionPaylo
 }
 
 func mutationResultFromArtifactWorkbook(result artifacts.WorkbookMutationResult) MutationResult {
+	payload := map[string]any{
+		"view_schema_id": result.ViewSchemaID,
+		"row":            result.Row,
+	}
+	if result.ChangeSetID != uuid.Nil {
+		payload["change_set_id"] = result.ChangeSetID.String()
+	}
+	if result.ContextualLink != nil {
+		payload["source_record_id"] = result.ContextualLink.SourceRecordID.String()
+		payload["link_type"] = result.ContextualLink.LinkType
+	}
+	statusCode := http.StatusOK
+	if result.Created {
+		statusCode = http.StatusCreated
+	}
 	return MutationResult{
-		Payload:          result.Payload,
-		StatusCode:       result.StatusCode,
+		Payload:          payload,
+		StatusCode:       statusCode,
 		Replayed:         result.Replayed,
 		IncidentID:       result.IncidentID,
 		RecordID:         result.RecordID,
@@ -181,6 +196,9 @@ func mutationResultFromArtifactWorkbook(result artifacts.WorkbookMutationResult)
 func adaptArtifactWorkbookOwnerError(err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, artifacts.ErrClientTxnConflict) {
+		return authn.ErrClientTxnConflict
 	}
 	var validation *artifacts.ValidationError
 	if errors.As(err, &validation) {
@@ -588,30 +606,19 @@ func adaptTaskDecisionWorkbookOwnerError(err error) error {
 }
 
 func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, sourceRecordID uuid.UUID, request LinkedNoteCreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	result, err := s.contextualNoteOwner.Create(ctx, artifacts.ContextualNoteCreateCommand{
-		Actor:          actor,
+	result, err := s.contextualNoteOwner.CreateContextualNote(ctx, artifacts.ContextualNoteCreateCommand{
+		ActorUserID:    actor.ID,
 		SourceRecordID: sourceRecordID,
 		Request:        linkedNoteCreateRequestToArtifacts(request),
 		RequestHash:    requestHash,
 		RequestID:      requestID,
-		RouteKey:       workbookLinkedNoteRouteKey,
+		OperationID:    artifacts.OperationLinkedNoteCreate,
 		Now:            now,
 	})
 	if err != nil {
 		return MutationResult{}, adaptLinkedNoteOwnerError(err)
 	}
-	return MutationResult{
-		Payload:          result.Payload,
-		StatusCode:       result.StatusCode,
-		Replayed:         result.Replayed,
-		IncidentID:       result.IncidentID,
-		RecordID:         result.RecordID,
-		ChangeSetID:      result.ChangeSetID,
-		ClientTxnID:      result.ClientTxnID,
-		RowVersion:       result.RowVersion,
-		ViewSchemaID:     result.ViewSchemaID,
-		ChangedFieldKeys: result.ChangedFieldKeys,
-	}, nil
+	return mutationResultFromArtifactWorkbook(result), nil
 }
 
 func (s *Store) LinkedNoteSourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error) {

@@ -27,6 +27,12 @@
       "evidence_kinds": ["go_test"]
     },
     {
+      "verification_id": "module.artifacts.verification.rollback_execution",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["go_test"]
+    },
+    {
       "verification_id": "module.artifacts.verification.rollback_source_mapping",
       "behavior_class": "product",
       "profile": "base",

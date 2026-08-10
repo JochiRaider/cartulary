@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
@@ -36,11 +35,11 @@ func NewContributionCatalog(
 	projectionQueries projectionQueryCatalog,
 	entityProjections entityprojection.Ports,
 	assessmentProjections assessmentprojection.Rows,
-	artifactProjections artifactprojection.Rows,
 	partyProjections partyprojection.Rows,
 	indicatorOwner *indicators.Store,
 	timelineOwner *timeline.Facade,
 	evidenceOwner evidence.WorkbookContribution,
+	artifactOwner *artifacts.MutationFacade,
 	taskDecisionOwner *tasksdecisions.MutationFacade,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	conflictFields conflicttokens.FieldResolver,
@@ -59,9 +58,6 @@ func NewContributionCatalog(
 	if assessmentProjections == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Assessments projection rows are required")
 	}
-	if artifactProjections == nil {
-		return nil, fmt.Errorf("compose workbook contribution catalog: Artifacts projection rows are required")
-	}
 	if partyProjections == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Parties projection rows are required")
 	}
@@ -73,6 +69,9 @@ func NewContributionCatalog(
 	}
 	if evidenceOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Evidence contribution is required")
+	}
+	if artifactOwner == nil {
+		return nil, fmt.Errorf("compose workbook contribution catalog: Artifacts mutation contribution is required")
 	}
 	if taskDecisionOwner == nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: Tasks/Decisions mutation contribution is required")
@@ -101,14 +100,6 @@ func NewContributionCatalog(
 	if err != nil {
 		return nil, fmt.Errorf("compose workbook contribution catalog: %w", err)
 	}
-	artifactOwner := artifacts.NewWorkbookFacade(
-		pool,
-		conflictTokens,
-		appender,
-		conflictFields,
-		keepSaved,
-		artifactProjections,
-	)
 	partyOwner := parties.NewWorkbookFacade(
 		pool,
 		conflictTokens,

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cartulary.invalid/contracts/artifacts/source-catalog.v1.schema.json",
+  "title": "Cartulary Artifacts Source Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_id", "catalog_id", "surfaces"],
+  "properties": {
+    "$schema": { "const": "https://json-schema.org/draft/2020-12/schema" },
+    "schema_id": { "const": "cartulary.artifacts.source_catalog.v1" },
+    "catalog_id": { "const": "cartulary.artifacts.sources.v1" },
+    "surfaces": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/surface" }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "field_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$" },
+    "direct_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "table", "column"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/field_key" },
+        "table": { "enum": ["artifact_findings", "artifact_forensic_keywords", "artifact_investigative_queries", "artifacts"] },
+        "column": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "collection_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "collection_family", "allowed_operations"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/field_key" },
+        "collection_family": { "enum": ["party_ref", "record_ref", "record_tag", "risk_ref"] },
+        "allowed_operations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["add_party_ref", "add_record_ref", "add_risk_ref", "add_tag", "remove_party_ref", "remove_record_ref", "remove_risk_ref", "remove_tag"] }
+        },
+        "link_type": { "enum": ["references_record", "supported_by"] },
+        "expected_target_record_type": { "enum": ["decision", "evidence", "party", "task_request"] }
+      }
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["view_schema_id", "artifact_type", "direct_fields", "collection_fields"],
+      "properties": {
+        "view_schema_id": { "enum": ["cartulary.view.comm_log.v1", "cartulary.view.findings.v1", "cartulary.view.forensic_keywords.v1", "cartulary.view.handoff.v1", "cartulary.view.investigative_queries.v1", "cartulary.view.lesson.v1", "cartulary.view.notes.v1", "cartulary.view.status_review.v1"] },
+        "artifact_type": { "enum": ["comm_log", "finding", "forensic_keyword", "handoff", "investigative_query", "lesson", "note", "status_review"] },
+        "direct_fields": { "type": "array", "items": { "$ref": "#/$defs/direct_field" } },
+        "collection_fields": { "type": "array", "items": { "$ref": "#/$defs/collection_field" } }
+      }
+    }
+  }
+}

@@ -83,6 +83,7 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 
 	files := minimalRequiredBundleFiles()
 	files["data/records.ndjson"] = []byte("{}\n")
+	files["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
 	first, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
@@ -97,6 +98,7 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	}
 	secondFiles := minimalRequiredBundleFiles()
 	secondFiles["data/records.ndjson"] = []byte("{}\n")
+	secondFiles["data/artifacts.ndjson"] = []byte("{\"record_id\":\"33333333-3333-4333-8333-333333333333\"}\n")
 	second, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
@@ -124,6 +126,9 @@ func TestBundleManifestChecksumDeterministic_Unit(t *testing.T) {
 	for _, file := range first.Manifest.Files {
 		if file.Path == "data/records.ndjson" && file.SizeBytes != int64(len(files["data/records.ndjson"])) {
 			t.Fatalf("manifest file must use exact size_bytes: %#v", file)
+		}
+		if file.Path == "data/artifacts.ndjson" && file.SizeBytes != int64(len(files["data/artifacts.ndjson"])) {
+			t.Fatalf("artifact manifest file must use exact size_bytes: %#v", file)
 		}
 	}
 }

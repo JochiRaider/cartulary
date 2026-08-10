@@ -79,16 +79,6 @@
       ]
     },
     {
-      "id": "artifact-delete-restore-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore",
-      "allowed_importers": ["internal/modules/artifacts/**"]
-    },
-    {
-      "id": "artifact-rollback-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider",
-      "allowed_importers": ["internal/modules/artifacts/**"]
-    },
-    {
       "id": "artifact-surface-catalog-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog",
       "allowed_importers": ["internal/modules/artifacts/**"]
@@ -241,7 +231,7 @@
       "id": "revisions-delete-restore-source-contract-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract",
       "allowed_importers": [
-        "internal/modules/artifacts/deleterestore/provider.go",
+        "internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/assessments/deleterestore/provider.go",
         "internal/modules/entities/hostidentity/deleterestore/provider.go",
         "internal/modules/evidence/deleterestore/provider.go",
@@ -370,6 +360,41 @@
       ],
       "allowed_paths": [],
       "production_only": true
+    },
+    {
+      "id": "artifact-mutation-no-http-or-auth-transport",
+      "match_kind": "subtree",
+      "imports": [
+        "net/http",
+        "github.com/JochiRaider/cartulary/internal/platform/authn",
+        "github.com/JochiRaider/cartulary/internal/platform/httpapi"
+      ],
+      "scan_paths": [
+        "internal/modules/artifacts/contextual_notes.go",
+        "internal/modules/artifacts/import_create.go",
+        "internal/modules/artifacts/mutation_kernel.go",
+        "internal/modules/artifacts/mutation_ports.go",
+        "internal/modules/artifacts/source_kernel.go",
+        "internal/modules/artifacts/workbook_conflict.go",
+        "internal/modules/artifacts/workbook_facade.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "artifact-private-provider-implementations",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers"
+      ],
+      "scan_paths": [
+        "internal/app/**",
+        "internal/modules/**"
+      ],
+      "allowed_paths": [
+        "internal/modules/artifacts/**"
+      ],
+      "production_only": false
     },
     {
       "id": "records-no-peer-orchestration",
@@ -819,8 +844,6 @@
       ],
       "allowed_imports": [
         "github.com/JochiRaider/cartulary/internal/modules/artifacts",
-        "github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes",
-        "github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs",
         "github.com/JochiRaider/cartulary/internal/modules/assessments",
         "github.com/JochiRaider/cartulary/internal/modules/collaboration",
         "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity",
@@ -1236,10 +1259,9 @@
       "scan_paths": ["internal/modules/**"],
       "read_allowed_paths": [
         "internal/modules/artifacts/handoff_risk_refs.go",
-        "internal/modules/artifacts/deleterestore/provider.go",
+		"internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
-        "internal/modules/artifacts/projectionprovider/source.go",
-        "internal/modules/artifacts/workbook_facade.go",
+		"internal/modules/artifacts/internal/providers/projection/source.go",
         "internal/modules/assessments/incident_bundle_source_port.go",
         "internal/modules/assessments/deleterestore/provider.go",
         "internal/modules/assessments/projectionprovider/provider.go",
@@ -1946,7 +1968,7 @@
         "fmt.Sprintf("
       ],
       "scan_paths": [
-        "internal/modules/artifacts/deleterestore/**",
+		"internal/modules/artifacts/internal/providers/deleterestore/**",
         "internal/modules/assessments/deleterestore/**",
         "internal/modules/entities/hostidentity/deleterestore/**",
         "internal/modules/evidence/deleterestore/**",

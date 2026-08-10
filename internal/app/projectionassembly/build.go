@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/app/assessmentassembly"
-	artifactprovider "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	entityprovider "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	indicatorprovider "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
@@ -42,7 +42,7 @@ func Build(db postgres.DB) (*Runtime, error) {
 	if err != nil {
 		return nil, fmt.Errorf("assemble Assessments projection contribution: %w", err)
 	}
-	artifactsContribution, err := artifactprovider.NewContribution()
+	artifactsContribution, err := artifacts.NewProjectionContribution()
 	if err != nil {
 		return nil, fmt.Errorf("assemble Artifacts projection contribution: %w", err)
 	}

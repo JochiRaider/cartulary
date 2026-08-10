@@ -761,6 +761,8 @@ A decision MUST NOT be used as a general approval gate for ordinary row edits. R
 
 Communications Log, Handoff, Status Review, and Lesson are workbook-native coordination artifact surfaces. They remain part of the workbook model and MUST NOT become separate application modules in the current profile.
 
+Coordination is the bounded context and language owner for these teamwork concepts; it is not a required physical package boundary. The internal `artifacts` refinement is the narrower implementation owner for authoritative `record_type='artifact'` source state shared by Notes, coordination artifacts, Findings, Investigative Queries, and Forensic Keywords. That implementation mapping does not transfer generic Workbook, Links, Revisions, Projections, Reporting, Imports, Recovery, Incident Bundles, Collaboration, or authorization behavior into Artifacts, and it does not relocate any workbook surface out of the Coordination or Workbook Interaction language contexts.
+
 | Coordination artifact | Domain use | Not this | Owner |
 | --- | --- | --- | --- |
 | Communications Log | Durable communication memory. | Raw chat archive or approval engine. | Core 02/Core 03 |

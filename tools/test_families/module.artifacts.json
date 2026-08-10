@@ -41,7 +41,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/artifacts/riskrefs",
+        "package": "./internal/modules/artifacts",
         "tests": [
           "TestRiskRefItemRefIsCanonical",
           "TestRiskRefItemRefParsingIsStrict"
@@ -129,7 +129,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/artifacts/linkednotes",
+        "package": "./internal/modules/artifacts",
         "tests": [
           "TestArtifactLinkedNoteAtomicity"
         ]
@@ -154,7 +154,7 @@
       ],
       "runner": "go",
       "selector": {
-        "package": "./internal/modules/artifacts/rollbackprovider",
+        "package": "./internal/modules/artifacts/internal/providers/rollback",
         "tests": [
           "TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections",
           "TestValidSourceRejectsSubtypeInvariantViolations"
@@ -163,6 +163,56 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.artifacts.rollback_provider.artifact_rollback_service_executes_all_eight_sour_0dcd05ed0a",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.rollback_provider",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.rollback_execution"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactRollbackProviderExecutionMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "module.artifacts.source_mutations.application_idempotency_adapter_preserves_stored_payloads",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestArtifactStoredIdempotencyPayloadCompatibility"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
@@ -186,6 +236,9 @@
       "selector": {
         "package": "./internal/modules/artifacts",
         "tests": [
+          "TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability",
+          "TestArtifactMutationContributionRejectsMissingDependencies",
+          "TestArtifactPatchEnvelopeOutcomes",
           "TestArtifactWorkbookMutationContractMatrix"
         ]
       },
@@ -227,7 +280,9 @@
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.surface_contracts",
       "collaborator_ids": [
+        "module.incidentbundles",
         "module.projections",
+        "module.recovery",
         "module.revisions",
         "module.workbook"
       ],
@@ -238,6 +293,7 @@
       "selector": {
         "package": "./internal/modules/artifacts",
         "tests": [
+          "TestArtifactSourceCatalogRuntimeRejectsDrift",
           "TestArtifactSurfaceContractMatrix"
         ]
       },

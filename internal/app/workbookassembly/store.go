@@ -4,9 +4,7 @@ import (
 	"fmt"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -18,25 +16,21 @@ import (
 func NewMutationStore(
 	pool postgres.DB,
 	contributionCatalog *workbook.WorkbookContributionCatalog,
-	appender *revisions.Appender,
+	artifactOwner *artifacts.MutationFacade,
 	taskDecisionOwner *tasksdecisions.MutationFacade,
-	artifactProjections artifactprojection.Rows,
 ) (*workbook.Store, error) {
 	if contributionCatalog == nil {
 		return nil, fmt.Errorf("compose Workbook mutation store: contribution catalog is required")
 	}
-	if appender == nil {
-		return nil, fmt.Errorf("compose Workbook mutation store: Revisions appender is required")
+	if artifactOwner == nil {
+		return nil, fmt.Errorf("compose Workbook mutation store: Artifacts mutation contribution is required")
 	}
 	if taskDecisionOwner == nil {
 		return nil, fmt.Errorf("compose Workbook mutation store: Tasks/Decisions mutation contribution is required")
 	}
-	if artifactProjections == nil {
-		return nil, fmt.Errorf("compose Workbook mutation store: Artifacts projection rows are required")
-	}
 	return workbook.NewStore(workbook.StoreDependencies{
 		RecordTargets:       records.NewRouteTargetResolver(pool),
-		ContextualNoteOwner: artifacts.NewContextualNoteFacade(pool, appender, artifactProjections),
+		ContextualNoteOwner: artifactOwner,
 		SupersedeOwner:      taskDecisionOwner,
 		ContributionCatalog: contributionCatalog,
 	}), nil

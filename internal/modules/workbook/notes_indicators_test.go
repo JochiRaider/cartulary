@@ -585,6 +585,16 @@ func newCatalogBackedWorkbookStore(
 	if err != nil {
 		t.Fatalf("compose Tasks/Decisions mutation contribution: %v", err)
 	}
+	artifactMutation, err := workbookassembly.NewArtifactMutationContribution(
+		pool,
+		conflictTokens,
+		appender,
+		conflictFields,
+		projections.ArtifactPorts().Rows,
+	)
+	if err != nil {
+		t.Fatalf("compose Artifacts mutation contribution: %v", err)
+	}
 	indicatorOwner, err := indicators.NewStore(indicators.StoreDependencies{
 		Postgres:    pool,
 		Revisions:   appender,
@@ -600,11 +610,11 @@ func newCatalogBackedWorkbookStore(
 		projections,
 		projections.EntityPorts(),
 		projections.AssessmentPorts().Rows,
-		projections.ArtifactPorts().Rows,
 		projections.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
 		evidenceContribution,
+		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
 		conflictFields,
@@ -617,9 +627,8 @@ func newCatalogBackedWorkbookStore(
 	store, err := workbookassembly.NewMutationStore(
 		pool,
 		catalog,
-		appender,
+		artifactMutation,
 		taskDecisionMutation,
-		projections.ArtifactPorts().Rows,
 	)
 	if err != nil {
 		t.Fatalf("compose Workbook mutation store: %v", err)

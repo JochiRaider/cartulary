@@ -13,7 +13,6 @@ import (
 // artifactCreateTxResult is the durable output of the transaction-supplied
 // source kernel. Route idempotency and commit remain coordinator concerns.
 type artifactCreateTxResult struct {
-	payload     map[string]any
 	row         map[string]any
 	incidentID  uuid.UUID
 	recordID    uuid.UUID
@@ -23,7 +22,7 @@ type artifactCreateTxResult struct {
 // executeCreateTx performs all authoritative artifact-create effects in the
 // supplied transaction. Both ordinary workbook creates and contextual-note
 // creates use this sequence; this method never begins or commits a transaction.
-func (f *WorkbookFacade) executeCreateTx(
+func (f *MutationFacade) executeCreateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	command WorkbookCreateCommand,
@@ -44,6 +43,7 @@ func (f *WorkbookFacade) executeCreateTx(
 	if err := validateArtifactReferencesTx(
 		ctx,
 		tx,
+		f.memberReferences,
 		f.linkStore,
 		incidentID,
 		request.ViewSchemaID,
@@ -57,7 +57,7 @@ func (f *WorkbookFacade) executeCreateTx(
 		ctx,
 		tx,
 		incidentID,
-		command.Actor.ID,
+		command.ActorUserID,
 		CreateParams{ViewSchemaID: request.ViewSchemaID, Values: request.Values},
 		now,
 	)
@@ -69,7 +69,7 @@ func (f *WorkbookFacade) executeCreateTx(
 		tx,
 		incidentID,
 		recordID,
-		command.Actor.ID,
+		command.ActorUserID,
 		request.ViewSchemaID,
 		request.Collections,
 		now,
@@ -88,7 +88,7 @@ func (f *WorkbookFacade) executeCreateTx(
 			incidentID,
 			*contextualSourceRecordID,
 			recordID,
-			command.Actor.ID,
+			command.ActorUserID,
 			now,
 		)
 		if err != nil {
@@ -99,13 +99,13 @@ func (f *WorkbookFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	changeSetID, err := f.revisionAppender.AppendChangeSetTx(
+	changeSetID, err := f.revisions.AppendChangeSetTx(
 		ctx,
 		tx,
 		revisions.AppendChangeSetParams{
 			IncidentID:  incidentID,
-			ActorUserID: command.Actor.ID,
-			Source:      command.RouteKey,
+			ActorUserID: command.ActorUserID,
+			Source:      string(command.OperationID),
 			ClientTxnID: &request.ClientTxnID,
 			RequestID:   &command.RequestID,
 			CreatedAt:   now,
@@ -114,12 +114,12 @@ func (f *WorkbookFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	afterSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	afterSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -139,7 +139,7 @@ func (f *WorkbookFacade) executeCreateTx(
 		if err != nil {
 			return artifactCreateTxResult{}, err
 		}
-		if err := f.revisionAppender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+		if err := f.revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    nextSequence,
 			TargetKind:    "record_link",
@@ -150,7 +150,7 @@ func (f *WorkbookFacade) executeCreateTx(
 			return artifactCreateTxResult{}, err
 		}
 	}
-	if err := f.revisionAppender.AppendRecordRevisionAndIntentTx(
+	if err := f.revisions.AppendRecordRevisionAndIntentTx(
 		ctx,
 		tx,
 		revisions.AppendRecordRevisionParams{
@@ -163,13 +163,7 @@ func (f *WorkbookFacade) executeCreateTx(
 	); err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	payload := buildMutationPayload(request.ViewSchemaID, changeSetID, row)
-	if contextualSourceRecordID != nil {
-		payload["source_record_id"] = contextualSourceRecordID.String()
-		payload["link_type"] = "references_artifact"
-	}
 	return artifactCreateTxResult{
-		payload:     payload,
 		row:         row,
 		incidentID:  incidentID,
 		recordID:    recordID,
