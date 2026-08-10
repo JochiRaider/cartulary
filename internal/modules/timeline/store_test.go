@@ -65,6 +65,7 @@ func TestCreateCommitsAndAssignsIdentity_Unit(t *testing.T) {
 	if got := dbassert.CountPostgres(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE record_id = $1`, result.RecordID); got != 1 {
 		t.Fatalf("expected one durable timeline row, got %d", got)
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionPostgres(t, harness.DB, result.ChangeSetID.String())
 	projection := asserttest.LookupProjectionRow(t, asserttest.PostgresDatabase(harness.DB), result.RecordID.String())
 	if projection.RowVersion != 1 || projection.CaptureState != "rough" {
 		t.Fatalf("unexpected projection row after create: %#v", projection)
@@ -250,6 +251,7 @@ func TestPatchReplayStability_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("initial patch: %v", err)
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionPostgres(t, harness.DB, first.ChangeSetID.String())
 	beforeReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
 	replay, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timelineadmission.PatchRequestHash(patch), "req-timeline_mutation-u-3-07-patch-replay", BaseTime().Add(2*time.Minute))
@@ -263,6 +265,7 @@ func TestPatchReplayStability_Unit(t *testing.T) {
 	if beforeReplay != afterReplay {
 		t.Fatalf("replay must not create additional history rows: before=%#v after=%#v", beforeReplay, afterReplay)
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionPostgres(t, harness.DB, first.ChangeSetID.String())
 
 	divergent := patch
 	divergent.CanonicalChange = []timeline.PatchChange{

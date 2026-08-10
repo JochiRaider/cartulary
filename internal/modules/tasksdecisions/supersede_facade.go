@@ -246,7 +246,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}
 	sourceBeforeVersionID := supersedeVersionID(sourceRecordID, sourceMeta.RowVersion)
 	sourceAfterVersionID := supersedeVersionID(sourceRecordID, sourceVersion)
-	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -261,7 +261,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}
 	targetBeforeVersionID := supersedeVersionID(command.TargetRecordID, targetMeta.RowVersion)
 	targetAfterVersionID := supersedeVersionID(command.TargetRecordID, targetVersion)
-	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      2,
 		TargetKind:      "record",
@@ -290,7 +290,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       sourceRecordID,
 		RowVersion:     sourceVersion,
@@ -300,7 +300,7 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.TargetRecordID,
 		RowVersion:     targetVersion,

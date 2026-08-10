@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestRollbackSelectorUnion_Unit(t *testing.T) {
@@ -180,6 +181,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id = $2 AND row_version = 3`, rollbackChangeSetID, recordID) != 1 {
 			t.Fatalf("rollback record revision missing")
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, rollbackChangeSetID)
 		if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id = $1 AND operation_kind = 'field_update'`, changeSetID) != 1 {
 			t.Fatalf("prior mutation history was rewritten")
 		}
@@ -187,6 +189,7 @@ func TestRollbackSelectorUnion_Unit(t *testing.T) {
 		if replay["rollback_change_set_id"] != rollbackChangeSetID || countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'rollback' AND client_txn_id = 'txn-u-7-05-rollback'`) != 1 {
 			t.Fatalf("idempotent rollback replay changed payload or created a second change_set: replay=%#v", replay)
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, rollbackChangeSetID)
 		divergent := rollbackRecord(t, harness, login, recordID, map[string]any{"base_row_version": 2, "client_txn_id": "txn-u-7-05-rollback", "reason": "different", "target": map[string]any{"kind": "history_entry", "history_entry_ref": historyEntryRef}})
 		httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 	})
@@ -1251,22 +1254,6 @@ func seedHistoryRef(t testing.TB, db *sql.DB, recordID uuid.UUID, changeSetID uu
 INSERT INTO record_history_entry_refs (history_entry_ref, record_id, change_set_id, mutation_sequence_no)
 VALUES ($1, $2, $3, $4)
 `, ref, recordID, changeSetID, sequenceNo)
-}
-
-func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
-	source["record_id"] = recordID.String()
-	source["incident_id"] = incidentID.String()
-	source["row_version"] = version
-	return map[string]any{
-		"snapshot_schema_id": schemaID,
-		"record": map[string]any{
-			"record_id":   recordID.String(),
-			"incident_id": incidentID.String(),
-			"record_type": recordType,
-			"row_version": version,
-		},
-		"source": source,
-	}
 }
 
 func linkValue(linkID uuid.UUID, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, linkType string, fieldKey *string, provenance string, actorID uuid.UUID, deletedAt *time.Time) map[string]any {

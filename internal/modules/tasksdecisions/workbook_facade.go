@@ -254,7 +254,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 		return WorkbookMutationResult{}, err
 	}
 	afterVersionID := supersedeVersionID(recordID, 1)
-	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -268,7 +268,7 @@ func (f *MutationFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,
@@ -441,7 +441,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		beforeVersionID = supersedeVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := supersedeVersionID(command.RecordID, rowVersion)
-	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -457,7 +457,7 @@ func (f *MutationFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err := f.appendRecordLinkMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,

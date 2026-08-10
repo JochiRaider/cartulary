@@ -238,7 +238,7 @@ func (a taskDecisionRevisions) CaptureRecordSnapshotTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	recordID uuid.UUID,
-) (revisions.CapturedRecordSnapshot, error) {
+) (revisions.RecordSnapshot, error) {
 	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
@@ -258,20 +258,20 @@ func (a taskDecisionRevisions) AppendMutationTx(
 	return a.appender.AppendNonRowMutationTx(ctx, tx, params)
 }
 
-func (a taskDecisionRevisions) AppendCapturedRecordMutationTx(
+func (a taskDecisionRevisions) AppendRecordMutationTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params revisions.AppendCapturedRecordMutationParams,
+	params revisions.AppendRecordMutationParams,
 ) error {
-	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a taskDecisionRevisions) AppendCapturedRecordRevisionTx(
+func (a taskDecisionRevisions) AppendRecordRevisionAndIntentTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params revisions.AppendCapturedRecordRevisionParams,
+	params revisions.AppendRecordRevisionParams,
 ) error {
-	return a.appender.AppendCapturedRecordRevisionTx(ctx, tx, params)
+	return a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, params)
 }
 
 func (a taskDecisionRevisions) LoadRevisionWindowTx(

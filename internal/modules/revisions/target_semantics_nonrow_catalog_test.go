@@ -23,11 +23,11 @@ func (stubNonRowProvider) ApplyInverseTx(context.Context, pgx.Tx, rollbackcontra
 
 func TestTargetSemanticsCatalogRejectsInvalidNonRowProviders(t *testing.T) {
 	t.Parallel()
-	requirement := func(targetKind string) TargetSemanticsRequirement {
-		return TargetSemanticsRequirement{
+	requirement := func(targetKind string) targetSemanticsRequirement {
+		return targetSemanticsRequirement{
 			TargetKind:            targetKind,
 			SourceOwnerID:         "links",
-			DispatchClass:         RollbackDispatchNonRow,
+			DispatchClass:         rollbackcontract.DispatchNonRow,
 			HistoryRecordIDFields: []string{"record_id"},
 			Addressability:        HistorySingleEntry,
 		}
@@ -38,27 +38,27 @@ func TestTargetSemanticsCatalogRejectsInvalidNonRowProviders(t *testing.T) {
 			targets = append(targets, NonRowProviderContribution{
 				SourceOwnerModule: SourceOwnerLinks,
 				TargetKind:        targetKind,
-				HistorySemantics:  NewFieldHistoryTargetSemantics([]string{"record_id"}, HistorySingleEntry),
+				HistoryFacet:      NewFieldAssociationHistoryFacet([]string{"record_id"}, HistorySingleEntry),
 				RollbackProvider:  stubNonRowProvider{},
 			})
 		}
 		return []ProviderContribution{{SourceOwnerModule: SourceOwnerLinks, NonRowTargets: targets}}
 	}
 
-	if _, err := NewTargetSemanticsCatalog(
-		[]TargetSemanticsRequirement{requirement("record_link"), requirement("record_tag")},
+	if _, err := compileTargetSemanticsCatalog(
+		[]targetSemanticsRequirement{requirement("record_link"), requirement("record_tag")},
 		contribution("record_link"),
 	); !errors.Is(err, ErrMissingTargetSemantics) {
 		t.Fatalf("missing non-row provider error = %v", err)
 	}
-	if _, err := NewTargetSemanticsCatalog(
-		[]TargetSemanticsRequirement{requirement("record_link")},
+	if _, err := compileTargetSemanticsCatalog(
+		[]targetSemanticsRequirement{requirement("record_link")},
 		contribution("record_link", "record_link"),
 	); !errors.Is(err, ErrDuplicateTargetSemantics) {
 		t.Fatalf("duplicate non-row provider error = %v", err)
 	}
-	if _, err := NewTargetSemanticsCatalog(
-		[]TargetSemanticsRequirement{requirement("record_link")},
+	if _, err := compileTargetSemanticsCatalog(
+		[]targetSemanticsRequirement{requirement("record_link")},
 		contribution("record_tag"),
 	); !errors.Is(err, ErrUnexpectedTargetSemantics) {
 		t.Fatalf("unexpected non-row provider error = %v", err)
@@ -66,7 +66,7 @@ func TestTargetSemanticsCatalogRejectsInvalidNonRowProviders(t *testing.T) {
 	values := contribution("record_link")
 	var typedNil *stubNonRowProvider
 	values[0].NonRowTargets[0].RollbackProvider = typedNil
-	if _, err := NewTargetSemanticsCatalog([]TargetSemanticsRequirement{requirement("record_link")}, values); !errors.Is(err, ErrInvalidTargetSemantics) {
+	if _, err := compileTargetSemanticsCatalog([]targetSemanticsRequirement{requirement("record_link")}, values); !errors.Is(err, ErrInvalidTargetSemantics) {
 		t.Fatalf("typed nil non-row provider error = %v", err)
 	}
 }

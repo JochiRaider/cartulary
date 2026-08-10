@@ -168,7 +168,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 		return uuid.UUID{}, err
 	}
 	afterVersion := create.AfterVersion
-	if err := a.appender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := a.appender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     create.TargetKind,
@@ -179,7 +179,7 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	}); err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := a.appender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := a.appender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
 		RecordID:      create.RecordID,
 		RowVersion:    create.RowVersion,

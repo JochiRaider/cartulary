@@ -78,7 +78,7 @@ func (c *IncidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, r
 	}
 	snapshot, ok := value.(map[string]any)
 	if !ok {
-		return ErrInvalidCapturedSnapshot
+		return ErrInvalidRecordSnapshot
 	}
 	schemaID, ok := c.schemas[recordType]
 	if !ok {
@@ -91,7 +91,7 @@ func (c *IncidentBundleValidationCatalog) targetKinds() []string {
 	if c == nil {
 		return nil
 	}
-	return c.targets.TargetKinds()
+	return c.targets.targetKinds()
 }
 
 func (c *IncidentBundleValidationCatalog) currentRowTx(

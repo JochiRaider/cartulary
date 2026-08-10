@@ -146,7 +146,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	for _, row := range applied {
 		beforeVersion := ""
 		afterVersion := versionID(row.After.RecordID, row.After.RowVersion)
-		params := revisions.AppendCapturedRecordMutationParams{
+		params := revisions.AppendRecordMutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     sequenceNo,
 			TargetKind:     "timeline_record",
@@ -160,7 +160,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			params.BeforeVersionID = &beforeVersion
 			params.BeforeSnapshot = row.BeforeSnapshot
 		}
-		if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, params); err != nil {
+		if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, params); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo++
@@ -172,7 +172,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
-		revision := revisions.AppendCapturedRecordRevisionParams{
+		revision := revisions.AppendRecordRevisionParams{
 			ChangeSetID:   changeSetID,
 			RecordID:      row.After.RecordID,
 			RowVersion:    row.After.RowVersion,
@@ -183,7 +183,7 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			revision.BeforeSnapshot = row.BeforeSnapshot
 			revision.LiveChange.BeforeValue = row.BeforeRow
 		}
-		if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revision); err != nil {
+		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revision); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		if err := s.upsertProjectionTx(ctx, tx, row.After); err != nil {
@@ -304,8 +304,8 @@ type clipboardAppliedRow struct {
 	After                     workbookprojection.DerivedRecord
 	BeforeRow                 map[string]any
 	AfterRow                  map[string]any
-	BeforeSnapshot            *revisions.CapturedRecordSnapshot
-	AfterSnapshot             revisions.CapturedRecordSnapshot
+	BeforeSnapshot            *revisions.RecordSnapshot
+	AfterSnapshot             revisions.RecordSnapshot
 	ChangedFieldKeys          []string
 	TagMutations              []recordTagMutation
 	AttachedEvidenceMutations []attachedEvidenceMutation

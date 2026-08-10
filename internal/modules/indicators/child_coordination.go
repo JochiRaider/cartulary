@@ -167,8 +167,8 @@ func (s *Store) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID
 	return result, nil
 }
 
-func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender revisionAppendPort, recordIDs []uuid.UUID) (map[uuid.UUID]revisions.CapturedRecordSnapshot, error) {
-	snapshots := make(map[uuid.UUID]revisions.CapturedRecordSnapshot, len(recordIDs))
+func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender revisionAppendPort, recordIDs []uuid.UUID) (map[uuid.UUID]revisions.RecordSnapshot, error) {
+	snapshots := make(map[uuid.UUID]revisions.RecordSnapshot, len(recordIDs))
 	for _, recordID := range recordIDs {
 		snapshot, err := appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 		if err != nil {
@@ -185,15 +185,15 @@ func appendAffectedRecordRevisionsTx(
 	appender revisionAppendPort,
 	changeSetID uuid.UUID,
 	versions []AffectedRecordVersion,
-	beforeSnapshots map[uuid.UUID]revisions.CapturedRecordSnapshot,
-	afterSnapshots map[uuid.UUID]revisions.CapturedRecordSnapshot,
+	beforeSnapshots map[uuid.UUID]revisions.RecordSnapshot,
+	afterSnapshots map[uuid.UUID]revisions.RecordSnapshot,
 	beforeRows map[uuid.UUID]map[string]any,
 	afterRows map[uuid.UUID]map[string]any,
 ) error {
 	for _, version := range versions {
 		beforeSnapshot := beforeSnapshots[version.RecordID]
 		afterSnapshot := afterSnapshots[version.RecordID]
-		if err := appender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := appender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       version.RecordID,
 			RowVersion:     version.RowVersion,

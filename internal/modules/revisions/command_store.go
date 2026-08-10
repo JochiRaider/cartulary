@@ -13,7 +13,7 @@ type commandStore struct {
 	envelopes            RecordEnvelopePort
 	authorization        CommandAuthorizer
 	idempotency          IdempotencyPort
-	projections          ProjectionServices
+	projections          ProjectionRebuilder
 	liveRecords          LiveRecordReader
 	deleteRestoreSources *DeleteRestoreSourceCatalog
 	targetSemantics      *TargetSemanticsCatalog

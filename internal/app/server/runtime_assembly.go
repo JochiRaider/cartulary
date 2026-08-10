@@ -796,7 +796,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	revisionCommands, err := revisionRuntime.NewCommandService(
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
-		projectionRuntime.RevisionServices(),
+		projectionRuntime.RevisionRebuilder(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
 	)

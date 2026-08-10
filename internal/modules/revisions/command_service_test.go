@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
 type commandServiceTestDB struct{}
@@ -189,7 +191,7 @@ func validProviderContributions() []ProviderContribution {
 		return NonRowProviderContribution{
 			SourceOwnerModule: owner,
 			TargetKind:        targetKind,
-			HistorySemantics:  NewFieldHistoryTargetSemantics(fields[targetKind], addressability),
+			HistoryFacet:      NewFieldAssociationHistoryFacet(fields[targetKind], addressability),
 			RollbackProvider:  stubNonRowProvider{},
 		}
 	}
@@ -206,28 +208,28 @@ func validProviderContributions() []ProviderContribution {
 	}
 }
 
-func validTargetSemanticsRequirements() []TargetSemanticsRequirement {
-	return []TargetSemanticsRequirement{
-		{TargetKind: "assessment", SourceOwnerID: "assessments", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"assessment"}, Addressability: HistorySingleEntry},
-		{TargetKind: "entity_alias", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
-		{TargetKind: "entity_mention", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"source_record_id"}, Addressability: HistorySingleEntry},
-		{TargetKind: "entity_preserved_identifier", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
-		{TargetKind: "evidence", SourceOwnerID: "evidence", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"evidence"}, Addressability: HistorySingleEntry},
-		{TargetKind: "host", SourceOwnerID: "entities", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"host"}, Addressability: HistorySingleEntry},
-		{TargetKind: "identity", SourceOwnerID: "entities", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"identity"}, Addressability: HistorySingleEntry},
-		{TargetKind: "indicator", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"indicator"}, Addressability: HistorySingleEntry},
-		{TargetKind: "indicator_observation", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"source_record_id", "resolved_indicator_record_id"}, Addressability: HistorySingleEntry},
-		{TargetKind: "indicator_state_interval", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"indicator_record_id"}, Addressability: HistorySingleEntry},
-		{TargetKind: "record", SourceOwnerID: "record_source_owner", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"artifact", "assessment", "decision", "evidence", "host", "identity", "indicator", "party", "task_request", "timeline_event"}, Addressability: HistorySingleEntry},
-		{TargetKind: "record_link", SourceOwnerID: "links", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"dst_record_id", "src_record_id"}, Addressability: HistorySingleEntry},
-		{TargetKind: "record_tag", SourceOwnerID: "links", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistorySingleEntry},
-		{TargetKind: "timeline_record", SourceOwnerID: "timeline", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"timeline_event"}, Addressability: HistorySingleEntry},
+func validTargetSemanticsRequirements() []targetSemanticsRequirement {
+	return []targetSemanticsRequirement{
+		{TargetKind: "assessment", SourceOwnerID: "assessments", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"assessment"}, Addressability: HistorySingleEntry},
+		{TargetKind: "entity_alias", SourceOwnerID: "entities", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
+		{TargetKind: "entity_mention", SourceOwnerID: "entities", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"source_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "entity_preserved_identifier", SourceOwnerID: "entities", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
+		{TargetKind: "evidence", SourceOwnerID: "evidence", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"evidence"}, Addressability: HistorySingleEntry},
+		{TargetKind: "host", SourceOwnerID: "entities", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"host"}, Addressability: HistorySingleEntry},
+		{TargetKind: "identity", SourceOwnerID: "entities", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"identity"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator", SourceOwnerID: "indicators", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"indicator"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator_observation", SourceOwnerID: "indicators", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"source_record_id", "resolved_indicator_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator_state_interval", SourceOwnerID: "indicators", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"indicator_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record", SourceOwnerID: "record_source_owner", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"artifact", "assessment", "decision", "evidence", "host", "identity", "indicator", "party", "task_request", "timeline_event"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record_link", SourceOwnerID: "links", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"dst_record_id", "src_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record_tag", SourceOwnerID: "links", DispatchClass: rollbackcontract.DispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "timeline_record", SourceOwnerID: "timeline", DispatchClass: rollbackcontract.DispatchRow, AdmittedRecordTypes: []string{"timeline_event"}, Addressability: HistorySingleEntry},
 	}
 }
 
 func validTargetSemanticsCatalog(t testing.TB, contributions []ProviderContribution) *TargetSemanticsCatalog {
 	t.Helper()
-	catalog, err := NewTargetSemanticsCatalog(validTargetSemanticsRequirements(), contributions)
+	catalog, err := compileTargetSemanticsCatalog(validTargetSemanticsRequirements(), contributions)
 	if err != nil {
 		t.Fatalf("build target-semantics catalog: %v", err)
 	}

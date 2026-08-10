@@ -95,11 +95,6 @@ func NewFieldResolverCatalog(requiredViewSchemaIDs []string, contributions ...Fi
 	return &FieldResolverCatalog{byViewSchema: byViewSchema}, nil
 }
 
-func NewFieldDescriptorSet(fields []FieldDescriptor) FieldDescriptorSet {
-	set, _ := newValidatedFieldDescriptorSet("direct", fields)
-	return set
-}
-
 func newValidatedFieldDescriptorSet(viewSchemaID string, fields []FieldDescriptor) (FieldDescriptorSet, error) {
 	result := FieldDescriptorSet{fields: make(map[string]FieldDescriptor, len(fields))}
 	for _, field := range fields {

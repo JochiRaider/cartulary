@@ -60,7 +60,7 @@ func (p rollbackPlanner) providerID(target rollbackMutationTarget, envelopes map
 		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	switch dispatch {
-	case RollbackDispatchRow:
+	case rollbackcontract.DispatchRow:
 		recordID, err := uuid.Parse(target.TargetID)
 		if err != nil || recordID == uuid.Nil {
 			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
@@ -73,7 +73,7 @@ func (p rollbackPlanner) providerID(target rollbackMutationTarget, envelopes map
 			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
 		return "row/" + envelope.RecordType, nil
-	case RollbackDispatchNonRow:
+	case rollbackcontract.DispatchNonRow:
 		if _, err := p.targetSemantics.nonRowProvider(target.TargetKind); err != nil {
 			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
@@ -139,12 +139,12 @@ func (p rollbackPlanner) validateRollbackTarget(target rollbackMutationTarget) e
 		return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	switch dispatch {
-	case RollbackDispatchRow:
+	case rollbackcontract.DispatchRow:
 		if target.BeforeValue == nil {
 			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
 		return nil
-	case RollbackDispatchNonRow:
+	case rollbackcontract.DispatchNonRow:
 		if _, err := p.targetSemantics.nonRowProvider(target.TargetKind); err == nil {
 			return nil
 		}

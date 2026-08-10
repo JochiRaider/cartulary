@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
@@ -80,6 +81,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach object_blob_id got %#v want %#v", attachData["object_blob_id"], createData["object_blob_id"])
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 
 	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
@@ -107,6 +109,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	if replayData["change_set_id"] != attachData["change_set_id"] {
 		t.Fatalf("attach replay changed change_set_id: replay=%#v first=%#v", replayData["change_set_id"], attachData["change_set_id"])
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
 	if got := countEvidenceRevisions(t, harness, evidenceRecordID); got != 2 {
 		t.Fatalf("attach replay created duplicate record revision: got %d want 2", got)

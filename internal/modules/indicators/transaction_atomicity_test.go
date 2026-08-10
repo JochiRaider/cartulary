@@ -192,22 +192,22 @@ func (port *failingIndicatorRevisionPort) AppendChangeSetTx(_ context.Context, _
 	return uuid.New(), nil
 }
 
-func (port *failingIndicatorRevisionPort) CaptureRecordSnapshotTx(_ context.Context, _ pgx.Tx, _ uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+func (port *failingIndicatorRevisionPort) CaptureRecordSnapshotTx(_ context.Context, _ pgx.Tx, _ uuid.UUID) (revisions.RecordSnapshot, error) {
 	if err := port.shouldFail(); err != nil {
-		return revisions.CapturedRecordSnapshot{}, err
+		return revisions.RecordSnapshot{}, err
 	}
-	return revisions.CapturedRecordSnapshot{}, nil
+	return revisions.RecordSnapshot{}, nil
 }
 
 func (port *failingIndicatorRevisionPort) AppendMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendNonRowMutationParams) error {
 	return port.shouldFail()
 }
 
-func (port *failingIndicatorRevisionPort) AppendCapturedRecordMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendCapturedRecordMutationParams) error {
+func (port *failingIndicatorRevisionPort) AppendRecordMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendRecordMutationParams) error {
 	return port.shouldFail()
 }
 
-func (port *failingIndicatorRevisionPort) AppendCapturedRecordRevisionTx(_ context.Context, _ pgx.Tx, _ revisions.AppendCapturedRecordRevisionParams) error {
+func (port *failingIndicatorRevisionPort) AppendRecordRevisionAndIntentTx(_ context.Context, _ pgx.Tx, _ revisions.AppendRecordRevisionParams) error {
 	return port.shouldFail()
 }
 

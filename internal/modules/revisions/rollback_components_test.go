@@ -57,13 +57,20 @@ func TestRollbackRecordLockerCanonicalizesOrder_Unit(t *testing.T) {
 
 func TestRollbackDecompositionBoundaries_Unit(t *testing.T) {
 	for _, path := range []string{
-		"rollback_apply.go",
+		"rollback_apply_coordinator.go",
+		"rollback_apply_effects.go",
+		"rollback_apply_nonrow.go",
+		"rollback_apply_row.go",
 		"rollback_coordinator.go",
 		"rollback_locker.go",
 		"rollback_model.go",
 		"rollback_planner.go",
 		"rollback_publication.go",
-		"rollback_query_repository.go",
+		"rollback_query_affected.go",
+		"rollback_query_companions.go",
+		"rollback_query_currentness.go",
+		"rollback_query_facade.go",
+		"rollback_query_selectors.go",
 		"rollback_result.go",
 	} {
 		if _, err := os.Stat(path); err != nil {
@@ -73,7 +80,15 @@ func TestRollbackDecompositionBoundaries_Unit(t *testing.T) {
 	if _, err := os.Stat("rollback_store.go"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("monolithic rollback store must remain removed, stat error = %v", err)
 	}
-	for _, path := range []string{"rollback_apply.go", "rollback_coordinator.go", "rollback_planner.go", "rollback_result.go"} {
+	for _, path := range []string{
+		"rollback_apply_coordinator.go",
+		"rollback_apply_effects.go",
+		"rollback_apply_nonrow.go",
+		"rollback_apply_row.go",
+		"rollback_coordinator.go",
+		"rollback_planner.go",
+		"rollback_result.go",
+	} {
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
@@ -84,16 +99,34 @@ func TestRollbackDecompositionBoundaries_Unit(t *testing.T) {
 			}
 		}
 	}
-	apply, err := os.ReadFile("rollback_apply.go")
-	if err != nil {
-		t.Fatalf("read rollback applier: %v", err)
-	}
-	for _, token := range []string{".appender.", "a.rebuildProjectionsTx("} {
-		if strings.Contains(string(apply), token) {
-			t.Fatalf("rollback applier bypasses publication seam with %q", token)
+	for _, path := range []string{
+		"rollback_apply_coordinator.go",
+		"rollback_apply_effects.go",
+		"rollback_apply_nonrow.go",
+		"rollback_apply_row.go",
+	} {
+		apply, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read rollback applier %s: %v", path, err)
+		}
+		for _, token := range []string{".appender.", "a.rebuildProjectionsTx("} {
+			if strings.Contains(string(apply), token) {
+				t.Fatalf("rollback applier %s bypasses publication seam with %q", path, token)
+			}
 		}
 	}
-	for _, path := range []string{"rollback_apply.go", "rollback_planner.go", "rollback_query_repository.go"} {
+	for _, path := range []string{
+		"rollback_apply_coordinator.go",
+		"rollback_apply_effects.go",
+		"rollback_apply_nonrow.go",
+		"rollback_apply_row.go",
+		"rollback_planner.go",
+		"rollback_query_affected.go",
+		"rollback_query_companions.go",
+		"rollback_query_currentness.go",
+		"rollback_query_facade.go",
+		"rollback_query_selectors.go",
+	} {
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)

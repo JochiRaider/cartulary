@@ -620,7 +620,7 @@
       "selector": {
         "package": "./internal/modules/indicators",
         "tests": [
-          "TestRevisionProviderContributionOwnsIndicatorHistorySemantics_Unit"
+          "TestRevisionProviderContributionOwnsIndicatorHistoryFacet_Unit"
         ]
       },
       "evidence_class": "unit",

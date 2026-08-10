@@ -163,9 +163,9 @@ type coordinatorRevisions struct {
 	changeSetID uuid.UUID
 }
 
-func (port coordinatorRevisions) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+func (port coordinatorRevisions) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error) {
 	*port.events = append(*port.events, "snapshot-capture")
-	return revisions.CapturedRecordSnapshot{}, nil
+	return revisions.RecordSnapshot{}, nil
 }
 
 func (port coordinatorRevisions) AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error) {
@@ -173,12 +173,12 @@ func (port coordinatorRevisions) AppendChangeSetTx(context.Context, pgx.Tx, revi
 	return port.changeSetID, nil
 }
 
-func (port coordinatorRevisions) AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error {
+func (port coordinatorRevisions) AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error {
 	*port.events = append(*port.events, "mutation")
 	return nil
 }
 
-func (port coordinatorRevisions) AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error {
+func (port coordinatorRevisions) AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
 	*port.events = append(*port.events, "record-revision")
 	return nil
 }

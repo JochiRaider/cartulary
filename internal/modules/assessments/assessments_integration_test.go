@@ -14,6 +14,7 @@ import (
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 func TestAssessmentsCreateAndProjection(t *testing.T) {
@@ -85,6 +86,7 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment create publication intents = %d, want %d", got, intentsBeforeCreate+1)
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
 
 	replayBody := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
@@ -109,6 +111,7 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if got := appsupport.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM collaboration_event_intents WHERE incident_id = $1`, incidentID); got != intentsBeforeCreate+1 {
 		t.Fatalf("assessment replay published an extra intent: got %d want %d", got, intentsBeforeCreate+1)
 	}
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
 	conflictBody := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
 		"assessment.subject_ref":      hostID.String(),

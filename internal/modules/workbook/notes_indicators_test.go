@@ -336,7 +336,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle, projections := newWorkbookTimelineComposition(t, harness.DB, appender, revisionComposition.Intents)
 	workbookStore := newCatalogBackedWorkbookStore(t, harness.DB, timelineBundle, projections, appender, revisionComposition.Intents)
-	projectionRebuilder := projections.RevisionServices()
+	projectionRebuilder := projections.RevisionRebuilder()
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector workbook-interaction hot projections")
 

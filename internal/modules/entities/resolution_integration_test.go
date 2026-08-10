@@ -29,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
 // entity-resolution / REQ-01-196..REQ-01-227, REQ-02-039..REQ-02-044 / AC-188..AC-190, AC-221..AC-225.
@@ -104,6 +105,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if got := int64(data["source_record"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("expected source record row_version=2 after resolve_item, got %#v", data)
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
 
 		mention := entitytest.LookupMention(t, harness.DB, entitytest.HostMentionID)
 		entitytest.RequireMentionStatus(t, mention, entitytest.MentionStatusResolved)
@@ -163,6 +165,7 @@ func TestResolveRoute_Integration(t *testing.T) {
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected replay to reuse the original payload, got %#v %#v", data, replayData)
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, data["change_set_id"].(string))
 		if got := appsupport.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
@@ -1298,6 +1301,7 @@ SELECT COUNT(*)
 		if got := lookupAssessmentSubject(t, harness.DB, assessmenttest.HostAssessmentID); got != entitytest.CanonicalHostRecordID {
 			t.Fatalf("expected loser assessment to repoint to survivor, got %s", got)
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, mergeData["change_set_id"].(string))
 
 		timelineChange := incidentwstest.RequireRecordChanged(t, timelineSocket, timelinetest.RecordID.String(), 1)
 		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
@@ -1335,6 +1339,7 @@ SELECT COUNT(*)
 		if replayData["change_set_id"] != mergeData["change_set_id"] {
 			t.Fatalf("expected replayed merge to return the stored payload, got %#v %#v", mergeData, replayData)
 		}
+		revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, mergeData["change_set_id"].(string))
 
 		divergentResp := doEntitiesJSON(
 			t,

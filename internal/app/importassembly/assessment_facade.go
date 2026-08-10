@@ -29,7 +29,7 @@ func (a assessmentImportRevisionAdapter) AppendAssessmentImportRevisionTx(
 		return err
 	}
 	afterVersion := revision.AfterVersion
-	if err := a.appender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := a.appender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    revision.ChangeSetID,
 		SequenceNo:     revision.SequenceNo,
 		TargetKind:     "record",
@@ -40,10 +40,10 @@ func (a assessmentImportRevisionAdapter) AppendAssessmentImportRevisionTx(
 	}); err != nil {
 		return err
 	}
-	return a.appender.AppendCapturedRecordRevisionTx(
+	return a.appender.AppendRecordRevisionAndIntentTx(
 		ctx,
 		tx,
-		revisions.AppendCapturedRecordRevisionParams{
+		revisions.AppendRecordRevisionParams{
 			ChangeSetID:   revision.ChangeSetID,
 			RecordID:      revision.RecordID,
 			RowVersion:    revision.RowVersion,

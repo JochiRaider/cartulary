@@ -35,8 +35,8 @@ type MergeMutation struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
-	BeforeSnapshot  *revisions.CapturedRecordSnapshot
-	AfterSnapshot   *revisions.CapturedRecordSnapshot
+	BeforeSnapshot  *revisions.RecordSnapshot
+	AfterSnapshot   *revisions.RecordSnapshot
 }
 
 type MergeProjectionPort interface {
@@ -44,7 +44,7 @@ type MergeProjectionPort interface {
 }
 
 type MergeSnapshotCapturePort interface {
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 }
 
 type MergeEffects struct {

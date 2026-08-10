@@ -67,7 +67,7 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 			}
 		}
 	}
-	return ownerfacade.FinalizeCapturedTx(ctx, tx, s.revisionsStore, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, s.revisionsStore, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

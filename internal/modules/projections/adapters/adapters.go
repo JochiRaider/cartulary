@@ -227,7 +227,7 @@ func (ports Ports) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery {
 	return ports.store
 }
 
-func (ports Ports) RevisionServices() revisions.ProjectionServices {
+func (ports Ports) RevisionRebuilder() revisions.ProjectionRebuilder {
 	if ports.store == nil {
 		return nil
 	}

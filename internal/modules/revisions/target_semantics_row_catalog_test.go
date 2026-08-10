@@ -19,10 +19,10 @@ func (catalogRowProvider) RestoreTx(context.Context, pgx.Tx, rollbackcontract.Re
 
 func TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders(t *testing.T) {
 	t.Parallel()
-	requirement := []TargetSemanticsRequirement{{
+	requirement := []targetSemanticsRequirement{{
 		TargetKind:          "record",
 		SourceOwnerID:       "record_source_owner",
-		DispatchClass:       RollbackDispatchRow,
+		DispatchClass:       rollbackcontract.DispatchRow,
 		AdmittedRecordTypes: []string{"host"},
 		Addressability:      HistorySingleEntry,
 	}}
@@ -34,16 +34,16 @@ func TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders(t *testing
 		}
 	}
 
-	if _, err := NewTargetSemanticsCatalog(requirement, []ProviderContribution{{
+	if _, err := compileTargetSemanticsCatalog(requirement, []ProviderContribution{{
 		SourceOwnerModule: SourceOwnerEntities,
 		Records:           []RecordProviderContribution{record("host", catalogRowProvider{}), record("host", catalogRowProvider{})},
 	}}); !errors.Is(err, ErrDuplicateTargetSemantics) {
 		t.Fatalf("duplicate row provider error = %v", err)
 	}
 
-	missingRequirement := append([]TargetSemanticsRequirement(nil), requirement...)
+	missingRequirement := append([]targetSemanticsRequirement(nil), requirement...)
 	missingRequirement[0].AdmittedRecordTypes = []string{"host", "identity"}
-	if _, err := NewTargetSemanticsCatalog(missingRequirement, []ProviderContribution{{
+	if _, err := compileTargetSemanticsCatalog(missingRequirement, []ProviderContribution{{
 		SourceOwnerModule: SourceOwnerEntities,
 		Records:           []RecordProviderContribution{record("host", catalogRowProvider{})},
 	}}); !errors.Is(err, ErrInvalidTargetSemantics) {
@@ -51,7 +51,7 @@ func TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders(t *testing
 	}
 
 	var typedNil *catalogRowProvider
-	if _, err := NewTargetSemanticsCatalog(requirement, []ProviderContribution{{
+	if _, err := compileTargetSemanticsCatalog(requirement, []ProviderContribution{{
 		SourceOwnerModule: SourceOwnerEntities,
 		Records:           []RecordProviderContribution{record("host", typedNil)},
 	}}); !errors.Is(err, ErrInvalidTargetSemantics) {

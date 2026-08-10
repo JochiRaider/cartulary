@@ -268,7 +268,7 @@ type revisionAdapter struct {
 	reader   conflicttokens.RevisionWindowReader
 }
 
-func (a revisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+func (a revisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.RecordSnapshot, error) {
 	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
@@ -280,12 +280,12 @@ func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params
 	return a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams(params))
 }
 
-func (a revisionAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
-	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+func (a revisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordMutationParams) error {
+	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a revisionAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
-	return a.appender.AppendCapturedRecordRevisionOnlyTx(ctx, tx, params)
+func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
 }
 
 func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {

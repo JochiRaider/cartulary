@@ -119,7 +119,7 @@ func (f *WorkbookFacade) executeCreateTx(
 		return artifactCreateTxResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -150,10 +150,10 @@ func (f *WorkbookFacade) executeCreateTx(
 			return artifactCreateTxResult{}, err
 		}
 	}
-	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(
+	if err := f.revisionAppender.AppendRecordRevisionAndIntentTx(
 		ctx,
 		tx,
-		revisions.AppendCapturedRecordRevisionParams{
+		revisions.AppendRecordRevisionParams{
 			ChangeSetID:   changeSetID,
 			RecordID:      recordID,
 			RowVersion:    1,

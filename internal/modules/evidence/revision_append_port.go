@@ -10,10 +10,10 @@ import (
 )
 
 type revisionAppendPort interface {
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
-	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
-	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
 type revisionAppendAdapter struct{ appender *revisions.Appender }
@@ -22,7 +22,7 @@ func newRevisionAppendAdapter(appender *revisions.Appender) revisionAppendAdapte
 	return revisionAppendAdapter{appender: appender}
 }
 
-func (a revisionAppendAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+func (a revisionAppendAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.RecordSnapshot, error) {
 	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
@@ -30,10 +30,10 @@ func (a revisionAppendAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx,
 	return a.appender.AppendChangeSetTx(ctx, tx, params)
 }
 
-func (a revisionAppendAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
-	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+func (a revisionAppendAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordMutationParams) error {
+	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a revisionAppendAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
-	return a.appender.AppendCapturedRecordRevisionOnlyTx(ctx, tx, params)
+func (a revisionAppendAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
 }

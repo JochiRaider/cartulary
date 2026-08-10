@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func TestRevisionProviderContributionOwnsEntityHistorySemantics_Unit(t *testing.T) {
+func TestRevisionProviderContributionOwnsEntityHistoryFacet_Unit(t *testing.T) {
 	contribution := entities.RevisionProviderContribution()
 	if contribution.SourceOwnerModule != revisions.SourceOwnerEntities || len(contribution.Records) != 2 || len(contribution.NonRowTargets) != 3 {
 		t.Fatalf("unexpected Entities revision contribution: %#v", contribution)
@@ -28,7 +28,7 @@ func TestRevisionProviderContributionOwnsEntityHistorySemantics_Unit(t *testing.
 	sourceID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	entityID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	for _, target := range contribution.NonRowTargets {
-		if target.RollbackProvider == nil || target.HistorySemantics == nil {
+		if target.RollbackProvider == nil {
 			t.Fatalf("target %q has incomplete semantics", target.TargetKind)
 		}
 		mutation := revisions.StoredMutation{TargetKind: target.TargetKind, TargetID: uuid.NewString()}
@@ -47,7 +47,7 @@ func TestRevisionProviderContributionOwnsEntityHistorySemantics_Unit(t *testing.
 		default:
 			t.Fatalf("unexpected Entities target %q", target.TargetKind)
 		}
-		description, err := target.HistorySemantics.DescribeMutation(mutation)
+		description, err := target.HistoryFacet.DescribeMutation(mutation)
 		if err != nil {
 			t.Fatalf("describe %s: %v", target.TargetKind, err)
 		}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"sort"
 	"testing"
 	"time"
 
@@ -54,18 +55,12 @@ func (revisionsCompositionTestProjection) LoadRowTx(context.Context, pgx.Tx, str
 	return nil, pgx.ErrNoRows
 }
 
-func TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog(t *testing.T) {
+func TestCurrentProviderContributionsBuildExactImmutableRecordViewCatalog(t *testing.T) {
 	t.Parallel()
 	contributions := CurrentProviderContributions()
-	runtime, err := Build(
-		Dependencies{
-			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
-			IntentAppender:         collaboration.NewIntentAppender(),
-		},
-		contributions...,
-	)
+	catalog, err := buildRecordViewCatalog(contributions)
 	if err != nil {
-		t.Fatalf("build Revisions runtime: %v", err)
+		t.Fatalf("build record/view catalog: %v", err)
 	}
 
 	type route struct {
@@ -92,39 +87,40 @@ func TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog(t *testing.T) {
 		{recordType: "task_request", viewSchemaID: "cartulary.view.task_requests.v1"},
 		{recordType: "timeline_event", viewSchemaID: "cartulary.view.timeline.v2"},
 	}
-	gotDescriptors := runtime.RecordViewCatalog().Descriptors()
-	got := make([]route, 0, len(gotDescriptors))
-	for _, descriptor := range gotDescriptors {
-		variant := ""
-		if descriptor.Variant != nil {
-			if descriptor.Variant.Kind != "artifact_type" {
-				t.Fatalf("unexpected variant kind in %#v", descriptor)
+	got := make([]route, 0, len(want))
+	for _, contribution := range contributions {
+		for _, record := range contribution.Records {
+			for _, declared := range record.RecordViewRoutes {
+				variant := ""
+				if declared.Variant != nil {
+					if declared.Variant.Kind != "artifact_type" {
+						t.Fatalf("unexpected variant kind in %#v", declared)
+					}
+					variant = declared.Variant.Value
+				}
+				if len(declared.ViewSchemaIDs) != 1 {
+					t.Fatalf("route must identify exactly one view: %#v", declared)
+				}
+				got = append(got, route{
+					recordType:   record.RecordType,
+					variant:      variant,
+					viewSchemaID: declared.ViewSchemaIDs[0],
+				})
 			}
-			variant = descriptor.Variant.Value
 		}
-		if len(descriptor.ViewSchemaIDs) != 1 {
-			t.Fatalf("route must identify exactly one view: %#v", descriptor)
-		}
-		got = append(got, route{
-			recordType:   descriptor.RecordType,
-			variant:      variant,
-			viewSchemaID: descriptor.ViewSchemaIDs[0],
-		})
 	}
+	sort.Slice(got, func(left int, right int) bool {
+		if got[left].recordType != got[right].recordType {
+			return got[left].recordType < got[right].recordType
+		}
+		return got[left].variant < got[right].variant
+	})
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("record/view routes = %#v, want %#v", got, want)
 	}
 
 	contributions[0].Records[0].RecordViewRoutes[0].ViewSchemaIDs[0] = "mutated.input"
-	gotDescriptors[0].Variant.Value = "mutated.output"
-	gotDescriptors[0].ViewSchemaIDs[0] = "mutated.output"
-	next := runtime.RecordViewCatalog().Descriptors()
-	if next[0].Variant.Value != "comm_log" ||
-		next[0].ViewSchemaIDs[0] != "cartulary.view.comm_log.v1" {
-		t.Fatalf("record/view catalog was mutated through an input or output slice: %#v", next[0])
-	}
-
-	if got, err := runtime.RecordViewCatalog().Resolve("artifact", map[string]any{
+	if got, err := catalog.Resolve("artifact", map[string]any{
 		"cells": map[string]any{
 			"note.title":    map[string]any{"value": "later"},
 			"comm_log.time": map[string]any{"value": "earlier"},
@@ -133,14 +129,14 @@ func TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog(t *testing.T) {
 	}); err != nil || got != "cartulary.view.comm_log.v1" {
 		t.Fatalf("resolve sorted artifact prefix = %q, %v", got, err)
 	}
-	if got, err := runtime.RecordViewCatalog().Resolve("artifact", map[string]any{
+	if got, err := catalog.Resolve("artifact", map[string]any{
 		"source": map[string]any{"artifact_type": "note"},
 	}); err != nil || got != "cartulary.view.notes.v1" {
 		t.Fatalf("resolve deleted artifact source type = %q, %v", got, err)
 	}
 }
 
-func TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets(t *testing.T) {
+func TestCurrentProviderContributionsCloseSnapshotAndTargetSets(t *testing.T) {
 	t.Parallel()
 	contributions := CurrentProviderContributions()
 	snapshots, err := revisions.NewRecordSnapshotCaptureCatalog(contributions)
@@ -151,8 +147,25 @@ func TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets(t *test
 		"artifact", "assessment", "decision", "evidence", "host", "identity",
 		"indicator", "party", "task_request", "timeline_event",
 	}
-	if got := snapshots.DeclaredRecordTypes(); !slices.Equal(got, wantRecordTypes) {
-		t.Fatalf("snapshot record types = %v, want %v", got, wantRecordTypes)
+	if snapshots == nil {
+		t.Fatal("current snapshot catalog is nil")
+	}
+	targets, err := revisions.NewTargetSemanticsCatalog(contributions)
+	if err != nil {
+		t.Fatalf("build current target-semantics catalog: %v", err)
+	}
+	if targets == nil {
+		t.Fatal("current target-semantics catalog is nil")
+	}
+	gotRecordTypes := make([]string, 0, len(wantRecordTypes))
+	for _, contribution := range contributions {
+		for _, record := range contribution.Records {
+			gotRecordTypes = append(gotRecordTypes, record.RecordType)
+		}
+	}
+	slices.Sort(gotRecordTypes)
+	if !slices.Equal(gotRecordTypes, wantRecordTypes) {
+		t.Fatalf("declared snapshot record types = %v, want %v", gotRecordTypes, wantRecordTypes)
 	}
 
 	targetSet := map[string]struct{}{"record": {}}
@@ -177,7 +190,7 @@ func TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets(t *test
 		"indicator_state_interval", "record", "record_link", "record_tag", "timeline_record",
 	}
 	if !slices.Equal(gotTargetKinds, wantTargetKinds) {
-		t.Fatalf("candidate target kinds = %v, want %v", gotTargetKinds, wantTargetKinds)
+		t.Fatalf("target kinds = %v, want %v", gotTargetKinds, wantTargetKinds)
 	}
 }
 
@@ -261,14 +274,6 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 				return values
 			},
 			want: revisions.ErrMissingRecordViewRoute,
-		},
-		{
-			name: "none policy with routes",
-			mutate: func(values []revisions.ProviderContribution) []revisions.ProviderContribution {
-				values[1].Records[0].LiveRecordChangePolicy = revisions.LiveRecordChangeNone
-				return values
-			},
-			want: revisions.ErrUnexpectedRecordViewRoute,
 		},
 	}
 	for _, test := range tests {

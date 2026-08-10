@@ -199,7 +199,7 @@ func (s *Store) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.Use
 	return s.upsertIdentityWithInputTx(ctx, tx, actor, incidentID, input, now)
 }
 
-func (s *Store) captureHostSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.CapturedRecordSnapshot, error) {
+func (s *Store) captureHostSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.RecordSnapshot, error) {
 	input, err := hostInputFromCreateRequest(request)
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (s *Store) captureHostSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx
 	return &snapshot, nil
 }
 
-func (s *Store) captureIdentitySnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.CapturedRecordSnapshot, error) {
+func (s *Store) captureIdentitySnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.RecordSnapshot, error) {
 	input, err := identityInputFromCreateRequest(request)
 	if err != nil {
 		return nil, err

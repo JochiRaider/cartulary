@@ -416,7 +416,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		beforeVersionID = workbookVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(command.RecordID, rowVersion)
-	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -429,7 +429,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,

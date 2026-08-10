@@ -14,10 +14,6 @@ type ProjectionRebuilder interface {
 	RebuildIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error
 }
 
-type ProjectionServices interface {
-	ProjectionRebuilder
-}
-
 // LiveRecordReader supplies disposable projection material for Collaboration
 // consequences. Values returned here never become retained revision history.
 type LiveRecordReader interface {

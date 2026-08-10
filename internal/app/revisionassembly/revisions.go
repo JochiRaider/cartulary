@@ -32,7 +32,6 @@ type Dependencies struct {
 // immutable catalog validation before mutable source facades are constructed.
 type Runtime struct {
 	appender        *revisions.Appender
-	recordViews     *revisions.RecordViewCatalog
 	targetSemantics *revisions.TargetSemanticsCatalog
 	deleteRestore   *revisions.DeleteRestoreSourceCatalog
 	fieldResolver   *conflicts.FieldResolverCatalog
@@ -72,21 +71,7 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	if err := revisions.ValidateProviderContributions(copied); err != nil {
 		return nil, fmt.Errorf("revision assembly: validate provider contributions: %w", err)
 	}
-	publicResources := viewschema.ListPublicResources()
-	viewSchemaIDs := make([]string, 0, len(publicResources))
-	recordViewSurfaces := make([]revisions.RecordViewSurface, 0, len(publicResources))
-	for _, resource := range publicResources {
-		viewSchemaIDs = append(viewSchemaIDs, resource.ViewSchemaID)
-		recordViewSurfaces = append(recordViewSurfaces, revisions.RecordViewSurface{
-			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
-			ViewSchemaID:      resource.ViewSchemaID,
-		})
-	}
-	recordViews, err := revisions.NewRecordViewCatalog(
-		copied,
-		recordViewSurfaces,
-		viewSchemaIDs,
-	)
+	recordViews, err := buildRecordViewCatalog(copied)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build record/view catalog: %w", err)
 	}
@@ -96,7 +81,7 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	}
 	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalog(copied)
 	if err != nil {
-		return nil, fmt.Errorf("revision assembly: build candidate snapshot capture catalog: %w", err)
+		return nil, fmt.Errorf("revision assembly: build snapshot capture catalog: %w", err)
 	}
 	targetSemantics, err := buildTargetSemanticsCatalog(copied)
 	if err != nil {
@@ -119,18 +104,10 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	}
 	return &Runtime{
 		appender:        appender,
-		recordViews:     recordViews,
 		targetSemantics: targetSemantics,
 		deleteRestore:   deleteRestore,
 		fieldResolver:   fieldResolver,
 	}, nil
-}
-
-func (r *Runtime) TargetSemanticsCatalog() *revisions.TargetSemanticsCatalog {
-	if r == nil {
-		return nil
-	}
-	return r.targetSemantics
 }
 
 func (r *Runtime) ConflictFieldResolver() conflicts.FieldResolver {
@@ -147,21 +124,14 @@ func (r *Runtime) Appender() *revisions.Appender {
 	return r.appender
 }
 
-func (r *Runtime) RecordViewCatalog() *revisions.RecordViewCatalog {
-	if r == nil {
-		return nil
-	}
-	return r.recordViews
-}
-
 func (r *Runtime) NewCommandService(
 	db postgres.DB,
 	attributionResolver revisions.ImportedAttributionResolver,
-	projections revisions.ProjectionServices,
+	projections revisions.ProjectionRebuilder,
 	liveRecords revisions.LiveRecordReader,
 	clock func() time.Time,
 ) (*revisions.CommandService, error) {
-	if r == nil || r.appender == nil || r.recordViews == nil || r.deleteRestore == nil || r.targetSemantics == nil {
+	if r == nil || r.appender == nil || r.deleteRestore == nil || r.targetSemantics == nil {
 		return nil, errors.New("revision assembly: runtime is required")
 	}
 	return revisions.NewCommandService(revisions.CommandServiceDependencies{
@@ -213,11 +183,21 @@ func cloneProviderContributions(values []revisions.ProviderContribution) []revis
 }
 
 func buildTargetSemanticsCatalog(contributions []revisions.ProviderContribution) (*revisions.TargetSemanticsCatalog, error) {
-	requirements, err := revisions.CurrentTargetSemanticsRequirements()
-	if err != nil {
-		return nil, err
+	return revisions.NewTargetSemanticsCatalog(contributions)
+}
+
+func buildRecordViewCatalog(contributions []revisions.ProviderContribution) (*revisions.RecordViewCatalog, error) {
+	publicResources := viewschema.ListPublicResources()
+	viewSchemaIDs := make([]string, 0, len(publicResources))
+	recordViewSurfaces := make([]revisions.RecordViewSurface, 0, len(publicResources))
+	for _, resource := range publicResources {
+		viewSchemaIDs = append(viewSchemaIDs, resource.ViewSchemaID)
+		recordViewSurfaces = append(recordViewSurfaces, revisions.RecordViewSurface{
+			SourceRecordTypes: append([]string(nil), resource.SourceRecordTypes...),
+			ViewSchemaID:      resource.ViewSchemaID,
+		})
 	}
-	return revisions.NewTargetSemanticsCatalog(requirements, contributions)
+	return revisions.NewRecordViewCatalog(contributions, recordViewSurfaces, viewSchemaIDs)
 }
 
 func buildConflictFieldResolver(contributions []revisions.ProviderContribution) (*conflicts.FieldResolverCatalog, error) {

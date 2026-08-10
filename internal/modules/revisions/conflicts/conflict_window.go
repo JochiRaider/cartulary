@@ -55,10 +55,6 @@ func (e *RevisionWindowError) Error() string {
 	return "workbook conflict revision window is unavailable"
 }
 
-func BuildPatchConflictWindowWithDescriptors(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64, rows []RevisionWindowRow, descriptors FieldDescriptorSet) (PatchConflictWindow, error) {
-	return buildPatchConflictWindow(recordID, baseRowVersion, currentRowVersion, rows, descriptors, DecodeRevisionRow)
-}
-
 // BuildCanonicalPatchConflictWindow reconstructs conflict facts using canonical
 // source snapshots. Its exact source-key mapping is supplied by the source
 // owner, so generic Revisions code contains no source vocabulary.
@@ -82,7 +78,7 @@ func buildPatchConflictWindow(recordID uuid.UUID, baseRowVersion int64, currentR
 		if !beforeOK || !afterOK {
 			return PatchConflictWindow{}, &RevisionWindowError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
 		}
-		for _, fieldKey := range ChangedRevisionWritableFieldKeysWithDescriptors(descriptors, beforeRow, afterRow) {
+		for _, fieldKey := range changedRevisionWritableFieldKeys(descriptors, beforeRow, afterRow) {
 			window.ChangedFields[fieldKey] = PatchChangedField{
 				ServerUpdatedBy: row.ActorUserID,
 				ServerUpdatedAt: row.CreatedAt.UTC(),
@@ -155,21 +151,7 @@ func (projector RevisionSnapshotProjector) Project(data []byte) (map[string]any,
 	return map[string]any{"cells": cells}, true
 }
 
-func DecodeRevisionRow(data []byte) (map[string]any, bool) {
-	if len(data) == 0 {
-		return nil, false
-	}
-	var row map[string]any
-	if err := json.Unmarshal(data, &row); err != nil {
-		return nil, false
-	}
-	if _, ok := row["cells"].(map[string]any); !ok {
-		return nil, false
-	}
-	return row, true
-}
-
-func ChangedRevisionWritableFieldKeysWithDescriptors(descriptors FieldDescriptorSet, beforeRow map[string]any, afterRow map[string]any) []string {
+func changedRevisionWritableFieldKeys(descriptors FieldDescriptorSet, beforeRow map[string]any, afterRow map[string]any) []string {
 	beforeCells, _ := beforeRow["cells"].(map[string]any)
 	afterCells, _ := afterRow["cells"].(map[string]any)
 	changed := make([]string, 0)

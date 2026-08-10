@@ -227,10 +227,10 @@ UPDATE records
 	if older["change_set_id"] != originalChangeSet.String() || stringField(t, older, "history_entry_ref") != originalRef {
 		t.Fatalf("older history item or selector changed: %#v", older)
 	}
-	if older["reversible"] != false {
-		t.Fatalf("older dependent item should remain visible but no longer reversible: %#v", older)
+	if older["reversible"] != true {
+		t.Fatalf("older dependent item should remain visible with its independent row restore: %#v", older)
 	}
-	assertActions(t, older, []string{})
+	assertActions(t, older, []string{"row_restore"})
 	requireNoRetainedHistoryNarrowingSurface(t, harness, login, incidentID, recordID)
 }
 

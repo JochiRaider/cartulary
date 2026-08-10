@@ -11,13 +11,12 @@ func NewRevisionContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerIndicators,
 		Records: []revisions.RecordProviderContribution{{
-			SourceOwnerModule:      revisions.SourceOwnerIndicators,
-			RecordType:             "indicator",
-			SnapshotSchemaID:       "cartulary.revisions.snapshot.indicator.v1",
-			HistoryTargetKinds:     []string{"indicator"},
-			DeleteRestoreSource:    deleterestore.NewSource(),
-			RowRollbackProvider:    indicatorrollback.NewProvider(),
-			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
+			SourceOwnerModule:   revisions.SourceOwnerIndicators,
+			RecordType:          "indicator",
+			SnapshotSchemaID:    "cartulary.revisions.snapshot.indicator.v1",
+			HistoryTargetKinds:  []string{"indicator"},
+			DeleteRestoreSource: deleterestore.NewSource(),
+			RowRollbackProvider: indicatorrollback.NewProvider(),
 			RecordViewRoutes: []revisions.RecordViewRouteContribution{{
 				ContributionID: "indicators.indicators",
 				ViewSchemaIDs:  []string{ViewSchemaID},
@@ -27,13 +26,13 @@ func NewRevisionContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule: revisions.SourceOwnerIndicators,
 				TargetKind:        "indicator_observation",
-				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"source_record_id", "resolved_indicator_record_id"}, revisions.HistorySingleEntry),
+				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"source_record_id", "resolved_indicator_record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  childProvider,
 			},
 			{
 				SourceOwnerModule: revisions.SourceOwnerIndicators,
 				TargetKind:        "indicator_state_interval",
-				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"indicator_record_id"}, revisions.HistorySingleEntry),
+				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"indicator_record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  childProvider,
 			},
 		},

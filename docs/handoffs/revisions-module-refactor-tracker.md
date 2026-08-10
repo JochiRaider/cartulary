@@ -1,792 +1,226 @@
-# revisions Module Refactoring Tracker and Handoff
+# Revisions Module Refactoring Tracker and Handoff
 
-## 1. Scope and Source Posture
+## 1. Current Iteration Authority and Scope
 
-This tracker is the controlling execution ledger for the authorized Revisions
-remediation. It records required gates, defaults, interfaces, evidence, and
-handoff state. It is not an adopted behavioral owner; adopted specifications
-continue to own behavior and contracts.
+This tracker is the controlling execution ledger for the next Revisions
+production-readiness iteration. It is implementation-support documentation,
+not a behavioral owner. Adopted Core owner sections and their machine
+projections continue to define required behavior.
 
-| Item | Value |
+| Item | Current value |
 | --- | --- |
-| Target path | `internal/modules/revisions` |
-| Normalized target label | `revisions` |
-| Output path | `docs/handoffs/revisions-module-refactor-tracker.md` |
-| Document class | Implementation-support refactor tracker and handoff |
-| Document revision | 4, completed remediation and validation handoff |
-| Repository baseline | Clean commit `b88ce7b5f43a465c1f817dfc9fa9068bbafef7ac`; 73 tracked files under `internal/modules/revisions` |
-| Execution status | COMPLETE; WS-00 through WS-12 are `DONE`, every active blocker is closed, and no implementation slice remains |
-| Allowed change | The specification, contracts, authored implementation, tests, migration, documentation, and harness inputs named by WS-00 through WS-12; generated output only through Make-owned generation |
-| Non-goals | No HTTP, WebSocket, OpenAPI operation, UI selector, conflict-token wire-format, or frontend-port redesign; no legacy snapshot reader, dual path, fallback, shadow write, feature flag, historical-shape inference, or hand edit of generated output |
-| Authorization | The user-authorized remediation plan dated 2026-08-09 governs WS-00 through WS-12, subject to adopted-owner precedence and each workstream checkpoint |
+| Target | `internal/modules/revisions` |
+| Repository baseline | Clean commit `732c2517da620aa395078aa2981cbe0c3c8ff7ce` (`Revisions Specification and Implementation Remediation`) |
+| Baseline topology | 75 files under `internal/modules/revisions` |
+| Document revision | 6, production-readiness remediation completion revision |
+| Prior iteration | WS-00 through WS-12 and REM-000 complete |
+| Current status | PR-00 through PR-08 `DONE`; the production-readiness remediation is complete and no slice remains |
+| Authorized immediate change | None; this execution ledger is closed |
+| Planned implementation | Complete; no implementation or remediation slice remains after PR-08 closure |
+| Domain posture | `docs/domain.md` remains accurate; no domain vocabulary change is required |
+| Specification posture | No adopted specification change is planned |
+| Storage posture | Migration 61 and its reset guard remain unchanged; no new migration or database reset is planned |
+| Generated posture | Generated artifacts may change later only through Make-owned generation when an authored input requires it |
 
-### 1.1 Normative interpretation
+### 1.1 Cleanup principles
 
-The requirements in this tracker constrain later refactor work only within the
-behavior and ownership already established by adopted owners. They do not
-create product behavior, supersede an owner, or constitute conformance
-authority.
+The iteration applies these closed defaults:
 
-| Term | Meaning in this tracker |
+- delete an internal surface when it has no production caller or exists only to
+  support tests;
+- replace redundant abstraction layers with the narrowest durable owner port;
+- retain compatibility only when an adopted owner or demonstrated production
+  need requires it;
+- treat version suffixes as schema identities, not evidence that a surface is
+  obsolete;
+- migrate internal Go callers atomically and retain no aliases, shims, dual
+  paths, or deprecation window;
+- preserve external behavior unless an adopted owner is changed separately;
+- favor additive source-owner contributions and immutable catalogs over
+  switches, callbacks, registries, or speculative extension points; and
+- split files only along existing cohesive responsibilities without creating a
+  new package or ownership boundary.
+
+### 1.2 Mandatory checkpoint
+
+Every PR workstream is serial. Before the next workstream begins:
+
+1. update this tracker with status, substantive result, files changed,
+   compatibility effect, validation commands and run roots, blockers,
+   rollback posture, residual risk, and the next workstream;
+2. append a timestamped handoff row without rewriting prior rows;
+3. mark the workstream `DONE` only after its focused validation passes;
+4. run `make lint-markdown` and `git diff --check`; and
+5. review `git status --short` and the complete workstream diff.
+
+An unresolved owner contradiction or related validation failure marks the
+workstream `BLOCKED` and stops the sequence. Later workstreams MUST NOT add a
+compatibility path to bypass that result.
+
+## 2. Prior Iteration Completion
+
+Commit `732c2517` established canonical source-owned snapshots for ten record
+families, an immutable fourteen-target semantics catalog, indexed history
+associations, normalized conflict facts, provider-driven rollback, explicit
+environment resolution, and application-composed Records and view-schema
+dependencies.
+
+The prior iteration deliberately rejected schema-less history and retained
+valuable public behavior. Its final clean verification included:
+
+| Gate | Final result |
 | --- | --- |
-| `MUST` | The stated condition is mandatory for an authorized refactor slice or for closing the named gate. |
-| `MUST NOT` | The stated condition is prohibited for an authorized refactor slice. |
-| `MAY` | The condition is optional only when the requirement states the controlling choice and the omission default. |
-| Omission default | If this tracker does not expressly authorize a behavior, contract, schema, storage, configuration, ownership, or interface change, that change is not authorized. Existing behavior is retained only when adopted owners require it or it has explicit continuing value in the approved compatibility posture. |
-| Owner conflict default | An adopted owner prevails. Work MUST stop, and Section 11 MUST record `BLOCKED: owner contradiction`; this tracker MUST NOT select a side. |
-| Unknown-evidence default | The tracker MUST record missing evidence as a blocking workstream item and MUST NOT infer an answer from a filename, target label, JSON key, or historical phase name. |
-
-Normative requirements use stable identifiers of the form `RMR-REQ-###`.
-Binary acceptance criteria use stable identifiers of the form `RMR-AC-###`.
-Rationale and repository findings explain the requirements but are not
-independent authorization.
-
-### 1.2 Definitions
-
-| Term | Closed definition |
-| --- | --- |
-| Authoritative snapshot | The `{record, source}` value returned by the applicable source owner's `DeleteRestoreSource.SnapshotTx` from authoritative envelope and source tables in the caller-owned PostgreSQL transaction. |
-| Projection-derived value | Any value read from a projection or view row, including labels, counts, chips, joined summaries, preview handles, grouping, sorting, or layout fields. Projection-derived values are disposable and are not source truth. |
-| Observable consequence | Any HTTP or WebSocket result, stored history value, opaque selector, rollback outcome, projection refresh, authorization result, portability result, generated contract surface, frontend behavior, or harness evidence mapping listed in Section 4. |
-| Target kind | The exact persisted `change_set_mutations.target_kind` token. Similar source concepts with different exact tokens are distinct target kinds. |
-| Target-semantics contribution | One immutable, source-constructed contribution for one exact target kind that supplies history association/addressability and, when applicable, rollback planning/application semantics to Revisions. |
-| Source owner | The module that owns the authoritative record or non-row mutation vocabulary and fixed SQL needed to interpret and invert that target. |
-| Exact compatibility | Equality at all four layers in Section 4.4 after representation-only differences are normalized as expressly permitted there. |
-
-### 1.3 Owner and artifact placement
-
-| Material | Authority and permitted content | Material that MUST remain elsewhere |
-| --- | --- | --- |
-| Adopted Core 00-04 | Product behavior, ownership, security, storage, history, rollback, and binary conformance requirements | Go paths and symbol names, fixture hashes, task sequencing, run roots, and session status |
-| Core 05 | Claim-bearing timed or fixture-sensitive publication only | This tracker-only task, which publishes no Core 05 claim |
-| RS-00 characterization evidence | Executed old/new comparisons, target matrices, fixtures, failure results, and run roots | New product behavior or ownership decisions |
-| This tracker | Refactor decisions, defaults, interfaces, authorization gates, work sequencing, blockers, and handoff state | Adoption authority and proof that unexecuted characterization passed |
-| Future implementation guide or authorized task | Exact Go types, packages, constructors, adapter wiring, and permitted file set | Changes beyond the named authorization |
-| Authored verification inputs | Evidence ownership and test selection | Runtime architecture or behavioral requirements |
-| Generated projections | Machine output from adopted owners and authored inputs through Make-owned generation | Hand edits or independent requirements |
-
-The source hierarchy used for this audit is:
-
-1. Adopted subsystem NLSpecs for their named subsystem. No adopted
-   Revisions-specific subsystem NLSpec was found.
-2. Core 00 through Core 04 for implementation-conformance behavior.
-3. Core 05 only for claim-bearing timed or fixture-sensitive publication. It
-   does not apply to this tracker because no such claim is published.
-4. Domain vocabulary and implementation-support guidance.
-5. Current repository code and tests.
-6. Prior plans, handoffs, and the planning framework as evidence only.
-
-Owner and guidance documents inspected:
-
-- `docs/spec/00_document_set_status_and_precedence.md`, especially
-  REQ-00-067;
-- `docs/spec/01_architecture_storage_and_view_contracts.md`, including the
-  Revisions route requirements, REQ-01-649, and REQ-01-650;
-- `docs/spec/02_domain_model_schema_and_history.md`, especially REQ-02-204
-  through REQ-02-218 and retained-history requirements;
-- `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`,
-  especially REQ-03-066 and its Revisions conflict-capability ownership;
-- `docs/spec/04_security_deployment_and_conformance.md`, especially AC-525
-  through AC-529 and REQ-04-069 plus REQ-04-147 through REQ-04-149;
-- `docs/spec/05_claim_publication_and_benchmark_reproducibility.md` for the
-  non-applicability determination above;
-- `docs/domain.md` for Revisions vocabulary and owner navigation;
-- `docs/handoffs/cartulary_modular_refactor_planning_framework.md` as
-  planning doctrine; and
-
-Repository evidence inspected includes every tracked file under
-`internal/modules/revisions`, the Revisions application and server assembly,
-configuration assembly, representative source-owner provider contributions,
-the Timeline frontend history port/adapter/model/actions/panel, authored
-OpenAPI and Revisions contracts, Incident Bundle row contracts, WebSocket
-contracts, backend boundary policy, verification ownership, test-family
-routing, and public Make target guidance.
-
-The clean WS-00 baseline contained 73 tracked Go files: 47 production files
-and 26 test files, totaling 14,497 lines. The completed worktree contains 75
-files after the exact additions and removals in Section 2.1. The framework's
-generic candidate state and the
-archived tracker's earlier inventory do not match that live shape. The live
-repository already contains dedicated HTTP, conflict, history, and rollback
-components created by the earlier refactor. This tracker preserves those
-completed boundaries and plans only from the remaining live findings.
-
-No owner-document contradiction was found. Repository deviations from adopted
-owners are recorded as implementation findings rather than owner conflicts.
-
-### 1.4 Authorized correction and checkpoint posture
-
-This execution deliberately corrects the history representation instead of
-preserving accidental projection-derived or schema-less snapshots. Existing
-pre-production databases with mutation rows are reset rather than migrated.
-Schema-less snapshots receive no reader, translator, backfill, compatibility
-alias, or shape inference. Incident Bundles containing schema-less revision
-snapshots fail closed; version-1 and version-2 bundles produced after the
-cutover remain supported with canonical snapshot envelopes.
-
-The following external consequences retain continuing value and therefore
-remain exact: public operations and envelopes, authorization precedence,
-opaque history selectors, Collaboration event consequences, conflict-token
-version 3, and current Incident Bundle versions. Internal Go callers migrate
-within their owning workstream and receive no deprecation shim.
-
-Every workstream uses this mandatory checkpoint before the next workstream
-begins:
-
-1. Update this tracker with status, files changed, substantive result,
-   compatibility impact, validation commands and run roots, blockers,
-   rollback posture, residual risk, and next workstream.
-2. Mark the completed workstream `DONE`; unresolved validation leaves it
-   `BLOCKED` and prohibits the next production change.
-3. Run `make lint-markdown`, `git diff --check`, and status/diff review after
-   the tracker edit.
-4. Preserve prior handoff rows and append a timestamped checkpoint row.
-
-## 2. Baseline Repository Inventory
-
-The table contains one row for every tracked file under the WS-00 baseline.
-Section 2.1 applies the exact final-topology delta. “Contracts” names the
-observable or generated surface affected by the file; it does not mean that
-the file owns or may hand-edit a generated artifact.
-
-| Path | Baseline responsibility and completed-slice annotation | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `internal/modules/revisions/appender.go` | Appends change sets, mutation entries, record revisions, and transactional Collaboration intents | `Appender`, append parameter types, `HistoricalIntentPolicy`, `IntentAppender`, constructor and append methods | Revision assembly and source-owner mutation facades | PostgreSQL transaction, Collaboration, injected Records envelope reader, record-view catalog | Revisions integration/delete/rollback tests and source-owner mutation suites | Revision rows and `record_changed` payload consequences | Revisions, with Records and Collaboration ports | high | WS-03 injects the transaction-bound Records reader; Revisions no longer imports or constructs the concrete Records store. |
-| `internal/modules/revisions/application_boundary_test.go` | Static application/HTTP boundary evidence | `TestRevisionsApplicationAndHTTPBoundaries_Unit` | `module.revisions` support-unit row | Go source inspection | Self | Verification `http_application_boundary` and facade closure | Revisions tests | medium | Protects the completed root-versus-HTTP split. |
-| `internal/modules/revisions/application_ports.go` | Transport-neutral command, transaction, authorization, idempotency, and record-envelope ports | `ActorID`, `TransactionRunner`, `CommandAuthorizer`, `IdempotencyPort`, `RecordEnvelopePort`, command/query DTOs | Command service, HTTP adapter, revision assembly | UUID, PostgreSQL transaction types | Command service and application-boundary tests | Internal application interface behind four HTTP operations | Revisions | high | Consumer-owned port surface; no public wire change is planned. |
-| `internal/modules/revisions/attribution_resolver_registry.go` | Validates profile-scoped imported-actor resolver contributions | `ExtensionClaim`, `AttributionResolverRegistry` and methods | Revision assembly and Incident Bundle integration | Imported-attribution resolver port | Registry and portability tests | Incident Bundle attribution and profile claims | Revisions with Incident Bundles contribution | high | Deliberately avoids direct sidecar-table joins. |
-| `internal/modules/revisions/attribution_resolver_registry_test.go` | Resolver admission and duplicate-profile evidence | Two registry tests and resolver fake | `module.revisions` portability/support rows | Registry API | Self | Attribution verification mapping | Revisions tests | low | Test-only. |
-| `internal/modules/revisions/command_models.go` | Normalizes command requests, rollback selectors, hashes, and route keys | `DeleteRestoreRequest`, `RollbackTarget`, `RollbackRequest`, hash helpers | Command service and HTTP decoding | JSON, SHA-256, UUID | Command, route, and rollback tests | Delete/restore/rollback request identity and idempotency | Revisions | high | Internal model mirrors stable wire semantics without owning HTTP decoding. |
-| `internal/modules/revisions/command_service.go` | Thin public application facade for history, delete, restore, and rollback | `CommandService`, dependencies, constructor, four methods | Revisions HTTP adapter and revision assembly | Application ports, provider catalogs, history/mutation coordinators | `command_service_test.go` plus route/integration suites | Four Revisions OpenAPI operations | Revisions | high | Legitimate thin facade. |
-| `internal/modules/revisions/command_service_test.go` | Constructor closure, provider completeness, and validation-catalog evidence | Three principal tests and dependency fakes | `module.revisions.facade` and provider rows | Application interfaces and provider contracts | Self | Facade and provider verification IDs | Revisions tests | medium | Test-only. |
-| `internal/modules/revisions/command_store.go` | Private dependency container used by command components | `ImportedAttributionResolver` interface | Command service and private coordinators | Application ports, catalogs, projection and appender capabilities | Command/integration tests indirectly | None directly; supports public command behavior | Revisions | medium | Private composition state, not a second public facade. |
-| `internal/modules/revisions/conflict_field_provider.go` | Removed in WS-04; revision assembly now performs the startup-only view-schema conversion | None | None | None | Field-resolver and revision-assembly tests | View-schema writeability/conflict classes | Application composition | resolved | Revisions retains only the immutable copied descriptor catalog. |
-| `internal/modules/revisions/conflicts/configuration.go` | Revisions configuration overlay, normalization, findings, and manifest-read errors | `Configuration`, findings/errors, overlay and validation helpers | Config assembly and server startup | Path normalization and Revisions config vocabulary | Conflict-token/config and server/config tests | Deployment config v2 Revisions namespace | Revisions configuration semantics | high | Secure file reading remains in server assembly. |
-| `internal/modules/revisions/conflicts/conflict_token.go` | Issues and verifies opaque v3 conflict tokens | Token claims/binding/codec, constructor, hash helper | Workbook/source-owner conflict flows | AES-GCM, key ring, clock/entropy injection | Token lifecycle tests and source-owner conflict suites | Conflict token v3 and `same_field_conflict` | Revisions conflicts | very high | Generic conflict mechanic explicitly owned by Revisions. |
-| `internal/modules/revisions/conflicts/conflict_token_test.go` | Token sealing, expiry, rotation, entropy, key isolation, and config evidence | Five tests and error reader | Revisions conflict verification rows | Token/config/key-ring APIs | Self | Key-ring schema and v3 lifecycle | Revisions tests | medium | Test-only. |
-| `internal/modules/revisions/conflicts/conflict_window.go` | Pure descriptor-driven revision-window conflict calculation | Conflict-window types and build/decode/diff helpers | Source-owner workbook conflict handlers | Immutable field descriptors and revision rows | Resolver/window tests and source-owner conflict suites | Same-field conflict field/window behavior | Revisions conflicts | high | Does not read the global view registry at runtime. |
-| `internal/modules/revisions/conflicts/consolidation_test.go` | Guards one generic conflict package and absence of source-owner imports | `TestConflictCapabilitiesAreConsolidated_Unit` | Revisions conflicts verification row | Filesystem/source inspection | Self | Conflict capability consolidation evidence | Revisions tests | low | Test-only architecture evidence. |
-| `internal/modules/revisions/conflicts/field_resolver.go` | Immutable field descriptor and resolver catalogs | Descriptor, contribution, resolver, catalog types and constructors | Revision assembly and conflict consumers | Source-contributed copied descriptors | Resolver tests and revision-assembly tests | View-schema field/conflict contract | Revisions conflicts | high | Intended runtime replacement for global lookup. |
-| `internal/modules/revisions/conflicts/field_resolver_test.go` | Catalog closure, immutability, fail-closed, and no-runtime-global-read evidence | Three tests | Revisions conflict verification rows | Resolver API and source inspection | Self | Conflict field-resolver verification | Revisions tests | medium | Does not cover physical placement of the startup adapter. |
-| `internal/modules/revisions/conflicts/keep_saved.go` | Revisionless `keep_saved` idempotency transaction coordination | Command/idempotency/target/result types, `KeepSaved`, decoder | Workbook conflict resolution flows | Injected transaction runner, idempotency, semantic loader | Source-owner conflict and workbook tests | Explicit conflict-resolution behavior | Revisions conflicts | very high | Source owners retain state loading and revalidation. |
-| `internal/modules/revisions/conflicts/key_ring.go` | Strict key-ring JSON parsing, explicit secret resolution, rotation admission, and purpose registration | `ConflictTokenKeyRing`, parse options, parse functions | Server startup and conflict test support | Explicit environment snapshot, secret-purpose registry | Conflict-token tests and server startup tests | `contracts/revisions/conflict-token-key-ring.v1.schema.json` | Revisions config with platform startup adapter | very high | WS-05 rejects nil input; server assembly owns process-environment capture and explicit empty input never falls back. |
-| `internal/modules/revisions/conflicts/revision_window_reader.go` | Reads ordered record revisions inside a caller transaction | `RevisionWindowReader`, constructor, row/error types | Source-owner conflict mutation paths | PostgreSQL and Revisions history tables | `revision_window_reader_test.go` and conflict suites | Conflict revision window | Revisions persistence adapter | high | Owner-table SQL is intentional. |
-| `internal/modules/revisions/conflicts/text_merge.go` | Deterministic line-based merge suggestion | `SuggestedTextMergeValue` | Source-owner conflict response construction | Pure string logic | `text_merge_test.go` | Optional merged-value conflict member | Revisions conflicts | medium | Generic mechanic explicitly owned by Revisions. |
-| `internal/modules/revisions/conflicts/text_merge_test.go` | Clean/non-clean text merge characterization | Two tests | Revisions conflict verification row | Text merge helper | Self | Text-merge contract evidence | Revisions tests | low | Test-only. |
-| `internal/modules/revisions/delete_restore_source_catalog.go` | Fail-closed record-type to delete/restore provider catalog | Registration/catalog types, constructor, lookup | Command service and delete/restore coordinator | Consumer-owned delete/restore port | Catalog, command, delete/restore tests | Admitted record-type provider coverage | Revisions | high | Complete catalog is required by REQ-01-650. |
-| `internal/modules/revisions/delete_restore_source_catalog_test.go` | Missing/duplicate/typed-nil catalog evidence | Catalog test and source fake | Revisions provider row | Delete/restore port/catalog | Self | Delete/restore source-port verification | Revisions tests | low | Test-only. |
-| `internal/modules/revisions/delete_restore_store.go` | Atomic delete/restore coordination across auth, locks, source state, history, projection, events, and idempotency | Typed errors/results and private command-store methods | Command service | Application ports, source catalog, projections, Appender | Delete/restore, lock, security, integration, and browser tests | Delete/restore routes and consequences | Revisions mutation coordinator | very high | Legitimate coordination; source semantics stay behind providers. |
-| `internal/modules/revisions/delete_restore_test.go` | Provider matrix and delete/restore precondition/atomicity evidence | Four tests plus test state helpers | Delete/restore and provider verification rows | App support, source owners, PostgreSQL | Self | Delete/restore route, history, event, and adapter contracts | Revisions tests | high | Service-backed test-only surface. |
-| `internal/modules/revisions/deleterestorecontract/source.go` | Consumer-owned source port for authoritative snapshot and delete-state effects | `DeleteRestoreSource`, `ScanSnapshot` | Source-owner delete/restore adapters and Revisions catalog | Caller transaction, record envelope/source values | Provider and delete/restore suites | Internal source-owner contract | Revisions contract package | high | Must remain narrow and transaction-neutral. |
-| `internal/modules/revisions/history_attribution.go` | Decorates history with imported actor attribution | Private decorator method | History service | Imported-attribution resolver | History component and portability tests | History actor attribution | Revisions | medium | Generic decoration only. |
-| `internal/modules/revisions/history_components_test.go` | Unit and service-backed evidence for history decomposition | Three tests and attribution fake | History component/repository verification rows | History private components and PostgreSQL | Self | History decomposition verification | Revisions tests | medium | Test-only. |
-| `internal/modules/revisions/history_helpers_test.go` | Shared same-package history test helpers | No exported surface | Revisions history tests | Test-only fixtures/helpers | History test files | None | Revisions tests | low | Test-only helper; not production support. |
-| `internal/modules/revisions/history_materializer.go` | Builds stable history items, ordering, summaries, and addressability | Private materializer/assembler methods | History service | JSON, stable hashing, hard-coded target kinds and source field keys | History components, history, rollback, indicator tests | History item refs, ordering, action eligibility | Revisions plus source-owner metadata | high | Contains central source-specific switches that should move behind contributions. |
-| `internal/modules/revisions/history_model.go` | Internal history record/item model and HTTP resource projection | `RecordHistoryRecord`, `RecordHistoryItem`, `Resource` | History service and HTTP adapter | UUID/time and generic resource maps | History route/component tests | History response item shape | Revisions | high | Public response shape must remain stable. |
-| `internal/modules/revisions/history_repository.go` | Queries Revisions history tables and persists stable entry refs | Private repository methods | History service and rollback action evaluator | PostgreSQL; Revisions-owned tables; target-shape JSON matching | History repository, route, pagination, retention tests | Retained history and stable selector behavior | Revisions persistence adapter | high | SQL ownership is valid; source-specific JSON interpretation needs capability review. |
-| `internal/modules/revisions/history_rollback_actions.go` | Computes currently legal rollback actions for history items | Private evaluator method | History service | Rollback query/planner and provider catalogs | History/rollback tests | `reversible` and `available_rollback_actions` | Revisions | high | Must preserve current legality and selector behavior. |
-| `internal/modules/revisions/history_service.go` | Coordinates history record lookup, materialization, attribution, actions, and pagination inputs | `ErrRecordNotFound` and private history-store methods | Command service | Transaction runner, repository, materializer, attribution, rollback evaluator | History component/route/integration tests | GET history behavior | Revisions | high | Legitimate internal service. |
-| `internal/modules/revisions/history_test.go` | History envelope/OpenAPI/ref/retention characterization | Four tests | Store/support verification rows | App support and OpenAPI test facade | Self | History route and retained-history contracts | Revisions tests | high | Includes negative absence of purge/retention routes. |
-| `internal/modules/revisions/http_security_precedence_test.go` | End-to-end malformed/unauthorized mutation precedence | One integration test | Security-precedence verification row | HTTP app harness, auth, PostgreSQL | Self | Delete/restore/rollback security order | Revisions tests with Auth collaboration | high | Service-backed security evidence. |
-| `internal/modules/revisions/httpapi/delete_restore_decoding.go` | Strict delete/restore HTTP body decoding | Private decoder | `httpapi/routes.go` | JSON and application request model | Route, security, delete/restore tests | Delete/restore request envelope | Revisions HTTP adapter | high | Transport-only code stays outside the Revisions root package. |
-| `internal/modules/revisions/httpapi/rollback_decoding.go` | Strict rollback selector-union decoding | Private decoder | `httpapi/routes.go` | JSON and application rollback model | Rollback and security tests | Rollback request union | Revisions HTTP adapter | high | Preserve strict member and selector behavior. |
-| `internal/modules/revisions/httpapi/routes.go` | Registers and maps four Revisions HTTP operations | `Service`, `RegisterRoutes` | Server runtime assembly | Platform auth/HTTP/pagination plus Records and Incidents adapters | History/delete/rollback/security/integration/browser suites | Revisions OpenAPI operations and envelopes | Revisions HTTP adapter | very high | Intentional transport-adjacent adapter; platform concerns terminate here. |
-| `internal/modules/revisions/imported_attribution_boundary_test.go` | Guards against direct Incident Bundle sidecar joins | One boundary test | Portability attribution verification row | Source inspection | Self | Attribution boundary evidence | Revisions tests | low | Test-only. |
-| `internal/modules/revisions/incident_bundle_allocator_test.go` | Sequence allocation, locking, repair ordering, and hardening evidence | Five tests | Portability allocator/atomicity rows | PostgreSQL and migration-owned functions | Self | Revisions Incident Bundle allocation contract | Revisions tests | high | Service-backed portability evidence. |
-| `internal/modules/revisions/incident_bundle_portability.go` | Deterministic export/import codecs, validation, writes, and sequence lifecycle for Revisions rows | Begin/finish sequence functions plus source-port internals | Incident Bundles source catalog/runtime | PostgreSQL, Incident Bundles ports, attribution registry | Portability and incident-bundle integration suites | Three Revisions NDJSON members and six invariants | Revisions portability adapter | very high | Owns only Revisions history rows, not whole-bundle orchestration. |
-| `internal/modules/revisions/incident_bundle_portability_test.go` | Determinism, invariant priority, attribution, and atomic failure evidence | Four tests and portability fakes | Portability verification rows | Incident Bundle harness and PostgreSQL | Self | Revisions bundle versions 1/2 | Revisions tests | high | Service-backed test-only surface. |
-| `internal/modules/revisions/incident_bundle_source_port.go` | Declares Revisions source family, files, versions, dependencies, and invariants | `NewIncidentBundleSourcePort` | Incident Bundle application composition | Incident Bundles source-port API | Portability tests and source-catalog checks | `contracts/incident-bundles/source_catalog.json` | Revisions portability adapter | high | Fixed source descriptor, not dynamic relation metadata. |
-| `internal/modules/revisions/incident_bundle_validation_catalog.go` | Builds immutable source-owner current-row validation catalog | Validation catalog/envelope reader types and constructor | Revision assembly and portability import | Provider contributions and source snapshots | Command-service and portability tests | Terminal history reconstruction validation | Revisions with source-owner contributions | high | Must not use projections as current-source truth. |
-| `internal/modules/revisions/indicator_children_test.go` | Observation/state-interval history and rollback integration evidence | One integration test | Revisions integration row | Indicators, app support, Collaboration | Self | Indicator-child history/rollback/events | Revisions tests with Indicators | high | Test-only cross-owner characterization. |
-| `internal/modules/revisions/integration_test.go` | Cross-cutting delete/restore/rollback/history/merge/retention consequences | Five integration tests | Revisions integration rows | Full application support, PostgreSQL, WebSocket test support | Self | HTTP, history, projection, events, retention | Revisions tests | very high | Primary service-backed behavior freeze. |
-| `internal/modules/revisions/json_value.go` | Internal JSON marshaling helper for nullable stored values | No exported surface | Appender and rollback/history persistence | `encoding/json` | Integration and rollback suites indirectly | Stored revision/mutation JSON | Revisions | medium | Preserve stored null/JSON semantics. |
-| `internal/modules/revisions/locks_test.go` | Destructive-operation lock precedence and protected-set evidence | One unit test | Revisions store row | Locking fakes/private coordinator | Self | Restore/rollback contention behavior | Revisions tests | medium | Test-only. |
-| `internal/modules/revisions/nonrow_provider_catalog.go` | Fail-closed non-row rollback provider catalog | Registration/catalog types, constructor, lookup | Command service and rollback components | `rollbackcontract` | Non-row catalog and rollback suites | Non-row target coverage | Revisions | high | Generic lookup is intentional. |
-| `internal/modules/revisions/nonrow_provider_catalog_test.go` | Catalog closure and exact apply-result validation | Two tests and provider fake | Provider/rollback rows | Non-row contract/catalog | Self | Non-row rollback provider evidence | Revisions tests | low | Test-only. |
-| `internal/modules/revisions/projection_port.go` | Consumer port for projection rebuild/load and record snapshot helper | `ProjectionRebuilder`, `ProjectionServices` | Command store, delete/restore, rollback, revision assembly | Projection adapter and delete/restore source port | Revision-assembly and integration suites indirectly | Projection refresh and revision snapshot shape | Revisions consumer port; Projections implementation | high | `snapshotRecordTx` currently prefers a projection row, contrary to the no-projection-truth posture. |
-| `internal/modules/revisions/provider_contributions.go` | Closed owner vocabulary, record/non-row contributions, and complete catalog validation | Owner enum, contribution types, policies, validator | All source-owner contribution constructors and revision assembly | Delete/restore and rollback contracts | Command, provider, revision-assembly tests | Record-type, target-kind, and view-route admission | Revisions | high | Closed completeness maps are intentional; semantic switches outside the catalog are not. |
-| `internal/modules/revisions/record_view_catalog.go` | Immutable record-type/variant to public view-schema catalog | Descriptor/catalog types, constructor, descriptors, resolver | Revision assembly and Appender | Provider routes plus projection/view descriptors | Revision-assembly and event tests | `affected_views` and view-schema identities | Revisions with source-owner contributions | high | Generic routing catalog; source owners declare variants/routes. |
-| `internal/modules/revisions/recovery_state.go` | Declares authoritative Revisions tables to Recovery | `RecoveryStateContribution` | Recovery application assembly | Recovery state contract | Recovery catalog tests indirectly | Recovery-state catalog | Revisions | medium | Intentional owner contribution. |
-| `internal/modules/revisions/revision_window_reader_test.go` | PostgreSQL ordering and UTC normalization evidence | One integration test | Revision-window verification row | Revision window reader/PostgreSQL | Self | Conflict revision-window contract | Revisions tests | medium | Service-backed test-only surface. |
-| `internal/modules/revisions/rollback_apply.go` | Applies finalized row/non-row inverse steps and builds snapshots | Private rollback applier methods | Rollback coordinator | Source-owner providers, Records/projection ports, hard-coded target-kind families | Rollback component/failure/integration suites | Rollback source, history, projection, and event consequences | Revisions plus source-owner capabilities | very high | Contains source-kind branching that should move behind provider capabilities. |
-| `internal/modules/revisions/rollback_changed_fields_test.go` | Ensures rollback events include every public cell delta | One test | Rollback verification row | Record-view catalog and rollback helpers | Self | `record_changed.changed_field_keys` | Revisions tests | medium | Test-only behavior freeze. |
-| `internal/modules/revisions/rollback_components_test.go` | Pure plan determinism, canonical lock order, and decomposition boundaries | Three tests | Rollback-decomposition verification row | Private planner/locker and source inspection | Self | Rollback architecture evidence | Revisions tests | medium | Test-only. |
-| `internal/modules/revisions/rollback_coordinator.go` | Owns caller-transaction rollback orchestration and stage order | Private `RollbackRecord` method | Command service | Query, planner, locker, applier, publication, result components | Rollback and integration suites | Rollback atomicity and ordering | Revisions | very high | Legitimate mutation coordinator. |
-| `internal/modules/revisions/rollback_failure_injection_test.go` | Proves rollback atomicity across publication stages | One integration test | Rollback atomicity verification row | PostgreSQL failure injection and application harness | Self | No partial source/history/projection/idempotency effects | Revisions tests | very high | Service-backed test-only evidence. |
-| `internal/modules/revisions/rollback_locker.go` | Canonicalizes and acquires protected record locks | Private locker methods | Rollback coordinator | Records envelope port | Lock/component/rollback tests | Destructive lock order | Revisions with Records port | high | Generic lock coordination is intentional. |
-| `internal/modules/revisions/rollback_model.go` | Internal rollback target/plan/error/result model | `RollbackPreconditionError`, `RollbackResult`, `RollbackRecordChange` | All rollback components and command facade | UUID/time and generic values | Rollback suites | Rollback error/result behavior | Revisions | high | Keep wire-neutral. |
-| `internal/modules/revisions/rollback_planner.go` | Finalizes and validates rollback plans and provider identities | Private planner/helpers | Rollback coordinator and history action evaluator | Non-row catalog plus hard-coded first-class kinds/type mapping | Component/provider/integration tests | Rollback target legality and plan order | Revisions plus source-owner metadata | very high | Central record-type/target-kind switches violate the desired source-owner boundary. |
-| `internal/modules/revisions/rollback_providers.go` | Adapts row and non-row provider lookups for rollback components | Private provider helpers | Query/planner/applier | Row/non-row catalogs and contracts | Provider/rollback tests | Source-owner rollback dispatch | Revisions | high | Generic dispatch seam. |
-| `internal/modules/revisions/rollback_publication.go` | Centralizes history append, projection refresh, and live-change construction after inverse apply | Private publication methods | Rollback coordinator/applier | Appender, projection port, record-view catalog | Rollback failure/integration/event tests | Revision rows, projection refresh, `record_changed` | Revisions coordination | very high | Must retain transaction ordering and failure atomicity. |
-| `internal/modules/revisions/rollback_query_repository.go` | Loads selectors, mutations, companions, snapshots, and current target descriptions | Private query repository methods | Rollback coordinator and history action evaluator | Revisions SQL, provider catalogs, source-specific target rules | Repository/component/rollback/integration tests | History selectors and rollback candidate sets | Revisions persistence plus source-owner metadata | very high | SQL is owner-valid; special target handling should be provider-driven. |
-| `internal/modules/revisions/rollback_result.go` | Builds stable command result from applied record changes | Private result builder | Rollback coordinator | Rollback model | Rollback and integration tests | Rollback success envelope | Revisions | high | Preserve stable affected-record ordering. |
-| `internal/modules/revisions/rollback_test.go` | Selector-union, provider-family, history/projection, and event characterization | Selector test plus test request helpers | Rollback/store verification rows | Full app harness and source-owner fixtures | Self | Rollback route and selector union | Revisions tests | very high | Broad service-backed behavior freeze. |
-| `internal/modules/revisions/rollbackcontract/contract.go` | Consumer-owned row/non-row source rollback ports and value objects | Target/request/descriptor/result types and provider interfaces | Source-owner rollback providers and Revisions catalogs | Caller transaction and generic values | Provider and rollback suites | Internal source-owner rollback contract | Revisions contract package | high | Source owners retain validation, inverse application, and persistence. |
-| `internal/modules/revisions/row_provider_catalog.go` | Fail-closed record-type to row rollback provider catalog | Registration/catalog types, constructor, lookup | Command service and rollback components | `rollbackcontract` | Row catalog and rollback suites | Row-provider coverage | Revisions | high | Generic lookup is intentional. |
-| `internal/modules/revisions/row_provider_catalog_test.go` | Duplicate/missing row-provider catalog evidence | One test and provider fake | Provider verification row | Row provider contract/catalog | Self | Row rollback provider evidence | Revisions tests | low | Test-only. |
-
-All 73 baseline target files are represented above; no baseline file is marked
-out of scope.
-
-### 2.1 Final topology delta
-
-The completed path set is the 73-file baseline minus five removed paths plus
-seven added paths, for exactly 75 files. Read together, the baseline table and
-this delta inventory every file in the completed target.
-
-| Disposition | Path | Final responsibility or reason |
-| --- | --- | --- |
-| added | `internal/modules/revisions/candidate_semantics_test.go` | Candidate and exact compiled-catalog admission evidence. |
-| added | `internal/modules/revisions/canonical_snapshot.go` | Opaque captured snapshots and canonical envelope validation. |
-| added | `internal/modules/revisions/history_associations_migration_test.go` | Fresh/reset-required migration, index, and association-fact evidence. |
-| added | `internal/modules/revisions/rollback_provider_validation.go` | Generic validation for catalog-selected row and non-row providers. |
-| added | `internal/modules/revisions/target_semantics.go` | Immutable history facets, dispatch classes, and unified target catalog. |
-| added | `internal/modules/revisions/target_semantics_nonrow_catalog_test.go` | Non-row contribution closure and dispatch evidence. |
-| added | `internal/modules/revisions/target_semantics_row_catalog_test.go` | Row contribution closure and record-provider admission evidence. |
-| removed | `internal/modules/revisions/conflict_field_provider.go` | Startup view-schema conversion moved to revision assembly in WS-04. |
-| removed | `internal/modules/revisions/nonrow_provider_catalog.go` | Superseded by the unified immutable target-semantics catalog in WS-10. |
-| removed | `internal/modules/revisions/nonrow_provider_catalog_test.go` | Replaced by unified non-row catalog evidence. |
-| removed | `internal/modules/revisions/row_provider_catalog.go` | Superseded by the unified immutable target-semantics catalog in WS-10. |
-| removed | `internal/modules/revisions/row_provider_catalog_test.go` | Replaced by unified row catalog evidence. |
-
-## 3. Module Boundary Diagnosis
-
-The live target is a real Revisions bounded context. `CommandService` is a
-legitimate thin application facade, and the package hides substantial history,
-conflict, destructive-mutation, and rollback complexity. The overall target is
-also a mixed-responsibility package because it contains transport-adjacent and
-persistence-adjacent adapters alongside generic domain/application
-coordination. Those adapters are not automatically misplaced: the adopted
-owner split permits Revisions-owned HTTP and persistence adapters provided
-platform concerns terminate at the adapter and source semantics remain with
-their owners.
-
-The completed target is therefore best described as:
-
-- a legitimate thin application/service facade;
-- a view/projection orchestration consumer, but not a projection owner;
-- a transport-adjacent adapter through `httpapi`;
-- a persistence-adjacent adapter for Revisions-owned tables;
-- a mutation coordinator for delete, restore, rollback, and revisionless
-  conflict outcomes; and
-- a cohesive bounded context whose source semantics arrive through immutable
-  owner contributions and whose platform dependencies terminate at application
-  or HTTP adapters.
-
-It is not supported by repository evidence as a frontend shell/controller,
-grid-vendor integration, saved-view owner, tabular-ingest owner, or a general
-catch-all for Timeline, Entities, Indicators, Evidence, Links, or other source
-modules.
-
-The table below preserves the WS-00 diagnosis and planned disposition. Section
-5 and the append-only workstream ledger record the completed result.
-
-| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Thin Revisions command facade | `command_service.go`, `application_ports.go` | Revisions | keep | Four transport-neutral methods and assembly adapters | Preserve a small public surface. |
-| Change-set and record-revision append | `appender.go` | Revisions | keep | Core 00/02 and Revisions table ownership | Split only the concrete Records dependency. |
-| Records envelope lookup for Collaboration intent | `appender.go` | Records port injected by revision assembly | move | Direct `records.NewStore().LoadEnvelopeTx` versus REQ-01-649 | Behavior stays in Revisions; dependency construction moves. |
-| History query/materialization | `history_*` files | Revisions generic mechanics | split | Core 02 and current component boundaries | Keep components private; extract only source-specific target semantics. |
-| Source-specific history addressability and JSON reference keys | `history_materializer.go`, `history_repository.go` | Respective source owners via immutable contributions | move | Target-kind switches and keys such as `src_record_id`, `source_record_id`, and `indicator_record_id` | Must preserve every current selector and affected-record rule. |
-| Delete/restore coordination | `delete_restore_store.go` and consumer contract/catalog | Revisions coordinator plus source-owner providers | keep | REQ-01-650 and complete catalog | Source owners retain preconditions and source persistence. |
-| Rollback planning and transaction coordination | `rollback_*` files | Revisions generic mechanics | keep | REQ-02-218 and current decomposition | Existing component split is valid. |
-| Source-kind mapping and special rollback handling | Rollback planner/apply/query components | Respective source owners via provider metadata/capabilities | move | Hard-coded first-class and non-row target branches | Closed completeness catalogs remain in Revisions. |
-| Projection refresh | `projection_port.go`, mutation coordinators | Projections behind a Revisions consumer port | keep | Injected `ProjectionServices` | Refresh is a consequence, never source truth. |
-| Projection-first history snapshot | `projection_port.go:snapshotRecordTx` | Authoritative source snapshot provider | split | Projection load precedes `DeleteRestoreSource.SnapshotTx`; REQ-02-218 forbids projection-derived fallback | Change only after exact snapshot compatibility is characterized. |
-| Conflict token, revision window, merge, and `keep_saved` | `conflicts/**` | Revisions conflicts | keep | REQ-03-066 and AC-529 | Generic mechanics; source owners retain current state and mutation. |
-| View-schema-to-conflict descriptor adapter | `conflict_field_provider.go` | Application composition/platform adapter | move | Root imports process-global `platform/viewschema`; revision assembly already admits that dependency | Runtime catalog remains immutable. |
-| Key-ring environment fallback | `conflicts/key_ring.go` | Revisions config parser or server startup adapter | defer | Explicit env map exists, but nil falls back to `os.LookupEnv` | Compatibility and config-owner evidence are insufficient for a safe move now. |
-| Revisions HTTP operations | `httpapi/**` | Revisions HTTP adapter | keep | AC-528/AC-529 and dedicated package | No route or guard-order change. |
-| Revisions-table SQL | History, rollback query, conflict reader, portability, and appender files | Revisions persistence adapters | keep | Backend SQL allowlist permits only Revisions history/envelope tables | Do not replace fixed SQL with dynamic relation metadata. |
-| Incident Bundle Revisions members | Incident-bundle source/portability/validation files | Revisions source adapter under Incident Bundles orchestration | keep | Source family `revisions`, three row files, six invariants | Not general import/tabular-ingest ownership. |
-| Recovery-state contribution | `recovery_state.go` | Revisions contribution to Recovery | keep | Four authoritative Revisions tables | Recovery orchestrates the aggregate catalog. |
-| Collaboration WebSocket delivery | Outside target; target appends intents | Collaboration | keep | `IntentAppender` and `record_changed` contract | Revisions owns transactional intent facts, not `/ws/v1/` transport. |
-| Frontend history/controller state | `apps/web/src/workbook/timeline/**` | Web application/Timeline workbook | keep | History port, adapter, actions, model, and inspector panel | External consumer only; no frontend move is proposed. |
-
-## 4. Public Contract and Behavior Freeze Map
-
-No public HTTP, WebSocket, OpenAPI operation, generated TypeScript API, or UI
-selector changes are authorized. The adopted corrective storage changes are
-limited to canonical snapshot envelopes, indexed history associations, and
-normalized conflict facts in migration 61; internal Go interfaces change only
-to improve dependency direction and source-owner contribution semantics.
-References to “current” behavior in this freeze map describe the WS-01
-characterization baseline; the workstream ledger records its preserved or
-intentionally corrected final disposition.
-
-| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| `GET /api/v1/records/{record_id}/history` / `getRecordHistory` | Revisions HTTP/history | Core 01, Revisions OpenAPI source, `httpapi/routes.go` | History unit/OpenAPI/ref/retention, pagination integration, browser history | Preserve strict query, hidden visibility, newest-first order, cursor binding, resource shape, opaque refs, and retained visibility | high | No purge or retention-control routes exist. |
-| `DELETE /api/v1/records/{record_id}` / `deleteRecord` | Revisions coordinator; source owners for blockers/state | Core 01 and OpenAPI source | Delete adapter matrix, preconditions, security, integration, browser | Preserve optimistic concurrency, blocker tuples, idempotency, tombstone, history, projection, and remove event | very high | Success remains the common `200` envelope. |
-| `POST /api/v1/records/{record_id}/restore` / `restoreRecord` | Revisions coordinator; source owners for state | Core 01 and OpenAPI source | Restore preconditions, lock, security, integration, browser | Preserve reviewer/admin gate, nowait lock precedence, replay, projection, and invalidate event | very high | Protected set is the target record. |
-| `POST /api/v1/records/{record_id}/rollback` / `rollbackRecord` | Revisions generic coordinator; source-owner providers | Core 01/02 and OpenAPI source | Selector union, provider families, locks, failure injection, integration, browser | Preserve selector union, canonical locks, fresh-state revalidation, reverse apply, atomicity, and result order | very high | Source mutation semantics must remain behind providers. |
-| Authentication/CSRF/visibility/role/body precedence | Auth and Revisions HTTP adapter | Core 01/03/04, AC-528, `http_security_precedence_test.go` | Dedicated precedence integration test and route suites | Retain no-write assertions for every rejected stage | very high | Unauthorized malformed requests reveal no later-stage detail. |
-| Change sets and mutation entries | Revisions | Core 00/02, `appender.go`, owned tables | Source-owner mutation tests, Revisions integration and portability | Characterize append count/order, attribution, target values, and no partial writes before moving dependencies | high | Immutable append-only substrate. |
-| Record revisions and row snapshots | Revisions history; source owners for authoritative current state | Core 00/02, Appender and snapshot helper | History, rollback, conflict-window, portability, source-owner suites | Compare projection-derived and authoritative-source snapshots for every admitted record family before RS-02 | very high | Current projection-first behavior is an owner mismatch, not a compatibility decision. |
-| Stable history items and rollback actions | Revisions generic mechanics plus source-owner legality | Core 02 and history materializer/evaluator | History component/ref/retention, indicator-child, rollback suites | Freeze every `history_item_ref`, `history_entry_ref`, action order, target association, and ineligibility result | very high | Source-kind extraction must not alter selectors. |
-| Source-owner row and non-row inverse behavior | Artifacts, Assessments, Entities, Evidence, Indicators, Links, Parties, Tasks/Decisions, Timeline | Provider contributions and consumer-owned contracts | Provider catalog rows and source-owner rollback tests | Add/retain exact provider-capability tests before deleting central branches | very high | Revisions coordinates but does not define source vocabulary. |
-| Projection rebuild and refresh consequences | Projections implementation; Revisions coordinates calls | Projection consumer port and Core 01/02 | Delete/restore/rollback integration, source-owner query tests | Assert rebuild ordering, rollback on failure, and no projection-as-history truth | high | Projection tables remain disposable derived state. |
-| `record_changed` WebSocket consequence | Collaboration delivery; Revisions/source transactions create intents | Core 01/03/04, WS contract, Appender | Revisions integration, Collaboration E2E, source-owner mutation suites | Preserve one canonical post-commit event per affected live record, array order, replay identity, and no event on failure/import | very high | Revisions owns no WebSocket route. |
-| Same-field conflict and v3 token | Revisions generic conflicts; source owners for fields/state/mutation | REQ-03-066, AC-526/AC-529, Revisions key-ring contract | Token, resolver, revision-window, text-merge, workbook/source-owner tests | Preserve opaque `cft3`, bindings, TTL/skew, uniform error, immutable descriptors, and revisionless `keep_saved` | very high | No v2 or authentication-master fallback. |
-| View-schema mapping and `affected_views` | Source owners declare routes; Revisions immutable catalog; Projections owns descriptors | Record-view and conflict-field catalogs | Revision-assembly, resolver, changed-fields, integration tests | Freeze record variant routing, writable/conflict classes, and affected-view identities while moving startup adapter | high | Saved-view lifecycle is not involved. |
-| Idempotency and destructive locks | Platform idempotency/Records locks behind Revisions ports | Core 01 and coordinator code | Lock, replay, stale-state, failure-injection, integration tests | Preserve exact replay/divergent-replay outcomes and lock acquisition order | very high | No nested transaction may be introduced. |
-| Revisions Incident Bundle source family | Revisions source adapter; Incident Bundles orchestrates | Source catalog and three row schemas | Allocator, deterministic round trip, invariant priority, atomic failure, incident-bundle route integration | Preserve versions 1/2, exact rows, order, invariant priority, attribution, sequence repair, and no live events | very high | Generated projections are downstream only. |
-| Recovery contribution | Revisions tables; Recovery aggregate | `recovery_state.go` and recovery fixtures/catalog | Recovery catalog and broader recovery checks | Preserve classification of five authoritative history tables | medium | Migration 61 adds the conflict-fact table to the owner contribution. |
-| Frontend Timeline history port and inspector | Web application/Timeline workbook | Timeline port, generated-operation adapter, history model/actions/panel, UI contracts | Frontend units; `history.spec.ts`, inspector, visual, and accessibility scenarios | Run browser rows when wire behavior, selectors, refresh, or event consequences are touched | high | No direct Revisions frontend package or grid-vendor dependency exists. |
-| Generated OpenAPI/protocol/UI surfaces | Authored owner inputs and generators | Revisions OpenAPI source, generated protocol-ts, ui-contract selectors | OpenAPI compatibility, frontend units/browser | No generated change for structural slices; regenerate only from an authorized owner-input change | high | Never hand-edit generated roots. |
-| Harness/test accounting | Verification owners and authored test-family catalog | Final authored owner/family catalogs and generated topology | Harness contract and owner slices | Keep every new seam selectable and regenerate topology through Make | medium | Routing is evidence accounting, not runtime architecture. |
-
-### 4.1 Refactor-wide normative requirements
-
-| ID | Requirement | Owner basis | Planned evidence |
-| --- | --- | --- | --- |
-| RMR-REQ-001 | Every authorized slice MUST preserve every observable consequence in the freeze map unless that slice names a separately authorized owner change and compatibility plan. | Core 00-04 | Pre-change characterization plus focused and broad post-change evidence |
-| RMR-REQ-002 | No slice authorizes a public HTTP, WebSocket, OpenAPI operation, TypeScript API, UI-selector, bundle-version, or configuration behavior change. Storage changes are limited to the adopted canonical envelope, indexed association, normalized conflict-fact, and reset posture; generated changes MUST come only from amended owner inputs. | Core 01-04 | Contract drift, browser, portability, migration, and generated-artifact checks |
-| RMR-REQ-003 | Revisions coordinators MUST retain caller-owned transaction semantics. A provider MUST NOT begin, commit, roll back, or replace the caller transaction. | Core 01/02 | Transactional failure injection and provider unit tests |
-| RMR-REQ-004 | Authentication, CSRF, visibility, role, body validation, idempotency, lock, and fresh-state checks MUST retain their adopted precedence. An unauthorized request MUST NOT invoke target-semantics providers. | Core 01/03/04 | Security-precedence integration evidence and negative provider-call assertions |
-| RMR-REQ-005 | History MUST remain immutable and append-only. Delete, restore, rollback, and source mutations MUST retain their current change-set, mutation, revision, and attribution facts. | Core 00/02 | History, rollback, source-owner, and portability evidence |
-| RMR-REQ-006 | Every existing history item reference, history entry reference, target association, logical grouping rule, action order, and rollback selector MUST remain stable. | Core 02 | Exact old/new history and rollback comparisons |
-| RMR-REQ-007 | Projection refresh and `record_changed` consequences MUST remain transactionally ordered, failure-atomic, and suppressed for imports as currently owned. | Core 01/03/04 | Integration, Collaboration, and failure-injection evidence |
-| RMR-REQ-008 | Incident Bundle versions 1 and 2 MUST retain exact Revisions row interpretation, ordering, invariants, attribution, and no-publication behavior. | Core 01/02 and Incident Bundle owner | Deterministic round-trip and atomic-import evidence |
-| RMR-REQ-009 | Generated files MUST NOT be edited by hand. Authored owner or verification inputs MAY change only when an authorized slice requires them; omission means no authored or generated change. | Repository generated-artifact policy | Make-owned drift and policy checks when applicable |
-| RMR-REQ-010 | Verification maps and phase rows MUST be treated only as evidence routing. They MUST NOT be used as runtime architecture or proof of requirement completeness. | Testing Harness owner and repository procedure | Review of authored mapping changes |
-
-### 4.2 Authoritative snapshot contract
-
-| ID | Requirement |
-| --- | --- |
-| RMR-REQ-100 | For every new revision snapshot, Revisions MUST use only the applicable source owner's authoritative snapshot returned from the current source state in the caller-owned transaction. |
-| RMR-REQ-101 | Revisions MUST NOT query a projection row as a snapshot source, fallback, augmentation, or compatibility authority. A missing source snapshot MUST fail through the existing typed error path; it MUST NOT fall back to a projection. |
-| RMR-REQ-102 | An authoritative snapshot MUST contain envelope identity, record type, row version, deletion state, authoritative source-row state required for row restoration, and source-owned scalar or structured extension values. |
-| RMR-REQ-103 | An authoritative snapshot MUST exclude projection-only labels, counts, chips, joined summaries, preview handles, sort/group/layout state, binary bytes or object material, authorization state, UI state, and external enrichment. |
-| RMR-REQ-104 | Separately revisioned collection targets, including links, tags, mentions, indicator observations, indicator state intervals, and evidence associations, MUST NOT be folded into a row snapshot. Their own target semantics remain authoritative. |
-| RMR-REQ-105 | Active and deleted records MUST use the same snapshot shape domain. The snapshot MUST express the current row version and the complete deletion tuple, including null deletion members when active. |
-| RMR-REQ-106 | Structural comparison MUST distinguish absent, explicit `null`, empty, and non-empty members. It MUST compare JSON member names, types, values, array ordering, nested values, and custom attributes. |
-| RMR-REQ-107 | JSON object key order and insignificant serialized whitespace MAY differ. That is the only default representation tolerance. Duplicate object members MUST be rejected before persistence. |
-| RMR-REQ-108 | The old projection-first reader and candidate authoritative reader MUST observe the same database state through the same supplied transaction for every parity comparison. |
-| RMR-REQ-109 | RS-02 MUST stop at the first non-representation difference and classify it using Section 4.5. It MUST NOT add a dual reader, shadow writer, feature flag, compatibility fallback, or projection rescue path. |
-| RMR-REQ-110 | Characterization MUST select either representation-only parity or an adopted corrective cutover. The old source-selection path MUST be removed in the same cutover; no dual reader, fallback, shadow writer, or feature flag may remain. |
-| RMR-REQ-111 | Every canonical snapshot MUST carry an admitted `snapshot_schema_id`. Historical interpretations MUST NOT coexist or be inferred from key presence; schema-less history requires reset and fails closed. |
-| RMR-REQ-112 | Current Incident Bundle versions retain their exact outer rows and admit canonical snapshot envelopes only. A schema-less snapshot MUST be rejected rather than silently reinterpreted, translated, or assigned an inferred version. |
-
-### 4.3 Closed snapshot characterization matrix
-
-The record-family column is closed over the ten currently admitted record
-families. RS-00 MUST stop and expand the matrix if live evidence identifies an
-additional admitted family or variant.
-
-| Record family | Required variants and boundary cases | Required lifecycle cases | Association exclusions |
-| --- | --- | --- | --- |
-| `timeline_event` | Every currently admitted Timeline event source shape | Active, before delete, after delete, before restore, after restore | Separately revisioned links, tags, and mentions |
-| `host` | Stub and canonical | Active, deleted, delete transition, restore transition | Aliases, mentions, preserved identifiers, links, and tags |
-| `identity` | Stub and canonical | Active, deleted, delete transition, restore transition | Aliases, mentions, preserved identifiers, links, and tags |
-| `party` | Current Party source shape | Active, deleted, delete transition, restore transition | Links, tags, mentions, and other separately revisioned relations |
-| `indicator` | Indicator row with observations absent/present and intervals absent/present | Active, deleted, delete transition, restore transition | Observations and state intervals |
-| `artifact` | `comm_log`, `finding`, `forensic_keyword`, `handoff`, `investigative_query`, `lesson`, `note`, and `status_review` | Active, deleted, delete transition, restore transition | Links, tags, mentions, and binary/object material |
-| `task_request` | Current Task Request source shape | Active, deleted, delete transition, restore transition | Links, tags, mentions, and separately revisioned relations |
-| `decision` | Current Decision source shape | Active, deleted, delete transition, restore transition | Links, tags, mentions, and separately revisioned relations |
-| `evidence` | Evidence object absent and present | Active, deleted, delete transition, restore transition | Evidence associations and binary/object material |
-| `assessment` | Host subject and identity subject | Active, deleted, delete transition, restore transition | Subject-owned collections and separately revisioned relations |
-
-Every row above MUST cover the following cross-product dimensions to the
-extent that the source family admits them. “Not admitted” MUST be proved by the
-source-owner contract or test; it MUST NOT be assumed.
-
-| Dimension | Required cases |
-| --- | --- |
-| Presence | Required, nullable, absent, empty string, empty object, empty array, and non-empty values |
-| Value domain | Unicode, multiline text, timestamps, booleans, numeric boundaries, UUIDs, nested objects, ordered arrays, and nested `custom_attrs` |
-| Attribution | Local actor and imported actor attribution where admitted |
-| Operation | Create, scalar patch, structured patch, soft delete, restore, and row rollback where admitted |
-| Adjacent mutation | Each separately revisioned non-row target that can occur next to the row mutation |
-| Failure | Missing row, malformed persisted JSON if representable, stale state, provider error, projection failure, history failure, and transaction rollback |
-| Portability | Live write, export, version 1 import, version 2 import, sequence repair, and post-import history read |
-
-WS-01 executed all ten source-owner snapshot cases in
-`TestDeleteRestoreConcreteSourceAdapterMatrix_Integration`. Each authoritative
-snapshot contains the envelope and source objects with matching record
-identity. Every projection-backed case returns a flat row, not `{record,
-source}`, and is structurally different; unsupported view-query cases take the
-existing source fallback. This is an intentional `projection_only_member` plus
-`source_member_missing_from_projection` correction, not parity. The approved
-canonical envelope and reset posture resolve the representation break while
-the public consequence layers remain frozen.
-
-### 4.4 Exact compatibility layers
-
-| Layer | Equality requirement |
-| --- | --- |
-| A: structural snapshot | Exact member presence, nullability, JSON type, value, array order, nested value, and custom-attribute equality after only the representation tolerance in RMR-REQ-107 |
-| B: history materialization | Exact item count/order, operation and diff units, fields, targets, summaries, associations, identifiers, reversibility, ordered actions, references, and pagination behavior |
-| C: rollback | Exact selector resolution, candidate/companion/protected sets, lock order, post-lock revalidation, inverse order, restored values, affected-record order, versions, changed fields, projection refresh, event consequences, and error mapping |
-| D: external consequence | Exact HTTP history and rollback envelopes, frontend rendering/actions, WebSocket consequences, delete/restore view effects, portability, conflict revision windows, and no-publication-on-failure/import behavior |
-
-### 4.5 Difference classification and mandatory action
-
-| Difference class | Definition | Mandatory action |
-| --- | --- | --- |
-| `representation_only` | Only JSON object key order or insignificant serialized whitespace differs | Record the normalization and continue. This class alone does not block parity. |
-| `projection_only_member` | The old snapshot contains a value owned only by a projection | Stop RS-02. Perform ownership and observability review and obtain behavior-change authorization. |
-| `source_member_missing_from_projection` | Authoritative state is absent from the old snapshot | Stop RS-02. Repair or version the contract before cutover. |
-| `normalization_mismatch` | Old and candidate paths normalize the same source value differently | Stop RS-02. Assign the normalization owner and repair the defective path. |
-| `association_or_selector_change` | History grouping, association, action ordering, or opaque selector differs | Stop RS-02 and resolve the difference under RB-002. |
-| `rollback_change` | Candidate snapshots change eligibility, ordering, restored state, results, or errors | Stop RS-02. Obtain owner review and any required Core change. |
-| `public_or_portability_change` | HTTP, WebSocket, frontend, conflict, generated, or Incident Bundle behavior differs | Stop RS-02. Obtain explicit owner and compatibility authorization. |
-
-### 4.6 RB-001 outcome gate
-
-| Outcome | Required evidence | Result |
-| --- | --- | --- |
-| A: exact semantic parity | All matrix cells and all four compatibility layers pass with only recorded `representation_only` differences | Mark RB-001 `CLOSED`; authorize a single-cutover RS-02; remove the projection-first path without compatibility machinery. |
-| B: projection-only behavior is observable | One or more non-representation differences are owned or externally observable | Keep RB-001 open; stop RS-02; require controlling-owner amendment plus an explicit migration/versioning and compatibility plan. |
-| C: one path is defective | Evidence identifies a source-owner or projection adapter defect | Keep RB-001 open; repair the defective owner path in a separately authorized slice; rerun the full parity matrix without fallback. |
-
-WS-01 records outcome B for the stored representation. The 2026-08-09
-authorization already supplies the required owner-amendment, reset, and
-no-legacy-reader posture; WS-02 adopts that authority and WS-08 performs the
-single cutover. Layers B through D remain exact compatibility gates.
-
-### 4.7 Target-semantics capability contract
-
-The following shape is implementation-facing guidance for RS-03. Exact Go
-package placement belongs to the later authorized implementation, but that
-implementation MUST preserve these responsibilities and prohibitions.
-
-```go
-type TargetSemanticsContribution struct {
-	TargetKind string
-	History    HistoryTargetSemantics
-	Rollback   RollbackTargetSemantics
-}
-
-type HistoryTargetSemantics interface {
-	DescribeMutation(StoredMutation) (HistoryTargetDescription, error)
-}
-
-type RollbackTargetSemantics interface {
-	PlanRollbackTx(context.Context, Transaction, RollbackTargetRequest) (RollbackTargetPlan, error)
-	ApplyInverseTx(context.Context, Transaction, RollbackTargetPlan) (RollbackApplyResult, error)
-}
-```
-
-`Transaction` in this shape means the caller-supplied transaction capability;
-it does not authorize a provider to create or own a transaction. Existing
-`DeleteRestoreSource`, `rollbackcontract.RowSourceProvider`, and
-`rollbackcontract.NonRowTargetProvider` signatures remain unchanged by
-default. RS-03 MAY adapt those providers behind the new facets. It MUST NOT
-widen them merely to move central branching.
-
-| ID | Requirement |
-| --- | --- |
-| RMR-REQ-200 | Revisions MUST own one immutable consumer-facing target-semantics catalog, keyed by exact target kind and composed from source-owner implementations before serving. |
-| RMR-REQ-201 | Every persistable target kind MUST resolve to exactly one admitted history facet. A rollback facet MUST also be present unless the contribution declares the target permanently non-reversible and RS-00 proves that declaration matches current behavior. |
-| RMR-REQ-202 | A history facet MUST be pure. It MUST NOT query a database, mutate state, use a transaction, or inspect platform, transport, projection, or UI state. |
-| RMR-REQ-203 | A history description MUST return the exact target kind and target ID, primary associated record, additional associated records, owner-scoped logical-item identity, closed addressability, selector inputs, companion references, source-owned diff classification, and display-neutral semantic metadata. |
-| RMR-REQ-204 | A history description MUST NOT return labels, components, routes, `history_entry_ref`, SQL, relation names, view or projection rows, callback maps, untyped extension payloads, or source-package runtime strings. |
-| RMR-REQ-205 | Revisions MUST continue to generate, encode, persist, resolve, and lifetime-stabilize opaque history and rollback selectors. A source owner supplies semantic inputs only. |
-| RMR-REQ-206 | A rollback plan MUST return reversibility or a typed ineligibility reason, affected and protected record IDs, companion targets, deterministic inverse steps and order, current and expected state descriptions, changed fields, and source-owned inverse input. |
-| RMR-REQ-207 | A rollback provider MUST use only the caller transaction and source-owned fixed SQL. It MAY revalidate source state under locks and apply only its source-owned inverse. |
-| RMR-REQ-208 | A provider MUST NOT own authorization, HTTP decoding, idempotency, history append, projection refresh, Collaboration intent publication, network or object-store calls, dynamic SQL, relation names supplied at runtime, or transaction completion. |
-| RMR-REQ-209 | Revisions MUST retain selector lookup, history SQL, canonical ordering, lock aggregation, transaction coordination, idempotency, history publication, projection refresh, Collaboration consequences, result ordering, and public error mapping. |
-| RMR-REQ-210 | Catalog construction MUST reject an empty catalog, a missing required kind, a duplicate kind, an unknown kind, a typed-nil facet, an incomplete contribution, non-deterministic output, cross-owner behavior, and relation-bearing or dynamic-SQL metadata before serving. |
-| RMR-REQ-211 | An unknown target kind MUST yield no association, addressability, companion, rollback, or action behavior. If a producer can persist that kind, startup admission MUST fail until a complete contribution exists. |
-| RMR-REQ-212 | The default for a future target kind is fail-closed. It is neither individually addressable nor reversible and MUST NOT be persisted until its owner contribution and tests are admitted. |
-| RMR-REQ-213 | RS-03 MUST NOT replace current switches with another central switch, a target-to-relation map, SQL fragments, reflection, a global initialization registry, a generic hook bus, a chain of responsibility, a callback map, or a legacy fallback. |
-| RMR-REQ-214 | Revisions MUST canonicalize, copy, deduplicate, and order all provider-supplied record and target sets before locking or publication. It MUST revalidate after locks and MUST fail atomically. |
-| RMR-REQ-215 | Provider failures MUST map to existing safe typed errors. Logs MUST NOT contain authored content, raw snapshot values, conflict material, or secrets. |
-
-The returned value fields have the following closed ownership. A field not
-listed here is omitted by default and requires a later authorized design
-change.
-
-| Value | Required members | Owner and constraints |
-| --- | --- | --- |
-| `HistoryTargetDescription` | Exact target kind/ID; primary record; ordered additional records; logical-item key; addressability enum; selector inputs; ordered companions; diff classification; display-neutral metadata | Source owner supplies semantic facts; Revisions validates and canonicalizes all record identifiers and selector inputs. |
-| Addressability enum | Exactly `not_individually_addressable` or `single_history_entry` unless an adopted owner later adds a value | Source owner selects the current behavior; unknown or omitted values fail admission. |
-| `RollbackTargetPlan` | Eligibility or typed ineligibility; ordered affected/protected records; ordered companions; deterministic inverse steps; current/expected state; changed fields; inverse input | Source owner computes source semantics; Revisions canonicalizes locks and owns orchestration. |
-| `RollbackApplyResult` | Applied target facts, ordered affected records, changed fields, and source versions needed by the existing public result | Source owner reports only applied source facts; Revisions owns history, projections, events, and public encoding. |
-
-### 4.8 Closed current target-kind matrix
-
-The target-kind column is closed over exact tokens found in current Revisions
-producers and consumers. The cells below record live mutation, provider,
-repository, and test evidence captured by WS-01; they are characterization,
-not authority for the replacement design.
-
-| Target kind | Semantic owner | Target ID shape | Primary history record | Additional associated records | Logical item and addressability | Selector inputs | Provider evidence |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `assessment` | Assessments | UUID record ID | Same assessment record | None | Target-ID grouping; one history entry when addressed by the assessment record | Exact persisted target kind/ID and current history fields | Assessment row provider and history/rollback tests |
-| `entity_alias` | Entities | `entity_alias:<uuid>` or current content-derived logical ID | Owning Host or Identity by mutation value | None | Target-identity grouping; currently not individually addressable | Alias ID or normalized owner/value identity | Entity collection provider, patch/merge producers, and collection rollback tests |
-| `entity_mention` | Entities | UUID mention ID | Current `source_record_id` association | None; resolved records are not current history associations | Mention target grouping; one history entry from the source-record association | Mention ID, source record, source field, entity type, and retained resolution state | Mention provider, history repository predicate, and rollback tests |
-| `entity_preserved_identifier` | Entities | Current content-derived logical ID | Owning Host or Identity by mutation value | None | Target-identity grouping; currently not individually addressable and individual rollback requires the change set | Owner/type/value identity | Entity collection provider and merge/repoint tests |
-| `evidence` | Evidence | UUID record ID | Same Evidence record | None | Target-ID grouping; one history entry when addressed by the Evidence record | Exact persisted target kind/ID and current history fields | Evidence row provider and history/rollback tests |
-| `host` | Entities | UUID record ID | Same Host record | None | Target-ID grouping; one history entry when addressed by the Host record | Exact persisted target kind/ID and current history fields | Host row provider and history/rollback tests |
-| `identity` | Entities | UUID record ID | Same Identity record | None | Target-ID grouping; one history entry when addressed by the Identity record | Exact persisted target kind/ID and current history fields | Identity row provider and history/rollback tests |
-| `indicator` | Indicators | UUID record ID | Same Indicator record | None | Target-ID grouping; one history entry when addressed by the Indicator record | Exact persisted target kind/ID and current history fields | Indicator row provider and history/rollback tests |
-| `indicator_observation` | Indicators | UUID observation ID | Current `source_record_id` association | Resolved Indicator when currently associated | Current observation grouping and addressability | Exact observation and association inputs | Indicator non-row provider, association SQL, and rollback tests |
-| `indicator_state_interval` | Indicators | UUID interval ID | Current `indicator_record_id` association | None | Interval target grouping; one history entry from the Indicator association | Interval ID and Indicator ID | Indicator child provider, association SQL, and rollback tests |
-| `record` | Applicable source owner selected through the admitted record-type catalog; Revisions owns generic dispatch | UUID record ID | Same record | None | Generic target-ID row grouping; one history entry | Persisted token/ID plus envelope record type | Artifacts, Parties, Task Requests, Decisions, Evidence, imports, and generic delete/restore producers |
-| `record_link` | Links | UUID link ID | Current source-record association | Current destination-record association | Current link grouping and addressability | Exact link ID, source, destination, and relation inputs | Link non-row provider, history association SQL, and rollback tests |
-| `record_tag` | Links | Raw tag UUID or `record_tag:<record_id>:<tag_id>` | Current `record_id` association | None | Both identities retain target grouping; one history entry from the owning-record association | Tag ID plus record/tag membership identity | Tag provider, merge producer, association SQL, and rollback tests |
-| `timeline_record` | Timeline | UUID record ID | Same Timeline Event record | None | Target-ID grouping; one history entry when addressed by the Timeline record | Exact persisted target kind/ID and current history fields | Timeline row provider and history/rollback tests |
-
-| Target kind | Companion rule | Protected-set rule | Current-state rule | Inverse order | Changed-field rule | Affected-record order | Deleted-target behavior | Portability behavior |
+| Revisions owner | 55/55 at `.cartulary/test-results/20260810T010435Z-p1284719` |
+| Browser webserver-backed | 62/62 at `.cartulary/test-results/20260810T001952Z-p731068` |
+| Browser stateful | 36/36 at `.cartulary/test-results/20260810T002355Z-p784899` |
+| Fast tests | 353/353 at `.cartulary/test-results/20260810T010912Z-p1333628` |
+| Broad check | 748/748 at `.cartulary/test-results/20260810T011809Z-p1553251` |
+| Release check | 919/919 at `.cartulary/test-results/20260810T014140Z-p2023969` |
+| Final Markdown lint | PASS at `.cartulary/test-results/20260810T015800Z-p2198631` |
+
+Git history retains the obsolete per-file baseline inventory, RS/IMP planning
+tables, closed blockers, and completed binary gates. They are intentionally not
+copied into the active tracker because they no longer govern implementation.
+The append-only WS evidence is preserved in Section 8.
+
+## 3. Live Cleanup Inventory
+
+The following findings were verified against the clean baseline. “Test-only”
+means the production declaration is referenced only to construct or inspect
+test state; “unreferenced” means no caller exists outside its own definition or
+the obsolete path it supports.
+
+| ID | Surface | Areas | Evidence and rationale | Remediation | Long-term benefit | Compatibility | Risk if retained | Completion evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `assessment` | None | Assessment record | Source-owned assessment row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact persisted mutation and revision round trip |
-| `entity_alias` | None | Owning Host or Identity; whole change set required | Source-owned alias state | Reverse sequence in whole-set rollback; create tombstones, delete restores | Preserve current alias fields | Canonical owning-record order | Current collection-provider stale and eligibility rules | Exact persisted mutation round trip |
-| `entity_mention` | Every same-change-set `record_link` is an individual-entry companion | Source record | Source-owned mention and companion state | Mention inverse, then companions in ascending original sequence; whole-set uses global reverse sequence | Mention/source-field and link fields | Canonical source-record order | Current mention/link provider eligibility | Exact mention and companion round trip |
-| `entity_preserved_identifier` | None | Owning Host or Identity; whole change set required | Source-owned preserved-identifier state | Reverse sequence in whole-set rollback; create tombstones | Preserve current identifier fields | Canonical owning-record order | Create is reversible only through whole-set selection | Exact persisted mutation round trip |
-| `evidence` | None | Evidence record | Source-owned Evidence row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact mutation, revision, and evidence-object round trip |
-| `host` | None | Host record | Source-owned Host row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact mutation and revision round trip |
-| `identity` | None | Identity record | Source-owned Identity row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact mutation and revision round trip |
-| `indicator` | Observations and intervals remain separate, not implicit companions | Indicator record | Source-owned Indicator row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact mutation and revision round trip |
-| `indicator_observation` | Source record and before/after resolved Indicator records are affected, not separate mutation companions | Canonical union of source and resolved Indicator record IDs | Source-owned observation state | One provider inverse; global reverse sequence in whole-set rollback | Preserve current observation fields | Canonical record-ID order | Create tombstones; resolve restores prior resolution | Exact observation round trip |
-| `indicator_state_interval` | Indicator is the affected record, not a separate mutation companion | Indicator record | Source-owned interval state | One provider inverse; global reverse sequence in whole-set rollback | Preserve current interval fields | Canonical record-ID order | Create tombstones under current provider rules | Exact interval round trip |
-| `record` | Selected row provider supplies source companions, if any | Target record remains protected where current operation requires it | Source-owned row snapshot plus envelope | Preserve current row-provider inverse order | Preserve exact changed-field calculation | Preserve current result order | Preserve current deleted-row eligibility | Exact mutation and revision round trip for every producing family |
-| `record_link` | Attached-evidence links expose same-change-set row targets as atomic companions | Source and destination records | Source-owned fixed-SQL link state | One provider inverse; global reverse sequence in whole-set rollback | Preserve current link fields | Canonical endpoint-ID order | Create tombstones and delete restores after endpoint validation | Exact link round trip |
-| `record_tag` | None; both target-ID forms identify the same membership | Owning record | Source-owned fixed-SQL tag membership state | One provider inverse; global reverse sequence in whole-set rollback | Preserve current tag fields | Canonical owning-record order | Create tombstones; patch/delete restore | Exact tag round trip without normalizing historical IDs |
-| `timeline_record` | None | Timeline record | Source-owned Timeline row plus envelope | One row inverse; reverse sequence within whole-set rollback | Preserve current row diff fields | Canonical record-ID order | Deleted rows retain current row-provider eligibility | Exact mutation and revision round trip |
+| PRD-001 | `BuildPatchConflictWindowWithDescriptors` and `DecodeRevisionRow` | Implementation, tests, tracker | Unreferenced projection-shaped conflict path contradicts the canonical snapshot/conflict-fact boundary | Delete both; keep only canonical conflict reconstruction and make the writable-field diff helper private | One persisted history interpretation | Internal only | Projection-shaped history can be accidentally revived | DONE in PR-02: symbols absent; canonical conflict and Revisions suites pass |
+| PRD-002 | `NewFieldDescriptorSet` | Implementation, tests, tracker | The unreferenced convenience constructor discards validation failures | Delete it; catalog construction remains the sole validated descriptor-set path | All conflict descriptors pass one validator | Internal only | A future caller can bypass startup closure | DONE in PR-02: symbol absent; resolver negatives and Revisions suites pass |
+| PRD-003 | Snapshot requirements, compiler, and introspection | Implementation, tests, tracker | Test-only production API allows partial catalogs outside the owner package | Keep `NewRecordSnapshotCaptureCatalog(contributions)` as the sole public constructor; keep custom compilation private and use `internal/testutil/revisionsupport` across packages | Production API expresses only current admitted contracts | Internal Go callers migrate without shim | Tests dictate production surface and weaken catalog closure | DONE in PR-03: only the current-contract constructor remains public; cross-owner merge uses full test composition |
+| PRD-004 | Target requirement parsing/compiler and catalog descriptors | Implementation, tests, tracker | Application/test plumbing can select synthetic requirements instead of current contracts | Change `NewTargetSemanticsCatalog` to accept contributions only; keep registry loading, enumeration, and custom compilation private | One fail-closed catalog construction path | Internal only | Callers can compile a partial or synthetic production catalog | DONE in PR-03: current registry loads internally; private negative compiler and portability enumeration pass |
+| PRD-005 | Runtime and catalog introspection getters | Implementation, tests, tracker | Dead or test-only inspection exposes representation instead of capability | Delete getters and validate through package-private or behavioral tests | Smaller application facade and replaceable catalog internals | Internal only | Test conveniences become accidental runtime API | DONE in PR-03: runtime/catalog getters and inspection descriptors are absent; behavioral closure and copying pass |
+| PRD-006 | `ProjectionServices` | Implementation, tests, tracker | The interface embeds only `ProjectionRebuilder` and implies unsupported breadth | Inject `ProjectionRebuilder` directly and rename accessors accordingly | One abstraction per capability | Internal only | Misleading service breadth encourages coupling | DONE in PR-04: Revisions uses `ProjectionRebuilder` directly; delete/restore, rollback, recovery composition, and owner matrices pass |
+| PRD-007 | `LiveRecordChangePolicy` and its constants | Implementation, tests, tracker | Every admitted current record requires routes; `none` is speculative and test-only | Remove the policy field and require at least one validated record-view route | Future record admission has one clear live-change rule | Internal contribution change | Optionality permits partially published record families | DONE in PR-04: policy symbols are absent; ten-record closure and route negatives pass |
+| PRD-008 | `HistoryTargetSemantics` | Implementation, source-owner tests, tracker | A sealed one-implementation interface creates fake extensibility and typed-nil states | Replace it with immutable concrete `HistoryFacet` values built by direct-record and field-association constructors | Value semantics and simpler catalog admission | Source-owner constructor names migrate atomically | Interface suggests unsupported implementation freedom | DONE in PR-04: all fourteen contributions use nonzero immutable `HistoryFacet` values; association and owner suites pass |
+| PRD-009 | Revisions and `rollbackcontract` dispatch enums | Implementation, tests, tracker | Duplicate row/non-row types require conversions and can diverge | Use `rollbackcontract.DispatchClass` and its constants everywhere | One dispatch vocabulary | Internal only | Duplicate enums can drift | DONE in PR-04: no Revisions-local dispatch type or conversion remains; row/non-row rollback and portability suites pass |
+| PRD-010 | `Captured*` APIs and ambiguous revision publication | Implementation, cross-owner tests, tracker | Transitional names hide whether persistence or generic intent publication occurs | Normalize snapshot/mutation/revision names and make persistence-only versus persistence-plus-intent methods explicit | Call sites expose publication ownership | All internal callers migrate in one slice; no alias | Ambiguity invites missed or duplicate publication | DONE in PR-05: old names are absent; explicit persistence-only and persistence-plus-intent calls pass cross-owner exact-once, rollback, replay, transaction, and historical-suppression checks |
+| PRD-011 | Projection-shaped history seeds and candidate terminology | Tests, authored harness inputs, generated projections, tracker | Stale fixtures and transition names teach unsupported storage and admission models | Use canonical envelopes for persisted row-history fixtures; rename tests and fakes to catalog-admission terminology | Tests teach the production model | Test-only | Future changes may treat invalid fixtures as supported history | DONE in PR-02: static fixture/name checks, routed tests, and Make-derived generation checks pass |
+| PRD-012 | Five oversized implementation areas | Implementation, tests, tracker | Multiple failure modes and responsibilities remain co-located in high-conflict files | Split within package along storage/publication, registry/facet/catalog, export/import/validation/sequence, selector/currentness/companions, and row/non-row application seams | Easier review, ownership, testing, and future extension | File movement only | Later changes accumulate in high-conflict files | DONE in PR-06A through PR-06E: all five monoliths are absent; responsibility-named same-package files preserve behavior and ordering |
 
-### 4.9 RB-002 closure evidence
+## 4. Retained Compatibility Matrix
 
-RB-002 remained open until tests proved all of the following:
+| Surface | Decision | Continuing value or owner basis | Prohibited cleanup |
+| --- | --- | --- | --- |
+| Public Revisions HTTP/OpenAPI operations | Retain exactly | Current Base Profile product surface | Route, envelope, guard-order, or selector changes |
+| Collaboration `record_changed` consequences | Retain exactly | Current workbook synchronization behavior | Event suppression, duplication, or payload reinterpretation |
+| Conflict token v3 | Retain exactly | Current security contract | v2 fallback or authentication-secret reuse |
+| Incident Bundle v2 export/import | Retain exactly | Current export format | Version or row reinterpretation |
+| Incident Bundle v1 import | Retain | Core 01 REQ-01-636 requires it; `adopting_stable_release` is null | Removal before every owner sunset condition passes |
+| `.v1` schema IDs | Retain unless an owner removes the schema | They are version identities and may be current inputs to v2 bundles | Name-based deletion |
+| Migration 61 and reset guard | Retain unchanged | Protects admission from pre-remediation mutation rows | Backfill, inference, migration rewrite, or extra reset |
+| Schema-less snapshots/bundles | Continue rejecting | Adopted canonical-history posture | Reader, translator, alias, or fallback |
+| Internal Go compatibility | Remove | No external consumer or deprecation requirement | Alias types, wrapper constructors, or dual methods |
+| Generated artifacts | Retain owner-derived only | Repository generation policy | Hand edits or stale generated rows |
 
-| ID | Required proof |
-| --- | --- |
-| RMR-AC-200 | Every persistable exact target kind has exactly one admitted history contribution and the closed token set matches all live producers. |
-| RMR-AC-201 | Every target preserves current primary/additional association, logical grouping, addressability, selector inputs, item order, action order, and opaque selector results. |
-| RMR-AC-202 | Every reversible target preserves candidate, companion, protected, and affected sets; canonical lock and inverse order; current-state revalidation; changed fields; versions; result order; and errors. |
-| RMR-AC-203 | Empty, missing, duplicate, unknown, typed-nil, incomplete, non-deterministic, cross-owner, and relation-bearing contributions fail before serving. |
-| RMR-AC-204 | Unknown targets and targets with absent rollback facets fail closed and publish no history action or partial mutation. |
-| RMR-AC-205 | Failure injection at provider planning, locking, revalidation, inverse application, history append, projection refresh, event intent, and idempotency persistence leaves no partial state. |
-| RMR-AC-206 | Unauthorized requests do not invoke a target provider; provider errors expose no authored values or unsafe implementation details. |
-| RMR-AC-207 | Static boundary evidence finds no replacement switch, source JSON key, relation mapping, SQL fragment, reflection registry, hook bus, callback map, legacy fallback, or prohibited source/platform import in generic Revisions coordination. |
-| RMR-AC-208 | Source-owner providers use fixed source-owned SQL, and Revisions continues to use fixed Revisions-owned SQL only. |
-| RMR-AC-209 | HTTP, WebSocket, history, rollback, projection, frontend, portability, conflict, generated, and harness behavior remains unchanged. |
+No database, wire, public selector, configuration, domain-vocabulary, or adopted
+specification change is part of this iteration.
 
-WS-10 closed the implementation evidence gate for RMR-AC-200 through
-RMR-AC-208. The focused Revisions, service-backed, nine source-owner, catalog
-negative, failure-injection, security-precedence, lock-order, and static
-boundary evidence cited in the WS-10 checkpoint proves generic row/non-row
-dispatch and exact owner behavior. WS-12 closed RMR-AC-209 through the clean
-browser, broad, and release graphs in its handoff row.
+## 5. Authorized Production-Readiness Workstreams
 
-## 5. Coupling and Boundary Findings
-
-| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
+| Workstream | Depends on | Scope | Principal risk | Exit criteria | Status |
 | --- | --- | --- | --- | --- | --- |
-| Appender bypasses the injected Records boundary for an envelope lookup | Resolved in WS-03: Appender consumes `RecordEnvelopeTxReader`; revision assembly constructs and adapts the Records store | Concrete dependency could evade composition tests and broaden record authority | `fixed` | Records port injected by `internal/app/revisionassembly` | Static import/construction checks plus event, atomicity, and boundary suites pass. |
-| History snapshot helper prefers projections to source snapshots | Resolved in WS-08: canonical source-owner captures are the only row-history shape, and live projection material is supplied separately | Projection-derived history could corrupt retained truth and couple it to disposable views | `fixed` | Source-owner `DeleteRestoreSource.SnapshotTx` through typed capture | Canonical/schema-less negative, rollback, portability, Collaboration, and static projection-read evidence pass. |
-| History addressability embeds source target kinds and JSON field names | Resolved in WS-09: immutable history facets derive indexed association and addressability arrays before persistence | Central JSON interpretation could drift and scale poorly | `fixed` | Source owners through the compiled target-semantics catalog | Indexed generic lookup, deterministic bundle recomputation, migration admission, and static source-key evidence pass. |
-| Rollback components embed source-kind families and special cases | Resolved in WS-10: planner, repository, and applier dispatch only on catalog-provided `row` or `non_row`; owner providers select companions and invert source state | Central switches could partially admit new targets or use stale source assumptions | `fixed` | Immutable target catalog plus row/non-row source providers | Fourteen-entry closure, catalog negatives, exact rollback suites, owner slices, and prohibited-switch searches pass. |
-| Revisions root owns a process-global view-schema lookup adapter | Resolved in WS-04: revision assembly resolves declared IDs and copies descriptors before runtime construction | Startup composition was physically coupled to global state | `fixed` | `internal/app/revisionassembly` platform adapter | Static dependency checks and immutable field-resolver catalog tests pass. |
-| Key-ring parsing optionally reads process environment | Resolved in WS-05: the parser requires an explicit map and server assembly snapshots `os.Environ` only when runtime options omit `Env` | Hidden ambient runtime input complicated deterministic configuration tests | `fixed` | Revisions config parser and server startup adapter | Nil/empty/hostile/explicit resolution and startup slices pass; no `os` import remains in Revisions. |
-| Revisions reads and writes only owner history tables | Backend SQL allowlist and inspected repositories | Low if fixed SQL and allowlist remain exact | `intentional/no_action` | Revisions persistence adapters | Preserve the allowlist and reject dynamic relation metadata. |
-| Dedicated HTTP package imports platform auth/HTTP/pagination and injected visibility adapters | `httpapi/**`, application boundary test, AC-528/AC-529 | Low while source-owner construction terminates in application assembly | `intentional/no_action` | Revisions HTTP adapter | Preserve four-operation mapping and guard precedence; WS-03 removed its concrete Records construction. |
-| Collaboration intent creation remains transaction-bound and delivery-neutral | `Appender` uses injected `IntentAppender`; runtime delivery is outside target | Low if event payload and transaction ordering stay frozen | `intentional/no_action` | Revisions facts plus Collaboration delivery | Preserve one intent per affected live revision and import suppression. |
-| Provider completeness uses a closed catalog | WS-10 removed handwritten record/target owner maps; `provider_contributions.go` compiles exact closure from the generated snapshot and target registries | Low while adopted projections and source contributions must agree before serving | `fixed` | Revisions aggregate catalog downstream of adopted contract projections | Keep fail-closed generated-registry closure and reject duplicate, missing, unexpected, cross-owner, or typed-nil contributions. |
-| Frontend consumes generated HTTP operations and UI selectors outside the target | Timeline history adapter/model/actions/panel and E2E rows | Low for backend-only structural changes; high if wire/event behavior drifts | `intentional/no_action` | Web application/Timeline workbook | Do not move frontend or grid code; retain browser characterization. |
-| Archived tracker claimed the earlier decomposition was complete while the WS-00 baseline retained residual seams | Archived tracker versus the WS-00 Appender, projection, and source-kind evidence | Trusting stale completion could have produced an inaccurate plan | `fixed` | Current tracker | This ledger records the corrected baseline, every serial slice, and final topology. |
+| PR-00 | none | Rebaseline and simplify this tracker; preserve prior WS evidence; define the live cleanup and compatibility decisions | Losing evidence history or turning planning text into behavioral authority | Tracker is decision-complete; Markdown lint and diff/status review pass | DONE |
+| PR-01 | PR-00 | Freeze public/security/portability consequences and complete exact call-site evidence for every deletion | Misclassifying a low-frequency owner surface as dead | Every PRD row is classified with cited call sites/tests and no production change | DONE |
+| PR-02 | PR-01 | Remove dead projection-shaped conflict helpers and stale candidate/projection fixtures | Removing a test helper that masks a real unsupported shape | Canonical conflict path is unique; stale symbols, names, and persisted fixtures are absent | DONE |
+| PR-03 | PR-02 | Remove test-only constructors, requirement APIs, getters, and descriptor surfaces | Weakening negative catalog testing while shrinking production API | Production constructors load current contracts; private compiler negatives and cross-owner tests pass | DONE |
+| PR-04 | PR-03 | Collapse projection, live-policy, history-facet, and dispatch abstractions | Catalog admission or future owner contribution becomes ambiguous | One abstraction exists per concept; ten record and fourteen target closure stays fail-closed | DONE |
+| PR-05 | PR-04 | Normalize snapshot/mutation/revision names and split revision persistence from intent publication | Missing or duplicate Collaboration intents across source owners | Timeline, Evidence, Entity mentions, and Entity merge use persistence-only; other current live revision callers use persistence-plus-intent; no old name remains | DONE |
+| PR-06A | PR-05 | Decompose Appender storage and publication responsibilities | Mechanical movement changes storage/publication order | Old Appender monolith is absent and exact-once suites pass | DONE |
+| PR-06B | PR-06A | Decompose history facets, target registry, catalog compilation, and lookup | Catalog copying or admission changes during movement | Old target-semantics monolith is absent and closure stays fail-closed | DONE |
+| PR-06C | PR-06B | Decompose Incident Bundle models, export, prepare, validation, apply, and sequence handling | Invariant precedence, bytes, or sequence repair changes | Old portability monolith is absent and portability suites pass | DONE |
+| PR-06D | PR-06C | Decompose rollback selector, currentness, companion, and affected-record queries | Selector or companion behavior changes | Old rollback-query monolith is absent and query/planner suites pass | DONE |
+| PR-06E | PR-06D | Decompose rollback row/non-row application and publication | Lock, version, or transaction order changes | Old rollback-apply monolith is absent and failure-injection suites pass | DONE |
+| PR-07 | PR-06E | Reconcile test-family, boundary, and generated topology inputs; add static cleanup checks | Renamed tests become unrouted or generated files are hand-edited | Every test is selectable; harness, boundary, generation, and JSON-shape checks pass | DONE |
+| PR-08 | PR-07 | Run final focused, browser, security, drift, broad, and release validation; close the ledger | Cross-owner or environment-only regression escapes focused slices | Required checks pass or a related failure is rooted and blocking; no cleanup slice remains | DONE |
 
-Generated outputs were regenerated only through Make after their authored
-owner inputs changed. Final generation drift and generated-artifact policy
-checks pass; generated output must never be edited directly.
+### 5.1 Workstream-specific implementation decisions
 
-## 6. Authorized Remediation Workstreams
+- PR-02 deletes `BuildPatchConflictWindowWithDescriptors`,
+  `DecodeRevisionRow`, and `NewFieldDescriptorSet`. It renames
+  `candidate_semantics_test.go` to `catalog_admission_test.go` and replaces
+  persisted `{"cells": ...}` revision fixtures with canonical envelopes.
+- PR-03 keeps `NewRecordSnapshotCaptureCatalog(contributions)` and changes
+  `NewTargetSemanticsCatalog` to the same current-contract constructor shape.
+  Private compiler functions remain available to same-package negative tests.
+  Cross-package tests use `internal/testutil/revisionsupport`.
+- PR-04 replaces `ProjectionServices` with `ProjectionRebuilder`, removes
+  `LiveRecordChangePolicy`, replaces the sealed history interface with
+  `HistoryFacet`, and uses `rollbackcontract.DispatchClass` exclusively.
+- PR-05 performs these exact no-shim renames:
 
-Each row is a separate, serial workstream. Its tracker checkpoint is a hard
-dependency of the following row.
-
-| Workstream | Phase | Depends on | Scope | Exit criteria | Status |
-| --- | --- | --- | --- | --- | --- |
-| WS-00 | Authority and evidence | none | Rebaseline this ledger to the live repository and record the authorized correction/reset posture. | Exact baseline, 73-path inventory, compatibility posture, workstream ledger, Markdown lint, and diff review are recorded. | DONE |
-| WS-01 | Authority and evidence | WS-00 | Complete record-family snapshots and the fourteen-token target matrix; freeze valuable public, portability, event, and security consequences. | No unresolved matrix cells; intentional preservation and correction are evidence-backed. | DONE |
-| WS-02 | Authority and evidence | WS-01 | Adopt the Revisions boundary decision; amend Core 00/01/02/04, domain navigation, authored contracts, and generated projections. | Snapshot schemas, target registry, associations, dispatch, reset policy, and acceptance criteria have one owner and executable projections. | DONE |
-| WS-03 | Independent boundaries | WS-02 | Inject a transaction-bound Records envelope reader into Appender. | No concrete Records construction/import in Revisions; event and atomicity suites pass. | DONE |
-| WS-04 | Independent boundaries | WS-03 | Resolve and copy view-schema conflict descriptors in revision assembly. | No Revisions production import of `platform/viewschema`; catalog negative and conflict suites pass. | DONE |
-| WS-05 | Independent boundaries | WS-04 | Replace ambient conflict-key environment reads with explicit server-assembled input. | No `os` import in Revisions; empty, hostile, rotation, and startup cases pass. | DONE |
-| WS-06 | Typed transition | WS-05 | Add candidate typed snapshot capture, separate live-change input, target facets, compiled catalog, and candidate tests. | Candidate APIs are fail-closed and coexist only as a bounded transition. | DONE |
-| WS-07A | Source contribution | WS-06 | Migrate Assessments. | Owner snapshot schemas, target semantics, rollback behavior, callers, and owner/Revisions slices pass. | DONE |
-| WS-07B | Source contribution | WS-07A | Migrate Parties. | Same owner-slice exit criteria. | DONE |
-| WS-07C | Source contribution | WS-07B | Migrate Artifacts. | Same owner-slice exit criteria. | DONE |
-| WS-07D | Source contribution | WS-07C | Migrate Evidence. | Same owner-slice exit criteria. | DONE |
-| WS-07E | Source contribution | WS-07D | Migrate Timeline. | Same owner-slice exit criteria. | DONE |
-| WS-07F | Source contribution | WS-07E | Migrate Tasks/Decisions. | Same owner-slice exit criteria. | DONE |
-| WS-07G | Source contribution | WS-07F | Migrate Links. | Same owner-slice exit criteria. | DONE |
-| WS-07H | Source contribution | WS-07G | Migrate Indicators. | Same owner-slice exit criteria. | DONE |
-| WS-07I | Source contribution | WS-07H | Migrate Entities. | Ten record families, nine owners, and fourteen target kinds form a complete candidate catalog; every revision caller uses typed captures. | DONE |
-| WS-08 | Atomic cutover | WS-07I | Require canonical snapshots and separate event material; remove arbitrary/projection-first snapshot APIs. | Canonical snapshots are universal; old runtime paths are deleted; reset prerequisite is documented. | DONE |
-| WS-09 | Atomic cutover | WS-08 | Add indexed association facts, generic history lookup, and deterministic bundle-import recomputation. | Arrays are complete/indexed; no target-specific JSON history predicate remains. | DONE |
-| WS-10 | Atomic cutover | WS-09 | Activate provider-driven rollback and remove source-kind branches/special cases. | Revisions branches only on generic row/non-row dispatch; exact public rollback consequences pass. | DONE |
-| WS-11 | Evidence reconciliation | WS-10 | Reconcile authored verification, test-family, boundary, ownership, contract-index, and migration-history inputs; regenerate through Make. | Harness, generated-artifact, JSON-shape, migration, and boundary checks pass. | DONE |
-| WS-12 | Validation and handoff | WS-11 | Run focused, cross-owner, browser, drift, security, migration, finalization, broad, and release checks; close this ledger. | All required checks pass or a related failure is rooted and blocking; no implementation slice remains. | DONE |
-
-## 7. Superseded Planning Slice Reference
-
-The RS-00 through RS-05 material below is retained as historical design and
-test discovery only. Section 6 is the controlling execution sequence. The
-2026-08-09 user authorization supersedes the old separate-authorization and
-parity-preservation gates wherever they conflict with the approved correction
-and reset posture.
-
-### 7.1 Authorization 1: RS-00 characterization only
-
-An RS-00 authorization MUST name the repository baseline and MAY permit only
-characterization tests, fixtures, reusable test support, necessary authored
-verification inputs, and tracker evidence. It MUST require these outputs:
-
-1. the complete per-record-family snapshot parity matrix in Sections 4.3 and
-   4.4;
-2. the exact target-kind and rollback-semantics matrix in Section 4.8;
-3. old/new comparisons made against the same state and transaction;
-4. exact Make run roots and result summaries; and
-5. a stop report for every non-representation difference or incomplete target
-   contribution.
-
-RS-00 MUST NOT change production code, public contracts, database schemas,
-migrations, generated files, package configuration, runtime configuration, or
-runtime behavior. It MUST NOT claim RB-001 or RB-002 closed unless every
-applicable binary criterion passes.
-
-### 7.2 Authorization 2: named production slice
-
-A production authorization MUST state all fields below. An omitted field means
-the authorization is incomplete and production work MUST NOT start.
-
-| Required field | Normative content |
+| Current name | Replacement |
 | --- | --- |
-| Repository baseline | Exact commit and permitted pre-existing worktree changes |
-| Permitted slice | Exactly one of RS-01 through RS-05 by default; RS-02 and RS-03 MUST always be separate tasks |
-| Permitted paths | Closed authored-file set plus expressly permitted tests; generated paths MUST NOT be named as hand-edit targets |
-| Behavior posture | `behavior-preserving`, unless each authorized difference and controlling owner amendment is enumerated |
-| Preconditions | Required blocker closures, characterization run roots, and owner approvals |
-| Stop conditions | First unexpected observable difference, owner contradiction, unlisted file need, failing admission rule, or unapproved schema/contract consequence |
-| Validation | Exact focused, boundary, browser, drift, finalization, and broader Make targets required by risk |
-| Handoff | Required tracker rows, result roots, residual blockers, and rollback state |
+| `CapturedRecordSnapshot` | `RecordSnapshot` |
+| `AppendCapturedRecordMutationParams` | `AppendRecordMutationParams` |
+| `AppendCapturedRecordRevisionParams` | `AppendRecordRevisionParams` |
+| `AppendCapturedRecordMutationTx` | `AppendRecordMutationTx` |
+| `AppendCapturedRecordRevisionOnlyTx` | `AppendRecordRevisionTx` |
+| `AppendCapturedRecordRevisionTx` | `AppendRecordRevisionAndIntentTx` |
 
-An authorization for one slice MUST NOT be treated as authorization for a
-subsequent slice. RS-02 requires RB-001 outcome A. RS-03 requires every
-RMR-AC-200 through RMR-AC-209 matrix precondition that can be established
-before production movement; completion requires all of them.
+Timeline, Evidence, Entity mentions, and Entity merge call
+`AppendRecordRevisionTx` because they compose richer owner-specific
+Collaboration intent sets in the same transaction. Ordinary source-owner live
+mutations and Revisions delete, restore, and rollback call
+`AppendRecordRevisionAndIntentTx`. Transaction-local historical suppression
+continues to prevent imported historical revisions from publishing live
+events.
 
-| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| RS-00 | Separate characterization authorization | Execute the closed snapshot, target-semantics, wire, projection, Collaboration, portability, security, and frontend matrices without production changes | Revisions and source-owner tests, fixtures/test support, applicable Timeline frontend/E2E, necessary authored verification input, this tracker | False baseline if behavior is inferred, old/new state differs, or unknown cells are guessed | All RMR-REQ-100 through RMR-REQ-215 characterization cases and RMR-AC-200 through RMR-AC-209 evidence | `make test-slice OWNER=module.revisions`; `make service-backed-test-slice OWNER=module.revisions`; applicable existing commands in Section 8 | Revert characterization-only additions that assert behavior not owned by adopted requirements; retain only valid evidence | Sections 4.3 and 4.8 contain proven values and run roots; every difference is classified; RB-001/RB-002 statuses are updated without overstating closure. |
-| RS-01 | RS-00 and separate RS-01 authorization | Add a narrow caller-transaction Records envelope-reader dependency to `Appender`; inject the existing revision-assembly Records adapter; remove direct construction/import of the concrete Records store | `internal/modules/revisions/appender.go`, application port if a narrower interface is needed, `internal/app/revisionassembly` | Event incident/type/delete state, changed fields, view routing, transaction ownership | Appender dependency validation, revision-assembly construction, source-owner revision append, delete/restore/rollback event suites | `make test-slice OWNER=module.revisions`; `make service-backed-test-slice OWNER=module.revisions`; `make backend-module-boundary-check` | Revert constructor and adapter changes together; no compatibility shim | No production Revisions path constructs a Records store; event and atomicity behavior is unchanged. |
-| RS-02 | RS-00, RB-001 outcome A, separate RS-02 authorization | Make authoritative source snapshots the sole history/rollback input and remove projection-first snapshot sourcing in one cutover | `projection_port.go`, delete/restore providers, rollback publication/apply, affected source-owner tests | Stored revision JSON, history diffs, rollback restore values, changed fields, affected views | Complete Sections 4.3-4.6 evidence; retained history, rollback, conflict-window, portability, frontend, and event consequences | Focused owner rows plus `make service-backed-test-slice OWNER=module.revisions` and applicable Section 8 commands | Before parity, production stays unchanged. After authorization, revert the single cutover as one unit; no dual path, fallback, shadow mode, or feature flag | Projection reads are absent from authoritative snapshot selection and every frozen behavior passes. Any observable shape change stops the slice and `requires later authorization`. |
-| RS-03 | RS-00, RS-02, completed Section 4.8 matrix, separate RS-03 authorization | Add the immutable two-facet target-semantics catalog, adapt source-owned providers, and remove central source-kind/JSON-key branches | Revisions provider contracts/catalogs, history materializer/repository, rollback planner/apply/query, nine source-owner contribution/provider packages | Stable history refs/actions, companion selection, affected/protected records, rollback legality/order, provider closure | All RMR-AC-200 through RMR-AC-209 tests, including catalog negatives, static prohibitions, security, and failure injection | Relevant owner rows via `make test-slice` and `make service-backed-test-slice`; `make backend-module-boundary-check` | Revert each capability family with its owner contribution; no switch, hook, dynamic relation, or old-path fallback may remain as a compatibility mechanism | Every live kind has one contribution, source semantics are absent from generic coordination, admission stays fail-closed, and RMR-AC-200 through RMR-AC-209 pass. |
-| RS-04 | RS-00 and separate RS-04 authorization | Move the view-schema lookup/snapshot adapter from the Revisions root into revision assembly while retaining the immutable copied conflict-field catalog | `conflict_field_provider.go`, `internal/app/revisionassembly`, source-owner contribution construction as required | View-schema admission, writable flags, conflict classes, startup failure order | Resolver immutability/fail-closed tests, revision-assembly catalog tests, affected source-owner conflict tests | `make test-slice OWNER=module.revisions`; affected source-owner slices; `make backend-module-boundary-check` | Revert composition and contribution signature changes together | Production `internal/modules/revisions` no longer imports the global view-schema registry, and runtime conflict resolution remains immutable. |
-| RS-05 | RS-01, RS-02, RS-03, RS-04 as applicable, plus separate RS-05 authorization | Update authored verification, test-family, or boundary inputs only for new evidence/interfaces; regenerate downstream topology through Make | `contracts/verification/owners/module.revisions.json`, `tools/test_families/module.revisions.json`, `tools/backend_module_boundaries.json`, generated outputs only through generators | False ownership, missing execution, generated drift, hand-edit risk | New rows only where prior evidence cannot select the changed seam | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make harness-contract` | Revert owner input and its generated projection together | Authored inputs and generated outputs agree; no generated file was manually edited. |
-| RS-06 | RS-01, RS-02, RS-03, RS-04, RS-05 | Run focused, applicable browser, static, drift, and broad validation; update the tracker with exact run roots and remaining blockers | Validation artifacts and this tracker | Missed cross-owner, frontend, security, or generation regression | All retained owner rows; browser history/stateful rows when affected | Commands in Section 8, then `make agent-finalize` and broader checks according to risk | Revert the smallest failing structural slice; do not mask failures with compatibility paths | Required commands pass or failures are recorded with run roots and relation to the change; handoff is current. |
+- PR-06A through PR-06E keep all replacement files in
+  `internal/modules/revisions` and the
+  existing `conflicts`, `httpapi`, and consumer-contract subpackages. It does
+  not introduce a registry, callback map, hook bus, dynamic SQL, reflection
+  dispatch, or another bounded context.
 
-## 8. Validation Plan
+## 6. Validation Plan
 
-The commands below were discovered from the live Make task surface and target
-guidance. They are for a separately authorized characterization or production
-task. Every executed command MUST be recorded with its result and run root
-when one is emitted. A command not run MUST be reported as not run; it MUST NOT
-be represented as passing.
+Use the repository-owned task surface and choose the narrowest affected owner
+slice first.
 
-| Validation layer | Command | Scope | Required before implementation? | Notes |
-| --- | --- | --- | --- | --- |
-| unit | `make test-slice OWNER=module.revisions` | Owner-selected non-service-backed Revisions evidence | yes | Establish the RS-00 baseline and rerun after each structural slice. |
-| integration | `make service-backed-test-slice OWNER=module.revisions` | Owner-selected PostgreSQL/application Revisions evidence | yes | Required for history, delete/restore, rollback, portability, or event consequences. |
-| e2e/browser | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful` | History/inspector mutations, refresh, Collaboration, and token-cutover behavior | no | Required when a slice affects wire behavior, selectors, frontend refresh, events, or conflict lifecycle. |
-| generated drift | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` | Authored/generated OpenAPI, protocol, contract, and harness projections | no | Required whenever an authored contract, boundary, verification, or harness input changes. Never edit generated roots directly. |
-| import-boundary/static | `make backend-module-boundary-check` | Revisions imports, source-table/field rules, SQL allowlist, and constructor ownership | yes | Required for every boundary slice; add `make frontend-import-boundary-check` only if frontend boundaries change. |
-| full check | `make agent-finalize`; `make test-fast`; expand to `make check` | Repository-wide closure proportional to cross-owner risk | no | Run finalization before broader end-of-run verification. Supply `RESULTS_DIR` when retaining a successful full warm-check run; otherwise record that retained-run maintenance was skipped. |
+| Layer | Required command or evidence |
+| --- | --- |
+| Owner guidance | `make task-guide ROLE=module-author OWNER=module.revisions` |
+| Revisions focused | `make test-slice OWNER=module.revisions` |
+| Revisions service-backed | `make service-backed-test-slice OWNER=module.revisions` when history, rollback, events, conflict windows, or portability are touched |
+| Source-owner API migration | Affected owner `make test-slice` and `make service-backed-test-slice` |
+| Boundary | `make backend-module-boundary-check` |
+| Harness | `make harness-contract` after authored test-family changes |
+| Generation | `make generate` only after authored input changes, then `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check` |
+| Migration | `make migration-drift`; migration 61 bytes and checksum remain unchanged |
+| Browser | `make browser-e2e-webserver-backed` and `make browser-e2e-stateful` |
+| Security | `make go-vulncheck` and `make go-gosec-targeted` |
+| Finalization | `make agent-finalize` before broad verification; report retained-run maintenance as skipped when `RESULTS_DIR` is unset |
+| Broad | `make test-fast`, `make check`, and `make release-check` |
+| Tracker checkpoint | `make lint-markdown`, `git diff --check`, status review, and complete diff review |
 
-WS-12 executed every applicable layer above plus security, migration, recovery,
-and release verification. Section 10 records the exact final roots, corrected
-intermediate failures, retained-run posture, and final worktree review.
+Static acceptance must find no production or test references to removed
+symbols, no transitional `Captured*`/`candidate` API names, no redundant
+`ProjectionServices` or `LiveRecordChangePolicy`, and no projection-shaped
+JSON inserted into `record_revisions` fixtures. Live Collaboration test values
+under `cells` remain valid and MUST NOT be rejected by this static check.
 
-## 9. Top-Level Work Tracker
+## 7. Risks and Rollback Posture
 
-| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
-| --- | --- | --- | --- | --- | --- | --- |
-| RT-001 | Fix scope, authority, baseline, and allowed write | WF-00 | DONE | none | Section 1 | Target and exclusions are explicit; later implementation is unauthorized. |
-| RT-002 | Inventory all 73 live target files | WF-01 | DONE | RT-001 | Section 2 | Exact target path set and inventory rows match. |
-| RT-003 | Map adopted owners and observable contracts | WF-02 | DONE | RT-001 | Sections 1 and 4 | Every discovered contract has an owner and test posture. |
-| RT-004 | Identify characterization coverage and gaps | WF-03 | DONE | RT-002, RT-003 | Sections 4, 7, and 8 | Each future slice names tests to retain or add. |
-| RT-005 | Classify live boundary and coupling findings | WF-04 | DONE | RT-002, RT-003 | Sections 3 and 5 | Each finding has evidence, risk, classification, owner, and action. |
-| RT-006 | Define facade redesign and safe slice order | WF-05, WF-06 | DONE | RT-004, RT-005 | Sections 6 and 7 | Internal interface intent, dependencies, rollback, and exit criteria are decision-complete. |
-| RT-007 | Discover validation and evidence-accounting commands | WF-07 | DONE | RT-006 | Section 8; Make target guidance | Commands are repository-owned and conditional scope is explicit. |
-| RT-008 | Create and lint the tracker | WF-08 | DONE | RT-001 through RT-007 | This file; Markdown lint result | Tracker exists, lint passes, and only this file is changed. |
-| RT-010 | Convert the tracker to NLSpec-style normative guidance | WF-02, WF-03, WF-05, WF-06 | DONE | RT-008 | `temp/analysis-notes.md`, `docs/research/nlspec-spec.md`, Sections 1, 4, 7, 11, and 12 | Normative requirements, defaults, interface boundaries, blocker dispositions, authorization gates, and binary acceptance criteria are complete and documentation validation passes. |
-| IMP-000 | Execute RS-00 characterization matrices | RS-00 | BLOCKED | RT-010, separate RS-00 authorization | Sections 4.3, 4.4, 4.8, and 4.9 | Every matrix cell is evidence-backed, differences are classified, run roots are recorded, and RB-001/RB-002 statuses are updated. |
-| IMP-001 | Inject Records envelope reader into Appender | RS-01 | DEFERRED | IMP-000, separate RS-01 authorization | Finding in Section 5 | Separate authorized implementation passes focused behavior and boundary checks. |
-| IMP-002 | Remove projection-first history snapshot sourcing | RS-02 | BLOCKED | IMP-000, RB-001 outcome A, separate RS-02 authorization | RMR-REQ-100 through RMR-REQ-112 | Authoritative snapshots replace projection truth in one cutover and all four compatibility layers pass. |
-| IMP-003 | Move source target semantics behind providers | RS-03 | BLOCKED | IMP-000, IMP-002, completed target matrix, separate RS-03 authorization | RMR-REQ-200 through RMR-REQ-215; RMR-AC-200 through RMR-AC-209 | Central semantic switches are absent, admission is fail-closed, and all history/rollback contracts pass. |
-| IMP-004 | Move view-schema snapshot adapter to composition | RS-04 | DEFERRED | IMP-000, separate RS-04 authorization | Platform-coupling finding in Section 5 | Revisions root has no global view-schema dependency. |
-| IMP-005 | Decide key-ring environment fallback ownership | Future planning | DEFERRED | Compatibility characterization, later authorization | Deferred finding in Section 5 | Owner and compatibility posture are explicit before code changes. |
-| IMP-006 | Reconcile authored verification/boundary inputs if needed | RS-05 | DEFERRED | IMP-001 through IMP-004 | Section 8 | Authored and generated projections agree without manual generated edits. |
-| RT-009 | Complete current planning handoff | WF-08 | DONE | RT-008 | Sections 10 through 12 | Session results, blockers, and binary criteria are current. |
-| REM-000 | Execute the authorized remediation | WS-00 through WS-12 | DONE | RT-010 and user authorization dated 2026-08-09 | Sections 1.4, 6, 8, 10, 11, and 12 | Every workstream completed its mandatory checkpoint; WS-12 confirms that no implementation slice remains. |
+| Risk | Mitigation | Rollback boundary |
+| --- | --- | --- |
+| Broad internal API rename misses an owner | Compile all callers in PR-05 and run every affected owner slice before checkpoint | Revert all PR-05 names and callers together; do not add aliases |
+| Private catalog compilers reduce negative coverage | Keep same-package compiler tests and production current-contract construction tests | Revert PR-03 constructor and tests together |
+| Decomposition changes execution order | Move code without algorithm edits; preserve failure-injection and transaction-order tests | Revert the affected PR-06 responsibility split only |
+| Harness selectors drift after test rename | Update authored family rows in PR-07, then regenerate through Make | Revert selector and generated projection together |
+| Version suffix is mistaken for legacy | Enforce Section 4 retain decisions and Core 01 REQ-01-636 | Stop and record an owner contradiction; do not remove the reader |
+| Existing pre-remediation database is used | Preserve migration 61 reset diagnostic | Operator performs the already-documented reset outside this refactor |
 
-The `IMP-*` rows are preserved planning history and are superseded by
-`REM-000` plus the Section 6 ledger. Their old `BLOCKED` and `DEFERRED` states
-must not be used as current execution gates.
+## 8. Append-Only Handoff Log
 
-## 10. Session Handoff Log
-
-The requested output did not exist at the original planning session, so the
-seven 19:47 EDT rows form the initial ledger. This revision preserves those
-rows and appends one 21:26 EDT row to each table. The archived tracker remains
-referenced evidence and is not copied into this ledger.
-
-### Scope and authority
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Scope and authority mapped from live owners; planning only | Inspected framework, domain, Core 00-05, archived tracker, live target; touched only this tracker | `sed`, `rg`, `git rev-parse`, `git status` | Target exists at the requested baseline; output was absent; no owner contradiction found | Production work requires later authorization | Tracker planning is complete; a later authorized task may begin with RS-00. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Tracker requirements are subordinate implementation guidance with explicit normative defaults | Inspected `temp/analysis-notes.md`, `docs/research/nlspec-spec.md`, current tracker, adopted owners, and live repository evidence; touched only this tracker | `sed`, `rg`, `git rev-parse`, `git status`, `git ls-files`, `wc`, `date` | Baseline refreshed; no owner contradiction found; silence now authorizes no behavior or ownership change | RB-003 | Obtain separate RS-00 authorization before changing tests or evidence inputs. |
-
-### Backend module boundary
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Legitimate Revisions bounded context with residual Records, projection-truth, source-switch, and view-schema seams | Inspected all 73 target files, revision/server/config/workbook/timeline assembly, source-owner contributions, backend boundary policy; touched only this tracker | `rg`, `sed`, `jq`, `git ls-files`, `wc`, `make explain-target TARGET=backend-module-boundary-check DETAIL=summary` | Current HTTP/conflict/history/rollback decomposition is retained; remaining findings are classified in Section 5 | RB-001, RB-002, RB-003 | Begin RS-00 only in a later authorized task. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Snapshot authority and target-semantics interface decisions are closed; compatibility and exact target facts remain evidence work | Inspected projection-first snapshot helper, all ten authoritative snapshot adapters, existing delete/restore and rollback contracts, provider contributions, and source-specific history/rollback branches; touched only this tracker | `rg`, `sed`, `git ls-files` | Defined one-source snapshot rule, four-layer parity, two-facet catalog, fail-closed admission, and prohibited replacement patterns without changing code | RB-001 characterization, RB-002 target matrix, RB-003 authorization | Execute RS-00 matrices in a separately authorized characterization task. |
-
-### Frontend module boundary
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Frontend history is an external Timeline-workbook consumer, not part of the Go target | Inspected Timeline history port, generated-operation adapter, model, actions, inspector panel, and browser scenarios; touched only this tracker | `rg`, `sed` | No frontend shell, saved-view, or grid-vendor responsibility belongs in Revisions; browser behavior is frozen | None for planning; later wire/event changes require browser evidence | Preserve frontend files unless an authorized contract change requires them. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Frontend remains an external contract consumer and an exact-compatibility layer | Inspected analysis recommendations and retained Timeline/frontend evidence from the current tracker; touched only this tracker | `sed`, `rg` | Frontend rendering, actions, refresh, selectors, and event consequences are explicit parity gates; no frontend change is proposed | RB-001 if any external consequence differs | Run applicable browser evidence only in an authorized RS-00 or affected production slice. |
-
-### Contract and codegen
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Four HTTP operations, WS consequences, key-ring schema, portability rows, recovery contribution, and generated consumers mapped | Inspected Revisions OpenAPI source, Revisions contracts, Incident Bundle source/row schemas, WS contract, generated policy; touched only this tracker | `jq`, `rg`, `sed`, `make explain-target TARGET=generate-drift DETAIL=summary` | No authored or generated contract change is planned; generated roots remain untouched | Later behavior/schema change requires owner authorization first | Use RS-05 only if implementation adds real evidence or owner-input changes. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Public and portability surfaces remain frozen; incompatible snapshot coexistence has an explicit conditional version rule | Inspected analysis notes, Revisions contract inventory, Incident Bundle posture, and generated-file policy; touched only this tracker | `sed`, `rg`, `git diff HEAD` | No contract or generated change occurred; `snapshot_schema_id` is permitted only after separate owner authorization and MUST NOT be inferred from keys | RB-001 outcome B if incompatibility is observable; RB-003 | Preserve authored and generated inputs unless a later authorization names the change. |
-
-### Tests and harness
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Verification ownership and future validation matrix discovered | Inspected all target tests, `module.revisions` verification owner and 43-row test family, task surface; touched only this tracker | `make help`, `make help-all`, `make task-guide ROLE=module-author OWNER=module.revisions`, `make explain-test-owner OWNER=module.revisions`, relevant `make explain-target` commands, `make lint-markdown` | Markdown lint passed at `.cartulary/test-results/20260807T235305Z-p2110213`; product tests were not run because this is documentation-only | None for tracker completion | Preserve the validation matrix for the later authorized implementation. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Characterization matrices and binary evidence requirements are specified but unexecuted | Inspected analysis notes, NLSpec writing doctrine, current test/harness inventory, and Make guidance; touched only this tracker | `rg`, `sed`, `make lint-markdown`, inventory/traceability shell checks, `git diff --check` | Documentation checks passed; Markdown run root `.cartulary/test-results/20260808T012855Z-p2134753`; product tests were not run because only documentation changed | RB-003 prevents RS-00 test or harness changes | A separately authorized RS-00 task MUST record exact Make run roots and replace the open evidence cells. |
-
-### Security and authorization
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Mutation guard precedence, token v3 lifecycle, secret purpose, and startup admission are contract-frozen | Inspected Core 03/04, HTTP adapter/precedence test, conflict codec/key-ring/config, server startup preflight; touched only this tracker | `rg`, `sed` | Security behavior remains in scope as preserved observable behavior; no security implementation changed | Key-ring nil-env ownership is deferred, not a current blocker | Characterize before any authorized config-boundary change. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Security and transaction ownership are explicit provider prohibitions and acceptance gates | Inspected authorization precedence evidence, provider boundaries, and analysis recommendations; touched only this tracker | `sed`, `rg` | Providers are prohibited from authorization, transaction ownership, unsafe errors/logs, dynamic SQL, and publication; unauthorized calls MUST not reach providers | RB-003; key-ring fallback remains deferred | Add negative provider-invocation and atomic failure evidence only under RS-00/RS-03 authorization. |
-
-### Open risks and next session
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-08-07 19:47 EDT | Codex / revisions planning audit | Tracker captures live residual work without reopening completed historical decomposition | Inspected live/archive delta and current worktree; touched only this tracker | `git log`, `git diff`, `git status`, source searches | Three stable blockers are recorded; no production refactor was performed | RB-001, RB-002, RB-003 | Close documentation validation; a future session starts with RS-00 after explicit authorization. |
-| 2026-08-07 21:26 EDT | Codex / NLSpec-style tracker revision | Documentation decisions are complete; factual parity, the exact target matrix, and all implementation remain intentionally open | Inspected the revised tracker against notes, NLSpec doctrine, live source evidence, diff, and worktree; touched only this tracker | `make lint-markdown`, inventory/traceability checks, `git diff --check`, `git diff HEAD`, `git status --short` | Tracker uses precise normative language, explicit defaults, mapping tables, stop rules, and binary criteria; no production refactor occurred | RB-001, RB-002, RB-003 | Authorize RS-00 separately; do not start RS-02 or RS-03 from this tracker alone. |
-
-### Authorized remediation checkpoints
-
-This table is append-only. It is the current per-workstream handoff ledger;
-the earlier topical tables remain historical evidence.
+The rows below are preserved verbatim from the completed remediation. New PR
+rows append after them.
 
 | Time | Workstream | Status | Files changed | Substantive result and compatibility | Validation and run roots | Blockers, rollback, residual risk | Next workstream |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -811,69 +245,186 @@ the earlier topical tables remain historical evidence.
 | 2026-08-09 20:04 EDT | WS-10 | DONE | Unified target-semantics and snapshot-registry catalogs; Revisions rollback contract, planner, query repository, applier, command composition, and portability validation; Links attached-evidence and Entities mention providers; application revision assembly; catalog, rollback, and isolated owner tests; removed row/non-row rollback catalogs; this tracker | One immutable catalog now supplies exact target lookup, row/non-row dispatch, admitted record providers, owner non-row providers, history facets, and default row restoration targets. Generic Revisions rollback branches only on `row` versus `non_row`; it loads siblings generically while owner providers select companions and whole-set coupling. The applier invokes catalog-selected providers and no longer contains source-kind apply paths. Handwritten record/target owner maps were removed in favor of generated snapshot/target registry closure. Current tokens, opaque selectors, companion order, affected/protected records, lock order, errors, results, events, and version identifiers remain exact; no old runtime dispatch path or compatibility shim remains. | Final format passed at `.cartulary/test-results/20260810T000235Z-p560494`; server build passed at `.cartulary/test-results/20260809T235255Z-p279666`; Revisions slice passed 54/54 at `.cartulary/test-results/20260809T235308Z-p291296`; service-backed Revisions passed 39/39 at `.cartulary/test-results/20260809T235418Z-p327995`; source-owner slices passed: Assessments 26/26 at `.cartulary/test-results/20260809T235522Z-p353592`, Parties 14/14 at `.cartulary/test-results/20260809T235558Z-p380048`, Artifacts 11/11 at `.cartulary/test-results/20260809T235629Z-p402786`, Evidence 57/57 at `.cartulary/test-results/20260809T235639Z-p405493`, Timeline 68/68 at `.cartulary/test-results/20260809T235742Z-p439334`, Tasks/Decisions 20/20 at `.cartulary/test-results/20260809T235851Z-p471236`, Links 14/14 at `.cartulary/test-results/20260809T235925Z-p495742`, Indicators 27/27 at `.cartulary/test-results/20260809T235955Z-p519786`, and Entities 45/45 at `.cartulary/test-results/20260810T000239Z-p563705`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T000415Z-p598157`; Markdown lint passed at `.cartulary/test-results/20260810T000552Z-p599252`. Static searches found no old catalog symbols, source-kind rollback cases, handwritten owner maps, or source target literals in generic production coordination. The initial Entities run failed 44/45 at `.cartulary/test-results/20260810T000014Z-p526923` because an isolated Assessments-only test used the exact production snapshot-catalog constructor; an explicit-requirements candidate constructor corrected the fixture without weakening production closure. | Revert the unified catalog, generic coordinator, owner companion facets, and composition changes together; deleted source dispatch files cannot be restored independently. No public or persisted compatibility change is introduced beyond the already-authorized canonical/reset posture. Final browser, generated, harness, migration-manifest, and broad validation remain intentionally assigned to WS-11/WS-12. RB-002 implementation closure is complete. | WS-11 verification and harness reconciliation. |
 | 2026-08-09 20:18 EDT | WS-11 | DONE | Revisions verification contract and 44-row family; App Server, Entities, Indicators, and Links family manifests; migration-history manifest; Make-generated execution-topology render index; renamed target-semantics catalog tests; migration assertion; this tracker | Reconciled the final topology without making evidence authoritative at runtime. Every newly authored test now has an exact selectable row; the unified catalog tests no longer carry retired row/non-row catalog names. Added dedicated migration-61 verification for fresh admission, canonical array/index facts, reset-required rejection, and failure-before-schema-change. Source-owner contribution and explicit server-environment tests execute in their owning slices. Migration 61 is recorded with its exact checksum. Generated files were changed only by `make generate`; no boundary or schema-owner allowlist expansion was needed. No product compatibility changed. | `make generate` passed at `.cartulary/test-results/20260810T001302Z-p614460`; generate drift passed 4/4 at `.cartulary/test-results/20260810T001321Z-p617010`; generated-artifact policy passed 3/3 at `.cartulary/test-results/20260810T001332Z-p619807`; JSON shape passed 3/3 at `.cartulary/test-results/20260810T001338Z-p620276`; migration drift passed 5/5 at `.cartulary/test-results/20260810T001346Z-p620747`; Revisions passed 55/55 at `.cartulary/test-results/20260810T001555Z-p668652` and service-backed 40/40 at `.cartulary/test-results/20260810T001647Z-p697243`; focused migration passed 3/3 at `.cartulary/test-results/20260810T001512Z-p662388`; new App Server, Entities, Indicators, and Links rows each passed 1/1 at `.cartulary/test-results/20260810T001533Z-p664791`, `.cartulary/test-results/20260810T001538Z-p665746`, `.cartulary/test-results/20260810T001542Z-p666493`, and `.cartulary/test-results/20260810T001547Z-p667499`; harness contract passed 2/2 at `.cartulary/test-results/20260810T001737Z-p722524`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T001744Z-p723076`; format passed at `.cartulary/test-results/20260810T001754Z-p723550`. Initial generation failures at `.cartulary/test-results/20260810T001012Z-p605620`, `.cartulary/test-results/20260810T001044Z-p608361`, and `.cartulary/test-results/20260810T001119Z-p611057` exposed authored verification ordering, cross-package selector placement, and selector ordering and were corrected. The first routed Revisions run failed 54/55 at `.cartulary/test-results/20260810T001357Z-p623540` because the new migration assertion used `pg_am.name`; changing it to `pg_am.amname` closed the dormant test defect. | Revert authored verification/family rows, migration manifest entry, and generated topology index together; do not retain a selector for a removed test. No product blocker remains. A destructive developer-database reset was not run; persistent pre-remediation databases with existing mutation rows still require the documented reset. WS-12 owns browser, security, finalization, broad, release, and final worktree/handoff evidence. | WS-12 validation and handoff completion. |
 | 2026-08-09 21:51 EDT | WS-12 | DONE | Final Revisions, conflict, workbook, Incident Bundle, migration, recovery, specification, contract, generated, ownership, boundary, and harness corrections; this tracker | Validation found that canonical source snapshots alone cannot reconstruct collection-valued conflict cells. Added normalized immutable per-field conflict facts to migration 61 and the append/window path, while keeping them outside row history, rollback, projection, and portable bundle authority. Recovery, schema ownership, migration history, Core 01/02/04, AC-529, and generated projections now carry that final table. Canonical snapshots, indexed generic history, provider rollback, explicit environment resolution, and immutable assembly catalogs remain the only runtime paths. Public routes, selectors, authorization order, history items, rollback results, Collaboration consequences, conflict-token v3, and canonical bundle versions remain exact. | Final Revisions passed 55/55 at `.cartulary/test-results/20260810T010435Z-p1284719`; browser webserver-backed passed 62/62 at `.cartulary/test-results/20260810T001952Z-p731068` and stateful passed 36/36 at `.cartulary/test-results/20260810T002355Z-p784899`; vulnerability and targeted security checks passed 4/4 at `.cartulary/test-results/20260810T002554Z-p811479` and 4/4 at `.cartulary/test-results/20260810T002630Z-p812418`; generation passed at `.cartulary/test-results/20260810T010223Z-p1233658`, drift passed 4/4 at `.cartulary/test-results/20260810T010602Z-p1320408`, generated policy passed 3/3 at `.cartulary/test-results/20260810T010616Z-p1323217`, JSON shape passed 3/3 at `.cartulary/test-results/20260810T010726Z-p1325396`, migration drift passed 5/5 at `.cartulary/test-results/20260810T010734Z-p1325867`, and backend boundary passed 3/3 at `.cartulary/test-results/20260810T010817Z-p1329494`; finalization passed at `.cartulary/test-results/20260810T010858Z-p1330891`, fast tests passed 353/353 at `.cartulary/test-results/20260810T010912Z-p1333628`, the clean broad check passed 748/748 at `.cartulary/test-results/20260810T011809Z-p1553251`, and the clean release check passed 919/919 at `.cartulary/test-results/20260810T014140Z-p2023969`. Markdown lint passed at `.cartulary/test-results/20260810T015708Z-p2197464`; static acceptance searches and Go lint passed. | No product blocker remains. The implementation-related first broad failure at `.cartulary/test-results/20260810T002932Z-p910485` drove the conflict-fact and recovery corrections. Later Jobs timing and object-store/browser transients at `.cartulary/test-results/20260810T011128Z-p1399200`, `.cartulary/test-results/20260810T012008Z-p1632506`, and `.cartulary/test-results/20260810T013124Z-p1830516` were isolated green and superseded by clean full runs. No destructive database reset was executed; operators must reset any persistent pre-remediation database containing mutations. Schema-less snapshots and bundles remain intentionally unsupported. `RESULTS_DIR` was unset, so retained successful-run maintenance was skipped. The intended remediation change set is the only worktree delta. | None; remediation and handoff are complete, and no further implementation slice remains. |
+| 2026-08-09 22:12 EDT | PR-00 | DONE | `docs/handoffs/revisions-module-refactor-tracker.md` | Rebased the tracker to clean `732c2517` and the 75-file package; removed obsolete planning/inventory/blocker prose while preserving WS-00–WS-12 evidence; added the live cleanup inventory, explicit retain/remove decisions, serial workstreams, validation, risks, and binary completion criteria. No product, specification, domain, contract, generated, migration, or implementation behavior changed. | `make lint-markdown` passed at `.cartulary/test-results/20260810T021255Z-p2207086`; `git diff --check`, exact WS-row comparison, status review, and complete diff review passed. | Rollback is this tracker-only rewrite. No product blocker or residual runtime risk exists. PR-01 implementation is not started by this document change. | PR-01 dead-surface characterization, when separately authorized. |
+| 2026-08-09 22:34 EDT | PR-01 | DONE | `docs/handoffs/revisions-module-refactor-tracker.md`; adopted Revisions decision and Core owner sections inspected; Revisions and source-owner call sites classified | Added explicit artifact areas and rationale for all twelve gaps; corrected persistence-only publication ownership to include Timeline, Evidence, Entity mentions, and Entity merge; split the five mechanical decompositions into PR-06A through PR-06E. External behavior, specifications, domain vocabulary, storage, migrations, and generated artifacts remain unchanged. | Owner task guidance passed; Markdown lint passed at `.cartulary/test-results/20260810T023602Z-p2216177`; `git diff --check`, status review, and complete tracker diff passed. | Rollback is the PR-01 tracker refinement only. No owner contradiction exists. The principal residual risk is duplicate publication during PR-05, now closed by the exact call-site matrix and owner-specific validation requirement. | PR-02 dead conflict surface and fixture cleanup. |
+| 2026-08-09 22:47 EDT | PR-02 | DONE | Revisions conflict window and field resolver; canonical snapshot/history, history component, revision-window, rollback, portability allocator, and catalog-admission tests; revision assembly wording/test; authored Revisions test family and Make-generated topology index; this tracker | Deleted the projection-shaped conflict decoder/builder and unchecked descriptor constructor, privatized writable-field diffing, replaced transition-era candidate test/type vocabulary with catalog admission, and made every identified non-null persisted revision seed a canonical `{snapshot_schema_id, record, source}` envelope. A retained-history assertion now recognizes canonical whole-row restore as independently legal after mutation and change-set actions become stale. No specification, public API, storage, migration, event, selector, bundle, or security behavior changed. | Final format passed at `.cartulary/test-results/20260810T024450Z-p2268882`; generation passed at `.cartulary/test-results/20260810T024129Z-p2223265`; harness, generation drift, generated-artifact policy, and JSON shape passed at `.cartulary/test-results/20260810T024145Z-p2225817`, `.cartulary/test-results/20260810T024145Z-p2225743`, `.cartulary/test-results/20260810T024145Z-p2225745`, and `.cartulary/test-results/20260810T024145Z-p2225747`; Revisions passed 55/55 at `.cartulary/test-results/20260810T024457Z-p2272123` and service-backed passed 40/40 at `.cartulary/test-results/20260810T024552Z-p2300820`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T024641Z-p2326079`; Markdown lint passed at `.cartulary/test-results/20260810T024752Z-p2326905`; static symbol/fixture searches and `git diff --check` passed. The initial focused failure at `.cartulary/test-results/20260810T024208Z-p2229406` exposed the stale row-restore assertion and was superseded by the focused 3/3 pass at `.cartulary/test-results/20260810T024435Z-p2267301`. | Revert the PR-02 deletions, test/selector rename, canonical fixture updates, and generated topology projection together; no alias or projection-history fallback exists. Residual risk is confined to the still-public test catalog surfaces owned by PR-03. No blocker remains. | PR-03 production catalog-surface reduction. |
+| 2026-08-09 23:03 EDT | PR-03 | DONE | Revisions canonical snapshot, target-semantics, provider, record/view, command-service, portability validation, and admission tests; revision assembly runtime/tests; Entity merge protected-set tests; reusable Revisions test composition; authored Revisions selector and Make-generated topology index; this tracker | Snapshot and target registry DTOs, loaders, requirement types, custom compilers, and catalog enumeration are now private; the two public constructors always load the current generated contracts. Removed snapshot, target, record/view, and Runtime introspection surfaces and the dead ordered record/view projection. Tests assert declarations, construction, immutable copying, and resolution behavior instead of inspecting runtime state. The Entity merge protected-set path now executes black-box with the full reusable Revisions composition; its internal revalidation test retains only a failure-point stub. Internal Go compatibility was removed atomically; public routes, stored data, migration 61, bundles, selectors, authorization, and Collaboration behavior are unchanged. | Final format passed at `.cartulary/test-results/20260810T025949Z-p2343069`; generation passed at `.cartulary/test-results/20260810T025603Z-p2335621`; focused catalog/runtime rows passed 2/2 at `.cartulary/test-results/20260810T025628Z-p2338190`; Entity merge composition passed 3/3 at `.cartulary/test-results/20260810T030000Z-p2346325`; Revisions passed 55/55 at `.cartulary/test-results/20260810T030023Z-p2348002` and service-backed passed 40/40 at `.cartulary/test-results/20260810T030119Z-p2377491`; harness, generation drift, generated-artifact policy, JSON shape, and backend boundary passed at `.cartulary/test-results/20260810T030207Z-p2402666`, `.cartulary/test-results/20260810T030207Z-p2402576`, `.cartulary/test-results/20260810T030207Z-p2402578`, `.cartulary/test-results/20260810T030207Z-p2402580`, and `.cartulary/test-results/20260810T030207Z-p2402656`; Markdown lint passed at `.cartulary/test-results/20260810T030332Z-p2406762`; static removed-surface searches and `git diff --check` passed. The initial Entity run at `.cartulary/test-results/20260810T025641Z-p2340491` exposed an in-package composition import cycle and was superseded by the black-box full-composition test. | Revert the constructor/privacy cut, runtime simplification, behavioral tests, Entity test split, selector, and generated topology projection together; no partial-catalog constructor or inspection shim remains. Residual risk is limited to the redundant projection/live-policy/history/dispatch abstractions owned by PR-04. No blocker remains. | PR-04 abstraction and type consolidation. |
+| 2026-08-09 23:26 EDT | PR-04 | DONE | Revisions projection port, command composition, record/view admission, target semantics, rollback planner/query/apply, Incident Bundle portability, and tests; projection and revision application assembly; all ten source-owner contributions and affected owner tests; three authored owner selectors and Make-generated topology index; this tracker | Removed the one-member projection-service wrapper and inject `ProjectionRebuilder` directly; removed speculative live-change policy and require every admitted record family to declare a validated route; replaced the sealed history interface and typed-nil admission with immutable nonzero `HistoryFacet` values; and made `rollbackcontract.DispatchClass` the sole row/non-row vocabulary. Ten record families and fourteen target kinds still close fail-closed. These are atomic internal Go migrations with no alias or shim; public routes, authorization, selectors, stored history, migration 61, conflict tokens, bundles, projections, and Collaboration behavior are unchanged. | Format passed at `.cartulary/test-results/20260810T030828Z-p2411040`; generation passed at `.cartulary/test-results/20260810T030846Z-p2414341`; focused catalog/runtime/rollback rows passed 3/3 at `.cartulary/test-results/20260810T030859Z-p2416840`; Revisions passed 55/55 at `.cartulary/test-results/20260810T030920Z-p2420377` and service-backed passed 40/40 at `.cartulary/test-results/20260810T031015Z-p2449665`. Focused owners passed: Artifacts 11/11 at `.cartulary/test-results/20260810T031123Z-p2474993`, Assessments 26/26 at `.cartulary/test-results/20260810T031133Z-p2478314`, Entities 46/46 at `.cartulary/test-results/20260810T031207Z-p2503713`, Evidence 57/57 at `.cartulary/test-results/20260810T031326Z-p2537015`, Indicators 28/28 at `.cartulary/test-results/20260810T031426Z-p2571061`, Links 15/15 at `.cartulary/test-results/20260810T031443Z-p2579005`, Parties 14/14 at `.cartulary/test-results/20260810T031509Z-p2602484`, Tasks/Decisions 20/20 at `.cartulary/test-results/20260810T031538Z-p2625207`, Timeline 68/68 at `.cartulary/test-results/20260810T031608Z-p2649395`, Imports 40/40 at `.cartulary/test-results/20260810T031711Z-p2681212`, and App Server 44/44 at `.cartulary/test-results/20260810T031750Z-p2708870`. Service-backed owners passed: Artifacts 7/7 at `.cartulary/test-results/20260810T031923Z-p2736597`, Assessments 19/19 at `.cartulary/test-results/20260810T031926Z-p2737868`, Entities 42/42 at `.cartulary/test-results/20260810T031959Z-p2761485`, Evidence 46/46 at `.cartulary/test-results/20260810T032104Z-p2792279`, Indicators 13/13 at `.cartulary/test-results/20260810T032157Z-p2819788`, Links 14/14 at `.cartulary/test-results/20260810T032210Z-p2821223`, Parties 14/14 at `.cartulary/test-results/20260810T032239Z-p2843637`, Tasks/Decisions 17/17 at `.cartulary/test-results/20260810T032310Z-p2866086`, Timeline 46/46 at `.cartulary/test-results/20260810T032341Z-p2888510`, Imports 29/29 at `.cartulary/test-results/20260810T032438Z-p2915727`, and App Server 34/34 at `.cartulary/test-results/20260810T032513Z-p2939322`. Harness, generation drift, generated-artifact policy, JSON shape, and backend boundary passed at `.cartulary/test-results/20260810T032549Z-p2961840`, `.cartulary/test-results/20260810T032553Z-p2962228`, `.cartulary/test-results/20260810T032600Z-p2964972`, `.cartulary/test-results/20260810T032601Z-p2965367`, and `.cartulary/test-results/20260810T032604Z-p2965826`; Markdown lint passed at `.cartulary/test-results/20260810T032746Z-p2966719`; static removed-symbol search and `git diff --check` passed. | Revert the projection port/accessor, record-view admission, history-facet contributions, dispatch types, affected tests/selectors, and generated topology projection together; do not reintroduce either wrapper or a typed-nil path. No blocker remains. Residual risk is the ambiguous persistence/publication naming and exact-once owner migration assigned to PR-05. | PR-05 explicit snapshot/revision naming and publication ownership. |
+| 2026-08-09 23:57 EDT | PR-05 | DONE | Revisions snapshot model, Appender, delete/restore, rollback publication/apply, portability validation, and tests; import owner finalization; Timeline, Evidence, Entity mention, Entity merge, and ordinary source-owner revision ports/callers/tests; reusable Revisions assertions; this tracker | Removed the transitional `Captured*` vocabulary and introduced only the explicit `RecordSnapshot`, mutation, persistence-only revision, and revision-plus-intent names authorized by the plan. The shared import finalizer now has distinct persistence-only and persistence-plus-intent entry points, so Evidence cannot satisfy the wrong publication contract accidentally. Timeline, Evidence, Entity mentions, and Entity merge call `AppendRecordRevisionTx`; ordinary owners plus Revisions delete/restore/rollback call `AppendRecordRevisionAndIntentTx`. A reusable database assertion proves exactly one primary `record_changed` intent for every distinct revised record; owner-specific invalidations remain separately asserted. Internal callers migrated atomically without aliases or shims. Public routes, wire/storage contracts, authorization, selectors, conflict-token v3, bundles, migration 61, and event payloads are unchanged. | Formats passed at `.cartulary/test-results/20260810T033307Z-p2970379`, `.cartulary/test-results/20260810T033751Z-p3011366`, `.cartulary/test-results/20260810T034630Z-p3277142`, and `.cartulary/test-results/20260810T034728Z-p3282156`; Revisions passed 55/55 at `.cartulary/test-results/20260810T033318Z-p2973624` before assertion expansion and final 55/55 at `.cartulary/test-results/20260810T033810Z-p3014639`, with service-backed 40/40 at `.cartulary/test-results/20260810T034913Z-p3340192`. Focused owners passed: Artifacts 11/11 at `.cartulary/test-results/20260810T033901Z-p3043652`, Assessments 26/26 at `.cartulary/test-results/20260810T033912Z-p3046985`, Entities 46/46 at `.cartulary/test-results/20260810T033945Z-p3072516`, Evidence 57/57 at `.cartulary/test-results/20260810T034105Z-p3105815`, Indicators 28/28 at `.cartulary/test-results/20260810T034205Z-p3139434`, Links 15/15 at `.cartulary/test-results/20260810T034222Z-p3146900`, Parties 14/14 at `.cartulary/test-results/20260810T034248Z-p3170356`, Tasks/Decisions 20/20 at `.cartulary/test-results/20260810T034317Z-p3193073`, Timeline 68/68 at `.cartulary/test-results/20260810T034348Z-p3217225`, Imports 40/40 at `.cartulary/test-results/20260810T034750Z-p3286880`, and App Server 44/44 at `.cartulary/test-results/20260810T034830Z-p3313030`. Service-backed owners passed: Artifacts 7/7 at `.cartulary/test-results/20260810T035002Z-p3367332`, Assessments 19/19 at `.cartulary/test-results/20260810T035011Z-p3369134`, Entities 42/42 at `.cartulary/test-results/20260810T035043Z-p3393273`, Evidence 46/46 at `.cartulary/test-results/20260810T035202Z-p3425176`, Indicators 13/13 at `.cartulary/test-results/20260810T035302Z-p3454773`, Links 14/14 at `.cartulary/test-results/20260810T035314Z-p3457163`, Parties 14/14 at `.cartulary/test-results/20260810T035340Z-p3479755`, Tasks/Decisions 17/17 at `.cartulary/test-results/20260810T035410Z-p3502363`, Timeline 46/46 at `.cartulary/test-results/20260810T035439Z-p3525260`, Imports 29/29 at `.cartulary/test-results/20260810T035539Z-p3554814`, and App Server 34/34 at `.cartulary/test-results/20260810T035612Z-p3578377`. Harness, generation drift, generated-artifact policy, JSON shape, backend boundary, and migration drift passed at `.cartulary/test-results/20260810T035648Z-p3600885`, `.cartulary/test-results/20260810T035651Z-p3601271`, `.cartulary/test-results/20260810T035658Z-p3604008`, `.cartulary/test-results/20260810T035659Z-p3604409`, `.cartulary/test-results/20260810T035702Z-p3604862`, and `.cartulary/test-results/20260810T035704Z-p3605191`; Markdown lint passed at `.cartulary/test-results/20260810T035850Z-p3608502`; old-symbol/publication-owner static checks and `git diff --check` passed. Imports failures at `.cartulary/test-results/20260810T034454Z-p3248953` and `.cartulary/test-results/20260810T034638Z-p3280369` exposed over-broad assertions that counted legitimate setup and Import-state intents; the unit-change-set-scoped assertion passed 3/3 at `.cartulary/test-results/20260810T034735Z-p3285382` and the full Imports run supersedes both. | Revert the PR-05 names, all callers, the two import-finalizer contracts, and exact-once assertions together; do not retain an alias or ambiguous finalizer. No blocker remains. Residual risk is mechanical ordering drift during the Appender decomposition assigned to PR-06A. | PR-06A Appender decomposition. |
+| 2026-08-10 00:07 EDT | PR-06A | DONE | Removed `internal/modules/revisions/appender.go`; added Appender facade/DTO, change-set storage, mutation storage, revision/conflict-fact storage, and intent-publication files; this tracker | Decomposed the Appender within the existing Revisions package without changing exported signatures, private data flow, SQL, validation, or transaction ownership. The combined method still persists the revision and all conflict facts before consulting historical suppression and appending the Collaboration intent. Snapshot pairing remains shared by mutation and revision storage. No package, owner, behavior, compatibility, storage, or generated surface changed. | Format passed at `.cartulary/test-results/20260810T040233Z-p3611257`; Revisions passed 55/55 at `.cartulary/test-results/20260810T040242Z-p3614498` and service-backed passed 40/40 at `.cartulary/test-results/20260810T040341Z-p3650498`. Focused exact-once seams passed: Assessments 3/3 at `.cartulary/test-results/20260810T040519Z-p3675965`, Entity mention/merge 4/4 at `.cartulary/test-results/20260810T040530Z-p3678184`, Evidence 3/3 at `.cartulary/test-results/20260810T040544Z-p3680496`, Timeline create/replay 4/4 at `.cartulary/test-results/20260810T040557Z-p3682646`, and failed-import atomicity 3/3 at `.cartulary/test-results/20260810T040609Z-p3685481`; their service-backed counterparts passed at `.cartulary/test-results/20260810T040631Z-p3687413`, `.cartulary/test-results/20260810T040634Z-p3688678`, `.cartulary/test-results/20260810T040636Z-p3689947`, `.cartulary/test-results/20260810T040639Z-p3691219`, and `.cartulary/test-results/20260810T040642Z-p3692483`. Backend boundary passed at `.cartulary/test-results/20260810T040651Z-p3693831`; Markdown lint passed at `.cartulary/test-results/20260810T040808Z-p3694576`; the retired-file check and `git diff --check` passed. | Revert the five Appender replacement files and restore the monolith as one mechanical unit. No blocker remains. Residual decomposition risk is limited to target registry/facet/catalog movement in PR-06B. | PR-06B target-semantics decomposition. |
+| 2026-08-10 00:14 EDT | PR-06B | DONE | Removed `internal/modules/revisions/target_semantics.go`; added history-facet, generated-registry loading, catalog facade, catalog compiler, and runtime-lookup files; this tracker | Decomposed target semantics within the existing Revisions package. Public constructors and history capabilities, private requirement/compiler coverage, exact owner/dispatch/record/facet closure, immutable slice copying, typed-nil provider rejection, deterministic target enumeration, default row-target selection, and runtime resolution retain their existing code and ordering. No algorithm, package, owner, contract, compatibility, storage, migration, generated artifact, or external behavior changed. | Format passed at `.cartulary/test-results/20260810T041223Z-p3697439`; Revisions passed 55/55 at `.cartulary/test-results/20260810T041235Z-p3700701`; service-backed Revisions passed 40/40 at `.cartulary/test-results/20260810T041334Z-p3736270`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T041422Z-p3761489`; Markdown lint passed at `.cartulary/test-results/20260810T041532Z-p3762364`. The retired-file and five-replacement-file checks plus `git diff --check` passed; no failure or superseded run exists for this slice. | Revert the five target-semantics replacement files and restore the monolith as one mechanical unit. No blocker remains. Residual decomposition risk is limited to Incident Bundle validation/sequence ordering in PR-06C. | PR-06C Incident Bundle portability decomposition. |
+| 2026-08-10 00:24 EDT | PR-06C | DONE | Removed `internal/modules/revisions/incident_bundle_portability.go`; added portability models, export, parse/prepare, validation, apply, and sequence files; updated the allocator source guard and exact Incident Bundles owner-port boundary paths; this tracker | Decomposed Incident Bundle portability within the existing Revisions package. Export SQL and canonical NDJSON members, attribution translation, strict parse and sort order, invariant ranking and validation precedence, target/history derivation, insert order, terminal-state comparison, actor normalization, and sequence locking/repair retain the existing code and behavior. The boundary manifest replaces the retired single importer path with only the five new files that use the same existing owner port; it adds no wildcard or ownership permission. Bundle v1/v2 support, portable bytes, schema identities, migration 61, storage, public behavior, and internal signatures are unchanged. | Formats passed at `.cartulary/test-results/20260810T041745Z-p3764812`, `.cartulary/test-results/20260810T041836Z-p3792680`, and `.cartulary/test-results/20260810T041959Z-p3833228`. The allocator guard passed 3/3 at `.cartulary/test-results/20260810T042006Z-p3836515`; final Revisions passed 55/55 at `.cartulary/test-results/20260810T042024Z-p3838080`; service-backed Revisions passed 40/40 at `.cartulary/test-results/20260810T042120Z-p3866710`; the complete portability subset passed 7/7 at `.cartulary/test-results/20260810T042222Z-p3892156` and service-backed 5/5 at `.cartulary/test-results/20260810T042230Z-p3893595`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T042332Z-p3896124`; JSON shape passed 3/3 at `.cartulary/test-results/20260810T042340Z-p3896525`; Markdown lint passed at `.cartulary/test-results/20260810T042444Z-p3897446`. Static retired/replacement-file checks and `git diff --check` passed. The first full run at `.cartulary/test-results/20260810T041752Z-p3768072` exposed an omitted moved `uuid` import; the next run at `.cartulary/test-results/20260810T041843Z-p3795968` exposed the allocator guard's retired source path; and the first boundary run at `.cartulary/test-results/20260810T042236Z-p3894978` exposed the exact importer-path projection. All are superseded by the cited green runs. | Revert the six portability replacement files, allocator guard path, and five exact boundary importers together, then restore the monolith and its single importer path. No blocker remains. Residual decomposition risk is limited to rollback selector/currentness/companion movement in PR-06D. | PR-06D rollback-query decomposition. |
+| 2026-08-10 00:30 EDT | PR-06D | DONE | Removed `internal/modules/revisions/rollback_query_repository.go`; added rollback query facade, selector, currentness, companion, and affected-record files; updated the rollback decomposition guard; this tracker | Decomposed rollback queries within the existing Revisions package. Selector SQL and scan order, canonical snapshot/provider validation, later-mutation currentness checks, sibling ordering, provider description and whole-set rules, companion selection, deferred-error adaptation, protected-set fallback, and affected-record canonicalization retain their existing code and call order. The structural test now requires and scans every replacement query component. No algorithm, package, ownership boundary, selector, error, transaction, storage, publication, or external behavior changed. | Formats passed at `.cartulary/test-results/20260810T042629Z-p3899975` and `.cartulary/test-results/20260810T042805Z-p3940147`; the decomposition guard passed 1/1 at `.cartulary/test-results/20260810T042814Z-p3943462`; final Revisions passed 55/55 at `.cartulary/test-results/20260810T042821Z-p3944799`; service-backed Revisions passed 40/40 at `.cartulary/test-results/20260810T042916Z-p3973474`; the focused rollback query/planner subset passed 8/8 at `.cartulary/test-results/20260810T043010Z-p3998691` and service-backed 6/6 at `.cartulary/test-results/20260810T043018Z-p4000128`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T043028Z-p4001515`; Markdown lint passed at `.cartulary/test-results/20260810T043133Z-p4002417`. Static retired/replacement-file checks and `git diff --check` passed. The first full run at `.cartulary/test-results/20260810T042638Z-p3903275` exposed only the decomposition guard's retired file expectation and is superseded by the cited green guard and full runs. | Revert the five rollback-query replacement files and structural guard changes together, then restore the repository monolith. No blocker remains. Residual decomposition risk is limited to row/non-row application and publication ordering in PR-06E. | PR-06E rollback-apply decomposition. |
+| 2026-08-10 00:36 EDT | PR-06E | DONE | Removed `internal/modules/revisions/rollback_apply.go`; added rollback apply coordination, row, non-row, and effect files; expanded the rollback decomposition/publication guard; this tracker | Decomposed rollback application within the existing Revisions package. Expected-version checks and change-set allocation, reverse whole-set dispatch, row restore/mutation flows, non-row describe/apply validation, affected-record snapshot/version advancement, projection rebuild, mutation/revision insertion, and exact-once intent publication retain their existing code and order. The existing publication service remains the sole Appender/projection seam, and the structural guard scans every replacement file for SQL, source dispatch, and seam bypasses. No algorithm, package, ownership boundary, lock/version order, transaction, error, storage, publication, or external behavior changed. | Formats passed at `.cartulary/test-results/20260810T043318Z-p4004907` and `.cartulary/test-results/20260810T043344Z-p4008400`; structural and transaction failure-injection rows passed 4/4 at `.cartulary/test-results/20260810T043354Z-p4011712`; Revisions passed 55/55 at `.cartulary/test-results/20260810T043410Z-p4014207`; service-backed Revisions passed 40/40 at `.cartulary/test-results/20260810T043503Z-p4043729`; the focused rollback set passed 8/8 at `.cartulary/test-results/20260810T043553Z-p4068999` and service-backed 6/6 at `.cartulary/test-results/20260810T043601Z-p4070439`; backend boundary passed 3/3 at `.cartulary/test-results/20260810T043611Z-p4071829`; Markdown lint passed at `.cartulary/test-results/20260810T043714Z-p4072696`. Static retired/replacement-file and publication-seam checks plus `git diff --check` passed; no failure or superseded run exists for this slice. | Revert the four rollback-apply replacement files and structural guard changes together, then restore the apply monolith. No blocker remains. Residual risk is limited to final verification routing/static reconciliation in PR-07. | PR-07 verification topology and static cleanup. |
+| 2026-08-10 00:44 EDT | PR-07 | DONE | Added a Revisions production-readiness cleanup guard, its architecture verification claim and authored family row; Make-generated the execution topology render index; retained the exact Incident Bundles boundary projection; this tracker | Added durable static coverage that requires all responsibility-named components, rejects the six retired files, and rejects obsolete conflict, catalog, projection, live-policy, history-interface, dispatch, and captured-snapshot identifiers in Revisions source. The new row is owner-routed and selectable; renamed catalog-admission and assembly tests remain routed. Generated output changed only through `make generate`. Migration 61 is byte-unchanged, and the persisted-history fixture scan found no top-level projection `cells`; remaining `cells` occurrences are live/conflict or mutation-value material. No product, specification, domain, storage, migration, public, wire, or compatibility behavior changed. | Formats passed at `.cartulary/test-results/20260810T043958Z-p4075569` and `.cartulary/test-results/20260810T044038Z-p4080934`; the cleanup row passed 1/1 at `.cartulary/test-results/20260810T044046Z-p4084242`; generation passed at `.cartulary/test-results/20260810T044055Z-p4085517`; harness contract, generation drift, generated-artifact policy, and JSON shape passed at `.cartulary/test-results/20260810T044117Z-p4088160`, `.cartulary/test-results/20260810T044125Z-p4088618`, `.cartulary/test-results/20260810T044136Z-p4091414`, and `.cartulary/test-results/20260810T044140Z-p4091854`; backend boundary and migration drift passed at `.cartulary/test-results/20260810T044153Z-p4092399` and `.cartulary/test-results/20260810T044201Z-p4092801`; Revisions passed 56/56 at `.cartulary/test-results/20260810T044211Z-p4095590` and service-backed passed 40/40 at `.cartulary/test-results/20260810T044303Z-p4124414`; Markdown lint passed at `.cartulary/test-results/20260810T044548Z-p4150521`. Old-symbol/file, migration-61 diff, persisted-fixture, generated-diff, status, and `git diff --check` reviews passed. The first cleanup-row run at `.cartulary/test-results/20260810T044006Z-p4078884` exposed an over-broad private descriptor match; the corrected exported-type rule is superseded by the cited green row and full run. | Revert the cleanup test, verification claim, authored family row, and Make-generated render-index projection together. No blocker remains. Residual risk is limited to broad/environment validation in PR-08. | PR-08 validation and handoff completion. |
+| 2026-08-10 01:41 EDT | PR-08 | DONE | `docs/handoffs/revisions-module-refactor-tracker.md`; no product, contract, specification, domain, migration, or generated source changed in this validation slice | Completed the end-to-end focused, cross-owner, browser, security, drift, boundary, broad, and release validation. Static acceptance confirms the retired APIs, transitional names, local dispatch vocabulary, candidate identities, and five former monoliths remain absent; the routed cleanup guard and all responsibility-named replacements remain present. Migration 61 is byte-unchanged with baseline/current SHA-256 `75bb79edc6b6acb138419832414ed82bf418127ebd76394412ab6e4bba83ed69`; no migration differs from baseline. Public routes, authorization precedence, selectors, conflict-token v3, Incident Bundle v1/v2 support, schema identities, and Collaboration behavior remain unchanged. `RESULTS_DIR` was unset for finalization, so retained-run maintenance was intentionally skipped. The existing operator warning remains: a pre-remediation database must use the already-documented reset path; this refactor adds no backfill or compatibility reader. | Revisions passed 56/56 at `.cartulary/test-results/20260810T044732Z-p4152758` and service-backed 40/40 at `.cartulary/test-results/20260810T044820Z-p4177919`. Focused/service-backed owner pairs passed: Artifacts 11/11 and 7/7 at `.cartulary/test-results/20260810T044919Z-p9320` and `.cartulary/test-results/20260810T044919Z-p9322`; Assessments 26/26 and 19/19 at `.cartulary/test-results/20260810T044945Z-p13864` and `.cartulary/test-results/20260810T044945Z-p13866`; Entities 46/46 and 42/42 at `.cartulary/test-results/20260810T045102Z-p63076` and `.cartulary/test-results/20260810T045102Z-p63078`; Evidence 57/57 and 46/46 at `.cartulary/test-results/20260810T045338Z-p127259` and `.cartulary/test-results/20260810T045338Z-p127261`; Indicators 28/28 and 13/13 at `.cartulary/test-results/20260810T045540Z-p188463` and `.cartulary/test-results/20260810T045540Z-p188465`; Links 15/15 and 14/14 at `.cartulary/test-results/20260810T045622Z-p197439` and `.cartulary/test-results/20260810T045622Z-p197441`; Parties 14/14 and 14/14 at `.cartulary/test-results/20260810T045729Z-p243523` and `.cartulary/test-results/20260810T045729Z-p243526`; Tasks/Decisions 20/20 and 17/17 at `.cartulary/test-results/20260810T045839Z-p288864` and `.cartulary/test-results/20260810T045839Z-p288866`; Timeline 68/68 and 46/46 at `.cartulary/test-results/20260810T045946Z-p335710` and `.cartulary/test-results/20260810T045946Z-p335712`; Imports 40/40 and 29/29 at `.cartulary/test-results/20260810T050206Z-p394951` and `.cartulary/test-results/20260810T050206Z-p394953`; App Server 44/44 and 34/34 at `.cartulary/test-results/20260810T050329Z-p446322` and `.cartulary/test-results/20260810T050329Z-p446324`. Browser webserver-backed passed 62/62 at `.cartulary/test-results/20260810T050442Z-p496388` and stateful passed 36/36 at `.cartulary/test-results/20260810T050442Z-p496390`. Vulnerability and targeted security passed 4/4 each at `.cartulary/test-results/20260810T051058Z-p576382` and `.cartulary/test-results/20260810T051058Z-p576384`. Harness, generation drift, artifact policy, JSON shape, backend boundary, and migration drift passed at `.cartulary/test-results/20260810T051134Z-p603504`, `.cartulary/test-results/20260810T051134Z-p603430`, `.cartulary/test-results/20260810T051134Z-p603432`, `.cartulary/test-results/20260810T051134Z-p603434`, `.cartulary/test-results/20260810T051134Z-p603494`, and `.cartulary/test-results/20260810T051134Z-p603438`. Agent finalization passed at `.cartulary/test-results/20260810T051200Z-p609797`; fast tests passed 354/354 at `.cartulary/test-results/20260810T051215Z-p612531`; full check passed 749/749 at `.cartulary/test-results/20260810T051409Z-p668620`; final release passed 920/920 at `.cartulary/test-results/20260810T053111Z-p1029842`; Markdown lint passed at `.cartulary/test-results/20260810T054113Z-p1200779`; `git diff --check`, migration/static scans, status, and complete-diff reviews passed. The first release run at `.cartulary/test-results/20260810T051918Z-p809880` timed out two unrelated Timeline browser-support rows under aggregate load (916/920); those exact rows passed in isolation at `.cartulary/test-results/20260810T053027Z-p1005930`, and the cited 920/920 rerun supersedes the timeout. | This slice changes only the execution ledger; its rollback is this appended completion row and status fields. There is no blocker and no remaining remediation risk beyond ordinary future regression risk. Product rollback remains workstream-atomic as recorded in PR-02 through PR-07; no shim or compatibility path is authorized. | None; all production-readiness workstreams and PRD rows are complete. |
 
-## 11. Open Questions and Blockers
+## 9. Binary Completion Criteria
 
-No `BLOCKED: owner contradiction` entry is required because the inspected owner
-documents agree. The following historical items are resolved or converted into
-active workstream gates by the approved remediation posture.
+### 9.1 PR-00 document checkpoint
 
-| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
-| --- | --- | --- | --- | --- |
-| RB-001 | Authoritative source snapshots replace projection-derived/schema-less history. | Public consequences could drift even though storage correction is intentional. | WS-01 characterization, adopted owner amendments in WS-02, and cutover evidence in WS-08. | `CLOSED`; WS-08 completed the authorized correction and retained-consequence validation without a legacy path. |
-| RB-002 | Immutable source-contributed target semantics replace central source vocabulary. | An incomplete matrix could change associations, selectors, companions, protected records, or inverse ordering. | Complete the fourteen-token matrix in WS-01, adopt it in WS-02, and prove exact closure through WS-07I and WS-10. | `CLOSED`; WS-09 completed generic indexed history semantics and WS-10 completed catalog-driven dispatch, owner companion selection, protected/affected sets, inverse ordering, and old-path deletion. |
-| RB-003 | The former documentation-only gate. | It previously prohibited all implementation. | User authorization dated 2026-08-09, with Section 1.4 checkpoints. | `CLOSED / SUPERSEDED`. |
-
-### 11.1 Binary blocker closure
-
-| ID | Blocker | Closure condition |
+| ID | Criterion | Status |
 | --- | --- | --- |
-| RMR-AC-100 | RB-001 | Every Section 4.3 matrix cell is executed against old and candidate readers in the same transaction; every Section 4.4 layer passes; every difference is classified; outcome A, B, or C is recorded with run roots. |
-| RMR-AC-101 | RB-001 | Outcome A is the only behavior-preserving closure. It requires no difference except `representation_only`, no fallback machinery, and explicit evidence for every public and portability consequence. |
-| RMR-AC-102 | RB-001 | Outcome B remains blocked until adopted owners authorize the difference and define migration, versioning, compatibility, and any `snapshot_schema_id` behavior. |
-| RMR-AC-103 | RB-001 | Outcome C remains blocked until the defective owner adapter is repaired separately and the complete matrix is rerun. |
-| RMR-AC-210 | RB-002 | Every formerly open Section 4.8 cell is replaced by cited live evidence, the 14-token set is proven complete, and no source behavior is inferred. |
-| RMR-AC-211 | RB-002 | RMR-AC-200 through RMR-AC-209 all pass with exact run roots and static-search evidence. |
-| RMR-AC-300 | RB-003 | PASS: Section 1 records the baseline, allowed scope, posture, exclusions, checkpoints, and handoff requirements. |
-| RMR-AC-301 | RB-003 | PASS: Section 6 keeps characterization, specification, owner migrations, cutovers, and completion as serial workstreams with independent checkpoints. |
-| RMR-AC-302 | RB-003 | PASS: Section 1.4 enumerates the authorized storage correction, reset posture, rejected legacy shapes, and retained public consequences. |
+| PRD-AC-001 | Baseline commit and 75-file topology are exact. | PASS |
+| PRD-AC-002 | Prior WS-00–WS-12 handoff rows and final validation roots are preserved. | PASS |
+| PRD-AC-003 | Every live cleanup finding has remediation, rationale/benefit, compatibility, unresolved risk, and validation evidence. | PASS |
+| PRD-AC-004 | Retained compatibility has an explicit owner or continuing-value reason. | PASS |
+| PRD-AC-005 | PR-00 through PR-08 have dependencies, risks, exit criteria, and serial checkpoints. | PASS |
+| PRD-AC-006 | `docs/domain.md` is unchanged and remains the pointer-only vocabulary owner. | PASS |
+| PRD-AC-007 | Markdown lint, diff hygiene, and status/diff review pass. | PASS |
 
-## 12. Binary Completion Criteria
+### 9.2 PR-01 characterization checkpoint
 
-Tracker completion now requires implementation closure. WS-12 cannot be marked
-`DONE` while a required slice, blocker, validation result, reset instruction,
-or residual risk is missing.
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-008 | Every PRD row identifies affected artifact areas and rationale. | PASS |
+| PRD-AC-009 | Persistence-only revision callers are exactly Timeline, Evidence, Entity mentions, and Entity merge. | PASS |
+| PRD-AC-010 | PR-06A through PR-06E are separately checkpointed and serial. | PASS |
+| PRD-AC-011 | No adopted owner, domain, storage, migration, wire, or generated change is required. | PASS |
 
-### 12.1 Requirement traceability
+### 9.3 PR-02 canonical-history cleanup checkpoint
 
-| Requirement or criterion range | Controlling owner | Workstream or slice | Required evidence | Current state |
-| --- | --- | --- | --- | --- |
-| RMR-REQ-001 through RMR-REQ-010 | Core 00-04 and Testing Harness owner within their scopes | All workflows and slices | Contract freeze map, owner-selected tests, boundaries, generated policy | PASS; final focused, boundary, generated, broad, and release evidence is recorded in the WS-12 handoff row. |
-| RMR-REQ-100 through RMR-REQ-112 | Core 02 REQ-02-265, plus Core 01/03/04 for external consequences | WS-01, WS-02, WS-06 through WS-09 | Sections 4.3-4.6, history/rollback/conflict/portability/browser evidence | PASS; canonical snapshots and separate normalized conflict facts passed focused, browser, broad, and release verification. |
-| RMR-REQ-200 through RMR-REQ-215 | Core 01 REQ-01-659, Core 02 REQ-02-265, Core 04 AC-529, and source owners | WS-01, WS-02, WS-06 through WS-10 | Section 4.8 and RMR-AC-200 through RMR-AC-209 | PASS; fourteen target kinds, indexed association facts, and provider-driven rollback passed catalog, owner, broad, and release verification. |
-| RMR-AC-100 through RMR-AC-103 | Same as snapshot requirements | WS-01, WS-02, and WS-08 | Same-state old/new comparisons and classified outcomes | PASS through authorized outcome B: WS-01 proved the shape defect, WS-02 adopted canonical correction/reset semantics, and WS-08 removed legacy paths. |
-| RMR-AC-200 through RMR-AC-211 | Same as target-semantics requirements | WS-01, WS-06 through WS-10, and WS-12 | Exact matrix, catalog negatives, equivalence, failure, security, static, and final system evidence | PASS; owner and Revisions slices plus clean 748-unit broad and 919-unit release graphs confirm closure. |
-| RMR-AC-300 through RMR-AC-302 | User task authorization under adopted owners | WS-00 and every workstream checkpoint | Section 1 authorization and Section 6 sequencing | PASS; WS-00 through WS-12 completed serial checkpoints and no implementation slice remains. |
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-012 | Projection-shaped conflict builder/decoder and unchecked descriptor constructor are absent. | PASS |
+| PRD-AC-013 | Writable-field diffing is private to canonical conflict reconstruction. | PASS |
+| PRD-AC-014 | Transition-era candidate test, fake, and selector identities are absent. | PASS |
+| PRD-AC-015 | Persisted `record_revisions` fixtures use canonical snapshot envelopes and no top-level projection `cells`. | PASS |
+| PRD-AC-016 | Authored selector changes are reflected only through Make-owned generation and all drift/harness gates pass. | PASS |
+| PRD-AC-017 | Focused, service-backed, boundary, static, Markdown, and diff-hygiene gates pass. | PASS |
 
-### 12.2 Tracker-document completion
+### 9.4 PR-03 production-surface checkpoint
 
-| ID | Criterion | Status | Evidence |
-| --- | --- | --- | --- |
-| RMR-AC-001 | Every file in `internal/modules/revisions` is inventoried or explicitly out of scope. | PASS | Section 2 contains the exact 73-file baseline and Section 2.1 records five removals plus seven additions; the completed target has exactly 75 files. |
-| RMR-AC-002 | Every discovered public contract risk has an owner and test posture. | PASS | Section 4 maps HTTP, authorization, history, source providers, projection, WebSocket, conflicts, portability, recovery, frontend, generated, and harness surfaces. |
-| RMR-AC-003 | Every proposed workflow has dependencies and exit criteria. | PASS | Section 6 defines WS-00 through WS-12 with serial dependencies, exit criteria, and mandatory checkpoints. |
-| RMR-AC-004 | Every preserved behavior or authorized correction has an explicit compatibility posture. | PASS | Section 1.4 freezes valuable external consequences and authorizes canonical-history correction plus pre-production reset. |
-| RMR-AC-005 | Validation commands are discovered or marked unresolved with a reason. | PASS | Section 8 records Make-owned focused, browser, drift, boundary, and broader commands. |
-| RMR-AC-006 | Contradictions are marked `BLOCKED: owner contradiction`. | PASS | No owner contradiction was found; repository deviations are findings and Section 11 defines the mandatory conflict posture. |
-| RMR-AC-007 | Repository/framework mismatches are recorded as planning findings. | PASS | Sections 1, 3, and 5 distinguish the 73-file live decomposition from generic and archived evidence. |
-| RMR-AC-008 | Snapshot sourcing has a complete decision rule, explicit defaults, closed matrices, difference taxonomy, and binary outcomes without claiming parity. | PASS | Sections 4.2-4.6 and RB-001. |
-| RMR-AC-009 | Target semantics has an unambiguous two-facet interface, closed ownership, fail-closed defaults, exhaustive current-token set, prohibited alternatives, and binary tests without guessing open evidence. | PASS | Sections 4.7-4.9 and RB-002. |
-| RMR-AC-010 | Characterization and production have separate, complete authorization templates and stop conditions. | PASS | Sections 7.1, 7.2, and RB-003. |
-| RMR-AC-011 | Handoff sections preserve prior history and contain a current row for all seven workstream-specific tables. | PASS | Section 10 retains the seven prior rows and adds exactly one current-session row to each table. |
-| RMR-AC-012 | Markdown lint, diff hygiene, exact inventory comparison, requirement traceability, and worktree-scope checks pass. | PASS | WS-12 reran Markdown lint after completing this ledger; exact inventory, static acceptance searches, `git diff --check`, diff review, and final status review passed with only the intended remediation change set present. |
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-018 | Snapshot catalog production construction can load only the current generated registry. | PASS |
+| PRD-AC-019 | Target-semantics production construction can load only the current generated registry. | PASS |
+| PRD-AC-020 | Requirement/parser/compiler types remain private while same-package negative coverage passes. | PASS |
+| PRD-AC-021 | Snapshot, target, record/view, and Runtime inspection getters/descriptors are absent. | PASS |
+| PRD-AC-022 | Ten record families, fourteen target kinds, route behavior, and immutable copying remain fail-closed. | PASS |
+| PRD-AC-023 | Entity merge uses the full reusable test composition without an import cycle or synthetic catalog. | PASS |
+| PRD-AC-024 | Focused, service-backed, harness, generation, boundary, static, Markdown, and diff gates pass. | PASS |
 
-The remediation is complete. Persistent databases containing pre-remediation
-mutation rows require the documented reset before startup; no destructive reset
-was performed during this work. No legacy reader, translator, fallback, shadow
-path, or historical-shape inference remains. No further implementation
-workstream remains.
+### 9.5 PR-04 abstraction checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-025 | Revisions consumers inject `ProjectionRebuilder` directly and old projection-service accessors are absent. | PASS |
+| PRD-AC-026 | Every admitted current record contribution supplies at least one validated record-view route without a speculative live-change policy. | PASS |
+| PRD-AC-027 | Every target contribution supplies a nonzero immutable `HistoryFacet`; direct and field-association behavior remains exact. | PASS |
+| PRD-AC-028 | `rollbackcontract.DispatchClass` is the sole row/non-row dispatch type in Revisions. | PASS |
+| PRD-AC-029 | Ten-record and fourteen-target catalog closure, route negatives, immutable copying, and owner contribution tests pass. | PASS |
+| PRD-AC-030 | Revisions plus every affected focused and service-backed source-owner slice pass. | PASS |
+| PRD-AC-031 | Format, generation, harness, drift, boundary, static, Markdown, and diff-hygiene gates pass. | PASS |
+
+### 9.6 PR-05 publication-ownership checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-032 | `RecordSnapshot`, record mutation, persistence-only revision, and revision-plus-intent are the only current record-history API names. | PASS |
+| PRD-AC-033 | Timeline, Evidence, Entity mentions, and Entity merge use only `AppendRecordRevisionTx`. | PASS |
+| PRD-AC-034 | Ordinary live owner mutations plus Revisions delete, restore, and rollback use only `AppendRecordRevisionAndIntentTx`. | PASS |
+| PRD-AC-035 | Every distinct revised primary record has exactly one database `record_changed` intent while richer owner invalidations remain exact. | PASS |
+| PRD-AC-036 | Transaction rollback adds no owner-unit record-change intent; idempotent replay adds none; imported historical revisions remain suppressed. | PASS |
+| PRD-AC-037 | No old `Captured*` identifier, alias, wrapper, dual path, or fallback remains in Go code. | PASS |
+| PRD-AC-038 | Focused and service-backed Revisions/source-owner matrices plus harness, drift, boundary, migration, static, and diff gates pass. | PASS |
+
+### 9.7 PR-06A Appender decomposition checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-039 | The former `appender.go` monolith is absent and five responsibility-named same-package files replace it. | PASS |
+| PRD-AC-040 | Appender DTOs, constructor, exported methods, SQL, and private call graph retain their PR-05 signatures and behavior. | PASS |
+| PRD-AC-041 | Revision storage, conflict-fact storage, historical suppression, and intent publication retain their exact order. | PASS |
+| PRD-AC-042 | Full Revisions and focused/service-backed exact-once transaction seams pass. | PASS |
+| PRD-AC-043 | Format, boundary, retired-file, Markdown, diff, status, and complete workstream review gates pass. | PASS |
+
+### 9.8 PR-06B target-semantics decomposition checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-044 | The former `target_semantics.go` monolith is absent and five responsibility-named same-package files replace it. | PASS |
+| PRD-AC-045 | History facets and their immutable value semantics are isolated without changing association or addressability behavior. | PASS |
+| PRD-AC-046 | Generated-registry loading and identity validation are isolated from catalog compilation. | PASS |
+| PRD-AC-047 | Catalog admission remains exact and fail-closed for fourteen targets, row/non-row providers, owner identity, and record types. | PASS |
+| PRD-AC-048 | Runtime lookup and deterministic portability enumeration retain their signatures and behavior. | PASS |
+| PRD-AC-049 | Format, full focused/service-backed Revisions, boundary, retired-file, Markdown, diff, status, and workstream review gates pass. | PASS |
+
+### 9.9 PR-06C Incident Bundle portability decomposition checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-050 | The former `incident_bundle_portability.go` monolith is absent and six responsibility-named same-package files replace it. | PASS |
+| PRD-AC-051 | Canonical export members, ordering, attribution, and Incident Bundle v1/v2 compatibility remain exact. | PASS |
+| PRD-AC-052 | Strict parsing, reference/actor checks, and deterministic invariant precedence remain exact. | PASS |
+| PRD-AC-053 | Target/history validation, insert order, terminal-state validation, and transaction atomicity remain exact. | PASS |
+| PRD-AC-054 | Revision sequence locking, repair, rollback behavior, and runtime `setval` guard remain exact. | PASS |
+| PRD-AC-055 | The boundary manifest names only the replacement files that use the existing Incident Bundles owner port. | PASS |
+| PRD-AC-056 | Format, full and portability-focused Revisions, service-backed, boundary, JSON-shape, retired-file, Markdown, diff, status, and workstream review gates pass. | PASS |
+
+### 9.10 PR-06D rollback-query decomposition checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-057 | The former `rollback_query_repository.go` monolith is absent and five responsibility-named same-package files replace it. | PASS |
+| PRD-AC-058 | History-entry, change-set, and row-restore selectors retain exact SQL, scan order, and not-found behavior. | PASS |
+| PRD-AC-059 | Canonical row validation and later-mutation currentness precedence remain exact. | PASS |
+| PRD-AC-060 | Sibling loading, provider description, whole-set coupling, and companion selection remain exact. | PASS |
+| PRD-AC-061 | Protected-set fallback and affected-record derivation remain deterministic and fail closed. | PASS |
+| PRD-AC-062 | Format, full and rollback-focused Revisions, service-backed, boundary, structural, retired-file, Markdown, diff, status, and workstream review gates pass. | PASS |
+
+### 9.11 PR-06E rollback-apply decomposition checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-063 | The former `rollback_apply.go` monolith is absent and four responsibility-named same-package files replace it. | PASS |
+| PRD-AC-064 | Expected-version checks, reverse whole-set dispatch, and row/non-row application order remain exact. | PASS |
+| PRD-AC-065 | Snapshot capture, version advancement, projection rebuild, history insertion, and publication order remain atomic. | PASS |
+| PRD-AC-066 | Replacement appliers contain no SQL, source-kind dispatch, direct Appender access, or projection-seam bypass. | PASS |
+| PRD-AC-067 | Transaction failure injection and exact-once record-change publication remain green. | PASS |
+| PRD-AC-068 | Format, full and rollback-focused Revisions, service-backed, boundary, structural, retired-file, Markdown, diff, status, and workstream review gates pass. | PASS |
+
+### 9.12 PR-07 verification topology and static cleanup checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-069 | Renamed and newly added Revisions tests have active authored selectors and execute through the owner slice. | PASS |
+| PRD-AC-070 | A routed architecture guard requires every replacement component and rejects retired files and identifiers. | PASS |
+| PRD-AC-071 | The execution-topology render index is derived only through `make generate`. | PASS |
+| PRD-AC-072 | Harness contract, generation drift, generated-artifact policy, JSON shape, and backend boundary pass. | PASS |
+| PRD-AC-073 | Migration 61 is unchanged and migration drift passes. | PASS |
+| PRD-AC-074 | No persisted `record_revisions` fixture contains top-level projection `cells`; legitimate live/conflict and mutation-value material remains. | PASS |
+| PRD-AC-075 | Format, full focused/service-backed Revisions, static, Markdown, diff, status, and complete workstream review gates pass. | PASS |
+
+### 9.13 PR-08 validation and handoff checkpoint
+
+| ID | Criterion | Status |
+| --- | --- | --- |
+| PRD-AC-076 | Final focused and service-backed Revisions plus every affected source-owner and App Server slice pass. | PASS |
+| PRD-AC-077 | Webserver-backed and stateful browser suites pass. | PASS |
+| PRD-AC-078 | Vulnerability, targeted security, harness, generation drift, artifact policy, JSON shape, boundary, and migration gates pass. | PASS |
+| PRD-AC-079 | Agent finalization passes with `RESULTS_DIR` unset and retained-run maintenance explicitly reported as skipped. | PASS |
+| PRD-AC-080 | Fast, full check, and release gates pass; the first release timeout is rooted and superseded by isolated and aggregate green evidence. | PASS |
+| PRD-AC-081 | Retired symbols/files and invalid persisted fixtures remain absent; migration 61 remains byte-unchanged. | PASS |
+| PRD-AC-082 | No specification, domain, storage, migration, public route, wire contract, authorization, selector, conflict-token, or bundle compatibility changed. | PASS |
+| PRD-AC-083 | Final Markdown, diff, status, complete-diff, and append-only tracker closure review passes. | PASS |
+
+### 9.14 Iteration completion
+
+The iteration is complete. Final evidence confirms:
+
+- every PRD cleanup row is closed with cited tests and static evidence;
+- public routes, authorization precedence, history references, rollback
+  outcomes, Collaboration events, conflict-token v3, and Incident Bundle
+  behavior remain exact;
+- Incident Bundle v1 import remains until its owner sunset gate is satisfied;
+- migration 61 remains unchanged and no new compatibility path exists;
+- generated outputs, if any, come only from Make-owned generation;
+- PR-01 through PR-05, PR-06A through PR-06E, and PR-07 through PR-08 are
+  `DONE` with append-only checkpoint rows;
+- final focused, browser, security, drift, broad, and release gates pass; the
+  first release timeout is explicitly rooted and superseded; and
+- no cleanup or remediation slice remains.
+
+PR-00 was the documentation-only checkpoint. PR-01 through PR-08 are now
+closed, and later work requires a new owner-authorized iteration.

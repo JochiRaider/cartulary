@@ -226,7 +226,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}
 	beforeVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, record.RowVersion)
 	afterVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, nextRowVersion)
-	if err := s.appender.AppendCapturedRecordMutationTx(ctx, tx, AppendCapturedRecordMutationParams{
+	if err := s.appender.AppendRecordMutationTx(ctx, tx, AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -239,7 +239,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.appender.AppendCapturedRecordRevisionTx(ctx, tx, AppendCapturedRecordRevisionParams{
+	if err := s.appender.AppendRecordRevisionAndIntentTx(ctx, tx, AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       record.RecordID,
 		RowVersion:     nextRowVersion,

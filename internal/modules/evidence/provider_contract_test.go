@@ -69,7 +69,6 @@ func TestEvidenceSourceOwnerContributionsRemainExact(t *testing.T) {
 		record := contribution.Records[0]
 		if record.SourceOwnerModule != revisions.SourceOwnerEvidence ||
 			record.RecordType != "evidence" ||
-			record.LiveRecordChangePolicy != revisions.LiveRecordChangeRequired ||
 			record.DeleteRestoreSource == nil ||
 			record.RowRollbackProvider == nil {
 			t.Fatalf("unexpected Evidence revision record contribution: %#v", record)

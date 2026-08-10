@@ -577,7 +577,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestRevisionProviderContributionOwnsEntityHistorySemantics_Unit"
+          "TestRevisionProviderContributionOwnsEntityHistoryFacet_Unit"
         ]
       },
       "evidence_class": "unit",

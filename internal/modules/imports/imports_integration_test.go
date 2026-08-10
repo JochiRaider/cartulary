@@ -1009,7 +1009,6 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 			"DROP FUNCTION IF EXISTS public.fail_import_journal_timeline_rs04()",
 		)
 	})
-
 	applyResp := doImportJSON(
 		t,
 		harness.Server.HTTP.URL,
@@ -1043,6 +1042,18 @@ EXECUTE FUNCTION public.fail_import_journal_timeline_rs04()
 		if got := dbassert.CountSQL(t, harness.DB, query, args...); got != 0 {
 			t.Fatalf("%s survived failed Timeline unit transaction: %d", table, got)
 		}
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `
+SELECT COUNT(*)
+  FROM collaboration_event_intents intent
+  JOIN change_sets change_set
+    ON change_set.change_set_id = intent.source_change_set_id
+ WHERE change_set.incident_id::text = $1
+   AND change_set.source = 'imports.apply'
+   AND change_set.client_txn_id = $2
+   AND intent.event_family = 'record_changed'
+`, incidentID, "import:"+sessionID+":"+unitID+":txn-extension_profile-import-timeline-rollback-apply"); got != 0 {
+		t.Fatalf("failed Timeline owner transaction retained %d record-change intents", got)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -19,13 +17,13 @@ import (
 var (
 	ErrMissingSnapshotCapture     = errors.New("revisions: missing snapshot capture")
 	ErrDuplicateSnapshotCapture   = errors.New("revisions: duplicate snapshot capture")
-	ErrInvalidCapturedSnapshot    = errors.New("revisions: invalid captured snapshot")
+	ErrInvalidRecordSnapshot      = errors.New("revisions: invalid record snapshot")
 	ErrSnapshotRecordTypeMismatch = errors.New("revisions: snapshot record type mismatch")
 )
 
-const SnapshotSchemaRegistrySchemaID = "cartulary.revisions_snapshot_schema_registry.v1"
+const snapshotSchemaRegistrySchemaID = "cartulary.revisions_snapshot_schema_registry.v1"
 
-type SnapshotSchemaRequirement struct {
+type snapshotSchemaRequirement struct {
 	RecordType       string
 	SourceOwner      SourceOwnerModule
 	SnapshotSchemaID string
@@ -43,43 +41,43 @@ type snapshotSchemaRegistryEntry struct {
 	SnapshotSchemaID string            `json:"snapshot_schema_id"`
 }
 
-func ParseSnapshotSchemaRequirements(data []byte) ([]SnapshotSchemaRequirement, error) {
+func parseSnapshotSchemaRequirements(data []byte) ([]snapshotSchemaRequirement, error) {
 	var registry snapshotSchemaRegistry
 	if err := json.Unmarshal(data, &registry); err != nil {
-		return nil, fmt.Errorf("%w: decode snapshot registry: %v", ErrInvalidCapturedSnapshot, err)
+		return nil, fmt.Errorf("%w: decode snapshot registry: %v", ErrInvalidRecordSnapshot, err)
 	}
-	if registry.SchemaID != SnapshotSchemaRegistrySchemaID || registry.RegistryVersion != 1 || len(registry.Schemas) == 0 {
-		return nil, fmt.Errorf("%w: snapshot registry identity", ErrInvalidCapturedSnapshot)
+	if registry.SchemaID != snapshotSchemaRegistrySchemaID || registry.RegistryVersion != 1 || len(registry.Schemas) == 0 {
+		return nil, fmt.Errorf("%w: snapshot registry identity", ErrInvalidRecordSnapshot)
 	}
-	requirements := make([]SnapshotSchemaRequirement, 0, len(registry.Schemas))
+	requirements := make([]snapshotSchemaRequirement, 0, len(registry.Schemas))
 	for _, entry := range registry.Schemas {
-		requirements = append(requirements, SnapshotSchemaRequirement(entry))
+		requirements = append(requirements, snapshotSchemaRequirement(entry))
 	}
 	return requirements, nil
 }
 
-func CurrentSnapshotSchemaRequirements() ([]SnapshotSchemaRequirement, error) {
+func currentSnapshotSchemaRequirements() ([]snapshotSchemaRequirement, error) {
 	artifact, ok := contractrevisions.Index["contracts/revisions/snapshot-schema-registry.v1.json"]
 	if !ok {
 		return nil, ErrMissingSnapshotCapture
 	}
-	return ParseSnapshotSchemaRequirements([]byte(artifact.JSON))
+	return parseSnapshotSchemaRequirements([]byte(artifact.JSON))
 }
 
-// CapturedRecordSnapshot is an opaque, validated canonical history value.
+// RecordSnapshot is an opaque, validated canonical history value.
 // Only Appender capture can create a present value.
-type CapturedRecordSnapshot struct {
+type RecordSnapshot struct {
 	recordID         uuid.UUID
 	recordType       string
 	snapshotSchemaID string
 	value            map[string]any
 }
 
-func (snapshot CapturedRecordSnapshot) SnapshotSchemaID() string {
+func (snapshot RecordSnapshot) SnapshotSchemaID() string {
 	return snapshot.snapshotSchemaID
 }
 
-func (snapshot CapturedRecordSnapshot) RecordID() uuid.UUID {
+func (snapshot RecordSnapshot) RecordID() uuid.UUID {
 	return snapshot.recordID
 }
 
@@ -97,25 +95,21 @@ type RecordSnapshotCaptureCatalog struct {
 // NewRecordSnapshotCaptureCatalog requires exact source-owner closure for all
 // admitted record families before any revision writer can be constructed.
 func NewRecordSnapshotCaptureCatalog(contributions []ProviderContribution) (*RecordSnapshotCaptureCatalog, error) {
-	requirements, err := CurrentSnapshotSchemaRequirements()
+	requirements, err := currentSnapshotSchemaRequirements()
 	if err != nil {
 		return nil, err
 	}
-	return NewRecordSnapshotCaptureCatalogForRequirements(contributions, requirements)
+	return compileRecordSnapshotCaptureCatalog(contributions, requirements)
 }
 
-// NewRecordSnapshotCaptureCatalogForRequirements compiles an exact catalog for
-// an explicitly supplied contract projection. Production composition uses
-// NewRecordSnapshotCaptureCatalog; candidate and isolated owner tests can use
-// this constructor without weakening current-catalog closure.
-func NewRecordSnapshotCaptureCatalogForRequirements(contributions []ProviderContribution, requirements []SnapshotSchemaRequirement) (*RecordSnapshotCaptureCatalog, error) {
-	required := make(map[string]SnapshotSchemaRequirement, len(requirements))
+func compileRecordSnapshotCaptureCatalog(contributions []ProviderContribution, requirements []snapshotSchemaRequirement) (*RecordSnapshotCaptureCatalog, error) {
+	required := make(map[string]snapshotSchemaRequirement, len(requirements))
 	for _, requirement := range requirements {
 		requirement.RecordType = strings.TrimSpace(requirement.RecordType)
 		requirement.SnapshotSchemaID = strings.TrimSpace(requirement.SnapshotSchemaID)
 		if requirement.RecordType == "" || requirement.SourceOwner == "" || requirement.SnapshotSchemaID == "" ||
 			!strings.HasPrefix(requirement.SnapshotSchemaID, "cartulary.revisions.snapshot.") {
-			return nil, fmt.Errorf("%w: invalid snapshot requirement for record type %q", ErrInvalidCapturedSnapshot, requirement.RecordType)
+			return nil, fmt.Errorf("%w: invalid snapshot requirement for record type %q", ErrInvalidRecordSnapshot, requirement.RecordType)
 		}
 		if _, duplicate := required[requirement.RecordType]; duplicate {
 			return nil, fmt.Errorf("%w: record type %q", ErrDuplicateSnapshotCapture, requirement.RecordType)
@@ -135,7 +129,7 @@ func NewRecordSnapshotCaptureCatalogForRequirements(contributions []ProviderCont
 				strings.TrimSpace(record.RecordType) == "" ||
 				nilDeleteRestoreSource(record.DeleteRestoreSource) ||
 				schemaID != requirement.SnapshotSchemaID {
-				return nil, fmt.Errorf("%w: record type %q schema %q", ErrInvalidCapturedSnapshot, record.RecordType, schemaID)
+				return nil, fmt.Errorf("%w: record type %q schema %q", ErrInvalidRecordSnapshot, record.RecordType, schemaID)
 			}
 			if _, duplicate := catalog.byRecordType[record.RecordType]; duplicate {
 				return nil, fmt.Errorf("%w: record type %q", ErrDuplicateSnapshotCapture, record.RecordType)
@@ -154,44 +148,32 @@ func NewRecordSnapshotCaptureCatalogForRequirements(contributions []ProviderCont
 		}
 	}
 	if len(catalog.byRecordType) != len(required) {
-		return nil, fmt.Errorf("%w: unexpected record snapshot capture", ErrInvalidCapturedSnapshot)
+		return nil, fmt.Errorf("%w: unexpected record snapshot capture", ErrInvalidRecordSnapshot)
 	}
 	return catalog, nil
-}
-
-func (catalog *RecordSnapshotCaptureCatalog) DeclaredRecordTypes() []string {
-	if catalog == nil {
-		return nil
-	}
-	result := make([]string, 0, len(catalog.byRecordType))
-	for recordType := range catalog.byRecordType {
-		result = append(result, recordType)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func (catalog *RecordSnapshotCaptureCatalog) captureTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	envelope RecordEnvelope,
-) (CapturedRecordSnapshot, error) {
+) (RecordSnapshot, error) {
 	if catalog == nil {
-		return CapturedRecordSnapshot{}, fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, envelope.RecordType)
+		return RecordSnapshot{}, fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, envelope.RecordType)
 	}
 	capture, ok := catalog.byRecordType[envelope.RecordType]
 	if !ok {
-		return CapturedRecordSnapshot{}, fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, envelope.RecordType)
+		return RecordSnapshot{}, fmt.Errorf("%w: record type %q", ErrMissingSnapshotCapture, envelope.RecordType)
 	}
 	raw, err := capture.source.SnapshotTx(ctx, tx, envelope.RecordID)
 	if err != nil {
-		return CapturedRecordSnapshot{}, err
+		return RecordSnapshot{}, err
 	}
 	value, err := validateCanonicalSnapshotValue(capture.snapshotSchemaID, envelope, raw)
 	if err != nil {
-		return CapturedRecordSnapshot{}, err
+		return RecordSnapshot{}, err
 	}
-	return CapturedRecordSnapshot{
+	return RecordSnapshot{
 		recordID:         envelope.RecordID,
 		recordType:       envelope.RecordType,
 		snapshotSchemaID: capture.snapshotSchemaID,
@@ -201,15 +183,15 @@ func (catalog *RecordSnapshotCaptureCatalog) captureTx(
 
 func validateCanonicalSnapshotValue(schemaID string, envelope RecordEnvelope, raw map[string]any) (map[string]any, error) {
 	if len(raw) != 2 {
-		return nil, fmt.Errorf("%w: record type %q source snapshot must contain exactly record and source", ErrInvalidCapturedSnapshot, envelope.RecordType)
+		return nil, fmt.Errorf("%w: record type %q source snapshot must contain exactly record and source", ErrInvalidRecordSnapshot, envelope.RecordType)
 	}
 	record, recordOK := raw["record"].(map[string]any)
 	source, sourceOK := raw["source"].(map[string]any)
 	if !recordOK || !sourceOK || record == nil || source == nil {
-		return nil, fmt.Errorf("%w: record type %q source snapshot members", ErrInvalidCapturedSnapshot, envelope.RecordType)
+		return nil, fmt.Errorf("%w: record type %q source snapshot members", ErrInvalidRecordSnapshot, envelope.RecordType)
 	}
 	if got, ok := record["record_id"].(string); !ok || got != envelope.RecordID.String() {
-		return nil, fmt.Errorf("%w: record id", ErrInvalidCapturedSnapshot)
+		return nil, fmt.Errorf("%w: record id", ErrInvalidRecordSnapshot)
 	}
 	if got, ok := record["record_type"].(string); !ok || got != envelope.RecordType {
 		return nil, fmt.Errorf("%w: got %v want %q", ErrSnapshotRecordTypeMismatch, record["record_type"], envelope.RecordType)
@@ -221,24 +203,24 @@ func validateCanonicalSnapshotValue(schemaID string, envelope RecordEnvelope, ra
 	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: encode: %v", ErrInvalidCapturedSnapshot, err)
+		return nil, fmt.Errorf("%w: encode: %v", ErrInvalidRecordSnapshot, err)
 	}
 	var cloned map[string]any
 	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
 	decoder.UseNumber()
 	if err := decoder.Decode(&cloned); err != nil {
-		return nil, fmt.Errorf("%w: clone: %v", ErrInvalidCapturedSnapshot, err)
+		return nil, fmt.Errorf("%w: clone: %v", ErrInvalidRecordSnapshot, err)
 	}
 	return cloned, nil
 }
 
-func capturedSnapshotValue(snapshot *CapturedRecordSnapshot, recordID uuid.UUID) (map[string]any, error) {
+func recordSnapshotValue(snapshot *RecordSnapshot, recordID uuid.UUID) (map[string]any, error) {
 	if snapshot == nil {
 		return nil, nil
 	}
 	if snapshot.recordID != recordID || snapshot.recordID == uuid.Nil ||
 		strings.TrimSpace(snapshot.snapshotSchemaID) == "" || len(snapshot.value) != 3 {
-		return nil, fmt.Errorf("%w: record %s", ErrInvalidCapturedSnapshot, recordID)
+		return nil, fmt.Errorf("%w: record %s", ErrInvalidRecordSnapshot, recordID)
 	}
 	copyValue, err := cloneJSONMap(snapshot.value)
 	if err != nil {
@@ -252,21 +234,21 @@ func validatePersistedSnapshotValue(expectedSchemaID string, recordID uuid.UUID,
 		return nil
 	}
 	if len(value) != 3 || expectedSchemaID == "" {
-		return fmt.Errorf("%w: record %s canonical envelope", ErrInvalidCapturedSnapshot, recordID)
+		return fmt.Errorf("%w: record %s canonical envelope", ErrInvalidRecordSnapshot, recordID)
 	}
 	if schemaID, ok := value["snapshot_schema_id"].(string); !ok || schemaID != expectedSchemaID {
-		return fmt.Errorf("%w: record %s snapshot schema", ErrInvalidCapturedSnapshot, recordID)
+		return fmt.Errorf("%w: record %s snapshot schema", ErrInvalidRecordSnapshot, recordID)
 	}
 	record, recordOK := value["record"].(map[string]any)
 	source, sourceOK := value["source"].(map[string]any)
 	if !recordOK || !sourceOK || record == nil || source == nil {
-		return fmt.Errorf("%w: record %s canonical members", ErrInvalidCapturedSnapshot, recordID)
+		return fmt.Errorf("%w: record %s canonical members", ErrInvalidRecordSnapshot, recordID)
 	}
 	if got, ok := record["record_id"].(string); !ok || got != recordID.String() {
-		return fmt.Errorf("%w: record %s identity", ErrInvalidCapturedSnapshot, recordID)
+		return fmt.Errorf("%w: record %s identity", ErrInvalidRecordSnapshot, recordID)
 	}
 	if got, ok := record["record_type"].(string); !ok || got != recordType {
-		return fmt.Errorf("%w: record %s type", ErrInvalidCapturedSnapshot, recordID)
+		return fmt.Errorf("%w: record %s type", ErrInvalidRecordSnapshot, recordID)
 	}
 	return nil
 }
@@ -288,21 +270,13 @@ func cloneJSONMap(value map[string]any) (map[string]any, error) {
 	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: encode JSON value: %v", ErrInvalidCapturedSnapshot, err)
+		return nil, fmt.Errorf("%w: encode JSON value: %v", ErrInvalidRecordSnapshot, err)
 	}
 	var cloned map[string]any
 	decoder := json.NewDecoder(strings.NewReader(string(encoded)))
 	decoder.UseNumber()
 	if err := decoder.Decode(&cloned); err != nil {
-		return nil, fmt.Errorf("%w: decode JSON value: %v", ErrInvalidCapturedSnapshot, err)
+		return nil, fmt.Errorf("%w: decode JSON value: %v", ErrInvalidRecordSnapshot, err)
 	}
 	return cloned, nil
-}
-
-func nilHistoryTargetSemantics(value HistoryTargetSemantics) bool {
-	if value == nil {
-		return true
-	}
-	reflected := reflect.ValueOf(value)
-	return reflected.Kind() == reflect.Pointer && reflected.IsNil()
 }

@@ -75,11 +75,11 @@ type RecordPort interface {
 }
 
 type RevisionPort interface {
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, ChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, MutationParams) error
-	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
-	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 	ListRecordRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]RecordRevisionWindowEntry, error)
 }
 

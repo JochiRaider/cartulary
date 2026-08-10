@@ -126,8 +126,8 @@ type mergeMutation struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
-	BeforeSnapshot  *revisions.CapturedRecordSnapshot
-	AfterSnapshot   *revisions.CapturedRecordSnapshot
+	BeforeSnapshot  *revisions.RecordSnapshot
+	AfterSnapshot   *revisions.RecordSnapshot
 }
 
 type mergeCounts struct {
@@ -494,7 +494,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	case "host":
 		beforeVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion-1)
 		afterVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion)
-		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
@@ -510,7 +510,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion-1)
 		loserAfterVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion)
-		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
@@ -524,7 +524,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       survivorHost.RecordID,
 			RowVersion:     survivorHost.RowVersion,
@@ -533,7 +533,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       loserHost.RecordID,
 			RowVersion:     loserHost.RowVersion,
@@ -545,7 +545,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	case "identity":
 		beforeVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion-1)
 		afterVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion)
-		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
@@ -561,7 +561,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion-1)
 		loserAfterVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion)
-		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
@@ -575,7 +575,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       survivorIdentity.RecordID,
 			RowVersion:     survivorIdentity.RowVersion,
@@ -584,7 +584,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       loserIdentity.RecordID,
 			RowVersion:     loserIdentity.RowVersion,
@@ -601,7 +601,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			if parseErr != nil || recordID == uuid.Nil {
 				return MergeResult{}, fmt.Errorf("append captured merge mutation: invalid record id %q", mutation.TargetID)
 			}
-			if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+			if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 				ChangeSetID:     changeSetID,
 				SequenceNo:      sequenceNo,
 				TargetKind:      mutation.TargetKind,

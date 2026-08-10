@@ -94,7 +94,7 @@
       "selector": {
         "package": "./internal/modules/links",
         "tests": [
-          "TestRevisionProviderContributionOwnsLinkAndTagHistorySemantics_Unit"
+          "TestRevisionProviderContributionOwnsLinkAndTagHistoryFacet_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -20,15 +20,28 @@ type FinalizeCommand struct {
 	OwnerResultCode string
 	BeforeVersionID *string
 	BeforeValue     map[string]any
-	BeforeSnapshot  *revisions.CapturedRecordSnapshot
+	BeforeSnapshot  *revisions.RecordSnapshot
 	Row             map[string]any
 }
 
-type CapturedRevisionAppender interface {
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
-	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
-	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
+type RecordRevisionAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
+
+type RecordRevisionAndIntentAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+}
+
+type recordFinalizationAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+}
+
+type appendRecordRevisionTx func(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 
 func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
 	values := make(map[string]ImportScalarValue, len(fields))
@@ -38,10 +51,21 @@ func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
 	return values
 }
 
-func FinalizeCapturedTx(ctx context.Context, tx pgx.Tx, revisionAppender CapturedRevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
+func FinalizeRecordRevisionTx(ctx context.Context, tx pgx.Tx, revisionAppender RecordRevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
 	if revisionAppender == nil {
-		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize captured import owner row: revision appender is required")
+		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")
 	}
+	return finalizeRecordTx(ctx, tx, revisionAppender, revisionAppender.AppendRecordRevisionTx, command)
+}
+
+func FinalizeRecordRevisionAndIntentTx(ctx context.Context, tx pgx.Tx, revisionAppender RecordRevisionAndIntentAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
+	if revisionAppender == nil {
+		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision and intent appender is required")
+	}
+	return finalizeRecordTx(ctx, tx, revisionAppender, revisionAppender.AppendRecordRevisionAndIntentTx, command)
+}
+
+func finalizeRecordTx(ctx context.Context, tx pgx.Tx, revisionAppender recordFinalizationAppender, appendRevision appendRecordRevisionTx, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
 	rowVersion, err := RowVersionFromRow(command.Row)
 	if err != nil {
 		return ImportOwnerCreateResponse{}, err
@@ -63,7 +87,7 @@ func FinalizeCapturedTx(ctx context.Context, tx pgx.Tx, revisionAppender Capture
 		return ImportOwnerCreateResponse{}, err
 	}
 	afterVersionID := VersionID(command.RecordID, rowVersion)
-	if err := revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
 		TargetKind:      "record",
@@ -77,7 +101,7 @@ func FinalizeCapturedTx(ctx context.Context, tx pgx.Tx, revisionAppender Capture
 		return ImportOwnerCreateResponse{}, err
 	}
 	if operation == "create" || (command.BeforeSnapshot != nil && operation != "reuse") {
-		if err := revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := appendRevision(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    command.ChangeSetID,
 			RecordID:       command.RecordID,
 			RowVersion:     rowVersion,

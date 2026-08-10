@@ -87,7 +87,7 @@ func (coordinator evidenceMutationCoordinator) createTx(
 		return evidenceCreateTxResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := coordinator.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := coordinator.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -98,7 +98,7 @@ func (coordinator evidenceMutationCoordinator) createTx(
 	}); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	if err := coordinator.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := coordinator.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,

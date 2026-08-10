@@ -235,7 +235,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	sequenceNo := 1
-	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
@@ -294,7 +294,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       timelineResult.SourceRecordID,
 		RowVersion:     timelineResult.RowVersion,

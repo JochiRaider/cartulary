@@ -126,7 +126,7 @@ func TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation(t *testing.T) 
 		t.Fatalf("sequence protocol order begin=%d apply=%d validate=%d finish=%d", begin, apply, validate, finish)
 	}
 	for _, runtimePath := range []string{
-		"incident_bundle_portability.go",
+		"incident_bundle_sequence.go",
 		filepath.Join("..", "incidentbundles", "source.go"),
 	} {
 		payload, err := os.ReadFile(runtimePath)
@@ -297,11 +297,19 @@ VALUES ($1, $2, $3, 'incident_bundle.import.test')
 `, changeSetID, harness.incidentID, harness.actor.ID); err != nil {
 		t.Fatalf("seed imported change set: %v", err)
 	}
+	afterSnapshot := canonicalRowSnapshot(
+		harness.recordID,
+		harness.incidentID,
+		"host",
+		"cartulary.revisions.snapshot.host.v1",
+		1,
+		map[string]any{"display_name": "allocator fixture"},
+	)
 	if _, err := tx.Exec(context.Background(), `
 INSERT INTO record_revisions (
     revision_id, change_set_id, record_id, row_version, before_json, after_json
-) VALUES ($1, $2, $3, 1, NULL, '{}'::jsonb)
-`, revisionID, changeSetID, harness.recordID); err != nil {
+) VALUES ($1, $2, $3, 1, NULL, $4)
+`, revisionID, changeSetID, harness.recordID, jsonOrNil(t, afterSnapshot)); err != nil {
 		t.Fatalf("seed imported revision: %v", err)
 	}
 }

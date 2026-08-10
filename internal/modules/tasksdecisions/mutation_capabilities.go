@@ -135,11 +135,11 @@ type LinkCapability interface {
 // RevisionCapability is the exact revision append/history surface consumed by
 // Task/Decision mutations. It does not publish, retry, or commit.
 type RevisionCapability interface {
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
-	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
-	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionAndIntentTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 	LoadRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]conflicts.RevisionWindowRow, error)
 }
 

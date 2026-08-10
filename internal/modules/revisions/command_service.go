@@ -15,7 +15,7 @@ type CommandServiceDependencies struct {
 	Authorization               CommandAuthorizer
 	Idempotency                 IdempotencyPort
 	ImportedAttributionResolver ImportedAttributionResolver
-	Projections                 ProjectionServices
+	Projections                 ProjectionRebuilder
 	LiveRecords                 LiveRecordReader
 	DeleteRestoreSources        *DeleteRestoreSourceCatalog
 	TargetSemantics             *TargetSemanticsCatalog

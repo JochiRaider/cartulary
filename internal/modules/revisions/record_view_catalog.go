@@ -16,7 +16,7 @@ var (
 	ErrAmbiguousRecordViewRoute  = errors.New("revisions: ambiguous record/view route")
 )
 
-type RecordViewDescriptor struct {
+type recordViewDescriptor struct {
 	ContributionID string
 	SourceOwner    SourceOwnerModule
 	RecordType     string
@@ -32,13 +32,12 @@ type RecordViewSurface struct {
 }
 
 type recordViewRoute struct {
-	RecordViewDescriptor
+	recordViewDescriptor
 }
 
 // RecordViewCatalog is the immutable, composition-scoped resolver compiled
 // from source-owner contributions and validated against public view surfaces.
 type RecordViewCatalog struct {
-	ordered  []recordViewRoute
 	byRecord map[string][]recordViewRoute
 }
 
@@ -64,17 +63,8 @@ func NewRecordViewCatalog(
 
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
-			switch record.LiveRecordChangePolicy {
-			case LiveRecordChangeRequired:
-				if len(record.RecordViewRoutes) == 0 {
-					return nil, fmt.Errorf("%w: record type %q has required live changes but no routes", ErrMissingRecordViewRoute, record.RecordType)
-				}
-			case LiveRecordChangeNone:
-				if len(record.RecordViewRoutes) != 0 {
-					return nil, fmt.Errorf("%w: record type %q declares routes with policy none", ErrUnexpectedRecordViewRoute, record.RecordType)
-				}
-			default:
-				return nil, fmt.Errorf("%w: record type %q has live policy %q", ErrUnexpectedRecordViewRoute, record.RecordType, record.LiveRecordChangePolicy)
+			if len(record.RecordViewRoutes) == 0 {
+				return nil, fmt.Errorf("%w: record type %q has no live record/view route", ErrMissingRecordViewRoute, record.RecordType)
 			}
 			for _, contributed := range record.RecordViewRoutes {
 				route, err := normalizeRecordViewRoute(contribution.SourceOwnerModule, record.RecordType, contributed)
@@ -107,7 +97,7 @@ func NewRecordViewCatalog(
 					}
 					seenViews[viewSchemaID] = route.ContributionID
 				}
-				routes = append(routes, recordViewRoute{RecordViewDescriptor: route})
+				routes = append(routes, recordViewRoute{recordViewDescriptor: route})
 			}
 		}
 	}
@@ -144,18 +134,7 @@ func NewRecordViewCatalog(
 	for _, route := range routes {
 		byRecord[route.RecordType] = append(byRecord[route.RecordType], cloneRecordViewRoute(route))
 	}
-	return &RecordViewCatalog{ordered: cloneRecordViewRoutes(routes), byRecord: byRecord}, nil
-}
-
-func (c *RecordViewCatalog) Descriptors() []RecordViewDescriptor {
-	if c == nil {
-		return nil
-	}
-	result := make([]RecordViewDescriptor, 0, len(c.ordered))
-	for _, route := range c.ordered {
-		result = append(result, cloneRecordViewDescriptor(route.RecordViewDescriptor))
-	}
-	return result
+	return &RecordViewCatalog{byRecord: byRecord}, nil
 }
 
 func (c *RecordViewCatalog) Resolve(recordType string, row map[string]any) (string, error) {
@@ -187,25 +166,25 @@ func normalizeRecordViewRoute(
 	owner SourceOwnerModule,
 	recordType string,
 	contributed RecordViewRouteContribution,
-) (RecordViewDescriptor, error) {
+) (recordViewDescriptor, error) {
 	contributionID := strings.TrimSpace(contributed.ContributionID)
 	if contributionID == "" || strings.TrimSpace(recordType) == "" || owner == "" {
-		return RecordViewDescriptor{}, fmt.Errorf("%w: incomplete route contribution", ErrUnexpectedRecordViewRoute)
+		return recordViewDescriptor{}, fmt.Errorf("%w: incomplete route contribution", ErrUnexpectedRecordViewRoute)
 	}
 	if len(contributed.ViewSchemaIDs) != 1 || strings.TrimSpace(contributed.ViewSchemaIDs[0]) == "" {
-		return RecordViewDescriptor{}, fmt.Errorf("%w: contribution %q must identify exactly one view", ErrAmbiguousRecordViewRoute, contributionID)
+		return recordViewDescriptor{}, fmt.Errorf("%w: contribution %q must identify exactly one view", ErrAmbiguousRecordViewRoute, contributionID)
 	}
 	var variant *RecordVariant
 	if contributed.Variant != nil {
 		if contributed.Variant.Kind != "artifact_type" ||
 			strings.TrimSpace(contributed.Variant.Value) == "" ||
 			recordType != "artifact" {
-			return RecordViewDescriptor{}, fmt.Errorf("%w: contribution %q variant %#v", ErrUnsupportedRecordVariant, contributionID, contributed.Variant)
+			return recordViewDescriptor{}, fmt.Errorf("%w: contribution %q variant %#v", ErrUnsupportedRecordVariant, contributionID, contributed.Variant)
 		}
 		copyVariant := *contributed.Variant
 		variant = &copyVariant
 	}
-	return RecordViewDescriptor{
+	return recordViewDescriptor{
 		ContributionID: contributionID,
 		SourceOwner:    owner,
 		RecordType:     recordType,
@@ -256,19 +235,11 @@ func recordVariantParts(variant *RecordVariant) (string, string) {
 	return variant.Kind, variant.Value
 }
 
-func cloneRecordViewRoutes(routes []recordViewRoute) []recordViewRoute {
-	result := make([]recordViewRoute, len(routes))
-	for index, route := range routes {
-		result[index] = cloneRecordViewRoute(route)
-	}
-	return result
-}
-
 func cloneRecordViewRoute(route recordViewRoute) recordViewRoute {
-	return recordViewRoute{RecordViewDescriptor: cloneRecordViewDescriptor(route.RecordViewDescriptor)}
+	return recordViewRoute{recordViewDescriptor: cloneRecordViewDescriptor(route.recordViewDescriptor)}
 }
 
-func cloneRecordViewDescriptor(descriptor RecordViewDescriptor) RecordViewDescriptor {
+func cloneRecordViewDescriptor(descriptor recordViewDescriptor) recordViewDescriptor {
 	descriptor.ViewSchemaIDs = append([]string(nil), descriptor.ViewSchemaIDs...)
 	if descriptor.Variant != nil {
 		copyVariant := *descriptor.Variant

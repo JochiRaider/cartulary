@@ -197,7 +197,7 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
@@ -227,7 +227,7 @@ RETURNING recorded_at
 			return MutationResult{}, err
 		}
 	}
-	if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       current.RecordID,
 		RowVersion:     next.RowVersion,

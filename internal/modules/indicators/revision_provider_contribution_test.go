@@ -10,7 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func TestRevisionProviderContributionOwnsIndicatorHistorySemantics_Unit(t *testing.T) {
+func TestRevisionProviderContributionOwnsIndicatorHistoryFacet_Unit(t *testing.T) {
 	contribution := indicators.NewRevisionContribution()
 	if contribution.SourceOwnerModule != revisions.SourceOwnerIndicators || len(contribution.Records) != 1 || len(contribution.NonRowTargets) != 2 {
 		t.Fatalf("unexpected Indicators revision contribution: %#v", contribution)
@@ -24,7 +24,7 @@ func TestRevisionProviderContributionOwnsIndicatorHistorySemantics_Unit(t *testi
 	sourceID := uuid.MustParse("11111111-1111-4111-8111-111111111111")
 	indicatorID := uuid.MustParse("22222222-2222-4222-8222-222222222222")
 	for _, target := range contribution.NonRowTargets {
-		if target.RollbackProvider == nil || target.HistorySemantics == nil {
+		if target.RollbackProvider == nil {
 			t.Fatalf("target %q has incomplete semantics", target.TargetKind)
 		}
 		var mutation revisions.StoredMutation
@@ -53,7 +53,7 @@ func TestRevisionProviderContributionOwnsIndicatorHistorySemantics_Unit(t *testi
 		default:
 			t.Fatalf("unexpected Indicators target %q", target.TargetKind)
 		}
-		description, err := target.HistorySemantics.DescribeMutation(mutation)
+		description, err := target.HistoryFacet.DescribeMutation(mutation)
 		if err != nil {
 			t.Fatalf("describe %s: %v", target.TargetKind, err)
 		}

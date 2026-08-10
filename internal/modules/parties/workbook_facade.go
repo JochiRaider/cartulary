@@ -229,7 +229,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 		return WorkbookMutationResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -240,7 +240,7 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisionAppender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:   changeSetID,
 		RecordID:      recordID,
 		RowVersion:    1,
@@ -301,7 +301,7 @@ func (f *WorkbookFacade) reuseCreateTx(ctx context.Context, tx pgx.Tx, command W
 		return WorkbookMutationResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, rowVersion)
-	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -461,7 +461,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		beforeVersionID = workbookVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(command.RecordID, rowVersion)
-	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := f.revisionAppender.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -474,7 +474,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := f.revisionAppender.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       command.RecordID,
 		RowVersion:     rowVersion,

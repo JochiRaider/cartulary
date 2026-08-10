@@ -92,11 +92,11 @@ func (runtime *Runtime) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery
 	return runtime.ports.RestoreProbeQuery()
 }
 
-func (runtime *Runtime) RevisionServices() revisions.ProjectionServices {
+func (runtime *Runtime) RevisionRebuilder() revisions.ProjectionRebuilder {
 	if runtime == nil {
 		return nil
 	}
-	return runtime.ports.RevisionServices()
+	return runtime.ports.RevisionRebuilder()
 }
 
 func (runtime *Runtime) RevisionLiveRecords() revisions.LiveRecordReader {

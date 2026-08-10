@@ -630,8 +630,8 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestCandidateSnapshotCaptureBuildsCanonicalOpaqueEnvelope",
-          "TestCandidateSnapshotCaptureRejectsInvalidShapeAndMissingRegistration",
+          "TestCatalogAdmissionSnapshotCaptureBuildsCanonicalOpaqueEnvelope",
+          "TestCatalogAdmissionSnapshotCaptureRejectsInvalidShapeAndMissingRegistration",
           "TestCurrentTargetKindHistoryAddressability_Unit",
           "TestIncidentBundleValidationCatalogFailsClosed",
           "TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries",
@@ -971,8 +971,8 @@
       "selector": {
         "package": "./internal/app/revisionassembly",
         "tests": [
-          "TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets",
-          "TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog",
+          "TestCurrentProviderContributionsBuildExactImmutableRecordViewCatalog",
+          "TestCurrentProviderContributionsCloseSnapshotAndTargetSets",
           "TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver",
           "TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs",
           "TestRevisionsRuntimeReusesAppenderForCommandService"
@@ -1104,6 +1104,30 @@
       "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.revisions.support_unit.production_readiness_cleanup_4f6a8c2d10",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.support_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.production_readiness_cleanup"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestProductionReadinessComponentsRemainDecomposed_Unit",
+          "TestProductionReadinessRetiredIdentifiersRemainAbsent_Unit"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",

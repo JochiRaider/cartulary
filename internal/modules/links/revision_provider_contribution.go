@@ -13,13 +13,13 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule: revisions.SourceOwnerLinks,
 				TargetKind:        "record_link",
-				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"src_record_id", "dst_record_id"}, revisions.HistorySingleEntry),
+				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"src_record_id", "dst_record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  provider,
 			},
 			{
 				SourceOwnerModule: revisions.SourceOwnerLinks,
 				TargetKind:        "record_tag",
-				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"record_id"}, revisions.HistorySingleEntry),
+				HistoryFacet:      revisions.NewFieldAssociationHistoryFacet([]string{"record_id"}, revisions.HistorySingleEntry),
 				RollbackProvider:  provider,
 			},
 		},

@@ -2,6 +2,7 @@ package revisions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"reflect"
@@ -216,10 +217,40 @@ INSERT INTO change_set_mutations (
 `, changeSetID, recordID, uuid.New().String()); err != nil {
 		t.Fatalf("seed change-set mutation: %v", err)
 	}
+	beforeSnapshot := map[string]any{
+		"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1",
+		"record": map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentResult.Incident.ID.String(),
+			"record_type": "host", "row_version": 1,
+		},
+		"source": map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentResult.Incident.ID.String(),
+			"row_version": 1, "display_name": "before",
+		},
+	}
+	afterSnapshot := map[string]any{
+		"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1",
+		"record": map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentResult.Incident.ID.String(),
+			"record_type": "host", "row_version": 2,
+		},
+		"source": map[string]any{
+			"record_id": recordID.String(), "incident_id": incidentResult.Incident.ID.String(),
+			"row_version": 2, "display_name": "after",
+		},
+	}
+	beforeJSON, err := json.Marshal(beforeSnapshot)
+	if err != nil {
+		t.Fatalf("marshal before snapshot: %v", err)
+	}
+	afterJSON, err := json.Marshal(afterSnapshot)
+	if err != nil {
+		t.Fatalf("marshal after snapshot: %v", err)
+	}
 	if _, err := database.Exec(context.Background(), `
 INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
-VALUES ($1, $2, 2, '{"cells":{}}', '{"cells":{"host.name":{"value":"after"}}}', $3)
-`, changeSetID, recordID, now); err != nil {
+VALUES ($1, $2, 2, $3, $4, $5)
+`, changeSetID, recordID, beforeJSON, afterJSON, now); err != nil {
 		t.Fatalf("seed record revision: %v", err)
 	}
 

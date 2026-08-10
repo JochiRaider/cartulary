@@ -115,7 +115,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("indicator", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.revisionsStore.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "indicator",
@@ -129,7 +129,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		return CreateResult{}, err
 	}
 	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.revisionsStore.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
@@ -170,7 +170,7 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 	}, nil
 }
 
-func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.CapturedRecordSnapshot, error) {
+func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.RecordSnapshot, error) {
 	input, err := indicatorInputFromCreateCommand(command)
 	if err != nil {
 		return nil, err

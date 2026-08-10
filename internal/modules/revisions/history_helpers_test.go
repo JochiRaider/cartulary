@@ -46,11 +46,25 @@ func seedHistoryChangeSet(t testing.TB, db *sql.DB, seed historySeed) {
 	seedChangeSet(t, db, seed)
 	seedHistoryMutation(t, db, seed)
 	if seed.RowVersion > 0 {
-		beforePayload := map[string]any{"record_id": seed.RecordID.String(), "row_version": seed.RowVersion - 1}
+		beforePayload := canonicalRowSnapshot(
+			seed.RecordID,
+			seed.IncidentID,
+			"host",
+			"cartulary.revisions.snapshot.host.v1",
+			seed.RowVersion-1,
+			map[string]any{"display_name": "before-" + seed.Operation},
+		)
 		if seed.RowVersion == 1 {
 			beforePayload = nil
 		}
-		afterPayload := map[string]any{"record_id": seed.RecordID.String(), "row_version": seed.RowVersion}
+		afterPayload := canonicalRowSnapshot(
+			seed.RecordID,
+			seed.IncidentID,
+			"host",
+			"cartulary.revisions.snapshot.host.v1",
+			seed.RowVersion,
+			map[string]any{"display_name": "after-" + seed.Operation},
+		)
 		beforeJSON := jsonOrNil(t, beforePayload)
 		afterJSON := jsonOrNil(t, afterPayload)
 		if _, err := db.ExecContext(context.Background(), `
@@ -113,6 +127,26 @@ func jsonOrNil(t testing.TB, value any) any {
 		t.Fatalf("marshal history fixture json: %v", err)
 	}
 	return string(payload)
+}
+
+func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
+	clonedSource := make(map[string]any, len(source)+3)
+	for key, value := range source {
+		clonedSource[key] = value
+	}
+	clonedSource["record_id"] = recordID.String()
+	clonedSource["incident_id"] = incidentID.String()
+	clonedSource["row_version"] = version
+	return map[string]any{
+		"snapshot_schema_id": schemaID,
+		"record": map[string]any{
+			"record_id":   recordID.String(),
+			"incident_id": incidentID.String(),
+			"record_type": recordType,
+			"row_version": version,
+		},
+		"source": clonedSource,
+	}
 }
 
 func versionID(seed historySeed, suffix string) string {

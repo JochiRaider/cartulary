@@ -50,7 +50,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		afterRow       map[string]any
 		operationKind  string
 		entityType     string
-		beforeSnapshot *revisions.CapturedRecordSnapshot
+		beforeSnapshot *revisions.RecordSnapshot
 		err            error
 	)
 	switch request.TargetViewSchemaID {
@@ -116,7 +116,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if operation == "" {
 		operation = entityType + "_import_create"
 	}
-	return ownerfacade.FinalizeCapturedTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

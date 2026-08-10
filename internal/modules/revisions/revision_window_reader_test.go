@@ -45,12 +45,28 @@ VALUES ($1, $2, $3, 'revision_window_test', $4)
 `, changeSetID, incident.ID, actor.ID, createdAt); err != nil {
 		t.Fatalf("seed change set: %v", err)
 	}
+	versionOne := canonicalRowSnapshot(
+		recordID,
+		incident.ID,
+		"host",
+		"cartulary.revisions.snapshot.host.v1",
+		1,
+		map[string]any{"display_name": "one"},
+	)
+	versionTwo := canonicalRowSnapshot(
+		recordID,
+		incident.ID,
+		"host",
+		"cartulary.revisions.snapshot.host.v1",
+		2,
+		map[string]any{"display_name": "two"},
+	)
 	if _, err := harness.DB.Exec(context.Background(), `
 INSERT INTO record_revisions (change_set_id, record_id, row_version, before_json, after_json, created_at)
 VALUES
-    ($1, $2, 2, '{"cells":{}}', '{"cells":{"host.name":{"value":"two"}}}', $3),
-    ($1, $2, 1, NULL, '{"cells":{"host.name":{"value":"one"}}}', $3)
-`, changeSetID, recordID, createdAt); err != nil {
+	($1, $2, 2, $3, $4, $5),
+	($1, $2, 1, NULL, $3, $5)
+`, changeSetID, recordID, jsonOrNil(t, versionOne), jsonOrNil(t, versionTwo), createdAt); err != nil {
 		t.Fatalf("seed revision rows: %v", err)
 	}
 

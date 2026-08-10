@@ -117,6 +117,13 @@
       "public_target": "service-backed-test"
     },
     {
+      "verification_id": "module.revisions.verification.production_readiness_cleanup",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.revisions.verification.provider_catalog_closure",
       "behavior_class": "architecture",
       "profile": "base",

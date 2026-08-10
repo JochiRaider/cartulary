@@ -35,13 +35,6 @@ type ProviderContribution struct {
 	NonRowTargets     []NonRowProviderContribution
 }
 
-type LiveRecordChangePolicy string
-
-const (
-	LiveRecordChangeRequired LiveRecordChangePolicy = "required"
-	LiveRecordChangeNone     LiveRecordChangePolicy = "none"
-)
-
 type RecordVariant struct {
 	Kind  string
 	Value string
@@ -61,26 +54,25 @@ type RecordProviderContribution struct {
 	// kinds that resolve to this record provider. An empty set admits the
 	// record type itself. The generic "record" target remains a Revisions
 	// envelope target and is not repeated by source owners.
-	HistoryTargetKinds     []string
-	DeleteRestoreSource    deleterestorecontract.DeleteRestoreSource
-	RowRollbackProvider    rollbackcontract.RowSourceProvider
-	LiveRecordChangePolicy LiveRecordChangePolicy
-	RecordViewRoutes       []RecordViewRouteContribution
+	HistoryTargetKinds  []string
+	DeleteRestoreSource deleterestorecontract.DeleteRestoreSource
+	RowRollbackProvider rollbackcontract.RowSourceProvider
+	RecordViewRoutes    []RecordViewRouteContribution
 }
 
 type NonRowProviderContribution struct {
 	SourceOwnerModule SourceOwnerModule
 	TargetKind        string
-	HistorySemantics  HistoryTargetSemantics
+	HistoryFacet      HistoryFacet
 	RollbackProvider  rollbackcontract.NonRowTargetProvider
 }
 
 func buildDeleteRestoreSourceCatalog(contributions []ProviderContribution) (*DeleteRestoreSourceCatalog, error) {
-	snapshotRequirements, err := CurrentSnapshotSchemaRequirements()
+	snapshotRequirements, err := currentSnapshotSchemaRequirements()
 	if err != nil {
 		return nil, err
 	}
-	targetRequirements, err := CurrentTargetSemanticsRequirements()
+	targetRequirements, err := currentTargetSemanticsRequirements()
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +81,11 @@ func buildDeleteRestoreSourceCatalog(contributions []ProviderContribution) (*Del
 
 func buildDeleteRestoreSourceCatalogForRequirements(
 	contributions []ProviderContribution,
-	snapshotRequirements []SnapshotSchemaRequirement,
-	targetRequirements []TargetSemanticsRequirement,
+	snapshotRequirements []snapshotSchemaRequirement,
+	targetRequirements []targetSemanticsRequirement,
 ) (*DeleteRestoreSourceCatalog, error) {
-	requiredRecords := make(map[string]SnapshotSchemaRequirement, len(snapshotRequirements))
-	requiredNonRows := make(map[string]TargetSemanticsRequirement)
+	requiredRecords := make(map[string]snapshotSchemaRequirement, len(snapshotRequirements))
+	requiredNonRows := make(map[string]targetSemanticsRequirement)
 	requiredOwners := map[SourceOwnerModule]struct{}{}
 	for _, requirement := range snapshotRequirements {
 		if requirement.RecordType == "" || requirement.SourceOwner == "" || requirement.SnapshotSchemaID == "" {
@@ -106,7 +98,7 @@ func buildDeleteRestoreSourceCatalogForRequirements(
 		requiredOwners[requirement.SourceOwner] = struct{}{}
 	}
 	for _, requirement := range targetRequirements {
-		if requirement.DispatchClass != RollbackDispatchNonRow {
+		if requirement.DispatchClass != rollbackcontract.DispatchNonRow {
 			continue
 		}
 		owner := SourceOwnerModule(requirement.SourceOwnerID)
@@ -210,11 +202,7 @@ func ValidateProviderContributions(contributions []ProviderContribution) error {
 	if _, err := buildDeleteRestoreSourceCatalog(contributions); err != nil {
 		return err
 	}
-	requirements, err := CurrentTargetSemanticsRequirements()
-	if err != nil {
-		return err
-	}
-	_, err = NewTargetSemanticsCatalog(requirements, contributions)
+	_, err := NewTargetSemanticsCatalog(contributions)
 	return err
 }
 

@@ -37,11 +37,11 @@ type entityRecordPort interface {
 
 type entityRevisionPort interface {
 	LockDestructiveOperationRecordsNowaitTx(context.Context, pgx.Tx, []uuid.UUID) error
-	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.RecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
-	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
-	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
+	AppendRecordMutationTx(context.Context, pgx.Tx, revisions.AppendRecordMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
 type entityLinkPort interface {
@@ -169,7 +169,7 @@ func (a entityRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx,
 	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a entityRevisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+func (a entityRevisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.RecordSnapshot, error) {
 	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
@@ -177,12 +177,12 @@ func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, 
 	return a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams(params))
 }
 
-func (a entityRevisionAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
-	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+func (a entityRevisionAdapter) AppendRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordMutationParams) error {
+	return a.appender.AppendRecordMutationTx(ctx, tx, params)
 }
 
-func (a entityRevisionAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
-	return a.appender.AppendCapturedRecordRevisionOnlyTx(ctx, tx, params)
+func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendRecordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
 }
 
 type entityLinkAdapter struct {

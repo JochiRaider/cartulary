@@ -434,7 +434,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("host", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "host",
@@ -451,7 +451,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,
@@ -566,7 +566,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("identity", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "identity",
@@ -583,7 +583,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID:    changeSetID,
 			RecordID:       record.RecordID,
 			RowVersion:     record.RowVersion,

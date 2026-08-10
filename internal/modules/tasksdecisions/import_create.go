@@ -33,7 +33,7 @@ type ImportLinkCapability interface {
 }
 
 type ImportRevisionCapability interface {
-	ownerfacade.CapturedRevisionAppender
+	ownerfacade.RecordRevisionAndIntentAppender
 	AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
 }
 
@@ -179,7 +179,7 @@ func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, comman
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	response, err := ownerfacade.FinalizeCapturedTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
+	response, err := ownerfacade.FinalizeRecordRevisionAndIntentTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
 		Request:         command.Request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      firstSequence,

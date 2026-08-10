@@ -337,7 +337,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, &beforeSnapshot, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
-func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeSnapshot *revisions.CapturedRecordSnapshot, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string, aliasMutations []AliasAppliedMutation) (PatchMutationResult, error) {
+func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeSnapshot *revisions.RecordSnapshot, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string, aliasMutations []AliasAppliedMutation) (PatchMutationResult, error) {
 	afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
@@ -355,7 +355,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}
 	beforeVersionID := entityVersionID(targetKind, recordID, request.BaseRowVersion)
 	afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+	if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      targetKind,
@@ -381,7 +381,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 			return PatchMutationResult{}, err
 		}
 	}
-	if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+	if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID:    changeSetID,
 		RecordID:       recordID,
 		RowVersion:     rowVersion,

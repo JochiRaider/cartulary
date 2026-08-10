@@ -108,7 +108,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			afterRow       map[string]any
 			operationKind  string
 			aliasMutations []AliasMutationValue
-			beforeSnapshot *revisions.CapturedRecordSnapshot
+			beforeSnapshot *revisions.RecordSnapshot
 		)
 		switch viewSchemaID {
 		case HostsViewSchemaID:
@@ -162,7 +162,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeVersionID = &value
 		}
 		afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		if err := s.ports.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      targetKind,
@@ -181,7 +181,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		sequenceNo += len(aliasMutations)
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-			if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			if err := s.ports.revisions.AppendRecordRevisionAndIntentTx(ctx, tx, revisions.AppendRecordRevisionParams{
 				ChangeSetID:    changeSetID,
 				RecordID:       recordID,
 				RowVersion:     rowVersion,
