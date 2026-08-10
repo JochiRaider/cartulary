@@ -18,7 +18,7 @@ type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
 type artifactImportCreateAdapter struct {
 	source           artifactSourceKernel
-	revisionAppender ownerfacade.RevisionAppender
+	revisionAppender ownerfacade.CapturedRevisionAppender
 }
 
 func NewImportCreateFacade(
@@ -87,7 +87,7 @@ func (a *artifactImportCreateAdapter) createImportRowTx(
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, a.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeCapturedTx(ctx, tx, a.revisionAppender, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

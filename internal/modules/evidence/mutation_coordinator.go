@@ -71,6 +71,10 @@ func (coordinator evidenceMutationCoordinator) createTx(
 	if err != nil {
 		return evidenceCreateTxResult{}, err
 	}
+	afterSnapshot, err := coordinator.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return evidenceCreateTxResult{}, err
+	}
 	changeSetID, err := coordinator.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  command.IncidentID,
 		ActorUserID: command.Actor.ID,
@@ -83,22 +87,23 @@ func (coordinator evidenceMutationCoordinator) createTx(
 		return evidenceCreateTxResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := coordinator.revisions.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := coordinator.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
-		TargetID:       recordID.String(),
+		RecordID:       recordID,
 		OperationKind:  "create",
 		AfterVersionID: &afterVersionID,
-		AfterValue:     row,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	if err := coordinator.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    recordID,
-		RowVersion:  1,
-		AfterValue:  row,
+	if err := coordinator.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:   changeSetID,
+		RecordID:      recordID,
+		RowVersion:    1,
+		AfterSnapshot: &afterSnapshot,
+		LiveChange:    revisions.LiveRecordChange{AfterValue: row},
 	}); err != nil {
 		return evidenceCreateTxResult{}, err
 	}

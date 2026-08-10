@@ -126,34 +126,6 @@ func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"assessment.subject_ref":      "subject_record_id",
-			"assessment.subject_type":     "subject_type",
-			"assessment.assessment_state": "assessment_state",
-			"assessment.confidence_score": "confidence_score",
-			"assessment.rationale":        "rationale",
-			"assessment.assessor":         "assessor_user_id",
-			"assessment.assessed_at":      "assessed_at",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, key := range []string{
-			"subject_record_id", "subject_type", "assessment_state", "confidence_score",
-			"rationale", "assessor_user_id", "assessed_at",
-		} {
-			if _, present := value[key]; present {
-				return value, true
-			}
-		}
-	}
 	return nil, false
 }
 

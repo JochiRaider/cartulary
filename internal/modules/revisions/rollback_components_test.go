@@ -22,11 +22,8 @@ func TestRollbackPlannerBuildsExplicitDeterministicPlan_Unit(t *testing.T) {
 		RecordType: "host",
 		WholeSet:   true,
 	}
-	catalog, err := NewNonRowProviderCatalog(nil)
-	if err != nil {
-		t.Fatalf("empty non-row catalog: %v", err)
-	}
-	finalized, err := (rollbackPlanner{nonRowProviders: catalog}).finalize(plan, map[uuid.UUID]rollbackRecordEnvelope{
+	targetSemantics := validTargetSemanticsCatalog(t, validProviderContributions())
+	finalized, err := (rollbackPlanner{targetSemantics: targetSemantics}).finalize(plan, map[uuid.UUID]rollbackRecordEnvelope{
 		left:  {RecordID: left, RecordType: "host", RowVersion: 7},
 		right: {RecordID: right, RecordType: "host", RowVersion: 11},
 	})
@@ -94,6 +91,28 @@ func TestRollbackDecompositionBoundaries_Unit(t *testing.T) {
 	for _, token := range []string{".appender.", "a.rebuildProjectionsTx("} {
 		if strings.Contains(string(apply), token) {
 			t.Fatalf("rollback applier bypasses publication seam with %q", token)
+		}
+	}
+	for _, path := range []string{"rollback_apply.go", "rollback_planner.go", "rollback_query_repository.go"} {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, token := range []string{
+			"RowProviderCatalog",
+			"NonRowProviderCatalog",
+			"rowRollbackProviders",
+			"nonRowRollbackProviders",
+			`case "record"`,
+			`case "record_link"`,
+			`case "record_tag"`,
+			`case "entity_mention"`,
+			`case "artifact_evidence_link"`,
+			`case "evidence_locator"`,
+		} {
+			if strings.Contains(string(contents), token) {
+				t.Fatalf("generic rollback component %s contains prohibited source dispatch %q", path, token)
+			}
 		}
 	}
 }

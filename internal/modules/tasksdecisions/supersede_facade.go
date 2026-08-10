@@ -171,6 +171,14 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
+	beforeTargetSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.TargetRecordID)
+	if err != nil {
+		return SupersedeMutationResult{}, err
+	}
+	beforeSourceSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, sourceRecordID)
+	if err != nil {
+		return SupersedeMutationResult{}, err
+	}
 
 	now := command.Now.UTC()
 	link, err := f.linkStore.InsertSupersedesCommandTx(ctx, tx, links.InsertSupersedesCommand{
@@ -216,6 +224,14 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
+	afterSourceSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, sourceRecordID)
+	if err != nil {
+		return SupersedeMutationResult{}, err
+	}
+	afterTargetSnapshot, err := f.revisions.CaptureRecordSnapshotTx(ctx, tx, command.TargetRecordID)
+	if err != nil {
+		return SupersedeMutationResult{}, err
+	}
 	changeSetID, err := f.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  targetMeta.IncidentID,
 		ActorUserID: command.ActorUserID,
@@ -230,35 +246,35 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}
 	sourceBeforeVersionID := supersedeVersionID(sourceRecordID, sourceMeta.RowVersion)
 	sourceAfterVersionID := supersedeVersionID(sourceRecordID, sourceVersion)
-	if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
-		TargetID:        sourceRecordID.String(),
+		RecordID:        sourceRecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &sourceBeforeVersionID,
 		AfterVersionID:  &sourceAfterVersionID,
-		BeforeValue:     beforeSourceRow,
-		AfterValue:      afterSourceRow,
+		BeforeSnapshot:  &beforeSourceSnapshot,
+		AfterSnapshot:   &afterSourceSnapshot,
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	targetBeforeVersionID := supersedeVersionID(command.TargetRecordID, targetMeta.RowVersion)
 	targetAfterVersionID := supersedeVersionID(command.TargetRecordID, targetVersion)
-	if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      2,
 		TargetKind:      "record",
-		TargetID:        command.TargetRecordID.String(),
+		RecordID:        command.TargetRecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &targetBeforeVersionID,
 		AfterVersionID:  &targetAfterVersionID,
-		BeforeValue:     beforeTargetRow,
-		AfterValue:      afterTargetRow,
+		BeforeSnapshot:  &beforeTargetSnapshot,
+		AfterSnapshot:   &afterTargetSnapshot,
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisions.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID:   changeSetID,
 		SequenceNo:    3,
 		TargetKind:    "record_link",
@@ -274,21 +290,23 @@ func (f *MutationFacade) SupersedeDecision(ctx context.Context, command Supersed
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    sourceRecordID,
-		RowVersion:  sourceVersion,
-		BeforeValue: beforeSourceRow,
-		AfterValue:  afterSourceRow,
+	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       sourceRecordID,
+		RowVersion:     sourceVersion,
+		BeforeSnapshot: &beforeSourceSnapshot,
+		AfterSnapshot:  &afterSourceSnapshot,
+		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeSourceRow, AfterValue: afterSourceRow},
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisions.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    command.TargetRecordID,
-		RowVersion:  targetVersion,
-		BeforeValue: beforeTargetRow,
-		AfterValue:  afterTargetRow,
+	if err := f.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       command.TargetRecordID,
+		RowVersion:     targetVersion,
+		BeforeSnapshot: &beforeTargetSnapshot,
+		AfterSnapshot:  &afterTargetSnapshot,
+		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeTargetRow, AfterValue: afterTargetRow},
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}

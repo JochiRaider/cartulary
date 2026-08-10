@@ -471,6 +471,7 @@ func vNextConsistencyReport(
 SELECT (SELECT COUNT(*) FROM change_sets)
      + (SELECT COUNT(*) FROM change_set_mutations)
      + (SELECT COUNT(*) FROM record_history_entry_refs)
+     + (SELECT COUNT(*) FROM record_revision_conflict_facts)
      + (SELECT COUNT(*) FROM record_revisions)
 `).Scan(&changeSetCount); err != nil {
 		return RestoreConsistencyReport{}, fmt.Errorf("count restored vNext change sets: %w", err)
@@ -1074,7 +1075,7 @@ func normalizeJSONForDigest(raw json.RawMessage) (string, error) {
 
 func isChangeSetTable(tableName string) bool {
 	switch tableName {
-	case "change_sets", "change_set_mutations", "record_history_entry_refs", "record_revisions":
+	case "change_sets", "change_set_mutations", "record_history_entry_refs", "record_revision_conflict_facts", "record_revisions":
 		return true
 	default:
 		return false

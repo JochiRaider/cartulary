@@ -35,6 +35,11 @@ func (MentionProvider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollba
 		return rollbackcontract.TargetDescriptor{}, err
 	}
 	descriptor := rollbackcontract.TargetDescriptor{AffectedRecordIDs: []uuid.UUID{identity.sourceRecordID}}
+	for _, sibling := range request.SiblingTargets {
+		if sibling.TargetKind == "record_link" {
+			descriptor.SingleEntryCompanions = append(descriptor.SingleEntryCompanions, sibling.TargetReference)
+		}
+	}
 	var currentSourceID uuid.UUID
 	var incidentID uuid.UUID
 	if err := tx.QueryRow(ctx, `

@@ -167,11 +167,42 @@ func (s *Store) advanceAffectedRecordsTx(ctx context.Context, tx pgx.Tx, actorID
 	return result, nil
 }
 
-func appendAffectedRecordRevisionsTx(ctx context.Context, tx pgx.Tx, appender revisionAppendPort, changeSetID uuid.UUID, versions []AffectedRecordVersion, beforeRows map[uuid.UUID]map[string]any, afterRows map[uuid.UUID]map[string]any) error {
+func captureAffectedRecordSnapshotsTx(ctx context.Context, tx pgx.Tx, appender revisionAppendPort, recordIDs []uuid.UUID) (map[uuid.UUID]revisions.CapturedRecordSnapshot, error) {
+	snapshots := make(map[uuid.UUID]revisions.CapturedRecordSnapshot, len(recordIDs))
+	for _, recordID := range recordIDs {
+		snapshot, err := appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+		if err != nil {
+			return nil, err
+		}
+		snapshots[recordID] = snapshot
+	}
+	return snapshots, nil
+}
+
+func appendAffectedRecordRevisionsTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	appender revisionAppendPort,
+	changeSetID uuid.UUID,
+	versions []AffectedRecordVersion,
+	beforeSnapshots map[uuid.UUID]revisions.CapturedRecordSnapshot,
+	afterSnapshots map[uuid.UUID]revisions.CapturedRecordSnapshot,
+	beforeRows map[uuid.UUID]map[string]any,
+	afterRows map[uuid.UUID]map[string]any,
+) error {
 	for _, version := range versions {
-		if err := appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-			ChangeSetID: changeSetID, RecordID: version.RecordID, RowVersion: version.RowVersion,
-			BeforeValue: beforeRows[version.RecordID], AfterValue: afterRows[version.RecordID],
+		beforeSnapshot := beforeSnapshots[version.RecordID]
+		afterSnapshot := afterSnapshots[version.RecordID]
+		if err := appender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       version.RecordID,
+			RowVersion:     version.RowVersion,
+			BeforeSnapshot: &beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				BeforeValue: beforeRows[version.RecordID],
+				AfterValue:  afterRows[version.RecordID],
+			},
 		}); err != nil {
 			return err
 		}

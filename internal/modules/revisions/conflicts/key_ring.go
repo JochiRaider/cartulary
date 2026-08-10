@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -79,6 +78,9 @@ func ParseConflictTokenKeyRing(raw []byte, env map[string]string, now time.Time,
 }
 
 func ParseConflictTokenKeyRingWithRegistry(raw []byte, env map[string]string, now time.Time, registry *secretpurpose.Registry, options KeyRingParseOptions) (*ConflictTokenKeyRing, error) {
+	if env == nil {
+		return nil, conflictTokenConfigError(conflictTokenKeyRingConfigPath, "revisions_conflict_token_secret_missing", "explicit Revisions conflict-token environment is required")
+	}
 	if len(raw) == 0 || len(raw) > int(ConflictTokenKeyRingManifestMaximumSize) || !utf8.Valid(raw) {
 		return nil, conflictTokenConfigError(conflictTokenKeyRingConfigPath, "revisions_conflict_token_manifest_invalid", "Revisions conflict-token key-ring manifest must be non-empty UTF-8 JSON no larger than 65536 bytes")
 	}
@@ -169,9 +171,6 @@ func resolveConflictTokenSecret(ref conflictTokenSecretRef, env map[string]strin
 	}
 	name := "CARTULARY_SECRET_" + normalizedConflictTokenSecretSuffix(ref.Name)
 	value, ok := env[name]
-	if env == nil {
-		value, ok = os.LookupEnv(name)
-	}
 	if !ok || value == "" || strings.Contains(value, "=") {
 		return nil, conflictTokenConfigError(path, "revisions_conflict_token_secret_missing", "secret_ref could not be resolved to unpadded base64url key material")
 	}

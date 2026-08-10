@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -125,6 +126,8 @@ type mergeMutation struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
+	BeforeSnapshot  *revisions.CapturedRecordSnapshot
+	AfterSnapshot   *revisions.CapturedRecordSnapshot
 }
 
 type mergeCounts struct {
@@ -339,25 +342,16 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 
 	var (
-		survivorBefore any
-		survivorAfter  any
-		loserBefore    any
-		loserAfter     any
-		counts         mergeCounts
-		mutations      []mergeMutation
+		counts    mergeCounts
+		mutations []mergeMutation
 	)
-
-	switch survivorMeta.RecordType {
-	case "host":
-		survivorHost.SuggestionOnlyAliases = aliasValuesFromRecords(survivorAliases)
-		loserHost.SuggestionOnlyAliases = aliasValuesFromRecords(loserAliases)
-		survivorBefore = buildHostMutationValue(survivorHost)
-		loserBefore = buildHostMutationValue(loserHost)
-	case "identity":
-		survivorIdentity.SuggestionOnlyAliases = aliasValuesFromRecords(survivorAliases)
-		loserIdentity.SuggestionOnlyAliases = aliasValuesFromRecords(loserAliases)
-		survivorBefore = buildIdentityMutationValue(survivorIdentity)
-		loserBefore = buildIdentityMutationValue(loserIdentity)
+	survivorBeforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, survivorRecordID)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	loserBeforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, request.LoserRecordID)
+	if err != nil {
+		return MergeResult{}, err
 	}
 
 	mentionMutations, mentionCounts, invalidatedRecords, err := s.ports.mentions.RepointMergedMentionsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, actor.ID, now)
@@ -431,8 +425,6 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}
 		nextSurvivor.SuggestionOnlyAliases = aliasValuesFromRecords(currentAliases)
 		nextLoser.SuggestionOnlyAliases = loserHost.SuggestionOnlyAliases
-		survivorAfter = buildHostMutationValue(nextSurvivor)
-		loserAfter = buildHostMutationValue(nextLoser)
 		survivorHost = nextSurvivor
 		loserHost = nextLoser
 	case "identity":
@@ -472,10 +464,16 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}
 		nextSurvivor.SuggestionOnlyAliases = aliasValuesFromRecords(currentAliases)
 		nextLoser.SuggestionOnlyAliases = loserIdentity.SuggestionOnlyAliases
-		survivorAfter = buildIdentityMutationValue(nextSurvivor)
-		loserAfter = buildIdentityMutationValue(nextLoser)
 		survivorIdentity = nextSurvivor
 		loserIdentity = nextLoser
+	}
+	survivorAfterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, survivorRecordID)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	loserAfterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, request.LoserRecordID)
+	if err != nil {
+		return MergeResult{}, err
 	}
 
 	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
@@ -496,108 +494,129 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	case "host":
 		beforeVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion-1)
 		afterVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion)
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
-			TargetID:        survivorHost.RecordID.String(),
+			RecordID:        survivorHost.RecordID,
 			OperationKind:   "patch",
 			BeforeVersionID: &beforeVersionID,
 			AfterVersionID:  &afterVersionID,
-			BeforeValue:     survivorBefore,
-			AfterValue:      survivorAfter,
+			BeforeSnapshot:  &survivorBeforeSnapshot,
+			AfterSnapshot:   &survivorAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion-1)
 		loserAfterVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion)
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
-			TargetID:        loserHost.RecordID.String(),
+			RecordID:        loserHost.RecordID,
 			OperationKind:   "patch",
 			BeforeVersionID: &loserBeforeVersionID,
 			AfterVersionID:  &loserAfterVersionID,
-			BeforeValue:     loserBefore,
-			AfterValue:      loserAfter,
+			BeforeSnapshot:  &loserBeforeSnapshot,
+			AfterSnapshot:   &loserAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    survivorHost.RecordID,
-			RowVersion:  survivorHost.RowVersion,
-			BeforeValue: survivorBefore,
-			AfterValue:  survivorAfter,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       survivorHost.RecordID,
+			RowVersion:     survivorHost.RowVersion,
+			BeforeSnapshot: &survivorBeforeSnapshot,
+			AfterSnapshot:  &survivorAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    loserHost.RecordID,
-			RowVersion:  loserHost.RowVersion,
-			BeforeValue: loserBefore,
-			AfterValue:  loserAfter,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       loserHost.RecordID,
+			RowVersion:     loserHost.RowVersion,
+			BeforeSnapshot: &loserBeforeSnapshot,
+			AfterSnapshot:  &loserAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 	case "identity":
 		beforeVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion-1)
 		afterVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion)
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
-			TargetID:        survivorIdentity.RecordID.String(),
+			RecordID:        survivorIdentity.RecordID,
 			OperationKind:   "patch",
 			BeforeVersionID: &beforeVersionID,
 			AfterVersionID:  &afterVersionID,
-			BeforeValue:     survivorBefore,
-			AfterValue:      survivorAfter,
+			BeforeSnapshot:  &survivorBeforeSnapshot,
+			AfterSnapshot:   &survivorAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion-1)
 		loserAfterVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion)
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
-			TargetID:        loserIdentity.RecordID.String(),
+			RecordID:        loserIdentity.RecordID,
 			OperationKind:   "patch",
 			BeforeVersionID: &loserBeforeVersionID,
 			AfterVersionID:  &loserAfterVersionID,
-			BeforeValue:     loserBefore,
-			AfterValue:      loserAfter,
+			BeforeSnapshot:  &loserBeforeSnapshot,
+			AfterSnapshot:   &loserAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    survivorIdentity.RecordID,
-			RowVersion:  survivorIdentity.RowVersion,
-			BeforeValue: survivorBefore,
-			AfterValue:  survivorAfter,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       survivorIdentity.RecordID,
+			RowVersion:     survivorIdentity.RowVersion,
+			BeforeSnapshot: &survivorBeforeSnapshot,
+			AfterSnapshot:  &survivorAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    loserIdentity.RecordID,
-			RowVersion:  loserIdentity.RowVersion,
-			BeforeValue: loserBefore,
-			AfterValue:  loserAfter,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       loserIdentity.RecordID,
+			RowVersion:     loserIdentity.RowVersion,
+			BeforeSnapshot: &loserBeforeSnapshot,
+			AfterSnapshot:  &loserAfterSnapshot,
 		}); err != nil {
 			return MergeResult{}, err
 		}
 	}
 
 	for _, mutation := range mutations {
+		if mutation.BeforeSnapshot != nil || mutation.AfterSnapshot != nil {
+			recordID, parseErr := uuid.Parse(mutation.TargetID)
+			if parseErr != nil || recordID == uuid.Nil {
+				return MergeResult{}, fmt.Errorf("append captured merge mutation: invalid record id %q", mutation.TargetID)
+			}
+			if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+				ChangeSetID:     changeSetID,
+				SequenceNo:      sequenceNo,
+				TargetKind:      mutation.TargetKind,
+				RecordID:        recordID,
+				OperationKind:   mutation.OperationKind,
+				BeforeVersionID: mutation.BeforeVersionID,
+				AfterVersionID:  mutation.AfterVersionID,
+				BeforeSnapshot:  mutation.BeforeSnapshot,
+				AfterSnapshot:   mutation.AfterSnapshot,
+			}); err != nil {
+				return MergeResult{}, err
+			}
+			sequenceNo++
+			continue
+		}
 		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
@@ -1372,14 +1391,6 @@ func aliasValuesFromRecords(records []mergeAliasRecord) []hostidentity.AliasValu
 	return values
 }
 
-func aliasTexts(values []hostidentity.AliasValue) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		result = append(result, value.AliasText)
-	}
-	return result
-}
-
 func aliasActionsFromRecords(records []mergeAliasRecord) []CollectionAction {
 	actions := make([]CollectionAction, 0, len(records))
 	for _, record := range records {
@@ -1404,42 +1415,6 @@ func countProvenanceOnlyIdentifiers(values []mergePreservedIdentifierRecord) int
 
 func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
 	return survivorRecordID.String() + ":" + loserRecordID.String()
-}
-
-func buildHostMutationValue(record HostRecord) map[string]any {
-	return map[string]any{
-		"record_id":               record.RecordID.String(),
-		"incident_id":             record.IncidentID.String(),
-		"display_name":            record.DisplayName,
-		"aad_device_id":           derefString(record.AADDeviceID),
-		"fqdn":                    derefString(record.FQDN),
-		"hostname":                derefString(record.Hostname),
-		"host_state":              record.HostState,
-		"merged_into_record_id":   formatUUIDPointer(record.MergedIntoRecordID),
-		"entity_origin":           record.EntityOrigin,
-		"seed_entity_mention_id":  formatUUIDPointer(record.SeedMentionID),
-		"row_version":             record.RowVersion,
-		"suggestion_only_aliases": aliasTexts(record.SuggestionOnlyAliases),
-	}
-}
-
-func buildIdentityMutationValue(record IdentityRecord) map[string]any {
-	return map[string]any{
-		"record_id":               record.RecordID.String(),
-		"incident_id":             record.IncidentID.String(),
-		"display_name":            record.DisplayName,
-		"aad_object_id":           derefString(record.AADObjectID),
-		"sid":                     derefString(record.SID),
-		"upn":                     derefString(record.UPN),
-		"email":                   derefString(record.Email),
-		"sam_account_name":        derefString(record.SamAccountName),
-		"identity_state":          record.IdentityState,
-		"merged_into_record_id":   formatUUIDPointer(record.MergedIntoRecordID),
-		"entity_origin":           record.EntityOrigin,
-		"seed_entity_mention_id":  formatUUIDPointer(record.SeedMentionID),
-		"row_version":             record.RowVersion,
-		"suggestion_only_aliases": aliasTexts(record.SuggestionOnlyAliases),
-	}
 }
 
 func buildMergePreservedIdentifierValueFromSeed(incidentID uuid.UUID, recordID uuid.UUID, entityType string, seed identifierSeed) map[string]any {

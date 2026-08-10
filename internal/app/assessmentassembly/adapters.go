@@ -203,8 +203,8 @@ type mergeProjectionPort struct {
 	rows assessmentprojection.Rows
 }
 
-func NewMergeEffects(rows assessmentprojection.Rows) *assessments.MergeEffects {
-	return assessments.NewMergeEffects(mergeProjectionPort{rows: rows})
+func NewMergeEffects(rows assessmentprojection.Rows, snapshots assessments.MergeSnapshotCapturePort) *assessments.MergeEffects {
+	return assessments.NewMergeEffects(mergeProjectionPort{rows: rows}, snapshots)
 }
 
 func (a mergeProjectionPort) RefreshAssessmentProjectionTx(

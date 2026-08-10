@@ -8,12 +8,12 @@ import (
 
 func NewRevisionContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerTasksDecisions,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerTasksDecisions,
 		Records: []revisions.RecordProviderContribution{
 			{
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "task_request",
+				SnapshotSchemaID:       "cartulary.revisions.snapshot.task_request.v1",
 				DeleteRestoreSource:    deleterestore.NewTaskRequestSource(),
 				RowRollbackProvider:    taskdecisionrollback.NewTaskRequestProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
@@ -25,6 +25,7 @@ func NewRevisionContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerTasksDecisions,
 				RecordType:             "decision",
+				SnapshotSchemaID:       "cartulary.revisions.snapshot.decision.v1",
 				DeleteRestoreSource:    deleterestore.NewDecisionSource(),
 				RowRollbackProvider:    taskdecisionrollback.NewDecisionProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,

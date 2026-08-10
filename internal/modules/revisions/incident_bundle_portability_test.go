@@ -164,6 +164,24 @@ func TestRevisionsIncidentBundleInvariantAttribution(t *testing.T) {
 				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
 			},
 		},
+		{
+			name:      "schema_less_history_rejected",
+			invariant: "revisions.history_reconstruction",
+			mutate: func(bundle sourceport.MapBundle) {
+				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+				delete(rows[0]["after_json"].(map[string]any), "snapshot_schema_id")
+				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+			},
+		},
+		{
+			name:      "schema_less_mutation_history_rejected",
+			invariant: "revisions.history_reconstruction",
+			mutate: func(bundle sourceport.MapBundle) {
+				rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+				delete(rows[0]["after_value"].(map[string]any), "snapshot_schema_id")
+				bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -294,6 +312,18 @@ func TestRevisionsIncidentBundleRoundTripIsDeterministic(t *testing.T) {
 			if err := harness.port.ApplyImportTx(context.Background(), tx, prepared, importContext); err != nil {
 				t.Fatalf("apply valid Revisions bundle: %v", err)
 			}
+			var historyRecordIDs, historyEntryRecordIDs []uuid.UUID
+			if err := tx.QueryRow(context.Background(), `
+SELECT history_record_ids, history_entry_record_ids
+  FROM change_set_mutations
+ WHERE change_set_id = $1 AND sequence_no = 1
+`, harness.changeSet).Scan(&historyRecordIDs, &historyEntryRecordIDs); err != nil {
+				t.Fatalf("load recomputed imported history facts: %v", err)
+			}
+			if len(historyRecordIDs) != 1 || historyRecordIDs[0] != harness.recordID ||
+				len(historyEntryRecordIDs) != 1 || historyEntryRecordIDs[0] != harness.recordID {
+				t.Fatalf("recomputed imported history facts = %v / %v", historyRecordIDs, historyEntryRecordIDs)
+			}
 			if err := harness.port.ValidateImportTx(context.Background(), tx, prepared, importContext); err != nil {
 				t.Fatalf("validate valid Revisions bundle: %v", err)
 			}
@@ -394,8 +424,13 @@ INSERT INTO hosts (
 		t.Fatalf("seed portable host source: %v", err)
 	}
 	contributions := revisionassembly.CurrentProviderContributions()
+	targetSemantics, err := revisionassembly.CurrentTargetSemanticsCatalog()
+	if err != nil {
+		t.Fatalf("build Revisions target-semantics catalog: %v", err)
+	}
 	validation, err := revisions.NewIncidentBundleValidationCatalog(
 		revisionsPortabilityEnvelopeReader{},
+		targetSemantics,
 		contributions,
 	)
 	if err != nil {
@@ -422,6 +457,7 @@ INSERT INTO hosts (
 	if err != nil {
 		t.Fatalf("load portable canonical current row: %v", err)
 	}
+	snapshot["snapshot_schema_id"] = hostSource.SnapshotSchemaID
 	actors, err := sourceport.NewActorCatalog([]sourceport.ActorDescriptor{{
 		SourceActorID: actor.ID.String(),
 	}})

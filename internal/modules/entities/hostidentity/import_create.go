@@ -44,15 +44,21 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	actor := authn.UserRecord{ID: request.ActorUserID}
 
 	var (
-		recordID      uuid.UUID
-		rowVersion    int64
-		beforeRow     map[string]any
-		afterRow      map[string]any
-		operationKind string
-		entityType    string
+		recordID       uuid.UUID
+		rowVersion     int64
+		beforeRow      map[string]any
+		afterRow       map[string]any
+		operationKind  string
+		entityType     string
+		beforeSnapshot *revisions.CapturedRecordSnapshot
+		err            error
 	)
 	switch request.TargetViewSchemaID {
 	case HostsViewSchemaID:
+		beforeSnapshot, err = s.captureHostSnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createRequest)
+		if err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
 		record, before, operation, _, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -67,6 +73,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		operationKind = operation
 		entityType = "host"
 	case IdentitiesViewSchemaID:
+		beforeSnapshot, err = s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createRequest)
+		if err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
 		record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -106,7 +116,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if operation == "" {
 		operation = entityType + "_import_create"
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeCapturedTx(ctx, tx, s.revisionAppender, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -116,6 +126,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		OwnerResultCode: resultCode,
 		BeforeVersionID: beforeVersionID,
 		BeforeValue:     beforeValue,
+		BeforeSnapshot:  beforeSnapshot,
 		Row:             afterRow,
 	})
 }

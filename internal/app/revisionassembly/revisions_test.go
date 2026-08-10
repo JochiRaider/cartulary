@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
 type revisionsCompositionTestDB struct{}
@@ -140,6 +140,47 @@ func TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog(t *testing.T) {
 	}
 }
 
+func TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets(t *testing.T) {
+	t.Parallel()
+	contributions := CurrentProviderContributions()
+	snapshots, err := revisions.NewRecordSnapshotCaptureCatalog(contributions)
+	if err != nil {
+		t.Fatalf("build current snapshot catalog: %v", err)
+	}
+	wantRecordTypes := []string{
+		"artifact", "assessment", "decision", "evidence", "host", "identity",
+		"indicator", "party", "task_request", "timeline_event",
+	}
+	if got := snapshots.DeclaredRecordTypes(); !slices.Equal(got, wantRecordTypes) {
+		t.Fatalf("snapshot record types = %v, want %v", got, wantRecordTypes)
+	}
+
+	targetSet := map[string]struct{}{"record": {}}
+	for _, contribution := range contributions {
+		for _, record := range contribution.Records {
+			for _, targetKind := range record.HistoryTargetKinds {
+				targetSet[targetKind] = struct{}{}
+			}
+		}
+		for _, target := range contribution.NonRowTargets {
+			targetSet[target.TargetKind] = struct{}{}
+		}
+	}
+	gotTargetKinds := make([]string, 0, len(targetSet))
+	for targetKind := range targetSet {
+		gotTargetKinds = append(gotTargetKinds, targetKind)
+	}
+	slices.Sort(gotTargetKinds)
+	wantTargetKinds := []string{
+		"assessment", "entity_alias", "entity_mention", "entity_preserved_identifier",
+		"evidence", "host", "identity", "indicator", "indicator_observation",
+		"indicator_state_interval", "record", "record_link", "record_tag", "timeline_record",
+	}
+	if !slices.Equal(gotTargetKinds, wantTargetKinds) {
+		t.Fatalf("candidate target kinds = %v, want %v", gotTargetKinds, wantTargetKinds)
+	}
+}
+
 func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -147,14 +188,6 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 		mutate func([]revisions.ProviderContribution) []revisions.ProviderContribution
 		want   error
 	}{
-		{
-			name: "missing conflict field provider",
-			mutate: func(values []revisions.ProviderContribution) []revisions.ProviderContribution {
-				values[0].ConflictFieldProvider = nil
-				return values
-			},
-			want: conflicts.ErrMissingFieldResolver,
-		},
 		{
 			name: "missing route",
 			mutate: func(values []revisions.ProviderContribution) []revisions.ProviderContribution {
@@ -271,6 +304,7 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 	service, err := runtime.NewCommandService(
 		revisionsCompositionTestDB{},
 		revisionsCompositionTestAttribution{},
+		revisionsCompositionTestProjection{},
 		revisionsCompositionTestProjection{},
 		func() time.Time { return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC) },
 	)

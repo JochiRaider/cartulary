@@ -10,10 +10,9 @@ import (
 
 func TestSourceForRollbackValueExcludesDerivedConfidenceBand(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"assessment.confidence_score": map[string]any{"value": nil},
-		"assessment.rationale":        map[string]any{"value": "Retained"},
-		"assessment.confidence_band":  map[string]any{"value": "unset"},
+	value := map[string]any{"source": map[string]any{
+		"confidence_score": nil,
+		"rationale":        "Retained",
 	}}
 	got, ok := sourceForRollbackValue(value)
 	if !ok {
@@ -22,6 +21,9 @@ func TestSourceForRollbackValueExcludesDerivedConfidenceBand(t *testing.T) {
 	want := map[string]any{"confidence_score": nil, "rationale": "Retained"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("assessment source = %#v, want %#v", got, want)
+	}
+	if _, ok := sourceForRollbackValue(map[string]any{"cells": map[string]any{"assessment.rationale": map[string]any{"value": "legacy"}}}); ok {
+		t.Fatal("schema-less projection row was accepted")
 	}
 }
 

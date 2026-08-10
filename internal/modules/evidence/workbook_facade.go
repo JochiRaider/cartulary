@@ -27,20 +27,21 @@ import (
 )
 
 type WorkbookFacade struct {
-	pool             postgres.DB
-	authStore        *authn.Store
-	incidentAccess   incidents.Access
-	recordStore      *records.Store
-	projectionRows   evidenceprojection.Rows
-	revisionHistory  conflicttokens.RevisionWindowReader
-	revisionAppender *revisions.Appender
-	store            *Store
-	conflictTokens   conflicttokens.ConflictTokenCodec
-	conflictFields   conflicttokens.FieldResolver
-	keepSaved        conflicttokens.IdempotencyPort
-	collaboration    collaboration.IntentAppender
-	mutations        evidenceMutationCoordinator
-	objects          objectstore.Store
+	pool              postgres.DB
+	authStore         *authn.Store
+	incidentAccess    incidents.Access
+	recordStore       *records.Store
+	projectionRows    evidenceprojection.Rows
+	revisionHistory   conflicttokens.RevisionWindowReader
+	revisionAppender  *revisions.Appender
+	store             *Store
+	conflictTokens    conflicttokens.ConflictTokenCodec
+	conflictFields    conflicttokens.FieldResolver
+	conflictSnapshots conflicttokens.RevisionSnapshotProjector
+	keepSaved         conflicttokens.IdempotencyPort
+	collaboration     collaboration.IntentAppender
+	mutations         evidenceMutationCoordinator
+	objects           objectstore.Store
 }
 
 type WorkbookCreateRequest struct {
@@ -156,19 +157,20 @@ func newWorkbookFacade(
 	recordStore := records.NewStore()
 	incidentAccess := incidents.NewAccess(pool)
 	return &WorkbookFacade{
-		pool:             pool,
-		authStore:        authn.NewStore(pool),
-		incidentAccess:   incidentAccess,
-		recordStore:      recordStore,
-		projectionRows:   projectionRows,
-		revisionHistory:  conflicttokens.NewRevisionWindowReader(),
-		revisionAppender: appender,
-		store:            store,
-		conflictTokens:   conflictTokens,
-		conflictFields:   conflictFields,
-		keepSaved:        keepSaved,
-		collaboration:    intents,
-		objects:          objects,
+		pool:              pool,
+		authStore:         authn.NewStore(pool),
+		incidentAccess:    incidentAccess,
+		recordStore:       recordStore,
+		projectionRows:    projectionRows,
+		revisionHistory:   conflicttokens.NewRevisionWindowReader(),
+		revisionAppender:  appender,
+		store:             store,
+		conflictTokens:    conflictTokens,
+		conflictFields:    conflictFields,
+		conflictSnapshots: newEvidenceConflictSnapshotProjector(),
+		keepSaved:         keepSaved,
+		collaboration:     intents,
+		objects:           objects,
 		mutations: evidenceMutationCoordinator{
 			incidents:     incidentAccess,
 			source:        store.source,
@@ -329,7 +331,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
-		window, err := conflicttokens.BuildPatchConflictWindowWithDescriptors(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors)
+		window, err := conflicttokens.BuildCanonicalPatchConflictWindow(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors, f.conflictSnapshots)
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
@@ -363,6 +365,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	beforeSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	if err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	if err := validateEvidencePatchReferencesTx(ctx, tx, meta.IncidentID, request); err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -390,6 +396,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	afterSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	if err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	changeSetID, err := f.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: command.Actor.ID,
@@ -406,25 +416,26 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		beforeVersionID = workbookVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(command.RecordID, rowVersion)
-	if err := f.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
-		TargetID:        command.RecordID.String(),
+		RecordID:        command.RecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    command.RecordID,
-		RowVersion:  rowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       command.RecordID,
+		RowVersion:     rowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}

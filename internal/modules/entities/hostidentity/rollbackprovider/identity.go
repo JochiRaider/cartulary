@@ -111,37 +111,6 @@ func identitySourceForRollbackValue(value map[string]any) (map[string]any, bool)
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"identity.display_name":     "display_name",
-			"identity.upn":              "upn",
-			"identity.email":            "email",
-			"identity.sam_account_name": "sam_account_name",
-			"identity.aad_object_id":    "aad_object_id",
-			"identity.sid":              "sid",
-			"identity.identity_state":   "identity_state",
-			"identity.privilege_level":  "privilege_level",
-			"identity.mfa_state":        "mfa_state",
-			"identity.reset_status":     "reset_status",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, key := range []string{
-			"display_name", "upn", "email", "sam_account_name", "aad_object_id", "sid",
-			"identity_state", "merged_into_record_id", "privilege_level", "mfa_state", "reset_status",
-		} {
-			if _, present := value[key]; present {
-				return value, true
-			}
-		}
-	}
 	return nil, false
 }
 

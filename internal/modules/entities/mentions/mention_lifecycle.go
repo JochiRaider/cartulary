@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -186,6 +187,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MentionActionResult{}, err
 	}
+	beforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, mention.SourceRecordID)
+	if err != nil {
+		return MentionActionResult{}, err
+	}
 
 	var validatedTarget *mentionTargetRecord
 	if request.Action == "resolve_item" {
@@ -211,6 +216,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MentionActionResult{}, err
 	}
+	afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, timelineResult.SourceRecordID)
+	if err != nil {
+		return MentionActionResult{}, err
+	}
 
 	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, changeSetParams{
 		IncidentID:  mention.IncidentID,
@@ -226,16 +235,16 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	sequenceNo := 1
-	if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
+	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
-		TargetID:        timelineResult.SourceRecordID.String(),
+		RecordID:        timelineResult.SourceRecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &timelineResult.BeforeVersionID,
 		AfterVersionID:  &timelineResult.AfterVersionID,
-		BeforeValue:     timelineResult.BeforeRow,
-		AfterValue:      timelineResult.AfterRow,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return MentionActionResult{}, err
 	}
@@ -285,12 +294,12 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, recordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    timelineResult.SourceRecordID,
-		RowVersion:  timelineResult.RowVersion,
-		BeforeValue: timelineResult.BeforeRow,
-		AfterValue:  timelineResult.AfterRow,
+	if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       timelineResult.SourceRecordID,
+		RowVersion:     timelineResult.RowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
 		return MentionActionResult{}, err
 	}

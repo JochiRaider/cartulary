@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -269,7 +270,7 @@ func RequireSupersedeCoupledChangeSet(t testing.TB, db Database, changeSetID str
 		OperationKind:    "patch",
 		BeforeRowVersion: RowVersion(wantRowVersion - 1),
 		AfterRowVersion:  RowVersion(wantRowVersion),
-		AfterCells:       map[string]any{"timeline.capture_state": "superseded", "timeline.replacement_record_id": replacementRecordID},
+		AfterCells:       map[string]any{"timeline.capture_state": "superseded"},
 	})
 	RequireRecordLinkCreateMutation(t, db, changeSetID, RecordLinkMutationExpectation{
 		SequenceNo:          2,
@@ -427,8 +428,15 @@ func requireRowVersionValue(t testing.TB, field string, row map[string]any, want
 	if row == nil {
 		t.Fatalf("expected %s row_version %d, got nil row", field, *wantVersion)
 	}
-	if got, ok := numberAsInt64(row["row_version"]); !ok || got != *wantVersion {
-		t.Fatalf("unexpected %s row_version: got %#v want %d in %#v", field, row["row_version"], *wantVersion, row)
+	if row["snapshot_schema_id"] != "cartulary.revisions.snapshot.timeline_event.v1" {
+		t.Fatalf("unexpected %s snapshot schema: %#v", field, row)
+	}
+	record, ok := row["record"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s canonical record object, got %#v", field, row)
+	}
+	if got, ok := numberAsInt64(record["row_version"]); !ok || got != *wantVersion {
+		t.Fatalf("unexpected %s row_version: got %#v want %d in %#v", field, record["row_version"], *wantVersion, row)
 	}
 }
 
@@ -440,17 +448,14 @@ func requireCellValues(t testing.TB, field string, row map[string]any, wants map
 	if row == nil {
 		t.Fatalf("expected %s row with cells %#v, got nil", field, wants)
 	}
-	cells, ok := row["cells"].(map[string]any)
+	source, ok := row["source"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected %s cells object, got %#v", field, row)
+		t.Fatalf("expected %s canonical source object, got %#v", field, row)
 	}
 	for fieldKey, want := range wants {
-		cell, ok := cells[fieldKey].(map[string]any)
-		if !ok {
-			t.Fatalf("expected %s cell %s, got %#v", field, fieldKey, cells[fieldKey])
-		}
-		if got := cell["value"]; !reflect.DeepEqual(got, want) {
-			t.Fatalf("unexpected %s cell %s: got %#v want %#v", field, fieldKey, got, want)
+		sourceKey := strings.TrimPrefix(fieldKey, "timeline.")
+		if got := source[sourceKey]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("unexpected %s source %s: got %#v want %#v", field, fieldKey, got, want)
 		}
 	}
 }

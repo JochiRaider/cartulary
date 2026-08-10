@@ -234,6 +234,14 @@ type taskDecisionRevisions struct {
 	history  conflicttokens.RevisionWindowReader
 }
 
+func (a taskDecisionRevisions) CaptureRecordSnapshotTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	recordID uuid.UUID,
+) (revisions.CapturedRecordSnapshot, error) {
+	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+}
+
 func (a taskDecisionRevisions) AppendChangeSetTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -245,17 +253,25 @@ func (a taskDecisionRevisions) AppendChangeSetTx(
 func (a taskDecisionRevisions) AppendMutationTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params revisions.AppendMutationParams,
+	params revisions.AppendNonRowMutationParams,
 ) error {
-	return a.appender.AppendMutationTx(ctx, tx, params)
+	return a.appender.AppendNonRowMutationTx(ctx, tx, params)
 }
 
-func (a taskDecisionRevisions) AppendRecordRevisionTx(
+func (a taskDecisionRevisions) AppendCapturedRecordMutationTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	params revisions.AppendRecordRevisionParams,
+	params revisions.AppendCapturedRecordMutationParams,
 ) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, params)
+	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+}
+
+func (a taskDecisionRevisions) AppendCapturedRecordRevisionTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	params revisions.AppendCapturedRecordRevisionParams,
+) error {
+	return a.appender.AppendCapturedRecordRevisionTx(ctx, tx, params)
 }
 
 func (a taskDecisionRevisions) LoadRevisionWindowTx(

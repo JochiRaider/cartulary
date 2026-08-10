@@ -24,26 +24,33 @@ func (a assessmentImportRevisionAdapter) AppendAssessmentImportRevisionTx(
 	tx pgx.Tx,
 	revision assessments.ImportRevision,
 ) error {
+	afterSnapshot, err := a.appender.CaptureRecordSnapshotTx(ctx, tx, revision.RecordID)
+	if err != nil {
+		return err
+	}
 	afterVersion := revision.AfterVersion
-	if err := a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := a.appender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:    revision.ChangeSetID,
 		SequenceNo:     revision.SequenceNo,
 		TargetKind:     "record",
-		TargetID:       revision.RecordID.String(),
+		RecordID:       revision.RecordID,
 		OperationKind:  "create",
 		AfterVersionID: &afterVersion,
-		AfterValue:     revision.CanonicalRow,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
 		return err
 	}
-	return a.appender.AppendRecordRevisionTx(
+	return a.appender.AppendCapturedRecordRevisionTx(
 		ctx,
 		tx,
-		revisions.AppendRecordRevisionParams{
-			ChangeSetID: revision.ChangeSetID,
-			RecordID:    revision.RecordID,
-			RowVersion:  revision.RowVersion,
-			AfterValue:  revision.CanonicalRow,
+		revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:   revision.ChangeSetID,
+			RecordID:      revision.RecordID,
+			RowVersion:    revision.RowVersion,
+			AfterSnapshot: &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				AfterValue: revision.CanonicalRow,
+			},
 		},
 	)
 }

@@ -9,16 +9,9 @@ import (
 
 func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"note.body":                          map[string]any{"value": "note"},
-		"comm_log.summary":                   map[string]any{"value": "brief"},
-		"handoff.next_checks":                map[string]any{"value": nil},
-		"status_review.active_risks_summary": map[string]any{"value": "risk"},
-		"lesson.closure_state":               map[string]any{"value": "closed"},
-		"finding.kind":                       map[string]any{"value": "hypothesis"},
-		"investigative_query.platform":       map[string]any{"value": "KQL"},
-		"forensic_keyword.case_sensitive":    map[string]any{"value": true},
-		"handoff.open_risk_refs":             map[string]any{"value": []any{"ignored"}},
+	value := map[string]any{"source": map[string]any{
+		"body": "note", "summary": "brief", "next_checks": nil, "active_risks_summary": "risk",
+		"closure_state": "closed", "kind": "hypothesis", "platform": "KQL", "case_sensitive": true,
 	}}
 	got, ok := sourcecontract.ExtractRollbackSource(value)
 	if !ok {
@@ -30,6 +23,9 @@ func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *test
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("artifact source = %#v, want %#v", got, want)
+	}
+	if _, ok := sourcecontract.ExtractRollbackSource(map[string]any{"cells": map[string]any{"note.body": map[string]any{"value": "legacy"}}}); ok {
+		t.Fatal("schema-less projection row was accepted")
 	}
 }
 

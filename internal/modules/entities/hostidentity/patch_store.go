@@ -126,6 +126,10 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 		return PatchMutationResult{}, err
 	}
 	beforeRow := BuildHostRow(beforeRecord)
+	beforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return PatchMutationResult{}, err
+	}
 
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
@@ -220,7 +224,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	}
 	afterRow := BuildHostRow(next)
 
-	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
+	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, &beforeSnapshot, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
 func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
@@ -232,6 +236,10 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 		return PatchMutationResult{}, err
 	}
 	beforeRow := BuildIdentityRow(beforeRecord)
+	beforeSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return PatchMutationResult{}, err
+	}
 
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
@@ -326,10 +334,14 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	}
 	afterRow := BuildIdentityRow(next)
 
-	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
+	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, &beforeSnapshot, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
-func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string, aliasMutations []AliasAppliedMutation) (PatchMutationResult, error) {
+func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeSnapshot *revisions.CapturedRecordSnapshot, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string, aliasMutations []AliasAppliedMutation) (PatchMutationResult, error) {
+	afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return PatchMutationResult{}, err
+	}
 	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -343,16 +355,16 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}
 	beforeVersionID := entityVersionID(targetKind, recordID, request.BaseRowVersion)
 	afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      targetKind,
-		TargetID:        recordID.String(),
+		RecordID:        recordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -369,12 +381,16 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 			return PatchMutationResult{}, err
 		}
 	}
-	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    recordID,
-		RowVersion:  rowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+	if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       recordID,
+		RowVersion:     rowVersion,
+		BeforeSnapshot: beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange: revisions.LiveRecordChange{
+			BeforeValue: beforeRow,
+			AfterValue:  afterRow,
+		},
 	}); err != nil {
 		return PatchMutationResult{}, err
 	}

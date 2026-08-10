@@ -45,6 +45,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND target_kind = 'record' AND target_id = $2 AND operation_kind = 'soft_delete'`, deleteChangeSetID, recordID.String()) != 1 {
 		t.Fatalf("delete did not create reversible soft_delete mutation")
 	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND history_record_ids = ARRAY[$2::uuid] AND history_entry_record_ids = ARRAY[$2::uuid]`, deleteChangeSetID, recordID) != 1 {
+		t.Fatalf("delete did not persist canonical history association facts")
+	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1 AND record_id = $2 AND row_version = 2`, deleteChangeSetID, recordID) != 1 {
 		t.Fatalf("delete did not append row revision")
 	}
@@ -122,6 +125,9 @@ func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	requireAffectedRecords(t, linkRollbackPayload, linkSrc, linkDst)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NOT NULL`, linkID) != 1 {
 		t.Fatalf("link rollback did not tombstone active link")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations WHERE change_set_id::text = $1 AND history_record_ids @> ARRAY[$2::uuid, $3::uuid] AND cardinality(history_record_ids) = 2 AND history_entry_record_ids = history_record_ids`, linkRollbackPayload["rollback_change_set_id"], linkSrc, linkDst) != 1 {
+		t.Fatalf("link rollback did not persist canonical two-record history facts")
 	}
 	linkRollbackChangeSetID := linkRollbackPayload["rollback_change_set_id"].(string)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_revisions WHERE change_set_id::text = $1`, linkRollbackChangeSetID) != 2 {

@@ -10,12 +10,13 @@ import (
 func RevisionProviderContribution() revisions.ProviderContribution {
 	collectionProvider := entityrollback.NewCollectionProvider()
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerEntities,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerEntities,
 		Records: []revisions.RecordProviderContribution{
 			{
 				SourceOwnerModule:      revisions.SourceOwnerEntities,
 				RecordType:             "host",
+				SnapshotSchemaID:       "cartulary.revisions.snapshot.host.v1",
+				HistoryTargetKinds:     []string{"host"},
 				DeleteRestoreSource:    entitiesdeleterestore.NewHostSource(),
 				RowRollbackProvider:    entityrollback.NewHostProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
@@ -27,6 +28,8 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			{
 				SourceOwnerModule:      revisions.SourceOwnerEntities,
 				RecordType:             "identity",
+				SnapshotSchemaID:       "cartulary.revisions.snapshot.identity.v1",
+				HistoryTargetKinds:     []string{"identity"},
 				DeleteRestoreSource:    entitiesdeleterestore.NewIdentitySource(),
 				RowRollbackProvider:    entityrollback.NewIdentityProvider(),
 				LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
@@ -37,9 +40,24 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 			},
 		},
 		NonRowTargets: []revisions.NonRowProviderContribution{
-			{SourceOwnerModule: revisions.SourceOwnerEntities, TargetKind: "entity_mention", RollbackProvider: mentionrollback.NewMentionProvider()},
-			{SourceOwnerModule: revisions.SourceOwnerEntities, TargetKind: "entity_alias", RollbackProvider: collectionProvider},
-			{SourceOwnerModule: revisions.SourceOwnerEntities, TargetKind: "entity_preserved_identifier", RollbackProvider: collectionProvider},
+			{
+				SourceOwnerModule: revisions.SourceOwnerEntities,
+				TargetKind:        "entity_mention",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"source_record_id"}, revisions.HistorySingleEntry),
+				RollbackProvider:  mentionrollback.NewMentionProvider(),
+			},
+			{
+				SourceOwnerModule: revisions.SourceOwnerEntities,
+				TargetKind:        "entity_alias",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"record_id"}, revisions.HistoryNotIndividuallyAddressable),
+				RollbackProvider:  collectionProvider,
+			},
+			{
+				SourceOwnerModule: revisions.SourceOwnerEntities,
+				TargetKind:        "entity_preserved_identifier",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"record_id"}, revisions.HistoryNotIndividuallyAddressable),
+				RollbackProvider:  collectionProvider,
+			},
 		},
 	}
 }

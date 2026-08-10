@@ -79,6 +79,31 @@
       "status": "active",
       "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard"
+    },
+    {
+      "row_id": "module.links.unit.links_revision_contribution_owns_current_target_08116fb575",
+      "owner_id": "module.links",
+      "family_id": "module.links.unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.links.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestRevisionProviderContributionOwnsLinkAndTagHistorySemantics_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

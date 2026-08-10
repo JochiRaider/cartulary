@@ -157,15 +157,23 @@ func (compositionOperations) RebuildTaskRequestsTx(context.Context, pgx.Tx, uuid
 
 func (compositionOperations) RebuildDecisionsTx(context.Context, pgx.Tx, uuid.UUID) error { return nil }
 
+func (compositionOperations) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	return revisions.CapturedRecordSnapshot{}, nil
+}
+
 func (compositionOperations) AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error) {
 	return uuid.New(), nil
 }
 
-func (compositionOperations) AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error {
+func (compositionOperations) AppendMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error {
 	return nil
 }
 
-func (compositionOperations) AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (compositionOperations) AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error {
+	return nil
+}
+
+func (compositionOperations) AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error {
 	return nil
 }
 

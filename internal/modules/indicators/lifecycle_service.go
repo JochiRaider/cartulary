@@ -60,6 +60,10 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
+	beforeSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, []uuid.UUID{params.IndicatorRecordID})
+	if err != nil {
+		return IndicatorLifecycleMutationResult{}, err
+	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
 	record, err := s.lifecycles.insertTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
@@ -72,7 +76,7 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_state_interval",
 		TargetID: record.IntervalID.String(), OperationKind: "create",
 		AfterVersionID: stringPointer(fmt.Sprintf("indicator_state_interval:%s:%d", record.IntervalID, record.RowVersion)),
@@ -88,7 +92,11 @@ func (service indicatorLifecycleService) appendInterval(ctx context.Context, act
 	if err != nil {
 		return IndicatorLifecycleMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions,
+	afterSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, []uuid.UUID{params.IndicatorRecordID})
+	if err != nil {
+		return IndicatorLifecycleMutationResult{}, err
+	}
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeSnapshots, afterSnapshots,
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: beforeRow},
 		map[uuid.UUID]map[string]any{params.IndicatorRecordID: afterRow},
 	); err != nil {

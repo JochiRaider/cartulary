@@ -2,7 +2,6 @@ package workbook_test
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"reflect"
@@ -887,63 +886,35 @@ func RequireSideEffectDelta(t testing.TB, label string, before workbookConflictS
 
 func RequireMutationChangedFields(t testing.TB, harness *appsupport.ServerHarness, changeSetID string, want []string) {
 	t.Helper()
-	var beforeJSON, afterJSON []byte
-	row := harness.DB.QueryRowContext(context.Background(), `
-SELECT before_value, after_value
-  FROM change_set_mutations
- WHERE change_set_id = $1
-   AND sequence_no = 1
+	rows, err := harness.DB.QueryContext(context.Background(), `
+SELECT fact.field_key
+  FROM record_revision_conflict_facts AS fact
+  JOIN record_revisions AS revision
+    ON revision.revision_id = fact.revision_id
+ WHERE revision.change_set_id = $1
+ ORDER BY fact.field_key
 `, changeSetID)
-	if err := row.Scan(&beforeJSON, &afterJSON); err != nil {
-		t.Fatalf("load change-set mutation %s: %v", changeSetID, err)
+	if err != nil {
+		t.Fatalf("load change-set conflict facts %s: %v", changeSetID, err)
 	}
-	beforeRow := DecodeRowJSON(t, beforeJSON)
-	afterRow := DecodeRowJSON(t, afterJSON)
-	got := ChangedCellKeys(beforeRow, afterRow)
-	if !StringSlicesEqual(got, want) {
-		t.Fatalf("change-set mutation changed fields = %#v want %#v", got, want)
-	}
-}
-
-func DecodeRowJSON(t testing.TB, payload []byte) map[string]any {
-	t.Helper()
-	var row map[string]any
-	if err := json.Unmarshal(payload, &row); err != nil {
-		t.Fatalf("decode row json: %v payload=%s", err, payload)
-	}
-	return row
-}
-
-func ChangedCellKeys(beforeRow map[string]any, afterRow map[string]any) []string {
-	beforeCells, _ := beforeRow["cells"].(map[string]any)
-	afterCells, _ := afterRow["cells"].(map[string]any)
-	keys := make([]string, 0)
-	for fieldKey, afterCell := range afterCells {
-		if ServerManagedRevisionCell(fieldKey) {
+	defer rows.Close()
+	got := make([]string, 0, len(want))
+	for rows.Next() {
+		var fieldKey string
+		if err := rows.Scan(&fieldKey); err != nil {
+			t.Fatalf("scan change-set conflict fact %s: %v", changeSetID, err)
+		}
+		if fieldKey == "note.updated_at" {
 			continue
 		}
-		beforeCell, ok := beforeCells[fieldKey]
-		if !ok || !JSONEqual(beforeCell, afterCell) {
-			keys = append(keys, fieldKey)
-		}
+		got = append(got, fieldKey)
 	}
-	sort.Strings(keys)
-	return keys
-}
-
-func ServerManagedRevisionCell(fieldKey string) bool {
-	switch fieldKey {
-	case "note.updated_at":
-		return true
-	default:
-		return false
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate change-set conflict facts %s: %v", changeSetID, err)
 	}
-}
-
-func JSONEqual(left any, right any) bool {
-	leftJSON, _ := json.Marshal(left)
-	rightJSON, _ := json.Marshal(right)
-	return string(leftJSON) == string(rightJSON)
+	if !StringSlicesEqual(got, want) {
+		t.Fatalf("change-set conflict fact fields = %#v want %#v", got, want)
+	}
 }
 
 func StringSlicesEqual(left []string, right []string) bool {

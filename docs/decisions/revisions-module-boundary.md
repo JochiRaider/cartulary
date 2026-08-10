@@ -1,0 +1,112 @@
+# Revisions Module Boundary Decision
+
+## Status and scope
+
+Status: Adopted through Core 00 REQ-00-071.
+
+This decision owns only the repository-internal Go topology, composition
+boundary, and compatibility removal for Revisions. Core 01 owns application,
+route, portability, and storage-boundary behavior. Core 02 owns history,
+snapshot, mutation-target, association, and rollback meaning. Core 03 owns
+Collaboration consequences. Core 04 owns security and conformance. If this
+decision conflicts with an adopted behavioral owner, that owner governs and
+this decision must be repaired.
+
+Runtime code, tests, generators, conformance, and release evidence do not read
+this file. Machine projections under `contracts/revisions` and authored policy
+under `tools/` enforce the adopted facts.
+
+## Decision
+
+Revisions is a bounded context for generic immutable history and destructive
+coordination. Its application facade is composed by
+`internal/app/revisionassembly`; source owners construct their own providers
+and application assembly validates and copies the complete catalogs before
+serving.
+
+The final boundary has these properties:
+
+- `Appender` receives a narrow transaction-bound current-envelope reader. It
+  never constructs or imports a concrete Records store.
+- A source-owned snapshot provider captures the current authoritative row in
+  the caller transaction. The captured value is opaque to generic
+  coordination and has the canonical envelope
+  `{snapshot_schema_id, record, source}`.
+- Projection or view rows may supply a separate live-change value for
+  Collaboration materialization. They are never persisted as history and are
+  never a snapshot fallback or compatibility authority.
+- Each ordinary live record revision derives narrow field-keyed conflict facts
+  from that explicit live-change value in the same transaction. These facts
+  support revision-window conflict detection for values intentionally excluded
+  from canonical snapshots; they never become row-history, rollback,
+  projection, or portability authority.
+- One immutable target-semantics catalog is compiled from source-owner
+  contributions. Every exact target kind has one pure history facet and one
+  rollback dispatch class. Unknown, duplicate, incomplete, typed-nil, or
+  cross-owner contributions fail startup.
+- A pure history facet supplies sorted unique history associations and
+  addressability before persistence. Generic history lookup uses indexed
+  association facts and contains no source JSON-key predicates.
+- Row targets declare admitted record types and use source-owned row
+  providers. Non-row targets adapt source-owned fixed-SQL providers. Generic
+  rollback code may branch only between `row` and `non_row`; source vocabulary,
+  companion selection, revalidation, and inverse application remain behind
+  source facets and providers.
+- Revisions retains transaction order, canonical locking, idempotency,
+  append-only history publication, projection refresh, Collaboration intent
+  publication, safe error mapping, and stable opaque selectors.
+- Revision assembly resolves declared view-schema IDs and copies immutable
+  conflict descriptors at startup. Revisions contains no global view-schema
+  lookup.
+- Conflict key-ring parsing consumes an explicit environment snapshot or
+  resolver. Server assembly owns process-environment capture; an explicit
+  empty input never consults the host process.
+
+Providers never own authorization, transport decoding, transaction
+completion, idempotency, history append, projection refresh, Collaboration
+publication, dynamic SQL, runtime relation names, network calls, or object
+storage.
+
+## Transition and compatibility
+
+The transition is characterization, owner adoption, independent boundary
+corrections, candidate typed interfaces, one source-owner contribution at a
+time, and three atomic cutovers: canonical snapshots/events, indexed history,
+and provider-driven rollback. Temporary old and candidate Go surfaces may
+coexist only during the named transition and are deleted at cutover. There is
+no internal deprecation window or runtime fallback.
+
+Existing databases containing Revisions mutation rows from before the
+canonical snapshot boundary are pre-production disposable state and must be
+reset. The boundary migration fails with an explicit reset-required diagnostic
+when such rows exist. It does not backfill or infer history facts.
+
+Schema-less snapshots have no reader, translator, alias, dual-write path, or
+shape inference. Incident Bundles containing them are rejected. Bundle
+versions 1 and 2 remain supported for canonical snapshots, with their existing
+outer row members and ordering; deterministic association facts are recomputed
+from the admitted target-semantics version during import.
+
+No public HTTP or WebSocket operation, authorization precedence, opaque
+selector, conflict-token v3 wire format, Incident Bundle version, OpenAPI
+operation, UI selector, or frontend port changes under this decision.
+
+## Acceptance
+
+The decision is implemented only when:
+
+- all ten record types have one source-owned snapshot schema and all fourteen
+  target kinds have exactly one compiled target-semantics entry;
+- every persisted non-null snapshot validates its declared schema;
+- history association arrays are canonical, complete, indexed, and the sole
+  generic mutation-history lookup source;
+- live conflict facts are revision-bound, field-keyed, transactionally atomic,
+  and used only for optimistic-concurrency reconstruction;
+- generic Revisions production code contains no concrete Records
+  construction, projection snapshot read, global view-schema lookup, ambient
+  environment read, source JSON-key history predicate, or source-kind rollback
+  switch;
+- source-owner, failure-atomicity, security-precedence, portability, browser,
+  migration, boundary, generation, and broad release checks pass; and
+- the controlling handoff tracker records the reset instruction, validation
+  roots, residual risks, and a completed final slice.

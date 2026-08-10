@@ -72,33 +72,6 @@ func hostSourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"host.display_name":  "display_name",
-			"host.hostname":      "hostname",
-			"host.aad_device_id": "aad_device_id",
-			"host.fqdn":          "fqdn",
-			"host.host_state":    "host_state",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		if len(source) > 0 {
-			if _, present := source["host_state"]; !present {
-				source["host_state"] = "canonical"
-			}
-			return source, true
-		}
-		return nil, false
-	}
-	if _, ok := value["record_id"]; ok {
-		if _, ok := value["display_name"]; ok {
-			return value, true
-		}
-	}
 	return nil, false
 }
 

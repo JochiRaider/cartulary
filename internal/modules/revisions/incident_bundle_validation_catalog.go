@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 )
 
 var (
-	ErrDuplicateHistoryTargetProvider  = errors.New("revisions: duplicate history target provider")
 	ErrMissingHistoryTargetProvider    = errors.New("revisions: missing history target provider")
 	ErrUnexpectedHistoryTargetProvider = errors.New("revisions: unexpected history target provider")
 )
@@ -24,7 +22,8 @@ var (
 type IncidentBundleValidationCatalog struct {
 	currentRows *DeleteRestoreSourceCatalog
 	envelopes   IncidentBundleRecordEnvelopeReader
-	targets     map[string]SourceOwnerModule
+	targets     *TargetSemanticsCatalog
+	schemas     map[string]string
 }
 
 type IncidentBundleRecordEnvelopeReader interface {
@@ -36,58 +35,30 @@ type IncidentBundleRecordEnvelopeReader interface {
 // portable history validation.
 func NewIncidentBundleValidationCatalog(
 	envelopes IncidentBundleRecordEnvelopeReader,
+	targets *TargetSemanticsCatalog,
 	contributions []ProviderContribution,
 ) (*IncidentBundleValidationCatalog, error) {
-	if envelopes == nil {
+	if envelopes == nil || targets == nil {
 		return nil, ErrMissingHistoryTargetProvider
 	}
-	currentRows, _, _, err := buildProviderCatalogs(contributions)
+	currentRows, err := buildDeleteRestoreSourceCatalog(contributions)
 	if err != nil {
 		return nil, fmt.Errorf("build incident-bundle validation catalog: %w", err)
 	}
-	targets := map[string]SourceOwnerModule{"record": "records"}
+	schemas := make(map[string]string)
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
-			targetKinds := record.HistoryTargetKinds
-			if len(targetKinds) == 0 {
-				targetKinds = []string{record.RecordType}
+			if strings.TrimSpace(record.SnapshotSchemaID) == "" {
+				return nil, fmt.Errorf("%w: record type %q snapshot schema", ErrMissingHistoryTargetProvider, record.RecordType)
 			}
-			for _, targetKind := range targetKinds {
-				if targetKind == "" {
-					return nil, ErrMissingHistoryTargetProvider
-				}
-				if prior, duplicate := targets[targetKind]; duplicate {
-					return nil, fmt.Errorf(
-						"%w: %s claimed by %s and %s",
-						ErrDuplicateHistoryTargetProvider,
-						targetKind,
-						prior,
-						contribution.SourceOwnerModule,
-					)
-				}
-				targets[targetKind] = contribution.SourceOwnerModule
-			}
-		}
-		for _, target := range contribution.NonRowTargets {
-			if target.TargetKind == "" {
-				return nil, ErrMissingHistoryTargetProvider
-			}
-			if prior, duplicate := targets[target.TargetKind]; duplicate {
-				return nil, fmt.Errorf(
-					"%w: %s claimed by %s and %s",
-					ErrDuplicateHistoryTargetProvider,
-					target.TargetKind,
-					prior,
-					contribution.SourceOwnerModule,
-				)
-			}
-			targets[target.TargetKind] = contribution.SourceOwnerModule
+			schemas[record.RecordType] = record.SnapshotSchemaID
 		}
 	}
 	return &IncidentBundleValidationCatalog{
 		currentRows: currentRows,
 		envelopes:   envelopes,
 		targets:     targets,
+		schemas:     schemas,
 	}, nil
 }
 
@@ -95,20 +66,32 @@ func (c *IncidentBundleValidationCatalog) resolvesTargetKind(targetKind string) 
 	if c == nil {
 		return false
 	}
-	_, ok := c.targets[targetKind]
-	return ok
+	return c.targets.hasTargetKind(targetKind)
+}
+
+func (c *IncidentBundleValidationCatalog) validateSnapshot(recordID uuid.UUID, recordType string, value any) error {
+	if c == nil {
+		return ErrMissingHistoryTargetProvider
+	}
+	if value == nil {
+		return nil
+	}
+	snapshot, ok := value.(map[string]any)
+	if !ok {
+		return ErrInvalidCapturedSnapshot
+	}
+	schemaID, ok := c.schemas[recordType]
+	if !ok {
+		return ErrMissingHistoryTargetProvider
+	}
+	return validatePersistedSnapshotValue(schemaID, recordID, recordType, snapshot)
 }
 
 func (c *IncidentBundleValidationCatalog) targetKinds() []string {
 	if c == nil {
 		return nil
 	}
-	result := make([]string, 0, len(c.targets))
-	for targetKind := range c.targets {
-		result = append(result, targetKind)
-	}
-	sort.Strings(result)
-	return result
+	return c.targets.TargetKinds()
 }
 
 func (c *IncidentBundleValidationCatalog) currentRowTx(
@@ -131,12 +114,8 @@ func (c *IncidentBundleValidationCatalog) currentRowTx(
 	return source.SnapshotTx(ctx, tx, recordID)
 }
 
-// currentHistoryRowMatchesTx compares an owner-authored history row with the
-// source owner's canonical current-row snapshot. History rows may use either
-// the canonical {record,source} form emitted by rollback or the workbook row
-// form emitted by interactive mutations. The latter is matched only through
-// source fields that the owner snapshot actually exposes; derived cells are
-// deliberately ignored rather than treating a generated projection as truth.
+// currentHistoryRowMatchesTx compares a canonical retained history envelope
+// with the source owner's canonical current-row snapshot.
 func (c *IncidentBundleValidationCatalog) currentHistoryRowMatchesTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -161,52 +140,12 @@ func canonicalHistoryRowMatchesSnapshot(
 	if !recordOK || !sourceOK {
 		return false
 	}
-	if nestedRecord, ok := historyRow["record"].(map[string]any); ok {
-		nestedSource, sourcePresent := historyRow["source"].(map[string]any)
-		matches := sourcePresent &&
-			canonicalObjectSubsetMatches(nestedRecord, currentRecord) &&
-			canonicalObjectSubsetMatches(nestedSource, currentSource)
-		return matches
-	}
-	if !sameCanonicalScalar(historyRow["record_id"], recordID.String()) ||
-		!sameCanonicalScalar(historyRow["row_version"], currentRecord["row_version"]) {
-		return false
-	}
-
-	matchedSourceField := false
-	if cells, ok := historyRow["cells"].(map[string]any); ok {
-		for fieldKey, rawCell := range cells {
-			cell, ok := rawCell.(map[string]any)
-			if !ok {
-				return false
-			}
-			separator := strings.LastIndexByte(fieldKey, '.')
-			if separator < 0 || separator == len(fieldKey)-1 {
-				continue
-			}
-			sourceValue, represented := currentSource[fieldKey[separator+1:]]
-			if !represented {
-				continue
-			}
-			value, present := cell["value"]
-			if !present || !sameCanonicalScalar(value, sourceValue) {
-				return false
-			}
-			matchedSourceField = true
-		}
-	}
-	for key, value := range historyRow {
-		if key == "record_id" || key == "row_version" || key == "cells" || key == "group_values" {
-			continue
-		}
-		if sourceValue, represented := currentSource[key]; represented {
-			if !sameCanonicalScalar(value, sourceValue) {
-				return false
-			}
-			matchedSourceField = true
-		}
-	}
-	return matchedSourceField
+	nestedRecord, recordPresent := historyRow["record"].(map[string]any)
+	nestedSource, sourcePresent := historyRow["source"].(map[string]any)
+	return recordPresent && sourcePresent &&
+		sameCanonicalScalar(nestedRecord["record_id"], recordID.String()) &&
+		canonicalObjectSubsetMatches(nestedRecord, currentRecord) &&
+		canonicalObjectSubsetMatches(nestedSource, currentSource)
 }
 
 func canonicalObjectSubsetMatches(expected map[string]any, current map[string]any) bool {

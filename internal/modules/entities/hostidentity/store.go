@@ -395,11 +395,19 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
+	beforeSnapshot, err := s.captureHostSnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.ports.projections.RefreshHostTx(ctx, tx, record.RecordID); err != nil {
+		return MutationResult{}, err
+	}
+	afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
 		return MutationResult{}, err
 	}
 
@@ -426,16 +434,16 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("host", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "host",
-		TargetID:        record.RecordID.String(),
+		RecordID:        record.RecordID,
 		OperationKind:   operationKind,
 		BeforeVersionID: beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -443,12 +451,16 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    record.RecordID,
-			RowVersion:  record.RowVersion,
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       record.RecordID,
+			RowVersion:     record.RowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				BeforeValue: beforeRow,
+				AfterValue:  afterRow,
+			},
 		}); err != nil {
 			return MutationResult{}, err
 		}
@@ -515,11 +527,19 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
+	beforeSnapshot, err := s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.ports.projections.RefreshIdentityTx(ctx, tx, record.RecordID); err != nil {
+		return MutationResult{}, err
+	}
+	afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
 		return MutationResult{}, err
 	}
 
@@ -546,16 +566,16 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("identity", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "identity",
-		TargetID:        record.RecordID.String(),
+		RecordID:        record.RecordID,
 		OperationKind:   operationKind,
 		BeforeVersionID: beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -563,12 +583,16 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    record.RecordID,
-			RowVersion:  record.RowVersion,
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
+		if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       record.RecordID,
+			RowVersion:     record.RowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				BeforeValue: beforeRow,
+				AfterValue:  afterRow,
+			},
 		}); err != nil {
 			return MutationResult{}, err
 		}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformhttpapi "github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -28,16 +27,16 @@ type commandApplication interface {
 type Service struct {
 	commands       commandApplication
 	incidentAccess incidents.Access
-	records        *records.Store
+	records        revisions.RecordEnvelopeReader
 	authStore      *authn.Store
 	keys           authn.MasterKeys
 	cursorCodec    *pagination.Codec
 	now            func() time.Time
 }
 
-func RegisterRoutes(commands commandApplication) platformhttpapi.RouteRegistrar {
+func RegisterRoutes(commands commandApplication, records revisions.RecordEnvelopeReader) platformhttpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps platformhttpapi.DependencySet) error {
-		service, err := newService(deps, commands)
+		service, err := newService(deps, commands, records)
 		if err != nil {
 			return err
 		}
@@ -50,9 +49,12 @@ func RegisterRoutes(commands commandApplication) platformhttpapi.RouteRegistrar 
 	}
 }
 
-func newService(deps platformhttpapi.DependencySet, commands commandApplication) (*Service, error) {
+func newService(deps platformhttpapi.DependencySet, commands commandApplication, records revisions.RecordEnvelopeReader) (*Service, error) {
 	if commands == nil {
 		return nil, errors.New("revisions routes: command service is required")
+	}
+	if records == nil {
+		return nil, errors.New("revisions routes: record envelope reader is required")
 	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
@@ -70,7 +72,7 @@ func newService(deps platformhttpapi.DependencySet, commands commandApplication)
 	return &Service{
 		commands:       commands,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		records:        records.NewStore(deps.PostgresHandle()),
+		records:        records,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
 		cursorCodec:    cursorCodec,
@@ -90,7 +92,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	envelope, err := s.records.LoadEnvelope(r.Context(), recordID)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
@@ -179,7 +181,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record, err := s.records.LoadEnvelope(r.Context(), recordID)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
@@ -278,7 +280,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		return
 	}
 	record, err := s.records.LoadEnvelope(r.Context(), recordID)
-	if errors.Is(err, records.ErrEnvelopeNotFound) {
+	if errors.Is(err, revisions.ErrEnvelopeNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}

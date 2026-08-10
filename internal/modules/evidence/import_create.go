@@ -72,7 +72,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, s.revisionStore, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeCapturedTx(ctx, tx, s.revisionStore, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

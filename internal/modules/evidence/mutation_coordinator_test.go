@@ -53,6 +53,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 		"source-row",
 		"projection-refresh",
 		"projection-load",
+		"snapshot-capture",
 		"change-set",
 		"mutation",
 		"record-revision",
@@ -162,17 +163,22 @@ type coordinatorRevisions struct {
 	changeSetID uuid.UUID
 }
 
+func (port coordinatorRevisions) CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	*port.events = append(*port.events, "snapshot-capture")
+	return revisions.CapturedRecordSnapshot{}, nil
+}
+
 func (port coordinatorRevisions) AppendChangeSetTx(context.Context, pgx.Tx, revisions.AppendChangeSetParams) (uuid.UUID, error) {
 	*port.events = append(*port.events, "change-set")
 	return port.changeSetID, nil
 }
 
-func (port coordinatorRevisions) AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error {
+func (port coordinatorRevisions) AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error {
 	*port.events = append(*port.events, "mutation")
 	return nil
 }
 
-func (port coordinatorRevisions) AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error {
+func (port coordinatorRevisions) AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error {
 	*port.events = append(*port.events, "record-revision")
 	return nil
 }

@@ -192,11 +192,22 @@ func (port *failingIndicatorRevisionPort) AppendChangeSetTx(_ context.Context, _
 	return uuid.New(), nil
 }
 
-func (port *failingIndicatorRevisionPort) AppendMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendMutationParams) error {
+func (port *failingIndicatorRevisionPort) CaptureRecordSnapshotTx(_ context.Context, _ pgx.Tx, _ uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	if err := port.shouldFail(); err != nil {
+		return revisions.CapturedRecordSnapshot{}, err
+	}
+	return revisions.CapturedRecordSnapshot{}, nil
+}
+
+func (port *failingIndicatorRevisionPort) AppendMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendNonRowMutationParams) error {
 	return port.shouldFail()
 }
 
-func (port *failingIndicatorRevisionPort) AppendRecordRevisionTx(_ context.Context, _ pgx.Tx, _ revisions.AppendRecordRevisionParams) error {
+func (port *failingIndicatorRevisionPort) AppendCapturedRecordMutationTx(_ context.Context, _ pgx.Tx, _ revisions.AppendCapturedRecordMutationParams) error {
+	return port.shouldFail()
+}
+
+func (port *failingIndicatorRevisionPort) AppendCapturedRecordRevisionTx(_ context.Context, _ pgx.Tx, _ revisions.AppendCapturedRecordRevisionParams) error {
 	return port.shouldFail()
 }
 

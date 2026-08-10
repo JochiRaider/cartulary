@@ -56,47 +56,21 @@ func WritableDirectStorageMappings() map[string]StorageMapping {
 	}
 }
 
-func rollbackProjectionFieldMappings() map[string]string {
+// ConflictFieldSourceKeys declares the source-owned scalar projection required
+// to reconstruct optimistic-concurrency facts from canonical snapshots.
+func ConflictFieldSourceKeys() map[string]string {
 	result := make(map[string]string)
 	for fieldKey, storage := range WritableDirectStorageMappings() {
 		result[fieldKey] = storage.Column
 	}
-	for fieldKey, sourceKey := range map[string]string{
-		"comm_log.comm_id":               "comm_id",
-		"handoff.handoff_id":             "handoff_id",
-		"status_review.status_review_id": "status_review_id",
-		"lesson.lesson_id":               "lesson_id",
-		"finding.closed_at":              "closed_at",
-		"investigative_query.query_id":   "query_id",
-		"forensic_keyword.keyword_id":    "keyword_id",
-	} {
-		result[fieldKey] = sourceKey
-	}
 	return result
 }
 
-// ExtractRollbackSource accepts retained source snapshots, projection rows, or
-// direct source rows and maps only exact artifact-owned scalar fields.
+// ExtractRollbackSource accepts only the source member of a canonical retained
+// snapshot envelope.
 func ExtractRollbackSource(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
-	}
-	mapping := rollbackProjectionFieldMappings()
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, sourceKey := range mapping {
-			if _, present := value[sourceKey]; present {
-				return value, true
-			}
-		}
 	}
 	return nil, false
 }

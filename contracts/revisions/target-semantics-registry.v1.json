@@ -1,0 +1,22 @@
+{
+  "schema_id": "cartulary.revisions_target_semantics_registry.v1",
+  "registry_version": 1,
+  "addressability_values": ["not_individually_addressable", "single_history_entry"],
+  "dispatch_classes": ["row", "non_row"],
+  "targets": [
+    {"target_kind": "assessment", "source_owner": "assessments", "dispatch_class": "row", "admitted_record_types": ["assessment"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "entity_alias", "source_owner": "entities", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["record_id"], "addressability": "not_individually_addressable"},
+    {"target_kind": "entity_mention", "source_owner": "entities", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["source_record_id"], "addressability": "single_history_entry"},
+    {"target_kind": "entity_preserved_identifier", "source_owner": "entities", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["record_id"], "addressability": "not_individually_addressable"},
+    {"target_kind": "evidence", "source_owner": "evidence", "dispatch_class": "row", "admitted_record_types": ["evidence"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "host", "source_owner": "entities", "dispatch_class": "row", "admitted_record_types": ["host"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "identity", "source_owner": "entities", "dispatch_class": "row", "admitted_record_types": ["identity"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "indicator", "source_owner": "indicators", "dispatch_class": "row", "admitted_record_types": ["indicator"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "indicator_observation", "source_owner": "indicators", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["source_record_id", "resolved_indicator_record_id"], "addressability": "single_history_entry"},
+    {"target_kind": "indicator_state_interval", "source_owner": "indicators", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["indicator_record_id"], "addressability": "single_history_entry"},
+    {"target_kind": "record", "source_owner": "record_source_owner", "dispatch_class": "row", "admitted_record_types": ["artifact", "assessment", "decision", "evidence", "host", "identity", "indicator", "party", "task_request", "timeline_event"], "history_record_id_fields": [], "addressability": "single_history_entry"},
+    {"target_kind": "record_link", "source_owner": "links", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["src_record_id", "dst_record_id"], "addressability": "single_history_entry"},
+    {"target_kind": "record_tag", "source_owner": "links", "dispatch_class": "non_row", "admitted_record_types": [], "history_record_id_fields": ["record_id"], "addressability": "single_history_entry"},
+    {"target_kind": "timeline_record", "source_owner": "timeline", "dispatch_class": "row", "admitted_record_types": ["timeline_event"], "history_record_id_fields": [], "addressability": "single_history_entry"}
+  ]
+}

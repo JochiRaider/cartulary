@@ -78,6 +78,10 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
+	beforeSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, affectedIDs)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
 	createdAt := s.now().UTC().Truncate(time.Microsecond)
 	record, err := s.observations.insertTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
@@ -90,7 +94,7 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_observation",
 		TargetID: record.ObservationID.String(), OperationKind: "create",
 		AfterVersionID: stringPointer(fmt.Sprintf("indicator_observation:%s:%d", record.ObservationID, record.RowVersion)),
@@ -106,7 +110,11 @@ func (service indicatorObservationService) createManualObservation(ctx context.C
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeRows, afterRows); err != nil {
+	afterSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, affectedIDs)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	result := IndicatorObservationMutationResult{Observation: record, ChangeSetID: changeSetID, AffectedRecords: versions}
@@ -208,6 +216,10 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
+	beforeSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, affectedIDs)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
 	if err := s.observations.updateTransitionTx(ctx, tx, next, current.RowVersion); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
@@ -218,7 +230,7 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "indicator_observation",
 		TargetID: next.ObservationID.String(), OperationKind: string(transition),
 		BeforeVersionID: stringPointer(fmt.Sprintf("indicator_observation:%s:%d", current.ObservationID, current.RowVersion)),
@@ -235,7 +247,11 @@ func (service indicatorObservationService) transitionObservation(ctx context.Con
 	if err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
-	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeRows, afterRows); err != nil {
+	afterSnapshots, err := captureAffectedRecordSnapshotsTx(ctx, tx, s.revisionsStore, affectedIDs)
+	if err != nil {
+		return IndicatorObservationMutationResult{}, err
+	}
+	if err := appendAffectedRecordRevisionsTx(ctx, tx, s.revisionsStore, changeSetID, versions, beforeSnapshots, afterSnapshots, beforeRows, afterRows); err != nil {
 		return IndicatorObservationMutationResult{}, err
 	}
 	result := IndicatorObservationMutationResult{Observation: next, ChangeSetID: changeSetID, AffectedRecords: versions}

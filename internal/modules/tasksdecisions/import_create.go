@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/policy"
 	tasksource "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/source"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
@@ -28,14 +29,19 @@ type ImportRecordEnvelopeCapability interface {
 }
 
 type ImportLinkCapability interface {
-	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
+	SyncFieldReferenceWithMutationValuesTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (links.CollectionMutationResult, error)
+}
+
+type ImportRevisionCapability interface {
+	ownerfacade.CapturedRevisionAppender
+	AppendNonRowMutationTx(context.Context, pgx.Tx, revisions.AppendNonRowMutationParams) error
 }
 
 type ImportDependencies struct {
 	RecordEnvelopes ImportRecordEnvelopeCapability
 	Links           ImportLinkCapability
 	Projections     taskdecisionprojection.Rows
-	Revisions       ownerfacade.RevisionAppender
+	Revisions       ImportRevisionCapability
 }
 
 func (d ImportDependencies) validate() error {
@@ -111,13 +117,14 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := tasksource.InsertTaskRequestTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		if _, err := syncTaskDecisionReferenceTx(
+		linkMutations, err := syncTaskDecisionReferenceTx(
 			ctx, tx, o.dependencies.Links, request.IncidentID, recordID,
 			request.ActorUserID, values[TaskDecisionRecordFieldKey].UUID, now,
-		); err != nil {
+		)
+		if err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		return o.finalizeImportRowTx(ctx, tx, command, recordID)
+		return o.finalizeImportRowTx(ctx, tx, command, recordID, linkMutations)
 	case DecisionsViewSchemaID:
 		params := DecisionCreateParams{Values: values}
 		if err := policy.ValidateDecisionCreateParams(params); err != nil {
@@ -141,7 +148,7 @@ func (o *importOwner) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command 
 		if err := tasksource.InsertDecisionTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
 			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
-		return o.finalizeImportRowTx(ctx, tx, command, recordID)
+		return o.finalizeImportRowTx(ctx, tx, command, recordID, nil)
 	default:
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("tasks/decisions import surface %q not mapped", request.TargetViewSchemaID)
 	}
@@ -163,21 +170,38 @@ func validateImportedOwnerShape(request ownerfacade.ImportOwnerCreateRequest) er
 	return nil
 }
 
-func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (o *importOwner) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand, recordID uuid.UUID, linkMutations []links.RecordLinkMutation) (ownerfacade.ImportOwnerCreateResponse, error) {
 	row, err := o.refreshImportRowTx(ctx, tx, command.Request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
+	firstSequence, err := command.AllocateMutationSequence(1 + len(linkMutations))
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	response, err := ownerfacade.FinalizeCapturedTx(ctx, tx, o.dependencies.Revisions, ownerfacade.FinalizeCommand{
 		Request:         command.Request,
 		ChangeSetID:     command.ChangeSetID,
-		SequenceNo:      command.SequenceNo,
+		SequenceNo:      firstSequence,
 		RecordID:        recordID,
 		Operation:       "create",
 		CreatedOrReused: "created",
 		OwnerResultCode: "created",
 		Row:             row,
 	})
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
+	for index, mutation := range linkMutations {
+		if err := o.dependencies.Revisions.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+			ChangeSetID: command.ChangeSetID, SequenceNo: firstSequence + index + 1,
+			TargetKind: "record_link", TargetID: mutation.RecordLinkID.String(), OperationKind: mutation.Operation,
+			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
+		}); err != nil {
+			return ownerfacade.ImportOwnerCreateResponse{}, err
+		}
+	}
+	return response, nil
 }
 
 func (o *importOwner) refreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {

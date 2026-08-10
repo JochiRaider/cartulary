@@ -11,10 +11,9 @@ import (
 
 func TestTaskSourcePreservesNullAndExcludesCollections(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"task.title":              map[string]any{"value": "Collect logs"},
-		"task.decision_record_id": map[string]any{"value": nil},
-		"task.linked_record_ids":  map[string]any{"value": []any{"ignored"}},
+	value := map[string]any{"source": map[string]any{
+		"title":              "Collect logs",
+		"decision_record_id": nil,
 	}}
 	got, ok := taskSourceForRollbackValue(value)
 	if !ok {
@@ -23,6 +22,9 @@ func TestTaskSourcePreservesNullAndExcludesCollections(t *testing.T) {
 	want := map[string]any{"title": "Collect logs", "decision_record_id": nil}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("task source = %#v, want %#v", got, want)
+	}
+	if _, ok := taskSourceForRollbackValue(map[string]any{"cells": map[string]any{"task.title": map[string]any{"value": "legacy"}}}); ok {
+		t.Fatal("schema-less projection row was accepted")
 	}
 }
 

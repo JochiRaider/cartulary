@@ -155,7 +155,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 				t.Fatalf("query projection rows: %v", err)
 			}
 			queried := requireProjectionRow(t, queryRows, target.recordID)
-			loaded := loadProjectionRowTx(t, ctx, harness.DB, projectionCatalog.RevisionServices(), target.viewSchemaID, target.recordID)
+			loaded := loadProjectionRowTx(t, ctx, harness.DB, projectionCatalog.RevisionLiveRecords(), target.viewSchemaID, target.recordID)
 			if !reflect.DeepEqual(queried, loaded) {
 				t.Fatalf("QueryRows and LoadRowTx diverged for %s\nquery: %s\nload:  %s", target.viewSchemaID, prettyRow(queried), prettyRow(loaded))
 			}
@@ -212,7 +212,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	); err != nil {
 		t.Fatalf("rebuild assessment projection: %v", err)
 	}
-	rebuilt, err := projectionCatalog.RevisionServices().LoadRowTx(
+	rebuilt, err := projectionCatalog.RevisionLiveRecords().LoadRowTx(
 		ctx,
 		tx,
 		workbook.AssessmentsViewSchemaID,
@@ -327,7 +327,7 @@ func requireProjectionRow(t testing.TB, rows []map[string]any, recordID uuid.UUI
 	return nil
 }
 
-func loadProjectionRowTx(t testing.TB, ctx context.Context, db postgres.DB, store revisions.ProjectionServices, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func loadProjectionRowTx(t testing.TB, ctx context.Context, db postgres.DB, store revisions.LiveRecordReader, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
 
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})

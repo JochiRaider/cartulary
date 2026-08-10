@@ -163,23 +163,30 @@ func (a assessmentRevisionAdapter) AppendAssessmentCreateRevisionTx(ctx context.
 	if err != nil {
 		return uuid.UUID{}, err
 	}
+	afterSnapshot, err := a.appender.CaptureRecordSnapshotTx(ctx, tx, create.RecordID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
 	afterVersion := create.AfterVersion
-	if err := a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := a.appender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     create.TargetKind,
-		TargetID:       create.RecordID.String(),
+		RecordID:       create.RecordID,
 		OperationKind:  create.OperationKind,
 		AfterVersionID: &afterVersion,
-		AfterValue:     create.CanonicalRow,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    create.RecordID,
-		RowVersion:  create.RowVersion,
-		AfterValue:  create.CanonicalRow,
+	if err := a.appender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:   changeSetID,
+		RecordID:      create.RecordID,
+		RowVersion:    create.RowVersion,
+		AfterSnapshot: &afterSnapshot,
+		LiveChange: revisions.LiveRecordChange{
+			AfterValue: create.CanonicalRow,
+		},
 	}); err != nil {
 		return uuid.UUID{}, err
 	}

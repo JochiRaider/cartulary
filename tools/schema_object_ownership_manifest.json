@@ -183,12 +183,12 @@
       "owner": "revisions",
       "profiles": ["base"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(change_sets|change_set_mutations|record_revisions|record_history_entry_refs)$" },
-        { "kind": "any", "name_pattern": "^(idx_change_sets|idx_change_set_mutations|idx_record_revisions|idx_record_history|change_sets_|change_set_mutations_|record_revisions_|record_history_entry_refs_).*$" },
+        { "kind": "any", "name_pattern": "^(change_sets|change_set_mutations|record_revisions|record_revision_conflict_facts|record_history_entry_refs)$" },
+        { "kind": "any", "name_pattern": "^(idx_change_sets|idx_change_set_mutations|idx_record_revisions|idx_record_history|change_sets_|change_set_mutations_|record_revisions_|record_revision_conflict_facts_|record_history_entry_refs_).*$" },
         { "kind": "function", "name_pattern": "^revisions_incident_bundle_sequence_(begin|finish)_v1$" }
       ],
-      "downstream_surfaces": ["record history", "rollback", "delete/restore coordination", "workbook mutation audit"],
-      "notes": "Retained change-set, revision, and history-reference substrate; current envelopes are owned by record-envelope."
+      "downstream_surfaces": ["record history", "rollback", "delete/restore coordination", "workbook conflict reconstruction", "workbook mutation audit"],
+      "notes": "Retained change-set, revision, history-reference, and narrow conflict-fact substrate; current envelopes are owned by record-envelope."
     },
     {
       "id": "links-and-tags",

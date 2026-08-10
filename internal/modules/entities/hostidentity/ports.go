@@ -26,9 +26,11 @@ type entityRecordPort interface {
 }
 
 type entityRevisionPort interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, entityRecordRevisionParams) error
+	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
+	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
 }
 
 type entityChangeSetParams struct {
@@ -63,14 +65,6 @@ type entityMutationParams struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
-}
-
-type entityRecordRevisionParams struct {
-	ChangeSetID uuid.UUID
-	RecordID    uuid.UUID
-	RowVersion  int64
-	BeforeValue any
-	AfterValue  any
 }
 
 func newEntityStorePorts(
@@ -109,10 +103,18 @@ func (a entityRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx,
 	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params entityMutationParams) error {
-	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
+func (a entityRevisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
-func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params entityRecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params entityMutationParams) error {
+	return a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams(params))
+}
+
+func (a entityRevisionAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
+	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+}
+
+func (a entityRevisionAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
+	return a.appender.AppendCapturedRecordRevisionTx(ctx, tx, params)
 }

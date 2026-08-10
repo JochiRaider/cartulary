@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -798,13 +797,17 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		postgresHandle,
 		attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID),
 		projectionRuntime.RevisionServices(),
+		projectionRuntime.RevisionLiveRecords(),
 		now,
 	)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
-	revisionRoutes := revisionshttpapi.RegisterRoutes(revisionCommands)
+	revisionRoutes := revisionshttpapi.RegisterRoutes(
+		revisionCommands,
+		revisionassembly.NewRecordEnvelopeReader(postgresHandle),
+	)
 	importStore := imports.NewStore(
 		postgresPool,
 		revisionRuntime.Appender(),
@@ -1280,10 +1283,7 @@ func loadRevisionsConflictTokenKeyRing(
 }
 
 func runtimeEnvironmentValue(env map[string]string, key string) string {
-	if env != nil {
-		return env[key]
-	}
-	return os.Getenv(key)
+	return env[key]
 }
 
 type enterpriseDocumentReader struct {

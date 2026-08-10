@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 )
@@ -23,9 +25,24 @@ func newRuntimeWithDependencies(
 	options Options,
 	dependencies runtimeDependencies,
 ) (*Runtime, error) {
+	if options.Env == nil {
+		options.Env = snapshotProcessEnvironment(os.Environ())
+	}
 	return (runtimeAssembly{
 		loadedConfiguration: loaded,
 		options:             options,
 		dependencies:        dependencies,
 	}).build(ctx)
+}
+
+func snapshotProcessEnvironment(entries []string) map[string]string {
+	env := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok || key == "" {
+			continue
+		}
+		env[key] = value
+	}
+	return env
 }

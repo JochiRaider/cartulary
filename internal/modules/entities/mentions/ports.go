@@ -83,9 +83,11 @@ type recordPort interface {
 }
 
 type revisionPort interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, changeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, mutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, recordRevisionParams) error
+	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
+	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
 }
 
 type linkPort interface {
@@ -120,14 +122,6 @@ type mutationParams struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
-}
-
-type recordRevisionParams struct {
-	ChangeSetID uuid.UUID
-	RecordID    uuid.UUID
-	RowVersion  int64
-	BeforeValue any
-	AfterValue  any
 }
 
 type recordLink struct {
@@ -169,12 +163,20 @@ func (a revisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, param
 	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params mutationParams) error {
-	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
+func (a revisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
-func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params recordRevisionParams) error {
-	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params mutationParams) error {
+	return a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams(params))
+}
+
+func (a revisionAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
+	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+}
+
+func (a revisionAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
+	return a.appender.AppendCapturedRecordRevisionOnlyTx(ctx, tx, params)
 }
 
 type linkAdapter struct {

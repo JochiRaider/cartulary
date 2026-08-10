@@ -2336,6 +2336,90 @@ fallback.
 Profiles: base
 Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
 
+**REQ-02-265**
+Every newly persisted non-null row snapshot in `change_set_mutations` or
+`record_revisions` MUST be a closed canonical snapshot envelope containing
+exactly `snapshot_schema_id`, `record`, and `source`. `record` is the complete
+authoritative current record-envelope object observed in the caller-owned
+transaction. `source` is the complete source-owner row object required for
+row restoration, including its current row version and deletion tuple.
+Separately revisioned collections and relationships, projection labels,
+counts, chips, joined summaries, preview handles, grouping/sorting/layout
+state, authorization or UI state, external enrichment, and binary/object bytes
+MUST NOT be folded into the row snapshot.
+
+An ordinary live record revision MUST also derive narrow optimistic-
+concurrency facts from the explicit live-change value in the same transaction.
+For each changed live-change cell, the fact MUST bind the record revision and
+exact `field_key` to explicit before/after presence plus the corresponding JSON
+values. These facts exist only to reconstruct revision-window conflicts for
+scalar or collection values that are intentionally absent from canonical row
+snapshots. They MUST NOT be read as row-history or rollback truth, folded back
+into a canonical snapshot, used by generic history lookup, or treated as
+projection authority. Imported historical revisions do not synthesize these
+facts, and the facts are not Incident Bundle members.
+
+The current snapshot-schema registry is exact:
+
+| Record type | `snapshot_schema_id` | Source owner |
+| --- | --- | --- |
+| `artifact` | `cartulary.revisions.snapshot.artifact.v1` | Artifacts |
+| `assessment` | `cartulary.revisions.snapshot.assessment.v1` | Assessments |
+| `decision` | `cartulary.revisions.snapshot.decision.v1` | Tasks/Decisions |
+| `evidence` | `cartulary.revisions.snapshot.evidence.v1` | Evidence |
+| `host` | `cartulary.revisions.snapshot.host.v1` | Entities |
+| `identity` | `cartulary.revisions.snapshot.identity.v1` | Entities |
+| `indicator` | `cartulary.revisions.snapshot.indicator.v1` | Indicators |
+| `party` | `cartulary.revisions.snapshot.party.v1` | Parties |
+| `task_request` | `cartulary.revisions.snapshot.task_request.v1` | Tasks/Decisions |
+| `timeline_event` | `cartulary.revisions.snapshot.timeline_event.v1` | Timeline |
+
+The `snapshot_schema_id` MUST match the envelope record type and the exact
+source-owner validator admitted at application startup. Unknown, missing,
+mismatched, malformed, projection-derived, or schema-less snapshots fail
+closed. Member-presence inference is prohibited. Active and deleted records
+use the same schema; nullable deletion members remain present.
+
+The current persisted mutation `target_kind` vocabulary is exactly
+`assessment`, `entity_alias`, `entity_mention`,
+`entity_preserved_identifier`, `evidence`, `host`, `identity`, `indicator`,
+`indicator_observation`, `indicator_state_interval`, `record`, `record_link`,
+`record_tag`, and `timeline_record`. A future target kind requires an adopted
+owner amendment, a source-owner contribution, an updated machine projection,
+and tests before it may be persisted.
+
+Each mutation entry MUST persist `history_record_ids` and
+`history_entry_record_ids` as sorted unique arrays of non-nil canonical UUIDs.
+The first array is the complete set of incident records whose history includes
+the mutation. The second is the subset for which the mutation is one
+individually addressable logical history entry. Both arrays are deterministic
+facts produced from the admitted target-semantics version before persistence;
+they are not inferred later from target IDs, snapshot keys, display values, or
+source-table queries. Generic history lookup MUST use the indexed
+`history_record_ids` fact. Unknown targets have no association or
+addressability and fail producer/catalog admission.
+
+Each exact target kind has one immutable application-composed source-owner
+contribution with a pure history facet and a rollback dispatch class. A row
+entry declares admitted record types and uses the matching record-type source
+provider. A non-row entry uses its source-owned provider. Revisions owns
+catalog validation, association canonicalization, opaque selector lifecycle,
+sibling-mutation loading, transaction and lock order, idempotency, history
+publication, projection refresh, Collaboration intent publication, result
+ordering, and safe error mapping. Source owners own current-state vocabulary,
+association meaning, companion selection, revalidation, inverse planning, and
+inverse application. Generic Revisions code may branch only on `row` versus
+`non_row`; it MUST NOT contain a target-kind/source-type switch, target-to-
+relation map, source JSON-key predicate, global provider registry, dynamic SQL,
+or legacy fallback.
+
+The current profile provides no compatibility reader or backfill for
+schema-less snapshots or mutation rows without the canonical association
+facts. A pre-production database containing such rows MUST be reset at the
+boundary migration rather than upgraded through historical-shape inference.
+Profiles: base, incident_portability
+Verified by: AC-215, AC-217, AC-231, AC-412, AC-529
+
 ### 15.3.1 Retained history and rollback horizon
 
 **REQ-02-238**

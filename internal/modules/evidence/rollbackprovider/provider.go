@@ -89,39 +89,6 @@ func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"evidence.title":                "title",
-			"evidence.lifecycle_state":      "lifecycle_state",
-			"evidence.requested_at":         "requested_at",
-			"evidence.received_at":          "received_at",
-			"evidence.storage_ref":          "storage_ref",
-			"evidence.blob_hash":            "blob_hash",
-			"evidence.collector_party_text": "collector_party_text",
-			"evidence.collector_party_id":   "collector_party_id",
-			"evidence.source_party_text":    "source_party_text",
-			"evidence.source_party_id":      "source_party_id",
-			"evidence.upload_state":         "upload_state",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, key := range []string{
-			"title", "lifecycle_state", "requested_at", "received_at", "storage_ref", "blob_hash",
-			"collector_party_text", "collector_party_id", "source_party_text", "source_party_id",
-			"upload_state", "object_blob_id",
-		} {
-			if _, present := value[key]; present {
-				return value, true
-			}
-		}
-	}
 	return nil, false
 }
 

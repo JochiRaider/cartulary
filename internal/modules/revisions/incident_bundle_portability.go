@@ -647,14 +647,20 @@ INSERT INTO change_sets (
 		}
 	}
 	for _, row := range prepared.mutations {
+		history, err := validation.targets.DescribeValues(row.TargetKind, row.TargetID, row.BeforeValue, row.AfterValue)
+		if err != nil {
+			return revisionsFailure(revisionsHistoryInvariant)
+		}
 		tag, err := tx.Exec(ctx, `
 INSERT INTO change_set_mutations (
     change_set_id, sequence_no, target_kind, target_id, operation_kind,
-    before_version_id, after_version_id, before_value, after_value
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    before_version_id, after_version_id, before_value, after_value,
+    history_record_ids, history_entry_record_ids
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `, row.ChangeSetID, row.SequenceNo, row.TargetKind, row.TargetID,
 			row.OperationKind, row.BeforeVersionID, row.AfterVersionID,
-			jsonOrNil(row.BeforeValue), jsonOrNil(row.AfterValue))
+			jsonOrNil(row.BeforeValue), jsonOrNil(row.AfterValue),
+			history.HistoryRecordIDs, history.HistoryEntryRecordIDs)
 		if err != nil {
 			return err
 		}
@@ -691,18 +697,56 @@ func validatePreparedRevisionsBeforeWriteTx(
 			!canonicalPortableTargetID(mutation.TargetKind, mutation.TargetID) {
 			return revisionsFailure(revisionsReferencesInvariant)
 		}
+		if _, err := validation.targets.DescribeValues(
+			mutation.TargetKind,
+			mutation.TargetID,
+			mutation.BeforeValue,
+			mutation.AfterValue,
+		); err != nil {
+			return revisionsFailure(revisionsHistoryInvariant)
+		}
+		dispatch, err := validation.targets.dispatchClass(mutation.TargetKind)
+		if err != nil {
+			return revisionsFailure(revisionsHistoryInvariant)
+		}
+		if dispatch == RollbackDispatchRow {
+			recordID, err := uuid.Parse(mutation.TargetID)
+			if err != nil {
+				return revisionsFailure(revisionsHistoryInvariant)
+			}
+			recordType, err := validation.envelopes.RecordTypeTx(ctx, tx, prepared.incidentID, recordID)
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return revisionsFailure(revisionsReferencesInvariant)
+				}
+				return err
+			}
+			if err := validation.validateSnapshot(recordID, recordType, mutation.BeforeValue); err != nil {
+				return revisionsFailure(revisionsHistoryInvariant)
+			}
+			if err := validation.validateSnapshot(recordID, recordType, mutation.AfterValue); err != nil {
+				return revisionsFailure(revisionsHistoryInvariant)
+			}
+		}
 	}
 	for _, revision := range prepared.revisions {
-		if _, err := validation.envelopes.RecordTypeTx(
+		recordType, err := validation.envelopes.RecordTypeTx(
 			ctx,
 			tx,
 			prepared.incidentID,
 			revision.RecordID,
-		); err != nil {
+		)
+		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
 			return revisionsFailure(revisionsReferencesInvariant)
+		}
+		if err := validation.validateSnapshot(revision.RecordID, recordType, revision.BeforeJSON); err != nil {
+			return revisionsFailure(revisionsHistoryInvariant)
+		}
+		if err := validation.validateSnapshot(revision.RecordID, recordType, revision.AfterJSON); err != nil {
+			return revisionsFailure(revisionsHistoryInvariant)
 		}
 	}
 	if !mutationSequencesContiguous(prepared.mutations) {

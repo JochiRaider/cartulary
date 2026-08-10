@@ -197,6 +197,25 @@ func TestConflictTokenKeyRingValidationAndSecretIsolation(t *testing.T) {
 	}
 }
 
+func TestConflictTokenKeyRingRequiresExplicitEnvironment(t *testing.T) {
+	now := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	key := keyFor("explicit")
+	environmentName := "CARTULARY_SECRET_EXPLICIT"
+	encoded := base64.RawURLEncoding.EncodeToString(key)
+	t.Setenv(environmentName, encoded)
+	manifest := []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"active","state":"active","secret_ref":{"kind":"env","name":"explicit"}}]}`)
+
+	if _, err := conflicts.ParseConflictTokenKeyRing(manifest, nil, now, conflicts.KeyRingParseOptions{}); err == nil || !strings.Contains(err.Error(), "secret_missing") {
+		t.Fatalf("nil environment error = %v", err)
+	}
+	if _, err := conflicts.ParseConflictTokenKeyRing(manifest, map[string]string{}, now, conflicts.KeyRingParseOptions{}); err == nil || !strings.Contains(err.Error(), "secret_missing") {
+		t.Fatalf("empty environment unexpectedly used host state: %v", err)
+	}
+	if _, err := conflicts.ParseConflictTokenKeyRing(manifest, map[string]string{environmentName: encoded}, now, conflicts.KeyRingParseOptions{}); err != nil {
+		t.Fatalf("explicit environment rejected: %v", err)
+	}
+}
+
 func TestConflictTokenConfigurationRequiresSecureManifestPath(t *testing.T) {
 	overlay, finding := conflicts.ApplyConfigurationOverlay(conflicts.Configuration{}, []string{"revisions", "conflict_token_key_ring_manifest_path"}, "/etc/cartulary/key-ring.json")
 	if finding != nil || overlay.ConflictTokenKeyRingManifestPath != "/etc/cartulary/key-ring.json" {

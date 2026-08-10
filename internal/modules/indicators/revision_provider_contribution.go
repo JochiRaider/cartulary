@@ -9,11 +9,12 @@ import (
 func NewRevisionContribution() revisions.ProviderContribution {
 	childProvider := indicatorrollback.NewChildProvider()
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerIndicators,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerIndicators,
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerIndicators,
 			RecordType:             "indicator",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.indicator.v1",
+			HistoryTargetKinds:     []string{"indicator"},
 			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    indicatorrollback.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,
@@ -23,8 +24,18 @@ func NewRevisionContribution() revisions.ProviderContribution {
 			}},
 		}},
 		NonRowTargets: []revisions.NonRowProviderContribution{
-			{SourceOwnerModule: revisions.SourceOwnerIndicators, TargetKind: "indicator_observation", RollbackProvider: childProvider},
-			{SourceOwnerModule: revisions.SourceOwnerIndicators, TargetKind: "indicator_state_interval", RollbackProvider: childProvider},
+			{
+				SourceOwnerModule: revisions.SourceOwnerIndicators,
+				TargetKind:        "indicator_observation",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"source_record_id", "resolved_indicator_record_id"}, revisions.HistorySingleEntry),
+				RollbackProvider:  childProvider,
+			},
+			{
+				SourceOwnerModule: revisions.SourceOwnerIndicators,
+				TargetKind:        "indicator_state_interval",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"indicator_record_id"}, revisions.HistorySingleEntry),
+				RollbackProvider:  childProvider,
+			},
 		},
 	}
 }

@@ -76,7 +76,15 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return CreateResult{}, err
 	}
+	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, incidentID, command)
+	if err != nil {
+		return CreateResult{}, err
+	}
 	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, actor, incidentID, command, now)
+	if err != nil {
+		return CreateResult{}, err
+	}
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return CreateResult{}, err
 	}
@@ -107,26 +115,30 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("indicator", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "indicator",
-		TargetID:        record.RecordID.String(),
+		RecordID:        record.RecordID,
 		OperationKind:   operationKind,
 		BeforeVersionID: beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return CreateResult{}, err
 	}
 	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    record.RecordID,
-			RowVersion:  record.RowVersion,
-			BeforeValue: beforeRow,
-			AfterValue:  afterRow,
+		if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    changeSetID,
+			RecordID:       record.RecordID,
+			RowVersion:     record.RowVersion,
+			BeforeSnapshot: beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				BeforeValue: beforeRow,
+				AfterValue:  afterRow,
+			},
 		}); err != nil {
 			return CreateResult{}, err
 		}
@@ -156,6 +168,25 @@ func (service indicatorCreateService) createIndicatorRow(ctx context.Context, ac
 		Outcome: outcome, CanonicalRow: afterRow, RecordID: record.RecordID,
 		ChangeSetID: changeSetID, RowVersion: record.RowVersion,
 	}, nil
+}
+
+func (s *Store) captureIndicatorSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, command CreateCommand) (*revisions.CapturedRecordSnapshot, error) {
+	input, err := indicatorInputFromCreateCommand(command)
+	if err != nil {
+		return nil, err
+	}
+	current, matched, err := s.sources.loadByDedupeTx(ctx, tx, incidentID, input.IndicatorType, input.DedupeKey)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if !matched {
+		return nil, nil
+	}
+	snapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
 }
 
 func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, command IndicatorFindOrCreateParticipantCommand) (IndicatorFindOrCreateParticipantResult, error) {

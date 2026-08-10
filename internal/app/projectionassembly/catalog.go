@@ -99,6 +99,13 @@ func (runtime *Runtime) RevisionServices() revisions.ProjectionServices {
 	return runtime.ports.RevisionServices()
 }
 
+func (runtime *Runtime) RevisionLiveRecords() revisions.LiveRecordReader {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.ports.RevisionLiveRecords()
+}
+
 func (runtime *Runtime) SourceTextRows() projectionadapters.SourceTextRows {
 	if runtime == nil {
 		return nil

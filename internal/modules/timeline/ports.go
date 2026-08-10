@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -74,9 +75,11 @@ type RecordPort interface {
 }
 
 type RevisionPort interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
 	AppendChangeSetTx(context.Context, pgx.Tx, ChangeSetParams) (uuid.UUID, error)
 	AppendMutationTx(context.Context, pgx.Tx, MutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, RecordRevisionParams) error
+	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
+	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
 	ListRecordRevisionWindowTx(context.Context, pgx.Tx, uuid.UUID, int64, int64) ([]RecordRevisionWindowEntry, error)
 }
 
@@ -103,15 +106,8 @@ type MutationParams struct {
 	AfterValue      any
 }
 
-type RecordRevisionParams struct {
-	ChangeSetID uuid.UUID
-	RecordID    uuid.UUID
-	RowVersion  int64
-	BeforeValue any
-	AfterValue  any
-}
-
 type RecordRevisionWindowEntry struct {
+	ChangeSetID uuid.UUID
 	RowVersion  int64
 	BeforeJSON  []byte
 	AfterJSON   []byte
@@ -131,6 +127,7 @@ type LinkPort interface {
 	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, RecordRefCollectionCommand) (CollectionMutationResult, error)
 	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, TagCollectionCommand) (CollectionMutationResult, error)
+	LoadTimelineCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, time.Time) ([]string, error)
 }
 
 type InsertSupersedesCommand struct {
@@ -216,6 +213,7 @@ type MentionPort interface {
 	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) error
 	NextOrdinalTx(context.Context, pgx.Tx, uuid.UUID, string) (int, error)
 	InsertTx(context.Context, pgx.Tx, MentionCreateParams) error
+	LoadTimelineCollectionFieldsChangedTx(context.Context, pgx.Tx, uuid.UUID, time.Time) ([]string, error)
 }
 
 type MentionCreateParams struct {

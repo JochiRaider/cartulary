@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	indicatortest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport"
+	projectiontest "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -69,7 +70,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
 	}
-	_, err = runtime.NewCommandService(nil, nil, nil, nil)
+	_, err = runtime.NewCommandService(nil, nil, nil, nil, nil)
 	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
 		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
 	}
@@ -111,13 +112,20 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 		"timeline_event": "cartulary.view.timeline.v2",
 	}
 	ctx := context.Background()
+	projectionRuntime := projectiontest.MustBuild(t, harness.Pool)
+	projectionServices := projectionRuntime.RevisionServices()
+	liveRecords := projectionRuntime.RevisionLiveRecords()
 	tx, err := harness.Pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin source adapter matrix transaction: %v", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := projectionServices.RebuildIncidentTx(ctx, tx, incidentID); err != nil {
+		t.Fatalf("rebuild characterization projections: %v", err)
+	}
 
 	now := time.Date(2026, 7, 29, 18, 0, 0, 0, time.UTC)
+	liveRows := 0
 	for recordType, wantView := range wantViews {
 		contribution, ok := sources[recordType]
 		if !ok {
@@ -140,6 +148,19 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 		if err != nil || viewSchemaID != wantView {
 			t.Fatalf("%s view consequence = %q, %v; want %q", recordType, viewSchemaID, err, wantView)
 		}
+		if liveRecords.Supports(viewSchemaID) {
+			projectionRow, err := liveRecords.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+			if err != nil {
+				t.Fatalf("%s live projection row: %v", recordType, err)
+			}
+			liveRows++
+			if projectionRow["record_id"] != recordID.String() {
+				t.Fatalf("%s projection record identity = %#v", recordType, projectionRow["record_id"])
+			}
+			if reflect.DeepEqual(projectionRow, snapshot) || projectionRow["record"] != nil || projectionRow["source"] != nil {
+				t.Fatalf("%s live projection row unexpectedly matches the authoritative {record, source} snapshot: %#v", recordType, projectionRow)
+			}
+		}
 		reasonCode, blocked, err := contribution.DeleteRestoreSource.ValidateDeletePreconditionsTx(
 			ctx,
 			tx,
@@ -159,6 +180,9 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 		); err != nil {
 			t.Fatalf("%s source delete: %v", recordType, err)
 		}
+	}
+	if liveRows == 0 {
+		t.Fatal("characterization did not exercise a live projection row")
 	}
 	for _, recordType := range []string{"assessment"} {
 		recordID := recordIDs[recordType]

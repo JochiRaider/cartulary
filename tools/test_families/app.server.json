@@ -857,6 +857,31 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast"
+    },
+    {
+      "row_id": "app.server.unit.server_environment_snapshot_preserves_explicit_c_3f6c720841",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "app.server.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestSnapshotProcessEnvironmentCopiesExactEntries"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

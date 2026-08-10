@@ -31,10 +31,11 @@ type Dependencies struct {
 // Runtime is the composition-scoped Revisions boundary. Build completes all
 // immutable catalog validation before mutable source facades are constructed.
 type Runtime struct {
-	appender      *revisions.Appender
-	recordViews   *revisions.RecordViewCatalog
-	fieldResolver *conflicts.FieldResolverCatalog
-	contributions []revisions.ProviderContribution
+	appender        *revisions.Appender
+	recordViews     *revisions.RecordViewCatalog
+	targetSemantics *revisions.TargetSemanticsCatalog
+	deleteRestore   *revisions.DeleteRestoreSourceCatalog
+	fieldResolver   *conflicts.FieldResolverCatalog
 }
 
 func CurrentProviderContributions() []revisions.ProviderContribution {
@@ -53,6 +54,14 @@ func CurrentProviderContributions() []revisions.ProviderContribution {
 
 func CurrentConflictFieldResolver() (conflicts.FieldResolver, error) {
 	return buildConflictFieldResolver(CurrentProviderContributions())
+}
+
+func CurrentTargetSemanticsCatalog() (*revisions.TargetSemanticsCatalog, error) {
+	return buildTargetSemanticsCatalog(CurrentProviderContributions())
+}
+
+func NewRecordEnvelopeReader(db postgres.DB) revisions.RecordEnvelopeReader {
+	return recordEnvelopeAdapter{store: records.NewStore(db)}
 }
 
 func Build(dependencies Dependencies, contributions ...revisions.ProviderContribution) (*Runtime, error) {
@@ -85,16 +94,43 @@ func Build(dependencies Dependencies, contributions ...revisions.ProviderContrib
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build conflict field resolver catalog: %w", err)
 	}
-	appender, err := revisions.NewAppender(recordViews, dependencies.HistoricalIntentPolicy, dependencies.IntentAppender)
+	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalog(copied)
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: build candidate snapshot capture catalog: %w", err)
+	}
+	targetSemantics, err := buildTargetSemanticsCatalog(copied)
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: build target semantics catalog: %w", err)
+	}
+	deleteRestore, err := revisions.NewDeleteRestoreSourceCatalogFromContributions(copied)
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: build delete/restore source catalog: %w", err)
+	}
+	appender, err := revisions.NewAppender(
+		recordViews,
+		recordEnvelopeAdapter{store: records.NewStore()},
+		snapshotCaptures,
+		targetSemantics,
+		dependencies.HistoricalIntentPolicy,
+		dependencies.IntentAppender,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("revision assembly: build appender: %w", err)
 	}
 	return &Runtime{
-		appender:      appender,
-		recordViews:   recordViews,
-		fieldResolver: fieldResolver,
-		contributions: copied,
+		appender:        appender,
+		recordViews:     recordViews,
+		targetSemantics: targetSemantics,
+		deleteRestore:   deleteRestore,
+		fieldResolver:   fieldResolver,
 	}, nil
+}
+
+func (r *Runtime) TargetSemanticsCatalog() *revisions.TargetSemanticsCatalog {
+	if r == nil {
+		return nil
+	}
+	return r.targetSemantics
 }
 
 func (r *Runtime) ConflictFieldResolver() conflicts.FieldResolver {
@@ -122,9 +158,10 @@ func (r *Runtime) NewCommandService(
 	db postgres.DB,
 	attributionResolver revisions.ImportedAttributionResolver,
 	projections revisions.ProjectionServices,
+	liveRecords revisions.LiveRecordReader,
 	clock func() time.Time,
 ) (*revisions.CommandService, error) {
-	if r == nil || r.appender == nil || r.recordViews == nil {
+	if r == nil || r.appender == nil || r.recordViews == nil || r.deleteRestore == nil || r.targetSemantics == nil {
 		return nil, errors.New("revision assembly: runtime is required")
 	}
 	return revisions.NewCommandService(revisions.CommandServiceDependencies{
@@ -133,7 +170,9 @@ func (r *Runtime) NewCommandService(
 		Idempotency:                 commandIdempotencyAdapter{store: authn.NewStore(db)},
 		ImportedAttributionResolver: attributionResolver,
 		Projections:                 projections,
-		ProviderContributions:       cloneProviderContributions(r.contributions),
+		LiveRecords:                 liveRecords,
+		DeleteRestoreSources:        r.deleteRestore,
+		TargetSemantics:             r.targetSemantics,
 		Appender:                    r.appender,
 		RecordEnvelopes:             recordEnvelopeAdapter{store: records.NewStore(db)},
 		Clock:                       clock,
@@ -173,6 +212,14 @@ func cloneProviderContributions(values []revisions.ProviderContribution) []revis
 	return cloned
 }
 
+func buildTargetSemanticsCatalog(contributions []revisions.ProviderContribution) (*revisions.TargetSemanticsCatalog, error) {
+	requirements, err := revisions.CurrentTargetSemanticsRequirements()
+	if err != nil {
+		return nil, err
+	}
+	return revisions.NewTargetSemanticsCatalog(requirements, contributions)
+}
+
 func buildConflictFieldResolver(contributions []revisions.ProviderContribution) (*conflicts.FieldResolverCatalog, error) {
 	required := make([]string, 0)
 	providers := make([]conflicts.FieldResolverContribution, 0)
@@ -180,12 +227,19 @@ func buildConflictFieldResolver(contributions []revisions.ProviderContribution) 
 		for _, record := range contribution.Records {
 			for _, route := range record.RecordViewRoutes {
 				for _, viewSchemaID := range route.ViewSchemaIDs {
-					if contribution.ConflictFieldProvider == nil {
-						return nil, fmt.Errorf("%w: source owner %q does not provide conflict fields for view schema %q", conflicts.ErrMissingFieldResolver, contribution.SourceOwnerModule, viewSchemaID)
+					schema, ok := viewschema.Lookup(viewSchemaID)
+					if !ok {
+						return nil, fmt.Errorf("%w: unknown view schema %q", conflicts.ErrMissingFieldResolver, viewSchemaID)
 					}
-					descriptors, err := contribution.ConflictFieldProvider.ConflictFields(viewSchemaID)
-					if err != nil {
-						return nil, fmt.Errorf("source owner %q provides conflict fields for view schema %q: %w", contribution.SourceOwnerModule, viewSchemaID, err)
+					fields := schema.Fields()
+					descriptors := make([]conflicts.FieldDescriptor, 0, len(fields))
+					for _, field := range fields {
+						descriptors = append(descriptors, conflicts.FieldDescriptor{
+							FieldKey:                field.FieldKey,
+							ValueKind:               field.WriteKind,
+							Writable:                field.Writable,
+							ConflictResolutionClass: field.ConflictResolutionClass,
+						})
 					}
 					required = append(required, viewSchemaID)
 					providers = append(providers, conflicts.FieldResolverContribution{

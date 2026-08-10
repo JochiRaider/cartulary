@@ -440,6 +440,31 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.revisions.integration.migration_61_admits_fresh_schema_and_rejects_leg_20baec4d72",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.history_association_storage_migration"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsHistoryAssociationsMigration61FreshAndGuarded_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
@@ -605,9 +630,14 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
+          "TestCandidateSnapshotCaptureBuildsCanonicalOpaqueEnvelope",
+          "TestCandidateSnapshotCaptureRejectsInvalidShapeAndMissingRegistration",
+          "TestCurrentTargetKindHistoryAddressability_Unit",
           "TestIncidentBundleValidationCatalogFailsClosed",
-          "TestNonRowProviderCatalogFailsClosed",
-          "TestRowProviderCatalogRejectsDuplicateAndMissingRegistrations",
+          "TestTargetSemanticsCatalogCompilesGenericRowAndOwnerNonRowEntries",
+          "TestTargetSemanticsCatalogFailsClosed",
+          "TestTargetSemanticsCatalogRejectsDuplicateAndMissingRowProviders",
+          "TestTargetSemanticsCatalogRejectsInvalidNonRowProviders",
           "TestValidateNonRowApplyResultRequiresExactCanonicalSet"
         ]
       },
@@ -934,12 +964,14 @@
       ],
       "verification_ids": [
         "module.revisions.verification.behavior_contract",
-        "module.revisions.verification.conflict_field_resolver_catalog"
+        "module.revisions.verification.conflict_field_resolver_catalog",
+        "module.revisions.verification.provider_catalog_closure"
       ],
       "runner": "go",
       "selector": {
         "package": "./internal/app/revisionassembly",
         "tests": [
+          "TestCurrentProviderContributionsCloseCandidateSnapshotAndTargetSets",
           "TestRevisionsRuntimeBuildsExactImmutableRecordViewCatalog",
           "TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver",
           "TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs",
@@ -1015,6 +1047,7 @@
         "package": "./internal/modules/revisions/conflicts",
         "tests": [
           "TestConflictTokenConfigurationRequiresSecureManifestPath",
+          "TestConflictTokenKeyRingRequiresExplicitEnvironment",
           "TestConflictTokenKeyRingValidationAndSecretIsolation",
           "TestConflictTokenV3ExpiryRotationAndClockSkew",
           "TestConflictTokenV3PropagatesEntropyFailure",

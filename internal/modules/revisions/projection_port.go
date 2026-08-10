@@ -16,6 +16,11 @@ type ProjectionRebuilder interface {
 
 type ProjectionServices interface {
 	ProjectionRebuilder
+}
+
+// LiveRecordReader supplies disposable projection material for Collaboration
+// consequences. Values returned here never become retained revision history.
+type LiveRecordReader interface {
 	Supports(viewSchemaID string) bool
 	LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error)
 }
@@ -24,13 +29,9 @@ func (s *commandStore) rebuildProjectionsTx(ctx context.Context, tx pgx.Tx, inci
 	return s.projections.RebuildIncidentTx(ctx, tx, incidentID)
 }
 
-func (s *commandStore) snapshotRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, source deleterestorecontract.DeleteRestoreSource) (map[string]any, error) {
-	viewSchemaID, err := source.ViewSchemaID(ctx, tx, recordID)
-	if err != nil {
-		return nil, err
-	}
-	if s.projections.Supports(viewSchemaID) {
-		row, err := s.projections.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+func (s *commandStore) loadLiveRecordTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, source deleterestorecontract.DeleteRestoreSource) (map[string]any, error) {
+	if s.liveRecords.Supports(viewSchemaID) {
+		row, err := s.liveRecords.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 		if err == nil {
 			return row, nil
 		}
@@ -38,7 +39,8 @@ func (s *commandStore) snapshotRecordTx(ctx context.Context, tx pgx.Tx, recordID
 			return nil, err
 		}
 	}
-	// Deleted records do not appear in published projections, and record families
-	// without a public query surface have no canonical projection reader.
+	// Some public event surfaces intentionally have no queryable projection.
+	// Their source owner supplies live event material explicitly here. This
+	// value is never passed to retained history persistence.
 	return source.SnapshotTx(ctx, tx, recordID)
 }

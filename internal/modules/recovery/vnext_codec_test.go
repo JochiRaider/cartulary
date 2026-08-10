@@ -110,8 +110,9 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if snapshots.transactions != 1 {
 		t.Fatalf("snapshot transactions = %d, want 1", snapshots.transactions)
 	}
-	if got := len(captured.IntegrityManifest.Artifacts); got != 85 {
-		t.Fatalf("integrity artifact proofs = %d, want 85", got)
+	wantArtifactProofs := len(stateCatalog.RequiredTableNames()) + 3
+	if got := len(captured.IntegrityManifest.Artifacts); got != wantArtifactProofs {
+		t.Fatalf("integrity artifact proofs = %d, want %d", got, wantArtifactProofs)
 	}
 	if captured.IntegrityManifest.SchemaID != recovery.BackupIntegrityManifestV3SchemaID ||
 		recovery.BackupIntegrityManifestSchemaID != "cartulary.backup_integrity_manifest.v2" ||
@@ -135,8 +136,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if target.commits != 1 || target.rollbacks != 0 {
 		t.Fatalf("atomic restore commits/rollbacks = %d/%d, want 1/0", target.commits, target.rollbacks)
 	}
-	if got := len(target.tables); got != 82 {
-		t.Fatalf("restored tables = %d, want 82", got)
+	if got := len(target.tables); got != 83 {
+		t.Fatalf("restored tables = %d, want 83", got)
 	}
 	firstTable := stateCatalog.RequiredTableNames()[0]
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {

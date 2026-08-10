@@ -246,8 +246,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(tables) != 110 {
-		return nil, fmt.Errorf("recovery catalog must classify exactly 110 authored tables, got %d", len(tables))
+	if len(tables) != 111 {
+		return nil, fmt.Errorf("recovery catalog must classify exactly 111 authored tables, got %d", len(tables))
 	}
 	catalogNames := make([]string, 0, len(tables))
 	requiredNames := []string{}
@@ -269,8 +269,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err := requireSortedUniqueStrings(catalogNames, "recovery catalog tables"); err != nil {
 		return nil, err
 	}
-	if len(requiredNames) != 82 {
-		return nil, fmt.Errorf("recovery catalog must contain exactly 82 authoritative_required tables, got %d", len(requiredNames))
+	if len(requiredNames) != 83 {
+		return nil, fmt.Errorf("recovery catalog must contain exactly 83 authoritative_required tables, got %d", len(requiredNames))
 	}
 	authoredNames, err := authoredMigrationTableNames(root)
 	if err != nil {
@@ -338,8 +338,8 @@ func validateRecoverySnapshotFixture(snapshot map[string]any, requiredTables []s
 	if err != nil {
 		return err
 	}
-	if len(units) != 82 {
-		return fmt.Errorf("postgres snapshot fixture must contain exactly 82 units, got %d", len(units))
+	if len(units) != 83 {
+		return fmt.Errorf("postgres snapshot fixture must contain exactly 83 units, got %d", len(units))
 	}
 	names := make([]string, 0, len(units))
 	for index, unit := range units {

@@ -92,11 +92,13 @@ INSERT INTO change_set_mutations (
     before_version_id,
     after_version_id,
     before_value,
-    after_value
+    after_value,
+    history_record_ids,
+    history_entry_record_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, ARRAY[$10::uuid], ARRAY[$10::uuid])
 ON CONFLICT (change_set_id, sequence_no) DO NOTHING
-`, seed.ChangeSetID, seed.SequenceNo, seed.TargetKind, seed.RecordID.String(), seed.Operation, versionID(seed, "before"), versionID(seed, "after"), jsonOrNil(t, beforePayload), jsonOrNil(t, afterPayload)); err != nil {
+`, seed.ChangeSetID, seed.SequenceNo, seed.TargetKind, seed.RecordID.String(), seed.Operation, versionID(seed, "before"), versionID(seed, "after"), jsonOrNil(t, beforePayload), jsonOrNil(t, afterPayload), seed.RecordID); err != nil {
 		t.Fatalf("seed change-set mutation: %v", err)
 	}
 }

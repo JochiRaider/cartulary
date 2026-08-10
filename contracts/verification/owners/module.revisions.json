@@ -54,6 +54,13 @@
       "public_target": "test"
     },
     {
+      "verification_id": "module.revisions.verification.history_association_storage_migration",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "service-backed-test"
+    },
+    {
       "verification_id": "module.revisions.verification.history_component_decomposition",
       "behavior_class": "architecture",
       "profile": "base",

@@ -175,7 +175,11 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 		}
 	}
 
-	beforeSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, sourceAdapter)
+	beforeSnapshot, err := s.appender.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	beforeLiveRecord, err := s.loadLiveRecordTx(ctx, tx, viewSchemaID, record.RecordID, sourceAdapter)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -189,7 +193,11 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	afterSnapshot, err := s.snapshotRecordTx(ctx, tx, record.RecordID, sourceAdapter)
+	afterSnapshot, err := s.appender.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	afterLiveRecord, err := s.loadLiveRecordTx(ctx, tx, viewSchemaID, record.RecordID, sourceAdapter)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -218,25 +226,29 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}
 	beforeVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, record.RowVersion)
 	afterVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, nextRowVersion)
-	if err := s.appender.AppendMutationTx(ctx, tx, AppendMutationParams{
+	if err := s.appender.AppendCapturedRecordMutationTx(ctx, tx, AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
-		TargetID:        record.RecordID.String(),
+		RecordID:        record.RecordID,
 		OperationKind:   operation,
 		BeforeVersionID: &beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeSnapshot,
-		AfterValue:      afterSnapshot,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.appender.AppendRecordRevisionTx(ctx, tx, AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    record.RecordID,
-		RowVersion:  nextRowVersion,
-		BeforeValue: beforeSnapshot,
-		AfterValue:  afterSnapshot,
+	if err := s.appender.AppendCapturedRecordRevisionTx(ctx, tx, AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       record.RecordID,
+		RowVersion:     nextRowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange: LiveRecordChange{
+			BeforeValue: beforeLiveRecord,
+			AfterValue:  afterLiveRecord,
+		},
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}

@@ -13,11 +13,11 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 		routes = append(routes, recordViewRoute(surface))
 	}
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerArtifacts,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerArtifacts,
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerArtifacts,
 			RecordType:             "artifact",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.artifact.v1",
 			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,

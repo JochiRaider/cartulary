@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -124,6 +125,10 @@ func (s *store) applyAction(
 		replacementID := *replacementRecordID
 		validatedReplacementID = &replacementID
 	}
+	beforeSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
@@ -171,6 +176,10 @@ RETURNING recorded_at
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
@@ -188,16 +197,16 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
+	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
-		TargetID:        current.RecordID.String(),
+		RecordID:        current.RecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &beforeVersion,
 		AfterVersionID:  &afterVersion,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -218,12 +227,13 @@ RETURNING recorded_at
 			return MutationResult{}, err
 		}
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    current.RecordID,
-		RowVersion:  next.RowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+	if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       current.RecordID,
+		RowVersion:     next.RowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
 		return MutationResult{}, err
 	}

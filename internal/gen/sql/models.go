@@ -267,15 +267,17 @@ type ChangeSet struct {
 }
 
 type ChangeSetMutation struct {
-	ChangeSetID     pgtype.UUID `json:"change_set_id"`
-	SequenceNo      int32       `json:"sequence_no"`
-	TargetKind      string      `json:"target_kind"`
-	TargetID        string      `json:"target_id"`
-	OperationKind   string      `json:"operation_kind"`
-	BeforeVersionID pgtype.Text `json:"before_version_id"`
-	AfterVersionID  pgtype.Text `json:"after_version_id"`
-	BeforeValue     []byte      `json:"before_value"`
-	AfterValue      []byte      `json:"after_value"`
+	ChangeSetID           pgtype.UUID   `json:"change_set_id"`
+	SequenceNo            int32         `json:"sequence_no"`
+	TargetKind            string        `json:"target_kind"`
+	TargetID              string        `json:"target_id"`
+	OperationKind         string        `json:"operation_kind"`
+	BeforeVersionID       pgtype.Text   `json:"before_version_id"`
+	AfterVersionID        pgtype.Text   `json:"after_version_id"`
+	BeforeValue           []byte        `json:"before_value"`
+	AfterValue            []byte        `json:"after_value"`
+	HistoryRecordIds      []pgtype.UUID `json:"history_record_ids"`
+	HistoryEntryRecordIds []pgtype.UUID `json:"history_entry_record_ids"`
 }
 
 type CollaborationEventIntent struct {
@@ -1369,6 +1371,15 @@ type RecordRevision struct {
 	BeforeJson  []byte             `json:"before_json"`
 	AfterJson   []byte             `json:"after_json"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type RecordRevisionConflictFact struct {
+	RevisionID    int64  `json:"revision_id"`
+	FieldKey      string `json:"field_key"`
+	BeforePresent bool   `json:"before_present"`
+	BeforeValue   []byte `json:"before_value"`
+	AfterPresent  bool   `json:"after_present"`
+	AfterValue    []byte `json:"after_value"`
 }
 
 type RecordTag struct {

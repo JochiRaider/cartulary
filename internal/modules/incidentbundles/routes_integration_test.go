@@ -1695,8 +1695,8 @@ func seedPortableRollbackHostPatch(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "portable-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "portable-host", "host_state": "canonical", "row_version": 2}
-	beforeValue := map[string]any{"record": beforeRecord, "source": beforeSource}
-	afterValue := map[string]any{"record": afterRecord, "source": afterSource}
+	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
+	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
 	if _, err := db.ExecContext(context.Background(), `
 UPDATE records
    SET row_version = 2,
@@ -1727,9 +1727,10 @@ VALUES ($1, $2, $3, 'workbook.records.patch', 'portable rollback seed', 'txn-por
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO change_set_mutations (
     change_set_id, sequence_no, target_kind, target_id, operation_kind,
-    before_version_id, after_version_id, before_value, after_value
+    before_version_id, after_version_id, before_value, after_value,
+    history_record_ids, history_entry_record_ids
 )
-VALUES ($1, 1, 'host', $2, 'field_update', $3, $4, $5, $6)
+VALUES ($1, 1, 'host', $2::text, 'field_update', $3, $4, $5, $6, ARRAY[$2::uuid], ARRAY[$2::uuid])
 `, changeSetID, recordID.String(), "host:"+recordID.String()+":1", "host:"+recordID.String()+":2", jsonRaw(t, beforeValue), jsonRaw(t, afterValue)); err != nil {
 		t.Fatalf("seed portable rollback mutation: %v", err)
 	}
@@ -1761,9 +1762,12 @@ VALUES ($1, $2, $3, 'records.tags.create', 'portable tag seed', 'txn-portable-ta
 		t.Fatalf("seed portable record-tag change set: %v", err)
 	}
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO change_set_mutations (change_set_id, sequence_no, target_kind, target_id, operation_kind, before_value, after_value)
-VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3)
-`, changeSetID, recordTagID.String(), jsonRaw(t, afterValue)); err != nil {
+INSERT INTO change_set_mutations (
+    change_set_id, sequence_no, target_kind, target_id, operation_kind,
+    before_value, after_value, history_record_ids, history_entry_record_ids
+)
+VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3, ARRAY[$4::uuid], ARRAY[$4::uuid])
+`, changeSetID, recordTagID.String(), jsonRaw(t, afterValue), recordID); err != nil {
 		t.Fatalf("seed portable record-tag mutation: %v", err)
 	}
 }

@@ -8,15 +8,15 @@ import (
 )
 
 type commandStore struct {
-	transactions            TransactionRunner
-	appender                *Appender
-	envelopes               RecordEnvelopePort
-	authorization           CommandAuthorizer
-	idempotency             IdempotencyPort
-	projections             ProjectionServices
-	deleteRestoreSources    *DeleteRestoreSourceCatalog
-	rowRollbackProviders    *RowProviderCatalog
-	nonRowRollbackProviders *NonRowProviderCatalog
+	transactions         TransactionRunner
+	appender             *Appender
+	envelopes            RecordEnvelopePort
+	authorization        CommandAuthorizer
+	idempotency          IdempotencyPort
+	projections          ProjectionServices
+	liveRecords          LiveRecordReader
+	deleteRestoreSources *DeleteRestoreSourceCatalog
+	targetSemantics      *TargetSemanticsCatalog
 }
 
 type ImportedAttributionResolver interface {

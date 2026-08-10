@@ -129,35 +129,6 @@ func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"indicator.indicator_type":   "indicator_type",
-			"indicator.value_kind":       "value_kind",
-			"indicator.display_value":    "display_value",
-			"indicator.normalized_value": "normalized_value",
-			"indicator.defanged_value":   "defanged_value",
-			"indicator.hash_algorithm":   "hash_algorithm",
-			"indicator.hash_value":       "hash_value",
-			"indicator.stix_pattern":     "stix_pattern",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, key := range []string{
-			"indicator_type", "value_kind", "display_value", "normalized_value", "dedupe_key",
-			"defanged_value", "hash_algorithm", "hash_value", "stix_pattern",
-		} {
-			if _, present := value[key]; present {
-				return value, true
-			}
-		}
-	}
 	return nil, false
 }
 

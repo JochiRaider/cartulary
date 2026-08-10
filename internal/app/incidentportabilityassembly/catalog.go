@@ -42,8 +42,13 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, err
 	}
+	targetSemantics, err := revisionassembly.CurrentTargetSemanticsCatalog()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Revisions target semantics catalog: %w", err)
+	}
 	revisionsValidation, err := revisions.NewIncidentBundleValidationCatalog(
 		incidentBundleRecordEnvelopeReader{store: records.NewStore()},
+		targetSemantics,
 		revisionassembly.CurrentProviderContributions(),
 	)
 	if err != nil {

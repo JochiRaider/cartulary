@@ -333,6 +333,10 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
+	beforeSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return AttachBlobResult{}, err
+	}
 	if evidenceRowCellValue(beforeRow, "evidence.lifecycle_state") == "quarantined" {
 		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
 	}
@@ -452,6 +456,10 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
+	afterSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return AttachBlobResult{}, err
+	}
 	changeSetID, err := s.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID: meta.IncidentID, ActorUserID: actor.ID, Source: blobAttachRouteKey,
 		ClientTxnID: &request.ClientTxnID, RequestID: &requestID, CreatedAt: now.UTC(),
@@ -461,15 +469,17 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	}
 	beforeVersionID := fmt.Sprintf("%s:%d", recordID, request.BaseRowVersion)
 	afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
-	if err := s.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
-		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "record", TargetID: recordID.String(),
+	if err := s.revisionStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "record", RecordID: recordID,
 		OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
-		BeforeValue: beforeRow, AfterValue: afterRow,
+		BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion, BeforeValue: beforeRow, AfterValue: afterRow,
+	if err := s.revisionStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
+		BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
+		LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
@@ -567,6 +577,7 @@ SELECT e.record_id
 	rows.Close()
 
 	beforeRows := make(map[uuid.UUID]map[string]any, len(recordIDs))
+	beforeSnapshots := make(map[uuid.UUID]revisions.CapturedRecordSnapshot, len(recordIDs))
 	beforeVersions := make(map[uuid.UUID]int64, len(recordIDs))
 	for _, recordID := range recordIDs {
 		row, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -574,6 +585,11 @@ SELECT e.record_id
 			return QuarantineBlobResult{}, err
 		}
 		beforeRows[recordID] = row
+		snapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		beforeSnapshots[recordID] = snapshot
 		beforeVersions[recordID] = int64FromAny(row["row_version"])
 	}
 
@@ -637,18 +653,24 @@ UPDATE evidence
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
+		afterSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
+		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
 		beforeVersionID := fmt.Sprintf("%s:%d", recordID, beforeVersions[recordID])
 		afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
-		if err := s.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
-			ChangeSetID: changeSetID, SequenceNo: idx + 1, TargetKind: "record", TargetID: recordID.String(),
+		beforeSnapshot := beforeSnapshots[recordID]
+		if err := s.revisionStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
+			ChangeSetID: changeSetID, SequenceNo: idx + 1, TargetKind: "record", RecordID: recordID,
 			OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
-			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
+			BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 		}); err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
+		if err := s.revisionStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
 			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
-			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
+			BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRows[recordID], AfterValue: afterRow},
 		}); err != nil {
 			return QuarantineBlobResult{}, err
 		}

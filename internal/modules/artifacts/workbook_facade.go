@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -29,26 +30,27 @@ import (
 )
 
 type WorkbookFacade struct {
-	pool             postgres.DB
-	authStore        *authn.Store
-	idempotency      artifactIdempotencyPort
-	incidentAccess   artifactIncidentAdmissionPort
-	linkStore        artifactLinkPort
-	revisionHistory  artifactRevisionHistoryPort
-	revisionAppender artifactRevisionPort
-	source           artifactSourceKernel
-	conflictTokens   conflicttokens.ConflictTokenCodec
-	conflictFields   conflicttokens.FieldResolver
-	keepSaved        conflicttokens.IdempotencyPort
+	pool              postgres.DB
+	authStore         *authn.Store
+	idempotency       artifactIdempotencyPort
+	incidentAccess    artifactIncidentAdmissionPort
+	linkStore         artifactLinkPort
+	revisionHistory   artifactRevisionHistoryPort
+	revisionAppender  artifactRevisionPort
+	source            artifactSourceKernel
+	conflictTokens    conflicttokens.ConflictTokenCodec
+	conflictFields    conflicttokens.FieldResolver
+	conflictSnapshots conflicttokens.RevisionSnapshotProjector
+	keepSaved         conflicttokens.IdempotencyPort
 }
 
 type artifactLinkPort interface {
 	ValidatePartyRefCollectionTx(context.Context, pgx.Tx, links.PartyRefCollectionValidation) error
 	ValidateRecordRefCollectionTx(context.Context, pgx.Tx, links.RecordRefCollectionValidation) error
 	ValidateTagCollectionTx(context.Context, pgx.Tx, links.TagCollectionValidation) error
-	ApplyPartyRefCollectionTx(context.Context, pgx.Tx, links.PartyRefCollectionCommand) (bool, error)
-	ApplyRecordRefCollectionTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (bool, error)
-	ApplyTagCollectionTx(context.Context, pgx.Tx, links.TagCollectionCommand) (bool, error)
+	ApplyPartyRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.PartyRefCollectionCommand) (links.CollectionMutationResult, error)
+	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (links.CollectionMutationResult, error)
+	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.TagCollectionCommand) (links.CollectionMutationResult, error)
 	InsertLinkedNoteReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.RecordLink, bool, error)
 	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 }
@@ -152,6 +154,13 @@ func NewWorkbookFacade(
 		panic("compose Artifacts workbook facade: projection rows are required")
 	}
 	authStore := authn.NewStore(pool)
+	conflictSnapshots, err := conflicttokens.NewRevisionSnapshotProjector(
+		"cartulary.revisions.snapshot.artifact.v1",
+		sourcecontract.ConflictFieldSourceKeys(),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("compose Artifacts conflict snapshot projector: %v", err))
+	}
 	return &WorkbookFacade{
 		pool:             pool,
 		authStore:        authStore,
@@ -165,9 +174,10 @@ func NewWorkbookFacade(
 			rows:        newSourceStore(appender),
 			projections: projectionRows,
 		},
-		conflictTokens: conflictTokens,
-		conflictFields: conflictFields,
-		keepSaved:      keepSaved,
+		conflictTokens:    conflictTokens,
+		conflictFields:    conflictFields,
+		conflictSnapshots: conflictSnapshots,
+		keepSaved:         keepSaved,
 	}
 }
 
@@ -292,7 +302,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
-		window, err := conflicttokens.BuildPatchConflictWindowWithDescriptors(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors)
+		window, err := conflicttokens.BuildCanonicalPatchConflictWindow(command.RecordID, request.BaseRowVersion, meta.RowVersion, windowRows, fieldDescriptors, f.conflictSnapshots)
 		if err != nil {
 			return WorkbookMutationResult{}, adaptRevisionWindowError(command.RecordID, request.BaseRowVersion, meta.RowVersion, err)
 		}
@@ -326,10 +336,14 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	beforeSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	if err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	if err := validateArtifactPatchReferencesTx(ctx, tx, f.linkStore, meta.IncidentID, request); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	changed, err := f.applyPatchTx(ctx, tx, meta.IncidentID, command.RecordID, command.Actor.ID, request, command.Now.UTC())
+	changed, collectionMutations, err := f.applyPatchTx(ctx, tx, meta.IncidentID, command.RecordID, command.Actor.ID, request, command.Now.UTC())
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -350,6 +364,10 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
+	afterSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	if err != nil {
+		return WorkbookMutationResult{}, err
+	}
 	changeSetID, err := f.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: command.Actor.ID,
@@ -366,25 +384,32 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		beforeVersionID = workbookVersionID(command.RecordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(command.RecordID, rowVersion)
-	if err := f.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
-		TargetID:        command.RecordID.String(),
+		RecordID:        command.RecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &beforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    command.RecordID,
-		RowVersion:  rowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+	if _, err := f.appendCollectionMutationsTx(ctx, tx, changeSetID, 2, collectionMutations); err != nil {
+		return WorkbookMutationResult{}, err
+	}
+	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       command.RecordID,
+		RowVersion:     rowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange: revisions.LiveRecordChange{
+			BeforeValue: beforeRow,
+			AfterValue:  afterRow,
+		},
 	}); err != nil {
 		return WorkbookMutationResult{}, err
 	}
@@ -411,44 +436,47 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	}, nil
 }
 
-func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, error) {
+func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, links.CollectionMutationResult, error) {
 	changed := false
+	mutations := links.CollectionMutationResult{}
 	for _, change := range request.Changes {
 		if change.Value != nil {
 			policy, ok := lookupArtifactSourceField(change.FieldKey)
 			if !ok || policy.viewSchemaID != request.ViewSchemaID ||
 				policy.kind != sourceFieldDirect || !policy.writable {
-				return false, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
+				return false, links.CollectionMutationResult{}, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
 			}
 			if err := ValidateDirectPatchChange(change.FieldKey, *change.Value); err != nil {
-				return false, err
+				return false, links.CollectionMutationResult{}, err
 			}
 			applied, err := f.source.rows.ApplyDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
 			if err != nil && strings.Contains(err.Error(), "unsupported field key") {
-				return false, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
+				return false, links.CollectionMutationResult{}, &ValidationError{Field: change.FieldKey, ReasonCode: "unsupported_field_key"}
 			}
 			if err != nil {
-				return false, err
+				return false, links.CollectionMutationResult{}, err
 			}
 			changed = changed || applied
 			continue
 		}
 		if change.Collection != nil {
-			applied, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, request.ViewSchemaID, change.FieldKey, *change.Collection, now)
+			applied, collectionResult, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, request.ViewSchemaID, change.FieldKey, *change.Collection, now)
 			if err != nil {
-				return false, err
+				return false, links.CollectionMutationResult{}, err
 			}
 			changed = changed || applied
+			mutations.RecordLinks = append(mutations.RecordLinks, collectionResult.RecordLinks...)
+			mutations.RecordTags = append(mutations.RecordTags, collectionResult.RecordTags...)
 		}
 	}
 	if request.ViewSchemaID == FindingsViewSchemaID && touchesArtifactField(request.Changes, "finding.state") {
 		applied, err := f.source.rows.NormalizeFindingLifecycleTx(ctx, tx, recordID, now)
 		if err != nil {
-			return false, err
+			return false, links.CollectionMutationResult{}, err
 		}
 		changed = changed || applied
 	}
-	return changed, nil
+	return changed, mutations, nil
 }
 
 func validateArtifactReferencesTx(ctx context.Context, tx pgx.Tx, linkStore artifactLinkPort, incidentID uuid.UUID, viewSchemaID string, values map[string]FieldValue, collections map[string]WorkbookCollectionActionPayload) error {
@@ -517,48 +545,85 @@ func validateArtifactCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkSto
 	}
 }
 
-func (f *WorkbookFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]WorkbookCollectionActionPayload, now time.Time) error {
-	for fieldKey, payload := range collections {
-		if _, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, viewSchemaID, fieldKey, payload, now); err != nil {
-			return err
-		}
+func (f *WorkbookFacade) applyCollectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, collections map[string]WorkbookCollectionActionPayload, now time.Time) (links.CollectionMutationResult, error) {
+	fieldKeys := make([]string, 0, len(collections))
+	for fieldKey := range collections {
+		fieldKeys = append(fieldKeys, fieldKey)
 	}
-	return nil
+	slices.Sort(fieldKeys)
+	mutations := links.CollectionMutationResult{}
+	for _, fieldKey := range fieldKeys {
+		_, collectionResult, err := f.applyCollectionTx(ctx, tx, incidentID, recordID, actorID, viewSchemaID, fieldKey, collections[fieldKey], now)
+		if err != nil {
+			return links.CollectionMutationResult{}, err
+		}
+		mutations.RecordLinks = append(mutations.RecordLinks, collectionResult.RecordLinks...)
+		mutations.RecordTags = append(mutations.RecordTags, collectionResult.RecordTags...)
+	}
+	return mutations, nil
 }
 
-func (f *WorkbookFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload WorkbookCollectionActionPayload, now time.Time) (bool, error) {
+func (f *WorkbookFacade) applyCollectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, viewSchemaID string, fieldKey string, payload WorkbookCollectionActionPayload, now time.Time) (bool, links.CollectionMutationResult, error) {
 	sourcePolicy, ok := lookupArtifactSourceField(fieldKey)
 	if !ok || sourcePolicy.viewSchemaID != viewSchemaID ||
 		sourcePolicy.kind != sourceFieldCollection || !sourcePolicy.writable {
-		return false, collectionValidationError(fieldKey)
+		return false, links.CollectionMutationResult{}, collectionValidationError(fieldKey)
 	}
 	policy := sourcePolicy.collection
 	if policy.AllowsRiskRefs() {
 		changed, err := f.source.rows.ApplyHandoffRiskRefPayloadTx(ctx, tx, incidentID, recordID, actorID, riskRefPayloadFromWorkbook(payload), now)
-		return changed, err
+		return changed, links.CollectionMutationResult{}, err
 	}
 	switch {
 	case policy.AllowsRecordRefs():
 		command, err := artifactRecordRefCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, err
+			return false, links.CollectionMutationResult{}, err
 		}
-		return f.linkStore.ApplyRecordRefCollectionTx(ctx, tx, command)
+		result, err := f.linkStore.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
+		return len(result.RecordLinks) > 0, result, err
 	case policy.AllowsPartyRefs():
 		command, err := artifactPartyRefCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, err
+			return false, links.CollectionMutationResult{}, err
 		}
-		return f.linkStore.ApplyPartyRefCollectionTx(ctx, tx, command)
+		result, err := f.linkStore.ApplyPartyRefCollectionWithMutationValuesTx(ctx, tx, command)
+		return len(result.RecordLinks) > 0, result, err
 	case policy.AllowsTags():
 		command, err := artifactTagCommand(incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
-			return false, err
+			return false, links.CollectionMutationResult{}, err
 		}
-		return f.linkStore.ApplyTagCollectionTx(ctx, tx, command)
+		result, err := f.linkStore.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
+		return len(result.RecordTags) > 0, result, err
 	default:
-		return false, collectionValidationError(fieldKey)
+		return false, links.CollectionMutationResult{}, collectionValidationError(fieldKey)
 	}
+}
+
+func (f *WorkbookFacade) appendCollectionMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, mutations links.CollectionMutationResult) (int, error) {
+	sequence := startSequence
+	for _, mutation := range mutations.RecordLinks {
+		if err := f.revisionAppender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+			ChangeSetID: changeSetID, SequenceNo: sequence, TargetKind: "record_link",
+			TargetID: mutation.RecordLinkID.String(), OperationKind: mutation.Operation,
+			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
+		}); err != nil {
+			return sequence, err
+		}
+		sequence++
+	}
+	for _, mutation := range mutations.RecordTags {
+		if err := f.revisionAppender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
+			ChangeSetID: changeSetID, SequenceNo: sequence, TargetKind: "record_tag",
+			TargetID: links.RecordTagItemRef(mutation.RecordID, mutation.RecordTagID), OperationKind: mutation.Operation,
+			BeforeValue: mutation.BeforeValue, AfterValue: mutation.AfterValue,
+		}); err != nil {
+			return sequence, err
+		}
+		sequence++
+	}
+	return sequence, nil
 }
 
 func artifactRecordRefValidation(incidentID uuid.UUID, policy CollectionPolicy, payload WorkbookCollectionActionPayload) (links.RecordRefCollectionValidation, error) {

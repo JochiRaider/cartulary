@@ -7,6 +7,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		"change_set_mutations",
 		"change_sets",
 		"record_history_entry_refs",
+		"record_revision_conflict_facts",
 		"record_revisions",
 	))
 }

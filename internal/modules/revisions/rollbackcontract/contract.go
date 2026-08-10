@@ -20,6 +20,19 @@ type TargetReference struct {
 	TargetID   string
 }
 
+type DispatchClass string
+
+const (
+	DispatchRow    DispatchClass = "row"
+	DispatchNonRow DispatchClass = "non_row"
+)
+
+type SiblingTarget struct {
+	TargetReference
+	SequenceNo    int
+	DispatchClass DispatchClass
+}
+
 type NonRowTarget struct {
 	IncidentID    uuid.UUID
 	ChangeSetID   uuid.UUID
@@ -34,12 +47,14 @@ type NonRowTarget struct {
 type DescribeRequest struct {
 	Target            NonRowTarget
 	AddressedRecordID uuid.UUID
+	SiblingTargets    []SiblingTarget
 }
 
 type TargetDescriptor struct {
-	AffectedRecordIDs      []uuid.UUID
-	RequiresWholeChangeSet bool
-	AtomicCompanions       []TargetReference
+	AffectedRecordIDs          []uuid.UUID
+	RequiresWholeChangeSet     bool
+	SingleEntryCompanions      []TargetReference
+	RequiresWholeChangeSetWith []TargetReference
 }
 
 type ApplyInverseRequest struct {

@@ -8,11 +8,12 @@ import (
 
 func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerAssessments,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerAssessments,
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerAssessments,
 			RecordType:             "assessment",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.assessment.v1",
+			HistoryTargetKinds:     []string{"assessment"},
 			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,

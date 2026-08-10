@@ -8,11 +8,11 @@ import (
 
 func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
-		SourceOwnerModule:     revisions.SourceOwnerParties,
-		ConflictFieldProvider: revisions.NewViewSchemaConflictFieldProvider(),
+		SourceOwnerModule: revisions.SourceOwnerParties,
 		Records: []revisions.RecordProviderContribution{{
 			SourceOwnerModule:      revisions.SourceOwnerParties,
 			RecordType:             "party",
+			SnapshotSchemaID:       "cartulary.revisions.snapshot.party.v1",
 			DeleteRestoreSource:    deleterestore.NewSource(),
 			RowRollbackProvider:    rollbackprovider.NewPartyProvider(),
 			LiveRecordChangePolicy: revisions.LiveRecordChangeRequired,

@@ -13,11 +13,21 @@ import (
 var ErrInvalidRevisionWindow = errors.New("revisions conflicts: invalid revision window")
 
 type RevisionWindowRow struct {
-	RowVersion  int64
-	BeforeJSON  []byte
-	AfterJSON   []byte
-	ActorUserID uuid.UUID
-	CreatedAt   time.Time
+	ChangeSetID   uuid.UUID
+	RowVersion    int64
+	BeforeJSON    []byte
+	AfterJSON     []byte
+	ActorUserID   uuid.UUID
+	CreatedAt     time.Time
+	ConflictFacts []RevisionConflictFact
+}
+
+type RevisionConflictFact struct {
+	FieldKey      string
+	BeforePresent bool
+	BeforeValue   []byte
+	AfterPresent  bool
+	AfterValue    []byte
 }
 
 // RevisionWindowReader reads retained history in the caller-owned transaction.
@@ -37,7 +47,7 @@ func (RevisionWindowReader) LoadRevisionWindowTx(
 		return nil, ErrInvalidRevisionWindow
 	}
 	rows, err := tx.Query(ctx, `
-SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
+SELECT rr.revision_id, cs.change_set_id, rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.created_at
   FROM record_revisions rr
   JOIN change_sets cs
     ON cs.change_set_id = rr.change_set_id
@@ -52,16 +62,57 @@ SELECT rr.row_version, rr.before_json, rr.after_json, cs.actor_user_id, cs.creat
 	defer rows.Close()
 
 	result := make([]RevisionWindowRow, 0)
+	byRevisionID := make(map[int64]int)
 	for rows.Next() {
 		var row RevisionWindowRow
-		if err := rows.Scan(&row.RowVersion, &row.BeforeJSON, &row.AfterJSON, &row.ActorUserID, &row.CreatedAt); err != nil {
+		var revisionID int64
+		if err := rows.Scan(&revisionID, &row.ChangeSetID, &row.RowVersion, &row.BeforeJSON, &row.AfterJSON, &row.ActorUserID, &row.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan record revision window: %w", err)
 		}
 		row.CreatedAt = row.CreatedAt.UTC()
+		byRevisionID[revisionID] = len(result)
 		result = append(result, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate record revision window: %w", err)
 	}
+	if len(result) == 0 {
+		return result, nil
+	}
+	factRows, err := tx.Query(ctx, `
+SELECT fact.revision_id, fact.field_key,
+       fact.before_present, fact.before_value,
+       fact.after_present, fact.after_value
+  FROM record_revision_conflict_facts fact
+ WHERE fact.revision_id = ANY($1)
+ ORDER BY fact.revision_id, fact.field_key
+`, revisionIDs(byRevisionID))
+	if err != nil {
+		return nil, fmt.Errorf("query record revision conflict facts: %w", err)
+	}
+	defer factRows.Close()
+	for factRows.Next() {
+		var revisionID int64
+		var fact RevisionConflictFact
+		if err := factRows.Scan(&revisionID, &fact.FieldKey, &fact.BeforePresent, &fact.BeforeValue, &fact.AfterPresent, &fact.AfterValue); err != nil {
+			return nil, fmt.Errorf("scan record revision conflict fact: %w", err)
+		}
+		index, ok := byRevisionID[revisionID]
+		if !ok {
+			return nil, ErrInvalidRevisionWindow
+		}
+		result[index].ConflictFacts = append(result[index].ConflictFacts, fact)
+	}
+	if err := factRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate record revision conflict facts: %w", err)
+	}
 	return result, nil
+}
+
+func revisionIDs(indexes map[int64]int) []int64 {
+	result := make([]int64, 0, len(indexes))
+	for revisionID := range indexes {
+		result = append(result, revisionID)
+	}
+	return result
 }

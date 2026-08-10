@@ -1734,7 +1734,7 @@ point. The initial port has exactly these responsibilities:
 
 | Operation | Required behavior |
 | --- | --- |
-| `SnapshotTx` | Return the authoritative envelope/source snapshot for one record from the supplied transaction. |
+| `SnapshotTx` | Return the schema-identified canonical authoritative envelope/source snapshot for one record from the supplied transaction. |
 | `UpdateSourceDeleteStateTx` | Apply or clear only the source owner's current delete-state consequence in the supplied transaction. |
 | `ViewSchemaID` | Return the source-owned view consequence for the record. |
 | `ValidateDeletePreconditionsTx` | Return the source-owned typed blocker tuple without applying a mutation. |
@@ -1749,6 +1749,13 @@ map HTTP errors, call a network or object store, or expose raw SQL, table
 names, column names, or other executable relation metadata through the port.
 Future optional behavior MUST use a separate narrow capability interface
 rather than widening this port or adding a descriptor-driven provider.
+
+Revisions append coordination MUST receive a narrow Records-owned
+transaction-bound current-envelope reader from application assembly. Revisions
+MUST NOT construct a concrete Records store. Snapshot capture and live
+Collaboration change material are distinct inputs: a projection/view row MAY
+inform the live event consequence, but it MUST NOT be persisted as a row
+snapshot, passed to a row-restore provider, or used as a snapshot fallback.
 Profiles: base
 Verified by: AC-514
 
@@ -7640,6 +7647,42 @@ filesystem order, map iteration, unsorted SQL output, constraint-reporting
 order, or PostgreSQL error text. The current-state reader is a Revisions-owned
 consumer port whose providers are constructed by authoritative source owners
 and whose complete immutable catalog is validated by application composition.
+
+**REQ-01-659**
+For Incident Bundle versions `1` and `2`, the outer exact member sets,
+ordering, contract major, attribution behavior, sequence repair, invariant
+precedence, and no-live-publication behavior of the Revisions source family
+remain unchanged. Every non-null `before_value`, `after_value`, `before_json`,
+or `after_json` that represents a first-class row snapshot MUST, however,
+satisfy the canonical schema-identified snapshot envelope and source-owner
+validator in Core 02 REQ-02-265. A schema-less or mismatched row snapshot MUST
+fail `revisions.history_reconstruction`; it MUST NOT be inferred, translated,
+repaired, wrapped, or admitted through a legacy reader.
+
+`history_record_ids` and `history_entry_record_ids` are deterministic storage
+facts and are not added to the portable mutation row. During import, the
+Revisions source owner MUST recompute both arrays from the exact admitted
+target-semantics registry version after row-shape and target validation and
+before persistence. Recomputed arrays MUST be sorted, unique, complete, and
+identical for every ordering of equivalent bundle input. Import MUST fail
+atomically when a target is unknown, its semantic contribution is unavailable,
+or its claimed associations cannot be derived without inference. Export MUST
+continue to emit exactly the existing portable members and MUST NOT leak the
+storage arrays.
+
+Revision-bound field conflict facts are likewise not portable members. They
+are derived only for ordinary live revisions from explicit live-change input;
+import MUST NOT infer or synthesize them from canonical snapshots, source
+shape, or projection data.
+
+The first migration that requires these facts MUST succeed on a fresh current-
+line database. If pre-existing `change_set_mutations` rows are present without
+the canonical facts, it MUST fail before schema mutation with a stable reset-
+required diagnostic. The current pre-production profile defines database reset
+as the only remediation; it defines no backfill, dual reader, shadow write,
+feature flag, or historical-shape inference.
+Profiles: incident_portability
+Verified by: AC-529
 
 Tasks and Decisions assigns every admitted semantic condition to exactly one
 invariant in this precedence order:

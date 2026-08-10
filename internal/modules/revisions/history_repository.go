@@ -14,18 +14,19 @@ import (
 )
 
 type mutationHistoryRow struct {
-	ChangeSetID     uuid.UUID
-	ActorUserID     uuid.UUID
-	CommittedAt     time.Time
-	Source          string
-	SequenceNo      int
-	TargetKind      string
-	TargetID        string
-	OperationKind   string
-	BeforeValue     []byte
-	AfterValue      []byte
-	RevisionNo      *int64
-	HistoryEntryRef *string
+	ChangeSetID             uuid.UUID
+	ActorUserID             uuid.UUID
+	CommittedAt             time.Time
+	Source                  string
+	SequenceNo              int
+	TargetKind              string
+	TargetID                string
+	OperationKind           string
+	BeforeValue             []byte
+	AfterValue              []byte
+	RevisionNo              *int64
+	HistoryEntryRef         *string
+	HistoryEntryAddressable bool
 }
 
 type revisionHistoryRow struct {
@@ -53,7 +54,8 @@ SELECT cs.change_set_id,
        csm.before_value,
        csm.after_value,
        rr.row_version,
-       href.history_entry_ref
+       href.history_entry_ref,
+       $1 = ANY(csm.history_entry_record_ids)
   FROM change_sets cs
   JOIN change_set_mutations csm
     ON csm.change_set_id = cs.change_set_id
@@ -65,51 +67,9 @@ SELECT cs.change_set_id,
 	   AND href.change_set_id = csm.change_set_id
 	   AND href.mutation_sequence_no = csm.sequence_no
 	 WHERE cs.incident_id = $2
-	   AND (
-	       csm.target_id = $3
-	       OR (
-	           csm.target_kind = 'record_link'
-	           AND (
-	               csm.before_value ->> 'src_record_id' = $3
-	               OR csm.before_value ->> 'dst_record_id' = $3
-	               OR csm.after_value ->> 'src_record_id' = $3
-	               OR csm.after_value ->> 'src_record_id' = $3
-	               OR csm.after_value ->> 'dst_record_id' = $3
-	           )
-	       )
-	       OR (
-	           csm.target_kind = 'entity_mention'
-	           AND (
-	               csm.before_value ->> 'source_record_id' = $3
-	               OR csm.after_value ->> 'source_record_id' = $3
-	           )
-	       )
-	       OR (
-	           csm.target_kind = 'record_tag'
-	           AND (
-	               csm.before_value ->> 'record_id' = $3
-	               OR csm.after_value ->> 'record_id' = $3
-	           )
-	       )
-	       OR (
-	           csm.target_kind = 'indicator_observation'
-	           AND (
-	               csm.before_value ->> 'source_record_id' = $3
-	               OR csm.after_value ->> 'source_record_id' = $3
-	               OR csm.before_value ->> 'resolved_indicator_record_id' = $3
-	               OR csm.after_value ->> 'resolved_indicator_record_id' = $3
-	           )
-	       )
-	       OR (
-	           csm.target_kind = 'indicator_state_interval'
-	           AND (
-	               csm.before_value ->> 'indicator_record_id' = $3
-	               OR csm.after_value ->> 'indicator_record_id' = $3
-	           )
-	       )
-	   )
+	   AND csm.history_record_ids @> ARRAY[$1]::uuid[]
 	 ORDER BY cs.created_at DESC, cs.change_set_id DESC, csm.sequence_no ASC
-	`, record.RecordID, record.IncidentID, record.RecordID.String())
+	`, record.RecordID, record.IncidentID)
 	if err != nil {
 		return nil, fmt.Errorf("query record history mutations: %w", err)
 	}
@@ -133,6 +93,7 @@ SELECT cs.change_set_id,
 			&row.AfterValue,
 			&revisionNo,
 			&historyEntryRef,
+			&row.HistoryEntryAddressable,
 		); err != nil {
 			return nil, fmt.Errorf("scan record history mutation: %w", err)
 		}

@@ -3,7 +3,6 @@ package timeline
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
@@ -95,6 +95,7 @@ type store struct {
 	collaboration     CollaborationPort
 	sourceRepository  *sourcerepository.Repository
 	conflictTokens    conflicttokens.ConflictTokenCodec
+	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 }
 
 type attachedEvidenceMutation struct {
@@ -143,6 +144,7 @@ func newStore(pool postgres.DB, collaborators Collaborators, conflictTokens conf
 		collaboration:     collaborators.Commit.Collaboration,
 		sourceRepository:  sourcerepository.New(collaborators.Core.Records),
 		conflictTokens:    conflictTokens,
+		conflictSnapshots: newTimelineConflictSnapshotProjector(),
 	}
 }
 
@@ -339,15 +341,19 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	}
 
 	afterRow := buildRow(projected)
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return MutationResult{}, 0, err
+	}
 	afterVersion := versionID(current.RecordID, projected.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
+	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     mutationSequence,
 		TargetKind:     "timeline_record",
-		TargetID:       current.RecordID.String(),
+		RecordID:       current.RecordID,
 		OperationKind:  "create",
 		AfterVersionID: &afterVersion,
-		AfterValue:     afterRow,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
 		return MutationResult{}, 0, err
 	}
@@ -357,11 +363,12 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, mutationSequence+1+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, 0, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    current.RecordID,
-		RowVersion:  projected.RowVersion,
-		AfterValue:  afterRow,
+	if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:   changeSetID,
+		RecordID:      current.RecordID,
+		RowVersion:    projected.RowVersion,
+		AfterSnapshot: &afterSnapshot,
+		LiveChange:    revisions.LiveRecordChange{AfterValue: afterRow},
 	}); err != nil {
 		return MutationResult{}, 0, err
 	}
@@ -654,6 +661,10 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	} else {
 		next.CaptureState = current.CaptureState
 	}
+	beforeSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
@@ -696,6 +707,10 @@ RETURNING recorded_at
 	if err := s.hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, ChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
@@ -712,16 +727,16 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.AppendMutationTx(ctx, tx, MutationParams{
+	if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
-		TargetID:        current.RecordID.String(),
+		RecordID:        current.RecordID,
 		OperationKind:   "patch",
 		BeforeVersionID: &beforeVersion,
 		AfterVersionID:  &afterVersion,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeSnapshot:  &beforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -731,12 +746,13 @@ RETURNING recorded_at
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, RecordRevisionParams{
-		ChangeSetID: changeSetID,
-		RecordID:    current.RecordID,
-		RowVersion:  next.RowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+	if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+		ChangeSetID:    changeSetID,
+		RecordID:       current.RecordID,
+		RowVersion:     next.RowVersion,
+		BeforeSnapshot: &beforeSnapshot,
+		AfterSnapshot:  &afterSnapshot,
+		LiveChange:     revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
 		return MutationResult{}, err
 	}
@@ -794,16 +810,17 @@ func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, record
 	}
 	for _, entry := range rows {
 		if entry.RowVersion == baseRowVersion {
-			baseRow, ok := decodeRevisionRow(entry.AfterJSON)
+			baseRow, ok := s.conflictSnapshots.Project(entry.AfterJSON)
 			if !ok {
 				return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
 			}
+			ensureEmptyTimelineCollectionCells(baseRow)
 			window.BaseRow = baseRow
 			continue
 		}
 
-		beforeRow, beforeOK := decodeRevisionRow(entry.BeforeJSON)
-		afterRow, afterOK := decodeRevisionRow(entry.AfterJSON)
+		beforeRow, beforeOK := s.conflictSnapshots.Project(entry.BeforeJSON)
+		afterRow, afterOK := s.conflictSnapshots.Project(entry.AfterJSON)
 		if !beforeOK || !afterOK {
 			return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
 		}
@@ -814,11 +831,59 @@ func (s *store) loadPatchConflictWindowTx(ctx context.Context, tx pgx.Tx, record
 				ServerUpdatedAt: entry.CreatedAt.UTC(),
 			}
 		}
+		collectionFields, err := s.timelineCollectionFieldsChangedTx(ctx, tx, recordID, entry.CreatedAt)
+		if err != nil {
+			return patchConflictWindow{}, err
+		}
+		for _, fieldKey := range collectionFields {
+			window.ChangedFields[fieldKey] = patchChangedField{
+				FieldKey: fieldKey, ServerUpdatedBy: entry.ActorUserID, ServerUpdatedAt: entry.CreatedAt.UTC(),
+			}
+		}
 	}
 	if window.BaseRow == nil {
 		return patchConflictWindow{}, newRowVersionConflict(recordID, baseRowVersion, currentRowVersion)
 	}
 	return window, nil
+}
+
+func ensureEmptyTimelineCollectionCells(row map[string]any) {
+	cells, _ := row["cells"].(map[string]any)
+	for _, fieldKey := range []string{"timeline.host_refs", "timeline.identity_refs", "timeline.tags", "timeline.attached_evidence_ids"} {
+		if _, present := cells[fieldKey]; !present {
+			policy, _ := LookupCollectionPolicy(fieldKey)
+			cells[fieldKey] = map[string]any{"value": collectionValue(policy.Ordered, nil)}
+		}
+	}
+}
+
+func (s *store) timelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, createdAt time.Time) ([]string, error) {
+	linkFields, err := s.linkStore.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	mentionFields, err := s.mentionStore.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	allowed := map[string]struct{}{
+		"timeline.host_refs":             {},
+		"timeline.identity_refs":         {},
+		"timeline.tags":                  {},
+		"timeline.attached_evidence_ids": {},
+	}
+	set := make(map[string]struct{}, len(linkFields)+len(mentionFields))
+	for _, field := range append(linkFields, mentionFields...) {
+		if _, ok := allowed[field]; ok {
+			set[field] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(set))
+	for field := range set {
+		result = append(result, field)
+	}
+	sort.Strings(result)
+	return result, nil
 }
 
 func newRowVersionConflict(recordID uuid.UUID, baseRowVersion int64, currentRowVersion int64) *RowVersionConflictError {
@@ -827,20 +892,6 @@ func newRowVersionConflict(recordID uuid.UUID, baseRowVersion int64, currentRowV
 		BaseRowVersion:    baseRowVersion,
 		CurrentRowVersion: currentRowVersion,
 	}
-}
-
-func decodeRevisionRow(data []byte) (map[string]any, bool) {
-	if len(data) == 0 {
-		return nil, false
-	}
-	var row map[string]any
-	if err := json.Unmarshal(data, &row); err != nil {
-		return nil, false
-	}
-	if _, ok := row["cells"].(map[string]any); !ok {
-		return nil, false
-	}
-	return row, true
 }
 
 func changedRevisionWritableFieldKeys(beforeRow map[string]any, afterRow map[string]any) []string {

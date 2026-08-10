@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 var ErrMergeProtectedSetChanged = errors.New("assessments: merge protected set changed")
@@ -33,21 +35,31 @@ type MergeMutation struct {
 	AfterVersionID  *string
 	BeforeValue     any
 	AfterValue      any
+	BeforeSnapshot  *revisions.CapturedRecordSnapshot
+	AfterSnapshot   *revisions.CapturedRecordSnapshot
 }
 
 type MergeProjectionPort interface {
 	RefreshAssessmentProjectionTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
-type MergeEffects struct {
-	projections MergeProjectionPort
+type MergeSnapshotCapturePort interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
 }
 
-func NewMergeEffects(projections MergeProjectionPort) *MergeEffects {
+type MergeEffects struct {
+	projections MergeProjectionPort
+	snapshots   MergeSnapshotCapturePort
+}
+
+func NewMergeEffects(projections MergeProjectionPort, snapshots MergeSnapshotCapturePort) *MergeEffects {
 	if projections == nil {
 		panic("construct assessment merge effects: projection port is required")
 	}
-	return &MergeEffects{projections: projections}
+	if snapshots == nil {
+		panic("construct assessment merge effects: snapshot capture port is required")
+	}
+	return &MergeEffects{projections: projections, snapshots: snapshots}
 }
 
 type mergeAssessmentRecord struct {
@@ -152,6 +164,10 @@ SELECT
 			return nil, 0, &MergeProtectedSetChangedError{RecordID: record.RecordID}
 		}
 		before := buildMergeAssessmentValue(record)
+		beforeSnapshot, err := e.snapshots.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+		if err != nil {
+			return nil, 0, err
+		}
 		if _, err := tx.Exec(ctx, `
 UPDATE assessments
    SET subject_record_id = $2,
@@ -165,12 +181,18 @@ UPDATE assessments
 		if err := e.projections.RefreshAssessmentProjectionTx(ctx, tx, record.RecordID); err != nil {
 			return nil, 0, err
 		}
+		afterSnapshot, err := e.snapshots.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
+		if err != nil {
+			return nil, 0, err
+		}
 		mutations = append(mutations, MergeMutation{
-			TargetKind:    "assessment",
-			TargetID:      record.RecordID.String(),
-			OperationKind: "patch",
-			BeforeValue:   before,
-			AfterValue:    buildMergeAssessmentValue(record),
+			TargetKind:     "assessment",
+			TargetID:       record.RecordID.String(),
+			OperationKind:  "patch",
+			BeforeValue:    before,
+			AfterValue:     buildMergeAssessmentValue(record),
+			BeforeSnapshot: &beforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
 		})
 	}
 	return mutations, len(records), nil

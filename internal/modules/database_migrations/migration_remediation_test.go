@@ -34,7 +34,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	if report.SchemaID != "cartulary.migration_remediation_report.v1" ||
 		report.Boundary != dbmigrations.LineageBoundary ||
 		report.FromVersion != 1 ||
-		report.ToVersion != 60 ||
+		report.ToVersion != 61 ||
 		len(report.Findings) != 1 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
@@ -87,7 +87,7 @@ func TestMigrationLineagePreflightReportsApplyHeadTarget(t *testing.T) {
 
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	report := requireMigrationRemediation(t, err)
-	if report.FromVersion != 2 || report.ToVersion != 60 {
+	if report.FromVersion != 2 || report.ToVersion != 61 {
 		t.Fatalf("unexpected apply-head remediation target: %#v", report)
 	}
 }
@@ -99,7 +99,7 @@ func TestProductionPreflightStateMatrix(t *testing.T) {
 		mutate     string
 		wantReason string
 	}{
-		{name: "ahead", through: 60, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (61, true)`, wantReason: "schema_version_ahead"},
+		{name: "ahead", through: 61, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (62, true)`, wantReason: "schema_version_ahead"},
 		{name: "duplicate", through: 2, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (2, true)`, wantReason: "schema_migration_history_invalid"},
 		{name: "false", through: 1, mutate: `UPDATE goose_db_version SET is_applied = false WHERE version_id = 1`, wantReason: "schema_migration_history_invalid"},
 		{name: "gap", through: 3, mutate: `DELETE FROM goose_db_version WHERE version_id = 2`, wantReason: "schema_migration_history_invalid"},

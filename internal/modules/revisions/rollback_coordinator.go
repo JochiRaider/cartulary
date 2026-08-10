@@ -23,7 +23,7 @@ func newRollbackCoordinator(store *commandStore) rollbackCoordinator {
 	return rollbackCoordinator{
 		store:      store,
 		repository: repository,
-		planner:    rollbackPlanner{nonRowProviders: store.nonRowRollbackProviders},
+		planner:    rollbackPlanner{targetSemantics: store.targetSemantics},
 		locker:     rollbackRecordLocker{envelopes: store.envelopes},
 		applier: rollbackTransactionalApplier{
 			commandStore: store,
@@ -108,6 +108,11 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 	}
 	if err != nil {
 		return RollbackResult{}, err
+	}
+	if request.Target.Kind != "row_restore" {
+		if err := c.repository.validateCanonicalRowTargetsTx(ctx, tx, plan); err != nil {
+			return RollbackResult{}, err
+		}
 	}
 	envelopes, err := c.repository.loadRollbackRecordEnvelopesTx(ctx, tx, plan.Affected)
 	if err != nil {

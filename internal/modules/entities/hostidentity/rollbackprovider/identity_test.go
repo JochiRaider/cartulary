@@ -10,11 +10,10 @@ import (
 
 func TestIdentitySourceForRollbackValuePreservesNullableIdentifiers(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"identity.display_name":    map[string]any{"value": "Operator"},
-		"identity.aad_object_id":   map[string]any{"value": nil},
-		"identity.privilege_level": map[string]any{"value": "admin"},
-		"host.hostname":            map[string]any{"value": "unrelated"},
+	value := map[string]any{"source": map[string]any{
+		"display_name":    "Operator",
+		"aad_object_id":   nil,
+		"privilege_level": "admin",
 	}}
 	got, ok := identitySourceForRollbackValue(value)
 	if !ok {
@@ -26,6 +25,9 @@ func TestIdentitySourceForRollbackValuePreservesNullableIdentifiers(t *testing.T
 	}
 	if _, present := got["identity_state"]; present {
 		t.Fatal("absent identity state unexpectedly defaulted")
+	}
+	if _, ok := identitySourceForRollbackValue(map[string]any{"cells": map[string]any{"identity.display_name": map[string]any{"value": "legacy"}}}); ok {
+		t.Fatal("schema-less projection row was accepted")
 	}
 }
 

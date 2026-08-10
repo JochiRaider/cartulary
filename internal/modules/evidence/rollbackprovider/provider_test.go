@@ -10,10 +10,9 @@ import (
 
 func TestSourceForRollbackValuePreservesPresenceAndAssociations(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"evidence.title":               map[string]any{"value": "Memory image"},
-		"evidence.source_party_id":     map[string]any{"value": nil},
-		"evidence.linked_record_count": map[string]any{"value": 9},
+	value := map[string]any{"source": map[string]any{
+		"title":           "Memory image",
+		"source_party_id": nil,
 	}}
 	got, ok := sourceForRollbackValue(value)
 	if !ok {
@@ -25,6 +24,9 @@ func TestSourceForRollbackValuePreservesPresenceAndAssociations(t *testing.T) {
 	}
 	if _, present := got["object_blob_id"]; present {
 		t.Fatal("absent blob identity unexpectedly became present")
+	}
+	if _, ok := sourceForRollbackValue(map[string]any{"cells": map[string]any{"evidence.title": map[string]any{"value": "legacy"}}}); ok {
+		t.Fatal("schema-less projection row was accepted")
 	}
 }
 

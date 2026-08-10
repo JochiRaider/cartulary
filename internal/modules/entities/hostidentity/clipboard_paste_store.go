@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -107,9 +108,14 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			afterRow       map[string]any
 			operationKind  string
 			aliasMutations []AliasMutationValue
+			beforeSnapshot *revisions.CapturedRecordSnapshot
 		)
 		switch viewSchemaID {
 		case HostsViewSchemaID:
+			beforeSnapshot, err = s.captureHostSnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
+			if err != nil {
+				return ClipboardPasteResult{}, err
+			}
 			record, before, operation, _, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
@@ -124,6 +130,10 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		case IdentitiesViewSchemaID:
+			beforeSnapshot, err = s.captureIdentitySnapshotBeforeUpsertTx(ctx, tx, incidentID, request)
+			if err != nil {
+				return ClipboardPasteResult{}, err
+			}
 			record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
 				return ClipboardPasteResult{}, err
@@ -138,6 +148,10 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			operationKind = operation
 			aliasMutations = record.AliasMutations
 		}
+		afterSnapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, recordID)
+		if err != nil {
+			return ClipboardPasteResult{}, err
+		}
 		var beforeVersionID *string
 		if beforeRow != nil {
 			beforeVersion := rowVersion
@@ -148,16 +162,16 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeVersionID = &value
 		}
 		afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      targetKind,
-			TargetID:        recordID.String(),
+			RecordID:        recordID,
 			OperationKind:   operationKind,
 			BeforeVersionID: beforeVersionID,
 			AfterVersionID:  &afterVersionID,
-			BeforeValue:     beforeRow,
-			AfterValue:      afterRow,
+			BeforeSnapshot:  beforeSnapshot,
+			AfterSnapshot:   &afterSnapshot,
 		}); err != nil {
 			return ClipboardPasteResult{}, err
 		}
@@ -167,12 +181,16 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		sequenceNo += len(aliasMutations)
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-			if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
-				ChangeSetID: changeSetID,
-				RecordID:    recordID,
-				RowVersion:  rowVersion,
-				BeforeValue: beforeRow,
-				AfterValue:  afterRow,
+			if err := s.ports.revisions.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+				ChangeSetID:    changeSetID,
+				RecordID:       recordID,
+				RowVersion:     rowVersion,
+				BeforeSnapshot: beforeSnapshot,
+				AfterSnapshot:  &afterSnapshot,
+				LiveChange: revisions.LiveRecordChange{
+					BeforeValue: beforeRow,
+					AfterValue:  afterRow,
+				},
 			}); err != nil {
 				return ClipboardPasteResult{}, err
 			}

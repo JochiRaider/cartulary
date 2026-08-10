@@ -16,7 +16,7 @@ type historyRollbackActionEvaluator struct {
 func newHistoryRollbackActionEvaluator(commands *commandStore) historyRollbackActionEvaluator {
 	return historyRollbackActionEvaluator{
 		repository: rollbackQueryRepository{store: commands},
-		planner:    rollbackPlanner{nonRowProviders: commands.nonRowRollbackProviders},
+		planner:    rollbackPlanner{targetSemantics: commands.targetSemantics},
 	}
 }
 

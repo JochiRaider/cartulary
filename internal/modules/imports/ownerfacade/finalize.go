@@ -20,12 +20,14 @@ type FinalizeCommand struct {
 	OwnerResultCode string
 	BeforeVersionID *string
 	BeforeValue     map[string]any
+	BeforeSnapshot  *revisions.CapturedRecordSnapshot
 	Row             map[string]any
 }
 
-type RevisionAppender interface {
-	AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error
-	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+type CapturedRevisionAppender interface {
+	CaptureRecordSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (revisions.CapturedRecordSnapshot, error)
+	AppendCapturedRecordMutationTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordMutationParams) error
+	AppendCapturedRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendCapturedRecordRevisionParams) error
 }
 
 func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
@@ -36,9 +38,9 @@ func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
 	return values
 }
 
-func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
+func FinalizeCapturedTx(ctx context.Context, tx pgx.Tx, revisionAppender CapturedRevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
 	if revisionAppender == nil {
-		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")
+		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize captured import owner row: revision appender is required")
 	}
 	rowVersion, err := RowVersionFromRow(command.Row)
 	if err != nil {
@@ -56,36 +58,35 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppende
 	if resultCode == "" {
 		resultCode = createdOrReused
 	}
+	afterSnapshot, err := revisionAppender.CaptureRecordSnapshotTx(ctx, tx, command.RecordID)
+	if err != nil {
+		return ImportOwnerCreateResponse{}, err
+	}
 	afterVersionID := VersionID(command.RecordID, rowVersion)
-	if err := revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
 		TargetKind:      "record",
-		TargetID:        command.RecordID.String(),
+		RecordID:        command.RecordID,
 		OperationKind:   operation,
 		BeforeVersionID: command.BeforeVersionID,
 		AfterVersionID:  &afterVersionID,
-		BeforeValue:     command.BeforeValue,
-		AfterValue:      command.Row,
+		BeforeSnapshot:  command.BeforeSnapshot,
+		AfterSnapshot:   &afterSnapshot,
 	}); err != nil {
 		return ImportOwnerCreateResponse{}, err
 	}
-	if operation == "create" {
-		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-			ChangeSetID: command.ChangeSetID,
-			RecordID:    command.RecordID,
-			RowVersion:  rowVersion,
-			AfterValue:  command.Row,
-		}); err != nil {
-			return ImportOwnerCreateResponse{}, err
-		}
-	} else if command.BeforeValue != nil && operation != "reuse" {
-		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
-			ChangeSetID: command.ChangeSetID,
-			RecordID:    command.RecordID,
-			RowVersion:  rowVersion,
-			BeforeValue: command.BeforeValue,
-			AfterValue:  command.Row,
+	if operation == "create" || (command.BeforeSnapshot != nil && operation != "reuse") {
+		if err := revisionAppender.AppendCapturedRecordRevisionTx(ctx, tx, revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:    command.ChangeSetID,
+			RecordID:       command.RecordID,
+			RowVersion:     rowVersion,
+			BeforeSnapshot: command.BeforeSnapshot,
+			AfterSnapshot:  &afterSnapshot,
+			LiveChange: revisions.LiveRecordChange{
+				BeforeValue: command.BeforeValue,
+				AfterValue:  command.Row,
+			},
 		}); err != nil {
 			return ImportOwnerCreateResponse{}, err
 		}

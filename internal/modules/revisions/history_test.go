@@ -131,6 +131,13 @@ func TestHistoryEntryRefStability_Unit(t *testing.T) {
 		CreatedAt: base.Add(time.Minute), Source: "workbook.records.patch", SequenceNo: 1,
 		TargetKind: "record_link", Operation: "link_update",
 	})
+	if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE change_set_mutations
+   SET history_entry_record_ids = '{}'::uuid[]
+ WHERE change_set_id = $1 AND sequence_no = 1
+`, unsupportedChangeSet); err != nil {
+		t.Fatalf("mark fixture mutation non-addressable: %v", err)
+	}
 
 	first := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
 	second := historyItems(getHistory(t, harness.Server.HTTP.URL, login, recordID, ""))
@@ -159,7 +166,7 @@ func TestHistoryEntryRefStability_Unit(t *testing.T) {
 		t.Fatalf("unsupported item history_item_ref missing or not unique: supported=%q unsupported=%q", itemRef, unsupportedItemRef)
 	}
 	if _, ok := first[1].(map[string]any)["history_entry_ref"]; ok {
-		t.Fatalf("unsupported multi-target-style item must not expose history_entry_ref: %#v", first[1])
+		t.Fatalf("persisted non-addressable item must not expose history_entry_ref: %#v", first[1])
 	}
 	assertActions(t, first[1], []string{})
 }

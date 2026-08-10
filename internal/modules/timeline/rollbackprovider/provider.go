@@ -43,43 +43,9 @@ func (TimelineProvider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollba
 
 func sourceForRollbackValue(value map[string]any) (map[string]any, bool, error) {
 	if source, ok := objectMap(value, "source"); ok {
-		return source, true, nil
+		return source, len(source) > 0, nil
 	}
-	cells, ok := objectMap(value, "cells")
-	if !ok {
-		return directTimelineRollbackSource(value)
-	}
-	source := map[string]any{
-		"capture_state": "rough",
-	}
-	mapping := map[string]string{
-		"timeline.date_entered_text":        "date_entered_text",
-		"timeline.analyst_text":             "analyst_text",
-		"timeline.mitre_stage_text":         "mitre_stage_text",
-		"timeline.device_object_text":       "device_object_text",
-		"timeline.ip_address_text":          "ip_address_text",
-		"timeline.activity_utc_text":        "activity_utc_text",
-		"timeline.activity_local_text":      "activity_local_text",
-		"timeline.raw_activity_text":        "raw_activity_text",
-		"timeline.activity_synopsis_text":   "activity_synopsis_text",
-		"timeline.data_source_text":         "data_source_text",
-		"timeline.activity_time_pair_state": "activity_time_pair_state",
-		"timeline.capture_state":            "capture_state",
-		"timeline.replacement_record_id":    "replacement_record_id",
-		"timeline.reviewed_at":              "reviewed_at",
-		"timeline.superseded_at":            "superseded_at",
-	}
-	for fieldKey, sourceKey := range mapping {
-		cell, ok := objectMap(cells, fieldKey)
-		if !ok {
-			continue
-		}
-		source[sourceKey] = cell["value"]
-	}
-	if len(source) == 0 {
-		return nil, false, nil
-	}
-	return source, true, nil
+	return nil, false, nil
 }
 
 func updateSourceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64, source map[string]any) error {
@@ -136,15 +102,6 @@ UPDATE timeline_events
 		nullableUUIDAny(source, "superseded_by_user_id"),
 		nullableAny(source, "superseded_at"))
 	return err
-}
-
-func directTimelineRollbackSource(value map[string]any) (map[string]any, bool, error) {
-	for _, key := range []string{"record_id", "summary"} {
-		if raw, ok := value[key].(string); !ok || strings.TrimSpace(raw) == "" {
-			return nil, false, nil
-		}
-	}
-	return value, true, nil
 }
 
 func objectMap(value map[string]any, key string) (map[string]any, bool) {

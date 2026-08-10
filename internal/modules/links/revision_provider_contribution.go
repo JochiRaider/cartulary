@@ -10,8 +10,18 @@ func RevisionProviderContribution() revisions.ProviderContribution {
 	return revisions.ProviderContribution{
 		SourceOwnerModule: revisions.SourceOwnerLinks,
 		NonRowTargets: []revisions.NonRowProviderContribution{
-			{SourceOwnerModule: revisions.SourceOwnerLinks, TargetKind: "record_link", RollbackProvider: provider},
-			{SourceOwnerModule: revisions.SourceOwnerLinks, TargetKind: "record_tag", RollbackProvider: provider},
+			{
+				SourceOwnerModule: revisions.SourceOwnerLinks,
+				TargetKind:        "record_link",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"src_record_id", "dst_record_id"}, revisions.HistorySingleEntry),
+				RollbackProvider:  provider,
+			},
+			{
+				SourceOwnerModule: revisions.SourceOwnerLinks,
+				TargetKind:        "record_tag",
+				HistorySemantics:  revisions.NewFieldHistoryTargetSemantics([]string{"record_id"}, revisions.HistorySingleEntry),
+				RollbackProvider:  provider,
+			},
 		},
 	}
 }

@@ -32,34 +32,34 @@ func applyTaskDirectChangeTx(
 	fieldKey string,
 	value FieldValue,
 	now time.Time,
-) (bool, error) {
+) (bool, []links.RecordLinkMutation, error) {
 	scalarChanged, err := tasksource.ApplyTaskDirectChangeTx(ctx, tx, recordID, fieldKey, value, now)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if fieldKey != TaskDecisionRecordFieldKey {
-		return scalarChanged, nil
+		return scalarChanged, nil, nil
 	}
-	linkChanged, err := syncTaskDecisionReferenceTx(ctx, tx, linkStore, incidentID, recordID, actorID, value.UUID, now)
+	linkMutations, err := syncTaskDecisionReferenceTx(ctx, tx, linkStore, incidentID, recordID, actorID, value.UUID, now)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return scalarChanged || linkChanged, nil
+	return scalarChanged || len(linkMutations) > 0, linkMutations, nil
 }
 
 func syncTaskDecisionReferenceTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	linkStore interface {
-		SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
+		SyncFieldReferenceWithMutationValuesTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (links.CollectionMutationResult, error)
 	},
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 	actorID uuid.UUID,
 	targetID *uuid.UUID,
 	now time.Time,
-) (bool, error) {
-	return linkStore.SyncFieldReferenceCommandTx(ctx, tx, links.SyncFieldReferenceCommand{
+) ([]links.RecordLinkMutation, error) {
+	result, err := linkStore.SyncFieldReferenceWithMutationValuesTx(ctx, tx, links.SyncFieldReferenceCommand{
 		IncidentID:  incidentID,
 		SrcRecordID: recordID,
 		TargetID:    targetID,
@@ -68,6 +68,10 @@ func syncTaskDecisionReferenceTx(
 		ActorUserID: actorID,
 		Now:         now,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result.RecordLinks, nil
 }
 
 func validateDecisionMachineConsistentTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

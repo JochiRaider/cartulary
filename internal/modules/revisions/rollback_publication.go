@@ -18,12 +18,20 @@ func (p rollbackPublicationService) appendChangeSetTx(ctx context.Context, tx pg
 	return p.store.appender.AppendChangeSetTx(ctx, tx, params)
 }
 
-func (p rollbackPublicationService) appendMutationTx(ctx context.Context, tx pgx.Tx, params AppendMutationParams) error {
-	return p.store.appender.AppendMutationTx(ctx, tx, params)
+func (p rollbackPublicationService) captureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (CapturedRecordSnapshot, error) {
+	return p.store.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
 }
 
-func (p rollbackPublicationService) appendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params AppendRecordRevisionParams) error {
-	return p.store.appender.AppendRecordRevisionTx(ctx, tx, params)
+func (p rollbackPublicationService) appendNonRowMutationTx(ctx context.Context, tx pgx.Tx, params AppendNonRowMutationParams) error {
+	return p.store.appender.AppendNonRowMutationTx(ctx, tx, params)
+}
+
+func (p rollbackPublicationService) appendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params AppendCapturedRecordMutationParams) error {
+	return p.store.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+}
+
+func (p rollbackPublicationService) appendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params AppendCapturedRecordRevisionParams) error {
+	return p.store.appender.AppendCapturedRecordRevisionTx(ctx, tx, params)
 }
 
 func (p rollbackPublicationService) rebuildProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

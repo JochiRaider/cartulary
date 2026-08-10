@@ -10,10 +10,9 @@ import (
 
 func TestPartySourceForRollbackValuePreservesPresence(t *testing.T) {
 	t.Parallel()
-	value := map[string]any{"cells": map[string]any{
-		"party.display_name":  map[string]any{"value": "Incident Lead"},
-		"party.primary_email": map[string]any{"value": nil},
-		"host.hostname":       map[string]any{"value": "unrelated"},
+	value := map[string]any{"source": map[string]any{
+		"display_name":  "Incident Lead",
+		"primary_email": nil,
 	}}
 	got, ok := partySourceForRollbackValue(value)
 	if !ok {
@@ -25,6 +24,9 @@ func TestPartySourceForRollbackValuePreservesPresence(t *testing.T) {
 	}
 	if _, present := got["notes"]; present {
 		t.Fatal("absent notes unexpectedly became present")
+	}
+	if _, ok := partySourceForRollbackValue(map[string]any{"record_id": "legacy", "display_name": "Legacy"}); ok {
+		t.Fatal("schema-less direct row was accepted")
 	}
 }
 

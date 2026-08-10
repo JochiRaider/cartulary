@@ -376,6 +376,7 @@ func RequireChangeSetRowCount(t testing.TB, pool *pgxpool.Pool) int {
 SELECT (SELECT COUNT(*) FROM change_sets)
      + (SELECT COUNT(*) FROM change_set_mutations)
      + (SELECT COUNT(*) FROM record_history_entry_refs)
+     + (SELECT COUNT(*) FROM record_revision_conflict_facts)
      + (SELECT COUNT(*) FROM record_revisions)
 `).Scan(&count); err != nil {
 		t.Fatalf("count change-set rows: %v", err)
@@ -470,7 +471,7 @@ func SnapshotDigest(artifact recovery.PostgresSnapshotArtifact, include func(str
 
 func IsChangeSetTable(tableName string) bool {
 	switch tableName {
-	case "change_sets", "change_set_mutations", "record_history_entry_refs", "record_revisions":
+	case "change_sets", "change_set_mutations", "record_history_entry_refs", "record_revision_conflict_facts", "record_revisions":
 		return true
 	default:
 		return false

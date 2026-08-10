@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/sourcerepository"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -145,21 +146,21 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 	for _, row := range applied {
 		beforeVersion := ""
 		afterVersion := versionID(row.After.RecordID, row.After.RowVersion)
-		params := MutationParams{
+		params := revisions.AppendCapturedRecordMutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     sequenceNo,
 			TargetKind:     "timeline_record",
-			TargetID:       row.After.RecordID.String(),
+			RecordID:       row.After.RecordID,
 			OperationKind:  row.Operation,
 			AfterVersionID: &afterVersion,
-			AfterValue:     row.AfterRow,
+			AfterSnapshot:  &row.AfterSnapshot,
 		}
 		if row.Before != nil {
 			beforeVersion = versionID(row.Before.RecordID, row.Before.RowVersion)
 			params.BeforeVersionID = &beforeVersion
-			params.BeforeValue = row.BeforeRow
+			params.BeforeSnapshot = row.BeforeSnapshot
 		}
-		if err := s.revisionsStore.AppendMutationTx(ctx, tx, params); err != nil {
+		if err := s.revisionsStore.AppendCapturedRecordMutationTx(ctx, tx, params); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo++
@@ -171,16 +172,18 @@ func (s *store) applyOwnerBatchV1(ctx context.Context, actor authn.UserRecord, i
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
-		revision := RecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    row.After.RecordID,
-			RowVersion:  row.After.RowVersion,
-			AfterValue:  row.AfterRow,
+		revision := revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:   changeSetID,
+			RecordID:      row.After.RecordID,
+			RowVersion:    row.After.RowVersion,
+			AfterSnapshot: &row.AfterSnapshot,
+			LiveChange:    revisions.LiveRecordChange{AfterValue: row.AfterRow},
 		}
 		if row.Before != nil {
-			revision.BeforeValue = row.BeforeRow
+			revision.BeforeSnapshot = row.BeforeSnapshot
+			revision.LiveChange.BeforeValue = row.BeforeRow
 		}
-		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revision); err != nil {
+		if err := s.revisionsStore.AppendCapturedRecordRevisionTx(ctx, tx, revision); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		if err := s.upsertProjectionTx(ctx, tx, row.After); err != nil {
@@ -301,6 +304,8 @@ type clipboardAppliedRow struct {
 	After                     workbookprojection.DerivedRecord
 	BeforeRow                 map[string]any
 	AfterRow                  map[string]any
+	BeforeSnapshot            *revisions.CapturedRecordSnapshot
+	AfterSnapshot             revisions.CapturedRecordSnapshot
 	ChangedFieldKeys          []string
 	TagMutations              []recordTagMutation
 	AttachedEvidenceMutations []attachedEvidenceMutation
@@ -391,10 +396,15 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'rou
 		return clipboardAppliedRow{}, err
 	}
 	afterRow := buildRow(projected)
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return clipboardAppliedRow{}, err
+	}
 	return clipboardAppliedRow{
 		Operation:                 "create",
 		After:                     projected,
 		AfterRow:                  afterRow,
+		AfterSnapshot:             afterSnapshot,
 		ChangedFieldKeys:          ComputeChangedFieldKeys(nil, projected),
 		TagMutations:              tagMutations,
 		AttachedEvidenceMutations: attachedEvidenceMutations,
@@ -504,6 +514,10 @@ func (s *store) applyOwnerBatchPatchTx(ctx context.Context, tx pgx.Tx, actor aut
 	} else {
 		next.CaptureState = current.CaptureState
 	}
+	beforeSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return clipboardAppliedRow{}, nil, err
+	}
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
@@ -553,12 +567,18 @@ RETURNING recorded_at
 	}
 	beforeRow := buildRow(beforeProjected)
 	afterRow := buildRow(afterProjected)
+	afterSnapshot, err := s.revisionsStore.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return clipboardAppliedRow{}, nil, err
+	}
 	return clipboardAppliedRow{
 		Operation:                 "patch",
 		Before:                    &beforeProjected,
 		After:                     afterProjected,
 		BeforeRow:                 beforeRow,
 		AfterRow:                  afterRow,
+		BeforeSnapshot:            &beforeSnapshot,
+		AfterSnapshot:             afterSnapshot,
 		ChangedFieldKeys:          ComputeChangedFieldKeys(&beforeProjected, afterProjected),
 		TagMutations:              tagMutations,
 		AttachedEvidenceMutations: attachedEvidenceMutations,

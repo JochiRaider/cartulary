@@ -87,6 +87,16 @@ type RecordEnvelopePort interface {
 	LockDestructiveRecordsNowaitTx(context.Context, pgx.Tx, []uuid.UUID) error
 }
 
+// RecordEnvelopeTxReader is the narrow source-owner capability needed while
+// appending Collaboration consequences inside an existing transaction.
+type RecordEnvelopeTxReader interface {
+	LoadEnvelopeTx(context.Context, pgx.Tx, uuid.UUID, bool) (RecordEnvelope, error)
+}
+
+type RecordEnvelopeReader interface {
+	LoadEnvelope(context.Context, uuid.UUID) (RecordEnvelope, error)
+}
+
 type HistoryQuery struct {
 	RecordID uuid.UUID
 }

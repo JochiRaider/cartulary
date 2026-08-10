@@ -67,34 +67,27 @@ func (r rollbackQueryRepository) loadHistoryEntryRollbackPlanTx(ctx context.Cont
 	if err != nil {
 		return rollbackPlan{}, err
 	}
-	affected, err := r.affectedRecordsForRollbackTargetTx(ctx, tx, record.IncidentID, target, record.RecordID)
+	siblings, err := r.loadRollbackSiblingTargetsTx(ctx, tx, target)
+	if err != nil {
+		return rollbackPlan{}, err
+	}
+	descriptor, describeErr := r.describeRollbackTargetTx(ctx, tx, record.IncidentID, target, record.RecordID, siblings)
+	affected, deferredErr, err := rollbackDescriptorAffected(descriptor, describeErr, record.RecordID)
 	if err != nil {
 		return rollbackPlan{}, err
 	}
 	plan := rollbackPlan{
-		Target:     target,
-		Affected:   affected,
-		Addressed:  record.RecordID,
-		RecordType: record.RecordType,
+		Target:      target,
+		Affected:    affected,
+		Addressed:   record.RecordID,
+		RecordType:  record.RecordType,
+		DeferredErr: deferredErr,
 	}
-	if provider, ok := r.store.nonRowRollbackProviders.Provider(target.TargetKind); ok {
-		_, describeErr := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: nonRowContractTarget(record.IncidentID, target), AddressedRecordID: record.RecordID})
-		if describeErr != nil {
-			adapted := adaptRowRollbackProviderError(describeErr)
-			if !deferableRollbackProviderError(adapted) {
-				return rollbackPlan{}, adapted
-			}
-			plan.DeferredErr = adapted
-		}
+	plan.Companion, err = selectRollbackCompanions(descriptor.SingleEntryCompanions, siblings)
+	if err != nil {
+		return rollbackPlan{}, err
 	}
-	if target.TargetKind == "entity_mention" {
-		companion, err := loadRollbackMentionCompanionLinkTargetsTx(ctx, tx, target)
-		if err != nil {
-			return rollbackPlan{}, err
-		}
-		plan.Companion = companion
-	}
-	requiresChangeSet, err := r.historyEntryRequiresChangeSetTx(ctx, tx, record.IncidentID, target)
+	requiresChangeSet, err := r.historyEntryRequiresChangeSetTx(ctx, tx, record.IncidentID, target, descriptor, siblings)
 	if err != nil {
 		return rollbackPlan{}, err
 	}
@@ -126,51 +119,10 @@ SELECT csm.change_set_id,
        SELECT 1
          FROM change_set_mutations visible
         WHERE visible.change_set_id = cs.change_set_id
-          AND (
-              visible.target_id = $3
-              OR (
-                  visible.target_kind = 'record_link'
-                  AND (
-                      visible.before_value ->> 'src_record_id' = $3
-                      OR visible.before_value ->> 'dst_record_id' = $3
-                      OR visible.after_value ->> 'src_record_id' = $3
-                      OR visible.after_value ->> 'dst_record_id' = $3
-                  )
-              )
-              OR (
-                  visible.target_kind = 'entity_mention'
-                  AND (
-                      visible.before_value ->> 'source_record_id' = $3
-                      OR visible.after_value ->> 'source_record_id' = $3
-                  )
-              )
-              OR (
-                  visible.target_kind = 'record_tag'
-                  AND (
-                      visible.before_value ->> 'record_id' = $3
-                      OR visible.after_value ->> 'record_id' = $3
-                  )
-              )
-              OR (
-                  visible.target_kind = 'indicator_observation'
-                  AND (
-                      visible.before_value ->> 'source_record_id' = $3
-                      OR visible.after_value ->> 'source_record_id' = $3
-                      OR visible.before_value ->> 'resolved_indicator_record_id' = $3
-                      OR visible.after_value ->> 'resolved_indicator_record_id' = $3
-                  )
-              )
-              OR (
-                  visible.target_kind = 'indicator_state_interval'
-                  AND (
-                      visible.before_value ->> 'indicator_record_id' = $3
-                      OR visible.after_value ->> 'indicator_record_id' = $3
-                  )
-              )
-          )
+          AND $3::uuid = ANY(visible.history_record_ids)
    )
  ORDER BY csm.sequence_no ASC
-`, changeSetID, record.IncidentID, record.RecordID.String())
+`, changeSetID, record.IncidentID, record.RecordID)
 	if err != nil {
 		return rollbackPlan{}, err
 	}
@@ -216,11 +168,8 @@ SELECT csm.change_set_id,
 		WholeSet:   true,
 	}
 	for _, target := range targets {
-		provider, ok := r.store.nonRowRollbackProviders.Provider(target.TargetKind)
-		if !ok {
-			continue
-		}
-		_, describeErr := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: nonRowContractTarget(record.IncidentID, target), AddressedRecordID: record.RecordID})
+		siblings := rollbackTargetsExcept(targets, target.SequenceNo)
+		_, describeErr := r.describeRollbackTargetTx(ctx, tx, record.IncidentID, target, record.RecordID, siblings)
 		if describeErr == nil {
 			continue
 		}
@@ -309,8 +258,15 @@ SELECT change_set_id, after_json
 	if err != nil {
 		return rollbackPlan{}, err
 	}
-	provider, ok := r.store.rowRollbackProviders.Provider(record.RecordType)
-	if !ok {
+	if err := r.store.appender.snapshotCaptures.validatePersisted(record.RecordID, record.RecordType, snapshot); err != nil {
+		return rollbackPlan{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	targetKind, err := r.store.targetSemantics.defaultRowTargetKind(record.RecordType)
+	if err != nil {
+		return rollbackPlan{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	provider, err := r.store.targetSemantics.rowProvider(targetKind, record.RecordType)
+	if err != nil {
 		return rollbackPlan{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
 	if err := provider.ValidateRollbackValue(snapshot); err != nil {
@@ -319,7 +275,7 @@ SELECT change_set_id, after_json
 	return rollbackPlan{
 		Target: rollbackMutationTarget{
 			ChangeSetID: changeSetID,
-			TargetKind:  rollbackMutationTargetKindForRecordType(record.RecordType),
+			TargetKind:  targetKind,
 			TargetID:    record.RecordID.String(),
 			AfterValue:  snapshot,
 		},
@@ -329,6 +285,43 @@ SELECT change_set_id, after_json
 		RestoreRevisionNo: revisionNo,
 		RestoreSnapshot:   snapshot,
 	}, nil
+}
+
+func (r rollbackQueryRepository) validateCanonicalRowTargetsTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) error {
+	targets := []rollbackMutationTarget{plan.Target}
+	if plan.WholeSet {
+		targets = plan.Targets
+	}
+	for _, target := range targets {
+		dispatch, err := r.store.targetSemantics.dispatchClass(target.TargetKind)
+		if err != nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		if dispatch == RollbackDispatchNonRow {
+			continue
+		}
+		if dispatch != RollbackDispatchRow {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		recordID, err := uuid.Parse(target.TargetID)
+		if err != nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		envelope, err := r.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, false)
+		if err != nil {
+			return err
+		}
+		if _, err := r.store.targetSemantics.rowProvider(target.TargetKind, envelope.RecordType); err != nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		if err := r.store.appender.snapshotCaptures.validatePersisted(recordID, envelope.RecordType, target.BeforeValue); err != nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		if err := r.store.appender.snapshotCaptures.validatePersisted(recordID, envelope.RecordType, target.AfterValue); err != nil {
+			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+	}
+	return nil
 }
 
 func (r rollbackQueryRepository) ensurePlanCurrentTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) error {
@@ -384,7 +377,7 @@ SELECT cs.source
 	return &RollbackPreconditionError{ReasonCode: "dependent_later_changes"}
 }
 
-func loadRollbackMentionCompanionLinkTargetsTx(ctx context.Context, tx pgx.Tx, target rollbackMutationTarget) ([]rollbackMutationTarget, error) {
+func (r rollbackQueryRepository) loadRollbackSiblingTargetsTx(ctx context.Context, tx pgx.Tx, target rollbackMutationTarget) ([]rollbackMutationTarget, error) {
 	rows, err := tx.Query(ctx, `
 SELECT csm.change_set_id,
        cs.created_at,
@@ -400,21 +393,20 @@ SELECT csm.change_set_id,
     ON cs.change_set_id = csm.change_set_id
  WHERE csm.change_set_id = $1
    AND csm.sequence_no <> $2
-   AND csm.target_kind = 'record_link'
  ORDER BY csm.sequence_no ASC
 `, target.ChangeSetID, target.SequenceNo)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var companions []rollbackMutationTarget
+	var siblings []rollbackMutationTarget
 	for rows.Next() {
 		var (
-			companion rollbackMutationTarget
+			sibling   rollbackMutationTarget
 			beforeRaw []byte
 			afterRaw  []byte
 		)
-		if err := rows.Scan(&companion.ChangeSetID, &companion.CreatedAt, &companion.Source, &companion.SequenceNo, &companion.TargetKind, &companion.TargetID, &companion.OperationKind, &beforeRaw, &afterRaw); err != nil {
+		if err := rows.Scan(&sibling.ChangeSetID, &sibling.CreatedAt, &sibling.Source, &sibling.SequenceNo, &sibling.TargetKind, &sibling.TargetID, &sibling.OperationKind, &beforeRaw, &afterRaw); err != nil {
 			return nil, err
 		}
 		before, err := decodeRollbackValue(beforeRaw)
@@ -425,60 +417,111 @@ SELECT csm.change_set_id,
 		if err != nil {
 			return nil, err
 		}
-		companion.BeforeValue = before
-		companion.AfterValue = after
-		companions = append(companions, companion)
+		sibling.BeforeValue = before
+		sibling.AfterValue = after
+		siblings = append(siblings, sibling)
 	}
-	return companions, rows.Err()
+	return siblings, rows.Err()
 }
 
-func (r rollbackQueryRepository) historyEntryRequiresChangeSetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, target rollbackMutationTarget) (bool, error) {
-	targets := []rollbackMutationTarget{target}
-	rows, err := tx.Query(ctx, `
-SELECT sequence_no, target_kind, target_id, operation_kind, before_value, after_value
-  FROM change_set_mutations
- WHERE change_set_id = $1
-   AND sequence_no <> $2
- ORDER BY sequence_no
-`, target.ChangeSetID, target.SequenceNo)
+func (r rollbackQueryRepository) describeRollbackTargetTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	target rollbackMutationTarget,
+	addressedRecordID uuid.UUID,
+	siblings []rollbackMutationTarget,
+) (rollbackcontract.TargetDescriptor, error) {
+	dispatch, err := r.store.targetSemantics.dispatchClass(target.TargetKind)
 	if err != nil {
-		return false, err
+		return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var candidate rollbackMutationTarget
-		var beforeRaw, afterRaw []byte
-		if err := rows.Scan(&candidate.SequenceNo, &candidate.TargetKind, &candidate.TargetID, &candidate.OperationKind, &beforeRaw, &afterRaw); err != nil {
-			return false, err
-		}
-		candidate.ChangeSetID = target.ChangeSetID
-		candidate.BeforeValue, err = decodeRollbackValue(beforeRaw)
+	switch dispatch {
+	case RollbackDispatchRow:
+		history, err := r.store.targetSemantics.DescribeMutation(StoredMutation{
+			TargetKind:  target.TargetKind,
+			TargetID:    target.TargetID,
+			BeforeValue: target.BeforeValue,
+			AfterValue:  target.AfterValue,
+		})
 		if err != nil {
-			return false, err
+			return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
-		candidate.AfterValue, err = decodeRollbackValue(afterRaw)
+		return rollbackcontract.TargetDescriptor{AffectedRecordIDs: history.HistoryRecordIDs}, nil
+	case RollbackDispatchNonRow:
+		provider, err := r.store.targetSemantics.nonRowProvider(target.TargetKind)
 		if err != nil {
-			return false, err
+			return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
-		targets = append(targets, candidate)
+		siblingFacts, err := r.rollbackSiblingFacts(siblings)
+		if err != nil {
+			return rollbackcontract.TargetDescriptor{}, err
+		}
+		return provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{
+			Target:            nonRowContractTarget(incidentID, target),
+			AddressedRecordID: addressedRecordID,
+			SiblingTargets:    siblingFacts,
+		})
+	default:
+		return rollbackcontract.TargetDescriptor{}, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
-	if err := rows.Err(); err != nil {
-		return false, err
-	}
-	for _, candidate := range targets {
-		provider, ok := r.store.nonRowRollbackProviders.Provider(candidate.TargetKind)
-		if !ok {
-			continue
-		}
-		descriptor, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: nonRowContractTarget(incidentID, candidate)})
+}
+
+func (r rollbackQueryRepository) rollbackSiblingFacts(targets []rollbackMutationTarget) ([]rollbackcontract.SiblingTarget, error) {
+	result := make([]rollbackcontract.SiblingTarget, 0, len(targets))
+	for _, target := range targets {
+		dispatch, err := r.store.targetSemantics.dispatchClass(target.TargetKind)
 		if err != nil {
-			adapted := adaptRowRollbackProviderError(err)
+			return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		contractDispatch := rollbackcontract.DispatchNonRow
+		if dispatch == RollbackDispatchRow {
+			contractDispatch = rollbackcontract.DispatchRow
+		}
+		result = append(result, rollbackcontract.SiblingTarget{
+			TargetReference: rollbackcontract.TargetReference{TargetKind: target.TargetKind, TargetID: target.TargetID},
+			SequenceNo:      target.SequenceNo,
+			DispatchClass:   contractDispatch,
+		})
+	}
+	return result, nil
+}
+
+func (r rollbackQueryRepository) historyEntryRequiresChangeSetTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	incidentID uuid.UUID,
+	target rollbackMutationTarget,
+	descriptor rollbackcontract.TargetDescriptor,
+	siblings []rollbackMutationTarget,
+) (bool, error) {
+	if descriptor.RequiresWholeChangeSet {
+		return true, nil
+	}
+	dispatch, err := r.store.targetSemantics.dispatchClass(target.TargetKind)
+	if err != nil {
+		return false, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	targetReference := rollbackcontract.TargetReference{TargetKind: target.TargetKind, TargetID: target.TargetID}
+	allTargets := append([]rollbackMutationTarget{target}, siblings...)
+	for _, sibling := range siblings {
+		siblingDescriptor, describeErr := r.describeRollbackTargetTx(
+			ctx,
+			tx,
+			incidentID,
+			sibling,
+			uuid.Nil,
+			rollbackTargetsExcept(allTargets, sibling.SequenceNo),
+		)
+		if describeErr != nil {
+			adapted := adaptRowRollbackProviderError(describeErr)
 			var precondition *RollbackPreconditionError
 			if !errors.Is(adapted, ErrRollbackTargetNotFound) && !errors.As(adapted, &precondition) {
 				return false, adapted
 			}
 		}
-		if descriptor.RequiresWholeChangeSet || (firstClassRollbackTargetKind(target.TargetKind) && candidate.SequenceNo != target.SequenceNo && len(descriptor.AtomicCompanions) > 0) {
+		if siblingDescriptor.RequiresWholeChangeSet ||
+			(dispatch == RollbackDispatchRow && containsTargetReference(siblingDescriptor.RequiresWholeChangeSetWith, targetReference)) {
 			return true, nil
 		}
 	}
@@ -486,30 +529,71 @@ SELECT sequence_no, target_kind, target_id, operation_kind, before_value, after_
 }
 
 func (r rollbackQueryRepository) affectedRecordsForRollbackTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, target rollbackMutationTarget, fallback uuid.UUID) ([]uuid.UUID, error) {
-	provider, ok := r.store.nonRowRollbackProviders.Provider(target.TargetKind)
-	if !ok {
-		return affectedRecordsForRollbackTarget(target, fallback)
-	}
-	descriptor, err := provider.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{
-		Target:            nonRowContractTarget(incidentID, target),
-		AddressedRecordID: fallback,
-	})
-	if err != nil {
-		adapted := adaptRowRollbackProviderError(err)
-		var precondition *RollbackPreconditionError
-		if !errors.Is(adapted, ErrRollbackTargetNotFound) && !errors.As(adapted, &precondition) {
-			return nil, adapted
+	descriptor, describeErr := r.describeRollbackTargetTx(ctx, tx, incidentID, target, fallback, nil)
+	affected, _, err := rollbackDescriptorAffected(descriptor, describeErr, fallback)
+	return affected, err
+}
+
+func rollbackDescriptorAffected(descriptor rollbackcontract.TargetDescriptor, describeErr error, fallback uuid.UUID) ([]uuid.UUID, error, error) {
+	if describeErr != nil {
+		adapted := adaptRowRollbackProviderError(describeErr)
+		if !deferableRollbackProviderError(adapted) {
+			return nil, nil, adapted
 		}
-		if affected := canonicalRecordIDs(descriptor.AffectedRecordIDs); len(affected) > 0 {
-			return affected, nil
+		affected := canonicalRecordIDs(descriptor.AffectedRecordIDs)
+		if len(affected) == 0 && fallback != uuid.Nil {
+			affected = []uuid.UUID{fallback}
 		}
-		return []uuid.UUID{fallback}, nil
+		return affected, adapted, nil
 	}
 	affected := canonicalRecordIDs(descriptor.AffectedRecordIDs)
 	if len(affected) == 0 {
-		return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		return nil, nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 	}
-	return affected, nil
+	return affected, nil, nil
+}
+
+func selectRollbackCompanions(references []rollbackcontract.TargetReference, siblings []rollbackMutationTarget) ([]rollbackMutationTarget, error) {
+	selected := make([]rollbackMutationTarget, 0, len(references))
+	seen := make(map[int]struct{}, len(references))
+	for _, reference := range references {
+		matched := false
+		for _, sibling := range siblings {
+			if sibling.TargetKind != reference.TargetKind || sibling.TargetID != reference.TargetID {
+				continue
+			}
+			if _, duplicate := seen[sibling.SequenceNo]; duplicate {
+				return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+			}
+			seen[sibling.SequenceNo] = struct{}{}
+			selected = append(selected, sibling)
+			matched = true
+			break
+		}
+		if !matched {
+			return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+	}
+	return selected, nil
+}
+
+func containsTargetReference(values []rollbackcontract.TargetReference, target rollbackcontract.TargetReference) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func rollbackTargetsExcept(targets []rollbackMutationTarget, sequenceNo int) []rollbackMutationTarget {
+	result := make([]rollbackMutationTarget, 0, len(targets))
+	for _, target := range targets {
+		if target.SequenceNo != sequenceNo {
+			result = append(result, target)
+		}
+	}
+	return result
 }
 
 func (r rollbackQueryRepository) affectedRecordsForRollbackTargetsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, targets []rollbackMutationTarget, fallback uuid.UUID) ([]uuid.UUID, error) {

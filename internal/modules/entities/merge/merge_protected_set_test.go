@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -33,11 +34,13 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, survivorID, "Survivor host", "survivor-host")
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, loserID, "Loser host", "loser-host")
 	seedMergeProtectedSetAssessment(t, db, incident.ID, actor.ID, assessmentID, loserID, "host", "confirmed")
+	appender := newMergeProtectedSetAppender(t)
 	store := NewStore(
 		db,
-		newMergeProtectedSetAppender(t),
+		appender,
 		WithAssessmentEffects(assessments.NewMergeEffects(
 			mergeAssessmentProjectionStub{},
+			appender,
 		)),
 		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
@@ -62,11 +65,13 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 
 func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "merge-protected-set-revalidate")
+	appender := newMergeProtectedSetAppender(t)
 	store := NewStore(
 		db,
-		newMergeProtectedSetAppender(t),
+		appender,
 		WithAssessmentEffects(assessments.NewMergeEffects(
 			mergeAssessmentProjectionStub{},
+			appender,
 		)),
 		WithWorkbookProjection(mergeProjectionWriterStub{}),
 	)
@@ -106,8 +111,32 @@ func newMergeProtectedSetAppender(t testing.TB) *revisions.Appender {
 	if err != nil {
 		t.Fatalf("build merge protected-set record/view catalog: %v", err)
 	}
+	snapshotCaptures, err := revisions.NewRecordSnapshotCaptureCatalogForRequirements(
+		[]revisions.ProviderContribution{assessments.RevisionProviderContribution()},
+		[]revisions.SnapshotSchemaRequirement{{
+			RecordType:       "assessment",
+			SourceOwner:      revisions.SourceOwnerAssessments,
+			SnapshotSchemaID: "cartulary.revisions.snapshot.assessment.v1",
+		}},
+	)
+	if err != nil {
+		t.Fatalf("build merge protected-set snapshot capture catalog: %v", err)
+	}
+	targetSemantics, err := revisions.NewTargetSemanticsCatalog(
+		[]revisions.TargetSemanticsRequirement{
+			{TargetKind: "assessment", SourceOwnerID: "assessments", DispatchClass: revisions.RollbackDispatchRow, AdmittedRecordTypes: []string{"assessment"}, Addressability: revisions.HistorySingleEntry},
+			{TargetKind: "record", SourceOwnerID: "record_source_owner", DispatchClass: revisions.RollbackDispatchRow, AdmittedRecordTypes: []string{"assessment"}, Addressability: revisions.HistorySingleEntry},
+		},
+		[]revisions.ProviderContribution{assessments.RevisionProviderContribution()},
+	)
+	if err != nil {
+		t.Fatalf("build merge protected-set target-semantics catalog: %v", err)
+	}
 	appender, err := revisions.NewAppender(
 		recordViews,
+		mergeProtectedSetEnvelopeReader{},
+		snapshotCaptures,
+		targetSemantics,
 		collaboration.NewHistoricalIntentPolicy(),
 		collaboration.NewIntentAppender(),
 	)
@@ -115,6 +144,32 @@ func newMergeProtectedSetAppender(t testing.TB) *revisions.Appender {
 		t.Fatalf("build merge protected-set Revisions appender: %v", err)
 	}
 	return appender
+}
+
+type mergeProtectedSetEnvelopeReader struct{}
+
+func (mergeProtectedSetEnvelopeReader) LoadEnvelopeTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	recordID uuid.UUID,
+	lock bool,
+) (revisions.RecordEnvelope, error) {
+	envelope, err := records.NewStore().LoadEnvelopeTx(ctx, tx, recordID, lock)
+	if err != nil {
+		return revisions.RecordEnvelope{}, err
+	}
+	return revisions.RecordEnvelope{
+		RecordID:        envelope.RecordID,
+		IncidentID:      envelope.IncidentID,
+		RecordType:      envelope.RecordType,
+		RowVersion:      envelope.RowVersion,
+		CreatedByUserID: envelope.CreatedByUserID,
+		CreatedAt:       envelope.CreatedAt,
+		UpdatedByUserID: envelope.UpdatedByUserID,
+		UpdatedAt:       envelope.UpdatedAt,
+		DeletedAt:       envelope.DeletedAt,
+		DeletedByUserID: envelope.DeletedByUserID,
+	}, nil
 }
 
 type mergeAssessmentProjectionStub struct{}

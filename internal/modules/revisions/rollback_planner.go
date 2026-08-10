@@ -10,7 +10,7 @@ import (
 )
 
 type rollbackPlanner struct {
-	nonRowProviders *NonRowProviderCatalog
+	targetSemantics *TargetSemanticsCatalog
 }
 
 func (p rollbackPlanner) finalize(plan rollbackPlan, envelopes map[uuid.UUID]rollbackRecordEnvelope) (rollbackPlan, error) {
@@ -36,12 +36,9 @@ func (p rollbackPlanner) finalize(plan rollbackPlan, envelopes map[uuid.UUID]rol
 	}
 	plan.ApplyOrder = make([]rollbackPlanStep, 0, len(targets))
 	for index, target := range targets {
-		providerID := "nonrow/" + target.TargetKind
-		if firstClassRollbackTargetKind(target.TargetKind) {
-			providerID = "row/" + target.TargetKind
-			if target.TargetKind == "record" {
-				providerID = "row/" + plan.RecordType
-			}
+		providerID, err := p.providerID(target, envelopes)
+		if err != nil {
+			return rollbackPlan{}, err
 		}
 		plan.ApplyOrder = append(plan.ApplyOrder, rollbackPlanStep{
 			Order:            index + 1,
@@ -55,6 +52,35 @@ func (p rollbackPlanner) finalize(plan rollbackPlan, envelopes map[uuid.UUID]rol
 		return rollbackPlan{}, err
 	}
 	return plan, nil
+}
+
+func (p rollbackPlanner) providerID(target rollbackMutationTarget, envelopes map[uuid.UUID]rollbackRecordEnvelope) (string, error) {
+	dispatch, err := p.targetSemantics.dispatchClass(target.TargetKind)
+	if err != nil {
+		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	switch dispatch {
+	case RollbackDispatchRow:
+		recordID, err := uuid.Parse(target.TargetID)
+		if err != nil || recordID == uuid.Nil {
+			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		envelope, ok := envelopes[recordID]
+		if !ok {
+			return "", ErrRollbackTargetNotFound
+		}
+		if _, err := p.targetSemantics.rowProvider(target.TargetKind, envelope.RecordType); err != nil {
+			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		return "row/" + envelope.RecordType, nil
+	case RollbackDispatchNonRow:
+		if _, err := p.targetSemantics.nonRowProvider(target.TargetKind); err != nil {
+			return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+		}
+		return "nonrow/" + target.TargetKind, nil
+	default:
+		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
 }
 
 func (p rollbackPlanner) validateFinalizedPlan(plan rollbackPlan) error {
@@ -108,37 +134,22 @@ func deferableRollbackProviderError(err error) bool {
 }
 
 func (p rollbackPlanner) validateRollbackTarget(target rollbackMutationTarget) error {
-	if firstClassRollbackTargetKind(target.TargetKind) {
+	dispatch, err := p.targetSemantics.dispatchClass(target.TargetKind)
+	if err != nil {
+		return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
+	}
+	switch dispatch {
+	case RollbackDispatchRow:
 		if target.BeforeValue == nil {
 			return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
 		return nil
-	}
-	if _, ok := p.nonRowProviders.Provider(target.TargetKind); ok {
-		return nil
+	case RollbackDispatchNonRow:
+		if _, err := p.targetSemantics.nonRowProvider(target.TargetKind); err == nil {
+			return nil
+		}
 	}
 	return &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
-}
-
-func rollbackRecordTypeForTarget(target rollbackMutationTarget, currentRecordType string) (string, error) {
-	if currentRecordType == "" {
-		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
-	}
-	if target.TargetKind != "record" && rollbackMutationTargetKindForRecordType(currentRecordType) != target.TargetKind {
-		return "", &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
-	}
-	return currentRecordType, nil
-}
-
-func rollbackMutationTargetKindForRecordType(recordType string) string {
-	switch recordType {
-	case "timeline_event":
-		return "timeline_record"
-	case "host", "identity", "indicator", "assessment", "evidence":
-		return recordType
-	default:
-		return "record"
-	}
 }
 
 func nonRowContractTarget(incidentID uuid.UUID, target rollbackMutationTarget) rollbackcontract.NonRowTarget {
@@ -151,25 +162,5 @@ func nonRowContractTarget(incidentID uuid.UUID, target rollbackMutationTarget) r
 		OperationKind: target.OperationKind,
 		BeforeValue:   target.BeforeValue,
 		AfterValue:    target.AfterValue,
-	}
-}
-
-func affectedRecordsForRollbackTarget(target rollbackMutationTarget, fallback uuid.UUID) ([]uuid.UUID, error) {
-	if !firstClassRollbackTargetKind(target.TargetKind) {
-		return []uuid.UUID{fallback}, nil
-	}
-	recordID, err := uuid.Parse(target.TargetID)
-	if err != nil || recordID == uuid.Nil {
-		return nil, ErrRollbackTargetNotFound
-	}
-	return []uuid.UUID{recordID}, nil
-}
-
-func firstClassRollbackTargetKind(targetKind string) bool {
-	switch targetKind {
-	case "record", "timeline_record", "host", "identity", "indicator", "assessment", "evidence":
-		return true
-	default:
-		return false
 	}
 }

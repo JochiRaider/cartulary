@@ -192,27 +192,13 @@ func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcon
 		}
 		descriptor := rollbackcontract.TargetDescriptor{AffectedRecordIDs: canonicalIDs(parsed.SrcRecordID, parsed.DstRecordID)}
 		if parsed.LinkType == "attached_evidence" && target.ChangeSetID != uuid.Nil {
-			rows, err := tx.Query(ctx, `
-SELECT target_kind, target_id
-  FROM change_set_mutations
- WHERE change_set_id = $1
-   AND sequence_no <> $2
-   AND target_kind IN ('record', 'timeline_record', 'host', 'identity', 'indicator', 'assessment', 'evidence')
- ORDER BY sequence_no
-`, target.ChangeSetID, target.SequenceNo)
-			if err != nil {
-				return descriptor, err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var companion rollbackcontract.TargetReference
-				if err := rows.Scan(&companion.TargetKind, &companion.TargetID); err != nil {
-					return descriptor, err
+			for _, sibling := range request.SiblingTargets {
+				if sibling.DispatchClass == rollbackcontract.DispatchRow {
+					descriptor.RequiresWholeChangeSetWith = append(
+						descriptor.RequiresWholeChangeSetWith,
+						sibling.TargetReference,
+					)
 				}
-				descriptor.AtomicCompanions = append(descriptor.AtomicCompanions, companion)
-			}
-			if err := rows.Err(); err != nil {
-				return descriptor, err
 			}
 		}
 		var endpointCount int

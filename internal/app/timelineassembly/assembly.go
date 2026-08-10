@@ -150,6 +150,7 @@ func compose(dependencies Dependencies) composition {
 			dependencies.Revisions,
 			merge.WithAssessmentEffects(assessmentassembly.NewMergeEffects(
 				dependencies.AssessmentRows,
+				dependencies.Revisions,
 			)),
 			merge.WithTimelineEffects(mentionEffects),
 			merge.WithCollaborationIntents(dependencies.Collaboration),
@@ -267,16 +268,24 @@ type revisionAdapter struct {
 	reader   conflicttokens.RevisionWindowReader
 }
 
+func (a revisionAdapter) CaptureRecordSnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (revisions.CapturedRecordSnapshot, error) {
+	return a.appender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+}
+
 func (a revisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params timeline.ChangeSetParams) (uuid.UUID, error) {
 	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
 func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params timeline.MutationParams) error {
-	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
+	return a.appender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams(params))
 }
 
-func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params timeline.RecordRevisionParams) error {
-	return a.appender.AppendRecordRevisionOnlyTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
+func (a revisionAdapter) AppendCapturedRecordMutationTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordMutationParams) error {
+	return a.appender.AppendCapturedRecordMutationTx(ctx, tx, params)
+}
+
+func (a revisionAdapter) AppendCapturedRecordRevisionTx(ctx context.Context, tx pgx.Tx, params revisions.AppendCapturedRecordRevisionParams) error {
+	return a.appender.AppendCapturedRecordRevisionOnlyTx(ctx, tx, params)
 }
 
 func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, firstVersion int64, lastVersion int64) ([]timeline.RecordRevisionWindowEntry, error) {
@@ -286,7 +295,14 @@ func (a revisionAdapter) ListRecordRevisionWindowTx(ctx context.Context, tx pgx.
 	}
 	result := make([]timeline.RecordRevisionWindowEntry, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, timeline.RecordRevisionWindowEntry(entry))
+		result = append(result, timeline.RecordRevisionWindowEntry{
+			ChangeSetID: entry.ChangeSetID,
+			RowVersion:  entry.RowVersion,
+			BeforeJSON:  entry.BeforeJSON,
+			AfterJSON:   entry.AfterJSON,
+			ActorUserID: entry.ActorUserID,
+			CreatedAt:   entry.CreatedAt,
+		})
 	}
 	return result, nil
 }
@@ -358,6 +374,10 @@ func (a linkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context,
 	return collectionResult(result), err
 }
 
+func (a linkAdapter) LoadTimelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
+	return a.store.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, changedAt)
+}
+
 func collectionResult(result links.CollectionMutationResult) timeline.CollectionMutationResult {
 	converted := timeline.CollectionMutationResult{
 		RecordLinks: make([]timeline.RecordLinkMutation, 0, len(result.RecordLinks)),
@@ -398,6 +418,10 @@ func (a mentionAdapter) NextOrdinalTx(ctx context.Context, tx pgx.Tx, recordID u
 
 func (a mentionAdapter) InsertTx(ctx context.Context, tx pgx.Tx, params timeline.MentionCreateParams) error {
 	return a.store.InsertTx(ctx, tx, mentions.CreateParams(params))
+}
+
+func (a mentionAdapter) LoadTimelineCollectionFieldsChangedTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changedAt time.Time) ([]string, error) {
+	return a.store.LoadTimelineCollectionFieldsChangedTx(ctx, tx, recordID, changedAt)
 }
 
 type entityAdapter struct {

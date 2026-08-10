@@ -64,7 +64,7 @@ func (f *WorkbookFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
-	if err := f.applyCollectionsTx(
+	collectionMutations, err := f.applyCollectionsTx(
 		ctx,
 		tx,
 		incidentID,
@@ -73,7 +73,8 @@ func (f *WorkbookFacade) executeCreateTx(
 		request.ViewSchemaID,
 		request.Collections,
 		now,
-	); err != nil {
+	)
+	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
 	var (
@@ -113,16 +114,24 @@ func (f *WorkbookFacade) executeCreateTx(
 	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
+	afterSnapshot, err := f.revisionAppender.CaptureRecordSnapshotTx(ctx, tx, recordID)
+	if err != nil {
+		return artifactCreateTxResult{}, err
+	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := f.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+	if err := f.revisionAppender.AppendCapturedRecordMutationTx(ctx, tx, revisions.AppendCapturedRecordMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
-		TargetID:       recordID.String(),
+		RecordID:       recordID,
 		OperationKind:  "create",
 		AfterVersionID: &afterVersionID,
-		AfterValue:     row,
+		AfterSnapshot:  &afterSnapshot,
 	}); err != nil {
+		return artifactCreateTxResult{}, err
+	}
+	nextSequence, err := f.appendCollectionMutationsTx(ctx, tx, changeSetID, 2, collectionMutations)
+	if err != nil {
 		return artifactCreateTxResult{}, err
 	}
 	if contextLinkInserted {
@@ -130,9 +139,9 @@ func (f *WorkbookFacade) executeCreateTx(
 		if err != nil {
 			return artifactCreateTxResult{}, err
 		}
-		if err := f.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
+		if err := f.revisionAppender.AppendNonRowMutationTx(ctx, tx, revisions.AppendNonRowMutationParams{
 			ChangeSetID:   changeSetID,
-			SequenceNo:    2,
+			SequenceNo:    nextSequence,
 			TargetKind:    "record_link",
 			TargetID:      contextLink.RecordLinkID.String(),
 			OperationKind: "create",
@@ -141,14 +150,15 @@ func (f *WorkbookFacade) executeCreateTx(
 			return artifactCreateTxResult{}, err
 		}
 	}
-	if err := f.revisionAppender.AppendRecordRevisionTx(
+	if err := f.revisionAppender.AppendCapturedRecordRevisionTx(
 		ctx,
 		tx,
-		revisions.AppendRecordRevisionParams{
-			ChangeSetID: changeSetID,
-			RecordID:    recordID,
-			RowVersion:  1,
-			AfterValue:  row,
+		revisions.AppendCapturedRecordRevisionParams{
+			ChangeSetID:   changeSetID,
+			RecordID:      recordID,
+			RowVersion:    1,
+			AfterSnapshot: &afterSnapshot,
+			LiveChange:    revisions.LiveRecordChange{AfterValue: row},
 		},
 	); err != nil {
 		return artifactCreateTxResult{}, err

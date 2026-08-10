@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -27,6 +25,7 @@ import (
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -89,7 +88,7 @@ func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMet
 	return schema.DefaultQueryMeta()
 }
 
-func requireTimelineMutationAfterRowMatchesQuery(t testing.TB, db postgres.DB, changeSetID uuid.UUID, queryRow map[string]any) {
+func requireTimelineMutationAfterSnapshotMatchesRecord(t testing.TB, db postgres.DB, changeSetID uuid.UUID, queryRow map[string]any) {
 	t.Helper()
 
 	var rawAfterValue []byte
@@ -109,8 +108,13 @@ SELECT after_value
 		t.Fatalf("decode timeline mutation after row: %v", err)
 	}
 	normalizedQueryRow := normalizeJSONMap(t, queryRow)
-	if !reflect.DeepEqual(mutationRow, normalizedQueryRow) {
-		t.Fatalf("timeline lifecycle mutation row drifted from query row:\nmutation=%#v\nquery=%#v", mutationRow, normalizedQueryRow)
+	if mutationRow["snapshot_schema_id"] != "cartulary.revisions.snapshot.timeline_event.v1" {
+		t.Fatalf("timeline lifecycle mutation has unexpected snapshot schema: %#v", mutationRow)
+	}
+	record, recordOK := mutationRow["record"].(map[string]any)
+	source, sourceOK := mutationRow["source"].(map[string]any)
+	if !recordOK || !sourceOK || len(source) == 0 || record["record_id"] != normalizedQueryRow["record_id"] || record["row_version"] != normalizedQueryRow["row_version"] {
+		t.Fatalf("timeline lifecycle snapshot does not match the queried record identity/version:\nsnapshot=%#v\nquery=%#v", mutationRow, normalizedQueryRow)
 	}
 }
 
@@ -309,7 +313,7 @@ SELECT COUNT(*)
 	if got := workbookscenariotest.CollectionItems(t, dismissedRow, timelinetest.FieldHostRefs); len(got) != 0 {
 		t.Fatalf("dismissed mention must be excluded from current relationship-cell values, got %#v", got)
 	}
-	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, dismissResult.ChangeSetID, dismissedRow)
+	requireTimelineMutationAfterSnapshotMatchesRecord(t, harness.DB, dismissResult.ChangeSetID, dismissedRow)
 
 	restoreRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: dismissed.RowVersion,
@@ -335,7 +339,7 @@ SELECT COUNT(*)
 	if restoredItem["item_kind"] != "unresolved_mention" || restoredItem["raw_text"] != "WS-023" {
 		t.Fatalf("restore must surface the unresolved mention in current-state reads, got %#v", restoredItem)
 	}
-	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, restoreResult.ChangeSetID, restoredRow)
+	requireTimelineMutationAfterSnapshotMatchesRecord(t, harness.DB, restoreResult.ChangeSetID, restoredRow)
 	if _, ok := restoredItem["resolved_record_id"]; ok {
 		t.Fatalf("restore must not silently relink the historical target, got %#v", restoredItem)
 	}

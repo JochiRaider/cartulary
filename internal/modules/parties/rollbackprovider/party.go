@@ -71,33 +71,6 @@ func partySourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
 	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		mapping := map[string]string{
-			"party.display_name":      "display_name",
-			"party.party_kind":        "party_kind",
-			"party.organization_name": "organization_name",
-			"party.role_title":        "role_title",
-			"party.primary_email":     "primary_email",
-			"party.timezone_name":     "timezone_name",
-			"party.external_ref":      "external_ref",
-			"party.notes":             "notes",
-		}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		if _, hasDisplayName := value["display_name"]; hasDisplayName {
-			return value, true
-		}
-		if _, hasPartyKind := value["party_kind"]; hasPartyKind {
-			return value, true
-		}
-	}
 	return nil, false
 }
 

@@ -81,13 +81,6 @@ func textPointer(value pgtype.Text) *string {
 	return &cloned
 }
 
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
-}
-
 func normalizeOptionalIdentifier(identifierClass string, value *string) string {
 	if value == nil {
 		return ""

@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.revisions_snapshot_schema_registry.v1",
+  "registry_version": 1,
+  "envelope_schema_id": "cartulary.revisions.canonical_snapshot_envelope.v1",
+  "schemas": [
+    {"record_type": "artifact", "source_owner": "artifacts", "snapshot_schema_id": "cartulary.revisions.snapshot.artifact.v1"},
+    {"record_type": "assessment", "source_owner": "assessments", "snapshot_schema_id": "cartulary.revisions.snapshot.assessment.v1"},
+    {"record_type": "decision", "source_owner": "tasksdecisions", "snapshot_schema_id": "cartulary.revisions.snapshot.decision.v1"},
+    {"record_type": "evidence", "source_owner": "evidence", "snapshot_schema_id": "cartulary.revisions.snapshot.evidence.v1"},
+    {"record_type": "host", "source_owner": "entities", "snapshot_schema_id": "cartulary.revisions.snapshot.host.v1"},
+    {"record_type": "identity", "source_owner": "entities", "snapshot_schema_id": "cartulary.revisions.snapshot.identity.v1"},
+    {"record_type": "indicator", "source_owner": "indicators", "snapshot_schema_id": "cartulary.revisions.snapshot.indicator.v1"},
+    {"record_type": "party", "source_owner": "parties", "snapshot_schema_id": "cartulary.revisions.snapshot.party.v1"},
+    {"record_type": "task_request", "source_owner": "tasksdecisions", "snapshot_schema_id": "cartulary.revisions.snapshot.task_request.v1"},
+    {"record_type": "timeline_event", "source_owner": "timeline", "snapshot_schema_id": "cartulary.revisions.snapshot.timeline_event.v1"}
+  ]
+}

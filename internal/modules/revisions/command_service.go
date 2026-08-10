@@ -16,7 +16,9 @@ type CommandServiceDependencies struct {
 	Idempotency                 IdempotencyPort
 	ImportedAttributionResolver ImportedAttributionResolver
 	Projections                 ProjectionServices
-	ProviderContributions       []ProviderContribution
+	LiveRecords                 LiveRecordReader
+	DeleteRestoreSources        *DeleteRestoreSourceCatalog
+	TargetSemantics             *TargetSemanticsCatalog
 	Appender                    *Appender
 	RecordEnvelopes             RecordEnvelopePort
 	Clock                       func() time.Time
@@ -38,6 +40,9 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 		{name: "idempotency", value: dependencies.Idempotency},
 		{name: "imported attribution resolver", value: dependencies.ImportedAttributionResolver},
 		{name: "projection services", value: dependencies.Projections},
+		{name: "live record reader", value: dependencies.LiveRecords},
+		{name: "delete/restore sources", value: dependencies.DeleteRestoreSources},
+		{name: "target semantics", value: dependencies.TargetSemantics},
 		{name: "appender", value: dependencies.Appender},
 		{name: "record envelopes", value: dependencies.RecordEnvelopes},
 		{name: "clock", value: dependencies.Clock},
@@ -47,20 +52,16 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 			return nil, fmt.Errorf("%w: %s", ErrInvalidCommandServiceDependency, check.name)
 		}
 	}
-	deleteRestoreSources, rowRollbackProviders, nonRowRollbackProviders, err := buildProviderCatalogs(dependencies.ProviderContributions)
-	if err != nil {
-		return nil, fmt.Errorf("%w: provider contributions: %w", ErrInvalidCommandServiceDependency, err)
-	}
 	store := &commandStore{
-		transactions:            dependencies.Transactions,
-		appender:                dependencies.Appender,
-		envelopes:               dependencies.RecordEnvelopes,
-		authorization:           dependencies.Authorization,
-		idempotency:             dependencies.Idempotency,
-		projections:             dependencies.Projections,
-		deleteRestoreSources:    deleteRestoreSources,
-		rowRollbackProviders:    rowRollbackProviders,
-		nonRowRollbackProviders: nonRowRollbackProviders,
+		transactions:         dependencies.Transactions,
+		appender:             dependencies.Appender,
+		envelopes:            dependencies.RecordEnvelopes,
+		authorization:        dependencies.Authorization,
+		idempotency:          dependencies.Idempotency,
+		projections:          dependencies.Projections,
+		liveRecords:          dependencies.LiveRecords,
+		deleteRestoreSources: dependencies.DeleteRestoreSources,
+		targetSemantics:      dependencies.TargetSemantics,
 	}
 	return &CommandService{
 		commands: store,

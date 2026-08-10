@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	conflictresolution "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 type WorkbookConflictCommand struct {
@@ -66,8 +65,7 @@ func (f *MutationFacade) loadConflictTarget(
 	if !recordTypeMatchesView(meta.RecordType, command.Claims.ViewSchemaID) {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
-	field, ok := viewschema.LookupField(command.Claims.ViewSchemaID, command.Claims.FieldKey)
-	if !ok || !field.Writable {
+	if _, err := f.conflictFields.ResolveWritableField(command.Claims.ViewSchemaID, command.Claims.FieldKey); err != nil {
 		return conflictresolution.Target{}, pgx.ErrNoRows
 	}
 	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {

@@ -114,7 +114,9 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "idempotency", mutate: func(value *CommandServiceDependencies) { value.Idempotency = nil }},
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
-		{name: "provider contributions", mutate: func(value *CommandServiceDependencies) { value.ProviderContributions = nil }},
+		{name: "live records", mutate: func(value *CommandServiceDependencies) { value.LiveRecords = nil }},
+		{name: "delete restore sources", mutate: func(value *CommandServiceDependencies) { value.DeleteRestoreSources = nil }},
+		{name: "target semantics", mutate: func(value *CommandServiceDependencies) { value.TargetSemantics = nil }},
 		{name: "appender", mutate: func(value *CommandServiceDependencies) { value.Appender = nil }},
 		{name: "record envelopes", mutate: func(value *CommandServiceDependencies) { value.RecordEnvelopes = nil }},
 		{name: "clock", mutate: func(value *CommandServiceDependencies) { value.Clock = nil }},
@@ -135,13 +137,21 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 	t.Helper()
 	database := commandServiceTestDB{}
+	contributions := validProviderContributions()
+	deleteRestoreSources, err := buildDeleteRestoreSourceCatalog(contributions)
+	if err != nil {
+		t.Fatalf("build delete/restore sources: %v", err)
+	}
+	targetSemantics := validTargetSemanticsCatalog(t, contributions)
 	return CommandServiceDependencies{
 		Transactions:                database,
 		Authorization:               commandServiceTestAuthorizer{},
 		Idempotency:                 commandServiceTestIdempotency{},
 		ImportedAttributionResolver: fakeImportedAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
-		ProviderContributions:       validProviderContributions(),
+		LiveRecords:                 commandServiceTestProjection{},
+		DeleteRestoreSources:        deleteRestoreSources,
+		TargetSemantics:             targetSemantics,
 		Appender: &Appender{
 			recordViews:      &RecordViewCatalog{},
 			historicalPolicy: commandServiceTestHistoricalPolicy{},
@@ -152,28 +162,76 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 }
 
 func validProviderContributions() []ProviderContribution {
-	record := func(owner SourceOwnerModule, recordType string) RecordProviderContribution {
+	record := func(owner SourceOwnerModule, recordType string, historyTargetKinds ...string) RecordProviderContribution {
 		return RecordProviderContribution{
 			SourceOwnerModule:   owner,
 			RecordType:          recordType,
+			SnapshotSchemaID:    "cartulary.revisions.snapshot." + recordType + ".v1",
+			HistoryTargetKinds:  append([]string(nil), historyTargetKinds...),
 			DeleteRestoreSource: testDeleteRestoreSource{},
 			RowRollbackProvider: catalogRowProvider{},
 		}
 	}
 	nonRow := func(owner SourceOwnerModule, targetKind string) NonRowProviderContribution {
-		return NonRowProviderContribution{SourceOwnerModule: owner, TargetKind: targetKind, RollbackProvider: stubNonRowProvider{}}
+		fields := map[string][]string{
+			"entity_alias":                {"record_id"},
+			"entity_mention":              {"source_record_id"},
+			"entity_preserved_identifier": {"record_id"},
+			"indicator_observation":       {"source_record_id", "resolved_indicator_record_id"},
+			"indicator_state_interval":    {"indicator_record_id"},
+			"record_link":                 {"src_record_id", "dst_record_id"},
+			"record_tag":                  {"record_id"},
+		}
+		addressability := HistorySingleEntry
+		if targetKind == "entity_alias" || targetKind == "entity_preserved_identifier" {
+			addressability = HistoryNotIndividuallyAddressable
+		}
+		return NonRowProviderContribution{
+			SourceOwnerModule: owner,
+			TargetKind:        targetKind,
+			HistorySemantics:  NewFieldHistoryTargetSemantics(fields[targetKind], addressability),
+			RollbackProvider:  stubNonRowProvider{},
+		}
 	}
 	return []ProviderContribution{
 		{SourceOwnerModule: SourceOwnerArtifacts, Records: []RecordProviderContribution{record(SourceOwnerArtifacts, "artifact")}},
-		{SourceOwnerModule: SourceOwnerAssessments, Records: []RecordProviderContribution{record(SourceOwnerAssessments, "assessment")}},
-		{SourceOwnerModule: SourceOwnerEntities, Records: []RecordProviderContribution{record(SourceOwnerEntities, "host"), record(SourceOwnerEntities, "identity")}, NonRowTargets: []NonRowProviderContribution{nonRow(SourceOwnerEntities, "entity_alias"), nonRow(SourceOwnerEntities, "entity_mention"), nonRow(SourceOwnerEntities, "entity_preserved_identifier")}},
-		{SourceOwnerModule: SourceOwnerEvidence, Records: []RecordProviderContribution{record(SourceOwnerEvidence, "evidence")}},
-		{SourceOwnerModule: SourceOwnerIndicators, Records: []RecordProviderContribution{record(SourceOwnerIndicators, "indicator")}, NonRowTargets: []NonRowProviderContribution{nonRow(SourceOwnerIndicators, "indicator_observation"), nonRow(SourceOwnerIndicators, "indicator_state_interval")}},
+		{SourceOwnerModule: SourceOwnerAssessments, Records: []RecordProviderContribution{record(SourceOwnerAssessments, "assessment", "assessment")}},
+		{SourceOwnerModule: SourceOwnerEntities, Records: []RecordProviderContribution{record(SourceOwnerEntities, "host", "host"), record(SourceOwnerEntities, "identity", "identity")}, NonRowTargets: []NonRowProviderContribution{nonRow(SourceOwnerEntities, "entity_alias"), nonRow(SourceOwnerEntities, "entity_mention"), nonRow(SourceOwnerEntities, "entity_preserved_identifier")}},
+		{SourceOwnerModule: SourceOwnerEvidence, Records: []RecordProviderContribution{record(SourceOwnerEvidence, "evidence", "evidence")}},
+		{SourceOwnerModule: SourceOwnerIndicators, Records: []RecordProviderContribution{record(SourceOwnerIndicators, "indicator", "indicator")}, NonRowTargets: []NonRowProviderContribution{nonRow(SourceOwnerIndicators, "indicator_observation"), nonRow(SourceOwnerIndicators, "indicator_state_interval")}},
 		{SourceOwnerModule: SourceOwnerLinks, NonRowTargets: []NonRowProviderContribution{nonRow(SourceOwnerLinks, "record_link"), nonRow(SourceOwnerLinks, "record_tag")}},
 		{SourceOwnerModule: SourceOwnerParties, Records: []RecordProviderContribution{record(SourceOwnerParties, "party")}},
 		{SourceOwnerModule: SourceOwnerTasksDecisions, Records: []RecordProviderContribution{record(SourceOwnerTasksDecisions, "task_request"), record(SourceOwnerTasksDecisions, "decision")}},
-		{SourceOwnerModule: SourceOwnerTimeline, Records: []RecordProviderContribution{record(SourceOwnerTimeline, "timeline_event")}},
+		{SourceOwnerModule: SourceOwnerTimeline, Records: []RecordProviderContribution{record(SourceOwnerTimeline, "timeline_event", "timeline_record")}},
 	}
+}
+
+func validTargetSemanticsRequirements() []TargetSemanticsRequirement {
+	return []TargetSemanticsRequirement{
+		{TargetKind: "assessment", SourceOwnerID: "assessments", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"assessment"}, Addressability: HistorySingleEntry},
+		{TargetKind: "entity_alias", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
+		{TargetKind: "entity_mention", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"source_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "entity_preserved_identifier", SourceOwnerID: "entities", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistoryNotIndividuallyAddressable},
+		{TargetKind: "evidence", SourceOwnerID: "evidence", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"evidence"}, Addressability: HistorySingleEntry},
+		{TargetKind: "host", SourceOwnerID: "entities", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"host"}, Addressability: HistorySingleEntry},
+		{TargetKind: "identity", SourceOwnerID: "entities", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"identity"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"indicator"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator_observation", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"source_record_id", "resolved_indicator_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "indicator_state_interval", SourceOwnerID: "indicators", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"indicator_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record", SourceOwnerID: "record_source_owner", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"artifact", "assessment", "decision", "evidence", "host", "identity", "indicator", "party", "task_request", "timeline_event"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record_link", SourceOwnerID: "links", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"dst_record_id", "src_record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "record_tag", SourceOwnerID: "links", DispatchClass: RollbackDispatchNonRow, HistoryRecordIDFields: []string{"record_id"}, Addressability: HistorySingleEntry},
+		{TargetKind: "timeline_record", SourceOwnerID: "timeline", DispatchClass: RollbackDispatchRow, AdmittedRecordTypes: []string{"timeline_event"}, Addressability: HistorySingleEntry},
+	}
+}
+
+func validTargetSemanticsCatalog(t testing.TB, contributions []ProviderContribution) *TargetSemanticsCatalog {
+	t.Helper()
+	catalog, err := NewTargetSemanticsCatalog(validTargetSemanticsRequirements(), contributions)
+	if err != nil {
+		t.Fatalf("build target-semantics catalog: %v", err)
+	}
+	return catalog
 }
 
 func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
@@ -209,19 +267,18 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 		{name: "nil row rollback", mutate: func(values []ProviderContribution) []ProviderContribution {
 			values[0].Records[0].RowRollbackProvider = nil
 			return values
-		}, want: ErrMissingRowRollbackProvider},
+		}, want: ErrInvalidTargetSemantics},
 		{name: "nil non-row rollback", mutate: func(values []ProviderContribution) []ProviderContribution {
 			values[2].NonRowTargets[0].RollbackProvider = nil
 			return values
-		}, want: ErrMissingNonRowRollbackProvider},
+		}, want: ErrInvalidTargetSemantics},
 	}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			dependencies := validCommandServiceDependencies(t)
-			dependencies.ProviderContributions = test.mutate(dependencies.ProviderContributions)
-			if _, err := NewCommandService(dependencies); !errors.Is(err, test.want) {
+			contributions := test.mutate(validProviderContributions())
+			if err := ValidateProviderContributions(contributions); !errors.Is(err, test.want) {
 				t.Fatalf("provider contribution error = %v, want %v", err, test.want)
 			}
 		})
@@ -231,7 +288,8 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 func TestIncidentBundleValidationCatalogFailsClosed(t *testing.T) {
 	t.Parallel()
 	contributions := validProviderContributions()
-	catalog, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, contributions)
+	targets := validTargetSemanticsCatalog(t, contributions)
+	catalog, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, targets, contributions)
 	if err != nil {
 		t.Fatalf("build valid incident-bundle validation catalog: %v", err)
 	}
@@ -245,16 +303,7 @@ func TestIncidentBundleValidationCatalogFailsClosed(t *testing.T) {
 		t.Fatal("caller mutation escaped the immutable validation catalog")
 	}
 
-	duplicate := validProviderContributions()
-	duplicate[0].Records[0].HistoryTargetKinds = []string{"shared_target"}
-	duplicate[1].Records[0].HistoryTargetKinds = []string{"shared_target"}
-	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, duplicate); !errors.Is(err, ErrDuplicateHistoryTargetProvider) {
-		t.Fatalf("duplicate target provider error = %v", err)
-	}
-
-	empty := validProviderContributions()
-	empty[0].Records[0].HistoryTargetKinds = []string{""}
-	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, empty); !errors.Is(err, ErrUnexpectedProviderContribution) {
-		t.Fatalf("empty target provider error = %v", err)
+	if _, err := NewIncidentBundleValidationCatalog(incidentBundleEnvelopeReaderStub{}, nil, contributions); !errors.Is(err, ErrMissingHistoryTargetProvider) {
+		t.Fatalf("missing target semantics error = %v", err)
 	}
 }

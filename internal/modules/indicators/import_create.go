@@ -36,6 +36,10 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	createCommand := indicatorImportCreateCommand(request.ClientTxnID, request.FieldValues)
+	beforeSnapshot, err := s.captureIndicatorSnapshotBeforeUpsertTx(ctx, tx, request.IncidentID, createCommand)
+	if err != nil {
+		return ownerfacade.ImportOwnerCreateResponse{}, err
+	}
 	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, authn.UserRecord{ID: request.ActorUserID}, request.IncidentID, createCommand, command.Now.UTC())
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
@@ -63,7 +67,7 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 			}
 		}
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, s.revisionsStore, ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeCapturedTx(ctx, tx, s.revisionsStore, ownerfacade.FinalizeCommand{
 		Request:         request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
@@ -73,6 +77,7 @@ func (s *Store) createImportRowTx(ctx context.Context, tx pgx.Tx, command ownerf
 		OwnerResultCode: resultCode,
 		BeforeVersionID: beforeVersionID,
 		BeforeValue:     beforeValue,
+		BeforeSnapshot:  beforeSnapshot,
 		Row:             row,
 	})
 }

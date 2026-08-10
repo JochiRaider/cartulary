@@ -362,6 +362,12 @@
       "filename": "00060_platform_jobs_expiry_tombstones.sql",
       "sha256": "cba4e1d18a8ed4d10aa9839a3bcec346192b4d5db1e38038f5fbf20e03bd9aa3",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 61,
+      "filename": "00061_revisions_history_associations.sql",
+      "sha256": "75bb79edc6b6acb138419832414ed82bf418127ebd76394412ab6e4bba83ed69",
+      "historical_phase_shaped": false
     }
   ]
 }

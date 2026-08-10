@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -196,6 +197,44 @@ func (s *Store) upsertIdentityTx(ctx context.Context, tx pgx.Tx, actor authn.Use
 		return IdentityRecord{}, nil, "", 0, err
 	}
 	return s.upsertIdentityWithInputTx(ctx, tx, actor, incidentID, input, now)
+}
+
+func (s *Store) captureHostSnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.CapturedRecordSnapshot, error) {
+	input, err := hostInputFromCreateRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	current, matched, err := matchHostTx(ctx, tx, incidentID, input)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return nil, nil
+	}
+	snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
+}
+
+func (s *Store) captureIdentitySnapshotBeforeUpsertTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) (*revisions.CapturedRecordSnapshot, error) {
+	input, err := identityInputFromCreateRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	current, matched, err := matchIdentityTx(ctx, tx, incidentID, input)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return nil, nil
+	}
+	snapshot, err := s.ports.revisions.CaptureRecordSnapshotTx(ctx, tx, current.RecordID)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
 }
 
 func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, input hostUpsertInput, now time.Time) (HostRecord, map[string]any, string, int, error) {

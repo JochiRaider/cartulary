@@ -98,7 +98,9 @@ SELECT count(*)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_tags WHERE record_id = $1 AND normalized_tag_name = 'synthetic' AND deleted_at IS NULL`, result.RecordID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM record_revisions WHERE record_id = $1 AND row_version = 1`, result.RecordID, 1)
 			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM artifact_grid_projection WHERE record_id = $1 AND artifact_type = 'note'`, result.RecordID, 1)
-			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1`, result.ChangeSetID, 2)
+			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1`, result.ChangeSetID, 3)
+			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_link'`, result.ChangeSetID, 1)
+			requireLinkedNoteCount(t, harness, `SELECT count(*) FROM change_set_mutations WHERE change_set_id = $1 AND target_kind = 'record_tag'`, result.ChangeSetID, 1)
 
 			replayed, err := facade.Create(ctx, command)
 			if err != nil {

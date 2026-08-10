@@ -3,7 +3,6 @@ package revisions
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,7 +28,7 @@ func (historyRowMaterializer) Mutation(record RecordHistoryRecord, row mutationH
 		sequenceNo:               row.SequenceNo,
 		syntheticRank:            0,
 		targetKey:                row.TargetKind + ":" + row.TargetID,
-		hasTargetEntry:           singleEntryAddressable(row.TargetKind, row.TargetID, record.RecordID, row.BeforeValue, row.AfterValue),
+		hasTargetEntry:           row.HistoryEntryAddressable,
 	}
 }
 
@@ -99,56 +98,6 @@ func historyItemRefForRevision(recordID uuid.UUID, changeSetID uuid.UUID, revisi
 func historyItemRef(parts ...string) string {
 	digest := sha256.Sum256([]byte(strings.Join(parts, ":")))
 	return "hitem_" + base64.RawURLEncoding.EncodeToString(digest[:])
-}
-
-func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UUID, beforeValue []byte, afterValue []byte) bool {
-	if targetID != recordID.String() {
-		switch targetKind {
-		case "record_link":
-			return mutationJSONReferencesRecord(beforeValue, recordID, "src_record_id", "dst_record_id") ||
-				mutationJSONReferencesRecord(afterValue, recordID, "src_record_id", "dst_record_id")
-		case "entity_mention":
-			return mutationJSONReferencesRecord(beforeValue, recordID, "source_record_id") ||
-				mutationJSONReferencesRecord(afterValue, recordID, "source_record_id")
-		case "record_tag":
-			return mutationJSONReferencesRecord(beforeValue, recordID, "record_id") ||
-				mutationJSONReferencesRecord(afterValue, recordID, "record_id")
-		case "indicator_observation":
-			return mutationJSONReferencesRecord(beforeValue, recordID, "source_record_id", "resolved_indicator_record_id") ||
-				mutationJSONReferencesRecord(afterValue, recordID, "source_record_id", "resolved_indicator_record_id")
-		case "indicator_state_interval":
-			return mutationJSONReferencesRecord(beforeValue, recordID, "indicator_record_id") ||
-				mutationJSONReferencesRecord(afterValue, recordID, "indicator_record_id")
-		default:
-			return false
-		}
-	}
-	switch targetKind {
-	case "record", "timeline_record", "host", "identity", "indicator", "assessment", "evidence":
-		return true
-	case "record_tag":
-		return mutationJSONReferencesRecord(beforeValue, recordID, "record_id") ||
-			mutationJSONReferencesRecord(afterValue, recordID, "record_id")
-	default:
-		return false
-	}
-}
-
-func mutationJSONReferencesRecord(raw []byte, recordID uuid.UUID, keys ...string) bool {
-	if len(raw) == 0 {
-		return false
-	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return false
-	}
-	recordIDText := recordID.String()
-	for _, key := range keys {
-		if text, ok := value[key].(string); ok && text == recordIDText {
-			return true
-		}
-	}
-	return false
 }
 
 func historyOperation(source string, operationKind string) string {

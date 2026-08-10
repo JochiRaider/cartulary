@@ -185,43 +185,16 @@ UPDATE decisions
 }
 
 func taskSourceForRollbackValue(value map[string]any) (map[string]any, bool) {
-	return sourceForRollbackValue(value, map[string]string{
-		"task.title": "title", "task.status": "status", "task.owner_user_id": "owner_user_id",
-		"task.priority": "priority", "task.task_kind": "task_kind", "task.workstream": "workstream",
-		"task.due_at": "due_at", "task.requester_party_text": "requester_party_text",
-		"task.requester_party_id": "requester_party_id", "task.blocked_reason": "blocked_reason",
-		"task.completed_at": "completed_at", "task.external_ticket_ref": "external_ticket_ref",
-		"task.closure_summary": "closure_summary", "task.decision_record_id": "decision_record_id",
-	})
+	return sourceForRollbackValue(value)
 }
 
 func decisionSourceForRollbackValue(value map[string]any) (map[string]any, bool) {
-	return sourceForRollbackValue(value, map[string]string{
-		"decision.summary": "summary", "decision.status": "status", "decision.owner_user_id": "owner_user_id",
-		"decision.decision_type": "decision_type", "decision.decided_at": "decided_at",
-		"decision.rationale": "rationale",
-	})
+	return sourceForRollbackValue(value)
 }
 
-func sourceForRollbackValue(value map[string]any, mapping map[string]string) (map[string]any, bool) {
+func sourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	if source, ok := objectMap(value, "source"); ok {
 		return source, len(source) > 0
-	}
-	if cells, ok := objectMap(value, "cells"); ok {
-		source := map[string]any{}
-		for fieldKey, sourceKey := range mapping {
-			if cell, present := objectMap(cells, fieldKey); present {
-				source[sourceKey] = cell["value"]
-			}
-		}
-		return source, len(source) > 0
-	}
-	if _, ok := value["record_id"]; ok {
-		for _, sourceKey := range mapping {
-			if _, present := value[sourceKey]; present {
-				return value, true
-			}
-		}
 	}
 	return nil, false
 }

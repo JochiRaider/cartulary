@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.revisions.canonical_snapshot_envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_schema_id", "record", "source"],
+  "properties": {
+    "snapshot_schema_id": {
+      "type": "string",
+      "enum": [
+        "cartulary.revisions.snapshot.artifact.v1",
+        "cartulary.revisions.snapshot.assessment.v1",
+        "cartulary.revisions.snapshot.decision.v1",
+        "cartulary.revisions.snapshot.evidence.v1",
+        "cartulary.revisions.snapshot.host.v1",
+        "cartulary.revisions.snapshot.identity.v1",
+        "cartulary.revisions.snapshot.indicator.v1",
+        "cartulary.revisions.snapshot.party.v1",
+        "cartulary.revisions.snapshot.task_request.v1",
+        "cartulary.revisions.snapshot.timeline_event.v1"
+      ]
+    },
+    "record": {
+      "type": "object"
+    },
+    "source": {
+      "type": "object"
+    }
+  }
+}

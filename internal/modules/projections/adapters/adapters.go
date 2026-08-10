@@ -234,6 +234,13 @@ func (ports Ports) RevisionServices() revisions.ProjectionServices {
 	return ports.store
 }
 
+func (ports Ports) RevisionLiveRecords() revisions.LiveRecordReader {
+	if ports.store == nil {
+		return nil
+	}
+	return ports.store
+}
+
 type SourceTextRows interface {
 	RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error
 	LoadRowTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)

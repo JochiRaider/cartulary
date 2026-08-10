@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
@@ -800,8 +801,8 @@ func seedRollbackHostPatchWithSource(t testing.TB, db *sql.DB, incidentID uuid.U
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 2}
-	beforeValue := map[string]any{"record": beforeRecord, "source": beforeSource}
-	afterValue := map[string]any{"record": afterRecord, "source": afterSource}
+	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
+	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
 	if _, err := db.ExecContext(context.Background(), `
 UPDATE records
    SET row_version = 2,
@@ -825,9 +826,10 @@ UPDATE records
 	if _, err := db.ExecContext(context.Background(), `
 	INSERT INTO change_set_mutations (
 	    change_set_id, sequence_no, target_kind, target_id, operation_kind,
-    before_version_id, after_version_id, before_value, after_value
+	    before_version_id, after_version_id, before_value, after_value,
+	    history_record_ids, history_entry_record_ids
 )
-VALUES ($1, 1, 'host', $2, 'field_update', $3, $4, $5, $6)
+VALUES ($1, 1, 'host', $2::text, 'field_update', $3, $4, $5, $6, ARRAY[$2::uuid], ARRAY[$2::uuid])
 `, changeSetID, recordID.String(), "host:"+recordID.String()+":1", "host:"+recordID.String()+":2", jsonOrNil(t, beforeValue), jsonOrNil(t, afterValue)); err != nil {
 		t.Fatalf("seed rollback host mutation: %v", err)
 	}
@@ -865,8 +867,8 @@ func seedRollbackHostPatchEntry(t testing.TB, db *sql.DB, incidentID uuid.UUID, 
 	afterRecord := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "record_type": "host", "row_version": 2}
 	beforeSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": beforeName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 1}
 	afterSource := map[string]any{"record_id": recordID.String(), "incident_id": incidentID.String(), "display_name": afterName, "hostname": "history_revision-host", "host_state": "canonical", "row_version": 2}
-	beforeValue := map[string]any{"record": beforeRecord, "source": beforeSource}
-	afterValue := map[string]any{"record": afterRecord, "source": afterSource}
+	beforeValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": beforeRecord, "source": beforeSource}
+	afterValue := map[string]any{"snapshot_schema_id": "cartulary.revisions.snapshot.host.v1", "record": afterRecord, "source": afterSource}
 	mustExec(t, db, `
 UPDATE records
    SET row_version = 2,
@@ -934,8 +936,8 @@ func seedRollbackPartyPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, acto
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "party")
 	mustExec(t, db, `INSERT INTO parties (record_id, incident_id, display_name, party_kind, updated_at) VALUES ($1, $2, $3, 'person', $4)`, recordID, incidentID, afterName, time.Now().UTC())
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, recordID)
-	before := rowCells(recordID, 1, map[string]any{"party.display_name": beforeName, "party.party_kind": "person"})
-	after := rowCells(recordID, 2, map[string]any{"party.display_name": afterName, "party.party_kind": "person"})
+	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
+	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-party-rollback")
 	return recordID
 }
@@ -949,8 +951,8 @@ INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, raw
 VALUES ($1, $2, $3, 'details', 'source', 'rough', 2, $4, $4, $5, $5)
 `, recordID, incidentID, afterSummary, time.Now().UTC(), actorID)
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, recordID)
-	before := rowCells(recordID, 1, map[string]any{"timeline.activity_synopsis_text": beforeSummary, "timeline.raw_activity_text": "details", "timeline.data_source_text": "source", "timeline.capture_state": "rough"})
-	after := rowCells(recordID, 2, map[string]any{"timeline.activity_synopsis_text": afterSummary, "timeline.raw_activity_text": "details", "timeline.data_source_text": "source", "timeline.capture_state": "rough"})
+	before := canonicalRowSnapshot(recordID, incidentID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 1, map[string]any{"activity_synopsis_text": beforeSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
+	after := canonicalRowSnapshot(recordID, incidentID, "timeline_event", "cartulary.revisions.snapshot.timeline_event.v1", 2, map[string]any{"activity_synopsis_text": afterSummary, "raw_activity_text": "details", "data_source_text": "source", "capture_state": "rough"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "timeline_record", recordID.String(), "patch", before, after, "href-timeline-rollback")
 	return recordID
 }
@@ -961,8 +963,8 @@ func seedRollbackEvidencePatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, a
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "evidence")
 	mustExec(t, db, `INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, updated_at) VALUES ($1, $2, 'Evidence after', 'available', 'available', $3)`, recordID, incidentID, time.Now().UTC())
 	mustExec(t, db, `UPDATE records SET row_version = 2 WHERE record_id = $1`, recordID)
-	before := rowCells(recordID, 1, map[string]any{"evidence.title": "Evidence before", "evidence.lifecycle_state": "requested", "evidence.upload_state": "pending"})
-	after := rowCells(recordID, 2, map[string]any{"evidence.title": "Evidence after", "evidence.lifecycle_state": "available", "evidence.upload_state": "available"})
+	before := canonicalRowSnapshot(recordID, incidentID, "evidence", "cartulary.revisions.snapshot.evidence.v1", 1, map[string]any{"title": "Evidence before", "lifecycle_state": "requested", "upload_state": "pending"})
+	after := canonicalRowSnapshot(recordID, incidentID, "evidence", "cartulary.revisions.snapshot.evidence.v1", 2, map[string]any{"title": "Evidence after", "lifecycle_state": "available", "upload_state": "available"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-evidence-rollback")
 	return recordID
 }
@@ -1185,7 +1187,10 @@ func seedRollbackRecordTagMutation(t testing.TB, db *sql.DB, incidentID uuid.UUI
 	t.Helper()
 	recordID := uuid.New()
 	entitytest.SeedHostRecord(t, db, incidentID, actorID, recordID, "Tag Host", "tag-host", "", "")
-	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record_tag", uuid.New().String(), "create", nil, map[string]any{"tag_name": "history_revision"}, historyRef)
+	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record_tag", uuid.New().String(), "create", nil, map[string]any{
+		"record_id": recordID.String(),
+		"tag_name":  "history_revision",
+	}, historyRef)
 	return recordID
 }
 
@@ -1223,10 +1228,21 @@ func seedRollbackMutationWithRef(t testing.TB, db *sql.DB, incidentID uuid.UUID,
 
 func insertMutation(t testing.TB, db *sql.DB, changeSetID uuid.UUID, sequenceNo int, targetKind string, targetID string, operation string, before any, after any) {
 	t.Helper()
+	catalog, err := revisionassembly.CurrentTargetSemanticsCatalog()
+	if err != nil {
+		t.Fatalf("build seeded target-semantics catalog: %v", err)
+	}
+	history, err := catalog.DescribeValues(targetKind, targetID, before, after)
+	if err != nil {
+		t.Fatalf("describe seeded mutation history: %v", err)
+	}
 	mustExec(t, db, `
-INSERT INTO change_set_mutations (change_set_id, sequence_no, target_kind, target_id, operation_kind, before_value, after_value)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-`, changeSetID, sequenceNo, targetKind, targetID, operation, jsonOrNil(t, before), jsonOrNil(t, after))
+INSERT INTO change_set_mutations (
+    change_set_id, sequence_no, target_kind, target_id, operation_kind,
+    before_value, after_value, history_record_ids, history_entry_record_ids
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`, changeSetID, sequenceNo, targetKind, targetID, operation, jsonOrNil(t, before), jsonOrNil(t, after), history.HistoryRecordIDs, history.HistoryEntryRecordIDs)
 }
 
 func seedHistoryRef(t testing.TB, db *sql.DB, recordID uuid.UUID, changeSetID uuid.UUID, sequenceNo int, ref string) {
@@ -1237,12 +1253,20 @@ VALUES ($1, $2, $3, $4)
 `, ref, recordID, changeSetID, sequenceNo)
 }
 
-func rowCells(recordID uuid.UUID, version int64, values map[string]any) map[string]any {
-	cells := make(map[string]any, len(values))
-	for key, value := range values {
-		cells[key] = map[string]any{"value": value}
+func canonicalRowSnapshot(recordID uuid.UUID, incidentID uuid.UUID, recordType string, schemaID string, version int64, source map[string]any) map[string]any {
+	source["record_id"] = recordID.String()
+	source["incident_id"] = incidentID.String()
+	source["row_version"] = version
+	return map[string]any{
+		"snapshot_schema_id": schemaID,
+		"record": map[string]any{
+			"record_id":   recordID.String(),
+			"incident_id": incidentID.String(),
+			"record_type": recordType,
+			"row_version": version,
+		},
+		"source": source,
 	}
-	return map[string]any{"record_id": recordID.String(), "row_version": version, "cells": cells}
 }
 
 func linkValue(linkID uuid.UUID, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, linkType string, fieldKey *string, provenance string, actorID uuid.UUID, deletedAt *time.Time) map[string]any {
