@@ -11,7 +11,7 @@ import (
 func TestJobsExpiryMigration60FreshAndGuarded_Integration(t *testing.T) {
 	t.Run("fresh shape and ordinary downgrade", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-expiry-fresh", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 60)
 		db := migrationDB.SQL()
 		ctx := context.Background()
 		var columns, indexes int
@@ -33,7 +33,7 @@ SELECT (SELECT count(*) FROM information_schema.columns
 
 	t.Run("tombstone blocks downgrade without partial mutation", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-expiry-guarded", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 60)
 		db := migrationDB.SQL()
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `

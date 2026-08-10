@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 2,
-  "input_digest": "sha256:23fc58f2818a76f7941ea329708cf8a95445e3d0da90b06b5c320cc990c1f710",
+  "input_digest": "sha256:2b439744c1a34ebe7e003615f8dd36b10bfdf623c1d2869d90d8300b59a5391f",
   "inputs": [
     {
       "path": "contracts/verification/owners/app.migrate.json",
@@ -512,7 +512,7 @@
     {
       "path": "tools/harness/generated-artifacts/check-json-shapes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:804e9dafb8a5aa4a8e83ae5c45101a68c1401bb20baccc514747dc62581abcc1"
+      "hash": "sha256:dbbb17b3f66e87ebc36e13a65b7c4e95f261d27fc378ca178911c2a84b7d648b"
     },
     {
       "path": "tools/harness/generated-artifacts/contracts/index.mjs",
@@ -522,12 +522,17 @@
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0758f211144f9e07709174ce269564fabc1ae05c51eccc7dc30d904e443c4d4b"
+      "hash": "sha256:febf77503aba57cda7fa1d9631aae1db60a44a379c709e9f8eb08a95b89534d3"
     },
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",
       "role": "renderer_source",
       "hash": "sha256:a3bd391a83e5b6858e78afa420b1883ac1b3a61dc913bc61ec9926a95a56ddf9"
+    },
+    {
+      "path": "tools/harness/generated-artifacts/database-contract-drift/migration-history-evidence.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:489c8c1461e28458a4249e42d6d4d598ffc54d4471a59be5b746b613f8aae385"
     },
     {
       "path": "tools/harness/generated-artifacts/database-contract-drift/migration-history.mjs",
@@ -877,7 +882,7 @@
     {
       "path": "tools/test_families/module.database_migrations.json",
       "role": "test_family_manifest",
-      "hash": "sha256:8f3f8fd96373c54fdf58ee51577191fb30b412d9acdf348543040f432401509a"
+      "hash": "sha256:f0d8934e088c6abb659c64f556e748a06c7554cdd57425623378daa513acc37e"
     },
     {
       "path": "tools/test_families/module.entities.json",

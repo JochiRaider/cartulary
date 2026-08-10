@@ -114,7 +114,7 @@ SELECT raw.created_at, projected.occurred_at, projected.changes
 
 func TestAdministrativeAuditLegacyProjectionCleanupPreservesRawJournal_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "administrative-audit-cleanup", 38)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 38)
 	db := migrationDB.SQL()
 	insertLegacyRaw(t, db, "auth", "user_created")
 	insertLegacyRaw(t, db, "network_flow", "network_flow_import_started")

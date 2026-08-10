@@ -11,7 +11,7 @@ import (
 
 func TestIncidentBundleStorageReferenceMigration37FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "incident-bundle-storage-reference-fresh", 37)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 37)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 
@@ -133,7 +133,7 @@ INSERT INTO incident_bundle_job_payloads (
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, "incident-bundle-storage-reference-reject", 36)
+			migrationDB := harness.MigrationDatabaseThroughT(t, 36)
 			db := migrationDB.SQL()
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

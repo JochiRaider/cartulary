@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.migration_history_evidence.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "collected_at",
+    "evidence_only",
+    "rewrite_authorized",
+    "database_binding",
+    "manifest",
+    "source_audit",
+    "goose_ledger",
+    "findings"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.migration_history_evidence.v2" },
+    "collected_at": { "$ref": "#/$defs/utc_timestamp" },
+    "evidence_only": { "const": true },
+    "rewrite_authorized": { "const": false },
+    "database_binding": { "$ref": "#/$defs/database_binding" },
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "source_audit": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source_audit" }
+    },
+    "goose_ledger": { "$ref": "#/$defs/goose_ledger" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "utc_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "migration_filename": {
+      "type": "string",
+      "pattern": "^[0-9]{5}_[a-z0-9]+(?:_[a-z0-9]+)*\\.sql$"
+    },
+    "database_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_kind"],
+      "properties": {
+        "binding_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "service_ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:@+-]+$"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "sha256",
+        "migration_root",
+        "immutable_through_version",
+        "expected_min_version",
+        "expected_max_version",
+        "expected_version_count"
+      ],
+      "properties": {
+        "schema_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "migration_root": { "const": "db/migrations" },
+        "immutable_through_version": { "type": "integer", "minimum": 0 },
+        "expected_min_version": { "type": "integer", "minimum": 0 },
+        "expected_max_version": { "type": "integer", "minimum": 0 },
+        "expected_version_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "filename",
+        "sha256",
+        "has_goose_up",
+        "has_goose_down",
+        "phase_shaped_name",
+        "immutability_class",
+        "manifest_hash_matches"
+      ],
+      "properties": {
+        "version": { "type": "integer", "minimum": 1 },
+        "filename": { "$ref": "#/$defs/migration_filename" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "has_goose_up": { "type": "boolean" },
+        "has_goose_down": { "type": "boolean" },
+        "phase_shaped_name": { "type": "boolean" },
+        "immutability_class": { "enum": ["protected", "current"] },
+        "manifest_filename": { "$ref": "#/$defs/migration_filename" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "manifest_hash_matches": { "type": "boolean" }
+      },
+      "dependentRequired": {
+        "manifest_filename": ["manifest_sha256"],
+        "manifest_sha256": ["manifest_filename"]
+      }
+    },
+    "goose_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "is_applied", "tstamp"],
+      "properties": {
+        "version": { "type": "integer" },
+        "is_applied": { "type": "boolean" },
+        "tstamp": { "$ref": "#/$defs/utc_timestamp" }
+      }
+    },
+    "goose_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata_present",
+        "row_count",
+        "current_effective_applied_version",
+        "latest_effective_states"
+      ],
+      "properties": {
+        "metadata_present": { "type": "boolean" },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "current_effective_applied_version": { "type": "integer", "minimum": 0 },
+        "latest_effective_states": {
+          "oneOf": [
+            { "type": "array", "items": { "$ref": "#/$defs/goose_state" } },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "metadata_present": { "const": false } }, "required": ["metadata_present"] },
+          "then": {
+            "properties": {
+              "row_count": { "const": 0 },
+              "current_effective_applied_version": { "const": 0 },
+              "latest_effective_states": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "metadata_present": { "const": true } }, "required": ["metadata_present"] },
+          "then": { "properties": { "latest_effective_states": { "type": "array" } } }
+        }
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "reason_code", "detail"],
+      "properties": {
+        "severity": { "enum": ["blocking", "warning", "info"] },
+        "reason_code": {
+          "enum": [
+            "manifest_schema_unsupported",
+            "manifest_duplicate_version",
+            "manifest_version_gap",
+            "source_filename_invalid",
+            "source_duplicate_version",
+            "manifest_filename_mismatch",
+            "manifest_hash_mismatch",
+            "source_marker_missing",
+            "future_phase_shaped_filename",
+            "manifest_version_not_in_source",
+            "source_version_not_in_manifest",
+            "source_version_gap",
+            "db_version_not_in_manifest",
+            "db_applied_version_gap",
+            "migration_metadata_missing",
+            "protected_boundary_applied"
+          ]
+        },
+        "version": { "type": "integer", "minimum": 1 },
+        "filename": { "$ref": "#/$defs/migration_filename" },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[^/\\\\]*$"
+        }
+      }
+    }
+  }
+}

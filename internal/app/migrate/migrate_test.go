@@ -21,7 +21,7 @@ func TestMigrateRunnerAcceptsOnlyExplicitUp(t *testing.T) {
 	gotApply := false
 
 	runner := newTestMigrateRunner(t)
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		gotApply = true
 		return nil
 	}
@@ -75,7 +75,7 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 	}
 
 	migrateCalled := false
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		migrateCalled = true
 		return nil
 	}
@@ -103,7 +103,7 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	runner.openSQL = func(settings postgres.Settings) (*sql.DB, error) {
 		return nil, errors.New("dsn rejected")
 	}
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		migrateCalled = true
 		return nil
 	}
@@ -124,7 +124,7 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
 	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v1","from_version":49,"to_version":23,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"reset or export/import"}]}` + "\n"
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return fakeRemediationFailure{report: strings.TrimSuffix(want, "\n")}
 	}
 
@@ -168,7 +168,7 @@ func TestMigrateRunnerPrintsSafeMigrationReason(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	runner.apply = func(context.Context, *sql.DB, database_migrations.Source) error {
+	runner.apply = func(context.Context, *sql.DB, *database_migrations.Source) error {
 		return fakeMigrationFailure{reason: "schema_migration_execution_failed"}
 	}
 
@@ -187,7 +187,7 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 	ctx := context.WithValue(context.Background(), migrateContextMarkerKey{}, "marker")
 
 	var gotMarker any
-	runner.apply = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		gotMarker = ctx.Value(migrateContextMarkerKey{})
 		return nil
 	}
@@ -218,11 +218,9 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		_ = db.Close()
 	})
 
-	source, err := database_migrations.NewSource(
+	source, err := database_migrations.BuildCanonicalEmbedded(
 		fstest.MapFS{"00001_test.sql": &fstest.MapFile{Data: []byte("-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n")}},
 		".",
-		"test.lineage.v1",
-		"test_lineage_v1",
 	)
 	if err != nil {
 		t.Fatalf("construct test migration source: %v", err)
@@ -236,10 +234,10 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		openSQL: func(settings postgres.Settings) (*sql.DB, error) {
 			return db, nil
 		},
-		apply: func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+		apply: func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 			return nil
 		},
-		source: func() (database_migrations.Source, error) {
+		source: func() (*database_migrations.Source, error) {
 			return source, nil
 		},
 	}

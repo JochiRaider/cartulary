@@ -62,7 +62,7 @@ func (state migrationLineageState) HasExactExpected(lineageID string) bool {
 }
 
 func newMigrationLineageRemediationError(
-	source Source,
+	source *Source,
 	state migrationLineageState,
 	currentVersion int64,
 	targetVersion int64,
@@ -73,7 +73,7 @@ func newMigrationLineageRemediationError(
 	}
 }
 
-func migrationLineageRemediationReport(source Source, state migrationLineageState, currentVersion int64, targetVersion int64, repositoryHeadVersion int64) migrationRemediationReport {
+func migrationLineageRemediationReport(source *Source, state migrationLineageState, currentVersion int64, targetVersion int64, repositoryHeadVersion int64) migrationRemediationReport {
 	var rawValue *string
 	if len(state.ObservedIDs) > 0 {
 		raw := state.ObservedIDs[0]
@@ -83,7 +83,7 @@ func migrationLineageRemediationReport(source Source, state migrationLineageStat
 
 	return migrationRemediationReport{
 		SchemaID:    migrationRemediationSchemaID,
-		Boundary:    source.lineageBoundary,
+		Boundary:    sourceLineageBoundary(source),
 		FromVersion: currentVersion,
 		ToVersion:   targetVersion,
 		Findings: []migrationRemediationFinding{
@@ -92,7 +92,7 @@ func migrationLineageRemediationReport(source Source, state migrationLineageStat
 				RawValue: rawValue,
 				RawValuePair: migrationRemediationFacts{
 					CurrentVersion:        currentVersion,
-					ExpectedLineageID:     source.lineageID,
+					ExpectedLineageID:     sourceLineageID(source),
 					LineageTablePresent:   state.TablePresent,
 					ObservedLineageIDs:    observedIDs,
 					RepositoryHeadVersion: repositoryHeadVersion,

@@ -11,7 +11,7 @@ import (
 
 func TestReferencePackStorageReferenceMigration38FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "reference-pack-storage-reference-fresh", 38)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 38)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 
@@ -127,7 +127,7 @@ INSERT INTO reference_pack_job_payloads (
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, "reference-pack-storage-reference-reject", 37)
+			migrationDB := harness.MigrationDatabaseThroughT(t, 37)
 			db := migrationDB.SQL()
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

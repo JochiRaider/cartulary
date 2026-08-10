@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.database_migrations_contract_index.v2",
+  "family_id": "database-migrations",
+  "contract_major": 2,
+  "owner_requirements": [
+    "REQ-01-657",
+    "REQ-04-151"
+  ],
+  "current_schema_ids": [
+    "cartulary.migration_history_evidence.v2"
+  ],
+  "historical_reader_schema_ids": [],
+  "contract_files": {
+    "migration_history_evidence_schema": "contracts/database-migrations/migration-history-evidence.v2.schema.json"
+  },
+  "fixtures": {
+    "valid": "contracts/database-migrations/fixtures/migration-history-evidence.v2.valid.json",
+    "rejected_v1": "contracts/database-migrations/fixtures/migration-history-evidence.v1.rejected.json",
+    "negative": "contracts/database-migrations/fixtures/migration-history-evidence-negative.v2.json"
+  },
+  "compatibility_policy": {
+    "v1_reader": false,
+    "parser_aliases": false,
+    "dual_output": false
+  }
+}

@@ -2,7 +2,6 @@ package evidence_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,9 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -414,22 +411,7 @@ SELECT count(*)
 
 func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.NewMigrationDatabaseT(t, "evidence-blob-association-race")
-	migrationDB, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	source, err := dbmigrations.Source()
-	if err != nil {
-		t.Fatalf("load migration source: %v", err)
-	}
-	if err := database_migrations.Apply(context.Background(), migrationDB, source); err != nil {
-		_ = migrationDB.Close()
-		t.Fatalf("migrate concurrent association database: %v", err)
-	}
-	if err := migrationDB.Close(); err != nil {
-		t.Fatalf("close migration connection: %v", err)
-	}
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "evidence-blob-association-race")
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
 		t.Fatalf("open concurrent association pool: %v", err)

@@ -226,6 +226,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Backend-only Artifacts source catalog and generated source policy bindings."
+    },
+    {
+      "family_id": "database-migrations",
+      "contract_root": "contracts/database-migrations",
+      "generation_status": "active",
+      "go_name": "DatabaseMigrationArtifacts",
+      "output_order": 13,
+      "generated_outputs": [
+        "internal/gen/contractdatabasemigrations/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Backend-only Database Migrations evidence schema and v2-only conformance fixtures."
     }
   ]
 }

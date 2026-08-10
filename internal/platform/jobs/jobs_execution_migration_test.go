@@ -10,7 +10,7 @@ import (
 
 func TestJobsExecutionMigration59FreshAndGuarded_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-execution-fresh", 59)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 59)
 	db := migrationDB.SQL()
 	var columns int
 	if err := db.QueryRowContext(context.Background(), `
@@ -29,7 +29,7 @@ SELECT count(*)
 
 func TestJobsExecutionMigration59RejectsUnsafeIdentityBeforeMutation_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-execution-reject", 58)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 58)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

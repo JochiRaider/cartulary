@@ -27,14 +27,14 @@ var jobsV2Bindings = map[string]string{
 func TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration(t *testing.T) {
 	t.Run("fresh", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-fresh", 58)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 58)
 		db := migrationDB.SQL()
 		assertJobsV2Shape(t, db)
 	})
 
 	t.Run("exact backfill and legacy terminal", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-upgrade", 57)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 57)
 		db := migrationDB.SQL()
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
@@ -155,7 +155,7 @@ INSERT INTO collaboration_event_intents (
 	for name, testCase := range tests {
 		t.Run(name, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-definition-reject", 57)
+			migrationDB := harness.MigrationDatabaseThroughT(t, 57)
 			db := migrationDB.SQL()
 			testCase.seed(t, db)
 			err := migrationDB.ApplyThrough(context.Background(), 58)

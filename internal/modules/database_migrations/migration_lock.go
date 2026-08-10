@@ -8,6 +8,8 @@ import (
 	"time"
 
 	gooselock "github.com/pressly/goose/v3/lock"
+
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 )
 
 const (
@@ -17,11 +19,7 @@ const (
 )
 
 func newMigrationSessionLocker() (gooselock.SessionLocker, error) {
-	return gooselock.NewPostgresSessionLocker(
-		gooselock.WithLockID(migrationAdvisoryLockID),
-		gooselock.WithLockTimeout(1, 300),
-		gooselock.WithUnlockTimeout(1, 30),
-	)
+	return sourcecatalog.NewSessionLocker()
 }
 
 type validatingSessionLocker struct {
@@ -133,7 +131,7 @@ func withLockedMigrationSession(
 	return nil
 }
 
-func migrationWorkNeeded(ctx context.Context, reader sqlLedgerReader, source Source) (bool, error) {
+func migrationWorkNeeded(ctx context.Context, reader sqlLedgerReader, source *Source) (bool, error) {
 	snapshot, err := readSQLMigrationState(ctx, reader)
 	if err != nil {
 		return false, newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
@@ -153,7 +151,7 @@ func migrationWorkNeeded(ctx context.Context, reader sqlLedgerReader, source Sou
 	return false, newMigrationFailure(reasonSchemaMigrationHistoryInvalid, nil)
 }
 
-func verifyMigrationPostcondition(ctx context.Context, reader sqlLedgerReader, source Source) error {
+func verifyMigrationPostcondition(ctx context.Context, reader sqlLedgerReader, source *Source) error {
 	needed, err := migrationWorkNeeded(ctx, reader, source)
 	if err != nil {
 		return err

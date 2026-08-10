@@ -5,15 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"io"
-	"io/fs"
 	"log"
 	"sync"
 	"testing"
 	"testing/fstest"
+
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 )
 
 func TestApplyCanceledContextSkipsDatabaseAccess(t *testing.T) {
-	source, err := NewSource(
+	source, err := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
 		"lineage",
@@ -49,7 +50,7 @@ func TestProviderSourceIsolation(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
-			source, err := NewSource(
+			source, err := buildSource(
 				fstest.MapFS{testCase.migration: &fstest.MapFile{Data: []byte(validMigrationBody)}},
 				"migrations",
 				testCase.name+"-lineage",
@@ -59,7 +60,7 @@ func TestProviderSourceIsolation(t *testing.T) {
 				t.Errorf("%s: construct source: %v", testCase.name, err)
 				return
 			}
-			provider, err := newGooseProvider(&sql.DB{}, source.catalog, log.New(io.Discard, "", 0))
+			provider, err := sourcecatalog.NewProvider(&sql.DB{}, source, log.New(io.Discard, "", 0))
 			if err != nil {
 				t.Errorf("%s: create provider: %v", testCase.name, err)
 				return
@@ -74,7 +75,7 @@ func TestProviderSourceIsolation(t *testing.T) {
 }
 
 func TestMigrationProviderUsesImmutableRoot(t *testing.T) {
-	source, err := NewSource(
+	source, err := buildSource(
 		fstest.MapFS{"nested/00001_test.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		"nested",
 		"lineage",
@@ -83,11 +84,11 @@ func TestMigrationProviderUsesImmutableRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct source: %v", err)
 	}
-	entries, err := fs.ReadDir(source.catalog, ".")
+	inspection, err := InspectSource(source)
 	if err != nil {
-		t.Fatalf("read rooted source: %v", err)
+		t.Fatalf("inspect rooted source: %v", err)
 	}
-	if len(entries) != 1 || entries[0].Name() != "00001_test.sql" {
-		t.Fatalf("unexpected rooted source entries: %#v", entries)
+	if len(inspection.Entries) != 1 || inspection.Entries[0].Filename != "00001_test.sql" {
+		t.Fatalf("unexpected rooted source entries: %#v", inspection.Entries)
 	}
 }

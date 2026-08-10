@@ -10,7 +10,7 @@ import (
 
 func TestSavedViewsStorageHardeningMigration52FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-fresh", 52)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 52)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
@@ -88,7 +88,7 @@ $4, $5, $6, $7
 
 func TestSavedViewsStorageHardeningMigration52PreflightReportsOnlyCounts_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "saved-views-storage-hardening-preflight", 51)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 51)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

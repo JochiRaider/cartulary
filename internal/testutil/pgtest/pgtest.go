@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"path/filepath"
 	"runtime"
@@ -25,6 +24,7 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -456,10 +456,6 @@ func (h *Harness) NewDatabase(ctx context.Context, prefix string) (*TestDatabase
 	return h.newDatabase(ctx, prefix, suiteservices.FixtureReusePerTest, fixtureAttribution{})
 }
 
-func (h *Harness) NewMigrationDatabase(ctx context.Context, prefix string) (*TestDatabase, error) {
-	return h.newDatabase(ctx, prefix, suiteservices.FixtureReuseMigrationScratch, fixtureAttribution{})
-}
-
 func (h *Harness) newDatabase(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (*TestDatabase, error) {
 	name := h.nextDatabaseName(prefix)
 	start := time.Now()
@@ -631,10 +627,10 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 	return testDB
 }
 
-func (h *Harness) NewMigrationDatabaseT(t testing.TB, prefix string) *TestDatabase {
+func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
 	t.Helper()
 	attribution := fixtureAttributionFor(t, "pgtest")
-	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
+	testDB, err := h.newDatabase(context.Background(), "migration_scratch", suiteservices.FixtureReuseMigrationScratch, attribution)
 	if err != nil {
 		t.Fatalf("create migration scratch database: %v", err)
 	}
@@ -650,8 +646,8 @@ func (h *Harness) NewMigrationDatabaseT(t testing.TB, prefix string) *TestDataba
 	return testDB
 }
 
-func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string) *MigrationDatabase {
-	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *MigrationDatabase) error {
+func (h *Harness) MigrationDatabaseT(t testing.TB) *MigrationDatabase {
+	return h.migrationDatabaseT(t, func(ctx context.Context, db *MigrationDatabase) error {
 		source, err := dbmigrations.Source()
 		if err != nil {
 			return err
@@ -660,13 +656,17 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string) *MigrationData
 	})
 }
 
-func (h *Harness) MigrationDatabaseThroughT(t testing.TB, prefix string, version int64) *MigrationDatabase {
-	return h.migrationDatabaseT(t, prefix, func(ctx context.Context, db *MigrationDatabase) error {
+func (h *Harness) MigrationDatabaseThroughT(t testing.TB, version int64) *MigrationDatabase {
+	t.Helper()
+	if err := validateApplyThroughVersion(version); err != nil {
+		t.Fatalf("migrate scratch database: %v", err)
+	}
+	return h.migrationDatabaseT(t, func(ctx context.Context, db *MigrationDatabase) error {
 		return db.ApplyThrough(ctx, version)
 	})
 }
 
-func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(context.Context, *MigrationDatabase) error) *MigrationDatabase {
+func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *MigrationDatabase) error) *MigrationDatabase {
 	t.Helper()
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
@@ -674,7 +674,7 @@ func (h *Harness) migrationDatabaseT(t testing.TB, prefix string, apply func(con
 	// group/reset/transaction helper
 	// for current-head schema assertions; keep MigrationDatabaseT for tests that
 	// prove migration runner behavior, boundary upgrades, or backfills.
-	testDB := h.NewMigrationDatabaseT(t, prefix)
+	testDB := h.newMigrationDatabaseT(t)
 
 	var db *sql.DB
 	t.Cleanup(func() {
@@ -715,8 +715,8 @@ func (db *MigrationDatabase) SQL() *sql.DB {
 
 // ApplyThrough advances this scratch database through a positive target.
 func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) error {
-	if version <= 0 {
-		return errors.New("migration apply-through version must be positive")
+	if err := validateApplyThroughVersion(version); err != nil {
+		return err
 	}
 	if !db.valid() {
 		return errors.New("migration database capability is not harness-issued")
@@ -726,8 +726,8 @@ func (db *MigrationDatabase) ApplyThrough(ctx context.Context, version int64) er
 
 // RollbackThrough rolls this scratch database back through a non-negative target.
 func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64) error {
-	if version < 0 {
-		return errors.New("migration rollback-through version must be non-negative")
+	if err := validateRollbackThroughVersion(version); err != nil {
+		return err
 	}
 	if !db.valid() {
 		return errors.New("migration database capability is not harness-issued")
@@ -737,6 +737,20 @@ func (db *MigrationDatabase) RollbackThrough(ctx context.Context, version int64)
 
 func (db *MigrationDatabase) valid() bool {
 	return db != nil && db.identity == issuedMigrationDatabaseIdentity && db.db != nil
+}
+
+func validateApplyThroughVersion(version int64) error {
+	if version <= 0 {
+		return errors.New("migration apply-through version must be positive")
+	}
+	return nil
+}
+
+func validateRollbackThroughVersion(version int64) error {
+	if version < 0 {
+		return errors.New("migration rollback-through version must be non-negative")
+	}
+	return nil
 }
 
 func applyCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version int64) error {
@@ -758,17 +772,11 @@ func rollbackCanonicalMigrationsThrough(ctx context.Context, db *sql.DB, version
 }
 
 func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
-	sourceFS, err := fs.Sub(dbmigrations.Files, dbmigrations.EmbeddedPath)
+	source, err := dbmigrations.Source()
 	if err != nil {
-		return nil, fmt.Errorf("resolve canonical migration source: %w", err)
+		return nil, fmt.Errorf("load canonical migration source: %w", err)
 	}
-	return goose.NewProvider(
-		goose.DialectPostgres,
-		db,
-		sourceFS,
-		goose.WithDisableGlobalRegistry(true),
-		goose.WithLogger(log.New(io.Discard, "", 0)),
-	)
+	return sourcecatalog.NewProvider(db, source, log.New(io.Discard, "", 0))
 }
 
 func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *TestDatabase {
@@ -1257,10 +1265,6 @@ func (db *RollbackDB) BeginTx(ctx context.Context, _ pgx.TxOptions) (pgx.Tx, err
 
 func (h *Harness) DropDatabase(ctx context.Context, name string) error {
 	return h.dropDatabase(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
-}
-
-func (h *Harness) DropMigrationDatabase(ctx context.Context, name string) error {
-	return h.dropDatabase(ctx, name, suiteservices.FixtureReuseMigrationScratch, fixtureAttribution{})
 }
 
 func (h *Harness) dropDatabase(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {

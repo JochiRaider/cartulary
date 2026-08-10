@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -80,6 +81,7 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 			transport:     transport,
 			loadConfig:    loadConfig,
 			setupPostgres: setupPostgres,
+			source:        dbmigrations.Source,
 			now:           now,
 		},
 		objectStore: objectStoreExecutor{

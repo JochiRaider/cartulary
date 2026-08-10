@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -19,6 +19,7 @@ type migrationEvidenceExecutor struct {
 	transport     operatorTransport
 	loadConfig    func(string) (configassembly.Loaded, error)
 	setupPostgres func(context.Context, postgres.Settings) (operatorPostgresPool, error)
+	source        func() (*database_migrations.Source, error)
 	now           func() time.Time
 }
 
@@ -41,6 +42,10 @@ func (executor migrationEvidenceExecutor) runCommand(ctx context.Context, args [
 }
 
 func (executor migrationEvidenceExecutor) capture(ctx context.Context, parsed migrationEvidenceCaptureArgs) error {
+	source, err := executor.source()
+	if err != nil {
+		return fmt.Errorf("load migration source: %w", err)
+	}
 	loaded, err := executor.loadConfig(parsed.sourceConfigPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -63,7 +68,7 @@ func (executor migrationEvidenceExecutor) capture(ctx context.Context, parsed mi
 	result, err := migrationevidence.Build(ctx, migrationevidence.DatabaseBinding{
 		BindingKind: cfg.Roots.DatabaseStorage.BindingKind,
 		ServiceRef:  cfg.Roots.DatabaseStorage.ServiceRef,
-	}, pool, collectedAt.UTC(), parsed.manifestPath, dbmigrations.Files)
+	}, pool, collectedAt.UTC(), parsed.manifestPath, source)
 	if err != nil {
 		return err
 	}

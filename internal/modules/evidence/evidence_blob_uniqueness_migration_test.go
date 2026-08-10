@@ -11,7 +11,7 @@ import (
 
 func TestEvidenceBlobUniquenessMigration53PreflightAndEnforcement_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "evidence-blob-uniqueness", 52)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 52)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

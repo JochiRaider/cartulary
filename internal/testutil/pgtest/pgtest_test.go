@@ -19,6 +19,7 @@ import (
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -327,7 +328,7 @@ func TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay(t *testing.T) {
 	}
 
 	migrateCalls := 0
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		migrateCalls++
 		return nil
 	}
@@ -685,7 +686,7 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		dropped = append(dropped, name)
 		return nil
 	}
-	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source database_migrations.Source) error {
+	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return nil
 	}
 
@@ -698,7 +699,7 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 	}
 
 	t.Run("migrate scratch", func(t *testing.T) {
-		harness.MigrationDatabaseT(t, "standalone-scratch")
+		harness.MigrationDatabaseT(t)
 	})
 
 	if len(dropped) != 1 || dropped[0] != scratchName {
@@ -746,7 +747,7 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 	}
 
 	t.Run("migrate scratch", func(t *testing.T) {
-		harness.MigrationDatabaseThroughT(t, "attached-scratch", 1)
+		harness.MigrationDatabaseThroughT(t, 1)
 	})
 
 	if dropCalls != 0 {
@@ -773,6 +774,15 @@ func TestMigrationDatabaseTCleanupRetainsAttachedSuiteScratchDatabase(t *testing
 }
 
 func TestMigrationDatabaseTargetedOperationValidation(t *testing.T) {
+	hash, err := pgschema.Hash()
+	if err != nil {
+		t.Fatalf("hash canonical migration catalog: %v", err)
+	}
+	const wantHash = "fccebd1e8dd194c362a352e25041b33ad371c258a337d5d00bad75248805d9cc"
+	if hash != wantHash {
+		t.Fatalf("canonical migration schema hash = %s, want %s", hash, wantHash)
+	}
+
 	oldApply := applyMigrationsThrough
 	oldRollback := rollbackMigrationsThrough
 	t.Cleanup(func() {

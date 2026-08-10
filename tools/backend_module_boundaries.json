@@ -10,6 +10,132 @@
   "scan_excludes": [
     "internal/gen"
   ],
+  "migration_source_boundary": {
+    "scan_roots": [
+      "cmd",
+      "db",
+      "internal",
+      "tools"
+    ],
+    "restricted_imports": [
+      {
+        "id": "database-migrations-sourcecatalog-import",
+        "match_kind": "exact",
+        "imports": [
+          "github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
+        ],
+        "scan_paths": [
+          "cmd/**",
+          "db/**",
+          "internal/**",
+          "tools/**"
+        ],
+        "allowed_paths": [
+          "internal/modules/database_migrations/**",
+          "internal/testutil/pgtest/**"
+        ],
+        "production_only": false
+      },
+      {
+        "id": "production-no-pgtest-import",
+        "match_kind": "exact",
+        "imports": [
+          "github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+        ],
+        "scan_paths": [
+          "cmd/**",
+          "db/**",
+          "internal/**",
+          "tools/**"
+        ],
+        "allowed_paths": [
+          "internal/modules/auth/testsupport/**",
+          "internal/modules/incidents/testsupport/**",
+          "internal/modules/timeline/testsupport/**",
+          "internal/testutil/**",
+          "tools/testservices/**"
+        ],
+        "production_only": true
+      }
+    ],
+    "forbidden_declarations": [
+      {
+        "id": "database-migrations-adapter-no-raw-exports",
+        "symbols": [
+          "EmbeddedPath",
+          "Files",
+          "LineageBoundary",
+          "LineageID"
+        ],
+        "scan_paths": [
+          "db/migrations/**"
+        ],
+        "allowed_paths": [],
+        "production_only": true
+      },
+      {
+        "id": "database-migrations-no-generic-source-constructor",
+        "symbols": [
+          "NewSource"
+        ],
+        "scan_paths": [
+          "internal/modules/database_migrations/**"
+        ],
+        "allowed_paths": [],
+        "production_only": true
+      },
+      {
+        "id": "pgtest-no-raw-migration-scratch-surface",
+        "symbols": [
+          "DropMigrationDatabase",
+          "NewMigrationDatabase",
+          "NewMigrationDatabaseT"
+        ],
+        "scan_paths": [
+          "internal/testutil/pgtest/**"
+        ],
+        "allowed_paths": [],
+        "production_only": true
+      },
+      {
+        "id": "targeted-migrations-remain-pgtest-only",
+        "symbols": [
+          "ApplyThrough",
+          "MigrationDatabaseT",
+          "MigrationDatabaseThroughT",
+          "RollbackThrough"
+        ],
+        "scan_paths": [
+          "cmd/**",
+          "db/**",
+          "internal/**",
+          "tools/**"
+        ],
+        "allowed_paths": [
+          "internal/testutil/pgtest/**"
+        ],
+        "production_only": true
+      }
+    ],
+    "exact_calls": [
+      {
+        "id": "canonical-migration-source-single-adapter-construction",
+        "symbol": "BuildCanonicalEmbedded",
+        "scan_paths": [
+          "cmd/**",
+          "db/**",
+          "internal/**",
+          "tools/**"
+        ],
+        "allowed_paths": [
+          "db/migrations/source.go"
+        ],
+        "required_path": "db/migrations/source.go",
+        "required_count": 1,
+        "production_only": true
+      }
+    ]
+  },
   "owner_port_only_imports": [
     {
       "id": "extensions-facade-composition-import",

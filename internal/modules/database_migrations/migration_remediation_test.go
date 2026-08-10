@@ -13,7 +13,7 @@ import (
 
 func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-current", 1)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 
 	if err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t)); err != nil {
@@ -23,7 +23,7 @@ func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 
 func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-historical", 1)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `DROP TABLE schema_migration_lineage`); err != nil {
 		t.Fatalf("simulate historical migration line: %v", err)
@@ -32,7 +32,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	report := requireMigrationRemediation(t, err)
 	if report.SchemaID != "cartulary.migration_remediation_report.v1" ||
-		report.Boundary != dbmigrations.LineageBoundary ||
+		report.Boundary != expectedCanonicalLineageBoundary ||
 		report.FromVersion != 1 ||
 		report.ToVersion != 61 ||
 		len(report.Findings) != 1 {
@@ -42,7 +42,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	if finding.Field != "schema_migration_lineage" ||
 		finding.ReasonCode != "historical_migration_lineage" ||
 		finding.RawValue != nil ||
-		finding.RawValuePair.ExpectedLineageID != dbmigrations.LineageID ||
+		finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID ||
 		finding.RawValuePair.LineageTablePresent {
 		t.Fatalf("unexpected remediation finding: %#v", finding)
 	}
@@ -53,7 +53,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 
 func TestMigrationLineagePreflightReportsObservedWrongLineage(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-wrong", 1)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `
 DELETE FROM schema_migration_lineage;
@@ -71,7 +71,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.legacy_line.v1" {
 		t.Fatalf("unexpected observed lineages: %#v", got)
 	}
-	if finding.RawValuePair.ExpectedLineageID != dbmigrations.LineageID ||
+	if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID ||
 		!finding.RawValuePair.LineageTablePresent {
 		t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
 	}
@@ -79,7 +79,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 
 func TestMigrationLineagePreflightReportsApplyHeadTarget(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "migration-lineage-apply-head", 2)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 2)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `DROP TABLE schema_migration_lineage`); err != nil {
 		t.Fatalf("simulate historical migration line: %v", err)
@@ -115,7 +115,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			postgresHarness := pgtest.Start(t)
-			migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "production-preflight-"+test.name, test.through)
+			migrationDB := postgresHarness.MigrationDatabaseThroughT(t, test.through)
 			db := migrationDB.SQL()
 			if _, err := db.ExecContext(context.Background(), test.mutate); err != nil {
 				t.Fatalf("seed production preflight state: %v", err)
@@ -181,7 +181,7 @@ func requireMigrationRemediation(t testing.TB, err error) remediationReportView 
 	return report
 }
 
-func canonicalMigrationSource(t testing.TB) postgres.Source {
+func canonicalMigrationSource(t testing.TB) *postgres.Source {
 	t.Helper()
 	source, err := dbmigrations.Source()
 	if err != nil {

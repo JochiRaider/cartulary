@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	postgres "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -25,8 +24,12 @@ func TestEnsureSchemaReadyAllowsCurrentHead(t *testing.T) {
 
 func TestEnsureSchemaReadyRejectsEmptyDatabase(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.NewMigrationDatabaseT(t, "schema-ready-empty")
-	pool := openSchemaReadinessPool(t, testDB.DSN)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
+	if err := migrationDB.RollbackThrough(context.Background(), 0); err != nil {
+		t.Fatalf("rollback empty schema fixture: %v", err)
+	}
+	databaseName := migrationScratchDatabaseName(t, migrationDB.SQL())
+	pool := openSchemaReadinessPoolForDatabase(t, postgresHarness.AdminDSN(), databaseName)
 
 	err := postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t))
 	requireSchemaReadinessDiagnostic(t, err, "schema_migration_required")
@@ -63,7 +66,7 @@ INSERT INTO goose_db_version (version_id, is_applied) VALUES (62, true);
 	}
 
 	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
-	if report.Boundary != dbmigrations.LineageBoundary || report.FromVersion != 62 || report.ToVersion != 61 {
+	if report.Boundary != expectedCanonicalLineageBoundary || report.FromVersion != 62 || report.ToVersion != 61 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
 	finding := report.Findings[0]
@@ -87,7 +90,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	if finding.RawValue == nil || *finding.RawValue != "cartulary.legacy_line.v1" {
 		t.Fatalf("expected observed wrong lineage in raw_value: %#v", finding)
 	}
-	if finding.RawValuePair.ExpectedLineageID != dbmigrations.LineageID || !finding.RawValuePair.LineageTablePresent {
+	if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID || !finding.RawValuePair.LineageTablePresent {
 		t.Fatalf("unexpected remediation facts: %#v", finding.RawValuePair)
 	}
 }
@@ -151,7 +154,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 	}
 	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
 	facts := report.Findings[0].RawValuePair
-	if len(facts.ObservedLineageIDs) != 2 || facts.ObservedLineageIDs[0] != "cartulary.legacy_line.v1" || facts.ObservedLineageIDs[1] != dbmigrations.LineageID {
+	if len(facts.ObservedLineageIDs) != 2 || facts.ObservedLineageIDs[0] != "cartulary.legacy_line.v1" || facts.ObservedLineageIDs[1] != expectedCanonicalLineageID {
 		t.Fatalf("unexpected mixed lineage report: %#v", report)
 	}
 }
@@ -162,9 +165,9 @@ func migratedSchemaReadinessDatabase(t testing.TB, prefix string, throughVersion
 	postgresHarness := pgtest.Start(t)
 	var migrationDB *pgtest.MigrationDatabase
 	if throughVersion == 0 {
-		migrationDB = postgresHarness.MigrationDatabaseT(t, prefix)
+		migrationDB = postgresHarness.MigrationDatabaseT(t)
 	} else {
-		migrationDB = postgresHarness.MigrationDatabaseThroughT(t, prefix, throughVersion)
+		migrationDB = postgresHarness.MigrationDatabaseThroughT(t, throughVersion)
 	}
 	db := migrationDB.SQL()
 	databaseName := migrationScratchDatabaseName(t, db)

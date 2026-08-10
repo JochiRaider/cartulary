@@ -20,21 +20,7 @@ import (
 
 func TestApplyCancelsLongRunningMigration(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "migration-cancel")
-	if err != nil {
-		t.Fatalf("create migration database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop migration database: %v", err)
-		}
-	})
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open migration database: %v", err)
-	}
-	defer db.Close()
+	db := emptyMigrationDatabase(t, postgresHarness).SQL()
 
 	migrationDir := t.TempDir()
 	migrationPath := filepath.Join(migrationDir, "00001_sleep.sql")
@@ -49,7 +35,7 @@ SELECT 1;
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	source, err := postgres.NewSource(os.DirFS(migrationDir), ".", "cancellation.test.v1", "cancellation_test_v1")
+	source, err := postgres.BuildCanonicalEmbedded(os.DirFS(migrationDir), ".")
 	if err != nil {
 		t.Fatalf("construct cancellation migration source: %v", err)
 	}
@@ -67,15 +53,7 @@ func TestConcurrentApplyLocking(t *testing.T) {
 	for iteration := 0; iteration < 3; iteration++ {
 		t.Run(fmt.Sprintf("iteration-%d", iteration+1), func(t *testing.T) {
 			postgresHarness := pgtest.Start(t)
-			testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "migration-lock")
-			if err != nil {
-				t.Fatalf("create migration database: %v", err)
-			}
-			t.Cleanup(func() {
-				if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-					t.Fatalf("drop migration database: %v", err)
-				}
-			})
+			db := emptyMigrationDatabase(t, postgresHarness).SQL()
 
 			source := testMigrationSource(t, `-- +goose Up
 -- +goose StatementBegin
@@ -94,8 +72,8 @@ INSERT INTO migration_lock_probe (singleton) VALUES (true);
 -- +goose Down
 DROP TABLE migration_lock_probe;
 `)
-			dbOne := openMigrationDatabase(t, testDB.DSN)
-			dbTwo := openMigrationDatabase(t, testDB.DSN)
+			dbOne := db
+			dbTwo := db
 			start := make(chan struct{})
 			errorsByApply := make([]error, 2)
 			var wait sync.WaitGroup
@@ -135,17 +113,7 @@ DROP TABLE migration_lock_probe;
 
 func TestApplyCancellationWhileWaitingForLock(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "migration-lock-cancel")
-	if err != nil {
-		t.Fatalf("create migration database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop migration database: %v", err)
-		}
-	})
-
-	db := openMigrationDatabase(t, testDB.DSN)
+	db := emptyMigrationDatabase(t, postgresHarness).SQL()
 	holder, err := db.Conn(context.Background())
 	if err != nil {
 		t.Fatalf("open lock holder: %v", err)
@@ -180,25 +148,16 @@ func TestApplyCancellationWhileWaitingForLock(t *testing.T) {
 
 func TestApplyExecutionFailureIsSafeAndReleasesLock(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "migration-execution-failure")
-	if err != nil {
-		t.Fatalf("create migration database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop migration database: %v", err)
-		}
-	})
-	db := openMigrationDatabase(t, testDB.DSN)
+	db := emptyMigrationDatabase(t, postgresHarness).SQL()
 	source := testMigrationSource(t, `-- +goose Up
 SELECT secret_bind_payload FROM deliberately_missing_sensitive_relation;
 -- +goose Down
 SELECT 1;
 `)
 
-	err = postgres.Apply(context.Background(), db, source)
+	err := postgres.Apply(context.Background(), db, source)
 	requireExternalMigrationFailureReason(t, err, "schema_migration_execution_failed")
-	for _, forbidden := range []string{"secret_bind_payload", "deliberately_missing_sensitive_relation", testDB.DSN, "00001_test.sql"} {
+	for _, forbidden := range []string{"secret_bind_payload", "deliberately_missing_sensitive_relation", "00001_test.sql"} {
 		if strings.Contains(err.Error(), forbidden) {
 			t.Fatalf("safe migration error disclosed %q: %q", forbidden, err.Error())
 		}
@@ -208,7 +167,7 @@ SELECT 1;
 
 func TestApplyPreflightFailureReleasesLock(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, "migration-preflight-failure", 1)
+	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `UPDATE schema_migration_lineage SET lineage_id = 'historical.private.v1'`); err != nil {
 		t.Fatalf("seed historical lineage: %v", err)
@@ -231,17 +190,8 @@ func TestApplyPreflightFailureReleasesLock(t *testing.T) {
 
 func TestApplyFailedPostconditionReleasesLock(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(context.Background(), "migration-postcondition")
-	if err != nil {
-		t.Fatalf("create migration database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop migration database: %v", err)
-		}
-	})
-	db := openMigrationDatabase(t, testDB.DSN)
-	source, err := postgres.NewSource(fstest.MapFS{
+	db := emptyMigrationDatabase(t, postgresHarness).SQL()
+	source, err := postgres.BuildCanonicalEmbedded(fstest.MapFS{
 		"00001_lineage.sql": &fstest.MapFile{Data: []byte(`-- +goose Up
 CREATE TABLE schema_migration_lineage (
     lineage_id text PRIMARY KEY,
@@ -249,7 +199,7 @@ CREATE TABLE schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('locking.test.v1', 'Migration locking integration test.');
+VALUES ('cartulary.prod_ddl_rebaseline.v1', 'Migration locking integration test.');
 -- +goose Down
 DROP TABLE schema_migration_lineage;
 `)},
@@ -270,7 +220,7 @@ EXECUTE FUNCTION suppress_migration_version();
 -- +goose Down
 DROP FUNCTION suppress_migration_version();
 `)},
-	}, ".", "locking.test.v1", "locking_test_v1")
+	}, ".")
 	if err != nil {
 		t.Fatalf("construct failed-postcondition source: %v", err)
 	}
@@ -280,7 +230,7 @@ DROP FUNCTION suppress_migration_version();
 	requireNoMigrationAdvisoryLocks(t, db)
 }
 
-func testMigrationSource(t testing.TB, body string) postgres.Source {
+func testMigrationSource(t testing.TB, body string) *postgres.Source {
 	t.Helper()
 	body = strings.Replace(body, "-- +goose Up\n", `-- +goose Up
 CREATE TABLE IF NOT EXISTS schema_migration_lineage (
@@ -289,14 +239,12 @@ CREATE TABLE IF NOT EXISTS schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('locking.test.v1', 'Migration locking integration test.')
+VALUES ('cartulary.prod_ddl_rebaseline.v1', 'Migration locking integration test.')
 ON CONFLICT (lineage_id) DO NOTHING;
 `, 1)
-	source, err := postgres.NewSource(
+	source, err := postgres.BuildCanonicalEmbedded(
 		fstest.MapFS{"00001_test.sql": &fstest.MapFile{Data: []byte(body)}},
 		".",
-		"locking.test.v1",
-		"locking_test_v1",
 	)
 	if err != nil {
 		t.Fatalf("construct test source: %v", err)
@@ -304,17 +252,16 @@ ON CONFLICT (lineage_id) DO NOTHING;
 	return source
 }
 
-const validExternalMigrationBody = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"
-
-func openMigrationDatabase(t testing.TB, dsn string) *sql.DB {
+func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.MigrationDatabase {
 	t.Helper()
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatalf("open migration database: %v", err)
+	database := harness.MigrationDatabaseThroughT(t, 1)
+	if err := database.RollbackThrough(context.Background(), 0); err != nil {
+		t.Fatalf("rollback canonical migration scratch to zero: %v", err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
-	return db
+	return database
 }
+
+const validExternalMigrationBody = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"
 
 func requireExternalMigrationFailureReason(t testing.TB, err error, want string) {
 	t.Helper()

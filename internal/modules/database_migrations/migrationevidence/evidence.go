@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -20,12 +19,16 @@ import (
 )
 
 const (
-	SchemaID            = "cartulary.migration_history_evidence.v1"
+	SchemaID            = "cartulary.migration_history_evidence.v2"
 	DefaultManifestPath = "tools/migration_history_manifest.json"
 )
 
 var filenamePattern = regexp.MustCompile(`^([0-9]{5})_[a-z0-9]+(?:_[a-z0-9]+)*\.sql$`)
 var phaseNamePattern = regexp.MustCompile(`(^|_)phase[0-9]+(_|$)`)
+var manifestLogicalIDPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+var sha256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var bindingKindPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+var serviceRefPattern = regexp.MustCompile(`^[A-Za-z0-9._:@+-]+$`)
 
 type Result struct {
 	SchemaID          string          `json:"schema_id"`
@@ -46,7 +49,6 @@ type DatabaseBinding struct {
 
 type ManifestSummary struct {
 	SchemaID                string `json:"schema_id"`
-	Path                    string `json:"path"`
 	SHA256                  string `json:"sha256"`
 	MigrationRoot           string `json:"migration_root"`
 	ImmutableThroughVersion int64  `json:"immutable_through_version"`
@@ -103,7 +105,27 @@ type manifestEntry struct {
 	HistoricalPhaseShaped bool   `json:"historical_phase_shaped"`
 }
 
-func Build(ctx context.Context, binding DatabaseBinding, pool database_migrations.LedgerReader, collectedAt time.Time, manifestPath string, sourceFS fs.FS) (Result, error) {
+type ManifestFailure struct {
+	reasonCode string
+}
+
+func (failure ManifestFailure) Error() string {
+	return failure.reasonCode
+}
+
+func (failure ManifestFailure) ReasonCode() string {
+	return failure.reasonCode
+}
+
+func manifestFailure(reasonCode string) error {
+	return ManifestFailure{reasonCode: reasonCode}
+}
+
+func Build(ctx context.Context, binding DatabaseBinding, pool database_migrations.LedgerReader, collectedAt time.Time, manifestPath string, source *database_migrations.Source) (Result, error) {
+	normalizedBinding := normalizeDatabaseBinding(binding)
+	if !safeDatabaseBinding(normalizedBinding) {
+		return Result{}, errors.New("migration evidence database binding is invalid")
+	}
 	manifest, manifestSummary, manifestFindings, err := loadManifest(manifestPath)
 	if err != nil {
 		return Result{}, err
@@ -113,10 +135,11 @@ func Build(ctx context.Context, binding DatabaseBinding, pool database_migration
 		manifestByVersion[entry.Version] = entry
 	}
 
-	sourceAudit, sourceFindings, err := auditSource(sourceFS, manifest, manifestByVersion)
+	inspection, err := database_migrations.InspectSource(source)
 	if err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("inspect embedded migration source: %w", err)
 	}
+	sourceAudit, sourceFindings := auditSource(inspection, manifest, manifestByVersion)
 	ledger, ledgerFindings, err := collectGooseLedger(ctx, pool, manifestByVersion, manifest.ImmutableThroughVersion)
 	if err != nil {
 		return Result{}, err
@@ -132,7 +155,7 @@ func Build(ctx context.Context, binding DatabaseBinding, pool database_migration
 		CollectedAt:       collectedAt,
 		EvidenceOnly:      true,
 		RewriteAuthorized: false,
-		DatabaseBinding:   normalizeDatabaseBinding(binding),
+		DatabaseBinding:   normalizedBinding,
 		Manifest:          manifestSummary,
 		SourceAudit:       sourceAudit,
 		GooseLedger:       ledger,
@@ -147,29 +170,38 @@ func normalizeDatabaseBinding(binding DatabaseBinding) DatabaseBinding {
 	}
 }
 
+func safeDatabaseBinding(binding DatabaseBinding) bool {
+	if !bindingKindPattern.MatchString(binding.BindingKind) {
+		return false
+	}
+	return binding.ServiceRef == "" || serviceRefPattern.MatchString(binding.ServiceRef)
+}
+
 func loadManifest(path string) (manifestDocument, ManifestSummary, []Finding, error) {
 	if strings.TrimSpace(path) == "" {
-		return manifestDocument{}, ManifestSummary{}, nil, errors.New("migration evidence manifest path is required")
+		return manifestDocument{}, ManifestSummary{}, nil, manifestFailure("migration evidence manifest path is required")
 	}
 	body, err := os.ReadFile(filepath.Clean(path)) // #nosec G304 -- operator supplied local manifest path is intentionally read by deployment-local CLI.
 	if err != nil {
-		return manifestDocument{}, ManifestSummary{}, nil, fmt.Errorf("load migration evidence manifest: %w", err)
+		return manifestDocument{}, ManifestSummary{}, nil, manifestFailure("migration evidence manifest unavailable")
 	}
 	var manifest manifestDocument
 	decoder := json.NewDecoder(strings.NewReader(string(body)))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&manifest); err != nil {
-		return manifestDocument{}, ManifestSummary{}, nil, fmt.Errorf("decode migration evidence manifest: %w", err)
+		return manifestDocument{}, ManifestSummary{}, nil, manifestFailure("migration evidence manifest invalid")
 	}
 	if decoder.Decode(&struct{}{}) != io.EOF {
-		return manifestDocument{}, ManifestSummary{}, nil, errors.New("decode migration evidence manifest: trailing JSON content")
+		return manifestDocument{}, ManifestSummary{}, nil, manifestFailure("migration evidence manifest invalid")
+	}
+	if !safeManifestDocument(manifest) {
+		return manifestDocument{}, ManifestSummary{}, nil, manifestFailure("migration evidence manifest invalid")
 	}
 
 	findings := auditManifest(manifest)
 	minVersion, maxVersion := versionRange(manifest.Entries)
 	summary := ManifestSummary{
 		SchemaID:                manifest.SchemaID,
-		Path:                    filepath.Clean(path),
 		SHA256:                  sha256Hex(body),
 		MigrationRoot:           manifest.MigrationRoot,
 		ImmutableThroughVersion: manifest.ImmutableThroughVersion,
@@ -178,6 +210,18 @@ func loadManifest(path string) (manifestDocument, ManifestSummary, []Finding, er
 		ExpectedVersionCount:    len(manifest.Entries),
 	}
 	return manifest, summary, findings, nil
+}
+
+func safeManifestDocument(manifest manifestDocument) bool {
+	if !manifestLogicalIDPattern.MatchString(manifest.SchemaID) || manifest.MigrationRoot != "db/migrations" {
+		return false
+	}
+	for _, entry := range manifest.Entries {
+		if !filenamePattern.MatchString(entry.Filename) || !sha256Pattern.MatchString(entry.SHA256) {
+			return false
+		}
+	}
+	return true
 }
 
 func auditManifest(manifest manifestDocument) []Finding {
@@ -206,37 +250,24 @@ func auditManifest(manifest manifestDocument) []Finding {
 	return findings
 }
 
-func auditSource(sourceFS fs.FS, manifest manifestDocument, manifestByVersion map[int64]manifestEntry) ([]SourceAudit, []Finding, error) {
-	files, err := fs.ReadDir(sourceFS, ".")
-	if err != nil {
-		return nil, nil, fmt.Errorf("inspect embedded migration source: %w", err)
-	}
-
+func auditSource(inspection database_migrations.SourceInspection, manifest manifestDocument, manifestByVersion map[int64]manifestEntry) ([]SourceAudit, []Finding) {
 	sourceByVersion := map[int64]SourceAudit{}
 	audits := []SourceAudit{}
 	findings := []Finding{}
-	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(file.Name(), ".sql") {
-			continue
-		}
-		version, ok := parseFilenameVersion(file.Name())
+	for _, sourceEntry := range inspection.Entries {
+		version, ok := parseFilenameVersion(sourceEntry.Filename)
 		if !ok {
-			findings = append(findings, finding("blocking", "source_filename_invalid", 0, file.Name(), "migration filename does not match exact 5-digit lower-snake SQL pattern"))
+			findings = append(findings, finding("blocking", "source_filename_invalid", 0, sourceEntry.Filename, "migration filename does not match exact 5-digit lower-snake SQL pattern"))
 			continue
 		}
-		body, err := fs.ReadFile(sourceFS, file.Name())
-		if err != nil {
-			return nil, nil, fmt.Errorf("read embedded migration %s: %w", file.Name(), err)
-		}
-		bodyText := string(body)
 		entry, inManifest := manifestByVersion[version]
 		audit := SourceAudit{
 			Version:             version,
-			Filename:            file.Name(),
-			SHA256:              sha256Hex(body),
-			HasGooseUp:          strings.Contains(bodyText, "-- +goose Up"),
-			HasGooseDown:        strings.Contains(bodyText, "-- +goose Down"),
-			PhaseShapedName:     phaseNamePattern.MatchString(strings.TrimSuffix(file.Name(), ".sql")),
+			Filename:            sourceEntry.Filename,
+			SHA256:              sourceEntry.SHA256,
+			HasGooseUp:          sourceEntry.HasGooseUp,
+			HasGooseDown:        sourceEntry.HasGooseDown,
+			PhaseShapedName:     phaseNamePattern.MatchString(strings.TrimSuffix(sourceEntry.Filename, ".sql")),
 			ImmutabilityClass:   immutabilityClass(version, manifest.ImmutableThroughVersion),
 			ManifestHashMatches: false,
 		}
@@ -246,7 +277,7 @@ func auditSource(sourceFS fs.FS, manifest manifestDocument, manifestByVersion ma
 			audit.ManifestHashMatches = audit.SHA256 == entry.SHA256
 		}
 		if prior, duplicate := sourceByVersion[version]; duplicate {
-			findings = append(findings, finding("blocking", "source_duplicate_version", version, file.Name(), fmt.Sprintf("version also appears as %s", prior.Filename)))
+			findings = append(findings, finding("blocking", "source_duplicate_version", version, sourceEntry.Filename, fmt.Sprintf("version also appears as %s", prior.Filename)))
 		} else {
 			sourceByVersion[version] = audit
 		}
@@ -254,17 +285,17 @@ func auditSource(sourceFS fs.FS, manifest manifestDocument, manifestByVersion ma
 
 		switch {
 		case !inManifest:
-			findings = append(findings, finding("blocking", "source_version_not_in_manifest", version, file.Name(), "embedded migration version is absent from the manifest"))
-		case entry.Filename != file.Name():
-			findings = append(findings, finding("blocking", "manifest_filename_mismatch", version, file.Name(), fmt.Sprintf("manifest filename is %s", entry.Filename)))
+			findings = append(findings, finding("blocking", "source_version_not_in_manifest", version, sourceEntry.Filename, "embedded migration version is absent from the manifest"))
+		case entry.Filename != sourceEntry.Filename:
+			findings = append(findings, finding("blocking", "manifest_filename_mismatch", version, sourceEntry.Filename, fmt.Sprintf("manifest filename is %s", entry.Filename)))
 		case entry.SHA256 != audit.SHA256:
-			findings = append(findings, finding("blocking", "manifest_hash_mismatch", version, file.Name(), "embedded migration hash differs from manifest"))
+			findings = append(findings, finding("blocking", "manifest_hash_mismatch", version, sourceEntry.Filename, "embedded migration hash differs from manifest"))
 		}
 		if !audit.HasGooseUp || !audit.HasGooseDown {
-			findings = append(findings, finding("blocking", "source_marker_missing", version, file.Name(), "migration must include both goose Up and Down markers"))
+			findings = append(findings, finding("blocking", "source_marker_missing", version, sourceEntry.Filename, "migration must include both goose Up and Down markers"))
 		}
 		if version > manifest.ImmutableThroughVersion && audit.PhaseShapedName {
-			findings = append(findings, finding("warning", "future_phase_shaped_filename", version, file.Name(), "migration after immutable history uses a phase-shaped filename"))
+			findings = append(findings, finding("warning", "future_phase_shaped_filename", version, sourceEntry.Filename, "migration after immutable history uses a phase-shaped filename"))
 		}
 	}
 
@@ -293,7 +324,7 @@ func auditSource(sourceFS fs.FS, manifest manifestDocument, manifestByVersion ma
 		}
 		return audits[i].Filename < audits[j].Filename
 	})
-	return audits, findings, nil
+	return audits, findings
 }
 
 func collectGooseLedger(ctx context.Context, pool database_migrations.LedgerReader, manifestByVersion map[int64]manifestEntry, immutableThroughVersion int64) (GooseLedger, []Finding, error) {

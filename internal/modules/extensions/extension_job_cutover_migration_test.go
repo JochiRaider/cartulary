@@ -11,7 +11,7 @@ import (
 
 func TestExtensionJobCutoverMigration34FreshSchema_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-fresh", 34)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 34)
 	db := migrationDB.SQL()
 	var metadataColumns int
 	if err := db.QueryRowContext(context.Background(), `
@@ -46,7 +46,7 @@ func TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_
 	for _, handlerName := range retiredHandlers {
 		t.Run(handlerName, func(t *testing.T) {
 			harness := pgtest.Start(t)
-			migrationDB := harness.MigrationDatabaseThroughT(t, "extension-job-cutover-reject", 33)
+			migrationDB := harness.MigrationDatabaseThroughT(t, 33)
 			db := migrationDB.SQL()
 			ctx := context.Background()
 			if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {

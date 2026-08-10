@@ -11,7 +11,7 @@ import (
 func TestRevisionsHistoryAssociationsMigration61FreshAndGuarded_Integration(t *testing.T) {
 	t.Run("fresh", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "revisions-history-associations-fresh", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 60)
 		db := migrationDB.SQL()
 		if err := migrationDB.ApplyThrough(context.Background(), 61); err != nil {
 			t.Fatalf("apply migration 61: %v", err)
@@ -69,7 +69,7 @@ SELECT to_regclass('public.record_revision_conflict_facts') IS NOT NULL
 
 	t.Run("existing history requires reset", func(t *testing.T) {
 		harness := pgtest.Start(t)
-		migrationDB := harness.MigrationDatabaseThroughT(t, "revisions-history-associations-guard", 60)
+		migrationDB := harness.MigrationDatabaseThroughT(t, 60)
 		db := migrationDB.SQL()
 		ctx := context.Background()
 		if _, err := db.ExecContext(ctx, `

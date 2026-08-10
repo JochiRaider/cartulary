@@ -14,7 +14,7 @@ import (
 
 func TestIndicatorEnvelopeContractMigration57DownUp_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "indicator-envelope-contract", 56)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 56)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 

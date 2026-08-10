@@ -47,8 +47,13 @@ func TestNewSourceRejectsInvalidCatalogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewSource(test.fsys, test.root, test.lineageID, test.boundary); err == nil {
+			if _, err := buildSource(test.fsys, test.root, test.lineageID, test.boundary); err == nil {
 				t.Fatal("expected source construction failure")
+			}
+			if test.lineageID != "" && test.boundary != "" {
+				if _, err := BuildCanonicalEmbedded(test.fsys, test.root); err == nil {
+					t.Fatal("expected canonical source construction failure")
+				}
 			}
 		})
 	}
@@ -56,25 +61,36 @@ func TestNewSourceRejectsInvalidCatalogs(t *testing.T) {
 
 func TestSourceSnapshotIsImmutable(t *testing.T) {
 	input := fstest.MapFS{"migrations/00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}}
-	source, err := NewSource(input, "migrations", "lineage", "boundary")
+	source, err := buildSource(input, "migrations", "lineage", "boundary")
 	if err != nil {
 		t.Fatalf("construct source: %v", err)
 	}
 	input["migrations/00001_valid.sql"].Data = []byte("mutated")
 	delete(input, "migrations/00001_valid.sql")
 
-	body, err := fs.ReadFile(source.catalog, "00001_valid.sql")
+	inspection, err := InspectSource(source)
 	if err != nil {
-		t.Fatalf("read immutable source snapshot: %v", err)
+		t.Fatalf("inspect immutable source snapshot: %v", err)
 	}
-	if string(body) != validMigrationBody {
-		t.Fatalf("source snapshot changed after input mutation: %q", body)
+	wantDigest := "0ff0c7582e520452d3d905c2c5233fd9800f3cca64e60210e66d395314a637d7"
+	if len(inspection.Entries) != 1 || inspection.Entries[0].Filename != "00001_valid.sql" || inspection.Entries[0].SHA256 != wantDigest {
+		t.Fatalf("source snapshot changed after input mutation: %#v", inspection)
+	}
+	inspection.Entries[0].Filename = "mutated.sql"
+	inspection.Entries = nil
+	again, err := InspectSource(source)
+	if err != nil {
+		t.Fatalf("inspect source after projection mutation: %v", err)
+	}
+	if len(again.Entries) != 1 || again.Entries[0].Filename != "00001_valid.sql" {
+		t.Fatalf("inspection mutation reached source state: %#v", again)
 	}
 }
 
 func TestApplyRejectsInvalidInputsBeforeDatabaseAccess(t *testing.T) {
-	requireMigrationFailureReason(t, Apply(context.Background(), nil, Source{}), reasonMigrationSourceInvalid)
-	source, err := NewSource(
+	requireMigrationFailureReason(t, Apply(context.Background(), nil, nil), reasonMigrationSourceInvalid)
+	requireMigrationFailureReason(t, Apply(context.Background(), nil, &Source{}), reasonMigrationSourceInvalid)
+	source, err := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
 		"lineage",
@@ -103,8 +119,9 @@ func requireMigrationFailureReason(t testing.TB, err error, want string) {
 }
 
 func TestSchemaReadinessRejectsInvalidSourceAndNilPool(t *testing.T) {
-	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), nil, Source{}), reasonMigrationSourceInvalid)
-	source, err := NewSource(
+	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), nil, nil), reasonMigrationSourceInvalid)
+	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), nil, &Source{}), reasonMigrationSourceInvalid)
+	source, err := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
 		"lineage",
@@ -117,7 +134,7 @@ func TestSchemaReadinessRejectsInvalidSourceAndNilPool(t *testing.T) {
 }
 
 func TestMigrationRemediationReportJSONContract(t *testing.T) {
-	source, sourceErr := NewSource(
+	source, sourceErr := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
 		"cartulary.production.v1",
@@ -148,7 +165,7 @@ func TestMigrationRemediationReportJSONContract(t *testing.T) {
 }
 
 func TestMigrationRemediationReportVariantJSONContracts(t *testing.T) {
-	source, err := NewSource(
+	source, err := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
 		"cartulary.production.v1",

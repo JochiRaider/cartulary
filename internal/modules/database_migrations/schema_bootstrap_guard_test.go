@@ -1,14 +1,19 @@
 package database_migrations_test
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
-
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 )
 
 func TestSchemaBootstrapMigrationGuard(t *testing.T) {
-	data, err := dbmigrations.Files.ReadFile("00001_database_infrastructure.sql")
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve source test path")
+	}
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "..", "..", "..", "db", "migrations", "00001_database_infrastructure.sql"))
 	if err != nil {
 		t.Fatalf("read database infrastructure migration: %v", err)
 	}

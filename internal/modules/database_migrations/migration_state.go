@@ -37,8 +37,8 @@ type migrationClassification struct {
 	CurrentVersion int64
 }
 
-func classifyMigrationState(source Source, snapshot migrationStateSnapshot) (migrationClassification, error) {
-	if err := source.validate(); err != nil {
+func classifyMigrationState(source *Source, snapshot migrationStateSnapshot) (migrationClassification, error) {
+	if err := validateSource(source); err != nil {
 		return migrationClassification{}, newMigrationFailure(reasonMigrationSourceInvalid, err)
 	}
 	if (!snapshot.LedgerTablePresent && len(snapshot.LedgerRows) != 0) ||
@@ -72,7 +72,7 @@ func classifyMigrationState(source Source, snapshot migrationStateSnapshot) (mig
 		if row.Version != expectedVersion {
 			return migrationClassification{}, invalidMigrationHistory()
 		}
-		if row.Version <= source.headVersion() && !source.hasVersion(row.Version) {
+		if row.Version <= sourceHeadVersion(source) && !sourceHasVersion(source, row.Version) {
 			return migrationClassification{}, invalidMigrationHistory()
 		}
 		seenVersions[row.Version] = struct{}{}
@@ -91,20 +91,20 @@ func classifyMigrationState(source Source, snapshot migrationStateSnapshot) (mig
 		TablePresent: snapshot.LineageTablePresent,
 		ObservedIDs:  append([]string{}, snapshot.LineageIDs...),
 	}
-	if !lineageState.HasExactExpected(source.lineageID) {
+	if !lineageState.HasExactExpected(sourceLineageID(source)) {
 		return migrationClassification{}, newMigrationLineageRemediationError(
 			source,
 			lineageState,
 			currentVersion,
-			source.headVersion(),
-			source.headVersion(),
+			sourceHeadVersion(source),
+			sourceHeadVersion(source),
 		)
 	}
 
 	switch {
-	case currentVersion < source.headVersion():
+	case currentVersion < sourceHeadVersion(source):
 		return migrationClassification{State: migrationStateBehind, CurrentVersion: currentVersion}, nil
-	case currentVersion == source.headVersion():
+	case currentVersion == sourceHeadVersion(source):
 		return migrationClassification{State: migrationStateCurrent, CurrentVersion: currentVersion}, nil
 	default:
 		return migrationClassification{State: migrationStateAhead, CurrentVersion: currentVersion}, nil

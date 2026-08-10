@@ -10,7 +10,7 @@ import (
 
 func TestGraphProjectionMigration32ResetsUnreferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "graph-projection-32-reset", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 31)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	if _, err := db.ExecContext(ctx, `
@@ -50,7 +50,7 @@ SELECT count(*)
 
 func TestGraphProjectionMigration32BlocksReferencedDerivedState(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "graph-projection-32-referenced", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 31)
 	db := migrationDB.SQL()
 	ctx := context.Background()
 	digest := strings.Repeat("a", 64)

@@ -1,0 +1,16 @@
+{
+  "schema_id": "cartulary.migration_history_evidence_negative_fixtures.v2",
+  "cases": [
+    { "case_id": "v1_schema_rejected", "mutation": "schema_id_v1" },
+    { "case_id": "manifest_path_rejected", "mutation": "add_manifest_member", "member": "path", "value": "/srv/cartulary/migration_history_manifest.json" },
+    { "case_id": "manifest_source_path_rejected", "mutation": "add_manifest_member", "member": "source_path", "value": "tools/migration_history_manifest.json" },
+    { "case_id": "manifest_repository_path_rejected", "mutation": "add_manifest_member", "member": "repository_path", "value": "/repo/cartulary" },
+    { "case_id": "manifest_embedded_path_rejected", "mutation": "add_manifest_member", "member": "embedded_path", "value": "db/migrations" },
+    { "case_id": "manifest_file_rejected", "mutation": "add_manifest_member", "member": "file", "value": "migration_history_manifest.json" },
+    { "case_id": "manifest_uri_rejected", "mutation": "add_manifest_member", "member": "uri", "value": "file:///srv/cartulary/migration_history_manifest.json" },
+    { "case_id": "manifest_path_hash_rejected", "mutation": "add_manifest_member", "member": "path_sha256", "value": "3333333333333333333333333333333333333333333333333333333333333333" },
+    { "case_id": "unknown_top_level_rejected", "mutation": "add_top_level_member", "member": "manifest_locator", "value": "hidden" },
+    { "case_id": "absolute_detail_rejected", "mutation": "absolute_finding_detail", "value": "manifest read failed at /srv/cartulary/migration_history_manifest.json" },
+    { "case_id": "absolute_service_ref_rejected", "mutation": "absolute_service_ref", "value": "/srv/cartulary/postgres" }
+  ]
+}

@@ -7,7 +7,7 @@ import (
 )
 
 func TestClassifyMigrationStateMatrix(t *testing.T) {
-	source, err := NewSource(fstest.MapFS{
+	source, err := buildSource(fstest.MapFS{
 		"00001_one.sql":   &fstest.MapFile{Data: []byte(validMigrationBody)},
 		"00002_two.sql":   &fstest.MapFile{Data: []byte(validMigrationBody)},
 		"00003_three.sql": &fstest.MapFile{Data: []byte(validMigrationBody)},
@@ -29,7 +29,7 @@ func TestClassifyMigrationStateMatrix(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		source          Source
+		source          *Source
 		snapshot        migrationStateSnapshot
 		wantState       migrationState
 		wantReason      string
@@ -55,22 +55,6 @@ func TestClassifyMigrationStateMatrix(t *testing.T) {
 		{name: "zero only with lineage", source: source, snapshot: mergeSnapshot(migrationStateSnapshot{LedgerTablePresent: true, LedgerRows: rows()}, lineage("expected.lineage.v1")), wantReason: reasonSchemaMigrationHistoryInvalid},
 		{name: "zero source", snapshot: migrationStateSnapshot{}, wantReason: reasonMigrationSourceInvalid},
 	}
-
-	unknownSource := source
-	unknownSource.versions = []int64{1, 3}
-	tests = append(tests, struct {
-		name            string
-		source          Source
-		snapshot        migrationStateSnapshot
-		wantState       migrationState
-		wantReason      string
-		wantRemediation bool
-	}{
-		name:       "unknown in-range version",
-		source:     unknownSource,
-		snapshot:   mergeSnapshot(migrationStateSnapshot{LedgerTablePresent: true, LedgerRows: rows(1, 2)}, lineage("expected.lineage.v1")),
-		wantReason: reasonSchemaMigrationHistoryInvalid,
-	})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

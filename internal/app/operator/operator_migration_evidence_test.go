@@ -3,6 +3,7 @@ package operator
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
+	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -25,6 +28,10 @@ func TestMigrationEvidenceTransport_Unit(t *testing.T) {
 	t.Run("parse and validate CLI flags", runMigrationEvidenceCaptureArgsParseAndValidate)
 	t.Run("reject invalid CLI inputs", runMigrationEvidenceCaptureArgsRejectsInvalidInputs)
 	t.Run("emit one redacted JSON object and close the pool", runMigrationEvidenceCaptureTransport)
+	t.Run("preserve exact v2 output bytes", runMigrationEvidenceCaptureV2GoldenDigest)
+	t.Run("remain invariant across manifest relocation", runMigrationEvidenceRelocationInvariance)
+	t.Run("redact manifest locator failures", runMigrationEvidenceManifestFailureRedaction)
+	t.Run("source failure has no external side effects", runMigrationEvidenceSourceFailureNoExternalEffects)
 }
 
 func TestMigrationEvidenceSemantics_Unit(t *testing.T) {
@@ -116,15 +123,20 @@ type migrationEvidenceUnitCapture struct {
 
 func captureMigrationEvidenceUnit(t *testing.T) migrationEvidenceUnitCapture {
 	t.Helper()
+	return captureMigrationEvidenceUnitAtManifest(t, migrationEvidenceManifestPathForTest(t))
+}
+
+func captureMigrationEvidenceUnitAtManifest(t *testing.T, manifestPath string) migrationEvidenceUnitCapture {
+	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-	manifestPath := migrationEvidenceManifestPathForTest(t)
 	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
 		migrationEvidence: migrationEvidenceExecutor{
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			source:    dbmigrations.Source,
 			loadConfig: func(path string) (configassembly.Loaded, error) {
 				if path != "/etc/cartulary/config.toml" {
 					t.Fatalf("unexpected source config path: %q", path)
@@ -182,6 +194,8 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 		"secret",
 		"db.example.test",
 		"/srv/cartulary/secrets/postgres",
+		migrationEvidenceManifestPathForTest(t),
+		`"path"`,
 	} {
 		if strings.Contains(capture.stdout, forbidden) {
 			t.Fatalf("migration evidence leaked forbidden value %q in stdout %s", forbidden, capture.stdout)
@@ -189,6 +203,99 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 	}
 	if capture.payload.SchemaID != migrationevidence.SchemaID {
 		t.Fatalf("unexpected schema_id: %q", capture.payload.SchemaID)
+	}
+}
+
+func runMigrationEvidenceCaptureV2GoldenDigest(t *testing.T) {
+	capture := captureMigrationEvidenceUnit(t)
+	digest := sha256.Sum256([]byte(capture.stdout))
+	const wantDigest = "29bd46ab2d3d6a2e10c7d01972773baa070614dcf4ec75492b7c3241fdc45df4"
+	if got := fmt.Sprintf("%x", digest); got != wantDigest {
+		t.Fatalf("v2 migration evidence digest = %s, want %s", got, wantDigest)
+	}
+}
+
+func runMigrationEvidenceRelocationInvariance(t *testing.T) {
+	original := migrationEvidenceManifestPathForTest(t)
+	body, err := os.ReadFile(original)
+	if err != nil {
+		t.Fatalf("read canonical manifest: %v", err)
+	}
+	paths := make([]string, 2)
+	for index := range paths {
+		paths[index] = filepath.Join(t.TempDir(), fmt.Sprintf("relocated-%d.json", index+1))
+		if err := os.WriteFile(paths[index], body, 0o600); err != nil {
+			t.Fatalf("write relocated manifest: %v", err)
+		}
+	}
+	left := captureMigrationEvidenceUnitAtManifest(t, paths[0])
+	right := captureMigrationEvidenceUnitAtManifest(t, paths[1])
+	if left.stdout != right.stdout {
+		t.Fatalf("relocated logical evidence differs\nleft: %s\nright: %s", left.stdout, right.stdout)
+	}
+	for _, locator := range paths {
+		if strings.Contains(left.stdout, locator) || strings.Contains(right.stdout, locator) {
+			t.Fatalf("relocated evidence disclosed locator %q", locator)
+		}
+	}
+}
+
+func runMigrationEvidenceManifestFailureRedaction(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
+	secretPath := filepath.Join(t.TempDir(), "operator-private-manifest.json")
+	pool := newMigrationEvidenceFakePool(true, nil)
+	runner := operatorRunner{
+		migrationEvidence: migrationEvidenceExecutor{
+			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			source:    dbmigrations.Source,
+			loadConfig: func(string) (configassembly.Loaded, error) {
+				return migrationEvidenceTestDeployment(t), nil
+			},
+			setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+				return pool, nil
+			},
+			now: time.Now,
+		},
+	}
+	exitCode := runner.runCLI(context.Background(), []string{
+		"migration-evidence", "capture", "-manifest", secretPath,
+	})
+	if exitCode != 1 || stdout.Len() != 0 || !pool.closed {
+		t.Fatalf("manifest failure lifecycle mismatch: exit=%d stdout=%q closed=%t", exitCode, stdout.String(), pool.closed)
+	}
+	if strings.Contains(stderr.String(), secretPath) || strings.Contains(stderr.String(), "operator-private-manifest") {
+		t.Fatalf("manifest failure disclosed locator: %s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "migration evidence manifest unavailable") {
+		t.Fatalf("manifest failure omitted safe reason: %s", stderr.String())
+	}
+}
+
+func runMigrationEvidenceSourceFailureNoExternalEffects(t *testing.T) {
+	wantErr := errors.New("source unavailable")
+	configCalls := 0
+	postgresCalls := 0
+	executor := migrationEvidenceExecutor{
+		source: func() (*database_migrations.Source, error) {
+			return nil, wantErr
+		},
+		loadConfig: func(string) (configassembly.Loaded, error) {
+			configCalls++
+			return configassembly.Loaded{}, nil
+		},
+		setupPostgres: func(context.Context, postgres.Settings) (operatorPostgresPool, error) {
+			postgresCalls++
+			return nil, errors.New("postgres must not open")
+		},
+	}
+	err := executor.capture(context.Background(), migrationEvidenceCaptureArgs{manifestPath: "unused.json"})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("source failure = %v, want wrapped %v", err, wantErr)
+	}
+	if configCalls != 0 || postgresCalls != 0 {
+		t.Fatalf("source failure reached external dependencies: config=%d postgres=%d", configCalls, postgresCalls)
 	}
 }
 
@@ -225,6 +332,7 @@ func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePay
 	runner := operatorRunner{
 		migrationEvidence: migrationEvidenceExecutor{
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			source:    dbmigrations.Source,
 			loadConfig: func(string) (configassembly.Loaded, error) {
 				return migrationEvidenceTestDeployment(t), nil
 			},

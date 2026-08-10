@@ -17,8 +17,8 @@ type migrateRunner struct {
 	stderr     io.Writer
 	loadConfig func() (configassembly.Loaded, error)
 	openSQL    func(postgres.Settings) (*sql.DB, error)
-	apply      func(context.Context, *sql.DB, database_migrations.Source) error
-	source     func() (database_migrations.Source, error)
+	apply      func(context.Context, *sql.DB, *database_migrations.Source) error
+	source     func() (*database_migrations.Source, error)
 }
 
 func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) int {

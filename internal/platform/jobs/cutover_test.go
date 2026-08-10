@@ -25,7 +25,7 @@ import (
 func TestDrainedV2CutoverAndRecovery_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-drained-v2-cutover", 57)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 57)
 	db := migrationDB.SQL()
 	migrationDatabaseName := jobsMigrationScratchDatabaseName(t, ctx, db)
 
@@ -245,7 +245,7 @@ SELECT (SELECT count(*)
 func TestDrainedJobsCutoverRollbackBeforeFirstCompaction_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "jobs-drained-rollback", 58)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 58)
 	db := migrationDB.SQL()
 	actorID := uuid.MustParse("58000000-0000-4000-8000-000000000091")
 	jobID := uuid.MustParse("58000000-0000-4000-8000-000000000092")

@@ -38,6 +38,7 @@ import {
 } from "../contract/json-shape.mjs";
 import {
   validateMigrationHistory,
+  validateMigrationHistoryEvidenceContracts,
   validateMigrationHistoryManifestShape,
   validateSchemaObjectOwnership,
   validateSchemaObjectOwnershipManifestShape,
@@ -955,7 +956,7 @@ function validateContractFamilyRegistryShape(file) {
       if (!Array.isArray(entry.typescript_projections)) {
         throw new Error(`${label}.typescript_projections must be an array`);
       }
-      if (["openapi", "imports", "recovery"].includes(familyID) && entry.typescript_projections.length !== 0) {
+      if (["openapi", "imports", "recovery", "database-migrations"].includes(familyID) && entry.typescript_projections.length !== 0) {
         throw new Error(`${label}.typescript_projections must stay empty for protected backend-only inputs`);
       }
       for (const [projectionIndex, rawProjection] of entry.typescript_projections.entries()) {
@@ -1064,6 +1065,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("artifacts")) {
     throw new Error(`${file}.families must declare artifacts`);
   }
+  if (!familyIDs.includes("database-migrations")) {
+    throw new Error(`${file}.families must declare database-migrations`);
+  }
   const expectedActiveIDs = [
     "openapi",
     "ws",
@@ -1078,6 +1082,7 @@ function validateContractFamilyRegistryShape(file) {
     "revisions",
     "view-inspector",
     "artifacts",
+    "database-migrations",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(
@@ -3477,6 +3482,7 @@ function validateAll(root) {
     repoFile(root, "contracts/network-flow/timezone/tzdb-2026c.provenance.json"),
   );
   validateMigrationHistory(root);
+  validateMigrationHistoryEvidenceContracts(root);
   validateSchemaObjectOwnership(root);
 }
 

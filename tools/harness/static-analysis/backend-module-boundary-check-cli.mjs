@@ -123,6 +123,13 @@ function requireArray(value, label) {
   return value;
 }
 
+function requireNonnegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a nonnegative integer`);
+  }
+  return value;
+}
+
 function normalizeManifest(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error("manifest must be an object");
@@ -133,6 +140,88 @@ function normalizeManifest(raw) {
   return {
     scanRoots: requireStringArray(raw.scan_roots, "scan_roots").map(normalizePath),
     scanExcludes: requireStringArray(raw.scan_excludes ?? [], "scan_excludes").map(normalizePath),
+    migrationSourceBoundary: {
+      scanRoots: requireStringArray(
+        raw.migration_source_boundary?.scan_roots ?? [],
+        "migration_source_boundary.scan_roots",
+      ).map(normalizePath),
+      restrictedImports: requireArray(
+        raw.migration_source_boundary?.restricted_imports ?? [],
+        "migration_source_boundary.restricted_imports",
+      ).map((rule, index) => ({
+        id: requireString(rule?.id, `migration_source_boundary.restricted_imports[${index + 1}].id`),
+        matchKind: requireEnum(
+          rule?.match_kind,
+          new Set(["exact", "subtree"]),
+          `migration_source_boundary.restricted_imports[${index + 1}].match_kind`,
+        ),
+        imports: requireStringArray(
+          rule?.imports ?? [],
+          `migration_source_boundary.restricted_imports[${index + 1}].imports`,
+        ),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `migration_source_boundary.restricted_imports[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `migration_source_boundary.restricted_imports[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+        productionOnly: requireBoolean(
+          rule?.production_only,
+          `migration_source_boundary.restricted_imports[${index + 1}].production_only`,
+        ),
+      })),
+      forbiddenDeclarations: requireArray(
+        raw.migration_source_boundary?.forbidden_declarations ?? [],
+        "migration_source_boundary.forbidden_declarations",
+      ).map((rule, index) => ({
+        id: requireString(rule?.id, `migration_source_boundary.forbidden_declarations[${index + 1}].id`),
+        symbols: requireStringArray(
+          rule?.symbols ?? [],
+          `migration_source_boundary.forbidden_declarations[${index + 1}].symbols`,
+        ),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `migration_source_boundary.forbidden_declarations[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `migration_source_boundary.forbidden_declarations[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+        productionOnly: requireBoolean(
+          rule?.production_only,
+          `migration_source_boundary.forbidden_declarations[${index + 1}].production_only`,
+        ),
+      })),
+      exactCalls: requireArray(
+        raw.migration_source_boundary?.exact_calls ?? [],
+        "migration_source_boundary.exact_calls",
+      ).map((rule, index) => ({
+        id: requireString(rule?.id, `migration_source_boundary.exact_calls[${index + 1}].id`),
+        symbol: requireString(rule?.symbol, `migration_source_boundary.exact_calls[${index + 1}].symbol`),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `migration_source_boundary.exact_calls[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `migration_source_boundary.exact_calls[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+        requiredPath: normalizePath(requireString(
+          rule?.required_path,
+          `migration_source_boundary.exact_calls[${index + 1}].required_path`,
+        )),
+        requiredCount: requireNonnegativeInteger(
+          rule?.required_count,
+          `migration_source_boundary.exact_calls[${index + 1}].required_count`,
+        ),
+        productionOnly: requireBoolean(
+          rule?.production_only,
+          `migration_source_boundary.exact_calls[${index + 1}].production_only`,
+        ),
+      })),
+    },
     ownerPortOnlyImports: requireArray(
       raw.owner_port_only_imports ?? [],
       "owner_port_only_imports",
@@ -1340,6 +1429,209 @@ function checkForbiddenGoCalls(files, rules) {
   return violations;
 }
 
+function sanitizeGoStructure(content) {
+  let result = "";
+  let state = "code";
+  for (let index = 0; index < content.length; index += 1) {
+    const current = content[index];
+    const next = content[index + 1] ?? "";
+    if (state === "code") {
+      if (current === "/" && next === "/") {
+        result += "  ";
+        index += 1;
+        state = "line-comment";
+      } else if (current === "/" && next === "*") {
+        result += "  ";
+        index += 1;
+        state = "block-comment";
+      } else if (current === '"') {
+        result += " ";
+        state = "string";
+      } else if (current === "'") {
+        result += " ";
+        state = "rune";
+      } else if (current === "`") {
+        result += " ";
+        state = "raw-string";
+      } else {
+        result += current;
+      }
+      continue;
+    }
+    if (state === "line-comment") {
+      result += current === "\n" ? "\n" : " ";
+      if (current === "\n") state = "code";
+      continue;
+    }
+    if (state === "block-comment") {
+      if (current === "*" && next === "/") {
+        result += "  ";
+        index += 1;
+        state = "code";
+      } else {
+        result += current === "\n" ? "\n" : " ";
+      }
+      continue;
+    }
+    if (state === "raw-string") {
+      result += current === "\n" ? "\n" : " ";
+      if (current === "`") state = "code";
+      continue;
+    }
+    result += current === "\n" ? "\n" : " ";
+    if (current === "\\") {
+      if (index + 1 < content.length) {
+        result += content[index + 1] === "\n" ? "\n" : " ";
+        index += 1;
+      }
+    } else if ((state === "string" && current === '"') || (state === "rune" && current === "'")) {
+      state = "code";
+    }
+  }
+  return result;
+}
+
+function goDeclarationNames(content) {
+  const source = sanitizeGoStructure(content);
+  const names = new Set();
+  for (const match of source.matchAll(/\bfunc\s*(?:\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) {
+    names.add(match[1]);
+  }
+  for (const match of source.matchAll(/\b(?:var|const|type)\s+([A-Za-z_][A-Za-z0-9_]*)\b/g)) {
+    names.add(match[1]);
+  }
+  for (const match of source.matchAll(/\b(?:var|const|type)\s*\(([\s\S]*?)\)/g)) {
+    for (const line of match[1].split("\n")) {
+      const name = line.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)\b/)?.[1];
+      if (name) names.add(name);
+    }
+  }
+  return names;
+}
+
+function goCallCount(content, symbol) {
+  const source = sanitizeGoStructure(content).replace(
+    /(\bfunc\s*(?:\([^)]*\)\s*)?)([A-Za-z_][A-Za-z0-9_]*)(\s*\()/g,
+    (_match, prefix, name, suffix) => `${prefix}${" ".repeat(name.length)}${suffix}`,
+  );
+  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return [...source.matchAll(new RegExp(`\\b${escaped}\\s*\\(`, "g"))].length;
+}
+
+function checkForbiddenGoDeclarations(files, rules) {
+  const violations = [];
+  for (const file of files) {
+    for (const rule of rules) {
+      if (!isProductionGo(file, rule.productionOnly)) continue;
+      if (!pathMatchesAny(file.relative, rule.scanPaths)) continue;
+      if (pathMatchesAny(file.relative, rule.allowedPaths)) continue;
+      const declarations = goDeclarationNames(file.content);
+      for (const symbol of rule.symbols) {
+        if (declarations.has(symbol)) {
+          violations.push(violation("forbidden_go_declaration", file, symbol, { rule_id: rule.id }));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function checkExactGoCalls(files, rules) {
+  const violations = [];
+  for (const rule of rules) {
+    let requiredCount = 0;
+    for (const file of files) {
+      if (!isProductionGo(file, rule.productionOnly)) continue;
+      if (!pathMatchesAny(file.relative, rule.scanPaths)) continue;
+      const count = goCallCount(file.content, rule.symbol);
+      if (file.relative === rule.requiredPath) requiredCount += count;
+      if (count > 0 && !pathMatchesAny(file.relative, rule.allowedPaths)) {
+        violations.push(violation("forbidden_go_call", file, rule.symbol, {
+          rule_id: rule.id,
+          occurrences: count,
+        }));
+      }
+    }
+    if (requiredCount !== rule.requiredCount) {
+      violations.push(violation(
+        "required_go_call_count",
+        { relative: rule.requiredPath },
+        rule.symbol,
+        { rule_id: rule.id, expected: rule.requiredCount, observed: requiredCount },
+      ));
+    }
+  }
+  return violations;
+}
+
+function assertMigrationSourceBoundaryFixtures(boundary) {
+  const approved = [
+    {
+      relative: "db/migrations/source.go",
+      content: "package migrations\nfunc Source() { database_migrations.BuildCanonicalEmbedded(files, embeddedPath) }",
+    },
+    {
+      relative: "internal/modules/database_migrations/migrations.go",
+      content: 'package database_migrations\nimport "github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"\nfunc BuildCanonicalEmbedded() {}',
+    },
+    {
+      relative: "internal/testutil/pgtest/pgtest.go",
+      content: 'package pgtest\nimport "github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"\nfunc (m *MigrationDatabase) ApplyThrough() {}\nfunc (m *MigrationDatabase) RollbackThrough() {}',
+    },
+    {
+      relative: "internal/app/server/runtime_test.go",
+      content: 'package server\nimport "github.com/JochiRaider/cartulary/internal/testutil/pgtest"',
+    },
+  ];
+  if (
+    checkForbiddenGoImports(approved, boundary.restrictedImports).length !== 0 ||
+    checkForbiddenGoDeclarations(approved, boundary.forbiddenDeclarations).length !== 0 ||
+    checkExactGoCalls(approved, boundary.exactCalls).length !== 0
+  ) {
+    throw new Error("approved database migration source boundary fixtures must pass");
+  }
+
+  for (const rule of boundary.restrictedImports) {
+    const imported = rule.imports[0];
+    const fixture = [{
+      relative: "internal/app/server/forbidden.go",
+      content: `package server\nimport "${imported}"`,
+    }];
+    const violations = checkForbiddenGoImports(fixture, [rule]);
+    if (violations.length !== 1 || violations[0].rule_id !== rule.id) {
+      throw new Error(`${rule.id} negative import fixture must fail closed`);
+    }
+  }
+  for (const rule of boundary.forbiddenDeclarations) {
+    for (const symbol of rule.symbols) {
+      const fixture = [{
+        relative: rule.scanPaths[0].replace("/**", "/forbidden.go"),
+        content: `package forbidden\nfunc ${symbol}() {}`,
+      }];
+      const violations = checkForbiddenGoDeclarations(fixture, [rule]);
+      if (violations.length !== 1 || violations[0].symbol_or_import !== symbol) {
+        throw new Error(`${rule.id}/${symbol} negative declaration fixture must fail closed`);
+      }
+    }
+  }
+  for (const rule of boundary.exactCalls) {
+    const fixtures = [
+      {
+        relative: rule.requiredPath,
+        content: `package approved\nfunc Source() { ${rule.symbol}() }`,
+      },
+      {
+        relative: "internal/app/server/forbidden.go",
+        content: `package server\nfunc build() { ${rule.symbol}() }`,
+      },
+    ];
+    const violations = checkExactGoCalls(fixtures, [rule]);
+    if (violations.length !== 1 || violations[0].code !== "forbidden_go_call") {
+      throw new Error(`${rule.id} negative call fixture must reject the extra caller`);
+    }
+  }
+}
+
 function checkCommandRootShape(files, rule) {
   const prefix = `${rule.root}/`;
   return files
@@ -1404,6 +1696,11 @@ function main() {
   const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
   const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
   const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
+  const migrationBoundaryFiles = collectFiles(
+    options.root,
+    manifest.migrationSourceBoundary.scanRoots,
+    scanExcludes,
+  );
   const testSupportRoots = supportInventory.roots
     .filter((entry) => entry.runtimeScan === "excluded" && entry.supportScan === "included")
     .map((entry) => entry.path);
@@ -1412,6 +1709,7 @@ function main() {
     rule.id.endsWith("-projection-storage-access"),
   );
   assertBoundaryFixtures(manifest);
+  assertMigrationSourceBoundaryFixtures(manifest.migrationSourceBoundary);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
@@ -1428,6 +1726,15 @@ function main() {
     ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens),
     ...checkForbiddenTestBuildTokens(files, manifest.forbiddenTestBuildTokens),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
+    ...checkForbiddenGoImports(
+      migrationBoundaryFiles,
+      manifest.migrationSourceBoundary.restrictedImports,
+    ),
+    ...checkForbiddenGoDeclarations(
+      migrationBoundaryFiles,
+      manifest.migrationSourceBoundary.forbiddenDeclarations,
+    ),
+    ...checkExactGoCalls(migrationBoundaryFiles, manifest.migrationSourceBoundary.exactCalls),
   ].sort((left, right) => {
     return (
       left.code.localeCompare(right.code) ||

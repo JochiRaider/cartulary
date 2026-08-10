@@ -1,0 +1,53 @@
+{
+  "schema_id": "cartulary.migration_history_evidence.v2",
+  "collected_at": "2026-08-10T21:00:00Z",
+  "evidence_only": true,
+  "rewrite_authorized": false,
+  "database_binding": {
+    "binding_kind": "managed_service",
+    "service_ref": "postgres-primary"
+  },
+  "manifest": {
+    "schema_id": "cartulary.migration_history_manifest.v1",
+    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "migration_root": "db/migrations",
+    "immutable_through_version": 1,
+    "expected_min_version": 1,
+    "expected_max_version": 1,
+    "expected_version_count": 1
+  },
+  "source_audit": [
+    {
+      "version": 1,
+      "filename": "00001_database_infrastructure.sql",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "has_goose_up": true,
+      "has_goose_down": true,
+      "phase_shaped_name": false,
+      "immutability_class": "protected",
+      "manifest_filename": "00001_database_infrastructure.sql",
+      "manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "manifest_hash_matches": true
+    }
+  ],
+  "goose_ledger": {
+    "metadata_present": true,
+    "row_count": 1,
+    "current_effective_applied_version": 1,
+    "latest_effective_states": [
+      {
+        "version": 1,
+        "is_applied": true,
+        "tstamp": "2026-08-10T20:59:00Z"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "info",
+      "reason_code": "protected_boundary_applied",
+      "version": 1,
+      "detail": "current applied version reaches the immutable boundary 00001"
+    }
+  ]
+}

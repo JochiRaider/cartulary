@@ -13,31 +13,14 @@ import (
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestMigrationEvidenceTransport_Integration(t *testing.T) {
-	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.NewMigrationDatabaseT(t, "operator-migration-evidence-transport")
-
-	sqlDB, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open migration evidence database: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = sqlDB.Close()
-	})
-	source, err := dbmigrations.Source()
-	if err != nil {
-		t.Fatalf("load migration source: %v", err)
-	}
-	if err := database_migrations.Apply(ctx, sqlDB, source); err != nil {
-		t.Fatalf("migrate database: %v", err)
-	}
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "operator-migration-evidence-transport")
 	capture := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN)
 	if capture.stderr != "" || strings.Count(capture.stdout, "\n") != 1 {
 		t.Fatalf("expected one JSON object plus LF and empty stderr: stdout=%q stderr=%q", capture.stdout, capture.stderr)
@@ -53,7 +36,7 @@ func TestMigrationEvidenceTransport_Integration(t *testing.T) {
 func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.NewMigrationDatabaseT(t, "operator-migration-evidence-semantics")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "operator-migration-evidence-semantics")
 
 	sqlDB, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
@@ -62,13 +45,6 @@ func TestMigrationEvidenceSemantics_Integration(t *testing.T) {
 	t.Cleanup(func() {
 		_ = sqlDB.Close()
 	})
-	source, err := dbmigrations.Source()
-	if err != nil {
-		t.Fatalf("load migration source: %v", err)
-	}
-	if err := database_migrations.Apply(ctx, sqlDB, source); err != nil {
-		t.Fatalf("migrate database: %v", err)
-	}
 	payload := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN).payload
 	if !payload.GooseLedger.MetadataPresent {
 		t.Fatalf("expected goose metadata table to be present: %#v", payload.GooseLedger)
@@ -115,6 +91,7 @@ func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) migrationE
 	runner := operatorRunner{
 		migrationEvidence: migrationEvidenceExecutor{
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
+			source:    dbmigrations.Source,
 			loadConfig: func(string) (configassembly.Loaded, error) {
 				return migrationEvidenceTestDeployment(t), nil
 			},

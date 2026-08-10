@@ -276,6 +276,7 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestCanonicalEmbeddedMigrationCatalogCharacterization",
           "TestPublicSurfaceAndLedgerReaderCapability"
         ]
       },

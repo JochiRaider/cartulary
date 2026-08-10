@@ -7,6 +7,7 @@
     "schema_id",
     "scan_roots",
     "scan_excludes",
+    "migration_source_boundary",
     "owner_port_only_imports",
     "raw_ndjson_targets",
     "forbidden_route_dependencies",
@@ -26,6 +27,22 @@
     "schema_id": { "const": "cartulary.backend_module_boundaries.v2" },
     "scan_roots": { "$ref": "#/$defs/stringArray" },
     "scan_excludes": { "$ref": "#/$defs/stringArray" },
+    "migration_source_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scan_roots",
+        "restricted_imports",
+        "forbidden_declarations",
+        "exact_calls"
+      ],
+      "properties": {
+        "scan_roots": { "$ref": "#/$defs/stringArray" },
+        "restricted_imports": { "$ref": "#/$defs/objectArray" },
+        "forbidden_declarations": { "$ref": "#/$defs/objectArray" },
+        "exact_calls": { "$ref": "#/$defs/objectArray" }
+      }
+    },
     "owner_port_only_imports": { "$ref": "#/$defs/objectArray" },
     "raw_ndjson_targets": { "$ref": "#/$defs/objectArray" },
     "forbidden_route_dependencies": { "$ref": "#/$defs/objectArray" },

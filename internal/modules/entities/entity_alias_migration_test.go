@@ -16,7 +16,7 @@ import (
 
 func TestEntityAliasMigration31EmptyUpgrade(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-empty", 31)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 31)
 	db := migrationDB.SQL()
 
 	var udtName string
@@ -36,7 +36,7 @@ SELECT udt_name
 
 func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-dedupe", 30)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 30)
 	db := migrationDB.SQL()
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "dedupe")
 	oldestID := uuid.MustParse("31000000-0000-4000-8000-000000000001")
@@ -61,7 +61,7 @@ func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *test
 
 func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, "entity-alias-31-invalid", 30)
+	migrationDB := harness.MigrationDatabaseThroughT(t, 30)
 	db := migrationDB.SQL()
 	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "invalid")
 	invalid := []struct {

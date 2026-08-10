@@ -17,14 +17,14 @@ type LedgerReader interface {
 
 // EnsureSchemaReady verifies that an already-open database matches the
 // repository migration source before runtime subsystems touch schema objects.
-func EnsureSchemaReady(ctx context.Context, pool *pgxpool.Pool, source Source) error {
+func EnsureSchemaReady(ctx context.Context, pool *pgxpool.Pool, source *Source) error {
 	if ctx == nil {
 		return newMigrationFailure(reasonMigrationContextInvalid, errNilMigrateContext)
 	}
 	if err := ctx.Err(); err != nil {
 		return newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
 	}
-	if err := source.validate(); err != nil {
+	if err := validateSource(source); err != nil {
 		return newMigrationFailure(reasonMigrationSourceInvalid, err)
 	}
 	if pool == nil {
