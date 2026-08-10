@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -19,6 +20,12 @@ type artifactProjectionRowsStub struct{ artifactprojection.Rows }
 type artifactRevisionsStub struct{ RevisionCapability }
 type artifactConflictFieldsStub struct{ conflicttokens.FieldResolver }
 type artifactKeepSavedStub struct{ conflicttokens.IdempotencyPort }
+type artifactImportRecordStub struct{ recordEnvelopeInserter }
+type artifactImportActiveUserStub struct{ activeUserLookup }
+type artifactImportProjectionStub struct{ artifactProjectionRows }
+type artifactImportRevisionStub struct {
+	ownerfacade.RecordRevisionAndIntentAppender
+}
 
 func completeArtifactMutationDependencies() MutationDependencies {
 	return MutationDependencies{
@@ -31,6 +38,15 @@ func completeArtifactMutationDependencies() MutationDependencies {
 		Revisions:            artifactRevisionsStub{},
 		ConflictFields:       artifactConflictFieldsStub{},
 		KeepSavedIdempotency: artifactKeepSavedStub{},
+	}
+}
+
+func completeArtifactImportDependencies() ImportDependencies {
+	return ImportDependencies{
+		RecordEnvelopes: artifactImportRecordStub{},
+		ActiveUsers:     artifactImportActiveUserStub{},
+		Projections:     artifactImportProjectionStub{},
+		Revisions:       artifactImportRevisionStub{},
 	}
 }
 
@@ -62,5 +78,31 @@ func TestArtifactMutationContributionRejectsMissingDependencies(t *testing.T) {
 				t.Fatalf("missing %s error = %v", tc.name, err)
 			}
 		})
+	}
+}
+
+func TestArtifactImportContributionRejectsMissingDependencies(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		want string
+		drop func(*ImportDependencies)
+	}{
+		{name: "records insertion", want: "Records insertion", drop: func(d *ImportDependencies) { d.RecordEnvelopes = nil }},
+		{name: "active-user lookup", want: "Active-user lookup", drop: func(d *ImportDependencies) { d.ActiveUsers = nil }},
+		{name: "projection refresh/load", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = nil }},
+		{name: "revision and intent appender", want: "Revision and intent appender", drop: func(d *ImportDependencies) { d.Revisions = nil }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dependencies := completeArtifactImportDependencies()
+			tc.drop(&dependencies)
+			if _, err := NewImportContribution(NotesViewSchemaID, "artifacts.notes.create", dependencies); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("missing %s error = %v", tc.name, err)
+			}
+		})
+	}
+	if _, err := NewImportContribution("cartulary.view.unknown.v1", "artifacts.unknown.create", completeArtifactImportDependencies()); err == nil || !strings.Contains(err.Error(), "not mapped") {
+		t.Fatalf("unknown import surface error = %v", err)
 	}
 }

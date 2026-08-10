@@ -105,8 +105,8 @@ func artifactValueFromWorkbook(value ValueChange) artifacts.FieldValue {
 	}
 }
 
-func artifactCreateRequestFromWorkbook(request CreateRequest) artifacts.WorkbookCreateRequest {
-	return artifacts.WorkbookCreateRequest{
+func artifactCreateRequestFromWorkbook(request CreateRequest) artifacts.CreateRequest {
+	return artifacts.CreateRequest{
 		ViewSchemaID: request.ViewSchemaID,
 		ClientTxnID:  request.ClientTxnID,
 		Values:       artifactValuesFromWorkbook(request.Values),
@@ -114,10 +114,10 @@ func artifactCreateRequestFromWorkbook(request CreateRequest) artifacts.Workbook
 	}
 }
 
-func artifactPatchRequestFromWorkbook(request PatchRequest) artifacts.WorkbookPatchRequest {
-	changes := make([]artifacts.WorkbookPatchChange, 0, len(request.Changes))
+func artifactPatchRequestFromWorkbook(request PatchRequest) artifacts.PatchRequest {
+	changes := make([]artifacts.PatchChange, 0, len(request.Changes))
 	for _, change := range request.Changes {
-		converted := artifacts.WorkbookPatchChange{
+		converted := artifacts.PatchChange{
 			FieldKey:       change.FieldKey,
 			CanonicalValue: change.CanonicalAny,
 		}
@@ -131,7 +131,7 @@ func artifactPatchRequestFromWorkbook(request PatchRequest) artifacts.WorkbookPa
 		}
 		changes = append(changes, converted)
 	}
-	return artifacts.WorkbookPatchRequest{
+	return artifacts.PatchRequest{
 		ViewSchemaID:   request.ViewSchemaID,
 		BaseRowVersion: request.BaseRowVersion,
 		ClientTxnID:    request.ClientTxnID,
@@ -139,18 +139,18 @@ func artifactPatchRequestFromWorkbook(request PatchRequest) artifacts.WorkbookPa
 	}
 }
 
-func artifactWorkbookCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]artifacts.WorkbookCollectionActionPayload {
-	result := make(map[string]artifacts.WorkbookCollectionActionPayload, len(collections))
+func artifactWorkbookCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]artifacts.CollectionActionPayload {
+	result := make(map[string]artifacts.CollectionActionPayload, len(collections))
 	for fieldKey, payload := range collections {
 		result[fieldKey] = artifactWorkbookCollectionPayloadFromWorkbook(payload)
 	}
 	return result
 }
 
-func artifactWorkbookCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.WorkbookCollectionActionPayload {
-	actions := make([]artifacts.WorkbookCollectionAction, 0, len(payload.Actions))
+func artifactWorkbookCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.CollectionActionPayload {
+	actions := make([]artifacts.CollectionAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		actions = append(actions, artifacts.WorkbookCollectionAction{
+		actions = append(actions, artifacts.CollectionAction{
 			Op:             action.Op,
 			RawText:        action.RawText,
 			LinkedRecordID: action.LinkedRecordID,
@@ -160,10 +160,10 @@ func artifactWorkbookCollectionPayloadFromWorkbook(payload CollectionActionPaylo
 			NormalizedText: action.NormalizedText,
 		})
 	}
-	return artifacts.WorkbookCollectionActionPayload{Actions: actions}
+	return artifacts.CollectionActionPayload{Actions: actions}
 }
 
-func mutationResultFromArtifactWorkbook(result artifacts.WorkbookMutationResult) MutationResult {
+func mutationResultFromArtifactWorkbook(result artifacts.MutationResult) MutationResult {
 	payload := map[string]any{
 		"view_schema_id": result.ViewSchemaID,
 		"row":            result.Row,
@@ -633,18 +633,18 @@ func linkedNoteCreateRequestToArtifacts(request LinkedNoteCreateRequest) artifac
 	}
 }
 
-func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]artifacts.WorkbookCollectionActionPayload {
-	result := make(map[string]artifacts.WorkbookCollectionActionPayload, len(collections))
+func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]artifacts.CollectionActionPayload {
+	result := make(map[string]artifacts.CollectionActionPayload, len(collections))
 	for fieldKey, payload := range collections {
 		result[fieldKey] = linkedNoteCollectionPayloadFromWorkbook(payload)
 	}
 	return result
 }
 
-func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.WorkbookCollectionActionPayload {
-	actions := make([]artifacts.WorkbookCollectionAction, 0, len(payload.Actions))
+func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.CollectionActionPayload {
+	actions := make([]artifacts.CollectionAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		actions = append(actions, artifacts.WorkbookCollectionAction{
+		actions = append(actions, artifacts.CollectionAction{
 			Op:             action.Op,
 			RawText:        action.RawText,
 			LinkedRecordID: action.LinkedRecordID,
@@ -653,7 +653,7 @@ func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) ar
 			NormalizedText: action.NormalizedText,
 		})
 	}
-	return artifacts.WorkbookCollectionActionPayload{Actions: actions}
+	return artifacts.CollectionActionPayload{Actions: actions}
 }
 
 func adaptLinkedNoteOwnerError(err error) error {

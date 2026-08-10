@@ -9,7 +9,10 @@ import (
 )
 
 func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *testing.T) {
-	contributions := CurrentRecoveryStateContributions()
+	contributions, err := CurrentRecoveryStateContributions()
+	if err != nil {
+		t.Fatalf("construct current recovery state contributions: %v", err)
+	}
 	catalog, err := recoverystate.Build(contributions...)
 	if err != nil {
 		t.Fatalf("build current recovery state catalog: %v", err)

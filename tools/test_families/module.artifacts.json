@@ -251,6 +251,29 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.artifacts.surface.iteration2_exported_surface_reachability",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.surface",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.exported_surface_minimization"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactExportedSurfaceReachabilityLock"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.artifacts.surface_contracts.artifact_projection_provider_matches_canonical_a_6e485ff11b",
       "owner_id": "module.artifacts",
       "family_id": "module.artifacts.surface_contracts",

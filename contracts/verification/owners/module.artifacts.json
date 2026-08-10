@@ -15,6 +15,13 @@
       "evidence_kinds": ["go_test"]
     },
     {
+      "verification_id": "module.artifacts.verification.exported_surface_minimization",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": ["go_test"],
+      "public_target": "test"
+    },
+    {
       "verification_id": "module.artifacts.verification.import_create_facade",
       "behavior_class": "product",
       "profile": "extension.import",

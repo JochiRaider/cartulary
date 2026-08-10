@@ -1,6 +1,8 @@
 package recoveryassembly
 
 import (
+	"fmt"
+
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
@@ -32,9 +34,13 @@ import (
 	recoverystate "github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
-func CurrentRecoveryStateContributions() []recoverystate.Contribution {
+func CurrentRecoveryStateContributions() ([]recoverystate.Contribution, error) {
+	artifactsContribution, err := artifacts.RecoveryStateContribution()
+	if err != nil {
+		return nil, fmt.Errorf("recovery assembly: Artifacts state contribution: %w", err)
+	}
 	return []recoverystate.Contribution{
-		artifacts.RecoveryStateContribution(),
+		artifactsContribution,
 		assessments.RecoveryStateContribution(),
 		administrativeaudit.RecoveryStateContribution(),
 		auth.RecoveryStateContribution(),
@@ -63,11 +69,15 @@ func CurrentRecoveryStateContributions() []recoverystate.Contribution {
 		savedviews.RecoveryStateContribution(),
 		tasksdecisions.NewRecoveryContribution(),
 		timeline.RecoveryStateContribution(),
-	}
+	}, nil
 }
 
 func CurrentRecoveryStateCatalog() (*recoverystate.Catalog, error) {
-	return recoverystate.Build(CurrentRecoveryStateContributions()...)
+	contributions, err := CurrentRecoveryStateContributions()
+	if err != nil {
+		return nil, err
+	}
+	return recoverystate.Build(contributions...)
 }
 
 func CurrentVNextObjectInventoryCatalog(

@@ -2,28 +2,31 @@ package artifacts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
-const HandoffOpenRiskRefsFieldKey = "handoff.open_risk_refs"
+const handoffOpenRiskRefsFieldKey = "handoff.open_risk_refs"
 
-type RiskRefActionPayload struct {
-	Actions []RiskRefAction
+type riskRefActionPayload struct {
+	Actions []riskRefAction
 }
 
-type RiskRefAction struct {
+type riskRefAction struct {
 	Op             string
 	ItemRef        string
 	RiskRefText    string
 	NormalizedText string
 }
 
-func ValidateHandoffRiskRefPayload(payload RiskRefActionPayload) error {
+func validateHandoffRiskRefPayload(payload riskRefActionPayload) error {
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_risk_ref":
@@ -41,18 +44,18 @@ func ValidateHandoffRiskRefPayload(payload RiskRefActionPayload) error {
 	return nil
 }
 
-func (s *sourceStore) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, actorID uuid.UUID, payload RiskRefActionPayload, now time.Time) (bool, error) {
-	if err := ValidateHandoffRiskRefPayload(payload); err != nil {
+func (s *sourceStore) applyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, envelopes RecordEnvelopeCapability, incidentID uuid.UUID, handoffRecordID uuid.UUID, actorID uuid.UUID, payload riskRefActionPayload, now time.Time) (bool, error) {
+	if err := validateHandoffRiskRefPayload(payload); err != nil {
 		return false, err
 	}
-	if err := validateHandoffRiskRefOwnerTx(ctx, tx, incidentID, handoffRecordID); err != nil {
+	if err := validateHandoffRiskRefOwnerTx(ctx, tx, envelopes, incidentID, handoffRecordID); err != nil {
 		return false, err
 	}
 	changed := false
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_risk_ref":
-			applied, err := s.UpsertHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, action.RiskRefText, action.NormalizedText, actorID, now)
+			applied, err := s.upsertHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, action.RiskRefText, action.NormalizedText, actorID, now)
 			if err != nil {
 				return false, err
 			}
@@ -62,7 +65,7 @@ func (s *sourceStore) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.T
 			if err != nil {
 				return false, riskRefValidationError()
 			}
-			applied, err := s.TombstoneHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, riskRefID, actorID, now)
+			applied, err := s.tombstoneHandoffRiskRefTx(ctx, tx, incidentID, handoffRecordID, riskRefID, actorID, now)
 			if err != nil {
 				return false, err
 			}
@@ -72,7 +75,7 @@ func (s *sourceStore) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.T
 	return changed, nil
 }
 
-func (s *sourceStore) UpsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) upsertHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 INSERT INTO handoff_risk_refs (
     incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text,
@@ -88,7 +91,7 @@ DO NOTHING
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *sourceStore) TombstoneHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, riskRefID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) tombstoneHandoffRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID, riskRefID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 UPDATE handoff_risk_refs
    SET deleted_at = $5,
@@ -107,19 +110,24 @@ UPDATE handoff_risk_refs
 	return true, nil
 }
 
-func validateHandoffRiskRefOwnerTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, handoffRecordID uuid.UUID) error {
+func validateHandoffRiskRefOwnerTx(ctx context.Context, tx pgx.Tx, envelopes RecordEnvelopeCapability, incidentID uuid.UUID, handoffRecordID uuid.UUID) error {
+	envelope, err := envelopes.LoadEnvelopeTx(ctx, tx, handoffRecordID, false)
+	if errors.Is(err, records.ErrEnvelopeNotFound) {
+		return riskRefValidationError()
+	}
+	if err != nil {
+		return fmt.Errorf("validate handoff risk ref envelope: %w", err)
+	}
+	if envelope.IncidentID != incidentID || envelope.RecordType != "artifact" || envelope.DeletedAt != nil {
+		return riskRefValidationError()
+	}
 	var exists bool
 	if err := tx.QueryRow(ctx, `
 SELECT EXISTS (
     SELECT 1
-      FROM records r
-      JOIN artifacts a
-        ON a.incident_id = r.incident_id
-       AND a.record_id = r.record_id
-     WHERE r.incident_id = $1
-       AND r.record_id = $2
-       AND r.record_type = 'artifact'
-       AND r.deleted_at IS NULL
+      FROM artifacts a
+     WHERE a.incident_id = $1
+       AND a.record_id = $2
        AND a.artifact_type = 'handoff'
 )
 `, incidentID, handoffRecordID).Scan(&exists); err != nil {
@@ -131,7 +139,7 @@ SELECT EXISTS (
 	return nil
 }
 
-func RiskRefItemRef(riskRefID uuid.UUID) string {
+func riskRefItemRef(riskRefID uuid.UUID) string {
 	return "risk_ref:" + riskRefID.String()
 }
 
@@ -148,5 +156,5 @@ func ParseRiskRefItemRef(itemRef string) (uuid.UUID, error) {
 }
 
 func riskRefValidationError() *ValidationError {
-	return &ValidationError{Field: HandoffOpenRiskRefsFieldKey, ReasonCode: "invalid_value"}
+	return &ValidationError{Field: handoffOpenRiskRefsFieldKey, ReasonCode: "invalid_value"}
 }

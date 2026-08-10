@@ -37,9 +37,13 @@ type Runtime struct {
 	fieldResolver   *conflicts.FieldResolverCatalog
 }
 
-func CurrentProviderContributions() []revisions.ProviderContribution {
+func CurrentProviderContributions() ([]revisions.ProviderContribution, error) {
+	artifactContribution, err := artifacts.NewRevisionContribution()
+	if err != nil {
+		return nil, fmt.Errorf("revision assembly: compose Artifacts contribution: %w", err)
+	}
 	return []revisions.ProviderContribution{
-		artifacts.RevisionProviderContribution(),
+		artifactContribution,
 		assessments.RevisionProviderContribution(),
 		entities.RevisionProviderContribution(),
 		evidence.RevisionProviderContribution(),
@@ -48,15 +52,23 @@ func CurrentProviderContributions() []revisions.ProviderContribution {
 		parties.RevisionProviderContribution(),
 		tasksdecisions.NewRevisionContribution(),
 		timeline.RevisionProviderContribution(),
-	}
+	}, nil
 }
 
 func CurrentConflictFieldResolver() (conflicts.FieldResolver, error) {
-	return buildConflictFieldResolver(CurrentProviderContributions())
+	contributions, err := CurrentProviderContributions()
+	if err != nil {
+		return nil, err
+	}
+	return buildConflictFieldResolver(contributions)
 }
 
 func CurrentTargetSemanticsCatalog() (*revisions.TargetSemanticsCatalog, error) {
-	return buildTargetSemanticsCatalog(CurrentProviderContributions())
+	contributions, err := CurrentProviderContributions()
+	if err != nil {
+		return nil, err
+	}
+	return buildTargetSemanticsCatalog(contributions)
 }
 
 func NewRecordEnvelopeReader(db postgres.DB) revisions.RecordEnvelopeReader {

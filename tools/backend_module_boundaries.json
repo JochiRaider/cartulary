@@ -35,6 +35,7 @@
         "internal/app/server/runtime_assembly.go",
         "internal/modules/incidentbundles/**",
         "internal/modules/artifacts/incident_bundle_source_port.go",
+        "internal/modules/artifacts/source_state_manifest.go",
         "internal/modules/assessments/incident_bundle_source_port.go",
         "internal/modules/entities/incident_bundle_source_port.go",
         "internal/modules/evidence/incident_bundle_source_port.go",
@@ -77,11 +78,6 @@
         "internal/modules/incidentbundles/source.go",
         "internal/modules/reference_data/**"
       ]
-    },
-    {
-      "id": "artifact-surface-catalog-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog",
-      "allowed_importers": ["internal/modules/artifacts/**"]
     },
     {
       "id": "assessment-delete-restore-provider-import",
@@ -355,7 +351,7 @@
         "github.com/JochiRaider/cartulary/internal/platform/httpapi"
       ],
       "scan_paths": [
-        "internal/modules/artifacts/mutation_kernel.go",
+        "internal/modules/artifacts/mutation_create.go",
         "internal/modules/artifacts/source_kernel.go"
       ],
       "allowed_paths": [],
@@ -372,11 +368,30 @@
       "scan_paths": [
         "internal/modules/artifacts/contextual_notes.go",
         "internal/modules/artifacts/import_create.go",
-        "internal/modules/artifacts/mutation_kernel.go",
-        "internal/modules/artifacts/mutation_ports.go",
+        "internal/modules/artifacts/mutation_*.go",
         "internal/modules/artifacts/source_kernel.go",
-        "internal/modules/artifacts/workbook_conflict.go",
-        "internal/modules/artifacts/workbook_facade.go"
+        "internal/modules/artifacts/handoff_risk_refs.go"
+      ],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "artifact-mutation-no-consumer-implementations",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/collaboration",
+        "github.com/JochiRaider/cartulary/internal/modules/imports",
+        "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+        "github.com/JochiRaider/cartulary/internal/modules/projections",
+        "github.com/JochiRaider/cartulary/internal/modules/reporting",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline",
+        "github.com/JochiRaider/cartulary/internal/modules/workbook"
+      ],
+      "scan_paths": [
+        "internal/modules/artifacts/contextual_notes.go",
+        "internal/modules/artifacts/mutation_*.go",
+        "internal/modules/artifacts/source_kernel.go",
+        "internal/modules/artifacts/handoff_risk_refs.go"
       ],
       "allowed_paths": [],
       "production_only": true
@@ -385,7 +400,8 @@
       "id": "artifact-private-provider-implementations",
       "match_kind": "subtree",
       "imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers"
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/providers",
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
       ],
       "scan_paths": [
         "internal/app/**",
@@ -394,6 +410,17 @@
       "allowed_paths": [
         "internal/modules/artifacts/**"
       ],
+      "production_only": false
+    },
+    {
+      "id": "artifact-retired-owner-package-imports",
+      "match_kind": "subtree",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecatalog",
+        "github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [],
       "production_only": false
     },
     {
@@ -1258,7 +1285,6 @@
       "table": "records",
       "scan_paths": ["internal/modules/**"],
       "read_allowed_paths": [
-        "internal/modules/artifacts/handoff_risk_refs.go",
 		"internal/modules/artifacts/internal/providers/deleterestore/provider.go",
         "internal/modules/artifacts/incident_bundle_source_port.go",
 		"internal/modules/artifacts/internal/providers/projection/source.go",
@@ -1373,6 +1399,25 @@
     ]
   },
   "forbidden_source_tokens": [
+    {
+      "id": "artifact-mutation-idempotency-lookup-is-centralized",
+      "tokens": ["f.idempotency.Get("],
+      "scan_paths": ["internal/modules/artifacts/mutation_*.go"],
+      "allowed_paths": ["internal/modules/artifacts/mutation_idempotency.go"],
+      "production_only": true
+    },
+    {
+      "id": "artifact-import-no-peer-store-construction-or-user-query",
+      "tokens": [
+        "records.NewStore(",
+        "revisions.NewAppender(",
+        "FROM users",
+        "JOIN users"
+      ],
+      "scan_paths": ["internal/modules/artifacts/import_create.go"],
+      "allowed_paths": [],
+      "production_only": true
+    },
     {
       "id": "platform-config-no-owner-profile-registry",
       "tokens": [

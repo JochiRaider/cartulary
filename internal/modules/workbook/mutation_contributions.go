@@ -455,13 +455,13 @@ func assessmentCreateRequestHash(request CreateRequest) []byte {
 
 func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.MutationFacade) CreateProvider {
 	return newGenericCreateProvider(viewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
-		result, err := owner.Create(ctx, artifacts.WorkbookCreateCommand{
+		result, err := owner.Create(ctx, artifacts.CreateCommand{
 			ActorUserID: command.Actor.ID,
 			IncidentID:  command.IncidentID,
 			Request:     artifactCreateRequestFromWorkbook(request),
 			RequestHash: requestHash(command.RequestHash, CreateRequestHash(request)),
 			RequestID:   command.RequestID,
-			OperationID: artifacts.OperationWorkbookCreate,
+			OperationID: artifacts.OperationCreate,
 			Now:         command.Now,
 		})
 		return mutationResultFromArtifactWorkbook(result), adaptArtifactWorkbookOwnerError(err)
@@ -610,13 +610,13 @@ func newEntityPatchProvider(recordType string, viewSchemaID string, owner *hosti
 
 func NewArtifactPatchProvider(owner *artifacts.MutationFacade) PatchProvider {
 	return newGenericPatchProvider("artifact", artifactViewSchemaIDs(), func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
-		result, err := owner.Patch(ctx, artifacts.WorkbookPatchCommand{
+		result, err := owner.Patch(ctx, artifacts.PatchCommand{
 			ActorUserID:         command.Actor.ID,
 			RecordID:            command.RecordID,
 			Request:             artifactPatchRequestFromWorkbook(request),
 			RequestHash:         requestHash(command.RequestHash, PatchRequestHash(request)),
 			RequestID:           command.RequestID,
-			OperationID:         artifacts.OperationWorkbookPatch,
+			OperationID:         artifacts.OperationPatch,
 			ConflictOperationID: artifacts.OperationConflictResolve,
 			Now:                 command.Now,
 		})
@@ -801,12 +801,12 @@ func NewArtifactConflictProvider(owner *artifacts.MutationFacade) ConflictProvid
 			request ConflictResolveRequest,
 			patch *PatchRequest,
 		) (MutationResult, error) {
-			var ownerPatch *artifacts.WorkbookPatchRequest
+			var ownerPatch *artifacts.PatchRequest
 			if patch != nil {
 				converted := artifactPatchRequestFromWorkbook(*patch)
 				ownerPatch = &converted
 			}
-			result, err := owner.ResolveConflict(ctx, artifacts.WorkbookConflictCommand{
+			result, err := owner.ResolveConflict(ctx, artifacts.ConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
 				ActorUserID:    command.Actor.ID,
 				OperationID:    artifacts.OperationConflictResolve,

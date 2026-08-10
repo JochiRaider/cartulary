@@ -7,9 +7,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 )
 
-type sourceStore struct{}
+type sourceStore struct {
+	catalog *sourcecatalog.Catalog
+}
 
 type FieldValue struct {
 	Text      *string
@@ -19,17 +23,21 @@ type FieldValue struct {
 	Bool      *bool
 }
 
-type CreateParams struct {
+type createParams struct {
 	ViewSchemaID string
 	Values       map[string]FieldValue
 }
 
-func newSourceStore() *sourceStore {
-	return &sourceStore{}
+func newSourceStore(catalog *sourcecatalog.Catalog) *sourceStore {
+	return &sourceStore{catalog: catalog}
 }
 
-func (s *sourceStore) InsertRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params CreateParams, now time.Time) error {
-	artifactType := ArtifactTypeForView(params.ViewSchemaID)
+func (s *sourceStore) insertRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params createParams, now time.Time) error {
+	surface, ok := s.catalog.SurfaceByViewID(params.ViewSchemaID)
+	if !ok {
+		return fmt.Errorf("artifacts: unsupported view schema %q", params.ViewSchemaID)
+	}
+	artifactType := surface.ArtifactType
 	timestamp := now
 	if value, ok := params.Values[artifactType+".timestamp_utc"]; ok && value.Timestamp != nil {
 		timestamp = value.Timestamp.UTC()
@@ -115,7 +123,7 @@ INSERT INTO artifacts (
 	return nil
 }
 
-func (s *sourceStore) insertFindingTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params CreateParams, now time.Time) error {
+func (s *sourceStore) insertFindingTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params createParams, now time.Time) error {
 	kind := nullableTextValue(params.Values, "finding.kind")
 	if kind == nil {
 		kind = "finding"
@@ -148,7 +156,7 @@ INSERT INTO artifact_findings (
 	return nil
 }
 
-func (s *sourceStore) insertInvestigativeQueryTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params CreateParams, now time.Time) error {
+func (s *sourceStore) insertInvestigativeQueryTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, params createParams, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO artifact_investigative_queries (
     record_id, incident_id, query_id, platform, purpose, query_text,
@@ -168,7 +176,7 @@ INSERT INTO artifact_investigative_queries (
 	return nil
 }
 
-func (s *sourceStore) insertForensicKeywordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params CreateParams, now time.Time) error {
+func (s *sourceStore) insertForensicKeywordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params createParams, now time.Time) error {
 	matchMode := nullableTextValue(params.Values, "forensic_keyword.match_mode")
 	if matchMode == nil {
 		matchMode = "literal"
@@ -195,8 +203,8 @@ INSERT INTO artifact_forensic_keywords (
 	return nil
 }
 
-func (s *sourceStore) ApplyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
-	table, column := tableColumnForField(fieldKey)
+func (s *sourceStore) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
+	table, column := s.tableColumnForField(fieldKey)
 	if table == "" || column == "" {
 		return false, fmt.Errorf("artifacts: unsupported field key %q", fieldKey)
 	}
@@ -208,7 +216,7 @@ func (s *sourceStore) ApplyDirectChangeTx(ctx context.Context, tx pgx.Tx, record
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *sourceStore) NormalizeFindingLifecycleTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) (bool, error) {
+func (s *sourceStore) normalizeFindingLifecycleTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 UPDATE artifact_findings
    SET closed_at = CASE
@@ -232,24 +240,31 @@ UPDATE artifact_findings
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *sourceStore) TouchRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
+func (s *sourceStore) touchRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
 	if _, err := tx.Exec(ctx, `UPDATE artifacts SET updated_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
 		return fmt.Errorf("touch artifact row: %w", err)
 	}
 	return nil
 }
 
-func IsArtifactBackedField(fieldKey string) bool {
-	table, column := tableColumnForField(fieldKey)
-	return table != "" && column != ""
-}
-
 func tableColumnForField(fieldKey string) (string, string) {
-	policy, ok := lookupArtifactSourceField(fieldKey)
-	if !ok || policy.kind != sourceFieldDirect {
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
 		return "", ""
 	}
-	return policy.storage.table, policy.storage.column
+	return tableColumnForCatalogField(catalog, fieldKey)
+}
+
+func (s *sourceStore) tableColumnForField(fieldKey string) (string, string) {
+	return tableColumnForCatalogField(s.catalog, fieldKey)
+}
+
+func tableColumnForCatalogField(catalog *sourcecatalog.Catalog, fieldKey string) (string, string) {
+	policy, ok := catalog.Field(fieldKey)
+	if !ok || policy.Kind != sourcecatalog.FieldKindDirect {
+		return "", ""
+	}
+	return policy.Storage.Table, policy.Storage.Column
 }
 
 func directDBValue(value FieldValue) any {

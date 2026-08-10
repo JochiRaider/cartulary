@@ -15,12 +15,16 @@ type Composition struct {
 
 func NewComposition() (Composition, error) {
 	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		return Composition{}, err
+	}
 	runtime, err := revisionassembly.Build(
 		revisionassembly.Dependencies{
 			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 			IntentAppender:         intents,
 		},
-		revisionassembly.CurrentProviderContributions()...,
+		contributions...,
 	)
 	if err != nil {
 		return Composition{}, err

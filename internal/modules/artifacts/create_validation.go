@@ -2,6 +2,8 @@ package artifacts
 
 import "strings"
 
+import "github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
+
 type ValidationError struct {
 	Field      string
 	ReasonCode string
@@ -11,15 +13,15 @@ func (e *ValidationError) Error() string {
 	return "artifacts: invalid mutation request"
 }
 
-func ValidateCreateParams(params CreateParams) error {
+func validateCreateParams(params createParams) error {
 	if _, ok := lookupArtifactSourceSurface(params.ViewSchemaID); !ok {
 		return &ValidationError{Field: "view_schema_id", ReasonCode: "unsupported_view_schema"}
 	}
 	values := params.Values
 	for fieldKey, value := range values {
 		policy, ok := lookupArtifactSourceField(fieldKey)
-		if !ok || policy.viewSchemaID != params.ViewSchemaID ||
-			policy.kind != sourceFieldDirect || !policy.writable {
+		if !ok || policy.ViewSchemaID != params.ViewSchemaID ||
+			policy.Kind != sourcecatalog.FieldKindDirect || (!policy.View.Writable && !policy.View.CreateWritable) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 		}
 		if err := validateArtifactDirectValue(policy, value); err != nil {
@@ -37,7 +39,7 @@ func ValidateCreateParams(params CreateParams) error {
 				return &ValidationError{Field: field, ReasonCode: "missing_required_field"}
 			}
 		}
-		if !validText(values, "comm_log.comm_type", ValidCommType) {
+		if !validText(values, "comm_log.comm_type", validCommType) {
 			return &ValidationError{Field: "comm_log.comm_type", ReasonCode: "invalid_value"}
 		}
 	case HandoffViewSchemaID:
@@ -55,20 +57,20 @@ func ValidateCreateParams(params CreateParams) error {
 		if !hasText(values, "lesson.summary") {
 			return &ValidationError{Field: "lesson.summary", ReasonCode: "missing_required_field"}
 		}
-		if value, ok := values["lesson.closure_state"]; ok && !ValidClosureState(derefText(value.Text)) {
+		if value, ok := values["lesson.closure_state"]; ok && !validClosureState(derefText(value.Text)) {
 			return &ValidationError{Field: "lesson.closure_state", ReasonCode: "invalid_value"}
 		}
 	case FindingsViewSchemaID:
 		if !hasText(values, "finding.statement") {
 			return &ValidationError{Field: "finding.statement", ReasonCode: "missing_required_field"}
 		}
-		if value, ok := values["finding.kind"]; ok && !ValidFindingKind(derefText(value.Text)) {
+		if value, ok := values["finding.kind"]; ok && !validFindingKind(derefText(value.Text)) {
 			return &ValidationError{Field: "finding.kind", ReasonCode: "invalid_value"}
 		}
-		if value, ok := values["finding.state"]; ok && !ValidFindingState(derefText(value.Text)) {
+		if value, ok := values["finding.state"]; ok && !validFindingState(derefText(value.Text)) {
 			return &ValidationError{Field: "finding.state", ReasonCode: "invalid_value"}
 		}
-		if value, ok := values["finding.confidence_score"]; ok && value.Number != nil && !ValidConfidenceScore(*value.Number) {
+		if value, ok := values["finding.confidence_score"]; ok && value.Number != nil && !validConfidenceScore(*value.Number) {
 			return &ValidationError{Field: "finding.confidence_score", ReasonCode: "invalid_value"}
 		}
 	case InvestigativeQueriesViewSchemaID:
@@ -83,22 +85,22 @@ func ValidateCreateParams(params CreateParams) error {
 				return &ValidationError{Field: field, ReasonCode: "missing_required_field"}
 			}
 		}
-		if value, ok := values["forensic_keyword.match_mode"]; ok && !ValidForensicKeywordMatchMode(derefText(value.Text)) {
+		if value, ok := values["forensic_keyword.match_mode"]; ok && !validForensicKeywordMatchMode(derefText(value.Text)) {
 			return &ValidationError{Field: "forensic_keyword.match_mode", ReasonCode: "invalid_value"}
 		}
 	}
 	return nil
 }
 
-func ValidateDirectPatchChange(fieldKey string, value FieldValue) error {
+func validateDirectPatchChange(fieldKey string, value FieldValue) error {
 	policy, ok := lookupArtifactSourceField(fieldKey)
-	if !ok || policy.kind != sourceFieldDirect || !policy.writable {
+	if !ok || policy.Kind != sourcecatalog.FieldKindDirect || (!policy.View.Writable && !policy.View.CreateWritable) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
 	if err := validateArtifactDirectValue(policy, value); err != nil {
 		return err
 	}
-	if fieldKey == "finding.confidence_score" && value.Number != nil && !ValidConfidenceScore(*value.Number) {
+	if fieldKey == "finding.confidence_score" && value.Number != nil && !validConfidenceScore(*value.Number) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 	}
 	if value.Text == nil {
@@ -106,7 +108,7 @@ func ValidateDirectPatchChange(fieldKey string, value FieldValue) error {
 	}
 	switch fieldKey {
 	case "comm_log.comm_type":
-		if !ValidCommType(*value.Text) {
+		if !validCommType(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
 	case "lesson.closure_state":
@@ -129,7 +131,7 @@ func ValidateDirectPatchChange(fieldKey string, value FieldValue) error {
 	return nil
 }
 
-func ValidCommType(value string) bool {
+func validCommType(value string) bool {
 	switch value {
 	case "meeting", "notification", "approval", "briefing", "handoff":
 		return true
@@ -138,7 +140,7 @@ func ValidCommType(value string) bool {
 	}
 }
 
-func ValidClosureState(value string) bool {
+func validClosureState(value string) bool {
 	switch value {
 	case "open", "closed", "":
 		return true
@@ -147,7 +149,7 @@ func ValidClosureState(value string) bool {
 	}
 }
 
-func ValidFindingKind(value string) bool {
+func validFindingKind(value string) bool {
 	switch value {
 	case "finding", "hypothesis", "":
 		return true
@@ -156,7 +158,7 @@ func ValidFindingKind(value string) bool {
 	}
 }
 
-func ValidFindingState(value string) bool {
+func validFindingState(value string) bool {
 	switch value {
 	case "open", "closed", "":
 		return true
@@ -165,7 +167,7 @@ func ValidFindingState(value string) bool {
 	}
 }
 
-func ValidForensicKeywordMatchMode(value string) bool {
+func validForensicKeywordMatchMode(value string) bool {
 	switch value {
 	case "literal", "regex", "":
 		return true
@@ -174,7 +176,7 @@ func ValidForensicKeywordMatchMode(value string) bool {
 	}
 }
 
-func ValidConfidenceScore(value int64) bool {
+func validConfidenceScore(value int64) bool {
 	return value >= 0 && value <= 100
 }
 

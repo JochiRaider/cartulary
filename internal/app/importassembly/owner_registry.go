@@ -103,6 +103,12 @@ func NewOwnerCreateRegistry(
 		Projections:     dependencies.TaskDecisionProjections,
 		Revisions:       dependencies.RevisionAppender,
 	}
+	artifactImportDependencies := artifacts.ImportDependencies{
+		RecordEnvelopes: artifactRecordInserter{store: records.NewStore()},
+		ActiveUsers:     artifactActiveUserLookup{},
+		Projections:     artifactProjectionAdapter{rows: dependencies.ArtifactProjections},
+		Revisions:       dependencies.RevisionAppender,
+	}
 
 	facades := make([]ownerfacade.ImportOwnerCreateFacade, 0)
 	for _, target := range importtargetregistry.Targets {
@@ -121,6 +127,7 @@ func NewOwnerCreateRegistry(
 			*target.TargetViewSchemaID,
 			*target.FacadeID,
 			dependencies,
+			artifactImportDependencies,
 			taskDecisionImportDependencies,
 		)
 		if err != nil {
@@ -144,15 +151,15 @@ func newOwnerCreateFacade(
 	targetViewSchemaID string,
 	facadeID string,
 	dependencies OwnerRegistryDependencies,
+	artifactImportDependencies artifacts.ImportDependencies,
 	taskDecisionImportDependencies tasksdecisions.ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	switch ownerContractRef {
 	case "module.artifacts@1":
-		return artifacts.NewImportCreateFacade(
+		return artifacts.NewImportContribution(
 			targetViewSchemaID,
 			facadeID,
-			dependencies.RevisionAppender,
-			dependencies.ArtifactProjections,
+			artifactImportDependencies,
 		)
 	case "module.assessments@1":
 		return newAssessmentImportCreateFacade(

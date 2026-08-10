@@ -8,10 +8,10 @@ import (
 
 func TestRiskRefItemRefIsCanonical(t *testing.T) {
 	riskRefID := uuid.MustParse("10000000-0000-4000-8000-000000000010")
-	if got := RiskRefItemRef(riskRefID); got != "risk_ref:10000000-0000-4000-8000-000000000010" {
+	if got := riskRefItemRef(riskRefID); got != "risk_ref:10000000-0000-4000-8000-000000000010" {
 		t.Fatalf("risk ref = %q", got)
 	}
-	parsed, err := ParseRiskRefItemRef(RiskRefItemRef(riskRefID))
+	parsed, err := ParseRiskRefItemRef(riskRefItemRef(riskRefID))
 	if err != nil {
 		t.Fatalf("parse risk ref: %v", err)
 	}

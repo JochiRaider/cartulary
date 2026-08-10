@@ -7,17 +7,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
+
+type recordEnvelopeInserter interface {
+	InsertTx(context.Context, pgx.Tx, records.InsertParams) (uuid.UUID, error)
+}
+
+type artifactProjectionRows interface {
+	RefreshArtifactTx(context.Context, pgx.Tx, uuid.UUID) error
+	LoadArtifactTx(context.Context, pgx.Tx, string, uuid.UUID) (map[string]any, error)
+}
 
 // artifactSourceKernel is the caller-transaction source boundary shared by
 // interactive mutation and import adapters. It owns record/source persistence
 // and projection refresh, but never begins, commits, or rolls back a transaction.
 type artifactSourceKernel struct {
-	records     RecordEnvelopeCapability
+	records     recordEnvelopeInserter
 	rows        artifactSourceMutationPort
-	projections artifactprojection.Rows
+	projections artifactProjectionRows
 }
 
 func (k artifactSourceKernel) createRecordTx(
@@ -25,7 +33,7 @@ func (k artifactSourceKernel) createRecordTx(
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	actorID uuid.UUID,
-	params CreateParams,
+	params createParams,
 	now time.Time,
 ) (uuid.UUID, error) {
 	recordID, err := k.records.InsertTx(ctx, tx, records.InsertParams{
@@ -40,7 +48,7 @@ func (k artifactSourceKernel) createRecordTx(
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := k.rows.InsertRowTx(
+	if err := k.rows.insertRowTx(
 		ctx,
 		tx,
 		recordID,

@@ -46,13 +46,21 @@ func NewCatalog() (*sourceport.Catalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: Revisions target semantics catalog: %w", err)
 	}
+	providerContributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Revisions provider contributions: %w", err)
+	}
 	revisionsValidation, err := revisions.NewIncidentBundleValidationCatalog(
 		incidentBundleRecordEnvelopeReader{store: records.NewStore()},
 		targetSemantics,
-		revisionassembly.CurrentProviderContributions(),
+		providerContributions,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("incident portability assembly: revisions validation catalog: %w", err)
+	}
+	artifactsSourcePort, err := artifacts.NewIncidentBundleSourcePort()
+	if err != nil {
+		return nil, fmt.Errorf("incident portability assembly: Artifacts source port: %w", err)
 	}
 	v2 := []string{
 		"data/incident.json", "data/actors.ndjson", "data/records.ndjson",
@@ -85,7 +93,7 @@ func NewCatalog() (*sourceport.Catalog, error) {
 			parties.NewIncidentBundleSourcePort(),
 			entities.NewIncidentBundleSourcePort(),
 			indicatorContribution.SourcePort,
-			artifacts.NewIncidentBundleSourcePort(),
+			artifactsSourcePort,
 			taskDecisionContribution.SourcePort,
 			evidence.NewIncidentBundleSourcePort(),
 			assessments.NewIncidentBundleSourcePort(),

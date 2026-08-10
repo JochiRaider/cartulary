@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,94 +18,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 )
 
-var (
-	ErrIdempotencyNotFound        = errors.New("artifacts: idempotency result not found")
-	ErrClientTxnConflict          = errors.New("artifacts: client transaction conflict")
-	ErrStoredMutationKindMismatch = errors.New("artifacts: stored mutation kind mismatch")
-)
-
-// OperationID is the closed set of Workbook-coordinated operations implemented
-// by the Artifacts source owner. Its values remain the durable route identities.
-type OperationID string
-
-const (
-	OperationWorkbookCreate   OperationID = "workbook.rows.create"
-	OperationWorkbookPatch    OperationID = "workbook.records.patch"
-	OperationConflictResolve  OperationID = "workbook.records.conflicts.resolve"
-	OperationLinkedNoteCreate OperationID = "workbook.records.linked_notes.create"
-)
-
-type IdempotencyKey struct {
-	OperationID OperationID
-	ActorUserID uuid.UUID
-	ScopeKey    string
-	ClientTxnID string
-}
-
-type IdempotencyRecord struct {
-	RequestHash []byte
-	Result      StoredMutationResult
-}
-
-type StoredMutationKind string
-
-const (
-	StoredMutationCreate     StoredMutationKind = "create"
-	StoredMutationPatch      StoredMutationKind = "patch"
-	StoredMutationLinkedNote StoredMutationKind = "linked_note"
-)
-
-type StoredWorkbookResult struct {
-	ViewSchemaID   string
-	RecordID       uuid.UUID
-	ChangeSetID    uuid.UUID
-	Row            map[string]any
-	SourceRecordID *uuid.UUID
-	LinkType       string
-}
-
-// StoredMutationResult is a closed operation-tagged union used by the
-// application idempotency adapter. It carries source facts, never HTTP status
-// codes or transport response envelopes.
-type StoredMutationResult struct {
-	kind     StoredMutationKind
-	workbook StoredWorkbookResult
-}
-
-func NewStoredCreateResult(result StoredWorkbookResult) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationCreate, workbook: result}
-}
-
-func NewStoredPatchResult(result StoredWorkbookResult) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationPatch, workbook: result}
-}
-
-func NewStoredLinkedNoteResult(result StoredWorkbookResult) StoredMutationResult {
-	return StoredMutationResult{kind: StoredMutationLinkedNote, workbook: result}
-}
-
-func (r StoredMutationResult) Kind() StoredMutationKind { return r.kind }
-
-func (r StoredMutationResult) WorkbookResult() (StoredWorkbookResult, bool) {
-	switch r.kind {
-	case StoredMutationCreate, StoredMutationPatch, StoredMutationLinkedNote:
-		return r.workbook, true
-	default:
-		return StoredWorkbookResult{}, false
-	}
-}
-
 type IncidentStateCapability interface {
 	EnsureOpenTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
 type MemberReferenceCapability interface {
 	ValidateIncidentMemberUserTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, string) error
-}
-
-type IdempotencyCapability interface {
-	Get(context.Context, IdempotencyKey, []byte) (IdempotencyRecord, error)
-	PutTx(context.Context, pgx.Tx, IdempotencyKey, []byte, StoredMutationResult) error
 }
 
 type RecordEnvelopeCapability interface {
@@ -133,11 +53,11 @@ type RevisionCapability interface {
 }
 
 type artifactSourceMutationPort interface {
-	InsertRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, CreateParams, time.Time) error
-	ApplyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, FieldValue, time.Time) (bool, error)
-	ApplyHandoffRiskRefPayloadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, RiskRefActionPayload, time.Time) (bool, error)
-	NormalizeFindingLifecycleTx(context.Context, pgx.Tx, uuid.UUID, time.Time) (bool, error)
-	TouchRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error
+	insertRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, createParams, time.Time) error
+	applyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, FieldValue, time.Time) (bool, error)
+	applyHandoffRiskRefPayloadTx(context.Context, pgx.Tx, RecordEnvelopeCapability, uuid.UUID, uuid.UUID, uuid.UUID, riskRefActionPayload, time.Time) (bool, error)
+	normalizeFindingLifecycleTx(context.Context, pgx.Tx, uuid.UUID, time.Time) (bool, error)
+	touchRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error
 }
 
 // MutationDependencies is assembled at the application composition root. The
@@ -191,4 +111,118 @@ func (memberReferenceValidator) ValidateIncidentMemberUserTx(
 	field string,
 ) error {
 	return validateIncidentMemberUserTx(ctx, tx, incidentID, userID, field)
+}
+
+func validateIncidentMemberUserTx(ctx context.Context, tx pgx.Tx, incidentID, userID uuid.UUID, field string) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1
+    FROM users u
+    JOIN incident_memberships m ON m.user_id = u.id
+   WHERE u.id = $1
+     AND u.is_active = true
+     AND m.incident_id = $2
+)`, userID, incidentID).Scan(&exists); err != nil {
+		return fmt.Errorf("validate user: %w", err)
+	}
+	if !exists {
+		return &ValidationError{Field: field, ReasonCode: "invalid_value"}
+	}
+	return nil
+}
+
+type artifactRecordMeta struct {
+	IncidentID uuid.UUID
+	RecordType string
+	RowVersion int64
+}
+
+func (f *MutationFacade) loadArtifactRecordMetaForUpdateTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	recordID uuid.UUID,
+) (artifactRecordMeta, error) {
+	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, recordID, true)
+	if errors.Is(err, records.ErrEnvelopeNotFound) {
+		return artifactRecordMeta{}, pgx.ErrNoRows
+	}
+	if err != nil {
+		return artifactRecordMeta{}, err
+	}
+	if envelope.DeletedAt != nil {
+		return artifactRecordMeta{}, revisions.ErrRecordDeletedUseRestore
+	}
+	return artifactRecordMeta{
+		IncidentID: envelope.IncidentID,
+		RecordType: envelope.RecordType,
+		RowVersion: envelope.RowVersion,
+	}, nil
+}
+
+func validateArtifactViewRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, viewSchemaID string) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM artifacts
+     WHERE record_id = $1
+       AND artifact_type = $2
+)
+`, recordID, artifactTypeForView(viewSchemaID)).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func touchesArtifactField(changes []PatchChange, field string) bool {
+	for _, change := range changes {
+		if change.FieldKey == field {
+			return true
+		}
+	}
+	return false
+}
+
+func changedFieldKeys(before map[string]any, after map[string]any) []string {
+	afterCells, _ := after["cells"].(map[string]any)
+	beforeCells := map[string]any{}
+	if before != nil {
+		beforeCells, _ = before["cells"].(map[string]any)
+	}
+	keys := make([]string, 0)
+	for fieldKey, afterValue := range afterCells {
+		if beforeValue, ok := beforeCells[fieldKey]; !ok || !reflect.DeepEqual(beforeValue, afterValue) {
+			keys = append(keys, fieldKey)
+		}
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func workbookVersionID(recordID uuid.UUID, rowVersion int64) string {
+	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
+}
+
+func rowVersionFromCanonicalRow(row map[string]any) int64 {
+	switch value := row["row_version"].(type) {
+	case int64:
+		return value
+	case int:
+		return int64(value)
+	case float64:
+		return int64(value)
+	default:
+		return 0
+	}
+}
+
+func contextualLinkFacts(sourceRecordID *uuid.UUID) *ContextualLink {
+	if sourceRecordID == nil {
+		return nil
+	}
+	return &ContextualLink{SourceRecordID: *sourceRecordID, LinkType: "references_artifact"}
 }

@@ -9,16 +9,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/deleterestorecontract"
 )
 
-type Source struct{}
+type Source struct {
+	catalog *sourcecatalog.Catalog
+}
 
 var _ deleterestorecontract.DeleteRestoreSource = Source{}
 
-func NewSource() Source {
-	return Source{}
+func NewSource(catalog *sourcecatalog.Catalog) Source {
+	return Source{catalog: catalog}
 }
 
 func (Source) SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
@@ -50,12 +52,12 @@ func (Source) UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid
 	return nil
 }
 
-func (Source) ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error) {
+func (s Source) ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error) {
 	var artifactType string
 	if err := tx.QueryRow(ctx, `SELECT artifact_type FROM artifacts WHERE record_id = $1`, recordID).Scan(&artifactType); err != nil {
 		return "", err
 	}
-	surface, ok := surfacecatalog.LookupByArtifactType(artifactType)
+	surface, ok := s.catalog.SurfaceByArtifactType(artifactType)
 	if !ok {
 		return "", fmt.Errorf("unsupported artifact type %q", artifactType)
 	}

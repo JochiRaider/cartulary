@@ -1,26 +1,33 @@
 package artifacts
 
-import "github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
-
-const (
-	CommLogViewSchemaID              = surfacecatalog.CommLogViewSchemaID
-	FindingsViewSchemaID             = surfacecatalog.FindingsViewSchemaID
-	ForensicKeywordsViewSchemaID     = surfacecatalog.ForensicKeywordsViewSchemaID
-	HandoffViewSchemaID              = surfacecatalog.HandoffViewSchemaID
-	InvestigativeQueriesViewSchemaID = surfacecatalog.InvestigativeQueriesViewSchemaID
-	LessonViewSchemaID               = surfacecatalog.LessonViewSchemaID
-	NotesViewSchemaID                = surfacecatalog.NotesViewSchemaID
-	StatusReviewViewSchemaID         = surfacecatalog.StatusReviewViewSchemaID
+import (
+	"github.com/JochiRaider/cartulary/internal/gen/contractartifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 )
 
-func ArtifactTypeForView(viewSchemaID string) string {
-	surface, ok := surfacecatalog.Lookup(viewSchemaID)
+const (
+	CommLogViewSchemaID              = contractartifacts.CommLogViewSchemaID
+	FindingsViewSchemaID             = contractartifacts.FindingViewSchemaID
+	ForensicKeywordsViewSchemaID     = contractartifacts.ForensicKeywordViewSchemaID
+	HandoffViewSchemaID              = contractartifacts.HandoffViewSchemaID
+	InvestigativeQueriesViewSchemaID = contractartifacts.InvestigativeQueryViewSchemaID
+	LessonViewSchemaID               = contractartifacts.LessonViewSchemaID
+	NotesViewSchemaID                = contractartifacts.NoteViewSchemaID
+	StatusReviewViewSchemaID         = contractartifacts.StatusReviewViewSchemaID
+)
+
+func artifactTypeForView(viewSchemaID string) string {
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return ""
+	}
+	surface, ok := catalog.SurfaceByViewID(viewSchemaID)
 	if !ok {
 		return ""
 	}
 	return surface.ArtifactType
 }
 
-func IsArtifactBackedView(viewSchemaID string) bool {
-	return ArtifactTypeForView(viewSchemaID) != ""
+func isArtifactBackedView(viewSchemaID string) bool {
+	return artifactTypeForView(viewSchemaID) != ""
 }

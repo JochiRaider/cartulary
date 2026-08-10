@@ -423,7 +423,7 @@ INSERT INTO hosts (
 `, recordID, incident.ID, createdAt, actor.ID); err != nil {
 		t.Fatalf("seed portable host source: %v", err)
 	}
-	contributions := revisionassembly.CurrentProviderContributions()
+	contributions := mustRevisionProviderContributions(t)
 	targetSemantics, err := revisionassembly.CurrentTargetSemanticsCatalog()
 	if err != nil {
 		t.Fatalf("build Revisions target-semantics catalog: %v", err)

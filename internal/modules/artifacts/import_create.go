@@ -8,38 +8,68 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+type activeUserLookup interface {
+	IsActiveUserTx(context.Context, pgx.Tx, uuid.UUID) (bool, error)
+}
+
+type ImportDependencies struct {
+	RecordEnvelopes recordEnvelopeInserter
+	ActiveUsers     activeUserLookup
+	Projections     artifactProjectionRows
+	Revisions       ownerfacade.RecordRevisionAndIntentAppender
+}
+
+func (d ImportDependencies) validate() error {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{name: "Records insertion", value: d.RecordEnvelopes},
+		{name: "Active-user lookup", value: d.ActiveUsers},
+		{name: "Projection refresh/load", value: d.Projections},
+		{name: "Revision and intent appender", value: d.Revisions},
+	}
+	for _, dependency := range required {
+		if dependency.value == nil {
+			return fmt.Errorf("artifacts import dependencies: %s is required", dependency.name)
+		}
+	}
+	return nil
+}
 
 type artifactImportCreateAdapter struct {
 	source           artifactSourceKernel
+	activeUsers      activeUserLookup
 	revisionAppender ownerfacade.RecordRevisionAndIntentAppender
 }
 
-func NewImportCreateFacade(
+func NewImportContribution(
 	targetViewSchemaID string,
 	facadeID string,
-	appender *revisions.Appender,
-	projectionRows artifactprojection.Rows,
+	dependencies ImportDependencies,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	if !IsArtifactBackedView(targetViewSchemaID) {
-		return nil, fmt.Errorf("artifact import surface %q not mapped", targetViewSchemaID)
+	if err := dependencies.validate(); err != nil {
+		return nil, err
 	}
-	if projectionRows == nil {
-		return nil, fmt.Errorf("artifact import projection rows are required")
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		return nil, fmt.Errorf("compose Artifacts source catalog: %w", err)
+	}
+	if _, ok := catalog.SurfaceByViewID(targetViewSchemaID); !ok {
+		return nil, fmt.Errorf("artifact import surface %q not mapped", targetViewSchemaID)
 	}
 	adapter := &artifactImportCreateAdapter{
 		source: artifactSourceKernel{
-			records:     records.NewStore(),
-			rows:        newSourceStore(),
-			projections: projectionRows,
+			records:     dependencies.RecordEnvelopes,
+			rows:        newSourceStore(catalog),
+			projections: dependencies.Projections,
 		},
-		revisionAppender: appender,
+		activeUsers:      dependencies.ActiveUsers,
+		revisionAppender: dependencies.Revisions,
 	}
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
@@ -53,21 +83,25 @@ func NewImportCreateFacade(
 func (a *artifactImportCreateAdapter) createImportRowTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	command ImportCreateCommand,
+	command ownerfacade.ImportOwnerCreateCommand,
 ) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
-	if !IsArtifactBackedView(request.TargetViewSchemaID) {
+	if !isArtifactBackedView(request.TargetViewSchemaID) {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("artifact import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	values := artifactValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))
-	params := CreateParams{ViewSchemaID: request.TargetViewSchemaID, Values: values}
-	if err := ValidateCreateParams(params); err != nil {
+	params := createParams{ViewSchemaID: request.TargetViewSchemaID, Values: values}
+	if err := validateCreateParams(params); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	for fieldKey, value := range values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
-			if err := validateImportActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
-				return ownerfacade.ImportOwnerCreateResponse{}, err
+			active, err := a.activeUsers.IsActiveUserTx(ctx, tx, *value.UUID)
+			if err != nil {
+				return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("validate artifact import user: %w", err)
+			}
+			if !active {
+				return ownerfacade.ImportOwnerCreateResponse{}, &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 			}
 		}
 	}
@@ -111,24 +145,4 @@ func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) m
 		}
 	}
 	return result
-}
-
-func validateImportActiveUserTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	userID uuid.UUID,
-	field string,
-) error {
-	var exists bool
-	if err := tx.QueryRow(
-		ctx,
-		`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active = true)`,
-		userID,
-	).Scan(&exists); err != nil {
-		return fmt.Errorf("validate artifact import user: %w", err)
-	}
-	if !exists {
-		return &ValidationError{Field: field, ReasonCode: "invalid_value"}
-	}
-	return nil
 }

@@ -28,12 +28,16 @@ func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.Rows {
 // the server for focused module tests that do not need an HTTP runtime.
 func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) *workbook.Store {
 	intents := collaboration.NewIntentAppender()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		panic(err)
+	}
 	revisionRuntime, err := revisionassembly.Build(
 		revisionassembly.Dependencies{
 			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 			IntentAppender:         intents,
 		},
-		revisionassembly.CurrentProviderContributions()...,
+		contributions...,
 	)
 	if err != nil {
 		panic(err)

@@ -734,12 +734,17 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	})
 	incidentBundleImportFinalizer := incidents.NewIncidentBundleImportFinalizer()
 	historicalIntentPolicy := collaboration.NewHistoricalIntentPolicy()
+	providerContributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Revisions provider contributions: %w", err)
+	}
 	revisionRuntime, err := revisionassembly.Build(
 		revisionassembly.Dependencies{
 			HistoricalIntentPolicy: historicalIntentPolicy,
 			IntentAppender:         intentAppender,
 		},
-		revisionassembly.CurrentProviderContributions()...,
+		providerContributions...,
 	)
 	if err != nil {
 		runtime.Close()

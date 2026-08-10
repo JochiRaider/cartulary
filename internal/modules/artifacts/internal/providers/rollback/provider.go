@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -21,16 +20,16 @@ var _ rollbackcontract.RowSourceProvider = Provider{}
 func NewProvider() Provider { return Provider{} }
 
 func (Provider) ValidateRollbackValue(value map[string]any) error {
-	source, ok := sourcecontract.ExtractRollbackSource(value)
-	if !ok || !sourcecontract.ValidRollbackSource(source) {
+	source, ok := extractRollbackSource(value)
+	if !ok || !validRollbackSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	return nil
 }
 
 func (Provider) RestoreTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.RestoreRequest) error {
-	source, ok := sourcecontract.ExtractRollbackSource(request.RetainedValue)
-	if !ok || !sourcecontract.ValidRollbackSource(source) {
+	source, ok := extractRollbackSource(request.RetainedValue)
+	if !ok || !validRollbackSource(source) {
 		return rollbackcontract.ErrTargetNotReversible
 	}
 	var artifactType string
@@ -366,4 +365,120 @@ func integerValue(value any) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func extractRollbackSource(value map[string]any) (map[string]any, bool) {
+	source, ok := objectMap(value, "source")
+	return source, ok && len(source) > 0
+}
+
+func validRollbackSource(source map[string]any) bool {
+	for _, key := range []string{
+		"title", "body", "comm_id", "comm_type", "audience", "channel_or_meeting", "summary",
+		"privilege_tag", "handoff_id", "current_state_summary", "next_checks", "status_review_id",
+		"active_risks_summary", "lesson_id", "closure_state", "kind", "statement", "state",
+		"query_id", "platform", "purpose", "query_text", "keyword_id", "pattern", "reason", "match_mode",
+	} {
+		if raw, present := source[key]; present && raw != nil {
+			if _, valid := raw.(string); !valid {
+				return false
+			}
+		}
+	}
+	for _, key := range []string{
+		"comm_id", "comm_type", "audience", "channel_or_meeting", "summary", "handoff_id",
+		"current_state_summary", "status_review_id", "lesson_id", "kind", "statement", "state",
+		"query_id", "platform", "purpose", "query_text", "keyword_id", "pattern", "reason", "match_mode",
+	} {
+		if raw, present := source[key]; present && !nonEmptyText(raw) {
+			return false
+		}
+	}
+	if raw, present := source["comm_type"]; present && !oneOfText(raw, "meeting", "notification", "approval", "briefing", "handoff") {
+		return false
+	}
+	if raw, present := source["closure_state"]; present && !oneOfText(raw, "open", "closed") {
+		return false
+	}
+	if raw, present := source["kind"]; present && !oneOfText(raw, "finding", "hypothesis") {
+		return false
+	}
+	if raw, present := source["state"]; present && !oneOfText(raw, "open", "closed") {
+		return false
+	}
+	if raw, present := source["match_mode"]; present && !oneOfText(raw, "literal", "regex") {
+		return false
+	}
+	if raw, present := source["confidence_score"]; present && raw != nil {
+		score, valid := integerValue(raw)
+		if !valid || score < 0 || score > 100 {
+			return false
+		}
+	}
+	for key, kind := range map[string]string{
+		"timestamp_utc": "time", "next_report_at": "time", "acknowledged_at": "time", "closed_at": "time",
+		"outgoing_owner_user_id": "uuid", "incoming_owner_user_id": "uuid",
+		"review_owner_user_id": "uuid", "owner_user_id": "uuid", "case_sensitive": "bool",
+	} {
+		if raw, present := source[key]; present && raw != nil && !validRollbackKind(raw, kind) {
+			return false
+		}
+	}
+	for _, key := range []string{"timestamp_utc", "incoming_owner_user_id", "review_owner_user_id", "owner_user_id", "case_sensitive"} {
+		if raw, present := source[key]; present && raw == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func validRollbackKind(value any, kind string) bool {
+	switch kind {
+	case "time":
+		switch typed := value.(type) {
+		case time.Time:
+			return true
+		case string:
+			_, err := time.Parse(time.RFC3339Nano, typed)
+			return err == nil
+		}
+	case "uuid":
+		text, ok := value.(string)
+		if !ok || strings.TrimSpace(text) == "" {
+			return false
+		}
+		_, err := uuid.Parse(text)
+		return err == nil
+	case "bool":
+		_, ok := value.(bool)
+		return ok
+	}
+	return false
+}
+
+func objectMap(value map[string]any, key string) (map[string]any, bool) {
+	raw, ok := value[key]
+	if !ok || raw == nil {
+		return nil, false
+	}
+	typed, ok := raw.(map[string]any)
+	return typed, ok
+}
+
+func oneOfText(value any, allowed ...string) bool {
+	text, valid := value.(string)
+	if !valid {
+		return false
+	}
+	for _, candidate := range allowed {
+		if text == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func nonEmptyText(value any) bool {
+	text, valid := value.(string)
+	return valid && strings.TrimSpace(text) != ""
 }

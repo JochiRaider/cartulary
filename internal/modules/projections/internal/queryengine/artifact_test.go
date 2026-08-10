@@ -12,10 +12,11 @@ func TestArtifactProjectionProviderSurfaceContractMatrix(t *testing.T) {
 	t.Parallel()
 
 	want := make(map[string]string)
-	intents, err := artifactprojection.SurfaceIntents()
+	contribution, err := artifactprojection.NewContribution(artifactProjectionSourceStub{})
 	if err != nil {
-		t.Fatalf("Artifact semantic intents: %v", err)
+		t.Fatalf("construct Artifact projection contribution: %v", err)
 	}
+	intents := contribution.ProjectionContribution().SurfaceIntents()
 	for _, intent := range intents {
 		if intent.CanonicalSourceFilter == nil {
 			t.Fatalf("Artifact intent %s has no canonical source filter", intent.ViewSchemaID)
@@ -51,4 +52,8 @@ func TestArtifactProjectionProviderSurfaceContractMatrix(t *testing.T) {
 			t.Fatalf("%s has no query fields", surface.ViewSchemaID)
 		}
 	}
+}
+
+type artifactProjectionSourceStub struct {
+	artifactprojection.SourceReader
 }

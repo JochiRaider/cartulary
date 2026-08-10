@@ -12,6 +12,18 @@ import (
 
 func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 	t.Parallel()
+	if got := string(artifacts.OperationCreate); got != "workbook.rows.create" {
+		t.Fatalf("create operation = %q", got)
+	}
+	if got := string(artifacts.OperationPatch); got != "workbook.records.patch" {
+		t.Fatalf("patch operation = %q", got)
+	}
+	if got := string(artifacts.OperationConflictResolve); got != "workbook.records.conflicts.resolve" {
+		t.Fatalf("conflict operation = %q", got)
+	}
+	if got := string(artifacts.OperationLinkedNoteCreate); got != "workbook.records.linked_notes.create" {
+		t.Fatalf("linked-note operation = %q", got)
+	}
 	recordID := uuid.New()
 	changeSetID := uuid.New()
 	sourceRecordID := uuid.New()
@@ -29,8 +41,8 @@ func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 		kind       artifacts.StoredMutationKind
 		additional map[string]any
 	}{
-		{name: "create", operation: artifacts.OperationWorkbookCreate, kind: artifacts.StoredMutationCreate},
-		{name: "patch", operation: artifacts.OperationWorkbookPatch, kind: artifacts.StoredMutationPatch},
+		{name: "create", operation: artifacts.OperationCreate, kind: artifacts.StoredMutationCreate},
+		{name: "patch", operation: artifacts.OperationPatch, kind: artifacts.StoredMutationPatch},
 		{name: "conflict patch", operation: artifacts.OperationConflictResolve, kind: artifacts.StoredMutationPatch},
 		{name: "linked note", operation: artifacts.OperationLinkedNoteCreate, kind: artifacts.StoredMutationLinkedNote, additional: map[string]any{
 			"source_record_id": sourceRecordID.String(),
@@ -64,6 +76,25 @@ func TestArtifactStoredIdempotencyPayloadCompatibility(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("fixed persisted bytes remain replayable", func(t *testing.T) {
+		const stored = `{"change_set_id":"22222222-2222-4222-8222-222222222222","link_type":"references_artifact","row":{"record_id":"11111111-1111-4111-8111-111111111111","row_version":4},"source_record_id":"33333333-3333-4333-8333-333333333333","view_schema_id":"cartulary.view.notes.v1"}`
+		decoded, err := decodeArtifactStoredResult(artifacts.StoredMutationLinkedNote, []byte(stored))
+		if err != nil {
+			t.Fatalf("decode fixed persisted payload: %v", err)
+		}
+		encoded, err := encodeArtifactStoredResult(decoded)
+		if err != nil {
+			t.Fatalf("encode fixed persisted payload: %v", err)
+		}
+		actual, err := json.Marshal(encoded)
+		if err != nil {
+			t.Fatalf("marshal fixed persisted payload: %v", err)
+		}
+		if string(actual) != stored {
+			t.Fatalf("fixed persisted payload changed:\n got %s\nwant %s", actual, stored)
+		}
+	})
 }
 
 func cloneArtifactPayload(t testing.TB, input map[string]any) map[string]any {

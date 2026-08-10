@@ -10,7 +10,15 @@ func TestNewContributionRequiresSource(t *testing.T) {
 }
 
 func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
-	descriptor := Descriptor()
+	contribution, err := NewContribution(artifactSourceStub{})
+	if err != nil {
+		t.Fatalf("construct Artifact projection contribution: %v", err)
+	}
+	descriptors := contribution.ProjectionContribution().Descriptors()
+	if len(descriptors) != 1 {
+		t.Fatalf("Artifact descriptors = %d, want 1", len(descriptors))
+	}
+	descriptor := descriptors[0]
 	if descriptor.ProviderID != "artifact" ||
 		descriptor.SourceOwnerModule != "artifacts" ||
 		descriptor.ProjectionStorageOwnerModule != "projections" ||
@@ -19,10 +27,7 @@ func TestArtifactProjectionContractOwnsEightSemanticSurfaces(t *testing.T) {
 		descriptor.FacadePackages[0] != "internal/modules/artifacts/workbookprojection" {
 		t.Fatalf("unexpected Artifact descriptor: %#v", descriptor)
 	}
-	intents, err := SurfaceIntents()
-	if err != nil {
-		t.Fatalf("Artifact semantic intents: %v", err)
-	}
+	intents := contribution.ProjectionContribution().SurfaceIntents()
 	if len(intents) != 8 {
 		t.Fatalf("Artifact semantic intents = %d, want 8", len(intents))
 	}

@@ -8,18 +8,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 )
 
-func NewIncidentBundleSourcePort() sourceport.Port {
+func NewIncidentBundleSourcePort() (sourceport.Port, error) {
+	manifest, err := loadSourceStateManifest()
+	if err != nil {
+		return nil, err
+	}
 	descriptor := sourceport.Descriptor{
 		FamilyID: "artifacts", ContractMajor: sourceport.ContractMajor,
 		OwnerID: "module.artifacts", OwnerRelationIDs: []string{"artifacts-and-optional-surfaces"},
 		Dependencies: []string{"indicators"},
-		Paths: []sourceport.Path{
-			{LogicalPath: "data/artifacts.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/artifact_findings.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/artifact_investigative_queries.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/artifact_forensic_keywords.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"record_id"}},
-			{LogicalPath: "data/handoff_risk_refs.ndjson", ContentRole: "source_rows", Versions: []int{1, 2}, StableIdentity: []string{"risk_ref_id"}},
-		},
+		Paths:        manifest.sourcePortPaths(),
 		InvariantIDs: []string{
 			"artifacts.envelope_type_scope", "artifacts.subtype_exact",
 			"artifacts.lifecycle_fields_legal", "artifacts.handoff_risk_target",
@@ -27,12 +25,12 @@ func NewIncidentBundleSourcePort() sourceport.Port {
 		},
 	}
 	return sourceport.NewAdapter(sourceport.AdapterOptions{
-		Descriptor: descriptor, Export: sourceport.QueryExport(ExportIncidentBundleFiles),
+		Descriptor: descriptor, Export: sourceport.QueryExport(exportIncidentBundleFiles),
 		Prepare: func(_ context.Context, bundle sourceport.Bundle, importContext sourceport.ImportContext) (any, error) {
 			return sourceport.PrepareFiles(descriptor, bundle, importContext.BundleVersion)
 		},
 		Apply: func(ctx context.Context, tx pgx.Tx, value any, importContext sourceport.ImportContext) error {
-			return ImportIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
+			return importIncidentBundleFilesTx(ctx, tx, map[string][]byte(value.(sourceport.PreparedFiles)), importContext.ActorUserID, importContext.Attributions)
 		},
 		Validate: func(ctx context.Context, tx pgx.Tx, _ any, importContext sourceport.ImportContext) error {
 			var invalid bool
@@ -50,5 +48,5 @@ SELECT EXISTS (
 			}
 			return nil
 		},
-	})
+	}), nil
 }

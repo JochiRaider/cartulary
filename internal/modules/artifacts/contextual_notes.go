@@ -16,7 +16,7 @@ import (
 type ContextualNoteCreateRequest struct {
 	ClientTxnID string
 	Values      map[string]FieldValue
-	Collections map[string]WorkbookCollectionActionPayload
+	Collections map[string]CollectionActionPayload
 }
 
 type ContextualNoteCreateCommand struct {
@@ -51,17 +51,17 @@ func (f *MutationFacade) SourceIncident(
 func (f *MutationFacade) CreateContextualNote(
 	ctx context.Context,
 	command ContextualNoteCreateCommand,
-) (WorkbookMutationResult, error) {
+) (MutationResult, error) {
 	if f == nil {
-		return WorkbookMutationResult{}, fmt.Errorf("artifacts: mutation facade is not configured")
+		return MutationResult{}, fmt.Errorf("artifacts: mutation facade is not configured")
 	}
-	request := WorkbookCreateRequest{
+	request := CreateRequest{
 		ViewSchemaID: NotesViewSchemaID,
 		ClientTxnID:  command.Request.ClientTxnID,
 		Values:       command.Request.Values,
 		Collections:  command.Request.Collections,
 	}
-	return f.create(ctx, WorkbookCreateCommand{
+	return f.create(ctx, CreateCommand{
 		ActorUserID: command.ActorUserID,
 		Request:     request,
 		RequestHash: command.RequestHash,
@@ -76,7 +76,7 @@ func (f *MutationFacade) contextIncidentTx(
 	tx pgx.Tx,
 	sourceRecordID uuid.UUID,
 ) (uuid.UUID, error) {
-	envelope, err := f.source.records.LoadEnvelopeTx(ctx, tx, sourceRecordID, false)
+	envelope, err := f.recordEnvelopes.LoadEnvelopeTx(ctx, tx, sourceRecordID, false)
 	if errors.Is(err, records.ErrEnvelopeNotFound) {
 		return uuid.UUID{}, pgx.ErrNoRows
 	}

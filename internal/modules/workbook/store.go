@@ -64,7 +64,7 @@ type workbookContextualNotePort interface {
 	CreateContextualNote(
 		ctx context.Context,
 		command artifacts.ContextualNoteCreateCommand,
-	) (artifacts.WorkbookMutationResult, error)
+	) (artifacts.MutationResult, error)
 	SourceIncident(ctx context.Context, sourceRecordID uuid.UUID) (uuid.UUID, error)
 }
 

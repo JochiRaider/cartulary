@@ -40,7 +40,7 @@ func TestDeleteRestoreAdapterMatrix_Unit(t *testing.T) {
 		"task_request":   "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/internal/providers/deleterestore.TaskRequestSource",
 		"timeline_event": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore.Source",
 	}
-	contributions := revisionassembly.CurrentProviderContributions()
+	contributions := mustRevisionProviderContributions(t)
 	gotAdapters := make(map[string]string, len(wantAdapters))
 	for _, contribution := range contributions {
 		for _, record := range contribution.Records {
@@ -94,7 +94,7 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 	recordIDs := seedDeleteRestoreAdapterRecords(t, harness.DB, incidentID, actorID, hostID)
 
 	sources := map[string]revisions.RecordProviderContribution{}
-	for _, contribution := range revisionassembly.CurrentProviderContributions() {
+	for _, contribution := range mustRevisionProviderContributions(t) {
 		for _, record := range contribution.Records {
 			sources[record.RecordType] = record
 		}
@@ -222,6 +222,15 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 			t.Fatalf("%s source tombstone clear = %v, %v", recordType, cleared, err)
 		}
 	}
+}
+
+func mustRevisionProviderContributions(t testing.TB) []revisions.ProviderContribution {
+	t.Helper()
+	contributions, err := revisionassembly.CurrentProviderContributions()
+	if err != nil {
+		t.Fatalf("compose current Revisions provider contributions: %v", err)
+	}
+	return contributions
 }
 
 func TestSoftDeleteRoutePreconditions_Unit(t *testing.T) {

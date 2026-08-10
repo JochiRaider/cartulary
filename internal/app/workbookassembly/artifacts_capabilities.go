@@ -86,9 +86,9 @@ func (artifactIdempotency) PutTx(
 
 func artifactStoredKindForOperation(operationID artifacts.OperationID) (artifacts.StoredMutationKind, bool) {
 	switch operationID {
-	case artifacts.OperationWorkbookCreate:
+	case artifacts.OperationCreate:
 		return artifacts.StoredMutationCreate, true
-	case artifacts.OperationWorkbookPatch, artifacts.OperationConflictResolve:
+	case artifacts.OperationPatch, artifacts.OperationConflictResolve:
 		return artifacts.StoredMutationPatch, true
 	case artifacts.OperationLinkedNoteCreate:
 		return artifacts.StoredMutationLinkedNote, true
@@ -121,7 +121,7 @@ func decodeArtifactStoredResult(
 	if err != nil {
 		return artifacts.StoredMutationResult{}, err
 	}
-	stored := artifacts.StoredWorkbookResult{
+	stored := artifacts.StoredMutationPayload{
 		ViewSchemaID: viewSchemaID, RecordID: recordID, ChangeSetID: changeSetID, Row: row,
 	}
 	switch kind {
@@ -147,7 +147,7 @@ func decodeArtifactStoredResult(
 }
 
 func encodeArtifactStoredResult(result artifacts.StoredMutationResult) (map[string]any, error) {
-	stored, ok := result.WorkbookResult()
+	stored, ok := result.Payload()
 	if !ok {
 		return nil, artifacts.ErrStoredMutationKindMismatch
 	}

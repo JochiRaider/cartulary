@@ -57,7 +57,7 @@ func (revisionsCompositionTestProjection) LoadRowTx(context.Context, pgx.Tx, str
 
 func TestCurrentProviderContributionsBuildExactImmutableRecordViewCatalog(t *testing.T) {
 	t.Parallel()
-	contributions := CurrentProviderContributions()
+	contributions := mustCurrentProviderContributions(t)
 	catalog, err := buildRecordViewCatalog(contributions)
 	if err != nil {
 		t.Fatalf("build record/view catalog: %v", err)
@@ -138,7 +138,7 @@ func TestCurrentProviderContributionsBuildExactImmutableRecordViewCatalog(t *tes
 
 func TestCurrentProviderContributionsCloseSnapshotAndTargetSets(t *testing.T) {
 	t.Parallel()
-	contributions := CurrentProviderContributions()
+	contributions := mustCurrentProviderContributions(t)
 	snapshots, err := revisions.NewRecordSnapshotCaptureCatalog(contributions)
 	if err != nil {
 		t.Fatalf("build current snapshot catalog: %v", err)
@@ -285,7 +285,7 @@ func TestRevisionsRuntimeRejectsIncompleteOrAmbiguousRecordViewCatalogs(t *testi
 					HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 					IntentAppender:         collaboration.NewIntentAppender(),
 				},
-				test.mutate(cloneProviderContributions(CurrentProviderContributions()))...,
+				test.mutate(cloneProviderContributions(mustCurrentProviderContributions(t)))...,
 			)
 			if !errors.Is(err, test.want) {
 				t.Fatalf("build error = %v, want %v", err, test.want)
@@ -301,7 +301,7 @@ func TestRevisionsRuntimeReusesAppenderForCommandService(t *testing.T) {
 			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 			IntentAppender:         collaboration.NewIntentAppender(),
 		},
-		CurrentProviderContributions()...,
+		mustCurrentProviderContributions(t)...,
 	)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
@@ -328,7 +328,7 @@ func TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver(t *testing.T) 
 			HistoricalIntentPolicy: collaboration.NewHistoricalIntentPolicy(),
 			IntentAppender:         collaboration.NewIntentAppender(),
 		},
-		CurrentProviderContributions()...,
+		mustCurrentProviderContributions(t)...,
 	)
 	if err != nil {
 		t.Fatalf("build Revisions runtime: %v", err)
@@ -344,4 +344,13 @@ func TestRevisionsRuntimeBuildsOwnerComposedConflictFieldResolver(t *testing.T) 
 	if _, err := resolver.ResolveViewSchema("cartulary.view.unknown.v1"); err == nil {
 		t.Fatal("unknown view schema resolved")
 	}
+}
+
+func mustCurrentProviderContributions(t testing.TB) []revisions.ProviderContribution {
+	t.Helper()
+	contributions, err := CurrentProviderContributions()
+	if err != nil {
+		t.Fatalf("compose current Revisions provider contributions: %v", err)
+	}
+	return contributions
 }

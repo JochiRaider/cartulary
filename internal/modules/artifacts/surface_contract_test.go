@@ -4,12 +4,15 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/surfacecatalog"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/internal/sourcecatalog"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	t.Parallel()
+	t.Run("source-state manifest rejects malformed relations", testSourceStateManifestRejectsMalformedRelations)
+	t.Run("source-state manifest derives exact recovery and portability state", testSourceStateManifestDerivesExactRecoveryAndPortabilityState)
+	t.Run("source-state manifest owns defensive relation copies", testSourceStateManifestOwnsDefensiveRelationCopies)
 
 	want := map[string]string{
 		CommLogViewSchemaID:              "comm_log",
@@ -24,20 +27,24 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	if len(want) != 8 {
 		t.Fatalf("artifact surface fixture has %d entries, want 8", len(want))
 	}
-	catalog := surfacecatalog.All()
-	if len(catalog) != len(want) {
-		t.Fatalf("surface catalog has %d entries, want %d", len(catalog), len(want))
+	catalog, err := sourcecatalog.Load()
+	if err != nil {
+		t.Fatalf("sourcecatalog.Load() error = %v", err)
 	}
-	for _, surface := range catalog {
+	surfaces := catalog.Surfaces()
+	if len(surfaces) != len(want) {
+		t.Fatalf("surface catalog has %d entries, want %d", len(surfaces), len(want))
+	}
+	for _, surface := range surfaces {
 		if want[surface.ViewSchemaID] != surface.ArtifactType {
 			t.Fatalf("surface catalog entry %#v does not match owner expectation", surface)
 		}
-		reverse, ok := surfacecatalog.LookupByArtifactType(surface.ArtifactType)
+		reverse, ok := catalog.SurfaceByArtifactType(surface.ArtifactType)
 		if !ok || reverse != surface {
 			t.Fatalf("reverse surface lookup for %q = %#v, %v", surface.ArtifactType, reverse, ok)
 		}
 	}
-	if _, ok := surfacecatalog.LookupByArtifactType("future_unregistered_artifact"); ok {
+	if _, ok := catalog.SurfaceByArtifactType("future_unregistered_artifact"); ok {
 		t.Fatal("unregistered artifact type was admitted")
 	}
 
@@ -45,10 +52,10 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 		viewSchemaID, artifactType := viewSchemaID, artifactType
 		t.Run(viewSchemaID, func(t *testing.T) {
 			t.Parallel()
-			if got := ArtifactTypeForView(viewSchemaID); got != artifactType {
+			if got := artifactTypeForView(viewSchemaID); got != artifactType {
 				t.Fatalf("ArtifactTypeForView(%q) = %q, want %q", viewSchemaID, got, artifactType)
 			}
-			if !IsArtifactBackedView(viewSchemaID) {
+			if !isArtifactBackedView(viewSchemaID) {
 				t.Fatalf("IsArtifactBackedView(%q) = false", viewSchemaID)
 			}
 			schema, ok := viewschema.Lookup(viewSchemaID)
@@ -70,16 +77,16 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 					}
 					continue
 				}
-				if !mapped || policy.viewSchemaID != viewSchemaID || !policy.writable {
+				if !mapped || policy.ViewSchemaID != viewSchemaID || (!policy.View.Writable && !policy.View.CreateWritable) {
 					t.Fatalf("writable field %s has incomplete source policy %#v, %v", fieldKey, policy, mapped)
 				}
 				switch field.WriteKind {
 				case "direct_value":
-					if policy.kind != sourceFieldDirect || policy.storage.table == "" || policy.storage.column == "" {
+					if policy.Kind != sourcecatalog.FieldKindDirect || policy.Storage.Table == "" || policy.Storage.Column == "" {
 						t.Fatalf("direct field %s has invalid source policy %#v", fieldKey, policy)
 					}
 				case "action_payload":
-					if policy.kind != sourceFieldCollection || policy.collection.FieldKey != fieldKey {
+					if policy.Kind != sourcecatalog.FieldKindCollection || policy.FieldKey != fieldKey {
 						t.Fatalf("collection field %s has invalid source policy %#v", fieldKey, policy)
 					}
 				default:
@@ -90,16 +97,20 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	}
 
 	for _, viewSchemaID := range []string{"", "cartulary.view.timeline.v2", "cartulary.view.unknown.v1"} {
-		if got := ArtifactTypeForView(viewSchemaID); got != "" {
+		if got := artifactTypeForView(viewSchemaID); got != "" {
 			t.Fatalf("ArtifactTypeForView(%q) = %q, want empty", viewSchemaID, got)
 		}
-		if IsArtifactBackedView(viewSchemaID) {
+		if isArtifactBackedView(viewSchemaID) {
 			t.Fatalf("IsArtifactBackedView(%q) = true", viewSchemaID)
 		}
 	}
 
 	t.Run("incident bundle descriptor is exact", func(t *testing.T) {
-		descriptor := NewIncidentBundleSourcePort().Descriptor()
+		port, err := NewIncidentBundleSourcePort()
+		if err != nil {
+			t.Fatalf("construct Artifacts incident-bundle source port: %v", err)
+		}
+		descriptor := port.Descriptor()
 		if descriptor.FamilyID != "artifacts" || descriptor.ContractMajor != 1 || descriptor.OwnerID != "module.artifacts" {
 			t.Fatalf("artifact incident-bundle descriptor identity = %#v", descriptor)
 		}
@@ -140,7 +151,10 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	})
 
 	t.Run("recovery contribution is exact", func(t *testing.T) {
-		contribution := RecoveryStateContribution()
+		contribution, err := RecoveryStateContribution()
+		if err != nil {
+			t.Fatalf("construct Artifacts recovery contribution: %v", err)
+		}
 		if contribution.OwnerID != "module.artifacts" || len(contribution.ObjectFamilies) != 0 {
 			t.Fatalf("artifact recovery contribution identity = %#v", contribution)
 		}
@@ -164,7 +178,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 	t.Run("exact_write_admission", func(t *testing.T) {
 		body := "Valid note signal"
 		number := int64(1)
-		for name, params := range map[string]CreateParams{
+		for name, params := range map[string]createParams{
 			"unknown_view": {
 				ViewSchemaID: "cartulary.view.unknown.v1",
 				Values:       map[string]FieldValue{"note.body": {Text: &body}},
@@ -212,7 +226,7 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 				},
 			},
 		} {
-			if err := ValidateCreateParams(params); err == nil {
+			if err := validateCreateParams(params); err == nil {
 				t.Fatalf("%s unexpectedly passed exact source admission", name)
 			}
 		}
@@ -221,20 +235,46 @@ func TestArtifactSurfaceContractMatrix(t *testing.T) {
 		}
 	})
 
-	contribution := RevisionProviderContribution()
+	contribution, err := NewRevisionContribution()
+	if err != nil {
+		t.Fatalf("NewRevisionContribution() error = %v", err)
+	}
 	if len(contribution.Records) != 1 {
 		t.Fatalf("revision record contributions = %d, want 1", len(contribution.Records))
+	}
+	if contribution.SourceOwnerModule != "artifacts" ||
+		contribution.Records[0].SourceOwnerModule != "artifacts" ||
+		contribution.Records[0].RecordType != "artifact" ||
+		contribution.Records[0].SnapshotSchemaID != "cartulary.revisions.snapshot.artifact.v1" {
+		t.Fatalf("artifact revision contribution identity = %#v", contribution)
 	}
 	routes := contribution.Records[0].RecordViewRoutes
 	if len(routes) != len(want) {
 		t.Fatalf("revision view routes = %d, want %d", len(routes), len(want))
 	}
+	wantRouteOrder := []string{
+		CommLogViewSchemaID,
+		FindingsViewSchemaID,
+		ForensicKeywordsViewSchemaID,
+		HandoffViewSchemaID,
+		InvestigativeQueriesViewSchemaID,
+		LessonViewSchemaID,
+		NotesViewSchemaID,
+		StatusReviewViewSchemaID,
+	}
 	seen := make([]string, 0, len(routes))
-	for _, route := range routes {
+	for index, route := range routes {
 		if len(route.ViewSchemaIDs) != 1 || route.Variant == nil {
 			t.Fatalf("invalid artifact revision route: %#v", route)
 		}
 		viewSchemaID := route.ViewSchemaIDs[0]
+		if viewSchemaID != wantRouteOrder[index] {
+			t.Fatalf("revision route %d = %q, want %q", index, viewSchemaID, wantRouteOrder[index])
+		}
+		wantContributionID := "artifacts." + viewSchemaKey(viewSchemaID)
+		if route.ContributionID != wantContributionID {
+			t.Fatalf("revision route %s contribution = %q, want %q", viewSchemaID, route.ContributionID, wantContributionID)
+		}
 		if slices.Contains(seen, viewSchemaID) {
 			t.Fatalf("duplicate artifact revision route for %s", viewSchemaID)
 		}

@@ -71,8 +71,8 @@ func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 					Values: map[string]artifacts.FieldValue{
 						"note.title": {Text: &title},
 					},
-					Collections: map[string]artifacts.WorkbookCollectionActionPayload{
-						"note.tags": {Actions: []artifacts.WorkbookCollectionAction{{
+					Collections: map[string]artifacts.CollectionActionPayload{
+						"note.tags": {Actions: []artifacts.CollectionAction{{
 							Op: "add_tag", RawText: "synthetic", NormalizedText: "synthetic",
 						}}},
 					},

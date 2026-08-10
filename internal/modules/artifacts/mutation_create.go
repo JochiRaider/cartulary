@@ -2,6 +2,7 @@ package artifacts
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -9,6 +10,95 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
+
+func (f *MutationFacade) Create(ctx context.Context, command CreateCommand) (MutationResult, error) {
+	return f.create(ctx, command, nil)
+}
+
+func (f *MutationFacade) create(ctx context.Context, command CreateCommand, contextualSourceRecordID *uuid.UUID) (MutationResult, error) {
+	request := command.Request
+	wantOperation := OperationCreate
+	wantKind := StoredMutationCreate
+	if contextualSourceRecordID != nil {
+		wantOperation = OperationLinkedNoteCreate
+		wantKind = StoredMutationLinkedNote
+	}
+	if command.OperationID != wantOperation {
+		return MutationResult{}, ErrStoredMutationKindMismatch
+	}
+	scopeKey := command.IncidentID.String() + ":" + request.ViewSchemaID
+	if contextualSourceRecordID != nil {
+		scopeKey = contextualSourceRecordID.String()
+	}
+	idempotencyKey := IdempotencyKey{
+		OperationID: command.OperationID,
+		ActorUserID: command.ActorUserID,
+		ScopeKey:    scopeKey,
+		ClientTxnID: request.ClientTxnID,
+	}
+	replayedStored, replayed, err := f.replayStoredMutation(ctx, idempotencyKey, command.RequestHash, "create", storedMutationExpectation{
+		kind: wantKind, viewSchemaID: request.ViewSchemaID,
+	})
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if replayed {
+		result := MutationResult{
+			Row: replayedStored.Row, Replayed: true, IncidentID: command.IncidentID,
+			RecordID: replayedStored.RecordID, ChangeSetID: replayedStored.ChangeSetID,
+			ViewSchemaID: request.ViewSchemaID, ClientTxnID: request.ClientTxnID,
+			RowVersion: rowVersionFromCanonicalRow(replayedStored.Row),
+		}
+		if replayedStored.SourceRecordID != nil {
+			result.ContextualLink = &ContextualLink{SourceRecordID: *replayedStored.SourceRecordID, LinkType: replayedStored.LinkType}
+		}
+		return result, nil
+	}
+	if err := validateCreateParams(createParams{ViewSchemaID: request.ViewSchemaID, Values: request.Values}); err != nil {
+		return MutationResult{}, err
+	}
+
+	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("begin artifact create transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	mutation, err := f.executeCreateTx(ctx, tx, command, contextualSourceRecordID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	stored := StoredMutationPayload{
+		ViewSchemaID: request.ViewSchemaID, RecordID: mutation.recordID,
+		ChangeSetID: mutation.changeSetID, Row: mutation.row,
+	}
+	var storedResult StoredMutationResult
+	if contextualSourceRecordID == nil {
+		storedResult = NewStoredCreateResult(stored)
+	} else {
+		stored.SourceRecordID = contextualSourceRecordID
+		stored.LinkType = "references_artifact"
+		storedResult = NewStoredLinkedNoteResult(stored)
+	}
+	if err := f.idempotency.PutTx(ctx, tx, idempotencyKey, command.RequestHash, storedResult); err != nil {
+		return MutationResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return MutationResult{}, fmt.Errorf("commit artifact create transaction: %w", err)
+	}
+	return MutationResult{
+		Row:              mutation.row,
+		Created:          true,
+		IncidentID:       mutation.incidentID,
+		RecordID:         mutation.recordID,
+		ChangeSetID:      mutation.changeSetID,
+		ClientTxnID:      request.ClientTxnID,
+		RowVersion:       1,
+		ViewSchemaID:     request.ViewSchemaID,
+		ChangedFieldKeys: changedFieldKeys(nil, mutation.row),
+		ContextualLink:   contextualLinkFacts(contextualSourceRecordID),
+	}, nil
+}
 
 // artifactCreateTxResult is the durable output of the transaction-supplied
 // source kernel. Route idempotency and commit remain coordinator concerns.
@@ -25,7 +115,7 @@ type artifactCreateTxResult struct {
 func (f *MutationFacade) executeCreateTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	command WorkbookCreateCommand,
+	command CreateCommand,
 	contextualSourceRecordID *uuid.UUID,
 ) (artifactCreateTxResult, error) {
 	request := command.Request
@@ -58,7 +148,7 @@ func (f *MutationFacade) executeCreateTx(
 		tx,
 		incidentID,
 		command.ActorUserID,
-		CreateParams{ViewSchemaID: request.ViewSchemaID, Values: request.Values},
+		createParams{ViewSchemaID: request.ViewSchemaID, Values: request.Values},
 		now,
 	)
 	if err != nil {

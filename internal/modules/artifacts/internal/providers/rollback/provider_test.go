@@ -3,8 +3,6 @@ package rollback
 import (
 	"reflect"
 	"testing"
-
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts/sourcecontract"
 )
 
 func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *testing.T) {
@@ -13,7 +11,7 @@ func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *test
 		"body": "note", "summary": "brief", "next_checks": nil, "active_risks_summary": "risk",
 		"closure_state": "closed", "kind": "hypothesis", "platform": "KQL", "case_sensitive": true,
 	}}
-	got, ok := sourcecontract.ExtractRollbackSource(value)
+	got, ok := extractRollbackSource(value)
 	if !ok {
 		t.Fatal("ExtractRollbackSource returned ok=false")
 	}
@@ -24,7 +22,7 @@ func TestSourceForRollbackValueMapsAllArtifactVariantsWithoutCollections(t *test
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("artifact source = %#v, want %#v", got, want)
 	}
-	if _, ok := sourcecontract.ExtractRollbackSource(map[string]any{"cells": map[string]any{"note.body": map[string]any{"value": "legacy"}}}); ok {
+	if _, ok := extractRollbackSource(map[string]any{"cells": map[string]any{"note.body": map[string]any{"value": "legacy"}}}); ok {
 		t.Fatal("schema-less projection row was accepted")
 	}
 }
@@ -36,7 +34,7 @@ func TestValidSourceRejectsSubtypeInvariantViolations(t *testing.T) {
 		{"confidence_score": float64(101)},
 		{"match_mode": "glob"},
 	} {
-		if sourcecontract.ValidRollbackSource(source) {
+		if validRollbackSource(source) {
 			t.Fatalf("ValidRollbackSource(%#v) = true", source)
 		}
 	}

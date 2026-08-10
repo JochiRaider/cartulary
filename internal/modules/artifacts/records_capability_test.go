@@ -16,6 +16,7 @@ import (
 type artifactRecordsCapabilitySpy struct {
 	wantTx       pgx.Tx
 	wantRecordID uuid.UUID
+	wantLock     bool
 	envelope     records.Envelope
 	loadErr      error
 	called       bool
@@ -42,8 +43,8 @@ func (spy *artifactRecordsCapabilitySpy) LoadEnvelopeTx(
 	if recordID != spy.wantRecordID {
 		return records.Envelope{}, errors.New("artifact supplied a different record ID")
 	}
-	if !lock {
-		return records.Envelope{}, errors.New("artifact current-envelope lookup did not request a lock")
+	if lock != spy.wantLock {
+		return records.Envelope{}, errors.New("artifact current-envelope lookup used the wrong lock posture")
 	}
 	return spy.envelope, spy.loadErr
 }
@@ -59,13 +60,13 @@ func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testin
 
 	t.Run("locked envelope metadata", func(t *testing.T) {
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID,
+			wantTx: tx, wantRecordID: recordID, wantLock: true,
 			envelope: records.Envelope{
 				RecordID: recordID, IncidentID: incidentID,
 				RecordType: "artifact", RowVersion: 7,
 			},
 		}
-		facade := &MutationFacade{source: artifactSourceKernel{records: spy}}
+		facade := &MutationFacade{recordEnvelopes: spy}
 		meta, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID)
 		if err != nil {
 			t.Fatalf("load locked artifact envelope: %v", err)
@@ -77,9 +78,9 @@ func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testin
 
 	t.Run("missing envelope remains concealed", func(t *testing.T) {
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID, loadErr: records.ErrEnvelopeNotFound,
+			wantTx: tx, wantRecordID: recordID, wantLock: true, loadErr: records.ErrEnvelopeNotFound,
 		}
-		facade := &MutationFacade{source: artifactSourceKernel{records: spy}}
+		facade := &MutationFacade{recordEnvelopes: spy}
 		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, pgx.ErrNoRows) {
 			t.Fatalf("missing artifact envelope error = %v, want pgx.ErrNoRows", err)
 		}
@@ -88,15 +89,29 @@ func TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability(t *testin
 	t.Run("deleted envelope requires restore", func(t *testing.T) {
 		deletedAt := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
 		spy := &artifactRecordsCapabilitySpy{
-			wantTx: tx, wantRecordID: recordID,
+			wantTx: tx, wantRecordID: recordID, wantLock: true,
 			envelope: records.Envelope{
 				RecordID: recordID, IncidentID: incidentID,
 				RecordType: "artifact", RowVersion: 7, DeletedAt: &deletedAt,
 			},
 		}
-		facade := &MutationFacade{source: artifactSourceKernel{records: spy}}
+		facade := &MutationFacade{recordEnvelopes: spy}
 		if _, err := facade.loadArtifactRecordMetaForUpdateTx(ctx, tx, recordID); !errors.Is(err, revisions.ErrRecordDeletedUseRestore) {
 			t.Fatalf("deleted artifact envelope error = %v, want ErrRecordDeletedUseRestore", err)
+		}
+	})
+
+	t.Run("handoff risk owner validates the Records envelope before subtype state", func(t *testing.T) {
+		spy := &artifactRecordsCapabilitySpy{
+			wantTx: tx, wantRecordID: recordID, wantLock: false,
+			envelope: records.Envelope{
+				RecordID: recordID, IncidentID: uuid.New(), RecordType: "artifact", RowVersion: 7,
+			},
+		}
+		err := validateHandoffRiskRefOwnerTx(ctx, tx, spy, incidentID, recordID)
+		var validationError *ValidationError
+		if !spy.called || !errors.As(err, &validationError) || validationError.Field != handoffOpenRiskRefsFieldKey {
+			t.Fatalf("handoff envelope validation error = %v, called=%v", err, spy.called)
 		}
 	})
 }

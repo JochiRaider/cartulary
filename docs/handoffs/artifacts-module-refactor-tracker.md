@@ -5,11 +5,13 @@
 - **Target path:** `internal/modules/artifacts`
 - **Target label:** `artifacts` (derived from the final path segment and already valid lowercase kebab case)
 - **Output path:** `docs/handoffs/artifacts-module-refactor-tracker.md`
-- **Status:** Implementation and handoff complete; S-00 through S-07 are done.
-- **Execution rule:** S-00 through S-07 execute serially. A slice advances only after its tracker checkpoint and Markdown validation pass.
+- **Status:** Iterations 1 and 2 complete; S-00 through S-14 are done and the final handoff is closed.
+- **Execution rule:** S-00 through S-07 are the completed Iteration 1 record. Iteration 2 slices S-08 through S-14 execute serially. A slice advances only after its tracker checkpoint and Markdown validation pass.
 - **Compatibility rule:** Preserve normative public contracts, stable identifiers, persisted data, transaction atomicity, and security behavior. Remove obsolete internal Go APIs, compatibility aliases, duplicate policy maps, misleading test-only packages, and direct subpackage imports without deprecation shims.
 - **Ownership rule:** Artifacts owns authoritative structured-artifact source behavior and constructs its source-specific contributions. Physical projections and generic consumer coordination remain with their named owners.
-- **Non-goals:** No frontend ownership-label change, backend relocation to a `coordination` package, database migration, OpenAPI change, physical projection move, or expansion of Reporting to Investigative Queries or Forensic Keywords.
+- **Non-goals:** No frontend ownership-label change, backend relocation to a `coordination` package, database migration, OpenAPI change, physical projection move, expansion of Reporting to Investigative Queries or Forensic Keywords, or redesign of the live 55-field `workbookprojection.ProjectionInput` contract in Iteration 2.
+
+Sections 2 through 13 preserve the completed Iteration 1 inventory, diagnosis, execution evidence, and handoff history. Sections 14 onward are the controlling plan for Iteration 2. Historical findings remain evidence of why Iteration 1 changed the module; they are not open Iteration 2 work unless the new delta inventory says so explicitly.
 
 The source hierarchy used for this tracker is:
 
@@ -18,7 +20,9 @@ The source hierarchy used for this tracker is:
 3. Core 05 only for claim-bearing timed or fixture-sensitive publication; it is not applicable to this remediation.
 4. Domain vocabulary and implementation-support guides.
 5. Current repository code and tests.
-6. Prior plans, handoffs, and the planning framework as evidence only.
+6. Prior plans, handoffs, and planning guidance, including `docs/research/nlspec-spec.md`, as evidence and planning doctrine only.
+
+`docs/research/nlspec-spec.md` informs the completeness, explicit boundaries, and acceptance criteria of this tracker but is not normative Artifacts product authority. Existing REQ-01-660 and AC-540/AC-541 already authorize the planned internal cleanup. Iteration 2 therefore plans no Core or Domain edit. If implementation discovers a required behavior change or an owner contradiction, the affected slice stops and returns to the adopted owner before code changes proceed.
 
 Owner and support documents inspected include `docs/spec/00_document_set_status_and_precedence.md`, the relevant artifact, workbook, projection, revision, concurrency, authorization, recovery, portability, and import sections of Core 01 through Core 04, `docs/domain.md`, `docs/reporting-subsystem-nlspec.md`, `docs/extension-subsystem-nlspec.md`, relevant command/evidence sections of `docs/testing-harness-nlspec.md`, `AGENTS.md`, and the complete `docs/handoffs/cartulary_modular_refactor_planning_framework.md`. The framework was read first and used as doctrine and structure, not as proof of repository state.
 
@@ -26,7 +30,7 @@ Repository evidence inspected includes all 33 files under `internal/modules/arti
 
 The target path exists. The live module is a legitimate structured-artifact source owner, but its root surface also coordinates mutation and exposes transport-adjacent concepts. Core 01 REQ-01-660 and Core 04 AC-540/AC-541 now close the target ownership and conformance boundary. The Coordination bounded context remains the language owner while `artifacts` is its narrower structured-source implementation refinement. No owner contradiction was discovered.
 
-## 2. Current-State Repository Inventory
+## 2. Iteration 1 Historical Repository Inventory
 
 The pre-remediation target contained 27 production files and 7 test files. The completed target contains 27 production files and 9 test files after replacing false subpackage topology with root evidence and adding fail-closed composition/catalog tests. Every current file is in scope; none is excluded.
 
@@ -67,7 +71,7 @@ The pre-remediation target contained 27 production files and 7 test files. The c
 | `internal/modules/artifacts/workbookprojection/contribution.go` | Defines typed artifact source inputs, derived facts, ports, descriptors, and surface intents for Projections | Reader/source interfaces, input/fact/page types, ports, contribution, constructor, descriptor, intents | Projection provider, Projections adapters/query/runtime/tests | Projection provider contract only | Contribution unit tests and Projections tests | Eight projection/view-schema contracts | Artifacts contribution contract | High | Physical projection lifecycle and storage correctly remain in Projections |
 | `internal/modules/artifacts/workbookprojection/contribution_test.go` | Tests contribution construction, eight descriptors, intent rejection, and defensive copying | Four projection contribution tests | Verification/test catalog through Projections/artifact rows | `workbookprojection` | Self | Eight view-schema projection contracts | Artifacts tests | Low | Preserve as boundary-level unit evidence |
 
-## 3. Module Boundary Diagnosis
+## 3. Iteration 1 Historical Module Boundary Diagnosis
 
 The current target is a **legitimate structured-source owner** and a **mixed-responsibility package**. It also acts as a mutation coordinator and persistence-adjacent adapter, and its root facade is transport-adjacent. It is not itself a frontend shell/controller, grid-vendor adapter, HTTP handler, WebSocket handler, or saved-view store. It supplies a view/projection contribution but does not own physical projection storage or lifecycle.
 
@@ -89,7 +93,7 @@ The domain's Coordination context names communication logs, handoffs, status rev
 | Frontend surface policies and grid integration | `apps/web` outside target | Frontend Workbook policy/grid adapter | Defer/no move | Live policy definitions and boundary tests | No frontend file is part of this refactor plan by default |
 | Test-only linked-note package | `linkednotes/facade_test.go` | Artifact or Workbook characterization suite | Defer | No production package; harness row targets current path | Move only with an authored harness update plan |
 
-## 4. Public Contract and Behavior Freeze Map
+## 4. Iteration 1 Historical Contract and Behavior Freeze Map
 
 | Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -121,7 +125,7 @@ The domain's Coordination context names communication logs, handoffs, status rev
 | Generated Go, TypeScript, view-contract, and OpenAPI surfaces | Contract owners and generators | Generated-artifact policy and authored contracts | Drift and contract tests | Run drift checks only after authored input changes | High | Never hand-edit generated roots or composed OpenAPI |
 | Harness/test accounting | Testing Harness and verification owners | `module.artifacts` owner file, test catalog, test families | Nine current artifact rows: four unit, five integration | Add or remap rows only with characterization/package changes | Medium | Evidence routing is not runtime architecture |
 
-## 5. Coupling and Boundary Findings
+## 5. Iteration 1 Historical Coupling and Boundary Findings
 
 | Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
 | --- | --- | --- | --- | --- | --- |
@@ -141,13 +145,13 @@ The domain's Coordination context names communication logs, handoffs, status rev
 | Generated contract packages are runtime inputs to source policy | `source_policy.go` reads generated view-schema facts | High | `should_fix` | Authored contract owner and generator projection | Any consolidation must edit authored contract inputs and regenerate via Make |
 | Test assumptions do not appear to leak into production target code | Target production imports and test-only helper scan | Low | `intentional/no_action` | Artifacts | Retain boundary checks; no corrective slice required now |
 
-## 6. Execution Policy and Tracker Gate
+## 6. Iteration 1 Execution Policy and Tracker Gate
 
 S-00 through S-07 are separate serial workstreams. Only one slice may be `ACTIVE` or `VALIDATING`. After validating a slice and before activating its successor, this tracker MUST record status, gap changes, files changed, substantive decisions, compatibility impact, commands and results, evidence paths, risks, blockers, handoff state, and binary exit criteria. `make lint-markdown` is the final gate at every checkpoint. A failing slice is marked `BLOCKED`; later slices do not begin.
 
 The remediation deliberately retains public and persisted compatibility that continues to serve the adopted owners. Internal Go names, import paths, duplicate policy sources, and test-only package topology are not compatibility contracts and receive no aliases.
 
-## 7. Serial Slice Workstreams
+## 7. Iteration 1 Serial Slice Workstreams
 
 | Slice | Workstream | Depends on | Status | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -160,7 +164,7 @@ The remediation deliberately retains public and persisted compatibility that con
 | S-06 | Peer subpackage and test-topology cleanup | S-05 | DONE | Risk-reference and linked-note behavior lives at the root boundary; stale imports and harness paths are absent. |
 | S-07 | Validation and handoff completion | S-06 | DONE | Required owner, generation, boundary, harness, broad, build, and browser checks pass; final handoff evidence is recorded. |
 
-## 8. Gap Status Matrix
+## 8. Iteration 1 Gap Status Matrix
 
 | Gap | Remediation slice | Status | Completion evidence |
 | --- | --- | --- | --- |
@@ -174,7 +178,7 @@ The remediation deliberately retains public and persisted compatibility that con
 | GAP-08: Test-only linked-notes topology implies a false production owner. | S-06 | CLOSED | Linked-note atomicity is a root integration row; the empty subpackage and all harness references are gone. |
 | GAP-09: Boundary policy permits obsolete coupling. | S-02, S-05, S-06 | CLOSED | Records SQL/provider allowances and Workbook subpackage allowances are removed; transport, provider, SQL, and owner-import guards pass. |
 
-## 9. Validation Plan
+## 9. Iteration 1 Validation Plan
 
 | Layer | Command | Required point |
 | --- | --- | --- |
@@ -188,7 +192,7 @@ The remediation deliberately retains public and persisted compatibility that con
 | Final repository | `make agent-finalize`, `make test-fast`, `make check`, `make build`, `make browser-e2e-webserver-backed` | S-07. |
 | Tracker gate | `make lint-markdown` | After every slice checkpoint. |
 
-## 10. Slice Checkpoint Ledger
+## 10. Iteration 1 Slice Checkpoint Ledger
 
 | Slice | Status | Files changed | Decisions and compatibility | Commands and evidence | Risks, blockers, and next action |
 | --- | --- | --- | --- | --- | --- |
@@ -203,7 +207,7 @@ The remediation deliberately retains public and persisted compatibility that con
 
 The completed-tracker Markdown gate passed at `.cartulary/test-results/20260810T152356Z-p3454834`; `git diff --check` also passed.
 
-## 11. Session Handoff Log
+## 11. Iteration 1 Session Handoff Log
 
 ### Scope and authority
 
@@ -261,7 +265,7 @@ The completed-tracker Markdown gate passed at `.cartulary/test-results/20260810T
 | 2026-08-10 10:44 EDT | Codex remediation session | S-06 done; S-07 active | Risk-reference implementation/tests, linked-note integration test, Workbook parser, artifact result formatting, test-family/boundary inputs and generated topology, tracker | Artifacts and Workbook unit/service-backed slices; generation/drift/shape/boundary/harness gates; target explanations | Root-only peer contract and accurate root test topology are enforced; all final slice graphs pass | None | Run the complete affected-owner and broad repository validation sequence, then finalize the handoff. |
 | 2026-08-10 11:23 EDT | Codex remediation session | S-07 and overall remediation done | All paths recorded across the slice ledger; final corrections in contract generator and two obsolete helper removals; tracker | Eleven owner unit/service-backed pairs; final policy gates; retained-evidence finalization; `test-fast`, `check`, `build`, browser/webserver | All final graphs pass; public/data/security compatibility is preserved; obsolete internal surfaces are absent; no migration is required | None | Handoff complete; future artifact surfaces must enter through the authored catalog and satisfy its fail-closed generator/runtime checks. |
 
-## 12. Open Questions and Blockers
+## 12. Iteration 1 Open Questions and Blockers
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
@@ -269,7 +273,7 @@ The completed-tracker Markdown gate passed at `.cartulary/test-results/20260810T
 
 RB-001 is closed by the user's explicit implementation authorization. No `BLOCKED: owner contradiction` entry is present because the inspected owners do not contradict one another within their named scopes. If later owner inspection reveals a contradiction, stop the affected slice and add a stable blocker instead of selecting a side.
 
-## 13. Binary Completion Criteria
+## 13. Iteration 1 Binary Completion Criteria
 
 - [x] Every file in `internal/modules/artifacts` is inventoried or explicitly out of scope.
 - [x] Every discovered public contract risk has an owner and test posture.
@@ -287,3 +291,181 @@ RB-001 is closed by the user's explicit implementation authorization. No `BLOCKE
 - [x] No owner contradiction was found; the tracker specifies `BLOCKED: owner contradiction` handling if one emerges.
 - [x] Repository/framework mismatches are recorded as planning findings.
 - [x] The original inventory and planning-session history remain available for continuation.
+
+## 14. Iteration 2 Delta Inventory
+
+Iteration 2 is a production-readiness cleanup, not a new feature phase. It starts from the completed S-07 state and considers only remaining accidental surface, duplicate owner metadata, failure behavior, concrete dependency construction, and file cohesion. The durable contract freeze from Section 4 remains in force.
+
+| Current path or surface | Current evidence | Iteration 2 disposition | Reason |
+| --- | --- | --- | --- |
+| `artifacts/surfacecatalog` | Imported only below `internal/modules/artifacts`; guarded by an owner-only boundary allowance; performs repeated linear scans and panics on generated/view-schema mismatch | Remove in S-10 and replace with one immutable `artifacts/internal/sourcecatalog` | It is an owner-internal implementation presented as a consumable subpackage and duplicates source-policy construction. |
+| `artifacts/sourcecontract` | Imported only by the root conflict path and private rollback provider/tests | Remove in S-10; put mapping facts in the internal catalog and retained-snapshot validation beside the private rollback provider | Its name implies a published contract although no sibling owns a legitimate dependency on it. |
+| Root source policy | `source_policy.go` separately builds maps with `sync.Once` and `panic`, while constructors perform an earlier validation pass | Consolidate in S-10 and propagate construction errors | Two interpretations and a lazy panic path add no continuing compatibility value. |
+| Root exported helpers and types | `IsArtifactBackedField` has no caller; several validators, policies, lookup helpers, formatting helpers, portability functions, and store methods have no non-test cross-package consumer | Remove or unexport in S-11; retain only deliberate peer/application contracts | Exported visibility is not a compatibility requirement when no production consumer exists. |
+| Workbook-named Artifacts mutation types | Live internal consumers use `Workbook*` request, command, action, result, and conflict names | Rename atomically to module-native Artifacts names in S-11, with no aliases | Workbook owns generic coordination; the source-owner API should describe Artifacts operations. |
+| Import construction | `NewImportCreateFacade` constructs a Records store and accepts a concrete Revisions appender | Replace with a fallible contribution and exact injected ports in S-11 | Hidden peer construction is inconsistent with the production mutation boundary and complicates testing. |
+| Recovery and portability relation declarations | Five tables and five bundle paths are repeated across recovery, incident-bundle descriptor, export, and import code | Derive all views from one private immutable source-state manifest in S-12 | A future relation can otherwise be registered in only part of the lifecycle. |
+| Mutation facade and integration evidence | `workbook_facade.go` and `artifact_contract_integration_test.go` each exceed 1,100 lines | Split by cohesive behavior in S-13 without creating new packages or verification identities | Smaller files reduce review and change risk while retaining one facade and one owner test topology. |
+| `workbookprojection.ProjectionInput` | Live 55-field contract consumed by Projections storage and runtime | Defer to a separately authorized cross-module iteration | It is active production behavior, not dead code; redesign would dominate this cleanup and requires Projections-owner migration. |
+
+The remaining intended cross-package surface includes stable artifact view-schema constants, the strict risk-reference parser used by Workbook, module-native mutation commands/results/errors and their capability ports, source contribution constructors, and the deliberately public `workbookprojection` published language. Exact membership is frozen by S-09 rather than inferred from capitalization alone.
+
+## 15. Iteration 2 Contract and Compatibility Posture
+
+Iteration 2 preserves public routes, HTTP and WebSocket envelopes, statuses and error codes, view-schema IDs, field keys, artifact-type tokens, canonical risk references, revision snapshot IDs, transaction ordering and atomicity, authorization precedence, stored source data, bundle paths, recovery tables, Reporting admission, and existing route-idempotency JSON. Existing idempotency rows remain replayable. Schema-less legacy rollback snapshots remain rejected.
+
+The following are intentionally not compatibility contracts: unused exported Go identifiers, owner-internal package paths, Workbook-oriented names inside the Artifacts owner API, duplicate runtime maps, panic-based initialization, concrete peer-store construction, file layout, and test-only helper reachability. Removed internal names and packages receive no aliases or deprecation shims.
+
+No database, data migration, OpenAPI, frontend ownership-label, physical projection, Reporting-family, or generated source-catalog count change is planned. Generated roots remain tool-owned. If a slice discovers that one of these exclusions is required, it is blocked and returned to planning rather than expanded tactically.
+
+## 16. Iteration 2 Gap Matrix
+
+| Gap | Areas | Remediation and rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Completion evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| GAP-10 (CLOSED S-08): The tracker presents a completed iteration as the current execution posture. | Tracker and documentation | Preserve S-00 through S-07 as historical evidence and add a new delta-only controlling iteration. This avoids rewriting evidence while making current work unambiguous. | Auditable continuity and a single current execution sequence. | None. | Later work may execute against closed findings or mistake historical coupling for current state. | Closed: S-08 through S-14 have one serial ledger, Sections 2 through 13 remain historical, and every checkpoint passed its diff and Markdown gates. |
+| GAP-11 (CLOSED S-10): Catalog facades duplicate interpretation and retain lazy panic paths. | Implementation, assembly, tests, boundary policy | Replace `surfacecatalog`, `sourcecontract`, and the root lazy builder with one immutable owner-internal catalog indexed by view, artifact type, and field. Move snapshot validation into the private rollback provider and propagate errors from production construction. | One interpretation, constant-time lookup, deterministic startup failure, and private implementation freedom. | Internal Go imports and revision-contribution construction change without shims; generated facts and root surface constants remain stable. | Drift can be handled differently by separate consumers, and invalid production state can panic after composition. | Closed: old packages and allowance are absent; malformed fixtures return errors; exact 8/36/15 closure and defensive-copy tests pass. |
+| GAP-12 (CLOSED S-11): Dead and test-only exports enlarge the root and projection API. | Implementation, Workbook adapters, tests, harness | Delete `IsArtifactBackedField`; unexport owner-local parameters, validators, policies, lookups, risk formatting, portability helpers, and store methods; make projection descriptor/intent helpers private. Rename live `Workbook*` contracts to module-native names and add an AST-backed exact export guard. | An intentional source-owner API that resists accidental growth and consumer vocabulary leakage. | Internal Go source break only. Durable operation strings and persisted JSON remain byte-compatible; no aliases are provided. | Test helpers and historical terminology become de facto production contracts. | Closed: every remaining export has a production consumer or contribution role; the export guard, consumer compilation, idempotency compatibility, and public error mapping pass. |
+| GAP-13 (CLOSED S-11): Import construction hides concrete peer dependencies. | Implementation, Imports assembly, tests | Replace `NewImportCreateFacade` with a fallible contribution accepting exact Records insertion, active-user validation, projection, and revision/intent ports. Build adapters in application assembly and reject every missing dependency. | Consistent dependency direction and independently testable import composition. | Internal constructor break only; five enabled and three reserved targets retain their behavior. | Partial composition and concrete coupling can bypass the module-native boundary. | Closed: Artifacts constructs no Records store or concrete Revisions appender in the import path; missing-dependency and service-backed atomicity matrices pass. |
+| GAP-14 (CLOSED S-12): The authoritative five-relation set is repeated across lifecycle contributions. | Implementation and tests | Introduce one private immutable source-state manifest and derive recovery tables, incident-bundle paths, identities, versions, export order, import admission, and required columns from it. Keep generic coordination with consumer owners. | A new source relation cannot silently omit backup, recovery, or portability support. | No external contract or data change; all existing ordering and identifiers remain exact. | Future relations can be only partially portable or recoverable. | Closed: one validated relation inventory derives the exact recovery, source-port, export, import, and attribution projections; malformed, deterministic, round-trip, recovery, and atomicity evidence passes. |
+| GAP-15 (CLOSED S-13): Mutation and integration files have low internal cohesion. | Implementation, tests, harness | Split create, patch, conflict, idempotency, collection, and shared facade concerns into root files; split integration evidence by behavior without new production packages or verification IDs. | Smaller review units and safer future operation growth. | Structural only. | Large mixed files encourage duplicated sequencing and make regressions harder to isolate. | Closed: seven cohesive mutation files and seven behavior/support test files retain one facade, one create sequence, one patch sequence, one idempotency lookup helper, all test names, and unchanged verification ownership; permanent cohesion, import, package, provider, peer-construction, and Records-table guards pass. |
+
+## 17. Iteration 2 Execution Policy and Tracker Gate
+
+S-08 through S-14 are serial workstreams. Only one slice may be `ACTIVE` or `VALIDATING`. `READY` means implementation has not begun. After validating a slice and before activating its successor, this tracker MUST record its status, gap changes, files changed, substantive decisions, compatibility impact, commands and results, evidence paths, risks, blockers, handoff state, and binary criteria. `make lint-markdown` is the last gate at every checkpoint.
+
+A failed required check marks the slice `BLOCKED`; later slices do not start. Failures are returned to the owning slice instead of receiving tactical fixes in S-14. A discovered normative behavior change or owner contradiction also blocks the slice until the adopted owner is corrected or clarified.
+
+## 18. Iteration 2 Serial Workstreams
+
+| Slice | Workstream | Depends on | Status | Exit criterion |
+| --- | --- | --- | --- | --- |
+| S-08 | Iteration 2 tracker rebaseline | S-07 | DONE | New gaps, decisions, workstreams, validation, handoff, and checklist are recorded; Markdown lint and diff checks pass. |
+| S-09 | Characterization and exported-surface accounting | S-08 | DONE | Retained contracts are mapped, every removal has no production consumer or an explicit same-slice migration, and the exported-surface verification row passes. |
+| S-10 | Internal source-catalog consolidation and fallible construction | S-09 | DONE | Old catalog/contract packages and panic paths are gone; mutation, projection, import, delete/restore, and revision construction use the validated internal catalog. |
+| S-11 | Module-native API minimization and import dependency injection | S-10 | DONE | Dead exports and Workbook-named owner APIs are removed without aliases; all consumers use the smaller root contract; import construction is fully injected. |
+| S-12 | Authoritative source-state manifest | S-11 | DONE | Recovery and portability derive from one five-relation manifest and retain exact observable behavior. |
+| S-13 | Cohesion cleanup and permanent boundary guards | S-12 | DONE | Mutation and test files are decomposed without new package boundaries; export, import, transport, SQL, and provider guards pass. |
+| S-14 | Final validation and handoff | S-13 | DONE | All affected owner and repository-wide checks pass and the tracker contains final evidence and compatibility conclusions. |
+
+### S-08 — Iteration 2 tracker rebaseline
+
+- **Areas:** tracker and documentation.
+- **Remediation:** Reclassify Sections 2 through 13 as the completed Iteration 1 record; add the Iteration 2 delta inventory, compatibility posture, gaps, serial workstreams, validation matrix, checkpoint ledger, handoff state, blockers, and binary checklist. Record NLSpec planning doctrine without promoting it to product authority.
+- **Compatibility:** Documentation only. No runtime, test, contract, generated, or data behavior changes.
+- **Validation:** `make lint-markdown` and `git diff --check`.
+- **Exit:** GAP-10 is closed, S-09 is `READY` but inactive, and all later slices are `PENDING`.
+
+### S-09 — Characterization and exported-surface accounting
+
+- **Areas:** tests, authored verification routing, and tracker.
+- **Remediation:** Inventory root and `workbookprojection` exports by actual non-test consumers; classify each as retained, removed, unexported, or renamed. Add an AST-backed exported-surface allowlist and a verification claim/row for API minimization. Freeze durable operation strings, stored idempotency JSON replay, revision contribution ordering, catalog closure behavior, and import atomicity before structural edits.
+- **Compatibility:** Test and harness accounting only. Existing semantic verification IDs remain unless the new export guard requires one additive ID.
+- **Validation:** Artifacts unit/service-backed slices, affected Workbook/Imports/Projections/Revisions rows, `make harness-contract`, generated topology drift checks if authored harness inputs change, and the tracker gate.
+- **Exit:** Every S-10/S-11 removal has evidence of no production consumer or a named same-slice migration; no behavior freeze row is represented as covered without executable evidence.
+
+### S-10 — Internal source-catalog consolidation and fallible construction
+
+- **Areas:** implementation, application assembly, tests, and boundary policy.
+- **Remediation:** Build one immutable `artifacts/internal/sourcecatalog` from generated Artifacts and view-schema facts, with indexes by view ID, artifact type, and field. Derive storage identifiers, collection policy, conflict source keys, revision routes, and projection surface IDs from it. Remove `surfacecatalog`, `sourcecontract`, the redundant owner-only import allowance, linear production lookups, and all `mustBuild`/lazy panic paths. Move retained-snapshot extraction and validation into the private rollback provider. Make the Artifacts revision contribution fallible and propagate its error through revision assembly before runtime startup.
+- **Compatibility:** Internal Go signatures and imports change atomically without aliases. Root surface constants, exact 8/36/15 catalog facts, revision route identities, snapshot schema, and public behavior remain stable.
+- **Validation:** Malformed catalog fixtures for missing, duplicate, cross-surface, read-only, unknown, and mismatched entries; defensive-copy/immutability checks; Artifacts, Projections, Revisions, Workbook, and Imports owner slices; boundary and generation-drift gates; tracker gate.
+- **Exit:** No old package import or runtime catalog panic remains, and every production construction path reports catalog errors before serving work.
+
+### S-11 — Module-native API minimization and import dependency injection
+
+- **Areas:** implementation, Workbook and Imports assembly, tests, harness, and boundary policy.
+- **Remediation:** Delete `IsArtifactBackedField`; unexport all owner-local validators, create parameters, collection policies/lookups, artifact lookup helpers, risk-reference formatting, incident-bundle portability helpers, and `sourceStore` methods. Keep `ValidationError`, stable surface constants, `ParseRiskRefItemRef`, contribution constructors, and live capability interfaces. Rename `WorkbookCreateRequest`, `WorkbookPatchRequest`, `WorkbookPatchChange`, `WorkbookCollectionActionPayload`, `WorkbookCollectionAction`, `WorkbookCreateCommand`, `WorkbookPatchCommand`, `WorkbookMutationResult`, `WorkbookConflictCommand`, `ContextualLinkFacts`, `OperationWorkbookCreate`, `OperationWorkbookPatch`, and `StoredWorkbookResult` to concise module-native Artifacts names; preserve operation string values and stored JSON exactly. Make projection descriptor and surface-intent helpers private and validate them through the contribution.
+- **Remediation:** Replace `NewImportCreateFacade` with a fallible root contribution using `ImportDependencies`. Inject the Records insert capability, active-user validator, projection rows, and `ownerfacade.RecordRevisionAndIntentAppender` from Import assembly; do not construct peer stores or accept a concrete Revisions appender in Artifacts.
+- **Compatibility:** Intentional internal Go API break with no aliases. Public routes, envelopes, errors, idempotency replay, import targets, transaction ownership, and data remain unchanged.
+- **Validation:** Exact export guard; missing-dependency matrix; old idempotency-row replay; all eight create/patch surfaces; linked notes and conflict resolution; five enabled/three reserved import targets; Artifacts, Workbook, Imports, Records, Revisions, Links, and Collaboration owner slices; boundary/harness/tracker gates.
+- **Exit:** Every remaining export is intentional, old names have no references, and Import assembly is the only concrete dependency composition point.
+
+### S-12 — Authoritative source-state manifest
+
+- **Areas:** implementation and tests.
+- **Remediation:** Add one private immutable five-relation manifest containing table ID, logical bundle path, stable identity, supported bundle versions, required import columns, and deterministic order. Derive `RecoveryStateContribution`, `NewIncidentBundleSourcePort`, export specifications, and import specifications from it. Validate duplicate/empty identifiers and keep dependency and invariant declarations in their owning contribution rather than mixing generic coordination into the manifest.
+- **Compatibility:** Preserve the five table names, five logical paths, stable identities, versions, dependency ordering, invariant IDs, export ordering, attribution, and import failure behavior.
+- **Validation:** Exact contribution assertions, malformed manifest fixtures, deterministic export, incident-bundle round trip and attribution, recovery table closure, rollback atomicity, Artifacts/Incident Bundles/Recovery owner slices, and tracker gate.
+- **Exit:** Searches find one authoritative relation inventory and no independently handwritten recovery or portability set.
+
+### S-13 — Cohesion cleanup and permanent boundary guards
+
+- **Areas:** implementation layout, tests, harness, and boundary policy.
+- **Remediation:** Split the mutation facade into cohesive root files for facade composition/types, create, patch, conflict, idempotency, collections, and shared transaction helpers. Split the large root integration test along existing verification behaviors without adding production or test-only subpackages. Extend durable guards so peers cannot import Artifacts internals, removed packages cannot reappear, mutation code cannot import HTTP/auth transport types or query Records directly, and production provider implementations remain private.
+- **Compatibility:** Structural only. Preserve one facade, one idempotency path, one transaction sequence, existing test names where verification rows depend on them, and all semantic verification IDs.
+- **Validation:** Artifacts and Workbook unit/service-backed slices, affected harness rows, boundary check, harness contract, `make test-fast`, and tracker gate.
+- **Exit:** Shared sequencing is not duplicated, no false package boundary is introduced, and all permanent guards pass.
+
+### S-14 — Final validation and handoff
+
+- **Areas:** validation, tracker, documentation, and handoff.
+- **Remediation:** Re-run all affected owner slices and final narrow-to-broad repository gates. Return failures to their owning slice. Record final files, decisions, compatibility conclusions, commands, run roots, skipped checks, residual risks, handoff state, and binary criteria.
+- **Compatibility:** No migration is expected. A discovered database, OpenAPI, frontend, projection-contract, or public behavior change is a blocker rather than S-14 cleanup.
+- **Validation:** The complete command matrix in Section 19.
+- **Exit:** All required checks pass or a stable blocker is documented; removed APIs have no shim or consumer; tracker state, evidence, handoff, and checklist agree.
+
+## 19. Iteration 2 Validation Plan
+
+| Layer | Command or scenario | Required point |
+| --- | --- | --- |
+| Document update | `make lint-markdown`; `git diff --check` | S-08 and every later tracker checkpoint. |
+| Owner guidance | `make task-guide ROLE=module-author OWNER=<owner-id>` | Before changing verification ownership or selecting slice rows. |
+| Formatting | `make format` | Each implementation slice that changes Go; never for the document-only S-08. |
+| Artifacts | `make test-slice OWNER=module.artifacts`; `make service-backed-test-slice OWNER=module.artifacts` | S-09 through S-14 as affected. |
+| Cross-owner | Matching unit/service-backed slices for Workbook, Imports, Projections, Revisions, Records, Links, Collaboration, Incident Bundles, Recovery, and Reporting | At the slice changing the seam and again in S-14. |
+| Catalog | Exact 8/36/15 closure; malformed fixture errors without panic; immutable lookup results; stable surface constants and revision routes | S-09/S-10. |
+| API and idempotency | Exact export allowlist; absent old names/imports; stable operation strings; existing stored JSON replay; unchanged public error mapping | S-09/S-11/S-13. |
+| Imports | Every missing dependency; five enabled and three reserved targets; caller-transaction atomicity; revisions/intents; projection refresh | S-09/S-11. |
+| Source-state lifecycle | Exact five relations and paths; malformed manifest; deterministic export; round trip; attribution; recovery contribution; rollback atomicity | S-09/S-12. |
+| Boundaries and harness | `make backend-module-boundary-check`; `make harness-contract`; topology targets discovered with `make explain-target` | S-09 through S-14 as affected. |
+| Generated state | `make generate` only after authored generator/harness input changes; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check` | Changed-input slices and S-14. |
+| Final repository | `make agent-finalize`; `make test-fast`; `make check`; `make build`; `make browser-e2e-webserver-backed` | S-14. |
+
+S-14 reruns unit and service-backed owner slices for Artifacts, Records, Workbook, Projections, Revisions, Reporting, Imports, Incident Bundles, Recovery, Links, and Collaboration before the final repository targets. `make agent-finalize` uses a retained successful `RESULTS_DIR` when one is available; otherwise the tracker records that retained-run maintenance was skipped because it was unset.
+
+## 20. Iteration 2 Slice Checkpoint Ledger
+
+| Slice | Status | Files changed | Decisions and compatibility | Commands and evidence | Risks, blockers, and next action |
+| --- | --- | --- | --- | --- | --- |
+| S-08 | DONE | This tracker only | Preserved Iteration 1; made Iteration 2 controlling; used NLSpec guidance as doctrine only; deferred projection-input redesign; changed no product or normative owner contract. | `git diff --check -- docs/handoffs/artifacts-module-refactor-tracker.md` passed; `make lint-markdown` passed at `.cartulary/test-results/20260810T160301Z-p3470098`. | No implementation was performed or activated. S-09 is ready but inactive pending a later implementation step. |
+| S-09 | DONE | `contracts/verification/owners/module.artifacts.json`; `tools/test_families/module.artifacts.json`; generated execution-topology render index; Artifacts export, surface, and Workbook idempotency tests; this tracker | Classified every current root and `workbookprojection` export as retain/remove/unexport/rename; added an exact AST guard and architecture verification row; froze all four operation strings, fixed stored JSON bytes, revision identity, contribution IDs, and route order. Product behavior did not change. | `make format` passed at `20260810T162307Z-p3479060`; `make generate` at `20260810T162317Z-p3482344`; Artifacts unit/service-backed at `20260810T162328Z-p3484814` and `20260810T162346Z-p3488621`; Workbook unit/service-backed at `20260810T162400Z-p3490007` and `20260810T162604Z-p3530706`; Imports had one unrelated deadlock at `20260810T162754Z-p3564936`, and its exact failed row passed on retry at `20260810T162855Z-p3591573`; remaining Imports, Projections, and Revisions graphs passed through `20260810T163045Z-p3649608`; harness, drift, generated policy, JSON shape, and boundary graphs passed through `20260810T163148Z-p3678777`. | No stable blocker. The transient Imports deadlock cleared without code changes. S-10 is ready but inactive until this checkpoint passes its final Markdown gate. |
+| S-10 | DONE | `internal/modules/artifacts/internal/sourcecatalog/catalog.go` and tests; Artifacts surface, source-policy, mutation, collection, projection, revision, delete/restore, and rollback files; Revision, server, incident-portability, and test-support assembly callers; `tools/backend_module_boundaries.json`; this tracker | Closed GAP-11. Replaced two public-looking internal packages and the lazy root singleton with one fallible immutable catalog, exact indexes, defensive copies, validated projection ordering, and private rollback snapshot validation. Renamed the Artifacts revision constructor and made the application contribution catalog fallible end to end. Preserved the 8/36/15 owner facts, surface constants, revision routes/order, projection order, snapshot identity, public behavior, and persisted data without aliases. | `make format` passed at `20260810T164446Z-p3741946`; Artifacts unit/service-backed passed at `20260810T165348Z-p3922971` and `20260810T164857Z-p3827117`; Workbook at `20260810T164519Z-p3750780` and `20260810T164914Z-p3830964`; Imports at `20260810T164734Z-p3793893` and `20260810T165114Z-p3865581`; Projections initially exposed ordering drift at `20260810T164357Z-p3736808`, then passed with the validated legacy order at `20260810T164502Z-p3745311` and `20260810T165152Z-p3889421`; Revisions passed at `20260810T164228Z-p3691917` and `20260810T165203Z-p3890755`; Incident Bundles at `20260810T164824Z-p3821382` and `20260810T165254Z-p3920243`; `make build-server` passed at `20260810T164341Z-p3725564`; boundary and harness checks passed at `20260810T165313Z-p3921876` and `20260810T165320Z-p3922346`. | No stable blocker. The projection-order failure was related and resolved structurally in the catalog; S-11 is ready but inactive until the S-10 diff and Markdown gates pass. |
+| S-11 | DONE | Artifacts facade, ports, validation, collection, risk-reference, portability, source-kernel, projection contribution, export guard, composition and integration tests; Workbook adapters and idempotency tests; Imports assembly and new `artifact_dependencies.go`; Projections consumer tests; this tracker | Closed GAP-12 and GAP-13. Applied every approved module-native rename without aliases; removed or unexported owner-local APIs and private-store methods; reduced projection validation to `NewContribution`; introduced the four-port `ImportDependencies`; and moved Records, active-user, projection, and Revisions composition to Imports assembly. Operation strings, fixed idempotency JSON, public errors, routes, target states, response shape, and transaction semantics are unchanged. | `make format` passed at `20260810T171925Z-p61213`; Artifacts unit/service-backed at `20260810T170538Z-p3948038` and `20260810T170907Z-p4021861`; Workbook at `20260810T170650Z-p3979058` and `20260810T171015Z-p4048481`; Imports had the known unrelated deadlock at `20260810T170553Z-p3950660`, its exact row passed at `20260810T170917Z-p4023174`, and service-backed passed at `20260810T170935Z-p4024641`; Records passed at `20260810T171213Z-p4082700` and `20260810T171226Z-p4084807`; Projections initially found two stale direct-helper consumers at `20260810T171236Z-p4086120`, then passed at `20260810T171310Z-p4089105` and `20260810T171327Z-p4092921`; Revisions, Links, and Collaboration unit/service-backed graphs passed through `20260810T171750Z-p34065`; boundary and harness checks passed at `20260810T171933Z-p64561` and `20260810T171940Z-p64998`. | No stable blocker. Related stale Projections test consumers were migrated to the production constructor; S-12 is ready but inactive until the S-11 diff and Markdown gates pass. |
+| S-12 | DONE | New `internal/modules/artifacts/source_state_manifest.go` and tests; Artifacts recovery contribution, incident-bundle source port, portability implementation, and surface-contract tests; Incident Portability and Recovery assembly and Recovery catalog test; this tracker | Closed GAP-14. Added one cached, immutable, fallibly validated five-relation manifest in the required order. It rejects empty, duplicate, unsafe, non-deterministic, and internally inconsistent identifiers, paths, versions, identities, and required columns; owns defensive copies; quotes every derived SQL identifier; and derives recovery tables, source-port paths, export queries/order, import admission, attribution tables, and insert statements. Both lifecycle constructors now return errors and both application assemblies propagate them. The exact five tables/paths, versions, identities, columns, dependency/invariant declarations, attribution, round-trip behavior, and rollback atomicity remain unchanged; no schema, data, bundle, or public migration was introduced. | Final `make format` passed at `20260810T173130Z-p165844`; Artifacts unit/service-backed passed at `20260810T172715Z-p74488` and `20260810T172734Z-p78352`, with the exact manifest/surface row passing after final test routing at `20260810T173053Z-p164714`; Incident Bundles unit/service-backed passed at `20260810T172748Z-p79907` and `20260810T172820Z-p86530`; Recovery unit/service-backed passed at `20260810T172836Z-p88077` and `20260810T172927Z-p126940`, with the final exact recovery-catalog row at `20260810T173143Z-p169184`. Production searches find the five paths only in the manifest and no second handwritten recovery/export/import set. | No stable blocker. The first Artifacts graph at `20260810T172643Z-p71862` found a related Go type/cache variable name collision; the cache was renamed and all final graphs passed. S-13 is ready but inactive until the S-12 diff and Markdown gates pass. |
+| S-13 | DONE | New `mutation_facade.go`, `mutation_create.go`, `mutation_patch.go`, `mutation_conflict.go`, `mutation_idempotency.go`, `mutation_collections.go`, and `mutation_shared.go`; seven source-mutation/rollback/patch-envelope/collection/import/conflict/support integration test files; Artifacts handoff-risk validation, Records capability and export/cohesion guard tests; backend boundary policy; this tracker; removed the four superseded mutation files and the monolithic integration test | Closed GAP-15. Split orchestration by cohesive behavior while retaining one `MutationFacade`, exactly one create and one patch transaction entry, and one shared idempotency replay lookup. Existing test function names, row selectors, semantic verification IDs, sequencing, errors, and serialization remain unchanged. Handoff risk-reference mutation now validates the injected Records envelope in the caller transaction before querying only the Artifacts subtype. Permanent guards reject retired package imports, outside imports of Artifacts private providers/catalog, HTTP/auth or consumer-implementation imports in mutation files, peer-store/user-query construction in the import path, duplicate idempotency lookup, and direct mutation reads of `records`. No aliases, packages, schema, data, route, or public migration were added. | Final `make format` passed at `20260810T174345Z-p191373`; Artifacts unit/service-backed at `20260810T174357Z-p194733` and `20260810T174413Z-p197379`; Workbook at `20260810T174429Z-p198745` and `20260810T174645Z-p242348`; Records at `20260810T174840Z-p276987` and `20260810T174853Z-p279151`; final boundary and harness gates at `20260810T174903Z-p280531` and `20260810T174916Z-p281012`; `make test-fast` passed 355/355 at `20260810T174922Z-p281540`. Searches confirm one idempotency read helper, exactly two create/patch `BeginTx` sites, no mutation SQL reading `records`, no import peer construction/user query, no retired file/package consumer, and unchanged test declarations. | No stable blocker. The first structural graph at `20260810T173709Z-p175728` exposed missing/unused imports after the mechanical split; the first shared-idempotency graph at `20260810T174300Z-p188076` exposed one local name collision; and the first boundary graph at `20260810T174146Z-p186682` exposed an overbroad Imports rule plus a missing source-port allowlist entry. Each related issue was corrected in S-13, and every final graph passed. S-14 is ready but inactive until the S-13 diff and Markdown gates pass. |
+| S-14 | DONE | All S-09 through S-13 paths recorded above; final correction in `collection_descriptors.go` and `mutation_conflict.go`; this tracker | Closed final validation and handoff. All gap dispositions agree with implementation and evidence. The final lint correction removed one dead private method and consolidated a duplicate package import; it changed no operation, route, envelope, error, authorization, transaction, identifier, persisted byte, schema, bundle, recovery, projection, or frontend behavior. Searches find no removed Artifacts name, package, alias, production consumer, peer construction, direct mutation Records read, or second lifecycle relation inventory. No migration is required. | Eleven owner unit/service-backed pairs passed: Artifacts `20260810T175300Z-p342267` / `20260810T175303Z-p343564`; Records `20260810T175309Z-p344880` / `20260810T175313Z-p346201`; Workbook `20260810T175320Z-p347519` / `20260810T175515Z-p382122`; Projections `20260810T175716Z-p416661` / `20260810T175729Z-p420786`; Revisions `20260810T175737Z-p422111` / `20260810T175826Z-p450860`; Reporting `20260810T175915Z-p476226` / `20260810T175927Z-p478834`; Imports `20260810T175936Z-p480183` / `20260810T180016Z-p506112`; Incident Bundles `20260810T180055Z-p529962` / `20260810T180123Z-p533715`; Recovery `20260810T180145Z-p535313` / `20260810T180230Z-p572160`; Links `20260810T180313Z-p606160` / `20260810T180341Z-p629081`; Collaboration `20260810T180414Z-p651760` / `20260810T180542Z-p682596`. Pre-correction `agent-finalize` and `test-fast` passed at `20260810T180713Z-p709852` and `20260810T180737Z-p712636`; the first `make check` root `20260810T180803Z-p713345` failed only `lint-go` at 749/750 and was returned to S-13. Post-correction format, lint, Artifacts, boundary, and `agent-finalize` passed at `20260810T181436Z-p850839`, `20260810T181446Z-p854470`, `20260810T181522Z-p866343`, `20260810T181533Z-p870071`, and `20260810T181534Z-p870408`; `RESULTS_DIR` was unset because no successful full warm-check root yet existed, so retained-run maintenance was skipped. Final `make check` passed 750/750 at `20260810T181555Z-p873159`, `make build` passed 7/7 at `20260810T182311Z-p1048592`, browser E2E passed 62/62 at `20260810T182331Z-p1080000`, and the final post-correction `make test-fast` passed 355/355 at `20260810T182832Z-p1134232`. | No stable blocker or residual implementation risk. One owner-command shorthand produced a local usage error without a graph; it was immediately corrected to `OWNER=module.artifacts`. DEF-01 remains intentionally deferred. Handoff is complete after the final tracker diff and Markdown gates. |
+
+## 21. Iteration 2 Session Handoff
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-10 12:00 EDT | Codex Iteration 2 planning session | S-08 done; S-09 ready but inactive | Inspected the completed tracker, NLSpec planning guidance, Domain ownership, Core REQ-01-660/AC-540/AC-541, current Artifacts packages and consumers, boundary policy, and verification routing; touched only this tracker | Targeted read-only repository searches; `make task-guide ROLE=module-author OWNER=module.artifacts`; `git diff --check -- docs/handoffs/artifacts-module-refactor-tracker.md`; `make lint-markdown` | The tracker and Markdown gate pass; remaining cleanup is limited to accidental API/package surface, catalog construction, import composition, relation inventory, and file cohesion; projection-input redesign is separately deferred | None | Stop before S-09 implementation; a later implementation step may activate it. |
+| 2026-08-10 12:31 EDT | Codex Iteration 2 implementation session | S-09 done; S-10 ready but inactive | Added exact export accounting and permanent verification routing; strengthened operation, idempotency, revision-order, and contribution-identity characterization; updated generated topology and this tracker | S-09 format/generate, Artifacts/Workbook/Imports/Projections/Revisions owner graphs, harness, drift, generated-policy, JSON-shape, boundary, diff, and Markdown gates | Retained contracts are executable and every planned removal or rename is classified; one unrelated Imports deadlock passed on exact-row retry | None | Activate S-10 only after this checkpoint; consolidate the catalog and propagate fallible revision construction. |
+| 2026-08-10 12:53 EDT | Codex Iteration 2 implementation session | S-10 done; S-11 ready but inactive | Added the immutable internal source catalog; removed `surfacecatalog` and `sourcecontract`; migrated mutation, projection, rollback, delete/restore, import, revision, server, portability, and test assembly; removed the obsolete boundary allowance | S-10 format, six owner unit/service-backed pairs, server build, boundary, and harness graphs; one related Projections ordering failure was fixed and passed on rerun | GAP-11 is closed with fail-closed construction, no panic path or compatibility shim, and exact public/data compatibility | None | Run the S-10 diff and Markdown gates, then activate S-11. |
+| 2026-08-10 13:19 EDT | Codex Iteration 2 implementation session | S-11 done; S-12 ready but inactive | Renamed the Artifacts root API, removed accidental exports, injected all import dependencies, added Imports-owned concrete adapters, and expanded import failure/rollback evidence | S-11 format, eight owner unit/service-backed pairs, boundary, harness, zero-reference, and peer-construction searches; the known Imports deadlock passed on exact retry | GAP-12 and GAP-13 are closed; persisted JSON, operation values, public errors, target admission, response shape, and rollback atomicity remain exact | None | Run the S-11 diff and Markdown gates, then activate S-12. |
+| 2026-08-10 13:31 EDT | Codex Iteration 2 implementation session | S-12 done; S-13 ready but inactive | Added the validated source-state manifest; derived recovery, source-port, export, import, attribution, and SQL projections; propagated fallible construction through Recovery and Incident Portability assembly | S-12 format; Artifacts, Incident Bundles, and Recovery unit/service-backed graphs; exact surface/manifest and recovery-catalog rows; production duplicate-inventory search | GAP-14 is closed with exact five-relation compatibility and quoted derived SQL; one related compile-time name collision was corrected before all final graphs passed | None | Run the S-12 diff and Markdown gates, then activate S-13. |
+| 2026-08-10 13:51 EDT | Codex Iteration 2 implementation session | S-13 done; S-14 ready but inactive | Split mutation orchestration and integration evidence into cohesive files; centralized idempotency replay; replaced handoff risk-reference Records SQL with the injected envelope capability; added permanent cohesion and boundary guards | S-13 format; Artifacts, Workbook, and Records unit/service-backed graphs; boundary, harness, fast-suite, and zero-reference/sequence/SQL searches | GAP-15 is closed with unchanged selectors, sequencing, errors, verification identities, and public/data behavior; all final slice checks pass | None | Run the S-13 diff and Markdown gates, then activate S-14. |
+| 2026-08-10 14:30 EDT | Codex Iteration 2 implementation session | S-14 and Iteration 2 done; final handoff closed | Revalidated all changed paths; corrected one dead method and duplicate conflicts import in the S-13 layout; finalized this tracker | Eleven owner unit/service-backed pairs; post-correction format, lint, Artifacts, boundary, and finalization; `test-fast`; 750-unit `check`; 7-unit build; 62-unit browser/webserver suite; compatibility and zero-reference searches; final diff and Markdown gates | Every gap is closed, all required final graphs pass, removed APIs and packages have no Artifacts consumer or shim, and public/data/security compatibility is preserved without migration | None | Handoff complete. Keep DEF-01 deferred until a separately authorized ninth-surface or projection-v2 migration. |
+
+## 22. Iteration 2 Open Questions, Deferrals, and Blockers
+
+| ID | Decision or blocker | Why it matters | Trigger or required authority | Status |
+| --- | --- | --- | --- | --- |
+| DEF-01 | Redesign of the live 55-field `workbookprojection.ProjectionInput` is outside Iteration 2. | A typed subtype model may improve future extensibility, but it is an active Artifacts/Projections contract rather than dead code. | Revisit before admitting a ninth artifact surface or defining projection schema v2; require a separate cross-owner migration plan. | DEFERRED |
+| None | No current stable blocker. | Iteration 2 is complete after all serial checkpoints and final repository gates passed. | Reopen only for a newly discovered owner contradiction or failed retained evidence. | CLEAR |
+
+## 23. Iteration 2 Binary Completion Criteria
+
+- [x] Iteration 1 inventory, decisions, evidence, and handoff remain preserved as historical sections.
+- [x] Iteration 2 has a delta inventory, gap matrix, compatibility posture, serial workstreams, validation plan, ledger, handoff, deferral record, and binary checklist.
+- [x] Existing REQ-01-660 and AC-540/AC-541 are identified as sufficient authority; NLSpec planning guidance is not promoted to product authority.
+- [x] Projection-input redesign is deferred with an explicit future trigger.
+- [x] S-08 Markdown and diff gates pass and their evidence is recorded.
+- [x] S-09 characterization and exported-surface accounting are complete.
+- [x] S-10 internal source-catalog consolidation and fallible construction are complete.
+- [x] S-11 module-native API minimization and import dependency injection are complete.
+- [x] S-12 authoritative source-state manifest is complete.
+- [x] S-13 cohesion cleanup and permanent boundary guards are complete.
+- [x] S-14 final validation and handoff are complete.
+- [x] No removed internal name or package has a compatibility shim or remaining consumer.
+- [x] Public/data/security compatibility conclusions are supported by passing evidence.

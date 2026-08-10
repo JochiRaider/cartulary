@@ -49,10 +49,11 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 	if err != nil {
 		t.Fatalf("Party semantic intent: %v", err)
 	}
-	artifactIntents, err := artifactprojection.SurfaceIntents()
+	artifactContribution, err := artifactprojection.NewContribution(artifactProjectionIntentSourceStub{})
 	if err != nil {
-		t.Fatalf("Artifact semantic intents: %v", err)
+		t.Fatalf("construct Artifact projection contribution: %v", err)
 	}
+	artifactIntents := artifactContribution.ProjectionContribution().SurfaceIntents()
 	taskDecisionIntents, err := taskdecisionprojection.SurfaceIntents()
 	if err != nil {
 		t.Fatalf("Tasks/Decisions semantic intents: %v", err)
@@ -108,4 +109,8 @@ func TestPrivateCompiledPlansExactlyMatchSemanticIntentsAndViewSchemas(t *testin
 			t.Errorf("%s compiled fields = %v, schema fields = %v", viewSchemaID, planFields, schemaFields)
 		}
 	}
+}
+
+type artifactProjectionIntentSourceStub struct {
+	artifactprojection.SourceReader
 }
