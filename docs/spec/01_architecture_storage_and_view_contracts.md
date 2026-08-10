@@ -116,6 +116,20 @@ Up or Down markers; unsupported directives; and unbalanced statement blocks.
 The canonical repository source MUST be one cached validated snapshot of the
 embedded authored catalog and MUST NOT panic or expose filesystem accessors.
 
+The current migration-history evidence schema is
+`cartulary.migration_history_evidence.v2`. Version 2 is the version 1 object
+with `manifest.path` removed and no replacement locator. Current producers and
+validators MUST NOT emit, accept, translate, or advertise version 1. Evidence
+MUST NOT contain an absolute path, repository-relative manifest path, embedded
+filesystem root, working directory, path-derived identifier, or other
+filesystem locator. The existing `manifest.migration_root` member remains an
+opaque logical identity copied from the authored manifest; producers and
+consumers MUST NOT resolve, join, or advertise it as a filesystem locator.
+The logical Operator command, authorization boundary, database acquisition
+and borrowed-resource cleanup, single-object-plus-LF
+stdout framing, exit-code mapping, and secret-safe stderr behavior MUST remain
+unchanged by the version 2 cutover.
+
 Production apply MUST validate the source and borrowed database capability,
 serialize cooperating processes with the repository migration advisory lock,
 classify state while locked before execution, reclassify on the exact Goose
@@ -6586,16 +6600,37 @@ orchestrate only the frozen catalog; it MUST NOT discover another owner's
 authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
-The current vNext catalog accounts for exactly 110 authored public base tables.
-Exactly 82 are `authoritative_required`. All five `graph_projection_*` tables
-are `excluded_rebuildable`; all four `collaboration_*` stream tables and
+The current vNext catalog accounts for exactly 111 catalog entries under the
+current recovery-state counting model. Exactly 83 are
+`authoritative_required`. All five `graph_projection_*` tables are
+`excluded_rebuildable`; all four `collaboration_*` stream tables and
 `enterprise_auth_transactions` are `excluded_security_state` and MUST be
 invalidated across the restore generation. The seven explicit exclusions,
 synthetic `goose_db_version`, and ten `*_grid_projection` tables remain
-excluded under their owner-declared restore actions. The complete 82-table set
-and exclusion set are projected under `contracts/recovery`; adding or removing
-an authored table requires a coordinated source-owner contribution change
-before generation can pass.
+excluded under their owner-declared restore actions. The complete 83-table
+authoritative set and exclusion set are projected under `contracts/recovery`;
+adding or removing an authored table requires a coordinated source-owner
+contribution change before generation can pass.
+
+The current catalog cardinality is:
+
+```text
+83 authoritative_required
++ 5 excluded_rebuildable
++ 5 excluded_security_state
++ 7 explicit exclusions
++ 1 synthetic goose_db_version
++ 10 grid projections
+= 111 catalog entries
+```
+
+`record_revision_conflict_facts` MUST appear exactly once with source owner
+`module.revisions`, state class `authoritative`, backup inclusion
+`authoritative_required`, restore action `restore`, and the current exact-row
+PostgreSQL snapshot codec. It has no rebuild or invalidation algorithm.
+Operational backup and restore MUST preserve its retained rows. Incident
+Portability MUST continue to exclude these non-portable live-revision conflict
+facts and MUST NOT infer or synthesize them during import.
 
 The current object families are Evidence blobs, import source streams,
 Extension staged objects, Incident Bundle files, Reference Pack members, and
@@ -6725,7 +6760,7 @@ only `authoritative_required` units, then invokes each owner-declared rebuild
 or invalidation action in the frozen catalog. Catalog, codec, unit, object, or
 algorithm identity mismatch MUST fail closed. Historical backups retain the
 catalog interpretation embedded by their exact historical decoder and MUST NOT
-be reinterpreted as the current 82-table catalog.
+be reinterpreted as the current 83-table authoritative catalog.
 Profiles: base
 Verified by: AC-399, AC-400
 
