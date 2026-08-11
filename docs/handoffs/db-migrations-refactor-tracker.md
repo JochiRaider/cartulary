@@ -5,12 +5,14 @@
 - **Target path:** `db/migrations`
 - **Target label:** `db-migrations` (derived from the path and normalized to safe lowercase kebab case)
 - **Output path:** `docs/handoffs/db-migrations-refactor-tracker.md`
-- **Status:** The opaque-source/evidence-v2 iteration and production-readiness cleanup iteration are complete through S-13; no implementation slice remains active.
-- **Authorized execution scope:** The completed production-readiness iteration changes only Database Migrations source/evidence code, its harness consumer, boundary tooling, routed tests, one Make-generated routing projection, the obsolete migration sentinel, and this tracker within the exact S-09 through S-13 limits.
-- **Non-goals preserved:** No SQL migration, query, migration manifest, schema-ownership mapping, Recovery contract, domain vocabulary, route behavior, storage semantics, or authorization semantics changed.
-- **Implementation authorization:** The adopted owner text authorized the target behavior defined below. S-01 through S-08 executed the opaque-source and evidence-v2 behavior without compatibility aliases or protected-history changes. The same adopted boundaries authorize the structural cleanup planned in S-09 through S-13; no Core, Testing Harness, domain, or NLSpec edit is required.
+- **Status:** The opaque-source/evidence-v2 and production-readiness iterations are complete through S-13. The Production DDL Rebaseline v2 iteration is planned as S-14 through S-20 and T-020 through T-026; every new slice and task is `PLANNED`, and no slice is `IN_PROGRESS`.
+- **Authorized execution scope:** This planning checkpoint may change only this tracker. Sections 15 through 21 define future work; they do not authorize SQL, application, contract, generated, test, deployment, Core, Testing Harness, domain, or NLSpec changes during this checkpoint.
+- **Non-goals for this checkpoint:** Do not edit migration SQL, queries, manifests, schema-ownership or Recovery projections, SQLC inputs/output, application code, harness code, generated artifacts, `docs/domain.md`, or `docs/research/nlspec-spec.md`. Browser product and visual validation remain outside the future DDL iteration, although database-binding lifecycle coverage is required.
+- **Implementation authorization:** S-01 through S-13 remain completed under their adopted owners. The clean-cut v2 catalog, purpose-specific bindings, and role boundary are intended future requirements only. S-15 MUST adopt the corresponding Core 01, Core 02, Core 04, and Testing Harness owner changes before S-16 may modify SQL or implementation. This tracker does not supersede the currently adopted v1 owners.
 
 Planning baseline for the production-readiness iteration: branch `main`, commit `63600b1bd18c7811a5a1e614050b6b1fe8e870ba`, clean worktree before this tracker edit, and passing `make lint` root `20260810T225426Z-p2625544` with 11/11 units successful. Document validation passed at `make lint-markdown` root `20260810T231150Z-p2630706`; `git diff --check` passed and only this tracker changed. `docs/research/nlspec-spec.md` supplies specification discipline only; `docs/domain.md` remains unchanged because Database Migrations and the harness are implementation-support terminology.
+
+Planning baseline for the Production DDL Rebaseline v2 iteration: branch `main`, commit `4618deb0535272d4673d0b705fcd77f446ab1a69`, and a clean worktree before this tracker edit. This checkpoint adds the decision-complete plan in §§15–21 and changes only this tracker. `docs/domain.md` remains unchanged because DDL, connection-purpose, role-binding, and migration-lineage terms are implementation/deployment vocabulary. `docs/research/nlspec-spec.md` remains guidance only.
 
 `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` are normative within this implementation handoff only where they restate the adopted owners. This tracker MUST NOT create behavior independently of those owners. If this tracker and an adopted owner differ, the owner controls and the mismatch blocks implementation until this tracker is corrected.
 
@@ -621,7 +623,7 @@ S-13 final validation order is mandatory:
 
 ## 11. Open Questions and Blockers
 
-No open planning question, owner contradiction, implementation blocker, or incomplete slice remains. S-09 through S-13 and T-015 through T-019 are complete. The table preserves the stable blocker IDs and their authority/implementation closure; a future change MUST NOT reopen a closed decision without new owner evidence.
+No open planning question, owner contradiction, implementation blocker, or incomplete slice remains for S-01 through S-13. S-09 through S-13 and T-015 through T-019 are complete. The table preserves the stable blocker IDs and their authority/implementation closure; a future change MUST NOT reopen a closed decision without new owner evidence. The new v2 authority gates are planned separately in §15 and do not modify these historical closures.
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
@@ -629,7 +631,7 @@ No open planning question, owner contradiction, implementation blocker, or incom
 | RB-002 | What exact interface supplies one opaque production source and one harness-only targeted catalog? | Raw FS or caller-selected source access would violate the production/test boundary. | REQ-01-657, TH-HARNESS-REQ-810/AC-094, and the exact §3 interface/import map. | CLOSED: S-02 through S-05 implemented and validated the exact split. |
 | RB-003 | What replaces v1 `manifest.path`, and how is the breaking change versioned? | Current output violates the filesystem-disclosure boundary and consumers require one current schema. | Adopted REQ-01-657 and AC-537 plus the exhaustive §4 v2 mapping. | CLOSED: S-07 implemented v2-only removal without replacement or compatibility. |
 
-There is no `BLOCKED: owner contradiction` finding in the inspected owner documents and no remaining v1 producer or raw-source surface. PR-001 through PR-007 are implementation cleanup items with complete owner authority and sequencing.
+There was no `BLOCKED: owner contradiction` finding in the owner documents inspected for S-01 through S-13, and no remaining evidence-v1 producer or raw-source surface. PR-001 through PR-007 are completed historical cleanup items. S-15 must resolve RB-004A–D and RB-005A–E in §15 before the future v2 implementation can start.
 
 ## 12. Binary Completion Criteria
 
@@ -787,3 +789,473 @@ All 61 authored SQL migrations remain byte-identical, versions remain exactly 1�
 - `tools/test_families/module.database_migrations.json`
 
 Compatibility impact is limited to intentional internal compile-time removals: `sourcecatalog.NewProvider` now requires the explicit locker and owns discarded logging; `ManifestFailure`, redundant source-version helpers, the duplicate parent lock policy, and stale test names no longer exist. Evidence v2, remediation v1, application command/output behavior, migration history, schema ownership, Recovery, SQLC, domain vocabulary, adopted specifications, and browser/frontend behavior are unchanged.
+
+## 15. Production DDL Rebaseline v2 Decision Record
+
+This section starts a new iteration without reopening or rewriting S-01 through S-13. The future implementation deliberately makes a clean cut: it replaces the accumulated 61-file v1 history with a final-state 29-file v2 catalog and lineage `cartulary.prod_ddl_rebaseline.v2`. Preserving historical SQL is not a goal.
+
+The Production DDL Rebaseline v2 cutover is a pre-production, reset-only transition. A database with v1 lineage, unmarked nonzero migration history, another lineage, or pre-existing Cartulary application objects is not a v2 upgrade source. Migration tooling MUST reject it before executing any v2 DDL. The database MUST be destroyed and recreated from a pristine database before applying v2 from version 1. This iteration defines no row transformation, data bridge, migration 62, compatibility view, dual catalog, downgrade, or automatic remediation. Discovery that any database content must be preserved leaves S-15 `IN_PROGRESS` and requires a separate owner-approved data-migration decision outside this iteration.
+
+The exact remediation hint for every incompatible-lineage or contaminated-database finding is:
+
+```text
+Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.
+```
+
+Every item below is `PLANNED`. The adopted owners still control until S-15 is complete; an owner contradiction leaves S-15 `IN_PROGRESS` and blocks all SQL and implementation work.
+
+### Analysis disposition
+
+This table accounts for every required decision in `temp/analysis-notes.md`. “Contract location” identifies the proposed owner projection in this tracker; the adopted owner named by the gate remains authoritative.
+
+| Review item | Required improvement | Contract location | Authority gate | Workstream | Binary acceptance |
+| --- | --- | --- | --- | --- | --- |
+| AN-01 | Reset-only cutover and reset-only remediation | §15 reset contract; §16 compatibility matrix | RB-004A | WF-14–WF-16 | AC-V2-001–AC-V2-003 |
+| AN-02 | Keep physical DDL topology out of Core 02 | §15 authority allocation | RB-004A, RB-004B | WF-15 | AC-V2-004 |
+| AN-03 | Exhaustive object-to-file/owner allocation | §16 object-allocation contract | RB-004B | WF-14–WF-16 | AC-V2-005, AC-V2-006 |
+| AN-04 | Exact schema, ledger, and extension locations | §16 fixed physical defaults | RB-004B, RB-004C | WF-14–WF-16 | AC-V2-007 |
+| AN-05 | Behavioral credential-purpose contract | §16 resolver contract | RB-005A | WF-15–WF-18 | AC-V2-018–AC-V2-021 |
+| AN-06 | Per-connection role establishment | §16 role contract | RB-005B | WF-15–WF-18 | AC-V2-013, AC-V2-014 |
+| AN-07 | Exhaustive runtime and recovery ACLs | §16 ACL contract | RB-005C, RB-005D | WF-14–WF-19 | AC-V2-015–AC-V2-017, AC-V2-022 |
+| AN-08 | Closed routine and FK policy | §16 DDL contract | RB-004B | WF-16–WF-18 | AC-V2-010, AC-V2-011 |
+| AN-09 | Extension presence separated from profile claim state | §16 extension-state contract | RB-004C | WF-15–WF-19 | AC-V2-012 |
+| AN-10 | Administrator-owned extension prerequisites | §16 extension-prerequisite contract | RB-004C, RB-005E | WF-14–WF-18 | AC-V2-012 |
+| AN-11 | Exact rollback-through-zero residue | §16 rollback contract | RB-004C | WF-17–WF-18 | AC-V2-023 |
+| AN-12 | No undefined normative naming grammar | §16 naming rule | RB-004B | WF-15–WF-18 | AC-V2-009 |
+
+### Gap remediations
+
+| ID | Gap | Remediation and areas | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| DDL2-001 | The 61-file catalog encodes upgrade history, mixed-owner files, backfills, temporary machinery, and obsolete phase transitions rather than the intended production schema. | **Specification, machine contracts, implementation, tests, documentation:** adopt lineage v2, replace the catalog atomically with the dependency-ordered 29-file baseline, and require the exhaustive object allocation in §16 before authority adoption. Author final state directly and remove transitional history. | A baseline should explain the current system and its ownership without requiring reconstruction of intermediate states. | Smaller cohesive DDL, explicit owner/dependency allocation, faster clean provisioning, and a stable base for version 30 and later. | Intentional reset-only break. Every incompatible or contaminated database is destroyed and recreated; this iteration carries no data forward. | Historical coupling and ambiguous object ownership remain permanent, and later migrations inherit unnecessary compatibility burden. | A pristine database reaches head 29; incompatible/contaminated states fail before DDL with the exact reset hint; the manifests prove exact file/object/owner/dependency allocation; no v1 SQL, migration 62, bridge, or mixed lineage remains. |
+| DDL2-002 | Head DDL lacks one complete production-hardening policy for transactions, qualification, constraints, FKs, indexes, routine safety, and stable object identity. | **Specification, implementation, tests:** require the exact DDL, routine, FK, qualification, and manifest rules in §16. Require only unique, stable, non-conflicting names; keep naming style in non-normative guidance. | Structural invariants affect correctness and security, while a style grammar would add coupling without product value. | Predictable failures, safer routines, reviewable dependencies, reliable query planning, and freedom to evolve internal naming style. | Owner-backed physical hardening may change normalized schema; public behavior and sanitized diagnostics remain unchanged. | Latent privilege escalation, scans caused by uncovered FKs, invalid constraints, ambiguous ownership, or an accidental naming compatibility contract. | Static checks and PostgreSQL catalog queries prove every rule; all constraints are valid; each FK has a closed coverage class; public output never depends on object names; every normalized delta is S-14-classified. |
+| DDL2-003 | Historical Down sections and cleanup steps can be mistaken for supported production rollback, and rollback-through-zero has no exact residue. | **Specification, implementation, tests, documentation:** keep Down sections harness-only; reverse owner objects explicitly without `CASCADE`; define the exact terminal residue in §16; exclude data-deleting upgrade cleanup and temporary machinery. | Production recovery and disposable harness cleanup are different capabilities and require different contracts. | Honest operations, deterministic harness cleanup, and tests that expose undeclared dependencies. | No production downgrade exists. Unshipped source changes may be reverted atomically; an applied v2 database is recreated rather than downgraded. | Operators may infer unsupported rollback, while permissive Down DDL can hide ownership/dependency defects. | Rollback through zero leaves only administrator-provisioned roles/logins/extensions and exact Goose residue; no Cartulary-authored object remains; no Down uses `CASCADE` or drops an extension. |
+| DDL2-004 | Permissive creation can hide contamination, and extension installation/validation lacks one least-privilege owner. | **Specification, implementation, tests, provisioning:** administrators pre-provision `pgcrypto` 1.3 and `citext` 1.6 in `public`; application migrations only validate them and never receive database-level `CREATE`. All authored creation fails on contamination. | Prerequisite installation is deployment administration, while migration SQL owns only Cartulary-authored objects. | Deterministic installs, reduced migration authority, explicit managed-service prerequisites, and trustworthy ownership. | Every environment must provision exact extensions before migration. Missing, wrong-version, or wrong-schema prerequisites fail safely; contaminated databases are reset. | `IF NOT EXISTS` can silently accept wrong extension state, and migration-owned installation requires unnecessary database authority. | The catalog contains no `CREATE EXTENSION` or `IF NOT EXISTS`; prerequisite matrices cover absent/wrong version/wrong schema/correct cases; contamination fails before authored DDL; diagnostics contain no vendor or locator text. |
+| DDL2-005 | Current lineage, manifests, evidence fixtures, Recovery/schema-ownership projections, and SQLC inputs are coupled to the v1 catalog. | **Specification, implementation, tests, generated projections, documentation:** adopt lineage `cartulary.prod_ddl_rebaseline.v2`, set `immutable_through_version` to `29`, and update every catalog-derived projection atomically through its owner or generator. Retain evidence schema v2 and remediation schema v1 while changing their catalog contents and lineage boundary. | Lineage and projections must describe the catalog actually shipped; preserving stale hashes or contents would be false compatibility. | One coherent source of truth with explicit versioning and no mixed catalog state. | Evidence v2 hashes, digest, entries, and goldens change intentionally. Remediation v1 keeps its wire shape and uses boundary `prod_ddl_rebaseline_v2`. Recovery membership remains 111/83. | Stale projections can admit the wrong history, generate incorrect models, or publish misleading recovery/evidence data. | Migration drift, JSON shape, generation drift/policy, exact evidence/remediation goldens, Recovery 111/83 checks, schema ownership, and SQLC drift review all pass with no unexplained delta. |
+| DDL2-006 | A generic DSN and a two-purpose proposal cannot isolate runtime, migration, and the privileged Recovery operations that use `TRUNCATE`, `setval`, and `session_replication_role`. | **Specification, implementation, tests, documentation:** implement the three-purpose resolver in §16; use distinct runtime, migration, and recovery inputs; reject retired or unselected inputs without reading them; route each composition root exhaustively. | Credential purpose belongs at resolution and connection creation, and privileged recovery must not widen ordinary runtime access. | Least-privilege processes, deterministic safe failures, simpler audits, and explicit future command placement. | Intentional three-way configuration break. Each process receives only its selected-purpose credential; generic and other-purpose inputs are rejected without aliases. | Runtime compromise can acquire schema/restore authority, secrets can be read unnecessarily, and recovery may force broad ordinary grants. | Resolver precedence, locator-presence, bounded-file, command-mapping, multi-connection role, and redaction matrices pass for all three purposes. |
+| DDL2-007 | Application ownership, runtime access, and destructive Recovery access lack exhaustive role and per-object ACL contracts. | **Specification, machine contracts, implementation, tests, deployment documentation:** provision the three fixed `NOLOGIN` roles in §16, establish the expected role on every physical connection, and assign every grantable object exact runtime and recovery access classes. | Ownership and privileges are security contracts that must not depend on an environment's bootstrap login or an unspecified “required DML” interpretation. | Stable least privilege, portable provisioning, auditable current/future grants, and isolation of destructive recovery authority. | Environments must pre-provision roles/logins/memberships and three credentials. Cartulary creates no managed login or credential. | Runtime or recovery compromise can become schema compromise; connection pools can mix identities; default `PUBLIC` privileges can bypass intended ACLs. | Catalog/service tests prove exact role attributes, membership, `session_user`/`current_user`, ownership, ACLs, default privileges, allowed operations, and every prohibited runtime/recovery capability. |
+| DDL2-008 | Historical upgrade fixtures are version-coupled, and recurrence checks do not cover object allocation, extensions, role establishment, ACL defaults, claim state, or rollback residue. | **Tests, harness, tooling:** replace upgrade fixtures with owner-routed head contracts; retain generic targeted apply/rollback and a minimal synthetic v1 rejection state; add positive/negative static and service-backed checks for every §16 invariant. | Tests should protect owner behavior and durable invariants rather than preserve incidental migration choreography. | Tests remain useful as the catalog grows and pinpoint the owner or machine contract responsible for regressions. | Version-coupled tests may be deleted or rewritten in S-16/S-17; historical SQL is not retained as a fixture or executable input. | Stale tests can block legitimate cleanup while failing to detect malformed DDL, privilege escalation, or profile activation. | Every historical behavior has a routed head-state assertion; v1 rejection uses only minimal ledger/lineage state; routing is generated and current; all AC-V2 criteria have named automated evidence. |
+
+### Required owner allocation
+
+| Material | Required owner or projection | Prohibited allocation |
+| --- | --- | --- |
+| Lineage v2, head 29, immutable boundary, reset-only rejection, readiness, remediation, and command-purpose mapping | Core 01 | Appendix C, this tracker alone, or Core 02 physical-topology text |
+| Persistence invariants realized by authored schema | Core 02 and applicable adopted subsystem owners | Database Migrations lifecycle code or a filename-derived owner |
+| Purpose resolution, safe failures, roles, membership, privileges, and provisioning responsibility | Core 04 | Implementation-only behavior or environment-local convention |
+| Exact 29 filenames, versions, bytes, hashes, and order | Authored migration-history machine contract | Core 02 or a human-only inventory |
+| Exact object/file/owner/dependency/FK/access/extension allocation | `cartulary.schema_object_ownership_manifest.v2` | Pattern-only matching, draft owners, or Appendix C |
+| Apply-through, rollback-through, contamination, synthetic-v1, role, and ACL fixture mechanics | Testing Harness | Production rollback or upgrade claims |
+| Human-readable SQL examples and diagrams | Non-normative Appendix C | Sole ownership of current behavior |
+| Local and managed provisioning procedures | Implementation/deployment guidance | New security or compatibility semantics |
+| Slice status, evidence roots, dependencies, and unshipped-source rollback | This tracker | Lasting product/security behavior not adopted elsewhere |
+
+### Authority gates
+
+| ID | Decision required | Owner changes required in S-15 | Status | Blocking rule |
+| --- | --- | --- | --- | --- |
+| RB-004A | Adopt lineage v2, repository head 29, immutable-through 29, reset-only incompatibility, pre-DDL rejection, exact remediation, and no data-preservation path. | Core 01 owns lineage/readiness/remediation; Core 02 repairs contradictory historical-line text without owning physical topology. | PLANNED | Any preservation requirement or owner contradiction keeps S-15 `IN_PROGRESS`; S-16 cannot start. |
+| RB-004B | Adopt one exact migration manifest plus exhaustive object-to-file, object-to-owner, dependency, FK, routine, and access-class allocation. | Core 01 owns the migration-source contract; applicable subsystem owners own persistence invariants; `cartulary.schema_object_ownership_manifest.v2` projects exact physical allocation. | PLANNED | Every authored object and dependency must resolve to current adopted authority before S-16. |
+| RB-004C | Adopt administrator-owned extension prerequisites, physical-presence/claim-state separation, contamination rejection, and rollback-through-zero residue. | Core 00 owns profile claimability; Core 01 owns baseline admission; Testing Harness owns rollback mechanics; Core 04 owns provisioning. | PLANNED | Missing extension, claim-state, or residue semantics block authority closure. |
+| RB-004D | Adopt evidence v2, remediation v1, Recovery 111/83, and SQLC/public-behavior dispositions for the changed catalog. | Core 01 and applicable Recovery/product owners; machine contracts remain projections. | PLANNED | No unexplained schema, generated-model, evidence, remediation, or Recovery change may enter S-16. |
+| RB-005A | Adopt the three-purpose vocabulary, resolver precedence, exact selected/unselected/retired locator behavior, bounded file grammar, and safe failures. | Core 04 owns credential semantics and secret handling; Core 01 owns command-purpose composition. | PLANNED | Unknown behavior or a compatibility fallback blocks settings implementation. |
+| RB-005B | Adopt exact roles/login attributes, membership options, `public` ownership, per-connection role establishment, PostgreSQL 16 dependency, and extension ownership exceptions. | Core 04. | PLANNED | Every physical connection must have one deterministic effective role before it becomes usable. |
+| RB-005C | Adopt exhaustive runtime/recovery ACL classes, database/schema/object denials, `PUBLIC` revocations, and default privileges. | Core 04 security invariants projected through the object manifest. | PLANNED | An unclassified grantable object or unspecified default privilege blocks S-16. |
+| RB-005D | Adopt `PurposeRecovery`, `cartulary_recovery`, exact restore privileges, and denial of recovery authority to runtime. | Core 04 plus the adopted Recovery owner for complete backup/restore behavior. | PLANNED | The complete Recovery lifecycle must pass without schema-owner membership or runtime privilege broadening. |
+| RB-005E | Adopt administrator, Compose, test, and managed-service provisioning ownership plus secret-safe diagnostics. | Core 04 and Testing Harness; implementation/deployment guidance remains subordinate. | PLANNED | No environment-specific role, extension, or credential exception may remain. |
+
+## 16. Production DDL Rebaseline v2 Target Contract
+
+### Canonical catalog
+
+The future `db/migrations` inventory MUST contain `source.go` plus exactly these 29 authored SQL files, in this dependency order:
+
+```text
+00001_database_infrastructure.sql
+00002_auth.sql
+00003_incidents.sql
+00004_recovery.sql
+00005_deployment_admin.sql
+00006_platform_jobs.sql
+00007_records.sql
+00008_revisions.sql
+00009_parties.sql
+00010_timeline.sql
+00011_entities.sql
+00012_indicators.sql
+00013_assessments.sql
+00014_links.sql
+00015_tasks_and_decisions.sql
+00016_artifacts.sql
+00017_evidence.sql
+00018_saved_views.sql
+00019_imports.sql
+00020_network_flow.sql
+00021_projections.sql
+00022_graph_projection.sql
+00023_reporting.sql
+00024_report_composition.sql
+00025_incident_bundles.sql
+00026_reference_data.sql
+00027_extensions.sql
+00028_administrative_audit.sql
+00029_collaboration.sql
+```
+
+The catalog uses lineage `cartulary.prod_ddl_rebaseline.v2` and sets the adopted history manifest's `immutable_through_version` to `29`. Version 30 is the first permissible later forward migration after the v2 line is adopted; migration 62 and any v1 bridge are prohibited.
+
+### Fixed physical defaults
+
+| Fact | Required value | Omission or mismatch behavior |
+| --- | --- | --- |
+| Supported PostgreSQL major | `16` | S-15 cannot close against another major; a later major change requires separate owner/toolchain adoption. |
+| Application schema set | Exactly `public` | No additional or renamed application schema may appear incidentally during consolidation. |
+| Application schema provisioning | Administrator-provisioned, then owned by `cartulary_schema_owner` | Migration SQL MUST NOT create an application schema. |
+| Goose ledger | `public.goose_db_version` | Goose construction and every query MUST use the qualified name; ambient `search_path` is insufficient. |
+| Production lineage relation | `public.schema_migration_lineage` | Incompatible or absent lineage with nonzero history is rejected before v2 DDL. |
+| `pgcrypto` prerequisite | Name `pgcrypto`, version `1.3`, schema `public` | Missing or mismatched prerequisite fails before authored object creation. |
+| `citext` prerequisite | Name `citext`, version `1.6`, schema `public` | Missing or mismatched prerequisite fails before authored object creation. |
+| Extension installer | Deployment administrator in every environment | Application migrations and application roles receive no database-level `CREATE`. |
+
+S-14 MUST verify these values against the frozen v1 database and PostgreSQL 16 image. A mismatch is not implementer discretion: it leaves S-14 `IN_PROGRESS` and requires an owner-plan revision before S-15.
+
+Migration prerequisite failure for a missing extension, unexpected extension version, or unexpected extension schema uses the exact safe reason `schema_extension_prerequisite_invalid`. All three conditions have identical public handling; diagnostics MUST NOT emit catalog rows, vendor text, installation paths, locators, or underlying causes.
+
+### Exhaustive object-allocation contract
+
+S-14 MUST define and S-16 MUST adopt `cartulary.schema_object_ownership_manifest.v2`. Each authored or explicitly managed object has exactly one row with these required fields:
+
+| Field | Closed rule |
+| --- | --- |
+| `object_id` | Stable unique repository identity. |
+| `object_kind` | One of `schema`, `extension`, `table`, `view`, `sequence`, `type`, `domain`, `routine`, `trigger`, `constraint`, `index`, `operator`, `operator_class`, `operator_family`, `cast`, `collation`, or `migration_metadata`. |
+| `qualified_name` | Exact schema-qualified identity; extensions use their exact installed name. |
+| `management_class` | One of `cartulary_authored`, `goose_managed`, `extension_managed`, or `administrator_managed`. |
+| `source_owner` | Exactly one current adopted logical owner. |
+| `migration_version` | Integer `1..29`, or `null` only for administrator-, extension-, or Goose-managed objects. |
+| `migration_file` | Exact matching v2 filename, or `null` under the same managed-object exception. |
+| `dependency_object_ids` | Unique, deterministically sorted existing object IDs. |
+| `runtime_access_class` | Exactly one class from the runtime ACL table below. |
+| `recovery_access_class` | Exactly one class from the recovery ACL table below. |
+| `extension_profile_id` | Exact adopted profile ID or `null`; physical presence never implies claim state. |
+| `recovery_classification` | Exact Recovery membership/classification or `not_applicable`. |
+| `sqlc_input` | Boolean. |
+| `foreign_key_index_status` | `covered`, `intentionally_unindexed`, or `not_applicable`. |
+| `approval` | Required owner/rationale/access-pattern facts for every `intentionally_unindexed` FK; otherwise `null`. |
+
+Every Cartulary-authored, Goose-managed, administrator-managed, and extension-managed non-system object MUST occur once, use the correct management class, and depend only on existing rows. Every Cartulary-authored object belongs to one file and one owner. A cross-owner FK belongs to the owner of the referencing table. A multi-owner organizational file does not become a behavioral owner. An object justified only by draft or research material MUST be removed or assigned to a currently adopted owner before RB-004B closes. The migration-history and object-allocation manifests MUST cross-validate filenames, versions, and object membership.
+
+Managed-object logical ownership is closed: `public` and `public.goose_db_version` map to `database_migrations`; `pgcrypto`, `citext`, and their extension-managed objects map to `deployment_admin` with `extension_profile_id=null`; Cartulary-authored objects map to their adopted subsystem owner. Management class and logical owner are independent: administrator or Goose creation does not transfer product behavior to those mechanisms.
+
+Each file MUST:
+
+- create final-state owner objects directly, with schema-qualified references and dependency-order clarity;
+- use transactional Up DDL and contain no Goose `NO TRANSACTION` directive;
+- create validated constraints and indexes with unique, stable, non-conflicting names; naming style remains non-normative and names MUST NOT determine public error behavior;
+- write both `ON UPDATE` and `ON DELETE` for every FK, including `NO ACTION`, and project exact referencing-side index coverage through the object manifest;
+- apply the closed routine security policy below and avoid unexplained redundant indexes;
+- contain no `CREATE EXTENSION` or `IF NOT EXISTS`; migration 1 validates the administrator-provisioned prerequisites before authored creation;
+- fail on every pre-existing Cartulary object so contamination cannot masquerade as a successful baseline; and
+- provide harness-only Down DDL that reverses its owner objects explicitly without `CASCADE`.
+
+The catalog MUST NOT contain upgrade preflights, backfills, legacy columns, phase-shaped filenames, temporary triggers, old collaboration producers, data-deleting cleanup, concurrent baseline indexes, compatibility views, extension installation, or transitional dual definitions.
+
+Routine defaults are exhaustive: `SECURITY INVOKER` is the default; every `SECURITY DEFINER` routine requires an adopted owner classification, a `search_path` containing only trusted schemas followed by `pg_temp` last, qualified references, and same-transaction revocation of `PUBLIC` execution. Runtime receives `EXECUTE` only for `routine_application`; Recovery receives it only for `routine_recovery`; trigger functions and internal helpers are `routine_private`. Dynamic SQL MUST NOT interpolate an identifier or SQL fragment derived from runtime input unless an adopted owner defines the complete safe grammar.
+
+For every FK, `covered` requires an index whose leading columns support equality lookup by the referencing columns. `intentionally_unindexed` requires the source owner, bounded rationale, expected access pattern, and approval in the object manifest. No free-form “documented absence” is accepted.
+
+Extension DDL is unconditional with respect to deployment profile claims. Physical tables, metadata, ledgers, caches, or projections do not make a profile claimed or establish authoritative extension state. Empty `network_flow_activity` tables remain `state_present=false`; unclaimed profiles expose no routes, workers, or workspace; draft-only Reference Pack behavior cannot justify an object.
+
+After harness rollback through version 0, no Cartulary-authored table, view, sequence, type, routine, trigger, constraint, index, lineage object, or application-created schema may remain. Administrator-provisioned roles/logins, `pgcrypto`, `citext`, their extension-managed objects, and Goose's exact version-0 metadata residue remain. No Down section drops an extension, uses `CASCADE`, or establishes production rollback or recovery.
+
+### Connection-purpose contract
+
+Core 04 MUST own the observable behavior below. S-16 MUST implement this exact owner-private PostgreSQL package interface and a compile-time function-type assertion; the Go representation is not a Core wire contract:
+
+```go
+type Purpose uint8
+
+const (
+    PurposeRuntime Purpose = iota + 1
+    PurposeMigration
+    PurposeRecovery
+)
+
+func ResolveSettings(
+    binding Binding,
+    purpose Purpose,
+    env map[string]string,
+) (Settings, error)
+```
+
+Purpose and caller mapping is exhaustive:
+
+| Purpose | Permitted callers | Managed input | Filesystem child | Required effective role |
+| --- | --- | --- | --- | --- |
+| `runtime` | Server and non-recovery Operator commands | `CARTULARY_POSTGRES_<REF>_RUNTIME_DSN` | `postgres.runtime.dsn` | `cartulary_runtime` |
+| `migration` | `cmd/migrate` only | `CARTULARY_POSTGRES_<REF>_MIGRATION_DSN` | `postgres.migration.dsn` | `cartulary_schema_owner` |
+| `recovery` | Backup, restore, restore-verification, and repository recovery tools | `CARTULARY_POSTGRES_<REF>_RECOVERY_DSN` | `postgres.recovery.dsn` | `cartulary_recovery` |
+
+`PurposeRecovery` is mandatory because the current Recovery implementation requires `TRUNCATE`, `setval`, and `session_replication_role`. Runtime access MUST NOT be broadened to satisfy Recovery. The retired inputs are exactly `CARTULARY_POSTGRES_<REF>_DSN` and `postgres.dsn`. No fallback, alias, warning period, or dual read is permitted.
+
+The resolver and connection algorithm is exact and ordered:
+
+1. Validate `purpose` before environment or filesystem access.
+2. Validate and normalize the binding; derive the selected current locator, every unselected-purpose current locator, and the retired locator.
+3. If the retired locator is present, fail without reading its value.
+4. If any unselected-purpose locator is present in the process/binding root, fail without reading its value.
+5. Read only the selected locator; absence fails.
+6. Validate the selected value and parse the DSN.
+7. Open the physical connection.
+8. Execute `SET ROLE` for the required fixed role and verify `session_user` plus `current_user` before the connection enters a pool or becomes caller-usable.
+
+Failure reasons and precedence are closed:
+
+| Precedence | Reason | Exact condition |
+| --- | --- | --- |
+| 1 | `unsupported_postgres_purpose` | Zero or unknown purpose; no locator access occurs. |
+| 2 | `postgres_binding_invalid` | Binding kind, root, or normalized service reference is invalid. |
+| 3 | `retired_postgres_binding_present` | Retired environment key or file exists, including an empty value; its value is not read. |
+| 4 | `cross_purpose_postgres_binding_present` | Any unselected current credential exists, including an empty value; its value is not read. |
+| 5 | `postgres_binding_missing` | Selected current locator is absent. |
+| 6 | `postgres_binding_invalid` | Selected value is empty, unreadable, malformed, oversized, or otherwise invalid. |
+| 7 | `postgres_effective_role_mismatch` | Connection succeeds but required `session_user`/`current_user` identity is not established. |
+
+The repeated `postgres_binding_invalid` reason intentionally covers two ordered stages without exposing whether failure arose from deployment structure or secret content. If multiple failures are present, the first row wins, and locator names/values are never emitted. Server and Operator startup map these failures through the existing `invalid_deployment_config` envelope. `cmd/migrate` reuses its existing safe configuration-failure exit mapping. Recovery commands reuse their existing safe configuration-failure mapping; no new public error family is introduced.
+
+For a managed binding, the provided `env` map is the complete process environment view; `nil` means the operating-system environment. Key presence with an empty value counts as presence for retired/cross-purpose rejection. Only the selected key's value may be retrieved.
+
+For a filesystem binding, each selected file MUST resolve beneath the validated database-binding root, be opened without following any path-component or final symlink, be one regular file no larger than 65,536 bytes, be read exactly once with a bounded read, contain valid UTF-8 with no NUL or embedded line break, permit at most one terminal LF or CRLF which is removed, and remain non-empty after removal. Retired/unselected file existence is checked through the same no-follow root capability without reading bytes. A process/binding root MUST contain only its selected-purpose credential.
+
+No error, log, telemetry event, stdout, or stderr may contain credential bytes, parsed DSN fields, host, database name, username, locator, or underlying error cause.
+
+### Ownership and privilege contract
+
+Administrators provision these fixed roles outside application DDL. Each has exactly `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`:
+
+- `cartulary_schema_owner`
+- `cartulary_runtime`
+- `cartulary_recovery`
+
+Role and login membership is exact:
+
+| Identity | Required attributes | Membership and prohibitions |
+| --- | --- | --- |
+| `cartulary_schema_owner` | Fixed attributes above | Owns `public`, every Cartulary-authored object, and Goose metadata; not a member of runtime or recovery. Extension-managed objects are exempt. |
+| `cartulary_runtime` | Fixed attributes above | Owns no object; not a member of or able to assume schema owner/recovery. |
+| `cartulary_recovery` | Fixed attributes above | Owns no object; not a member of or able to assume schema owner/runtime. |
+| Deployment migration login | `LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS` | Exactly one membership in schema owner with `INHERIT FALSE, SET TRUE, ADMIN FALSE`. |
+| Deployment runtime login | Same login attributes | Exactly one membership in runtime with `INHERIT FALSE, SET TRUE, ADMIN FALSE`. |
+| Deployment recovery login | Same login attributes | Exactly one membership in recovery with `INHERIT FALSE, SET TRUE, ADMIN FALSE`. |
+
+Every physical migration connection MUST establish `session_user = <deployment migration login>` and `current_user = cartulary_schema_owner`. Runtime and recovery connections use the analogous login and fixed role. One-time pool initialization is insufficient. `pgxpool` and `database/sql` construction MUST share one after-connect role-establishment/identity-verification implementation; a failing connection is closed and never enters the usable pool.
+
+Runtime access classes are exhaustive:
+
+| Class | Permitted kind | Exact runtime privilege |
+| --- | --- | --- |
+| `schema_usage` | schema | `USAGE` |
+| `table_read_write` | table | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| `table_append_only` | table | `SELECT`, `INSERT` |
+| `table_read_only` | table | `SELECT` |
+| `table_no_access` | table | None |
+| `migration_ledger_read` | migration metadata | `SELECT` only |
+| `sequence_use` | sequence | `USAGE` only |
+| `sequence_no_access` | sequence | None |
+| `view_read_only` | view | `SELECT` |
+| `routine_application` | routine | `EXECUTE` |
+| `routine_private` | routine | None |
+| `type_use` | type | `USAGE` |
+| `type_no_access` | type | None |
+| `not_applicable` | extension, trigger, constraint, index, operator, operator class/family, cast, collation | No grantable runtime privilege; invalid for any other kind. |
+
+Recovery access classes are exhaustive:
+
+| Class | Permitted kind | Exact recovery privilege |
+| --- | --- | --- |
+| `schema_usage` | schema | `USAGE` |
+| `table_restore` | table | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE` |
+| `table_read_only` | table | `SELECT` |
+| `table_no_access` | table | None |
+| `migration_ledger_read` | migration metadata | `SELECT` only |
+| `sequence_restore` | sequence | `USAGE`, `SELECT`, `UPDATE` |
+| `sequence_no_access` | sequence | None |
+| `view_read_only` | view | `SELECT` |
+| `routine_recovery` | routine | `EXECUTE` |
+| `routine_private` | routine | None |
+| `type_use` | type | `USAGE` |
+| `type_no_access` | type | None |
+| `not_applicable` | extension, trigger, constraint, index, operator, operator class/family, cast, collation | No grantable recovery privilege; invalid for any other kind. |
+
+The object manifest assigns every grantable object exactly one class per purpose; there is no default class. Recovery additionally receives `SET` only on parameter `session_replication_role`. Runtime never receives that parameter privilege or `TRUNCATE`. Neither role receives ownership, DDL, database/schema `CREATE`, `TEMPORARY`, `REFERENCES`, `TRIGGER`, `MAINTAIN`, role administration, schema-owner assumption, migration-ledger mutation, or private routine execution.
+
+Administrators MUST revoke database `CONNECT` and `TEMPORARY` from `PUBLIC`, grant `CONNECT` directly only to deployment migration/runtime/recovery logins and administrator-owned operational identities, grant no `TEMPORARY`, transfer `public` ownership to `cartulary_schema_owner`, and revoke every `PUBLIC` privilege on `public`. The three fixed roles receive schema/object access only through the exact contract above.
+
+Default privileges for objects created by `cartulary_schema_owner` are default-deny: globally revoke future routine `EXECUTE` and future type `USAGE` from `PUBLIC`; grant no broad default table, sequence, routine, or type access to runtime/recovery; and require each migration to issue explicit manifest-matching grants. Representative future objects created as schema owner MUST prove the defaults. Existing-object ACLs remain explicit and are not inferred from defaults.
+
+Local Compose/test provisioning and managed administrator setup create the roles, login memberships, PostgreSQL 16 database grants, `public` ownership, and pre-provisioned extensions. After extension installation, provisioning MUST revoke extension-object `PUBLIC` privileges and grant only manifest-declared extension routine/type access to fixed roles. Cartulary application DDL creates no role, login, credential, schema, or extension.
+
+### Retained and intentionally broken contracts
+
+| Contract | v2 disposition |
+| --- | --- |
+| Migration evidence | Retain `cartulary.migration_history_evidence.v2`; catalog entries, hashes, digest, and goldens change intentionally. No evidence-v1 reader or dual output is added. |
+| Migration remediation | Retain `cartulary.migration_remediation_report.v1`; incompatible-lineage and contamination findings use boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and the exact reset-only hint in §15. |
+| Recovery | Preserve exactly 111 entries, 83 `authoritative_required`, and the unique Revisions conflict-fact classification; execute complete Recovery only through `PurposeRecovery`. |
+| Product API | Preserve public product routes, payloads, and behavior; physical hardening and credential selection are internal/deployment changes. |
+| SQLC | Preserve query behavior and accept generated model changes only when explained by an S-14 classified, owner-approved schema delta. |
+| Existing or contaminated database | Intentionally incompatible; destroy and recreate only. Rejection occurs before v2 DDL. No data-preservation path, bridge, alias, dual lineage, or migration 62 exists. |
+| Generic or unselected-purpose DSN/file input | Intentionally incompatible and rejected without reading the value or providing an alias. |
+| Browser/visual behavior | Out of scope; dev-stack and webserver-backed database lifecycle tests remain required because binding inputs change. |
+
+## 17. Production DDL Rebaseline v2 Workstreams
+
+The new workstreams are a strict chain. Every workflow handoff updates this tracker before its successor is activated.
+
+| Workflow ID | Name | Class | Required previous workflow | Required subsequent workflow | Goal | Primary areas | Exit checkpoint |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| WF-14 | Baseline, object, and access audit | root | WF-13 | WF-15 | Freeze the v1 head, verify fixed physical facts, classify every v2 delta, and derive exhaustive object/runtime/recovery allocations from SQL and query behavior. | Scratch databases, normalized catalogs, migration tests, query/recovery characterization, Recovery, ownership, extensions, SQLC | Every delta is classified; every object/dependency/access need is allocated; fixed schema/ledger/extension facts match; no preservation requirement exists. |
+| WF-15 | Authority adoption | chain | WF-14 | WF-16 | Adopt reset-only lineage, machine-allocation, three-purpose, three-role, ACL, extension, residue, evidence/remediation, and harness behavior under the exact owner allocation. | Core 01, Core 02 boundary repair, Core 04, applicable subsystem owners, Testing Harness, tracker | RB-004A–D and RB-005A–E are closed without contradiction; SQL/implementation remain untouched until then. |
+| WF-16 | Atomic v2 cutover | chain | WF-15 | WF-17 | Replace the v1 catalog and every directly coupled machine contract, purpose/role composition, provisioning input, and generated projection as one coherent change. | SQL, lineage/manifests, PostgreSQL settings/connections, apps, provisioning, drift/evidence/Recovery/SQLC, guides, generated outputs | Exactly one v2 catalog, three-purpose resolver, three-role model, and exhaustive allocation compile/apply; no partial or compatibility state remains. |
+| WF-17 | Owner contract test conversion | chain | WF-16 | WF-18 | Replace historical choreography tests with routed head-schema owner contracts while preserving generic harness behavior. | Source-owner tests, Database Migrations, `pgtest`, test-family routing | Every retained product/schema behavior has owner-routed head-state coverage; old SQL is not a fixture. |
+| WF-18 | DDL, prerequisite, credential, and ACL recurrence controls | chain | WF-17 | WF-19 | Prevent malformed DDL, incomplete allocation, wrong extensions/roles, excess/default grants, unsafe resolver behavior, claim-state drift, and residue regressions. | Static policy, service-backed tests, PostgreSQL/dev-stack/testservices | Positive/negative manifest, DDL, extension, credential, connection-role, ACL/default, claim-state, and rollback-residue matrices pass. |
+| WF-19 | Cross-owner validation | chain | WF-18 | WF-20 | Validate every schema owner, all three purposes, complete Recovery, and every normalized v1/v2 difference against the baseline classification. | All schema owners, Database Migrations, PostgreSQL, apps, Operator/recovery, testservices, dev stack, codegen | Recovery runs only under Recovery authority; runtime/migration isolation, 111/83, public APIs, and SQLC remain exact; every schema delta is explained. |
+| WF-20 | Final validation and handoff | chain | WF-19 | none | Run focused-to-full gates, freeze the v2 inventory, and close the iteration with complete evidence. | Whole v2 diff and tracker | S-14 through S-20 and T-020 through T-026 are `DONE`; no unexplained diff, legacy surface, role leak, or stale projection remains. |
+
+## 18. Production DDL Rebaseline v2 Slice Plan
+
+All new slices are `PLANNED`. No work in this documentation-only checkpoint changes their status.
+
+| Slice | Status | Task | Depends on | Intended change | Principal risks | Required validation and evidence | Rollback or recovery posture | Exit criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S-14 | PLANNED | T-020 | S-13 | Apply the frozen v1 line to isolated scratch databases; verify PostgreSQL 16, `public`, qualified ledger/lineage, extension name/version/schema, and ownership; inventory every object/dependency/FK/routine/ACL; characterize application and Recovery queries; draft manifest v2; classify normalized v1/v2 differences. | An incomplete object/access baseline could delete owner behavior, grant excess authority, misclassify draft objects, or conceal a preservation requirement. | Record branch/commit/worktree, scratch method, normalized digests, exhaustive allocation draft, query/recovery access evidence, role/extension facts, Recovery 111/83, SQLC baseline, commands/roots/failures/retries, and delta classification. | Delete scratch databases through harness cleanup; retain normalized outputs only as execution evidence. Any preservation requirement stops the rebaseline. | Every object and access requirement is allocated; fixed defaults match; every proposed delta is classified; no data must survive reset; missing evidence blocks S-15. |
+| S-15 | PLANNED | T-021 | S-14 | Update Core 01, Core 02 contradictory boundary text, Core 04, Testing Harness, and only affected adopted subsystem owners under §15's allocation; adopt manifest v2 and close RB-004A–D/RB-005A–E. | Tracker-authored behavior, physical topology in Core 02, partial role/ACL adoption, or an unresolved recovery/extension decision would invert authority. | Exact owner/requirement/acceptance mapping, machine-contract review, PostgreSQL 16 consistency, Markdown lint, diff check, and explicit closure of every sub-gate. | Revert proposed owner/machine-contract/tracker adoption together if coherence fails; no implementation has begun. | All §16 behavior is adopted without contradiction; reset-only remediation, three purposes/roles, exact ACLs, evidence/remediation/Recovery/SQLC dispositions, and provisioning are explicit; S-16 remains untouched until closure. |
+| S-16 | PLANNED | T-022 | S-15 | Atomically replace 61 SQL files with 29; update lineage/history and manifest v2, qualified Goose ledger, three-purpose resolver, per-connection role setup, three-role provisioning, explicit grants/defaults, extension validation, app/recovery composition, projections, SQLC, guides, tests that cannot compile, and generated output through `make generate`. | Partial catalog/manifest/role state, extension privilege drift, secret exposure, stale projections, or accidental public behavior change. | `make format`; focused Database Migrations/PostgreSQL/app/recovery/dev-stack tests; `make generate`; migration/JSON/generation/policy drift; builds; exact inventory/lineage/credential/role/extension scans; public-contract comparison. | Before shipment, revert the entire S-16 source/projection set to S-15. Never keep mixed lineage, partial roles, compatibility credentials, or downgrade SQL. Applied v2 databases are recreated. | Exactly 29 SQL files, lineage v2, manifest v2, three purposes, three effective roles, exact prerequisites/ACLs, and current projections exist; no v1 SQL, generic key, migration 62, mixed state, or unselected credential remains. |
+| S-17 | PLANNED | T-023 | S-16 | Replace historical upgrade tests with owner-routed head-schema tests for aliases, graph state, jobs, storage references, evidence uniqueness, Indicator envelopes, Revisions associations, extension coordination, audit immutability, and collaboration ownership. Retain generic apply-through/rollback-through and synthetic v1 rejection. | Deleting version-coupled tests could silently delete owner behavior coverage; retaining old SQL could recreate compatibility burden. | Each behavior has a named routed test and passing unit/service-backed root; harness apply/rollback covers versions 1–29; synthetic v1 lineage is rejected without embedding v1 SQL; authored routing is regenerated and drift-free. | Revert test/routing conversion as a unit while keeping S-16 active; fix forward against the v2 catalog rather than restoring historical source. | All durable behavior is covered at head under its owner, generic harness coverage passes, and no test requires old migration files or transitional states. |
+| S-18 | PLANNED | T-024 | S-17 | Add static/service checks for manifest parity, transactions, qualification, contamination, extension prerequisites, valid constraints/indexes, FK classes, routines, role establishment, ACL/defaults, purpose isolation, claim state, rollback residue, and safe diagnostics. | Brittle scans may reject valid DDL, while incomplete catalog/denial tests can leave privilege or claim-state regressions. | Automatic positive/negative fixtures; PostgreSQL catalog assertions; recycled-connection identity tests; runtime/recovery allow/deny matrices; future-object defaults; retired/cross-purpose no-read tests; extension/claim/residue matrices; redaction. | Revert only an over-broad control with its generated projection; never weaken the adopted invariant or broaden a role to pass. | Controls detect representative violations, accept only the canonical catalog/manifest/roles, prove exact capabilities and denials, and disclose no credential-derived value. |
+| S-19 | PLANNED | T-025 | S-18 | Run every schema owner's unit/service-backed slice plus Database Migrations, PostgreSQL, server/runtime Operator, migrate, complete Recovery under `PurposeRecovery`, testservices, dev-stack, webserver-backed lifecycle, and generated contracts; compare normalized heads. | Cross-owner dependencies, Recovery authority gaps, SQLC drift, runtime over-grant, or missing recovery grants may appear only in broad integration. | Record every command/root/failure/retry; reconcile every normalized delta; prove each process sees only selected credentials, runtime cannot recover/migrate, Recovery cannot own/DDL/mutate ledger, 111/83, unchanged public APIs, and explained SQLC. | Fix forward in the owning v2 file/contract; do not add legacy SQL, broad runtime grants, schema-owner recovery, or compatibility bindings. | Every routed owner and complete Recovery lifecycle passes under its exact role; every schema/SQLC difference is classified and owner-approved; security/public invariants have named evidence. |
+| S-20 | PLANNED | T-026 | S-19 | Execute final builds, static/schema/generated gates, finalization, fast/full suites, inventory reconciliation, credential/role isolation proof, and handoff in §20 order. | Late broad failure, stale generation, unrecorded retry, unselected credential visibility, privilege leakage, or premature immutability. | Exact ordered roots; final file/object/ACL inventory; purpose/role isolation matrix; compatibility/skipped/risk record; Markdown lint and whitespace check after tracker close. | Return to the owning active slice and repair forward. Do not close while any gate or AC-V2 criterion is failed or unexplained. | All new slices/tasks are `DONE`; v2 is immutable through 29; incompatible state and retired/unselected credentials fail safely; runtime has no recovery/migration authority; no unexplained diff remains. |
+
+## 19. Production DDL Rebaseline v2 Top-Level Work Tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence to record | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-020 | Freeze/classify v1 and allocate every v2 object/access need | WF-14 / S-14 | PLANNED | T-019 | Frozen commit, fixed physical facts, normalized digests, exhaustive allocation draft, query/recovery characterization, Recovery/SQLC/test baseline | Every object/access need and schema delta is evidence-backed without retaining v1 as a production input. |
+| T-021 | Adopt reset-only, manifest, three-purpose/role, ACL, and harness authority | WF-15 / S-15 | PLANNED | T-020 | Correctly allocated Core/subsystem/Harness changes; manifest v2; RB-004A–D/RB-005A–E closure | Controlling owners authorize every §16 contract without physical-topology ownership drift or contradiction. |
+| T-022 | Perform the atomic 29-file and security-boundary cutover | WF-16 / S-16 | PLANNED | T-021 | SQL/manifests/projections/settings/connections/provisioning diff and focused/drift evidence | Only lineage v2, 29 files, manifest v2, three purposes/roles, exact prerequisites/ACLs, and current projections remain. |
+| T-023 | Convert historical tests to owner head contracts | WF-17 / S-17 | PLANNED | T-022 | Routed owner tests, generic harness tests, generated routing | Every durable behavior remains tested without old SQL or upgrade choreography. |
+| T-024 | Enforce manifest, DDL, extension, role, ACL, credential, claim, and residue controls | WF-18 / S-18 | PLANNED | T-023 | Static fixtures, catalog assertions, connection tests, allow/deny/default/redaction matrices | Every durable §16 invariant has positive and negative automated recurrence evidence. |
+| T-025 | Complete cross-owner, three-purpose, and Recovery validation | WF-19 / S-19 | PLANNED | T-024 | All owner roots, normalized comparison, role-isolation proof, Recovery/API/SQLC reconciliation | Every owner and full Recovery path passes under exact credentials/roles; every delta is classified and approved. |
+| T-026 | Complete final validation and handoff | WF-20 / S-20 | PLANNED | T-025 | Ordered final roots, object/ACL inventory, compatibility/risks, credential/role isolation, final tracker validation | All slices/tasks and AC-V2 criteria are complete, v2 is immutable, and no compatibility surface, privilege leak, or unexplained diff remains. |
+
+## 20. Production DDL Rebaseline v2 Execution and Validation Protocol
+
+The tracker is the controlling execution artifact for the future iteration:
+
+1. Before any slice work, change only that slice and its task to `IN_PROGRESS`, record branch/commit/worktree and intended files, and validate the tracker update.
+2. Keep exactly one slice `IN_PROGRESS`. Perform only its authorized changes and required validation.
+3. A failed gate leaves the slice `IN_PROGRESS`. Record the command, result root or relevant artifact, failure, retry, compatibility impact, remaining risk, and next action. Do not activate the successor.
+4. After every slice, record exact changed files, commands/results, failures/retries, compatibility impact, remaining risk, and exit evidence before setting it `DONE`.
+5. Before the successor begins, update and validate the tracker again. Generated outputs change only through `make generate`; no failure may be hidden by weakening a contract, broadening grants, restoring v1 compatibility, or refreshing an unexplained artifact.
+
+### Slice-level validation posture
+
+| Layer | Future command or method | Required slices | Purpose |
+| --- | --- | --- | --- |
+| Owner routing discovery | `make task-guide ROLE=module-author OWNER=<owner-id>` plus Make-owned target explanation | S-14, then refresh as routing changes | Discover exact current rows rather than copying a stale target inventory into this plan. |
+| Unit/service-backed owners | `make test-slice OWNER=<owner-id>` and `make service-backed-test-slice OWNER=<owner-id>` | Focused in S-14/S-16–S-18; every schema owner in S-19/S-20 | Prove owner head contracts, object allocation, database behavior, three-role privileges, and harness lifecycle. |
+| Application and tools | Routed server/runtime Operator, migrate, Recovery Operator/tools, PostgreSQL, testservices, dev-stack, and webserver-backed lifecycle rows | S-14 baseline where applicable; S-16, S-18–S-20 | Prove exhaustive runtime/migration/recovery purpose selection, role establishment, provisioning, and credential isolation. |
+| Builds | `make build-migrate`, `make build-server`, `make build-operator`, and any additional affected Make-owned build found in S-14 | S-16 and S-20 | Prove composition and generated SQL packages compile. |
+| DDL/schema | `make migration-drift` plus S-18 manifest/static/catalog checks | S-16–S-20 | Prove exact inventory/allocation, prerequisites, apply/rollback residue, schema integrity, lineage, routines/FKs, and recurrence rules. |
+| Contracts/generation | `make json-shape-check`, `make generate`, `make generate-drift`, `make generated-artifact-policy-check` | As changed in S-16/S-17; drift gates through S-20 | Update only authorized projections and prove evidence/remediation/schema-generated consistency. |
+| Boundaries/security | `make backend-module-boundary-check` plus S-18 credential/connection/ACL/default fixtures | S-16–S-20 | Prevent ownership, selected-purpose, secret, role, `PUBLIC`, default-privilege, and generated-output regressions. |
+| Broad/final | `make agent-finalize`, `make test-fast`, `make check` | S-20 | Complete repository handoff after focused gates pass. |
+| Documentation/whitespace | `make lint-markdown`, `git diff --check` | Every tracker transition and final close | Keep the controlling plan valid and the final diff clean. |
+
+S-20 final validation order is mandatory:
+
+1. Database Migrations and Operator unit/service-backed slices.
+2. App migrate/server, runtime Operator, complete Recovery Operator/tools, routed `pgtest`/`sourcecatalog`, every schema/source-owner slice, PostgreSQL, testservices, dev-stack, and webserver-backed database lifecycle coverage, including selected-credential and role-isolation matrices.
+3. Migrate, server, and Operator builds.
+4. `make backend-module-boundary-check`.
+5. `make json-shape-check`.
+6. `make migration-drift`.
+7. `make generate-drift`.
+8. `make generated-artifact-policy-check`.
+9. `make agent-finalize`, passing `RESULTS_DIR` only for a qualifying retained successful full warm-check root; otherwise record that it was unset.
+10. `make test-fast`.
+11. `make check`.
+12. Update this tracker, then run `make lint-markdown` and `git diff --check`.
+
+The immediate planning checkpoint runs only `make lint-markdown` and `git diff --check`, then confirms this tracker is the sole changed file. Product, schema, generated, service-backed, browser, and build checks are intentionally skipped because no implementation or contract projection changes in this step.
+
+### Binary v2 acceptance criteria
+
+- **AC-V2-001:** Sections 15–21 contain no data-preservation transition for v2; reset/recreation is the only transition.
+- **AC-V2-002:** V1 lineage, foreign lineage, unmarked nonzero history, and pre-existing Cartulary objects fail before any v2 DDL.
+- **AC-V2-003:** Every incompatible-state remediation emits schema v1, boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and the exact reset-only hint in §15.
+- **AC-V2-004:** Core 02 contains persistence invariants and boundary repair only; exact files, indexes, roles, and grants remain in their assigned owners/projections.
+- **AC-V2-005:** Exactly 29 authored SQL files resolve from one migration-history manifest; versions are exactly 1–29 and immutable-through is 29.
+- **AC-V2-006:** Every managed/authored object has exactly one valid manifest-v2 row, file/owner allocation, deterministic dependency set, and runtime/recovery access class; no object depends only on draft/research authority.
+- **AC-V2-007:** PostgreSQL 16, application schema `public`, ledger `public.goose_db_version`, lineage relation `public.schema_migration_lineage`, and both exact extension prerequisites are configured and verified.
+- **AC-V2-008:** Every Up section is transactional; no `NO TRANSACTION`, concurrent baseline index, backfill, compatibility object, transition mechanism, or unqualified authored/ledger reference exists.
+- **AC-V2-009:** Authored names are unique, stable, and non-conflicting; no normative style grammar or public diagnostic dependency on an object name exists.
+- **AC-V2-010:** Every constraint is valid; every FK states update/delete actions and has a valid `covered` or approved `intentionally_unindexed` classification.
+- **AC-V2-011:** Every routine has an allowed security/access class, qualified references, safe `search_path`, same-transaction `PUBLIC` revocation where required, and no unsafe runtime-derived dynamic SQL.
+- **AC-V2-012:** Administrators pre-provision `pgcrypto` 1.3 and `citext` 1.6 in `public`; migrations contain no extension creation; absent/version/schema failures use only `schema_extension_prerequisite_invalid`; prerequisite and profile-claim/state matrices pass.
+- **AC-V2-013:** Every physical connection establishes and verifies its expected `session_user` and `current_user` before use, including newly created and recycled pool connections.
+- **AC-V2-014:** Fixed roles, login attributes, memberships, ownership, and mutual non-assumption exactly match §16 on PostgreSQL 16.
+- **AC-V2-015:** `cartulary_runtime` and `cartulary_recovery` own no object; runtime cannot assume recovery/schema owner, and recovery cannot assume runtime/schema owner.
+- **AC-V2-016:** Every grantable object has one valid runtime and recovery ACL class; exact positive and negative operations match those classes.
+- **AC-V2-017:** `PUBLIC` has no unintended database/schema/routine/type privilege; default privileges are default-deny and representative future-object tests pass.
+- **AC-V2-018:** A process/binding root exposes only selected-purpose credentials; managed/filesystem runtime, migration, and recovery mappings are exhaustive.
+- **AC-V2-019:** Retired or unselected credential presence, including empty presence, fails without reading the value; selected filesystem decoding obeys the exact bounded grammar.
+- **AC-V2-020:** Resolver failure precedence and closed reason mapping are exact; diagnostics contain no credential-derived or upstream/vendor data.
+- **AC-V2-021:** Server/non-recovery Operator use runtime, `cmd/migrate` uses migration, and every Recovery command/tool uses recovery; no caller selects implicitly.
+- **AC-V2-022:** Complete backup, restore, restore verification, journal, audit, and projection-rebuild behavior passes under `cartulary_recovery`; runtime lacks `TRUNCATE`, sequence-update, and `session_replication_role` authority.
+- **AC-V2-023:** Rollback through zero leaves only the exact administrator/extension/Goose residue in §16; no Down uses `CASCADE`, drops an extension, or becomes a production capability.
+- **AC-V2-024:** Recovery remains exactly 111 entries and 83 authoritative entries with the unique Revisions conflict-fact classification.
+- **AC-V2-025:** Evidence remains `cartulary.migration_history_evidence.v2`; remediation remains `cartulary.migration_remediation_report.v1`; changed catalog bytes/goldens are intentional and exact.
+- **AC-V2-026:** SQLC output and public routes/payloads/lifecycle/ordering/authorization have no unexplained change.
+- **AC-V2-027:** S-14–S-20/T-020–T-026 close in order with named passing evidence, current generated routing, no migration 62, no compatibility credential/lineage, and no unexplained diff.
+
+## 21. Production DDL Rebaseline v2 Completion and Handoff
+
+### Planning completion
+
+- [x] S-01 through S-13 history remains present and complete.
+- [x] The new iteration is defined as WF-14 through WF-20, S-14 through S-20, and T-020 through T-026.
+- [x] Every new slice and task is `PLANNED`; none is `IN_PROGRESS`.
+- [x] The exact 29-file dependency order, lineage v2, immutable boundary 29, reset-only rejection/remediation, and prohibited transitional mechanics are explicit.
+- [x] The exact PostgreSQL/schema/ledger/extension defaults and administrator-owned prerequisite model are explicit.
+- [x] The manifest-v2 row grammar, owner/dependency/FK/access allocation rules, and physical-topology authority boundary are explicit.
+- [x] The exact three-purpose owner-private API, resolver precedence, accepted/retired/unselected inputs, bounded filesystem grammar, safe failures, and caller mapping are explicit.
+- [x] The three fixed roles, login/membership attributes, per-connection identity invariant, runtime/recovery ACL classes, `PUBLIC` revocations, and default privileges are explicit.
+- [x] Routine, FK, extension claim-state, naming, contamination, and rollback-residue behavior is complete and testable.
+- [x] Each gap records remediation areas, rationale, long-term benefit, compatibility/migration impact, unresolved risk, and executable validation criteria.
+- [x] Every future workstream and slice records dependencies, sequencing, principal risks, validation evidence, rollback/recovery posture, and exit criteria.
+- [x] Evidence v2, remediation v1, Recovery 111/83, public product behavior, SQLC review, and browser/dev-stack dispositions are explicit.
+- [x] Every analysis-note decision maps to a contract, RB-004A–D/RB-005A–E gate, workstream, and AC-V2 criterion.
+- [x] S-15 is an owner-authority gate; the tracker does not authorize S-16 implementation by itself.
+- [x] `docs/domain.md` remains unchanged; `docs/research/nlspec-spec.md` remains guidance only.
+- [x] This planning checkpoint changes only this tracker.
+
+### Future implementation completion
+
+- [ ] S-14 / T-020 baseline/object/access audit is `DONE` with fixed physical facts, exhaustive allocation, query/Recovery characterization, and complete delta classification.
+- [ ] S-15 / T-021 authority adoption is `DONE`; RB-004A–D and RB-005A–E are closed.
+- [ ] S-16 / T-022 atomic v2 cutover is `DONE` with exactly 29 SQL files, manifest v2, three purposes/roles, exact prerequisites/ACLs, and no compatibility surface.
+- [ ] S-17 / T-023 owner contract test conversion is `DONE` without retaining v1 SQL.
+- [ ] S-18 / T-024 manifest, DDL, extension, role, ACL/default, credential, claim-state, residue, and diagnostic controls are `DONE`.
+- [ ] S-19 / T-025 cross-owner/three-purpose validation is `DONE`; complete Recovery passes under its exact role and every schema delta is reconciled.
+- [ ] S-20 / T-026 final validation and handoff is `DONE`; lineage v2 is immutable through version 29.
+- [ ] All AC-V2-001 through AC-V2-027 criteria have named passing evidence.
+- [ ] V1/foreign/unmarked/contaminated databases and generic/unselected DSN inputs are rejected safely before mutation or secret-value access; destroy/recreate is the only transition.
+- [ ] Runtime, migration, and Recovery role isolation; Recovery 111/83; evidence v2; remediation v1; public APIs; and SQLC expectations have named passing evidence.
+- [ ] No migration 62, data bridge, alias, compatibility view, mixed lineage, stale routing, privilege leak, credential disclosure, unexplained generated output, or unexplained diff remains.
+
+### Planning handoff log
+
+| Timestamp | Actor/scope | Baseline | Changed files | Validation | Result | Open blocker | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-10T22:04:41-04:00 | Codex `/root`, NLSpec-grade Production DDL Rebaseline v2 revision | Branch `main`; commit `4618deb0535272d4673d0b705fcd77f446ab1a69`; pre-edit worktree contained only the staged tracker plan; S-01 through S-13 complete | Revised only `docs/handoffs/db-migrations-refactor-tracker.md`; retained `temp/analysis-notes.md` unchanged; no owner, SQL, code, test, generated, domain, or guidance file changed | `make lint-markdown` root `20260811T020518Z-p3675291`; `git diff --check` passed; final post-record validation repeated | Reset-only, manifest-v2, fixed physical defaults, three-purpose/role, exhaustive ACL, extension, claim-state, rollback, owner-allocation, sub-gate, and AC-V2 contracts are decision-complete; every new slice/task remains `PLANNED` | none for this documentation step; RB-004A–D/RB-005A–E are mandatory future S-15 adoption gates | In a future implementation task, mark only S-14/T-020 `IN_PROGRESS`, validate that tracker transition, and finish the object/access baseline before S-15. |
