@@ -10,14 +10,12 @@ import (
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 )
 
-func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing.T) {
+func TestMigrationEvidenceSourceAuditReportsReachableFindings(t *testing.T) {
 	validMigration := []byte("-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n")
-	missingDownMigration := []byte("-- +goose Up\nSELECT 2;\n")
-	gapMigration := []byte("-- +goose Up\nSELECT 4;\n-- +goose Down\nSELECT 4;\n")
 	inspection := database_migrations.SourceInspection{Entries: []database_migrations.SourceInspectionEntry{
 		{Version: 1, Filename: "00001_valid.sql", SHA256: sha256Hex(validMigration), HasGooseUp: true, HasGooseDown: true},
-		{Version: 2, Filename: "00002_workbook_phase9_missing_down.sql", SHA256: sha256Hex(missingDownMigration), HasGooseUp: true, HasGooseDown: false},
-		{Version: 4, Filename: "00004_gap.sql", SHA256: sha256Hex(gapMigration), HasGooseUp: true, HasGooseDown: true},
+		{Version: 2, Filename: "00002_workbook_phase9_source.sql", SHA256: sha256Hex(validMigration), HasGooseUp: true, HasGooseDown: true},
+		{Version: 3, Filename: "00003_source_only.sql", SHA256: sha256Hex(validMigration), HasGooseUp: true, HasGooseDown: true},
 	}}
 	manifestPath := writeMigrationEvidenceManifest(t, manifestDocument{
 		SchemaID:                "cartulary.migration_history_manifest.v1",
@@ -25,8 +23,8 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 		ImmutableThroughVersion: 1,
 		Entries: []manifestEntry{
 			{Version: 1, Filename: "00001_valid.sql", SHA256: strings.Repeat("f", 64)},
-			{Version: 2, Filename: "00002_workbook_phase9_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
-			{Version: 3, Filename: "00003_missing.sql", SHA256: strings.Repeat("0", 64)},
+			{Version: 2, Filename: "00002_manifest_name.sql", SHA256: sha256Hex(validMigration)},
+			{Version: 4, Filename: "00004_manifest_only.sql", SHA256: strings.Repeat("0", 64)},
 		},
 	})
 
@@ -52,18 +50,21 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	}
 	findings := append(manifestFindings, sourceFindings...)
 	assertMigrationEvidenceFinding(t, findings, "manifest_hash_mismatch")
-	assertMigrationEvidenceFinding(t, findings, "source_marker_missing")
+	assertMigrationEvidenceFinding(t, findings, "manifest_filename_mismatch")
 	assertMigrationEvidenceFinding(t, findings, "future_phase_shaped_filename")
 	assertMigrationEvidenceFinding(t, findings, "manifest_version_not_in_source")
 	assertMigrationEvidenceFinding(t, findings, "source_version_not_in_manifest")
-	assertMigrationEvidenceFinding(t, findings, "source_version_gap")
+	for _, impossible := range []string{
+		"source_filename_invalid",
+		"source_duplicate_version",
+		"source_marker_missing",
+		"source_version_gap",
+	} {
+		assertMigrationEvidenceFindingAbsent(t, findings, impossible)
+	}
 }
 
 func TestMigrationEvidenceInputDefaultsAndBindingNormalization(t *testing.T) {
-	if _, _, _, err := loadManifest("  "); err == nil || err.Error() != "migration evidence manifest path is required" {
-		t.Fatalf("unexpected empty manifest error: %v", err)
-	}
-
 	got := normalizeDatabaseBinding(DatabaseBinding{
 		BindingKind: "  managed_service\t",
 		ServiceRef:  " postgres-primary \n",
@@ -77,17 +78,36 @@ func TestMigrationEvidenceInputDefaultsAndBindingNormalization(t *testing.T) {
 }
 
 func TestMigrationEvidenceManifestFailuresDoNotDiscloseLocators(t *testing.T) {
-	secretPath := t.TempDir() + "/private-manifest-location.json"
-	_, _, _, err := loadManifest(secretPath)
-	if err == nil {
-		t.Fatal("missing manifest unexpectedly loaded")
+	invalidPath := t.TempDir() + "/invalid-private-manifest.json"
+	if err := os.WriteFile(invalidPath, []byte("{}"), 0o600); err != nil {
+		t.Fatalf("write invalid manifest: %v", err)
 	}
-	var failure ManifestFailure
-	if !errors.As(err, &failure) || failure.ReasonCode() != "migration evidence manifest unavailable" {
-		t.Fatalf("unexpected typed manifest failure: %T %v", err, err)
+	tests := []struct {
+		name   string
+		path   string
+		reason manifestFailureReason
+	}{
+		{name: "required", path: "  ", reason: manifestFailurePathRequired},
+		{name: "unavailable", path: t.TempDir() + "/private-manifest-location.json", reason: manifestFailureUnavailable},
+		{name: "invalid", path: invalidPath, reason: manifestFailureInvalid},
 	}
-	if strings.Contains(err.Error(), secretPath) || strings.Contains(err.Error(), "private-manifest-location") {
-		t.Fatalf("manifest failure disclosed locator: %v", err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, _, err := loadManifest(test.path)
+			if err == nil {
+				t.Fatal("manifest unexpectedly loaded")
+			}
+			var failure manifestFailureError
+			if !errors.As(err, &failure) || failure.reason != test.reason {
+				t.Fatalf("unexpected typed manifest failure: %T %v", err, err)
+			}
+			if err.Error() != string(test.reason) {
+				t.Fatalf("manifest failure = %q, want %q", err.Error(), test.reason)
+			}
+			if strings.Contains(err.Error(), test.path) || strings.Contains(err.Error(), "private-manifest") {
+				t.Fatalf("manifest failure disclosed locator: %v", err)
+			}
+		})
 	}
 }
 
@@ -112,4 +132,13 @@ func assertMigrationEvidenceFinding(t *testing.T, findings []Finding, reasonCode
 		}
 	}
 	t.Fatalf("finding %q not present in %#v", reasonCode, findings)
+}
+
+func assertMigrationEvidenceFindingAbsent(t *testing.T, findings []Finding, reasonCode string) {
+	t.Helper()
+	for _, finding := range findings {
+		if finding.ReasonCode == reasonCode {
+			t.Fatalf("finding %q unexpectedly present in %#v", reasonCode, findings)
+		}
+	}
 }

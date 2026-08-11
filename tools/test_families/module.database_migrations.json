@@ -163,10 +163,9 @@
         "tests": [
           "TestApplyRejectsInvalidInputsBeforeDatabaseAccess",
           "TestClassifyMigrationStateMatrix",
-          "TestMigrationRemediationReportJSONContract",
-          "TestMigrationRemediationReportVariantJSONContracts",
-          "TestNewSourceRejectsInvalidCatalogs",
+          "TestMigrationRemediationReportContracts",
           "TestSchemaReadinessRejectsInvalidSourceAndNilPool",
+          "TestSourceConstructionRejectsInvalidCatalogs",
           "TestSourceSnapshotIsImmutable"
         ]
       },
@@ -219,7 +218,32 @@
         "package": "./internal/modules/database_migrations/migrationevidence",
         "tests": [
           "TestMigrationEvidenceInputDefaultsAndBindingNormalization",
-          "TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings"
+          "TestMigrationEvidenceManifestFailuresDoNotDiscloseLocators",
+          "TestMigrationEvidenceSourceAuditReportsReachableFindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.owner_private_provider_policy",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations/sourcecatalog",
+        "tests": [
+          "TestNewProviderContract",
+          "TestSessionLockerPolicy"
         ]
       },
       "evidence_class": "unit",
@@ -243,7 +267,7 @@
         "package": "./internal/modules/database_migrations",
         "tests": [
           "TestApplyCanceledContextSkipsDatabaseAccess",
-          "TestMigrationLockPolicyConstants",
+          "TestMigrationOperationTimeouts",
           "TestMigrationProviderUsesImmutableRoot",
           "TestProviderFailureNormalizationPreservesPrimaryError",
           "TestProviderSourceIsolation",

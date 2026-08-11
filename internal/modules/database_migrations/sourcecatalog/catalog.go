@@ -9,7 +9,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"log"
 	"path"
 	"regexp"
 	"sort"
@@ -110,8 +112,7 @@ func Build(fsys fs.FS, root string, lineageID string, lineageBoundary string) (*
 		if readErr != nil {
 			return nil, fmt.Errorf("read migration source file %q: %w", entry.Name(), readErr)
 		}
-		hasUp, hasDown, markerErr := validateMigrationMarkers(entry.Name(), body)
-		if markerErr != nil {
+		if markerErr := validateMigrationMarkers(entry.Name(), body); markerErr != nil {
 			return nil, markerErr
 		}
 
@@ -121,8 +122,8 @@ func Build(fsys fs.FS, root string, lineageID string, lineageBoundary string) (*
 			Version:      version,
 			Filename:     entry.Name(),
 			SHA256:       hex.EncodeToString(digest[:]),
-			HasGooseUp:   hasUp,
-			HasGooseDown: hasDown,
+			HasGooseUp:   true,
+			HasGooseDown: true,
 		}
 		files[entry.Name()] = &fstest.MapFile{Data: copied, Mode: 0o444}
 		entries = append(entries, catalogEntry{metadata: metadata, body: copied})
@@ -150,7 +151,7 @@ func Build(fsys fs.FS, root string, lineageID string, lineageBoundary string) (*
 	}, nil
 }
 
-func validateMigrationMarkers(name string, body []byte) (bool, bool, error) {
+func validateMigrationMarkers(name string, body []byte) error {
 	upCount := 0
 	downCount := 0
 	upSeen := false
@@ -166,39 +167,39 @@ func validateMigrationMarkers(name string, body []byte) (bool, bool, error) {
 			upCount++
 			upSeen = true
 			if downSeen || statementDepth != 0 {
-				return false, false, fmt.Errorf("migration source file %q has an invalid Up marker", name)
+				return fmt.Errorf("migration source file %q has an invalid Up marker", name)
 			}
 		case "-- +goose Down":
 			downCount++
 			downSeen = true
 			if !upSeen || statementDepth != 0 {
-				return false, false, fmt.Errorf("migration source file %q has an invalid Down marker", name)
+				return fmt.Errorf("migration source file %q has an invalid Down marker", name)
 			}
 		case "-- +goose NO TRANSACTION":
 			if statementDepth != 0 {
-				return false, false, fmt.Errorf("migration source file %q has a misplaced NO TRANSACTION directive", name)
+				return fmt.Errorf("migration source file %q has a misplaced NO TRANSACTION directive", name)
 			}
 		case "-- +goose StatementBegin":
 			if !upSeen || statementDepth != 0 {
-				return false, false, fmt.Errorf("migration source file %q has an unbalanced StatementBegin directive", name)
+				return fmt.Errorf("migration source file %q has an unbalanced StatementBegin directive", name)
 			}
 			statementDepth = 1
 		case "-- +goose StatementEnd":
 			if statementDepth != 1 {
-				return false, false, fmt.Errorf("migration source file %q has an unbalanced StatementEnd directive", name)
+				return fmt.Errorf("migration source file %q has an unbalanced StatementEnd directive", name)
 			}
 			statementDepth = 0
 		default:
-			return false, false, fmt.Errorf("migration source file %q has unsupported directive %q", name, line)
+			return fmt.Errorf("migration source file %q has unsupported directive %q", name, line)
 		}
 	}
 	if upCount != 1 || downCount != 1 {
-		return false, false, fmt.Errorf("migration source file %q must contain exactly one Up and one Down marker", name)
+		return fmt.Errorf("migration source file %q must contain exactly one Up and one Down marker", name)
 	}
 	if statementDepth != 0 {
-		return false, false, fmt.Errorf("migration source file %q has an unbalanced statement block", name)
+		return fmt.Errorf("migration source file %q has an unbalanced statement block", name)
 	}
-	return true, true, nil
+	return nil
 }
 
 func Validate(catalog *Catalog) error {
@@ -226,11 +227,6 @@ func HeadVersion(catalog *Catalog) int64 {
 	return catalog.entries[len(catalog.entries)-1].metadata.Version
 }
 
-func HasVersion(catalog *Catalog, version int64) bool {
-	index := version - 1
-	return catalog != nil && index >= 0 && index < int64(len(catalog.entries)) && catalog.entries[index].metadata.Version == version
-}
-
 func LineageID(catalog *Catalog) string {
 	if catalog == nil {
 		return ""
@@ -248,23 +244,22 @@ func LineageBoundary(catalog *Catalog) string {
 // NewProvider constructs an invocation-local PostgreSQL Goose provider over
 // the immutable catalog with the owner lock policy and global registration
 // disabled.
-func NewProvider(db *sql.DB, catalog *Catalog, logger goose.Logger, sessionLockers ...gooselock.SessionLocker) (*goose.Provider, error) {
+func NewProvider(db *sql.DB, catalog *Catalog, locker gooselock.SessionLocker) (*goose.Provider, error) {
+	if db == nil {
+		return nil, errors.New("migration provider database is nil")
+	}
 	if err := Validate(catalog); err != nil {
 		return nil, err
 	}
-	locker, err := NewSessionLocker()
-	if err != nil {
-		return nil, err
-	}
-	if len(sessionLockers) > 0 && sessionLockers[0] != nil {
-		locker = sessionLockers[0]
+	if locker == nil {
+		return nil, errors.New("migration provider session locker is nil")
 	}
 	return goose.NewProvider(
 		goose.DialectPostgres,
 		db,
 		catalogFS{files: catalog.files},
 		goose.WithDisableGlobalRegistry(true),
-		goose.WithLogger(logger),
+		goose.WithLogger(log.New(io.Discard, "", 0)),
 		goose.WithSessionLocker(locker),
 	)
 }

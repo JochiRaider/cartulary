@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"io"
-	"log"
 	"sync"
 	"testing"
 	"testing/fstest"
@@ -60,7 +58,12 @@ func TestProviderSourceIsolation(t *testing.T) {
 				t.Errorf("%s: construct source: %v", testCase.name, err)
 				return
 			}
-			provider, err := sourcecatalog.NewProvider(&sql.DB{}, source, log.New(io.Discard, "", 0))
+			locker, err := sourcecatalog.NewSessionLocker()
+			if err != nil {
+				t.Errorf("%s: create provider locker: %v", testCase.name, err)
+				return
+			}
+			provider, err := sourcecatalog.NewProvider(&sql.DB{}, source, locker)
 			if err != nil {
 				t.Errorf("%s: create provider: %v", testCase.name, err)
 				return

@@ -85,6 +85,43 @@
         "production_only": true
       },
       {
+        "id": "database-migrations-no-retired-state-helpers",
+        "symbols": [
+          "HasVersion",
+          "sourceHasVersion"
+        ],
+        "scan_paths": [
+          "internal/modules/database_migrations/**"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
+        "id": "database-migrations-single-lock-policy-owner",
+        "symbols": [
+          "migrationAdvisoryLockID",
+          "newMigrationSessionLocker"
+        ],
+        "scan_paths": [
+          "internal/modules/database_migrations/**"
+        ],
+        "allowed_paths": [
+          "internal/modules/database_migrations/sourcecatalog/**"
+        ],
+        "production_only": false
+      },
+      {
+        "id": "migration-evidence-no-exported-manifest-failure",
+        "symbols": [
+          "ManifestFailure"
+        ],
+        "scan_paths": [
+          "internal/modules/database_migrations/migrationevidence/**"
+        ],
+        "allowed_paths": [],
+        "production_only": false
+      },
+      {
         "id": "pgtest-no-raw-migration-scratch-surface",
         "symbols": [
           "DropMigrationDatabase",

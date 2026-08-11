@@ -12,7 +12,7 @@ import (
 
 const validMigrationBody = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"
 
-func TestNewSourceRejectsInvalidCatalogs(t *testing.T) {
+func TestSourceConstructionRejectsInvalidCatalogs(t *testing.T) {
 	valid := fstest.MapFS{"migrations/00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}}
 	tests := []struct {
 		name      string
@@ -133,38 +133,7 @@ func TestSchemaReadinessRejectsInvalidSourceAndNilPool(t *testing.T) {
 	requireMigrationFailureReason(t, EnsureSchemaReady(context.Background(), (*pgxpool.Pool)(nil), source), reasonMigrationDatabaseUnavailable)
 }
 
-func TestMigrationRemediationReportJSONContract(t *testing.T) {
-	source, sourceErr := buildSource(
-		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
-		".",
-		"cartulary.production.v1",
-		"migration_lineage",
-	)
-	if sourceErr != nil {
-		t.Fatalf("construct remediation source: %v", sourceErr)
-	}
-	err := newMigrationLineageRemediationError(
-		source,
-		migrationLineageState{TablePresent: true, ObservedIDs: []string{"cartulary.legacy_line.v1"}},
-		1,
-		1,
-		1,
-	)
-	var reporter RemediationReporter
-	if !errors.As(err, &reporter) {
-		t.Fatalf("expected remediation reporter, got %T", err)
-	}
-
-	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.legacy_line.v1","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":true,"observed_lineage_ids":["cartulary.legacy_line.v1"],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."}]}`
-	if got := reporter.RemediationReportJSON(); got != want {
-		t.Fatalf("remediation JSON mismatch\n got: %s\nwant: %s", got, want)
-	}
-	if reporter.Error() != want || reporter.ReasonCode() != historicalMigrationLineageReason {
-		t.Fatalf("remediation error mismatch: %s", err.Error())
-	}
-}
-
-func TestMigrationRemediationReportVariantJSONContracts(t *testing.T) {
+func TestMigrationRemediationReportContracts(t *testing.T) {
 	source, err := buildSource(
 		fstest.MapFS{"00001_valid.sql": &fstest.MapFile{Data: []byte(validMigrationBody)}},
 		".",
@@ -208,6 +177,9 @@ func TestMigrationRemediationReportVariantJSONContracts(t *testing.T) {
 			}
 			if got := reporter.RemediationReportJSON(); got != test.want {
 				t.Fatalf("remediation JSON mismatch\n got: %s\nwant: %s", got, test.want)
+			}
+			if reporter.Error() != test.want || reporter.ReasonCode() != reasonHistoricalMigrationLineage {
+				t.Fatalf("remediation error mismatch: %s", report.Error())
 			}
 		})
 	}

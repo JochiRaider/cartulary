@@ -102,10 +102,7 @@ func TestValidatingSessionLockerBoundsDetachedUnlock(t *testing.T) {
 	}
 }
 
-func TestMigrationLockPolicyConstants(t *testing.T) {
-	if migrationAdvisoryLockID != 4097083626 {
-		t.Fatalf("migration advisory lock id = %d", migrationAdvisoryLockID)
-	}
+func TestMigrationOperationTimeouts(t *testing.T) {
 	if migrationLockTimeout != 5*time.Minute || migrationUnlockTimeout != 30*time.Second {
 		t.Fatalf("migration lock ceilings = %s / %s", migrationLockTimeout, migrationUnlockTimeout)
 	}

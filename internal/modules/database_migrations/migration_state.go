@@ -33,8 +33,7 @@ const (
 )
 
 type migrationClassification struct {
-	State          migrationState
-	CurrentVersion int64
+	State migrationState
 }
 
 func classifyMigrationState(source *Source, snapshot migrationStateSnapshot) (migrationClassification, error) {
@@ -72,9 +71,6 @@ func classifyMigrationState(source *Source, snapshot migrationStateSnapshot) (mi
 		if row.Version != expectedVersion {
 			return migrationClassification{}, invalidMigrationHistory()
 		}
-		if row.Version <= sourceHeadVersion(source) && !sourceHasVersion(source, row.Version) {
-			return migrationClassification{}, invalidMigrationHistory()
-		}
 		seenVersions[row.Version] = struct{}{}
 		currentVersion = row.Version
 		expectedVersion++
@@ -103,11 +99,11 @@ func classifyMigrationState(source *Source, snapshot migrationStateSnapshot) (mi
 
 	switch {
 	case currentVersion < sourceHeadVersion(source):
-		return migrationClassification{State: migrationStateBehind, CurrentVersion: currentVersion}, nil
+		return migrationClassification{State: migrationStateBehind}, nil
 	case currentVersion == sourceHeadVersion(source):
-		return migrationClassification{State: migrationStateCurrent, CurrentVersion: currentVersion}, nil
+		return migrationClassification{State: migrationStateCurrent}, nil
 	default:
-		return migrationClassification{State: migrationStateAhead, CurrentVersion: currentVersion}, nil
+		return migrationClassification{State: migrationStateAhead}, nil
 	}
 }
 

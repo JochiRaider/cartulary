@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
-	"log"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -776,7 +774,11 @@ func newCanonicalMigrationProvider(db *sql.DB) (*goose.Provider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load canonical migration source: %w", err)
 	}
-	return sourcecatalog.NewProvider(db, source, log.New(io.Discard, "", 0))
+	locker, err := sourcecatalog.NewSessionLocker()
+	if err != nil {
+		return nil, fmt.Errorf("construct canonical migration locker: %w", err)
+	}
+	return sourcecatalog.NewProvider(db, source, locker)
 }
 
 func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *TestDatabase {

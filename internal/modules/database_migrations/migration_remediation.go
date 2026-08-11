@@ -5,9 +5,8 @@ import (
 )
 
 const (
-	migrationRemediationSchemaID     = "cartulary.migration_remediation_report.v1"
-	historicalMigrationLineageReason = "historical_migration_lineage"
-	historicalMigrationLineageHint   = "Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."
+	migrationRemediationSchemaID   = "cartulary.migration_remediation_report.v1"
+	historicalMigrationLineageHint = "Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."
 )
 
 type migrationRemediationReport struct {
@@ -98,7 +97,7 @@ func migrationLineageRemediationReport(source *Source, state migrationLineageSta
 					RepositoryHeadVersion: repositoryHeadVersion,
 					TargetVersion:         targetVersion,
 				},
-				ReasonCode:      historicalMigrationLineageReason,
+				ReasonCode:      reasonHistoricalMigrationLineage,
 				RemediationHint: historicalMigrationLineageHint,
 			},
 		},

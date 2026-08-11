@@ -4,9 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"io"
 	"io/fs"
-	"log"
 
 	gooselock "github.com/pressly/goose/v3/lock"
 
@@ -101,10 +99,6 @@ func sourceHeadVersion(source *Source) int64 {
 	return sourcecatalog.HeadVersion(source)
 }
 
-func sourceHasVersion(source *Source, version int64) bool {
-	return source != nil && sourcecatalog.HasVersion(source, version)
-}
-
 func sourceLineageID(source *Source) string {
 	if source == nil {
 		return ""
@@ -134,7 +128,7 @@ func Apply(ctx context.Context, db *sql.DB, source *Source) (retErr error) {
 		return newMigrationFailure(reasonMigrationDatabaseUnavailable, nil)
 	}
 
-	locker, err := newMigrationSessionLocker()
+	locker, err := sourcecatalog.NewSessionLocker()
 	if err != nil {
 		return newMigrationFailure(reasonMigrationLockAcquisitionFailed, err)
 	}
@@ -176,7 +170,7 @@ func Apply(ctx context.Context, db *sql.DB, source *Source) (retErr error) {
 
 func runGooseProvider(ctx context.Context, db *sql.DB, source *Source, locker gooselock.SessionLocker) (retErr error) {
 	defer recoverProviderPanic(&retErr)
-	provider, err := sourcecatalog.NewProvider(db, source, log.New(io.Discard, "", 0), locker)
+	provider, err := sourcecatalog.NewProvider(db, source, locker)
 	if err != nil {
 		return err
 	}

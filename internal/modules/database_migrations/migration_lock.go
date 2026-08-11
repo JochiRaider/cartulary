@@ -4,23 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	gooselock "github.com/pressly/goose/v3/lock"
-
-	"github.com/JochiRaider/cartulary/internal/modules/database_migrations/sourcecatalog"
 )
 
 const (
-	migrationAdvisoryLockID = int64(4097083626)
-	migrationLockTimeout    = 5 * time.Minute
-	migrationUnlockTimeout  = 30 * time.Second
+	migrationLockTimeout   = 5 * time.Minute
+	migrationUnlockTimeout = 30 * time.Second
 )
-
-func newMigrationSessionLocker() (gooselock.SessionLocker, error) {
-	return sourcecatalog.NewSessionLocker()
-}
 
 type validatingSessionLocker struct {
 	delegate      gooselock.SessionLocker
@@ -164,7 +156,7 @@ func verifyMigrationPostcondition(ctx context.Context, reader sqlLedgerReader, s
 
 func recoverProviderPanic(retErr *error) {
 	if recovered := recover(); recovered != nil {
-		*retErr = newMigrationFailure(reasonSchemaMigrationExecutionFailed, fmt.Errorf("provider panic"))
+		*retErr = newMigrationFailure(reasonSchemaMigrationExecutionFailed, nil)
 	}
 }
 
