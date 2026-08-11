@@ -3999,6 +3999,13 @@ Verified by: AC-416, AC-417, AC-438
 
 **REQ-01-243**
 `POST /api/v1/object-blobs` MUST accept only a JSON object request body and MUST provision exactly one incident-scoped pending blob slot for one intended upload. The request MUST accept required `incident_id`, required `client_txn_id`, and required `byte_size`. It MAY accept optional `filename_hint`, optional `content_type_hint`, and optional `sha256_hex`; each optional member MAY be omitted or set to JSON `null`. `byte_size` MUST be an integer in `0..limits.object_blobs.max_declared_byte_size`, inclusive. This route MUST create only the blob slot; it MUST NOT create or mutate evidence records, record links, preview state, release state, or workflow objects. The route MUST reject row identifiers, evidence identifiers, preview intents, release intents, workflow objects, unknown top-level members, and server-managed blob fields. If the body is not a JSON object, omits a required member, supplies `null` for a non-nullable member, violates a field validation rule in this subsection, or attempts to set server-managed state, the server MUST fail with `400` and `error.code = invalid_blob_create_request`. When `byte_size` exceeds `limits.object_blobs.max_declared_byte_size`, the server MUST fail before slot creation with `413`, `error.code = blob_create_rejected`, `error.details.reason_code = byte_size_exceeds_limit`, `error.details.requested_byte_size`, and `error.details.configured_limit_bytes`. That rejection path MUST create no `object_blob_id`, no `upload_target`, and no pending blob-slot state. When the failure is attributable to one request member, `error.details.field` MUST identify that top-level member. `error.details.reason_code` MUST use the registry in §3.3.6.2.
+
+The minimum current incident roles, closed-incident behavior, current-state
+rechecks, failure precedence, concealment posture, and deployment-admin
+insufficiency for this route, upload-target use, attachment, handle issuance,
+and handle redemption are owned exclusively by Core 04 §2.0A. This core remains
+the owner of route shapes, body contracts, envelopes, capability state, and
+public error vocabularies.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-321
 
@@ -4013,6 +4020,17 @@ For idempotency comparison and response echo, the server MUST normalize the blob
 - `sha256_hex`, when present, is an expected integrity assertion for later finalization comparison and is not authoritative stored hash metadata by itself.
 
 A successful create response MUST include `incident_id`, `object_blob_id`, `upload_state`, `target_expires_at`, `pending_expires_at`, the short-lived `upload_target`, and `accepted_contract`. In the base profile, `upload_target` MUST be an opaque same-origin `PUT /api/v1/object-uploads/{upload_token}` capability and MUST NOT expose raw bucket names, storage keys, presigned object-store query parameters, or object-store hostnames. `upload_target.headers` MUST be a required JSON object whose member values are JSON strings; an empty object is valid. Clients MUST honor the returned string-valued headers without inferring or synthesizing storage credentials. `accepted_contract` MUST echo the server-accepted normalized values for `incident_id`, `byte_size`, `filename_hint`, `content_type_hint`, and `sha256_hex`. Omitted optional members MUST be serialized as explicit `null` inside `accepted_contract` rather than by field omission.
+
+The server-side upload capability MUST bind the issuing authenticated session,
+issuing actor, incident, `object_blob_id`, complete accepted contract, exact
+HTTP method, exact required header names and values, declared byte size,
+optional expected SHA-256 when present, issue time, expiry time, and the one
+pending slot's single-upload lease state. Capability use MUST compare every
+bound member against current server state before object-store access. The
+capability MUST NOT be transferable across sessions, actors, incidents, blob
+slots, request methods, required-header contracts, sizes, expected hashes,
+expiry intervals, or upload leases. Current authorization at use time remains
+governed by Core 04 §2.0A and MUST NOT be frozen at issuance.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
@@ -4044,6 +4062,11 @@ Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231
 
 **REQ-01-247**
 Preview and download MUST be issued only through `POST /api/v1/evidence-records/{record_id}/preview-handle` and `POST /api/v1/evidence-records/{record_id}/download-handle`, and redeemed only through `GET /api/v1/evidence-handles/{handle_token}`. These routes MUST return short-lived authorization-checked handles. They MUST NOT expose long-lived object-store credentials, bypass incident membership checks, or treat a `pending` blob slot as attached evidence.
+
+The exact current-role matrix, closed-incident read posture, current-state
+rechecks, failure precedence, and concealment rules for issuance and redemption
+are owned by Core 04 §2.0A. Sections 3.3.8.1 and 16 remain the owners of route,
+handle, lifetime, token-state, envelope, and public-error behavior.
 Profiles: base
 Verified by: AC-015, AC-016, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255
 
@@ -8261,6 +8284,12 @@ Verified by: AC-231, AC-232, AC-233, AC-236
 
 **REQ-01-458**
 This section owns the base-profile public contract for `POST /api/v1/evidence-records/{record_id}/preview-handle`, `POST /api/v1/evidence-records/{record_id}/download-handle`, and `GET /api/v1/evidence-handles/{handle_token}`. A successful issuance response MUST return `data.href` as an opaque same-origin redeem URL under `GET /api/v1/evidence-handles/{handle_token}`, and clients MUST NOT synthesize or parse that token. The server MAY satisfy redeem by streaming bytes itself or by performing an internal one-time redirect after redeem-time validation, but the public contract MUST NOT expose long-lived object-store credentials, bucket names, raw object keys, or storage-backend-specific identifiers.
+
+Core 04 §2.0A is the sole owner of the role matrix, closed-incident read posture,
+current authorization rechecks, failure precedence, and concealment rules for
+these routes. This section remains the sole owner of their public request and
+response shapes, handle bindings, lifetimes, token states, consumption
+semantics, and error vocabulary.
 Profiles: base
 Verified by: AC-231, AC-252, AC-253, AC-254
 
@@ -8343,6 +8372,11 @@ Example download-handle success payload:
 
 **REQ-01-463**
 Every redeem of `GET /api/v1/evidence-handles/{handle_token}` MUST re-check current session validity, current incident membership, current evidence or blob accessibility state, and handle freshness at redeem time. A handle MUST be bound, at minimum, to the issuing session, incident, `record_id`, `object_blob_id`, `handle_kind`, resolved `filename`, and `disposition`; preview handles MUST also bind `preview_kind`. A handle issued before logout, session expiry, incident-membership loss, blob detach or replacement, evidence delete or restore, quarantine, pending or failed blob transition, or detected evidence/blob inconsistency MUST fail closed when redeemed later.
+
+Redeem-time role evaluation, closed-incident behavior, failure precedence, and
+concealment MUST follow Core 04 §2.0A. The binding and invalidation behavior in
+this requirement remains authoritative and MUST be evaluated together with
+that current authorization matrix.
 
 Download-handle redemption MAY serve a full object stream without depending on backend byte-range support. If a client asks for a partial response through a download handle and the implementation cannot safely satisfy that partial response, it MAY instead require a fresh ordinary full-download handle path; it MUST NOT expose raw object-store URLs, bucket names, object keys, credentials, or storage-backend-specific identifiers as a fallback.
 Profiles: base

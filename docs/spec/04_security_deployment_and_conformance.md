@@ -160,6 +160,92 @@ API routes, preview or download handle issuance and redemption, job polling, job
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-254, AC-255, AC-257, AC-260, AC-261, AC-427
 
+### 2.0A Evidence route-family authorization and concealment
+
+**REQ-04-156**
+The base profile MUST authorize the six Evidence operations in Table 2-A against
+the current authenticated session, active account, current incident membership,
+current incident role, and current incident lifecycle. Possession of an opaque
+upload target, preview handle, or download handle MUST NOT replace any current
+authorization check. `deployment_admin=true` without current membership in the
+addressed incident is insufficient for every operation in this table.
+
+**Table 2-A. Evidence operation authorization matrix**
+
+| Operation | Permitted current incident roles | Closed-incident rule | Additional current-state rechecks |
+| --- | --- | --- | --- |
+| `POST /api/v1/object-blobs` | `editor`, `reviewer`, `admin` | Reject the fresh write. | Incident scope decoded from the bounded request prefix; current incident visibility. |
+| `PUT /api/v1/object-uploads/{upload_token}` | `editor`, `reviewer`, `admin` | Reject the upload and leave the slot for ordinary timeout and cleanup. | Issuing session, actor, incident and blob binding; accepted contract; required method and headers; declared size and optional expected hash; issue and expiry times; pending single-upload lease state. |
+| `POST /api/v1/evidence-records/{record_id}/attach-blob` | `editor`, `reviewer`, `admin` | Reject the fresh write. | Evidence visibility; current Evidence and blob state; blob visibility; current Evidence row version; capability and accepted-contract binding when finalization consumes the uploaded object. |
+| `POST /api/v1/evidence-records/{record_id}/preview-handle` | `viewer`, `editor`, `reviewer`, `admin` | Permit the read when every other check succeeds. | Evidence visibility; current Evidence and blob state; preview policy; current handle-issuance eligibility. |
+| `POST /api/v1/evidence-records/{record_id}/download-handle` | `viewer`, `editor`, `reviewer`, `admin` | Permit the read when every other check succeeds. | Evidence visibility; current Evidence and blob state; current handle-issuance eligibility. |
+| `GET /api/v1/evidence-handles/{handle_token}` | `viewer`, `editor`, `reviewer`, `admin` | Permit the read when every other check succeeds. | Issuing-session, incident, Evidence, blob, kind, filename, disposition, and preview-kind bindings; current Evidence and blob state; expiry; consumption state. |
+
+Every request or redeem MUST re-evaluate the applicable Table 2-A state. A
+state cached when a capability was issued MUST NOT authorize later use. The
+route family MUST apply the failure-precedence sequence in Table 2-B from top
+to bottom and MUST stop at the first failing gate.
+
+**Table 2-B. Evidence failure precedence**
+
+| Precedence | Gate | Required behavior |
+| ---: | --- | --- |
+| 1 | HTTP method and basic request framing | Reject unsupported method or unusable framing before operation-specific processing. |
+| 2 | Authentication and current session validity | Authenticate before opaque-capability lookup or resource-specific disclosure. |
+| 3 | Cookie-authenticated CSRF for `POST` and `PUT` | Apply the Core CSRF contract before scope, role, capability, or body diagnostics. |
+| 4 | Minimal bounded scope decode | Decode only the path token or identifier, or the body-carried `incident_id` for blob-slot creation, needed to establish scope. This decode MUST NOT disclose resource-specific diagnostics to an unauthenticated or unauthorized caller. |
+| 5 | Current incident or resource visibility | Conceal absent, foreign, and hidden incident resources before role, lifecycle, version, blob, or validation details. |
+| 6 | Minimum current role | Apply the exact Table 2-A role set. A visible resource with an insufficient role uses the ordinary authorization-denied outcome. |
+| 7 | Capability binding and expiry | Validate all Core 01 bindings, current ownership, expiry, revocation, and single-use or single-upload state. |
+| 8 | Full body and header semantic validation | Apply the route-owned closed request, header, size, and hash contracts only after preceding gates succeed. |
+| 9 | Incident and resource lifecycle | Apply current closed-incident, Evidence, blob, quarantine, deletion, and availability rules. |
+| 10 | Row version and idempotency | Apply strict version and route-owned replay or conflict rules. |
+| 11 | Object-store access | Invoke object storage only after every preceding gate succeeds. |
+
+Unknown, foreign-incident, cross-session, and revoked opaque capabilities MUST
+use the applicable Core 01 constant-disclosure not-found-or-revoked outcome.
+Hidden Evidence resources MUST NOT disclose lifecycle state, row version, blob
+existence, capability validity, or request-validation detail. A visible resource
+with an insufficient role MUST use the Core 01 authorization-denied outcome. A
+visible resource rejected by current lifecycle state MUST use the exact Core 01
+route-owned unavailable or rejected outcome and safe `reason_code`.
+Authentication or session failure MUST precede opaque handle lookup.
+
+The executable authorization matrix MUST define, for every denial cell, the
+exact HTTP status, `error.code`, safe `error.details.reason_code` or explicit
+absence of that member, concealment posture, object-store invocation count,
+handle-consumption result, and durable-effect result. Each value MUST be copied
+from the applicable Core 01 route, envelope, error, and reason-code contract;
+this requirement creates no error token or reason token. A denied operation
+MUST make no object-store call, consume no handle, and commit no idempotency,
+source, history, projection, revision, Collaboration, or other durable effect.
+
+State changes after capability issuance MUST have the exact consequences in
+Table 2-C.
+
+**Table 2-C. Evidence capability state-change consequences**
+
+| State change after issuance | Upload target | Preview or download handle |
+| --- | --- | --- |
+| Session logout, revocation, or expiry | Reject. | Reject. |
+| Incident membership removed | Reject. | Reject. |
+| `editor` downgraded to `viewer` | Reject upload and finalization. | Permit read use only while every other check remains valid. |
+| Incident becomes closed | Reject upload and finalization. | Permit read use only while every other check remains valid. |
+| Blob detached or replaced | Not applicable to the pending upload. | Invalidate the existing handle. |
+| Blob becomes `pending`, `failed`, missing, or inconsistent | Reject or remain unusable under the route-owned state outcome. | Fail with the exact Core 01 unavailable outcome. |
+| Blob or Evidence becomes quarantined | Reject association or finalization. | Invalidate the existing handle. |
+| Evidence is deleted and later restored | Reject any use that no longer satisfies current state. | The pre-delete handle remains invalid; restore MUST NOT resurrect it. |
+| Download redeem starts successful byte delivery | Not applicable. | Consume the single-use download handle. |
+| Object bytes are unavailable before byte delivery | Not applicable. | Fail without consuming the handle. |
+| Preview redeem succeeds | Not applicable. | Keep the preview handle reusable until expiry unless another state change invalidates it. |
+
+Core 01 remains the sole owner of Evidence route shapes, request and response
+envelopes, capability and handle bindings, lifetimes, consumption states, and
+public error vocabularies. This section creates no new route, role, error token,
+reason token, public resource, or object-store credential surface.
+Profiles: base
+Verified by: AC-543
+
 **REQ-04-024**
 `party`, `task_request`, `decision`, and coordination artifacts such as `comm_log`, `handoff`, `status_review`, and `lesson` MUST inherit the same incident-level authorization model. The base profile MUST NOT introduce record-specific ACLs or hidden sub-workspaces for these objects.
 Profiles: base
@@ -1593,6 +1679,8 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-126
 - **AC-155**: Pending-blob timeout handling runs at least every 15 minutes; by no later than `pending_expires_at + 15 minutes`, an unfinalized slot is failed; and for any failed unattached slot, including timeout, retry exhaustion, or terminal size/hash mismatch, orphaned bytes are deleted within 1 hour of terminal failure and failed unattached slot metadata remains queryable for at least 7 days before automatic hard deletion.
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-126
+- **AC-543**: Table-driven, service-backed Evidence authorization evidence covers every combination required by REQ-04-156 across missing, expired, revoked, and valid sessions; missing, invalid, and valid cookie CSRF; no membership and every current incident role; `deployment_admin` false and true; same, foreign, and closed incidents; malformed, unknown, cross-session, cross-incident, expired, consumed, and valid capabilities; active, deleted, and restored Evidence; absent, pending, available, failed, quarantined, missing, and inconsistent blobs; successful, object-not-found, and typed transient object-store results; and role or membership changes between issuance and use. Every denial cell asserts the exact Core 01 status, `error.code`, safe `reason_code` or its required absence, concealment posture, object-store invocation count, handle-consumption result, and absence of durable effects. The suite proves the exact Table 2-A role sets, Table 2-B precedence, Table 2-C state-change consequences, current authorization at use time, and the insufficiency of `deployment_admin` without current incident membership.
+  - Verifies: REQ-04-156, REQ-01-243..REQ-01-247, REQ-01-458..REQ-01-465
 - **AC-104**: Rendering a report or presentation artifact creates a release record bound to one immutable release tuple, including materialized `output_options`, canonical `recipient_partition_refs[]`, canonical `graph_projection_refs[]`, all-null or all-non-null composition tuple fields, `render_admitted_at`, `redaction_profile_sha256`, `redaction_manifest_sha256`, and `output_sha256`; the record starts in `pending_approval` when approvals are required and starts in `approved` only for an internal-draft scope with no separate approval requirement.
   - Verifies: REQ-01-374..REQ-01-376, REQ-02-139..REQ-02-146, REQ-04-031..REQ-04-035
 - **AC-105**: Satisfying the required approval set moves that exact release record to `approved`, and any attempted publish action on a non-approved record is rejected.

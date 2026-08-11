@@ -417,6 +417,64 @@ The reporting subsystem MUST accept case content only through an immutable snaps
 **REQ-RPT-026**
 The implementation MUST enforce the source boundary with an observable guard. Any attempt by a renderer, template, Mermaid generator, Slidev generator, asset resolver, or validation stage to query live workbook tables or mutable projections after export-model materialization MUST fail the render with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='live_query_after_export_model'`.
 
+### 7.1.1 Evidence provider-output contract
+
+**REQ-RPT-026a**
+The Evidence source provider MUST construct the value carried by
+`cartulary.reporting_owner_field_fact.v1` from the closed allowlist in Table
+7-A0. The provider MUST omit every Evidence member not listed in that table.
+The allowlist applies before redaction and does not grant a field release
+eligibility; every retained value continues through the ordinary Reporting
+field classification, subject mapping, redaction, partition, and release-scope
+rules.
+
+**Table 7-A0. Allowed Evidence provider value members**
+
+| Member | Required provider posture |
+| --- | --- |
+| `record_id` | Include when present in the eligible immutable source record. |
+| `title` | Include when present, preserving the immutable source value and null posture. |
+| `lifecycle_state` | Include when present. Eligibility filtering remains separately mandatory. |
+| `requested_at` | Include when present, preserving null versus timestamp. |
+| `received_at` | Include when present, preserving null versus timestamp. |
+| `collector_party_text` | Include when present, preserving null versus string. |
+| `collector_party_id` | Include when present, preserving null versus identifier. |
+| `source_party_text` | Include when present, preserving null versus string. |
+| `source_party_id` | Include when present, preserving null versus identifier. |
+| `upload_state` | Include when present. |
+| `created_at` | Include when present. |
+| `updated_at` | Include when present. |
+
+The provider MUST NOT emit any member or value class in Table 7-A0a through
+this field-fact value, a sibling field fact, support metadata, diagnostics, or
+an extension map.
+
+**Table 7-A0a. Forbidden Evidence provider output**
+
+| Forbidden member or value class | Required posture |
+| --- | --- |
+| `incident_id`, `blob_hash`, `storage_ref`, `object_blob_id` | Omit. These members MUST NOT occur in the provider value. |
+| Physical object keys, bucket names, storage paths, endpoint identities, or other object-store identities | Omit. Logical source identity MUST NOT be derived from physical storage identity. |
+| Upload targets, upload tokens, access handles, access capabilities, presigned parameters, or capability-binding material | Omit. |
+| Object bytes, preview bytes, byte excerpts, or byte-derived content not admitted by another adopted Reporting source contract | Omit. |
+| Credentials, credential material, secret references, authentication state, or session identifiers | Omit. |
+| Reveal maps, reveal-map entries, token reversal material, or unredacted replacement material | Omit. |
+| Internal errors, stack or package identities, implementation type names, SQL detail, or backend diagnostics | Omit. |
+
+Unknown future Evidence fields MUST default to omission. They MUST remain
+omitted until the Reporting owner revises Table 7-A0 through an adopted change;
+adding a field to Evidence storage, a projection, a generated contract, or a
+provider struct MUST NOT add it to Reporting output. Implementations MUST NOT
+use reflection, unrestricted row-to-map conversion, whole-row JSON
+serialization, or equivalent automatic field propagation to construct this
+provider value.
+
+Deleted Evidence and Evidence otherwise ineligible under the immutable source
+selection rules MUST remain excluded. Eligible Evidence support references
+MUST continue to use the logical identity `evidence:{evidence_id}` under the
+`cartulary.reporting_support_ref.v1` grammar. They MUST NOT use a blob identity,
+storage identity, capability identity, or physical object locator.
+
 ## 7.2 Release tuple
 
 **REQ-RPT-027**
@@ -2990,6 +3048,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-OPT-002` | Every invalid option, scope, or template combination fails with the mapped structured error before output bytes persist. |
 | `RPT-AC-SCHEMA-001` | Every top-level export-model array item validates against its named schema and rejects unknown members, invalid nulls, omitted required fields, duplicate IDs, and ordering drift. |
 | `RPT-AC-SCHEMA-002` | Explicit defaults and omitted defaults canonicalize identically where omission is valid. |
+| `RPT-AC-SOURCE-001` | Evidence provider fixtures prove exact set equality with the twelve-member Table 7-A0 allowlist; preserve null and timestamp values deterministically; exclude deleted and otherwise ineligible Evidence; omit every Table 7-A0a value class; reject malformed provider contributions; use only logical `evidence:{evidence_id}` support identity; and prove that an unknown Evidence field added to a source fixture does not appear in field facts, support metadata, diagnostics, or rendered output until this NLSpec adds it to the allowlist. |
 | `RPT-AC-TIME-001` | Rerendering the same tuple with different system clocks produces byte-identical canonical export model, validation summary, redaction manifest, token manifest, toolchain snapshot, bundle manifest, and `output_sha256`. |
 | `RPT-AC-MAT-001` | Export-model validation emits the expected structured failure for duplicate IDs, dangling refs, missing content class, invalid generated IDs, and resource-limit failures. |
 | `RPT-AC-PART-001` | Duplicate active party assignments fail deterministically. |
