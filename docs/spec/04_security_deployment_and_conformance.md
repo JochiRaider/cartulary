@@ -1242,6 +1242,28 @@ These criteria provide direct runtime-family verification for substantive base-p
   surface or writable field through only one projection fails closed rather
   than partially registering behavior.
   - Verifies: REQ-01-660
+- **AC-542**: Production DDL Rebaseline v2 evidence proves that one pristine
+  PostgreSQL 16 database applies exactly versions `1..29` under lineage
+  `cartulary.prod_ddl_rebaseline.v2`; v1, foreign, unmarked-nonzero, and
+  contaminated states fail before v2 DDL with remediation-report schema v1,
+  boundary `prod_ddl_rebaseline_v2`, reason `historical_migration_lineage`, and
+  the exact reset-only hint; and no v1 SQL, migration 62, data bridge,
+  export/import transition, compatibility object, dual lineage, or downgrade
+  remains. Manifest and catalog evidence proves exact file, object, logical
+  owner, dependency, FK coverage, routine, Recovery, SQLC, and per-purpose
+  access allocation. Prerequisite matrices prove exact administrator-owned
+  `pgcrypto` 1.3 and `citext` 1.6 state, contamination rejection, qualified
+  DDL, transactional Up sections, and exact rollback-through-zero residue.
+  Resolver, connection, and PostgreSQL catalog matrices prove three-purpose
+  credential isolation, closed failure precedence and redaction, no-follow
+  bounded files, fixed role attributes and memberships, per-connection
+  `session_user`/`current_user` establishment including recycled connections,
+  object ownership, explicit ACLs, `PUBLIC` revocation, default-deny future
+  objects, runtime denial of migration and restore authority, and complete
+  Recovery under `cartulary_recovery`. Recovery remains exactly 111/83 with the
+  unique Revisions conflict-fact entry; evidence remains v2, remediation
+  remains v1, and public product behavior and SQLC have no unexplained delta.
+  - Verifies: REQ-01-661, REQ-04-153, TH-HARNESS-REQ-811
 
 ### 9.1B Network Flow Activity Extension Profile criteria
 
@@ -2408,7 +2430,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-00-068, REQ-01-655, REQ-03-307, REQ-04-151
 - **AC-536**: Object Store initialization conformance preserves the existing logical command and successful v1 schema, creates or confirms only the configured bucket, maps known typed configuration and adapter failures deterministically, maps every untyped failure to `dependency_unavailable`, contains no error-string classifier, closes acquired resources, and emits no endpoint, host, bucket, key, storage reference, credential, secret reference, raw DSN, path, constraint, or upstream error text.
 
-- **AC-537**: Database migration conformance proves that PostgreSQL connectivity, root and service binding resolution, generic query and transaction ports, and PostgreSQL telemetry remain in the PostgreSQL adapter while immutable migration-source inspection, typed apply-to-head execution, exact migration-history and lineage classification, readiness, remediation, evidence, and migration recovery metadata exist only under the database-migrations owner; that version-targeted apply and rollback exist only behind the Testing Harness disposable migration-scratch capability; and that no compatibility alias, forwarding package, duplicate implementation, generic Goose command surface, filesystem discovery, process-global migration filesystem, process-global Goose logger, production targeted operation, legacy source or status type, or migration log-file environment path remains. Source-construction and zero-source fixtures prove rejection of nil filesystems, invalid or escaping roots, missing lineage metadata, empty or malformed catalogs, unexpected entries, invalid filenames, duplicate or non-contiguous versions, malformed markers, unsupported directives, and unbalanced statement blocks before database access, including mutation-after-construction evidence for immutable catalog bytes. Production apply fixtures prove cross-process serialization through advisory lock `4097083626`, one-second cancellation-aware acquisition intervals with a five-minute ceiling, locked initial classification, validating same-session provider classification, final locked classification, bounded detached unlock within 30 seconds on every post-acquisition exit, primary-error precedence, an invocation-local provider with discarded logging and the global Go registry disabled, and continued caller usability of the borrowed database handle. State matrices prove that malformed ledger structure precedes lineage mismatch; structurally valid nonzero histories have exactly the expected singleton lineage; pristine, behind, current, and ahead states receive their specified outcomes; nil database capabilities fail closed; and neither ledger repair nor a historical-lineage bridge occurs. Migration failures expose only the closed safe reason set, remain `errors.Is`-compatible for context cancellation, preserve the exact v1 remediation JSON and single-object-plus-LF migrate framing, and expose no Goose or upstream error text, DSN, credential, secret reference, database root, server identity, SQL text, bind value, filesystem path, environment value, constraint, or endpoint through diagnostics, logs, telemetry, remediation, evidence, or operator output. Migration-history evidence fixtures prove that current output uses only `cartulary.migration_history_evidence.v2`, that version 1 is rejected as current evidence, that `manifest.path` and every replacement or path-derived locator are absent, and that relocating the repository or executable without changing logical inputs leaves the evidence invariant. The version 2 cutover preserves the logical Operator command, authorization boundary, database resource lifecycle, every unrelated evidence member and finding rule, single-object-plus-LF stdout framing, secret-safe stderr behavior, and exit-code mapping; it provides no compatibility flag, dual emission, or version 1 translation. All authored migration filenames, versions, order, bytes, hashes, and lineage identifiers remain unchanged, and recovery contribution identity, operator framing, server diagnostic mapping, and PostgreSQL telemetry privacy pass their exact owner-routed evidence.
+- **AC-537**: Database migration conformance proves that PostgreSQL connectivity, root and service binding resolution, generic query and transaction ports, and PostgreSQL telemetry remain in the PostgreSQL adapter while immutable migration-source inspection, typed apply-to-head execution, exact migration-history and lineage classification, readiness, remediation, evidence, and migration recovery metadata exist only under the database-migrations owner; that version-targeted apply and rollback exist only behind the Testing Harness disposable migration-scratch capability; and that no compatibility alias, forwarding package, duplicate implementation, generic Goose command surface, filesystem discovery, process-global migration filesystem, process-global Goose logger, production targeted operation, legacy source or status type, or migration log-file environment path remains. Source-construction and zero-source fixtures prove rejection of nil filesystems, invalid or escaping roots, missing lineage metadata, empty or malformed catalogs, unexpected entries, invalid filenames, duplicate or non-contiguous versions, malformed markers, unsupported directives, and unbalanced statement blocks before database access, including mutation-after-construction evidence for immutable catalog bytes. Production apply fixtures prove cross-process serialization through advisory lock `4097083626`, one-second cancellation-aware acquisition intervals with a five-minute ceiling, locked initial classification, validating same-session provider classification, final locked classification, bounded detached unlock within 30 seconds on every post-acquisition exit, primary-error precedence, an invocation-local provider with discarded logging and the global Go registry disabled, and continued caller usability of the borrowed database handle. State matrices prove that malformed ledger structure precedes lineage mismatch; structurally valid nonzero histories have exactly the expected singleton lineage; pristine, behind, current, and ahead states receive their specified outcomes; nil database capabilities fail closed; and neither ledger repair nor a historical-lineage bridge occurs. Migration failures expose only the closed safe reason set, remain `errors.Is`-compatible for context cancellation, preserve the exact remediation-report-v1 JSON shape and single-object-plus-LF migrate framing, and expose no Goose or upstream error text, DSN, credential, secret reference, database root, server identity, SQL text, bind value, filesystem path, environment value, constraint, or endpoint through diagnostics, logs, telemetry, remediation, evidence, or operator output. Migration-history evidence fixtures prove that current output uses only `cartulary.migration_history_evidence.v2`, that version 1 is rejected as current evidence, that `manifest.path` and every replacement or path-derived locator are absent, and that relocating the repository or executable without changing logical inputs leaves the evidence invariant. The evidence version 2 cutover preserves the logical Operator command, authorization boundary, database resource lifecycle, every unrelated evidence member and finding rule, single-object-plus-LF stdout framing, secret-safe stderr behavior, and exit-code mapping; it provides no compatibility flag, dual emission, or version 1 translation. Recovery contribution identity, operator framing, server diagnostic mapping, and PostgreSQL telemetry privacy pass their exact owner-routed evidence.
   - Verifies: REQ-00-069, REQ-01-657
   - Verifies: REQ-01-656, REQ-04-152
 - **AC-538**: Workbook application-shortcut evidence proves that `Ctrl/Cmd+K`, `Space`, and `Alt+H` are consumed only while grid navigation owns focus on an eligible committed cell or row; that link capability and inspector-group availability come from owner-declared semantic state rather than visible text; that Evidence opens explicitly and focuses its sole previewable item, list, or empty state; that History opens explicitly; and that editor, menu, popover, dialog, inspector, group-row, draft-row, and no-row cases perform no application action and do not suppress browser behavior.
@@ -2678,9 +2700,152 @@ Verified by: AC-295, AC-297, AC-403
 
 For `roots.database_storage`, the file and `CARTULARY__` overlay configuration remain backend-neutral. The only deployment-configuration keys for this root are the standardized root-binding keys above; the configuration schema MUST NOT add DSN, host, port, database, username, password, TLS, or vendor-specific database keys. When `roots.database_storage.binding_kind='filesystem_root'`, omitted `path`, explicit `path=null`, present `service_ref`, or explicit `service_ref=null` are invalid according to the root-binding contract. When `roots.database_storage.binding_kind='managed_service'`, omitted `service_ref`, explicit `service_ref=null`, present `path`, or explicit `path=null` are invalid according to the root-binding contract.
 
-For `roots.database_storage.binding_kind='managed_service'`, `service_ref` MUST contain at least one ASCII letter or digit after normalization. Normalization for managed Postgres service environment keys MUST uppercase letters, retain digits, replace every non-alphanumeric run with one underscore, trim leading and trailing underscores, and reject an empty normalized result. The normalized reference `<REF>` selects exactly `CARTULARY_POSTGRES_<REF>_DSN`, which is service binding material rather than a deployment-configuration key and MUST NOT be accepted through the `CARTULARY__` overlay grammar. Generic Postgres DSN environment variables MUST NOT satisfy a managed-service binding unless they are the exact selected `CARTULARY_POSTGRES_<REF>_DSN` key for the configured `service_ref`.
+For `roots.database_storage.binding_kind='managed_service'`, `service_ref` MUST contain at least one ASCII letter or digit after normalization. Normalization for managed Postgres service environment keys MUST uppercase letters, retain digits, replace every non-alphanumeric run with one underscore, trim leading and trailing underscores, and reject an empty normalized result. The normalized reference `<REF>` selects exactly one purpose-specific key: `CARTULARY_POSTGRES_<REF>_RUNTIME_DSN`, `CARTULARY_POSTGRES_<REF>_MIGRATION_DSN`, or `CARTULARY_POSTGRES_<REF>_RECOVERY_DSN`. These values are service binding material rather than deployment-configuration keys and MUST NOT be accepted through the `CARTULARY__` overlay grammar. The former `CARTULARY_POSTGRES_<REF>_DSN` input is retired and MUST NOT provide a fallback, alias, or warning-period value.
 
 Missing required Postgres service-binding environment variables or invalid normalized `service_ref` values MUST fail closed before readiness. Diagnostics MUST identify the config path or service binding field and a registered validation reason without exposing raw DSNs, endpoint hosts, database names, usernames, passwords, service refs as storage identity, or backend URLs.
+
+#### 12.3.1A Production PostgreSQL purpose, identity, and privilege boundary
+
+**REQ-04-153**
+Production PostgreSQL credential purposes are the closed vocabulary `runtime`,
+`migration`, and `recovery`. Purpose validation MUST occur before environment
+or filesystem access. After binding validation and service-reference
+normalization, resolution MUST derive the selected current locator, every
+unselected current locator, and the retired locator. A present retired locator
+MUST fail without reading its value; otherwise any present unselected locator
+MUST fail without reading its value; otherwise the resolver MUST read and
+validate only the selected locator. Presence with an empty value counts as
+presence for retired and unselected rejection.
+
+The exact managed locators and filesystem children are:
+
+| Purpose | Managed locator | Filesystem child | Required effective role |
+| --- | --- | --- | --- |
+| `runtime` | `CARTULARY_POSTGRES_<REF>_RUNTIME_DSN` | `postgres.runtime.dsn` | `cartulary_runtime` |
+| `migration` | `CARTULARY_POSTGRES_<REF>_MIGRATION_DSN` | `postgres.migration.dsn` | `cartulary_schema_owner` |
+| `recovery` | `CARTULARY_POSTGRES_<REF>_RECOVERY_DSN` | `postgres.recovery.dsn` | `cartulary_recovery` |
+
+The retired locators are exactly `CARTULARY_POSTGRES_<REF>_DSN` and
+`postgres.dsn`. A process or binding root MUST contain only its selected
+purpose credential. No fallback, alias, dual read, or compatibility warning is
+permitted.
+
+The resolver failure precedence and reason codes are closed:
+
+1. zero or unknown purpose: `unsupported_postgres_purpose`, without locator access;
+2. invalid binding kind, root, or normalized service reference: `postgres_binding_invalid`;
+3. retired locator present: `retired_postgres_binding_present`, without value access;
+4. unselected current locator present: `cross_purpose_postgres_binding_present`, without value access;
+5. selected locator absent: `postgres_binding_missing`;
+6. selected value empty, unreadable, malformed, oversized, or otherwise invalid: `postgres_binding_invalid`;
+7. required role identity not established: `postgres_effective_role_mismatch`.
+
+The repeated `postgres_binding_invalid` reason intentionally hides whether the
+failure arose from deployment structure or secret content. If multiple
+conditions exist, the first condition above controls. Server and Operator
+startup MUST map these failures through `invalid_deployment_config`;
+`cmd/migrate` and Recovery commands MUST retain their existing safe
+configuration-failure exit families.
+
+For a managed binding, the supplied environment map is the complete process
+environment view; a nil map selects the operating-system environment. Only the
+selected key value may be retrieved. For a filesystem binding, each selected
+file MUST resolve beneath the validated database root, be opened without
+following any path component or final symlink, be one regular file no larger
+than 65,536 bytes, be read exactly once with a bounded read, contain valid
+UTF-8 with no NUL or embedded line break, permit at most one terminal LF or
+CRLF that is removed, and remain non-empty. Retired and unselected file
+presence MUST be checked through the same no-follow root capability without
+reading bytes.
+
+No error, log, telemetry event, stdout, or stderr may contain credential bytes,
+parsed DSN fields, host, database name, username, locator, or upstream cause.
+
+Administrators MUST provision these fixed roles outside application DDL:
+
+- `cartulary_schema_owner`;
+- `cartulary_runtime`;
+- `cartulary_recovery`.
+
+Each fixed role MUST be `NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+NOREPLICATION NOBYPASSRLS`. A deployment migration, runtime, or Recovery login
+MUST be `LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION
+NOBYPASSRLS`, have exactly one membership in its corresponding fixed role with
+`INHERIT FALSE, SET TRUE, ADMIN FALSE`, and have no membership path to either
+other fixed role. Fixed roles MUST NOT be members of one another.
+
+`cartulary_schema_owner` MUST own `public`, every Cartulary-authored object,
+and Goose metadata; extension-managed objects are the only ownership
+exception. Runtime and Recovery MUST own no object. Every newly created or
+recycled physical connection MUST execute `SET ROLE` for its required fixed
+role and verify its deployment login as `session_user` and its fixed role as
+`current_user` before entering a pool or becoming caller-usable. A failing
+connection MUST be closed. One-time pool initialization is insufficient, and
+pgx pool and `database/sql` construction MUST share one identity-establishment
+implementation.
+
+Every grantable object MUST have exactly one runtime and one Recovery access
+class in the adopted object-ownership manifest. Runtime classes are:
+
+- `schema_usage`: schema `USAGE`;
+- `table_read_write`: table `SELECT`, `INSERT`, `UPDATE`, `DELETE`;
+- `table_append_only`: table `SELECT`, `INSERT`;
+- `table_read_only`: table `SELECT`;
+- `table_no_access`: no table privilege;
+- `migration_ledger_read`: migration metadata `SELECT` only;
+- `sequence_use`: sequence `USAGE` only;
+- `sequence_no_access`: no sequence privilege;
+- `view_read_only`: view `SELECT`;
+- `routine_application`: routine `EXECUTE`;
+- `routine_private`: no routine privilege;
+- `type_use`: type `USAGE`;
+- `type_no_access`: no type privilege;
+- `not_applicable`: no grantable privilege, valid only for extension, trigger,
+  constraint, index, operator, operator class/family, cast, or collation.
+
+Recovery classes are:
+
+- `schema_usage`: schema `USAGE`;
+- `table_restore`: table `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`;
+- `table_read_only`: table `SELECT`;
+- `table_no_access`: no table privilege;
+- `migration_ledger_read`: migration metadata `SELECT` only;
+- `sequence_restore`: sequence `USAGE`, `SELECT`, `UPDATE`;
+- `sequence_no_access`: no sequence privilege;
+- `view_read_only`: view `SELECT`;
+- `routine_recovery`: routine `EXECUTE`;
+- `routine_private`: no routine privilege;
+- `type_use`: type `USAGE`;
+- `type_no_access`: no type privilege;
+- `not_applicable`: the same closed non-grantable kinds as runtime.
+
+There is no default access class. Recovery additionally receives `SET` only on
+parameter `session_replication_role`. Runtime MUST NOT receive that parameter
+privilege, `TRUNCATE`, sequence update, ownership, DDL, database or schema
+`CREATE`, `TEMPORARY`, `REFERENCES`, `TRIGGER`, `MAINTAIN`, role administration,
+schema-owner assumption, migration-ledger mutation, or private routine
+execution. Recovery MUST NOT receive ownership, DDL, schema-owner assumption,
+runtime-role assumption, or migration-ledger mutation.
+
+Administrators MUST revoke database `CONNECT` and `TEMPORARY` from `PUBLIC`,
+grant `CONNECT` directly only to the three deployment logins and declared
+administrator-owned operational identities, grant no `TEMPORARY`, transfer
+`public` ownership to `cartulary_schema_owner`, and revoke every `PUBLIC`
+privilege on `public`. Default privileges for objects created by
+`cartulary_schema_owner` MUST revoke future routine `EXECUTE` and future type
+`USAGE` from `PUBLIC` and MUST grant no broad table, sequence, routine, or type
+access to runtime or Recovery. Each migration MUST issue explicit
+manifest-matching grants. Existing ACLs are not inferred from defaults.
+
+Every environment's administrator or harness provisioning MUST create the
+roles and login memberships, database grants, `public` ownership, and exact
+PostgreSQL 16 prerequisites `pgcrypto` 1.3 and `citext` 1.6 in `public`. After
+extension installation it MUST revoke extension-object `PUBLIC` privileges and
+grant only manifest-declared extension routine/type access. Cartulary
+application DDL MUST create no role, login, credential, schema, or extension.
+Profiles: base, enterprise_authentication, import, incident_portability,
+network_flow_activity, reference_pack, snapshot_reporting
+Verified by: AC-542
 
 For `roots.object_storage`, the file and `CARTULARY__` overlay configuration remain backend-neutral. The only deployment-configuration keys for this root are the standardized root-binding keys above; the configuration schema MUST NOT add `seaweedfs.*`, `s3.*`, bucket, endpoint, access-key, secret-key, CORS, or vendor-specific object-store keys. When `roots.object_storage.binding_kind='filesystem_root'`, omitted `path`, explicit `path=null`, present `service_ref`, or explicit `service_ref=null` are invalid according to the root-binding contract. When `roots.object_storage.binding_kind='managed_service'`, omitted `service_ref`, explicit `service_ref=null`, present `path`, or explicit `path=null` are invalid according to the root-binding contract.
 

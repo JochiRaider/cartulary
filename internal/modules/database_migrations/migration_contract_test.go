@@ -151,12 +151,12 @@ func TestMigrationRemediationReportContracts(t *testing.T) {
 		{
 			name:  "missing",
 			state: migrationLineageState{},
-			want:  `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":false,"observed_lineage_ids":[],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."}]}`,
+			want:  `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":false,"observed_lineage_ids":[],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}`,
 		},
 		{
 			name:  "wrong",
 			state: migrationLineageState{TablePresent: true, ObservedIDs: []string{"cartulary.legacy.v1"}},
-			want:  `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.legacy.v1","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":true,"observed_lineage_ids":["cartulary.legacy.v1"],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."}]}`,
+			want:  `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.legacy.v1","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":true,"observed_lineage_ids":["cartulary.legacy.v1"],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}`,
 		},
 		{
 			name: "mixed",
@@ -164,7 +164,7 @@ func TestMigrationRemediationReportContracts(t *testing.T) {
 				TablePresent: true,
 				ObservedIDs:  []string{"cartulary.legacy.v1", "cartulary.production.v1"},
 			},
-			want: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.legacy.v1","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":true,"observed_lineage_ids":["cartulary.legacy.v1","cartulary.production.v1"],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."}]}`,
+			want: `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"migration_lineage","from_version":1,"to_version":1,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.legacy.v1","raw_value_pair":{"current_version":1,"expected_lineage_id":"cartulary.production.v1","lineage_table_present":true,"observed_lineage_ids":["cartulary.legacy.v1","cartulary.production.v1"],"repository_head_version":1,"target_version":1},"reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}`,
 		},
 	}
 

@@ -59,6 +59,35 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.database_migrations.integration.production_ddl_v2_recurrence",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestProductionDDLCatalogManifestParity_Integration",
+          "TestProductionDDLContaminationFailsBeforeMutation_Integration",
+          "TestProductionDDLExtensionPrerequisiteMatrix_Integration",
+          "TestProductionDDLRollbackThroughZeroResidue_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_migration",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.database_migrations.integration.production_preflight_state_matrix",
       "owner_id": "module.database_migrations",
       "family_id": "module.database_migrations.integration",
@@ -73,10 +102,11 @@
       "selector": {
         "package": "./internal/modules/database_migrations",
         "tests": [
+          "TestCanonicalCatalogAppliesAndRollsBackEveryVersion_Integration",
           "TestMigrationLineagePreflightAllowsCurrentLine",
-          "TestMigrationLineagePreflightRejectsHistoricalLine",
+          "TestMigrationLineagePreflightRejectsSyntheticV1Lineage",
+          "TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase",
           "TestMigrationLineagePreflightReportsApplyHeadTarget",
-          "TestMigrationLineagePreflightReportsObservedWrongLineage",
           "TestProductionPreflightStateMatrix"
         ]
       },
@@ -244,6 +274,32 @@
         "tests": [
           "TestNewProviderContract",
           "TestSessionLockerPolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.database_migrations.unit.production_ddl_v2_recurrence",
+      "owner_id": "module.database_migrations",
+      "family_id": "module.database_migrations.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.database_migrations.verification.behavior_contract",
+        "module.database_migrations.verification.migration_mechanics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/database_migrations",
+        "tests": [
+          "TestProductionDDLCatalogStructuralPolicy",
+          "TestProductionDDLCatalogStructuralPolicyRejectsRepresentativeViolations",
+          "TestProductionDDLObjectManifestContract"
         ]
       },
       "evidence_class": "unit",

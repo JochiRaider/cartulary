@@ -6,62 +6,103 @@ import {
   assertRequiredKeys,
   assertUnique,
   readJsonObject,
-  requireObjectArray,
+  requireArray,
+  requireBoolean,
+  requireEnum,
+  requireInteger,
+  requireObject,
   requireRepoRelativePath,
   requireSchemaID,
   requireString,
   requireStringArray,
 } from "../../contract/json-shape.mjs";
 
-const schemaObjectOwnershipSchemaID =
-  "cartulary.schema_object_ownership_manifest.v1";
-
-const manifestKeys = new Set([
-  "schema_id",
-  "migration_root",
-  "synthetic_objects",
-  "allowed_owners",
-  "allowed_profiles",
-  "entries",
+const schemaID = "cartulary.schema_object_ownership_manifest.v2";
+const migrationFilenames = [
+  "00001_database_infrastructure.sql",
+  "00002_auth.sql",
+  "00003_incidents.sql",
+  "00004_recovery.sql",
+  "00005_deployment_admin.sql",
+  "00006_platform_jobs.sql",
+  "00007_records.sql",
+  "00008_revisions.sql",
+  "00009_parties.sql",
+  "00010_timeline.sql",
+  "00011_entities.sql",
+  "00012_indicators.sql",
+  "00013_assessments.sql",
+  "00014_links.sql",
+  "00015_tasks_and_decisions.sql",
+  "00016_artifacts.sql",
+  "00017_evidence.sql",
+  "00018_saved_views.sql",
+  "00019_imports.sql",
+  "00020_network_flow.sql",
+  "00021_projections.sql",
+  "00022_graph_projection.sql",
+  "00023_reporting.sql",
+  "00024_report_composition.sql",
+  "00025_incident_bundles.sql",
+  "00026_reference_data.sql",
+  "00027_extensions.sql",
+  "00028_administrative_audit.sql",
+  "00029_collaboration.sql",
+];
+const ownerByVersion = new Map([
+  [1, "database_migrations"], [2, "auth"], [3, "incidents"], [4, "recovery"],
+  [5, "deployment_admin"], [6, "platform_jobs"], [7, "records"], [8, "revisions"],
+  [9, "parties"], [10, "timeline"], [11, "entities"], [12, "indicators"],
+  [13, "assessments"], [14, "links"], [15, "tasksdecisions"], [16, "artifacts"],
+  [17, "evidence"], [18, "savedviews"], [19, "imports"], [20, "networkflow"],
+  [21, "projections"], [22, "graphprojection"], [23, "reporting"],
+  [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
+  [27, "extensions"], [28, "audit"], [29, "collaboration"],
 ]);
-const syntheticObjectKeys = new Set([
-  "kind",
-  "name",
-  "source",
-  "owner",
-  "profiles",
-  "downstream_surfaces",
-  "notes",
+const manifestKeys = new Set([
+  "schema_id", "migration_root", "supported_postgres_major", "application_schemas",
+  "goose_ledger", "lineage_relation", "allowed_owners", "entries",
 ]);
 const entryKeys = new Set([
-  "id",
-  "owner",
-  "profiles",
-  "object_patterns",
-  "downstream_surfaces",
-  "notes",
+  "object_id", "object_kind", "qualified_name", "management_class", "source_owner",
+  "migration_version", "migration_file", "dependency_object_ids", "runtime_access_class",
+  "recovery_access_class", "extension_profile_id", "recovery_classification", "sqlc_input",
+  "foreign_key_index_status", "approval",
 ]);
-const objectPatternKeys = new Set(["kind", "name_pattern"]);
+const approvalKeys = new Set([
+  "source_owner", "rationale", "expected_access_pattern", "approved_by_requirement",
+]);
 const objectKinds = new Set([
-  "any",
-  "bookkeeping",
-  "constraint",
-  "data_backfill",
-  "extension",
-  "function",
-  "generated_column",
-  "index",
-  "policy",
-  "sequence",
-  "table",
-  "trigger",
-  "type",
-  "view",
+  "schema", "extension", "table", "view", "sequence", "type", "domain", "routine",
+  "trigger", "constraint", "index", "operator", "operator_class", "operator_family",
+  "cast", "collation", "migration_metadata",
 ]);
+const managementClasses = new Set([
+  "cartulary_authored", "goose_managed", "extension_managed", "administrator_managed",
+]);
+const runtimeClasses = new Set([
+  "schema_usage", "table_read_write", "table_append_only", "table_read_only",
+  "table_no_access", "migration_ledger_read", "sequence_use", "sequence_no_access",
+  "view_read_only", "routine_application", "routine_private", "type_use", "type_no_access",
+  "not_applicable",
+]);
+const recoveryAccessClasses = new Set([
+  "schema_usage", "table_restore", "table_read_only", "table_no_access",
+  "migration_ledger_read", "sequence_restore", "sequence_no_access", "view_read_only",
+  "routine_recovery", "routine_private", "type_use", "type_no_access", "not_applicable",
+]);
+const profileIDs = new Set([
+  "enterprise_authentication", "import", "incident_portability", "network_flow_activity",
+  "reference_pack", "snapshot_reporting",
+]);
+const recoveryClasses = new Set([
+  "authoritative_required", "excluded_rebuildable", "excluded_security_state",
+  "excluded_recovery_metadata", "not_applicable",
+]);
+const fkStatuses = new Set(["covered", "intentionally_unindexed", "not_applicable"]);
 const ownerPattern = /^[a-z][a-z0-9_]*$/u;
-const profilePattern = /^[a-z][a-z0-9_]*$/u;
-const migrationFilenamePattern = /^\d{5}_.+\.sql$/u;
-const sqlIdentifierPattern = String.raw`(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*))*`;
+const objectIDPattern = /^[a-z][a-z0-9_.-]*$/u;
+const requirementPattern = /^[A-Z][A-Z0-9-]*-[0-9]+$/u;
 
 export function validateSchemaObjectOwnershipManifestShape(file) {
   const manifest = readJsonObject(file, file);
@@ -70,311 +111,204 @@ export function validateSchemaObjectOwnershipManifestShape(file) {
 }
 
 export function validateSchemaObjectOwnership(root) {
-  const manifestFile = path.join(
-    root,
-    "tools/schema_object_ownership_manifest.json",
-  );
+  const manifestFile = path.join(root, "tools/schema_object_ownership_manifest.json");
   const manifest = validateSchemaObjectOwnershipManifestShape(manifestFile);
-  const objects = collectSchemaObjects(root, manifest);
-  const uncovered = [];
-  const ambiguous = [];
-  const compiledEntries = compileEntries(manifest.entries, manifestFile);
-
-  for (const object of objects) {
-    const matches = compiledEntries.filter((entry) =>
-      entry.patterns.some((pattern) => patternMatches(pattern, object)),
-    );
-    if (matches.length === 0) {
-      uncovered.push(object);
-      continue;
-    }
-    if (matches.length > 1) {
-      ambiguous.push({ object, entries: matches.map((entry) => entry.id) });
-    }
+  const migrationDir = path.join(root, manifest.migration_root);
+  const actualFiles = readdirSync(migrationDir)
+    .filter((filename) => /^\d{5}_.+\.sql$/u.test(filename))
+    .sort((left, right) => left.localeCompare(right));
+  if (JSON.stringify(actualFiles) !== JSON.stringify(migrationFilenames)) {
+    throw new Error(`${migrationDir} must contain exactly the Production DDL Rebaseline v2 catalog`);
   }
 
-  if (uncovered.length > 0) {
-    const details = uncovered
-      .map((object) => `${object.kind}:${object.name} (${object.sources.join(", ")})`)
-      .sort()
-      .join("; ");
+  const entryByID = new Map(manifest.entries.map((entry) => [entry.object_id, entry]));
+  const authoredByIdentity = new Map(
+    manifest.entries
+      .filter((entry) => entry.management_class === "cartulary_authored")
+      .map((entry) => [`${entry.object_kind}:${entry.qualified_name}`, entry]),
+  );
+  const observed = collectFinalAuthoredObjects(migrationDir, actualFiles);
+  const missing = [...observed.keys()].filter((identity) => !authoredByIdentity.has(identity));
+  const stale = [...authoredByIdentity.keys()].filter((identity) => !observed.has(identity));
+  if (missing.length > 0 || stale.length > 0) {
     throw new Error(
-      `${manifestFile} does not assign owners for schema objects: ${details}`,
-    );
-  }
-  if (ambiguous.length > 0) {
-    const details = ambiguous
-      .map(
-        ({ object, entries }) =>
-          `${object.kind}:${object.name} (${object.sources.join(", ")}) matches ${entries.join(", ")}`,
-      )
-      .sort()
-      .join("; ");
-    throw new Error(
-      `${manifestFile} assigns multiple owners for schema objects: ${details}`,
+      `${manifestFile} authored-object parity failed; missing=[${missing.sort().join(", ")}], stale=[${stale.sort().join(", ")}]`,
     );
   }
 
-  return {
-    manifestFile,
-    objectCount: objects.length,
-    entryCount: manifest.entries.length,
-  };
+  for (const [identity, allocation] of observed) {
+    const entry = authoredByIdentity.get(identity);
+    if (entry.migration_version !== allocation.version || entry.migration_file !== allocation.filename) {
+      throw new Error(
+        `${manifestFile} allocates ${identity} to ${entry.migration_file}, expected ${allocation.filename}`,
+      );
+    }
+  }
+  for (const entry of manifest.entries) {
+    for (const dependency of entry.dependency_object_ids) {
+      const dependencyEntry = entryByID.get(dependency);
+      if (!dependencyEntry) {
+        throw new Error(`${manifestFile} entry ${entry.object_id} references unknown dependency ${dependency}`);
+      }
+      if (dependency === entry.object_id) {
+        throw new Error(`${manifestFile} entry ${entry.object_id} depends on itself`);
+      }
+      if (
+        entry.migration_version !== null &&
+        dependencyEntry.migration_version !== null &&
+        dependencyEntry.migration_version > entry.migration_version
+      ) {
+        throw new Error(`${manifestFile} entry ${entry.object_id} has forward dependency ${dependency}`);
+      }
+    }
+  }
+  for (const version of ownerByVersion.keys()) {
+    if (!manifest.entries.some((entry) => entry.migration_version === version)) {
+      throw new Error(`${manifestFile} has no object allocated to migration ${version}`);
+    }
+  }
+  return { manifestFile, objectCount: observed.size, entryCount: manifest.entries.length };
 }
 
 function validateManifestShape(manifest, label) {
   assertObjectKeys(manifest, manifestKeys, label);
   assertRequiredKeys(manifest, manifestKeys, label);
-  requireSchemaID(manifest, schemaObjectOwnershipSchemaID, label);
+  requireSchemaID(manifest, schemaID, label);
   requireRepoRelativePath(manifest.migration_root, `${label}.migration_root`);
-  const owners = requireStringArray(manifest.allowed_owners, `${label}.allowed_owners`, {
-    nonEmpty: true,
-    pattern: ownerPattern,
-  });
-  const profiles = requireStringArray(
-    manifest.allowed_profiles,
-    `${label}.allowed_profiles`,
-    {
-      nonEmpty: true,
-      pattern: profilePattern,
-    },
-  );
+  if (requireInteger(manifest.supported_postgres_major, `${label}.supported_postgres_major`) !== 16) {
+    throw new Error(`${label}.supported_postgres_major must be 16`);
+  }
+  const schemas = requireStringArray(manifest.application_schemas, `${label}.application_schemas`, { nonEmpty: true });
+  if (schemas.length !== 1 || schemas[0] !== "public") throw new Error(`${label}.application_schemas must be exactly public`);
+  if (requireString(manifest.goose_ledger, `${label}.goose_ledger`) !== "public.goose_db_version") {
+    throw new Error(`${label}.goose_ledger must be public.goose_db_version`);
+  }
+  if (requireString(manifest.lineage_relation, `${label}.lineage_relation`) !== "public.schema_migration_lineage") {
+    throw new Error(`${label}.lineage_relation must be public.schema_migration_lineage`);
+  }
+  const owners = requireStringArray(manifest.allowed_owners, `${label}.allowed_owners`, { nonEmpty: true, pattern: ownerPattern });
+  assertUnique(owners, `${label}.allowed_owners`);
   const ownerSet = new Set(owners);
-  const profileSet = new Set(profiles);
-
-  const syntheticObjects = requireObjectArray(
-    manifest.synthetic_objects,
-    `${label}.synthetic_objects`,
-  );
-  for (const [index, object] of syntheticObjects.entries()) {
-    validateSyntheticObjectShape(
-      object,
-      `${label}.synthetic_objects[${index + 1}]`,
-      ownerSet,
-      profileSet,
-    );
+  const entries = requireArray(manifest.entries, `${label}.entries`, { nonEmpty: true });
+  const objectIDs = [];
+  const identities = [];
+  for (const [index, rawEntry] of entries.entries()) {
+    const entry = requireObject(rawEntry, `${label}.entries[${index}]`);
+    validateEntry(entry, `${label}.entries[${index}]`, ownerSet);
+    objectIDs.push(entry.object_id);
+    identities.push(`${entry.object_kind}:${entry.qualified_name}`);
   }
-
-  const entries = requireObjectArray(manifest.entries, `${label}.entries`, {
-    nonEmpty: true,
-  });
-  const ids = [];
-  for (const [index, entry] of entries.entries()) {
-    ids.push(
-      validateEntryShape(
-        entry,
-        `${label}.entries[${index + 1}]`,
-        ownerSet,
-        profileSet,
-      ),
-    );
-  }
-  assertUnique(ids, `${label}.entries.id`);
+  assertUnique(objectIDs, `${label}.entries.object_id`);
+  assertUnique(identities, `${label}.entries object kind/name identity`);
 }
 
-function validateSyntheticObjectShape(object, label, ownerSet, profileSet) {
-  assertObjectKeys(object, syntheticObjectKeys, label);
-  assertRequiredKeys(object, syntheticObjectKeys, label);
-  validateKind(object.kind, `${label}.kind`, false);
-  requireString(object.name, `${label}.name`);
-  requireString(object.source, `${label}.source`);
-  validateOwner(object.owner, `${label}.owner`, ownerSet);
-  validateProfiles(object.profiles, `${label}.profiles`, profileSet);
-  requireStringArray(object.downstream_surfaces, `${label}.downstream_surfaces`, {
-    nonEmpty: true,
-  });
-  requireString(object.notes, `${label}.notes`);
-}
-
-function validateEntryShape(entry, label, ownerSet, profileSet) {
+function validateEntry(entry, label, ownerSet) {
   assertObjectKeys(entry, entryKeys, label);
   assertRequiredKeys(entry, entryKeys, label);
-  const id = requireString(entry.id, `${label}.id`, {
-    pattern: /^[a-z][a-z0-9_-]*$/u,
-  });
-  validateOwner(entry.owner, `${label}.owner`, ownerSet);
-  validateProfiles(entry.profiles, `${label}.profiles`, profileSet);
-  const patterns = requireObjectArray(
-    entry.object_patterns,
-    `${label}.object_patterns`,
-    { nonEmpty: true },
-  );
-  for (const [index, pattern] of patterns.entries()) {
-    validateObjectPatternShape(
-      pattern,
-      `${label}.object_patterns[${index + 1}]`,
-    );
+  requireString(entry.object_id, `${label}.object_id`, { pattern: objectIDPattern });
+  requireEnum(entry.object_kind, `${label}.object_kind`, objectKinds);
+  const qualifiedName = requireString(entry.qualified_name, `${label}.qualified_name`);
+  if (entry.object_kind !== "schema" && !qualifiedName.includes(".")) {
+    throw new Error(`${label}.qualified_name must be schema-qualified`);
   }
-  requireStringArray(entry.downstream_surfaces, `${label}.downstream_surfaces`, {
-    nonEmpty: true,
-  });
-  requireString(entry.notes, `${label}.notes`);
-  return id;
-}
-
-function validateObjectPatternShape(pattern, label) {
-  assertObjectKeys(pattern, objectPatternKeys, label);
-  assertRequiredKeys(pattern, objectPatternKeys, label);
-  validateKind(pattern.kind, `${label}.kind`, true);
-  const expression = requireString(pattern.name_pattern, `${label}.name_pattern`);
-  try {
-    new RegExp(expression, "u");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label}.name_pattern is not a valid regex: ${message}`);
-  }
-}
-
-function validateKind(value, label, allowAny) {
-  const kind = requireString(value, label);
-  if (!objectKinds.has(kind) || (!allowAny && kind === "any")) {
-    throw new Error(`${label} must be one of ${[...objectKinds].join("|")}`);
-  }
-  return kind;
-}
-
-function validateOwner(value, label, ownerSet) {
-  const owner = requireString(value, label, { pattern: ownerPattern });
-  if (!ownerSet.has(owner)) {
-    throw new Error(`${label} must be declared in allowed_owners`);
-  }
-}
-
-function validateProfiles(value, label, profileSet) {
-  const profiles = requireStringArray(value, label, {
-    nonEmpty: true,
-    pattern: profilePattern,
-  });
-  for (const profile of profiles) {
-    if (!profileSet.has(profile)) {
-      throw new Error(`${label} contains undeclared profile ${profile}`);
+  const management = requireEnum(entry.management_class, `${label}.management_class`, managementClasses);
+  const sourceOwner = requireString(entry.source_owner, `${label}.source_owner`, { pattern: ownerPattern });
+  if (!ownerSet.has(sourceOwner)) throw new Error(`${label}.source_owner is not allowed`);
+  if (management === "cartulary_authored") {
+    const version = requireInteger(entry.migration_version, `${label}.migration_version`, { min: 1 });
+    if (version > 29 || entry.migration_file !== migrationFilenames[version - 1]) {
+      throw new Error(`${label} must use the canonical migration version/file allocation`);
     }
+    const allocatedOwner = ownerByVersion.get(version);
+    if (sourceOwner !== allocatedOwner && entry.object_kind !== "table") {
+      throw new Error(`${label}.source_owner must be ${allocatedOwner} for migration ${version}`);
+    }
+  } else if (entry.migration_version !== null || entry.migration_file !== null) {
+    throw new Error(`${label} non-authored objects must not have a migration allocation`);
   }
-}
-
-function compileEntries(entries, label) {
-  return entries.map((entry, entryIndex) => ({
-    id: entry.id,
-    patterns: entry.object_patterns.map((pattern, patternIndex) => ({
-      kind: pattern.kind,
-      regex: compileRegex(
-        pattern.name_pattern,
-        `${label}.entries[${entryIndex + 1}].object_patterns[${patternIndex + 1}].name_pattern`,
-      ),
-    })),
-  }));
-}
-
-function compileRegex(expression, label) {
-  try {
-    return new RegExp(expression, "u");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${label} is not a valid regex: ${message}`);
+  const dependencies = requireStringArray(entry.dependency_object_ids, `${label}.dependency_object_ids`, { pattern: objectIDPattern });
+  assertUnique(dependencies, `${label}.dependency_object_ids`);
+  if (JSON.stringify(dependencies) !== JSON.stringify([...dependencies].sort())) {
+    throw new Error(`${label}.dependency_object_ids must be sorted`);
   }
+  requireEnum(entry.runtime_access_class, `${label}.runtime_access_class`, runtimeClasses);
+  requireEnum(entry.recovery_access_class, `${label}.recovery_access_class`, recoveryAccessClasses);
+  if (entry.extension_profile_id !== null) requireEnum(entry.extension_profile_id, `${label}.extension_profile_id`, profileIDs);
+  requireEnum(entry.recovery_classification, `${label}.recovery_classification`, recoveryClasses);
+  requireBoolean(entry.sqlc_input, `${label}.sqlc_input`);
+  const fkStatus = requireEnum(entry.foreign_key_index_status, `${label}.foreign_key_index_status`, fkStatuses);
+  if (fkStatus === "intentionally_unindexed") validateApproval(entry.approval, `${label}.approval`, sourceOwner);
+  else if (entry.approval !== null) throw new Error(`${label}.approval must be null unless the foreign key is intentionally unindexed`);
 }
 
-function patternMatches(pattern, object) {
-  return (
-    (pattern.kind === "any" || pattern.kind === object.kind) &&
-    pattern.regex.test(object.name)
-  );
+function validateApproval(rawApproval, label, sourceOwner) {
+  const approval = requireObject(rawApproval, label);
+  assertObjectKeys(approval, approvalKeys, label);
+  assertRequiredKeys(approval, approvalKeys, label);
+  if (requireString(approval.source_owner, `${label}.source_owner`, { pattern: ownerPattern }) !== sourceOwner) {
+    throw new Error(`${label}.source_owner must match the entry source owner`);
+  }
+  requireString(approval.rationale, `${label}.rationale`);
+  requireString(approval.expected_access_pattern, `${label}.expected_access_pattern`);
+  requireString(approval.approved_by_requirement, `${label}.approved_by_requirement`, { pattern: requirementPattern });
 }
 
-function collectSchemaObjects(root, manifest) {
-  const migrationDir = path.join(root, manifest.migration_root);
+function collectFinalAuthoredObjects(migrationDir, filenames) {
   const objects = new Map();
-  for (const filename of readdirSync(migrationDir).sort((left, right) =>
-    left.localeCompare(right),
-  )) {
-    if (!migrationFilenamePattern.test(filename)) {
-      continue;
+  for (const [index, filename] of filenames.entries()) {
+    const source = readFileSync(path.join(migrationDir, filename), "utf8").split(/^-- \+goose Down\s*$/mu, 1)[0];
+    collectEvents(source, index + 1, filename, objects);
+  }
+  return objects;
+}
+
+function collectEvents(source, version, filename, objects) {
+  scanEvents(source, /\b(CREATE|DROP)\s+TABLE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", version, filename, objects);
+  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "view", version, filename, objects);
+  scanEvents(source, /\b(CREATE|DROP)\s+SEQUENCE\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "sequence", version, filename, objects);
+  scanEvents(source, /\b(CREATE(?:\s+UNIQUE)?|DROP)\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+(?:NOT\s+)?EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "index", version, filename, objects);
+  scanEvents(source, /\b(CREATE(?:\s+OR\s+REPLACE)?|DROP)\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*\(/giu, "routine", version, filename, objects);
+  scanTriggerEvents(source, version, filename, objects);
+  scanConstraintEvents(source, version, filename, objects);
+}
+
+function scanEvents(source, regex, kind, version, filename, objects) {
+  for (const match of source.matchAll(regex)) {
+    const name = qualify(match[2]);
+    const identity = `${kind}:${name}`;
+    if (match[1].toUpperCase() === "DROP") objects.delete(identity);
+    else objects.set(identity, { version, filename });
+  }
+}
+
+function scanTriggerEvents(source, version, filename, objects) {
+  const regex = /\b(CREATE|DROP)\s+TRIGGER\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)[\s\S]{0,500}?\s+ON\s+([A-Za-z_][A-Za-z0-9_.]*)/giu;
+  for (const match of source.matchAll(regex)) {
+    const identity = `trigger:${qualify(match[3])}.${match[2]}`;
+    if (match[1].toUpperCase() === "DROP") objects.delete(identity);
+    else objects.set(identity, { version, filename });
+  }
+}
+
+function scanConstraintEvents(source, version, filename, objects) {
+  const regex = /\b(ADD|DROP)?\s*CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\s+(PRIMARY\s+KEY|UNIQUE))?/giu;
+  for (const match of source.matchAll(regex)) {
+    const prefix = source.slice(0, match.index ?? 0);
+    const tableMatches = [...prefix.matchAll(/\b(?:ALTER\s+TABLE(?:\s+ONLY)?|CREATE\s+TABLE)\s+([A-Za-z_][A-Za-z0-9_.]*)/giu)];
+    const table = tableMatches.length > 0 ? qualify(tableMatches.at(-1)[1]) : "public.unknown";
+    const identity = `constraint:${table}.${match[2]}`;
+    const indexIdentity = `index:${qualify(match[2])}`;
+    if ((match[1] ?? "").toUpperCase() === "DROP") {
+      objects.delete(identity);
+      objects.delete(indexIdentity);
+    } else {
+      objects.set(identity, { version, filename });
+      if (match[3]) objects.set(indexIdentity, { version, filename });
     }
-    const file = path.join(migrationDir, filename);
-    const sql = stripSqlComments(readFileSync(file, "utf8"));
-    collectObjectsFromSql(sql, filename, objects);
-  }
-  for (const object of manifest.synthetic_objects) {
-    addObject(objects, object.kind, object.name, object.source);
-  }
-  return [...objects.values()];
-}
-
-function collectObjectsFromSql(sql, source, objects) {
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "extension", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:MATERIALIZED\s+)?(?:OR\s+REPLACE\s+)?VIEW\s+(${sqlIdentifierPattern})`), "view", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(${sqlIdentifierPattern})\s*\(`), "function", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+TRIGGER\s+(${sqlIdentifierPattern})`), "trigger", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+TYPE\s+(${sqlIdentifierPattern})`), "type", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "sequence", source, objects);
-  scan(sql, sqlRegex(String.raw`\bCREATE\s+POLICY\s+(${sqlIdentifierPattern})\s+ON\s+${sqlIdentifierPattern}`), "policy", source, objects);
-  scan(sql, sqlRegex(String.raw`\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
-  scan(sql, sqlRegex(String.raw`\bALTER\s+INDEX\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
-  scan(sql, sqlRegex(String.raw`\bALTER\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})\s*(?:\(|;)`), "function", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+TYPE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "type", source, objects);
-  scan(sql, sqlRegex(String.raw`\bDROP\s+SEQUENCE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "sequence", source, objects);
-  scan(sql, sqlRegex(String.raw`\bUPDATE\s+(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects, {
-    skipNames: new Set(["on", "or"]),
-  });
-  scan(sql, sqlRegex(String.raw`\bINSERT\s+INTO\s+(${sqlIdentifierPattern})`), "data_backfill", source, objects);
-  scan(sql, /\b(?:ADD\s+)?CONSTRAINT\s+([A-Za-z_][A-Za-z0-9_]*)/giu, "constraint", source, objects, {
-    skipNames: new Set(["if"]),
-  });
-  if (/\bGENERATED\b[\s\S]*?\bAS\b/iu.test(sql)) {
-    addObject(objects, "generated_column", "generated_column", source);
   }
 }
 
-function sqlRegex(expression) {
-  return new RegExp(expression, "giu");
-}
-
-function scan(sql, regex, kind, source, objects, { skipNames = new Set() } = {}) {
-  for (const match of sql.matchAll(regex)) {
-    const name = normalizeName(match[1]);
-    if (!name || skipNames.has(name)) {
-      continue;
-    }
-    addObject(objects, kind, name, source);
-  }
-}
-
-function addObject(objects, kind, name, source) {
-  const normalizedName = normalizeName(name);
-  const key = `${kind}\u0000${normalizedName}`;
-  const existing = objects.get(key);
-  if (existing) {
-    existing.sources.push(source);
-    return;
-  }
-  objects.set(key, {
-    kind,
-    name: normalizedName,
-    sources: [source],
-  });
-}
-
-function normalizeName(name) {
-  return name
-    .trim()
-    .replace(/[";]/gu, "")
-    .replace(/\s*\.\s*/gu, ".")
-    .replace(/\(.*/u, "")
-    .split(".")
-    .pop()
-    .toLowerCase();
-}
-
-function stripSqlComments(sql) {
-  return sql
-    .replace(/\/\*[\s\S]*?\*\//gu, " ")
-    .split("\n")
-    .map((line) => line.replace(/--.*$/u, ""))
-    .join("\n");
+function qualify(value) {
+  const normalized = value.replaceAll('"', "").trim().toLowerCase();
+  return normalized.includes(".") ? normalized : `public.${normalized}`;
 }

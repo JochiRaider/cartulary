@@ -18,7 +18,7 @@
     "repo_path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" },
     "go_selector": {
       "type": "object", "additionalProperties": false, "required": ["package", "tests"],
-      "properties": { "package": { "type": "string", "pattern": "^\\./(?:internal|cmd)/[A-Za-z0-9._@+/-]+$" }, "tests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^Test[A-Za-z0-9_]+$" } } }
+      "properties": { "package": { "type": "string", "pattern": "^(?:\\./(?:internal|cmd)/[A-Za-z0-9._@+/-]+|\\./tools/testservices)$" }, "tests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^Test[A-Za-z0-9_]+$" } } }
     },
     "vitest_selector": {
       "type": "object", "additionalProperties": false, "required": ["file", "titles"],

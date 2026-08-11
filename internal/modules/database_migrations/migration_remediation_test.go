@@ -21,7 +21,7 @@ func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 	}
 }
 
-func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
+func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
@@ -34,7 +34,7 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	if report.SchemaID != "cartulary.migration_remediation_report.v1" ||
 		report.Boundary != expectedCanonicalLineageBoundary ||
 		report.FromVersion != 1 ||
-		report.ToVersion != 61 ||
+		report.ToVersion != 29 ||
 		len(report.Findings) != 1 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
@@ -51,24 +51,24 @@ func TestMigrationLineagePreflightRejectsHistoricalLine(t *testing.T) {
 	}
 }
 
-func TestMigrationLineagePreflightReportsObservedWrongLineage(t *testing.T) {
+func TestMigrationLineagePreflightRejectsSyntheticV1Lineage(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
 	if _, err := db.ExecContext(context.Background(), `
 DELETE FROM schema_migration_lineage;
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.legacy_line.v1', 'legacy test line');
+VALUES ('cartulary.prod_ddl_rebaseline.v1', 'synthetic v1 lineage marker');
 `); err != nil {
 		t.Fatalf("simulate wrong migration line: %v", err)
 	}
 
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	finding := requireMigrationRemediation(t, err).Findings[0]
-	if finding.RawValue == nil || *finding.RawValue != "cartulary.legacy_line.v1" {
+	if finding.RawValue == nil || *finding.RawValue != "cartulary.prod_ddl_rebaseline.v1" {
 		t.Fatalf("unexpected raw observed lineage: %#v", finding)
 	}
-	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.legacy_line.v1" {
+	if got := finding.RawValuePair.ObservedLineageIDs; len(got) != 1 || got[0] != "cartulary.prod_ddl_rebaseline.v1" {
 		t.Fatalf("unexpected observed lineages: %#v", got)
 	}
 	if finding.RawValuePair.ExpectedLineageID != expectedCanonicalLineageID ||
@@ -87,7 +87,7 @@ func TestMigrationLineagePreflightReportsApplyHeadTarget(t *testing.T) {
 
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	report := requireMigrationRemediation(t, err)
-	if report.FromVersion != 2 || report.ToVersion != 61 {
+	if report.FromVersion != 2 || report.ToVersion != 29 {
 		t.Fatalf("unexpected apply-head remediation target: %#v", report)
 	}
 }
@@ -99,7 +99,7 @@ func TestProductionPreflightStateMatrix(t *testing.T) {
 		mutate     string
 		wantReason string
 	}{
-		{name: "ahead", through: 61, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (62, true)`, wantReason: "schema_version_ahead"},
+		{name: "ahead", through: 29, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true)`, wantReason: "schema_version_ahead"},
 		{name: "duplicate", through: 2, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (2, true)`, wantReason: "schema_migration_history_invalid"},
 		{name: "false", through: 1, mutate: `UPDATE goose_db_version SET is_applied = false WHERE version_id = 1`, wantReason: "schema_migration_history_invalid"},
 		{name: "gap", through: 3, mutate: `DELETE FROM goose_db_version WHERE version_id = 2`, wantReason: "schema_migration_history_invalid"},
@@ -147,10 +147,11 @@ type remediationReportView struct {
 }
 
 type remediationFindingView struct {
-	Field        string               `json:"field"`
-	RawValue     *string              `json:"raw_value"`
-	RawValuePair remediationFactsView `json:"raw_value_pair"`
-	ReasonCode   string               `json:"reason_code"`
+	Field           string               `json:"field"`
+	RawValue        *string              `json:"raw_value"`
+	RawValuePair    remediationFactsView `json:"raw_value_pair"`
+	ReasonCode      string               `json:"reason_code"`
+	RemediationHint string               `json:"remediation_hint"`
 }
 
 type remediationFactsView struct {

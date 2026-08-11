@@ -66,7 +66,9 @@ func TestRestoreTargetBindingDigestsExcludeCredentials_Unit(t *testing.T) {
 		DatabaseStorage: RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
 		ObjectStorage:   RootBinding{BindingKind: "managed_service", ServiceRef: "restore_target"},
 		PostgresSettings: postgres.Settings{
-			DSN: "postgres://operator:first-secret@db.example/restore",
+			DSN:          "postgres://operator:first-secret@db.example/restore",
+			Purpose:      postgres.PurposeRecovery,
+			ExpectedRole: "cartulary_recovery",
 		},
 		ObjectSettings: objectstore.Settings{
 			Endpoint:  "objects.example",

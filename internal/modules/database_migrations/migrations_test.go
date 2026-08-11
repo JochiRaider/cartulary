@@ -199,7 +199,7 @@ CREATE TABLE schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v1', 'Migration locking integration test.');
+VALUES ('cartulary.prod_ddl_rebaseline.v2', 'Migration locking integration test.');
 -- +goose Down
 DROP TABLE schema_migration_lineage;
 `)},
@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS schema_migration_lineage (
     description text NOT NULL
 );
 INSERT INTO schema_migration_lineage (lineage_id, description)
-VALUES ('cartulary.prod_ddl_rebaseline.v1', 'Migration locking integration test.')
+VALUES ('cartulary.prod_ddl_rebaseline.v2', 'Migration locking integration test.')
 ON CONFLICT (lineage_id) DO NOTHING;
 `, 1)
 	source, err := postgres.BuildCanonicalEmbedded(
@@ -259,6 +259,23 @@ func emptyMigrationDatabase(t testing.TB, harness *pgtest.Harness) *pgtest.Migra
 		t.Fatalf("rollback canonical migration scratch to zero: %v", err)
 	}
 	return database
+}
+
+func TestCanonicalCatalogAppliesAndRollsBackEveryVersion_Integration(t *testing.T) {
+	harness := pgtest.Start(t)
+	database := harness.MigrationDatabaseT(t)
+	ctx := context.Background()
+
+	for version := int64(28); version >= 0; version-- {
+		if err := database.RollbackThrough(ctx, version); err != nil {
+			t.Fatalf("rollback canonical catalog through version %d: %v", version, err)
+		}
+	}
+	for version := int64(1); version <= 29; version++ {
+		if err := database.ApplyThrough(ctx, version); err != nil {
+			t.Fatalf("apply canonical catalog through version %d: %v", version, err)
+		}
+	}
 }
 
 const validExternalMigrationBody = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"

@@ -31,12 +31,28 @@ Before starting, replace the placeholder passwords, S3 credentials, `CARTULARY_A
 
 The config template uses `deployment_profile = "on_prem"` with managed service refs:
 
-- `roots.database_storage.service_ref = "primary"` selects `CARTULARY_POSTGRES_PRIMARY_DSN`.
+- `roots.database_storage.service_ref = "primary"` selects
+  `CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN`,
+  `CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN`, or
+  `CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN` according to the process purpose.
 - `roots.object_storage.service_ref = "primary"` selects `CARTULARY_S3_PRIMARY_*`.
 
 The compose file mounts `config.toml` and the Revisions key-ring manifest under `/etc/cartulary` and sets absolute `CARTULARY_CONFIG_FILE=/etc/cartulary/config.toml`. Conflict-token rotation requires exactly one `active` key and at most seven `decrypt_only` keys. A decrypt-only entry records canonical UTC `deactivated_at` and `retire_at`; `retire_at` must be at least 31 minutes later and remain in the future. Replace active material by adding the old key as decrypt-only with its unchanged key ID and secret reference, adding a new active key, and restarting. Outstanding tokens expire after 30 minutes; v2 tokens are not accepted.
 
-The restore-verification target template uses separate `restore_verify` service refs for Postgres and object storage. Keep `RESTORE_VERIFY_POSTGRES_DB`, `CARTULARY_POSTGRES_RESTORE_VERIFY_DSN`, and `CARTULARY_S3_RESTORE_VERIFY_*` isolated from the source database and source bucket.
+The restore-verification target template uses separate `restore_verify` service
+refs for Postgres and object storage. Keep `RESTORE_VERIFY_POSTGRES_DB` and
+`CARTULARY_S3_RESTORE_VERIFY_*` isolated from the source database and source
+bucket. Compose derives purpose-specific target migration and Recovery DSNs
+from the target database name and the corresponding deployment password; no
+generic DSN is accepted.
+
+Administrators must provision the fixed `NOLOGIN` roles
+`cartulary_schema_owner`, `cartulary_runtime`, and `cartulary_recovery`, plus
+one `NOINHERIT` deployment login for each purpose. The package provisioning
+script also installs exact `public` prerequisites `pgcrypto` 1.3 and `citext`
+1.6, transfers `public` to the schema owner, and closes database, schema,
+extension, and default privileges before migration. Application migrations
+validate these prerequisites but never create extensions or roles.
 
 ## Build
 
@@ -212,7 +228,11 @@ It builds and runs the MVP Compose package, creates a backup, inspects latest me
 - If `app` restarts with `path_not_writable`, confirm the package image is current and the runtime roots are Docker named volumes, not host paths from the source tree.
 - If `object-store-init` fails, check `CARTULARY_S3_PRIMARY_ENDPOINT`, `CARTULARY_S3_PRIMARY_SECURE`, credentials, and whether `seaweedfs-s3` is running.
 - If `/readyz` returns a non-200 response, inspect the structured readiness status and the `postgres` and `seaweedfs-s3` service health.
-- If migration fails, inspect `docker compose logs migrate postgres` and verify `CARTULARY_POSTGRES_PRIMARY_DSN` resolves to the package Postgres service.
+- If migration fails, inspect `docker compose logs migrate postgres` and verify
+  `CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN` resolves to the package Postgres
+  service. A `prod_ddl_rebaseline_v2` remediation report requires destroying
+  and recreating the database; v1 and contaminated databases are not upgrade
+  sources.
 - If browser WebSocket requests fail with HTTP 403, verify `CARTULARY_PUBLIC_ORIGIN` exactly matches the browser origin used to reach the app.
 - If startup reports a `revisions_conflict_token_*` diagnostic, verify the key-ring mount, exact manifest schema, one-active-key rotation state, unique IDs and secret references, and the 32-byte unpadded-base64url secret. Startup intentionally fails before listeners when this credential is unavailable.
 - If backup creation fails, inspect the script stderr and confirm the configured deployment admin is active, the app service can be stopped and restarted, and `CARTULARY_RECOVERY_MASTER_KEY` matches existing encrypted backup artifacts.

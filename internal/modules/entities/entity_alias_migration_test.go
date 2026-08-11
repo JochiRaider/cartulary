@@ -3,120 +3,95 @@ package entities_test
 import (
 	"context"
 	"database/sql"
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
-	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestEntityAliasMigration31EmptyUpgrade(t *testing.T) {
+func TestEntityAliasHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 31)
-	db := migrationDB.SQL()
+	db := harness.OpenIsolatedDatabaseT(t, "entity-alias-head-contract", postgres.PurposeRecovery)
+	ctx := context.Background()
 
 	var udtName string
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRowContext(ctx, `
 SELECT udt_name
   FROM information_schema.columns
  WHERE table_schema = 'public'
    AND table_name = 'entity_aliases'
    AND column_name = 'normalized_text'
 `).Scan(&udtName); err != nil {
-		t.Fatalf("inspect migrated alias type: %v", err)
+		t.Fatalf("inspect alias type: %v", err)
 	}
 	if udtName != "citext" {
-		t.Fatalf("expected normalized_text citext after migration 31, got %q", udtName)
+		t.Fatalf("entity_aliases.normalized_text type = %q, want citext", udtName)
 	}
-}
 
-func TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates(t *testing.T) {
-	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 30)
-	db := migrationDB.SQL()
-	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "dedupe")
-	oldestID := uuid.MustParse("31000000-0000-4000-8000-000000000001")
-	newestID := uuid.MustParse("31000000-0000-4000-8000-000000000002")
-	insertLegacyAlias(t, db, oldestID, incidentID, recordID, actorID, "Case Alias", time.Date(2026, 7, 11, 12, 0, 0, 0, time.UTC))
-	insertLegacyAlias(t, db, newestID, incidentID, recordID, actorID, "case alias", time.Date(2026, 7, 11, 12, 1, 0, 0, time.UTC))
+	actorID, incidentID, recordID := seedAliasHeadHost(t, db)
+	insertAliasHeadRow(t, db, uuid.New(), incidentID, recordID, actorID, "Case Alias")
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO public.entity_aliases (
+    entity_alias_id, incident_id, record_id, entity_type, raw_text,
+    normalized_text, classification, created_by_user_id, created_at, deleted_at
+) VALUES ($1, $2, $3, 'host', 'case alias', 'case alias', 'suggestion_only', $4, $5, NULL)
+`, uuid.New(), incidentID, recordID, actorID, time.Now().UTC()); err == nil || !strings.Contains(err.Error(), "entity_aliases_record_unique_idx") {
+		t.Fatalf("case-equivalent active alias error = %v, want entity_aliases_record_unique_idx", err)
+	}
 
-	if err := migrationDB.ApplyThrough(context.Background(), 31); err != nil {
-		t.Fatalf("migrate alias duplicate fixture to 31: %v", err)
-	}
-	var oldestDeletedAt, newestDeletedAt sql.NullTime
-	if err := db.QueryRowContext(context.Background(), `SELECT deleted_at FROM entity_aliases WHERE entity_alias_id = $1`, oldestID).Scan(&oldestDeletedAt); err != nil {
-		t.Fatalf("load oldest migrated alias: %v", err)
-	}
-	if err := db.QueryRowContext(context.Background(), `SELECT deleted_at FROM entity_aliases WHERE entity_alias_id = $1`, newestID).Scan(&newestDeletedAt); err != nil {
-		t.Fatalf("load newest migrated alias: %v", err)
-	}
-	if oldestDeletedAt.Valid || !newestDeletedAt.Valid {
-		t.Fatalf("expected oldest alias active and later case-equivalent alias tombstoned: oldest=%#v newest=%#v", oldestDeletedAt, newestDeletedAt)
-	}
-}
-
-func TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample(t *testing.T) {
-	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 30)
-	db := migrationDB.SQL()
-	actorID, incidentID, recordID := seedAliasMigrationHost(t, db, "invalid")
-	invalid := []struct {
-		id   uuid.UUID
-		text string
+	for name, fixture := range map[string]struct {
+		text       string
+		constraint string
 	}{
-		{id: uuid.MustParse("31000000-0000-4000-8000-000000000011"), text: ""},
-		{id: uuid.MustParse("31000000-0000-4000-8000-000000000012"), text: "bad\u0085alias"},
-		{id: uuid.MustParse("31000000-0000-4000-8000-000000000013"), text: strings.Repeat("x", 257)},
-	}
-	for index, fixture := range invalid {
-		insertLegacyAlias(t, db, fixture.id, incidentID, recordID, actorID, fixture.text, time.Date(2026, 7, 11, 13, index, 0, 0, time.UTC))
-	}
-
-	err := migrationDB.ApplyThrough(context.Background(), 31)
-	if err == nil {
-		t.Fatal("expected migration 31 to reject invalid legacy aliases")
-	}
-	message := err.Error()
-	if !strings.Contains(message, "invalid_count=3") {
-		t.Fatalf("expected explicit invalid alias count, got %v", err)
-	}
-	for _, fixture := range invalid {
-		if !strings.Contains(message, fixture.id.String()) {
-			t.Fatalf("expected invalid alias sample to contain %s, got %v", fixture.id, err)
-		}
+		"empty":   {text: "", constraint: "entity_aliases_alias_text_nonempty_ck"},
+		"control": {text: "bad\u0085alias", constraint: "entity_aliases_alias_text_controls_ck"},
+		"long":    {text: strings.Repeat("x", 257), constraint: "entity_aliases_alias_text_length_ck"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := db.ExecContext(ctx, `
+INSERT INTO public.entity_aliases (
+    entity_alias_id, incident_id, record_id, entity_type, raw_text,
+    normalized_text, classification, created_by_user_id, created_at, deleted_at
+) VALUES ($1, $2, $3, 'host', $4::text, $4::public.citext, 'suggestion_only', $5, $6, NULL)
+`, uuid.New(), incidentID, recordID, fixture.text, actorID, time.Now().UTC())
+			if err == nil || !strings.Contains(err.Error(), fixture.constraint) {
+				t.Fatalf("invalid alias error = %v, want %s", err, fixture.constraint)
+			}
+		})
 	}
 }
 
-func seedAliasMigrationHost(t *testing.T, db *sql.DB, suffix string) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedAliasHeadHost(t *testing.T, db *sql.DB) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	actor := authflowtest.SeedLocalUserRecord(t, db, "alias-migration-"+suffix+"@example.test", "Alias Migration", "AliasMigrationPass1!", false, false, true)
+	actor := authflowtest.SeedLocalUserRecord(t, db, "alias-head@example.test", "Alias Head", "AliasHeadPass1!", false, false, true)
 	incidentID := uuid.New()
-	incidentKey := "IR-ALIAS-" + strings.ToUpper(suffix)
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incidents (
+INSERT INTO public.incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
-) VALUES ($1, $2, $3, $4, 'active', $5, $5)
-`, incidentID, incidentKey, strings.ToLower(incidentKey), "Alias migration "+suffix, actor.ID); err != nil {
-		t.Fatalf("seed alias migration incident: %v", err)
+) VALUES ($1, 'IR-ALIAS-HEAD', 'ir-alias-head', 'Alias head contract', 'active', $2, $2)
+`, incidentID, actor.ID); err != nil {
+		t.Fatalf("seed alias incident: %v", err)
 	}
 	recordID := uuid.New()
 	entitytest.SeedHostRecord(t, db, incidentID, actor.ID, recordID, "Alias Host", "ALIAS-HOST", "", "")
 	return actor.ID, incidentID, recordID
 }
 
-func insertLegacyAlias(t *testing.T, db *sql.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string, createdAt time.Time) {
+func insertAliasHeadRow(t *testing.T, db *sql.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string) {
 	t.Helper()
 	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO entity_aliases (
+INSERT INTO public.entity_aliases (
     entity_alias_id, incident_id, record_id, entity_type, raw_text,
     normalized_text, classification, created_by_user_id, created_at, deleted_at
-) VALUES ($1, $2, $3, 'host', $4, $4, 'suggestion_only', $5, $6, NULL)
-`, aliasID, incidentID, recordID, text, actorID, createdAt.UTC()); err != nil {
-		t.Fatalf("insert legacy alias %s: %v", aliasID, err)
+) VALUES ($1, $2, $3, 'host', $4::text, $4::public.citext, 'suggestion_only', $5, $6, NULL)
+`, aliasID, incidentID, recordID, text, actorID, time.Now().UTC()); err != nil {
+		t.Fatalf("insert alias: %v", err)
 	}
 }

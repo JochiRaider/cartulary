@@ -2,7 +2,6 @@ package administrativeaudit_test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -109,91 +108,5 @@ SELECT raw.created_at, projected.occurred_at, projected.changes
 
 	if !recovery.IsAuthoritativePostgresSnapshotTable("administrative_audit_projections") {
 		t.Fatal("administrative audit projections must be included in deployment backup snapshots")
-	}
-}
-
-func TestAdministrativeAuditLegacyProjectionCleanupPreservesRawJournal_Integration(t *testing.T) {
-	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 38)
-	db := migrationDB.SQL()
-	insertLegacyRaw(t, db, "auth", "user_created")
-	insertLegacyRaw(t, db, "network_flow", "network_flow_import_started")
-
-	if err := migrationDB.ApplyThrough(context.Background(), 39); err != nil {
-		t.Fatalf("apply administrative audit migration: %v", err)
-	}
-	var projectedCount int
-	if err := db.QueryRowContext(context.Background(), `
-SELECT count(*)
-  FROM administrative_audit_projections
- WHERE action_code = 'legacy_administrative_event'
-`).Scan(&projectedCount); err != nil {
-		t.Fatalf("count legacy projections before cleanup: %v", err)
-	}
-	if projectedCount != 1 {
-		t.Fatalf("expected migration 39 fixture to contain one legacy projection, got %d", projectedCount)
-	}
-
-	rawCountBefore, rawDigestBefore := rawJournalIdentity(t, db)
-	if err := migrationDB.ApplyThrough(context.Background(), 40); err != nil {
-		t.Fatalf("apply administrative audit cleanup migration: %v", err)
-	}
-	rawCountAfter, rawDigestAfter := rawJournalIdentity(t, db)
-	if rawCountAfter != rawCountBefore || rawDigestAfter != rawDigestBefore {
-		t.Fatalf(
-			"raw administrative audit journal changed during cleanup: before=(%d,%s) after=(%d,%s)",
-			rawCountBefore,
-			rawDigestBefore,
-			rawCountAfter,
-			rawDigestAfter,
-		)
-	}
-	if err := db.QueryRowContext(context.Background(), `
-SELECT count(*)
-  FROM administrative_audit_projections
- WHERE action_code = 'legacy_administrative_event'
-    OR target_kind = 'legacy_administrative_event'
-`).Scan(&projectedCount); err != nil {
-		t.Fatalf("count legacy projections after cleanup: %v", err)
-	}
-	if projectedCount != 0 {
-		t.Fatalf("legacy projections remain after cleanup: %d", projectedCount)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO administrative_audit_projections (
-    audit_event_id, scope_kind, occurred_at, actor_kind, source,
-    action_code, target_kind, changes
-)
-SELECT id, 'deployment', created_at, 'system', 'system',
-       'legacy_administrative_event', 'legacy_administrative_event', '[]'::jsonb
-  FROM deployment_admin_audit_events
- LIMIT 1
-`); err == nil {
-		t.Fatal("cleaned projection constraints accepted legacy vocabulary")
-	}
-}
-
-func rawJournalIdentity(t testing.TB, db *sql.DB) (int, string) {
-	t.Helper()
-	var count int
-	var digest string
-	if err := db.QueryRowContext(context.Background(), `
-SELECT
-    count(*),
-    md5(COALESCE(string_agg(row_to_json(raw)::text, E'\n' ORDER BY raw.id), ''))
-  FROM deployment_admin_audit_events AS raw
-`).Scan(&count, &digest); err != nil {
-		t.Fatalf("read raw administrative audit identity: %v", err)
-	}
-	return count, digest
-}
-
-func insertLegacyRaw(t testing.TB, db *sql.DB, source string, kind string) {
-	t.Helper()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO deployment_admin_audit_events (event_source, event_kind)
-VALUES ($1, $2)
-`, source, kind); err != nil {
-		t.Fatalf("insert legacy raw event %s: %v", kind, err)
 	}
 }

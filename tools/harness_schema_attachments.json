@@ -520,6 +520,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.schema_object_ownership_manifest.v2",
+      "path": "tools/schemas/cartulary.schema_object_ownership_manifest.v2.schema.json",
+      "classification": "owner_input",
+      "producer": "database contract owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.task_guide_summary.v3",
       "path": "tools/schemas/cartulary.task_guide_summary.v3.schema.json",
       "classification": "public_contract",

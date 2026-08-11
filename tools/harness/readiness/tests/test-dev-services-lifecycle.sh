@@ -85,7 +85,7 @@ set -euo pipefail
 
 printf '%s\n' "$*" >>"${FAKE_GO_LOG:?}"
 printf 'config=%s\n' "${CARTULARY_CONFIG_FILE:-}" >>"${FAKE_GO_LOG:?}"
-printf 'managed_dsn=%s\n' "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:-}" >>"${FAKE_GO_LOG:?}"
+printf 'managed_dsn=%s\n' "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN:-}" >>"${FAKE_GO_LOG:?}"
 if [[ "${1:-}" == "build" ]]; then
   output=""
   shift
@@ -285,13 +285,13 @@ assert_file_not_contains "$docker_log" "CREATE DATABASE cartulary;" "db-migrate 
 assert_file_not_contains "$docker_log" "seaweedfs-s3" "db-migrate does not start object store"
 assert_file_contains "$go_log" "run ./cmd/migrate up" "db-migrate runs migrations"
 assert_file_contains "$go_log" "config=$repo_root/configs/dev/config.toml" "db-migrate passes default config"
-assert_file_contains "$go_log" "managed_dsn=postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" "db-migrate passes derived default dsn"
+assert_file_contains "$go_log" "managed_dsn=postgres://cartulary_migration_login:cartulary-migration@localhost:5432/cartulary?sslmode=disable" "db-migrate passes derived default dsn"
 
 reset_logs
-run_service db_migrate_custom_dsn env CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN='postgres://custom:secret@db.example:15432/customdb?sslmode=require' bash tools/harness/readiness/dev-services.sh db-migrate
+run_service db_migrate_custom_dsn env CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN='postgres://custom:secret@db.example:15432/customdb?sslmode=require' bash tools/harness/readiness/dev-services.sh db-migrate
 assert_status 0
 assert_file_contains "$go_log" "managed_dsn=postgres://custom:secret@db.example:15432/customdb?sslmode=require" "db-migrate preserves caller dsn"
-assert_file_not_contains "$go_log" "managed_dsn=postgres://cartulary:cartulary@localhost:5432/cartulary?sslmode=disable" "db-migrate does not overwrite caller dsn"
+assert_file_not_contains "$go_log" "managed_dsn=postgres://cartulary_migration_login:cartulary-migration@localhost:5432/cartulary?sslmode=disable" "db-migrate does not overwrite caller dsn"
 
 reset_logs
 run_service db_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=db-reset bash tools/harness/readiness/dev-services.sh db-reset

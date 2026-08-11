@@ -149,7 +149,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 
 	postgresPool := options.Postgres
 	if postgresPool == nil {
-		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), options.Env)
+		postgresSettings, settingsErr := postgres.ResolveSettings(configassembly.PostgresBinding(normalizedCfg), postgres.PurposeRuntime, options.Env)
 		if settingsErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup postgres: %w", settingsErr)

@@ -51,7 +51,7 @@ func (executor migrationEvidenceExecutor) capture(ctx context.Context, parsed mi
 		return fmt.Errorf("load config: %w", err)
 	}
 	cfg := loaded.Deployment()
-	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
+	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeRuntime, nil)
 	if err != nil {
 		return fmt.Errorf("resolve postgres settings: %w", err)
 	}

@@ -888,12 +888,12 @@ browser_prepare_database() {
   "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}"
   # shellcheck disable=SC1090
   source "${TEST_SERVICES_ENV_FILE}"
-  E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}"
+  E2E_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN:?}"
   E2E_DB="$("${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -e \
     'const fs=require("node:fs"); process.stdout.write(String(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).database_name));' \
     "${TEST_SERVICES_METADATA_FILE}")"
   export CARTULARY_WEB_E2E_DB="${E2E_DB}"
-  export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}"
+  export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}"
   snapshot_service_scope
   record_startup_event "fixture_ready" \
     "prepared isolated browser database and object-store fixture"
@@ -1149,7 +1149,7 @@ main() {
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
     CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
-    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${E2E_DSN}" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \
     CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT:?}" \
     CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID:?}" \
     CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY:?}" \

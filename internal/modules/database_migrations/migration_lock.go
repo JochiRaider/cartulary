@@ -132,6 +132,24 @@ func migrationWorkNeeded(ctx context.Context, reader sqlLedgerReader, source *So
 	if err != nil {
 		return false, err
 	}
+	if err := validateMigrationPrerequisites(ctx, reader); err != nil {
+		return false, err
+	}
+	if classification.State == migrationStatePristine {
+		contaminated, contaminationErr := databaseHasPreexistingObjects(ctx, reader)
+		if contaminationErr != nil {
+			return false, contaminationErr
+		}
+		if contaminated {
+			return false, newMigrationLineageRemediationError(
+				source,
+				migrationLineageState{},
+				0,
+				sourceHeadVersion(source),
+				sourceHeadVersion(source),
+			)
+		}
+	}
 	switch classification.State {
 	case migrationStatePristine, migrationStateBehind:
 		return true, nil
@@ -141,6 +159,77 @@ func migrationWorkNeeded(ctx context.Context, reader sqlLedgerReader, source *So
 		return false, newMigrationFailure(reasonSchemaVersionAhead, nil)
 	}
 	return false, newMigrationFailure(reasonSchemaMigrationHistoryInvalid, nil)
+}
+
+func validateMigrationPrerequisites(ctx context.Context, reader sqlLedgerReader) error {
+	var valid bool
+	if err := reader.QueryRowContext(ctx, `
+SELECT COUNT(*) = 2
+   AND BOOL_AND(
+       (extension.extname = 'pgcrypto' AND extension.extversion = '1.3')
+       OR (extension.extname = 'citext' AND extension.extversion = '1.6')
+   )
+   AND BOOL_AND(namespace.nspname = 'public')
+FROM pg_catalog.pg_extension AS extension
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = extension.extnamespace
+WHERE extension.extname IN ('pgcrypto', 'citext')
+`).Scan(&valid); err != nil {
+		return newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
+	}
+	if !valid {
+		return newMigrationFailure(reasonSchemaExtensionPrerequisite, nil)
+	}
+	return nil
+}
+
+func databaseHasPreexistingObjects(ctx context.Context, reader sqlLedgerReader) (bool, error) {
+	var contaminated bool
+	if err := reader.QueryRowContext(ctx, `
+WITH extension_objects AS (
+    SELECT dependency.classid, dependency.objid
+    FROM pg_catalog.pg_depend AS dependency
+    JOIN pg_catalog.pg_extension AS extension
+      ON extension.oid = dependency.refobjid
+    WHERE dependency.deptype = 'e'
+      AND extension.extname IN ('pgcrypto', 'citext')
+), contamination AS (
+    SELECT relation.oid
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND relation.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+      AND relation.relname NOT IN ('goose_db_version', 'goose_db_version_id_seq')
+      AND NOT EXISTS (
+          SELECT 1
+          FROM extension_objects
+          WHERE extension_objects.classid = 'pg_catalog.pg_class'::pg_catalog.regclass
+            AND extension_objects.objid = relation.oid
+      )
+    UNION ALL
+    SELECT procedure.oid
+    FROM pg_catalog.pg_proc AS procedure
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = procedure.pronamespace
+    WHERE namespace.nspname = 'public'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM extension_objects
+          WHERE extension_objects.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+            AND extension_objects.objid = procedure.oid
+      )
+    UNION ALL
+    SELECT namespace.oid
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname NOT IN ('public', 'information_schema')
+      AND namespace.nspname NOT LIKE 'pg\_%' ESCAPE E'\\'
+)
+SELECT EXISTS (SELECT 1 FROM contamination)
+`).Scan(&contaminated); err != nil {
+		return false, newMigrationFailure(reasonMigrationDatabaseUnavailable, err)
+	}
+	return contaminated, nil
 }
 
 func verifyMigrationPostcondition(ctx context.Context, reader sqlLedgerReader, source *Source) error {

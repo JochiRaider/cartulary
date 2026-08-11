@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.schema_object_ownership_manifest.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "migration_root",
+    "supported_postgres_major",
+    "application_schemas",
+    "goose_ledger",
+    "lineage_relation",
+    "allowed_owners",
+    "entries"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.schema_object_ownership_manifest.v2" },
+    "migration_root": { "const": "db/migrations" },
+    "supported_postgres_major": { "const": 16 },
+    "application_schemas": { "const": ["public"] },
+    "goose_ledger": { "const": "public.goose_db_version" },
+    "lineage_relation": { "const": "public.schema_migration_lineage" },
+    "allowed_owners": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "uniqueItems": true
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/object_entry" }
+    }
+  },
+  "$defs": {
+    "migration_file": {
+      "enum": [
+        "00001_database_infrastructure.sql",
+        "00002_auth.sql",
+        "00003_incidents.sql",
+        "00004_recovery.sql",
+        "00005_deployment_admin.sql",
+        "00006_platform_jobs.sql",
+        "00007_records.sql",
+        "00008_revisions.sql",
+        "00009_parties.sql",
+        "00010_timeline.sql",
+        "00011_entities.sql",
+        "00012_indicators.sql",
+        "00013_assessments.sql",
+        "00014_links.sql",
+        "00015_tasks_and_decisions.sql",
+        "00016_artifacts.sql",
+        "00017_evidence.sql",
+        "00018_saved_views.sql",
+        "00019_imports.sql",
+        "00020_network_flow.sql",
+        "00021_projections.sql",
+        "00022_graph_projection.sql",
+        "00023_reporting.sql",
+        "00024_report_composition.sql",
+        "00025_incident_bundles.sql",
+        "00026_reference_data.sql",
+        "00027_extensions.sql",
+        "00028_administrative_audit.sql",
+        "00029_collaboration.sql"
+      ]
+    },
+    "object_kind": {
+      "enum": [
+        "schema",
+        "extension",
+        "table",
+        "view",
+        "sequence",
+        "type",
+        "domain",
+        "routine",
+        "trigger",
+        "constraint",
+        "index",
+        "operator",
+        "operator_class",
+        "operator_family",
+        "cast",
+        "collation",
+        "migration_metadata"
+      ]
+    },
+    "management_class": {
+      "enum": [
+        "cartulary_authored",
+        "goose_managed",
+        "extension_managed",
+        "administrator_managed"
+      ]
+    },
+    "runtime_access_class": {
+      "enum": [
+        "schema_usage",
+        "table_read_write",
+        "table_append_only",
+        "table_read_only",
+        "table_no_access",
+        "migration_ledger_read",
+        "sequence_use",
+        "sequence_no_access",
+        "view_read_only",
+        "routine_application",
+        "routine_private",
+        "type_use",
+        "type_no_access",
+        "not_applicable"
+      ]
+    },
+    "recovery_access_class": {
+      "enum": [
+        "schema_usage",
+        "table_restore",
+        "table_read_only",
+        "table_no_access",
+        "migration_ledger_read",
+        "sequence_restore",
+        "sequence_no_access",
+        "view_read_only",
+        "routine_recovery",
+        "routine_private",
+        "type_use",
+        "type_no_access",
+        "not_applicable"
+      ]
+    },
+    "profile_id": {
+      "enum": [
+        "enterprise_authentication",
+        "import",
+        "incident_portability",
+        "network_flow_activity",
+        "reference_pack",
+        "snapshot_reporting"
+      ]
+    },
+    "recovery_classification": {
+      "enum": [
+        "authoritative_required",
+        "excluded_rebuildable",
+        "excluded_security_state",
+        "excluded_recovery_metadata",
+        "not_applicable"
+      ]
+    },
+    "foreign_key_approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_owner",
+        "rationale",
+        "expected_access_pattern",
+        "approved_by_requirement"
+      ],
+      "properties": {
+        "source_owner": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "rationale": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "expected_access_pattern": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "approved_by_requirement": { "type": "string", "pattern": "^[A-Z][A-Z0-9-]*-[0-9]+$" }
+      }
+    },
+    "object_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "object_kind",
+        "qualified_name",
+        "management_class",
+        "source_owner",
+        "migration_version",
+        "migration_file",
+        "dependency_object_ids",
+        "runtime_access_class",
+        "recovery_access_class",
+        "extension_profile_id",
+        "recovery_classification",
+        "sqlc_input",
+        "foreign_key_index_status",
+        "approval"
+      ],
+      "properties": {
+        "object_id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" },
+        "object_kind": { "$ref": "#/$defs/object_kind" },
+        "qualified_name": { "type": "string", "minLength": 1 },
+        "management_class": { "$ref": "#/$defs/management_class" },
+        "source_owner": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "migration_version": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 29 },
+            { "type": "null" }
+          ]
+        },
+        "migration_file": {
+          "oneOf": [
+            { "$ref": "#/$defs/migration_file" },
+            { "type": "null" }
+          ]
+        },
+        "dependency_object_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" },
+          "uniqueItems": true
+        },
+        "runtime_access_class": { "$ref": "#/$defs/runtime_access_class" },
+        "recovery_access_class": { "$ref": "#/$defs/recovery_access_class" },
+        "extension_profile_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/profile_id" },
+            { "type": "null" }
+          ]
+        },
+        "recovery_classification": { "$ref": "#/$defs/recovery_classification" },
+        "sqlc_input": { "type": "boolean" },
+        "foreign_key_index_status": {
+          "enum": ["covered", "intentionally_unindexed", "not_applicable"]
+        },
+        "approval": {
+          "oneOf": [
+            { "$ref": "#/$defs/foreign_key_approval" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "foreign_key_index_status": { "const": "intentionally_unindexed" }
+            },
+            "required": ["foreign_key_index_status"]
+          },
+          "then": { "properties": { "approval": { "$ref": "#/$defs/foreign_key_approval" } } },
+          "else": { "properties": { "approval": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "management_class": { "const": "cartulary_authored" }
+            },
+            "required": ["management_class"]
+          },
+          "then": {
+            "properties": {
+              "migration_version": { "type": "integer", "minimum": 1, "maximum": 29 },
+              "migration_file": { "$ref": "#/$defs/migration_file" }
+            }
+          },
+          "else": {
+            "properties": {
+              "migration_version": { "type": "null" },
+              "migration_file": { "type": "null" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

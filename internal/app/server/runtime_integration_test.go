@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -779,7 +780,7 @@ func IntegrationEnv(databaseEnv map[string]string, objectStoreEnv map[string]str
 
 func BindPostgres(t testing.TB, loaded configassembly.Loaded, env map[string]string) configassembly.Loaded {
 	t.Helper()
-	configtest.BindPostgresEnvToDatabaseRoot(t, loaded.Deployment().Roots.DatabaseStorage.Path, env)
+	configtest.BindPostgresEnvToDatabaseRoot(t, loaded.Deployment().Roots.DatabaseStorage.Path, env, postgres.PurposeRuntime)
 	return loaded
 }
 

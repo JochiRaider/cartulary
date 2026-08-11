@@ -15,6 +15,7 @@ import (
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockerclient "github.com/moby/moby/client"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -790,6 +791,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 
 func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	deps := defaultTestDependencies(t)
+	reaperLease := ""
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -811,6 +813,10 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	}
 	deps.startChild = func([]string, map[string]string) (childProcess, error) {
 		return nil, errors.New("exec child failed password=supersecret")
+	}
+	deps.startReaper = func(leasePath string, _ map[string]string) error {
+		reaperLease = leasePath
+		return nil
 	}
 
 	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
@@ -840,8 +846,11 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	if strings.Contains(scope.Failure.Message, "supersecret") {
 		t.Fatalf("failure message must be redacted, got %q", scope.Failure.Message)
 	}
-	if scope.Cleanup.Status != "child_start_failed" {
-		t.Fatalf("unexpected cleanup status: got %#v", scope.Cleanup)
+	if scope.Cleanup.Status != "" {
+		t.Fatalf("delegated cleanup must not publish a terminal summary before the reaper completes: got %#v", scope.Cleanup)
+	}
+	if reaperLease == "" {
+		t.Fatal("child-start failure must delegate owned-service cleanup to the reaper")
 	}
 }
 
@@ -963,7 +972,8 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 	}
 	envText := string(envRaw)
 	for _, expected := range []string{
-		`export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
+		`export CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
+		`CARTULARY_POSTGRES_POSTGRES_PRIMARY_RECOVERY_DSN='postgres://cartulary:pa'"'"'ss@127.0.0.1:5432/ct_web?sslmode=disable'`,
 		`export CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID='access'"'"'key'`,
 		`export CARTULARY_S3_OBJECT_PRIMARY_BUCKET='ct-web'`,
 		`export CARTULARY_S3_OBJECT_PRIMARY_SECURE='true'`,
@@ -971,6 +981,13 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		if !strings.Contains(envText, expected) {
 			t.Fatalf("env file missing %q in:\n%s", expected, envText)
 		}
+	}
+	recoveryCredential, err := os.ReadFile(filepath.Join(filepath.Dir(envFile), postgres.FilesystemRecoveryDSNFile))
+	if err != nil {
+		t.Fatalf("read Recovery credential file: %v", err)
+	}
+	if got, want := string(recoveryCredential), "postgres://cartulary:pa'ss@127.0.0.1:5432/ct_web?sslmode=disable\n"; got != want {
+		t.Fatalf("unexpected Recovery credential file: got %q want %q", got, want)
 	}
 
 	metadata, err := readWebE2EMetadata(metadataFile)
@@ -1002,6 +1019,34 @@ func TestPrepareWebE2EWritesShellEnvAndMetadata(t *testing.T) {
 		t.Fatalf("expected browser fixture to create one isolated bucket, got %#v", scope.ObjectStore)
 	}
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketMigration, "test-services prepare browser e2e fixture")
+}
+
+func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	called := false
+	deps.resetWebE2EDB = func(_ context.Context, credentialRoot string, bootstrapManifest string) error {
+		called = true
+		if credentialRoot != "/runtime/credentials" || bootstrapManifest != "/config/bootstrap.json" {
+			t.Fatalf("unexpected reset paths: credential_root=%q bootstrap_manifest=%q", credentialRoot, bootstrapManifest)
+		}
+		return nil
+	}
+	args := []string{"reset-web-e2e", "--credential-root", "/runtime/credentials", "--bootstrap-manifest", "/config/bootstrap.json"}
+	if status := run(args, deps.env, deps.dependencies); status != 1 {
+		t.Fatalf("inactive suite reset status: got %d want 1", status)
+	}
+	if called {
+		t.Fatal("reset must not run outside an active suite")
+	}
+
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	if status := run(args, activeEnv, deps.dependencies); status != 0 {
+		t.Fatalf("active suite reset status: got %d want 0", status)
+	}
+	if !called {
+		t.Fatal("expected active suite reset")
+	}
 }
 
 func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
@@ -1713,6 +1758,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			},
 			createTemplate:      func(context.Context, string, string) error { return nil },
 			prepareWebE2E:       func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
+			resetWebE2EDB:       func(context.Context, string, string) error { return nil },
 			cleanupWebE2EDB:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2EBucket: func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			detectWebE2ELeaks:   func(context.Context, []webE2EMetadata, map[string]string) error { return nil },

@@ -11,7 +11,7 @@ import (
 )
 
 func OpenPostgres(ctx context.Context, cfg configassembly.Deployment, env map[string]string) (*pgxpool.Pool, error) {
-	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), env)
+	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeRuntime, env)
 	if err != nil {
 		return nil, err
 	}

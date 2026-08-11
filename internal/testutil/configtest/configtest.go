@@ -153,7 +153,7 @@ func SetupTempRoots(t testing.TB) TempRoots {
 	}
 }
 
-func BindPostgresDSNToDatabaseRoot(t testing.TB, rootPath string, dsn string) {
+func BindPostgresDSNToDatabaseRoot(t testing.TB, rootPath string, dsn string, purpose postgres.Purpose) {
 	t.Helper()
 
 	if rootPath == "" || dsn == "" || !filepath.IsAbs(rootPath) {
@@ -162,16 +162,24 @@ func BindPostgresDSNToDatabaseRoot(t testing.TB, rootPath string, dsn string) {
 	if err := os.MkdirAll(rootPath, 0o700); err != nil {
 		t.Fatalf("create postgres root %s: %v", rootPath, err)
 	}
-	dsnPath := filepath.Join(rootPath, postgres.FilesystemRootDSNFile)
+	dsnFile := map[postgres.Purpose]string{
+		postgres.PurposeRuntime:   postgres.FilesystemRuntimeDSNFile,
+		postgres.PurposeMigration: postgres.FilesystemMigrationDSNFile,
+		postgres.PurposeRecovery:  postgres.FilesystemRecoveryDSNFile,
+	}[purpose]
+	if dsnFile == "" {
+		t.Fatalf("unsupported postgres purpose %d", purpose)
+	}
+	dsnPath := filepath.Join(rootPath, dsnFile)
 	if err := os.WriteFile(dsnPath, []byte(dsn+"\n"), 0o600); err != nil {
 		t.Fatalf("write root-bound postgres dsn %s: %v", dsnPath, err)
 	}
 }
 
-func BindPostgresEnvToDatabaseRoot(t testing.TB, rootPath string, env map[string]string) {
+func BindPostgresEnvToDatabaseRoot(t testing.TB, rootPath string, env map[string]string, purpose postgres.Purpose) {
 	t.Helper()
 
 	if dsn, ok := env[suiteservices.PostgresDSNEnv]; ok {
-		BindPostgresDSNToDatabaseRoot(t, rootPath, dsn)
+		BindPostgresDSNToDatabaseRoot(t, rootPath, dsn, purpose)
 	}
 }

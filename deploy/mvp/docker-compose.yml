@@ -5,6 +5,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-cartulary}
       POSTGRES_USER: ${POSTGRES_USER:-cartulary}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}
+      CARTULARY_POSTGRES_MIGRATION_PASSWORD: ${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}
+      CARTULARY_POSTGRES_RUNTIME_PASSWORD: ${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}
+      CARTULARY_POSTGRES_RECOVERY_PASSWORD: ${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}
     healthcheck:
       test:
         [
@@ -16,6 +19,7 @@ services:
       retries: 20
     volumes:
       - cartulary-postgres-data:/var/lib/postgresql/data
+      - ./postgres-provision.sh:/docker-entrypoint-initdb.d/010-cartulary-provision.sh:ro
 
   seaweedfs-s3:
     image: docker.io/chrislusf/seaweedfs:4.17@sha256:186de7ef977a20343ee9a5544073f081976a29e2d29ecf8379891e7bf177fbe9
@@ -40,11 +44,9 @@ services:
       dockerfile: deploy/mvp/Containerfile
     entrypoint: ["/usr/local/bin/cartulary-migrate"]
     command: ["up"]
-    env_file:
-      - ./.env
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
-      CARTULARY_POSTGRES_PRIMARY_DSN: postgresql://${POSTGRES_USER:-cartulary}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_MIGRATION_DSN: postgresql://cartulary_migration_login:${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,11 +58,12 @@ services:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
     entrypoint: ["/usr/local/bin/cartulary-operator"]
     command: ["object-store", "init"]
-    env_file:
-      - ./.env
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECURE: "false"
     depends_on:
       seaweedfs-s3:
@@ -69,20 +72,68 @@ services:
       - ./config.toml:/etc/cartulary/config.toml:ro
     restart: on-failure
 
+  recovery-operator:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
+      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
+    volumes:
+      - ./config.toml:/etc/cartulary/config.toml:ro
+      - cartulary-backups:/var/lib/cartulary/backups
+      - cartulary-reference-packs:/var/lib/cartulary/reference-packs
+      - cartulary-tmp:/var/lib/cartulary/tmp
+      - cartulary-exports:/var/lib/cartulary/exports
+    restart: "no"
+
+  restore-verify-migrate:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/restore-verification-target.toml
+      CARTULARY_POSTGRES_RESTORE_VERIFY_MIGRATION_DSN: postgresql://cartulary_migration_login:${CARTULARY_POSTGRES_MIGRATION_PASSWORD:?set CARTULARY_POSTGRES_MIGRATION_PASSWORD in deploy/mvp/.env}@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=disable
+    restart: "no"
+
+  restore-verify-operator:
+    image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
+    environment:
+      CARTULARY_CONFIG_FILE: /etc/cartulary/restore-verification-target.toml
+      CARTULARY_POSTGRES_PRIMARY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_RESTORE_VERIFY_RECOVERY_DSN: postgresql://cartulary_recovery_login:${CARTULARY_POSTGRES_RECOVERY_PASSWORD:?set CARTULARY_POSTGRES_RECOVERY_PASSWORD in deploy/mvp/.env}@postgres:5432/${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}?sslmode=disable
+      CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_S3_RESTORE_VERIFY_ENDPOINT: ${CARTULARY_S3_RESTORE_VERIFY_ENDPOINT:?set CARTULARY_S3_RESTORE_VERIFY_ENDPOINT in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID: ${CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID:?set CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY: ${CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY:?set CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_BUCKET: ${CARTULARY_S3_RESTORE_VERIFY_BUCKET:?set CARTULARY_S3_RESTORE_VERIFY_BUCKET in deploy/mvp/.env}
+      CARTULARY_S3_RESTORE_VERIFY_SECURE: ${CARTULARY_S3_RESTORE_VERIFY_SECURE:-false}
+      CARTULARY_RECOVERY_MASTER_KEY: ${CARTULARY_RECOVERY_MASTER_KEY:?set CARTULARY_RECOVERY_MASTER_KEY in deploy/mvp/.env}
+    restart: "no"
+
   app:
     image: ${CARTULARY_IMAGE:-cartulary/mvp:local}
     build:
       context: ../..
       dockerfile: deploy/mvp/Containerfile
-    env_file:
-      - ./.env
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml
       CARTULARY_HTTP_ADDR: :8080
       CARTULARY__APPLICATION__PUBLIC_ORIGIN: ${CARTULARY_PUBLIC_ORIGIN:-http://localhost:8080}
-      CARTULARY_POSTGRES_PRIMARY_DSN: postgresql://${POSTGRES_USER:-cartulary}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
+      CARTULARY_POSTGRES_PRIMARY_RUNTIME_DSN: postgresql://cartulary_runtime_login:${CARTULARY_POSTGRES_RUNTIME_PASSWORD:?set CARTULARY_POSTGRES_RUNTIME_PASSWORD in deploy/mvp/.env}@postgres:5432/${POSTGRES_DB:-cartulary}?sslmode=disable
       CARTULARY_S3_PRIMARY_ENDPOINT: seaweedfs-s3:8333
+      CARTULARY_S3_PRIMARY_ACCESS_KEY_ID: ${CARTULARY_S3_PRIMARY_ACCESS_KEY_ID:?set CARTULARY_S3_PRIMARY_ACCESS_KEY_ID in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY: ${CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY:?set CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY in deploy/mvp/.env}
+      CARTULARY_S3_PRIMARY_BUCKET: ${CARTULARY_S3_PRIMARY_BUCKET:?set CARTULARY_S3_PRIMARY_BUCKET in deploy/mvp/.env}
       CARTULARY_S3_PRIMARY_SECURE: "false"
+      CARTULARY_AUTH_MASTER_KEY: ${CARTULARY_AUTH_MASTER_KEY:?set CARTULARY_AUTH_MASTER_KEY in deploy/mvp/.env}
+      CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE: ${CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE:?set CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_ACTIVE in deploy/mvp/.env}
     depends_on:
       migrate:
         condition: service_completed_successfully

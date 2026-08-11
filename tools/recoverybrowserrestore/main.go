@@ -26,13 +26,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
 	"github.com/JochiRaider/cartulary/internal/app/server"
-	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/recoveryprovider"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
@@ -92,6 +90,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	templateDatabase := strings.TrimSpace(sourceEnv["CARTULARY_PGTEST_TEMPLATE_DB"])
+	if templateDatabase == "" {
+		return errors.New("browser Recovery fixture requires the suite template database")
+	}
 
 	sourceRoot := filepath.Join(runtimeRoot, "restore-browser-restore-source")
 	if err := os.RemoveAll(sourceRoot); err != nil {
@@ -105,7 +107,7 @@ func run() error {
 		return err
 	}
 	sourceName := "cartulary_restore_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
-	sourceDSN, err := createAndMigrateDB(ctx, baseDSN, sourceName)
+	sourceDSN, err := createFromTemplateDB(ctx, baseDSN, sourceName, templateDatabase)
 	if err != nil {
 		return err
 	}
@@ -217,7 +219,7 @@ func run() error {
 		return err
 	}
 	targetName := "cartulary_restore_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
-	targetDSN, err := createAndMigrateDB(ctx, baseDSN, targetName)
+	targetDSN, err := createFromTemplateDB(ctx, baseDSN, targetName, templateDatabase)
 	if err != nil {
 		return err
 	}
@@ -560,7 +562,7 @@ func sourceEnvironment(runtimeRoot string) (map[string]string, error) {
 		"CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY":    "cartulary-local-secret",
 		"CARTULARY_S3_OBJECT_PRIMARY_SECURE":               "false",
 		"CARTULARY_S3_OBJECT_PRIMARY_BUCKET":               "cartulary",
-		"CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN":          "",
+		"CARTULARY_POSTGRES_POSTGRES_PRIMARY_RECOVERY_DSN": "",
 		"CARTULARY_POSTGRES_POSTGRES_PRIMARY_SERVICE_KIND": "postgres",
 	}
 	for key := range env {
@@ -570,6 +572,9 @@ func sourceEnvironment(runtimeRoot string) (map[string]string, error) {
 	}
 	if value := strings.TrimSpace(os.Getenv("CARTULARY_WEB_E2E_DB")); value != "" {
 		env["CARTULARY_WEB_E2E_DB"] = value
+	}
+	if value := strings.TrimSpace(os.Getenv("CARTULARY_PGTEST_TEMPLATE_DB")); value != "" {
+		env["CARTULARY_PGTEST_TEMPLATE_DB"] = value
 	}
 	for _, candidate := range []string{
 		filepath.Join(runtimeRoot, "test-services-web-e2e.env"),
@@ -632,7 +637,7 @@ func strconvUnquote(value string) (string, error) {
 }
 
 func sourcePostgresDSN(runtimeRoot string, env map[string]string) (string, error) {
-	if dsn := strings.TrimSpace(env["CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN"]); dsn != "" {
+	if dsn := strings.TrimSpace(env["CARTULARY_POSTGRES_POSTGRES_PRIMARY_RECOVERY_DSN"]); dsn != "" {
 		return dsn, nil
 	}
 	if database := strings.TrimSpace(env["CARTULARY_WEB_E2E_DB"]); database != "" {
@@ -693,7 +698,7 @@ func prepareConflictTokenHarness(root string) (map[string]string, error) {
 	}, nil
 }
 
-func createAndMigrateDB(ctx context.Context, baseDSN string, databaseName string) (string, error) {
+func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName string, templateDatabase string) (string, error) {
 	adminDSN, err := databaseDSN(baseDSN, "postgres")
 	if err != nil {
 		return "", err
@@ -702,27 +707,13 @@ func createAndMigrateDB(ctx context.Context, baseDSN string, databaseName string
 	if err != nil {
 		return "", err
 	}
-	if err := createDatabase(ctx, adminDSN, databaseName); err != nil {
+	if err := createDatabase(ctx, adminDSN, databaseName, templateDatabase); err != nil {
 		return "", err
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return "", fmt.Errorf("open migration db: %w", err)
-	}
-	defer db.Close()
-	source, err := dbmigrations.Source()
-	if err != nil {
-		_ = dropDatabase(context.Background(), baseDSN, databaseName)
-		return "", fmt.Errorf("load migration source: %w", err)
-	}
-	if err := database_migrations.Apply(ctx, db, source); err != nil {
-		_ = dropDatabase(context.Background(), baseDSN, databaseName)
-		return "", fmt.Errorf("migrate db %s: %w", databaseName, err)
 	}
 	return dsn, nil
 }
 
-func createDatabase(ctx context.Context, adminDSN string, name string) error {
+func createDatabase(ctx context.Context, adminDSN string, name string, templateDatabase string) error {
 	admin, err := sql.Open("pgx", adminDSN)
 	if err != nil {
 		return fmt.Errorf("open admin db: %w", err)
@@ -732,10 +723,14 @@ func createDatabase(ctx context.Context, adminDSN string, name string) error {
 	if err != nil {
 		return err
 	}
+	quotedTemplate, err := pgIdentifier(templateDatabase)
+	if err != nil {
+		return err
+	}
 	if _, err := admin.ExecContext(ctx, `DROP DATABASE IF EXISTS `+quoted+` WITH (FORCE)`); err != nil {
 		return fmt.Errorf("drop existing target db: %w", err)
 	}
-	if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+quoted); err != nil {
+	if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+quoted+` TEMPLATE `+quotedTemplate); err != nil {
 		return fmt.Errorf("create target db: %w", err)
 	}
 	return nil

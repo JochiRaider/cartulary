@@ -444,7 +444,7 @@
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
       "collaborator_ids": [
-        "module.database_migrations"
+        "platform.postgres"
       ],
       "verification_ids": [
         "module.revisions.verification.history_association_storage_migration"
@@ -453,7 +453,7 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestRevisionsHistoryAssociationsMigration61FreshAndGuarded_Integration"
+          "TestRevisionsHistoryAssociationsHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",

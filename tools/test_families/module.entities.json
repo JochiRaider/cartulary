@@ -467,7 +467,7 @@
       "owner_id": "module.entities",
       "family_id": "module.entities.support_integration",
       "collaborator_ids": [
-        "module.database_migrations"
+        "platform.postgres"
       ],
       "verification_ids": [
         "module.entities.verification.behavior_contract"
@@ -476,9 +476,7 @@
       "selector": {
         "package": "./internal/modules/entities",
         "tests": [
-          "TestEntityAliasMigration31EmptyUpgrade",
-          "TestEntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample",
-          "TestEntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates"
+          "TestEntityAliasHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -486,7 +484,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "full"
     },
     {

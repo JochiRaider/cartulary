@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -15,7 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -515,7 +516,7 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 		return nil, err
 	}
 
-	db, err := sql.Open("pgx", testDB.DSN)
+	db, err := OpenPurposeDatabase(testDB.DSN, postgres.PurposeMigration)
 	if err != nil {
 		return nil, fmt.Errorf("open test database handle: %w", err)
 	}
@@ -560,7 +561,7 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		return fmt.Errorf("create local postgres template database: %w", err)
 	}
 	templateDSN := h.dsnFor(name)
-	db, err := sql.Open("pgx", templateDSN)
+	db, err := OpenPurposeDatabase(templateDSN, postgres.PurposeMigration)
 	if err != nil {
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("open local postgres template database: %w", err)
@@ -573,9 +574,11 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		return fmt.Errorf("load migration source: %w", err)
 	}
 	if err := migrateDatabaseFn(ctx, db, source); err != nil {
+		var appliedVersion int64
+		_ = db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version_id), 0) FROM public.goose_db_version WHERE is_applied`).Scan(&appliedVersion)
 		_ = db.Close()
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return fmt.Errorf("migrate local postgres template database: %w", err)
+		return fmt.Errorf("migrate local postgres template database after version %d: %w", appliedVersion, err)
 	}
 	if err := db.Close(); err != nil {
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
@@ -623,6 +626,22 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 		}
 	})
 	return testDB
+}
+
+// OpenIsolatedDatabaseT opens a fresh current-head database through the
+// production purpose-role initializer. Owner contract tests use this instead
+// of replaying historical migration boundaries.
+func (h *Harness) OpenIsolatedDatabaseT(t testing.TB, prefix string, purpose postgres.Purpose) *sql.DB {
+	t.Helper()
+	testDB := h.PrepareIsolatedDatabaseT(t, prefix)
+	db, err := OpenPurposeDatabase(testDB.DSN, purpose)
+	if err != nil {
+		t.Fatalf("open isolated postgres database: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+	return db
 }
 
 func (h *Harness) newMigrationDatabaseT(t testing.TB) *TestDatabase {
@@ -681,7 +700,7 @@ func (h *Harness) migrationDatabaseT(t testing.TB, apply func(context.Context, *
 		}
 	})
 
-	openedDB, err := sql.Open("pgx", testDB.DSN)
+	openedDB, err := OpenPurposeDatabase(testDB.DSN, postgres.PurposeMigration)
 	if err != nil {
 		t.Fatalf("open migration scratch database: %v", err)
 	}
@@ -1348,12 +1367,26 @@ func (db *TestDatabase) Env() map[string]string {
 	}
 }
 
-func (db *TestDatabase) EnvForServiceRef(serviceRef string) map[string]string {
-	key, err := postgres.EnvKeyForServiceRef(serviceRef)
+func (db *TestDatabase) EnvForServiceRef(serviceRef string, purpose postgres.Purpose) map[string]string {
+	key, err := postgres.EnvKeyForServiceRef(serviceRef, purpose)
 	if err != nil {
 		return map[string]string{}
 	}
-	return map[string]string{key: db.DSN}
+	purposeDSN, err := db.DSNForPurpose(purpose)
+	if err != nil {
+		return map[string]string{}
+	}
+	return map[string]string{key: purposeDSN}
+}
+
+// DSNForPurpose returns a test-only credential for the exact deployment login
+// associated with purpose. ProvisionDatabase owns these disposable-harness
+// login credentials and their fixed, non-inheriting role memberships.
+func (db *TestDatabase) DSNForPurpose(purpose postgres.Purpose) (string, error) {
+	if db == nil {
+		return "", errors.New("test database is nil")
+	}
+	return purposeDSN(db.DSN, purpose)
 }
 
 func (h *Harness) dsnFor(database string) string {
@@ -1453,6 +1486,203 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 			return fmt.Errorf("create test database %s from template %s: %w", name, templateDB, err)
 		}
 		return fmt.Errorf("create test database %s: %w", name, err)
+	}
+	if err := ProvisionDatabase(ctx, adminDSN, name); err != nil {
+		return err
+	}
+	return nil
+}
+
+// OpenPurposeDatabase opens a test-only database handle through the same
+// purpose-role initializer used by production composition.
+func OpenPurposeDatabase(dsn string, purpose postgres.Purpose) (*sql.DB, error) {
+	contract, ok := testPurposeContracts[purpose]
+	if !ok {
+		return nil, errors.New("unsupported test postgres purpose")
+	}
+	selectedDSN, err := purposeDSN(dsn, purpose)
+	if err != nil {
+		return nil, err
+	}
+	return postgres.OpenSQL(postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          selectedDSN,
+		Purpose:      purpose,
+		ExpectedRole: contract.role,
+	})
+}
+
+type testPurposeContract struct {
+	login    string
+	password string
+	role     string
+}
+
+var testPurposeContracts = map[postgres.Purpose]testPurposeContract{
+	postgres.PurposeRuntime: {
+		login:    "cartulary_runtime_login",
+		password: "cartulary-runtime",
+		role:     "cartulary_runtime",
+	},
+	postgres.PurposeMigration: {
+		login:    "cartulary_migration_login",
+		password: "cartulary-migration",
+		role:     "cartulary_schema_owner",
+	},
+	postgres.PurposeRecovery: {
+		login:    "cartulary_recovery_login",
+		password: "cartulary-recovery",
+		role:     "cartulary_recovery",
+	},
+}
+
+func purposeDSN(dsn string, purpose postgres.Purpose) (string, error) {
+	contract, ok := testPurposeContracts[purpose]
+	if !ok {
+		return "", errors.New("unsupported test postgres purpose")
+	}
+	parsed, err := url.Parse(dsn)
+	if err != nil {
+		return "", errors.New("parse test postgres binding")
+	}
+	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+		return "", errors.New("test postgres binding must be a URI")
+	}
+	parsed.User = url.UserPassword(contract.login, contract.password)
+	return parsed.String(), nil
+}
+
+// ProvisionDatabase establishes the administrator-owned PostgreSQL
+// prerequisites for one disposable test database.
+func ProvisionDatabase(ctx context.Context, adminDSN string, name string) error {
+	admin, err := sql.Open("pgx", adminDSN)
+	if err != nil {
+		return fmt.Errorf("open postgres provisioning lock handle: %w", err)
+	}
+	defer admin.Close()
+	lockConnection, err := admin.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire postgres provisioning lock connection: %w", err)
+	}
+	defer lockConnection.Close()
+	if _, err := lockConnection.ExecContext(ctx, `SELECT pg_catalog.pg_advisory_lock(44836342409088450)`); err != nil {
+		return fmt.Errorf("acquire postgres provisioning lock: %w", err)
+	}
+	defer func() {
+		_, _ = lockConnection.ExecContext(context.Background(), `SELECT pg_catalog.pg_advisory_unlock(44836342409088450)`)
+	}()
+	if err := provisionClusterRoles(ctx, lockConnection); err != nil {
+		return err
+	}
+	config, err := pgx.ParseConfig(adminDSN)
+	if err != nil {
+		return fmt.Errorf("parse postgres test provisioning config: %w", err)
+	}
+	config.Database = name
+	db := stdlib.OpenDB(*config)
+	defer db.Close()
+
+	statement := fmt.Sprintf(`
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public VERSION '1.3';
+CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public VERSION '1.6';
+ALTER SCHEMA public OWNER TO cartulary_schema_owner;
+REVOKE CREATE, USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO cartulary_schema_owner;
+GRANT USAGE ON SCHEMA public TO cartulary_runtime, cartulary_recovery;
+REVOKE CONNECT, TEMPORARY ON DATABASE %q FROM PUBLIC;
+GRANT CONNECT ON DATABASE %q TO cartulary_migration_login, cartulary_runtime_login, cartulary_recovery_login;
+GRANT SET ON PARAMETER session_replication_role TO cartulary_recovery;
+DO $extension_acl$
+DECLARE
+    routine pg_catalog.regprocedure;
+BEGIN
+    FOR routine IN
+        SELECT procedure.oid::pg_catalog.regprocedure
+          FROM pg_catalog.pg_proc AS procedure
+          JOIN pg_catalog.pg_depend AS dependency
+            ON dependency.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
+           AND dependency.objid = procedure.oid
+           AND dependency.deptype = 'e'
+          JOIN pg_catalog.pg_extension AS extension
+            ON extension.oid = dependency.refobjid
+         WHERE extension.extname IN ('pgcrypto', 'citext')
+         ORDER BY procedure.oid::pg_catalog.regprocedure::text
+    LOOP
+        EXECUTE format('REVOKE EXECUTE ON FUNCTION %%s FROM PUBLIC', routine);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %%s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', routine);
+    END LOOP;
+END
+$extension_acl$;
+DO $extension_type_acl$
+DECLARE
+    extension_type pg_catalog.regtype;
+BEGIN
+    FOR extension_type IN
+        SELECT candidate.oid::pg_catalog.regtype
+          FROM pg_catalog.pg_type AS candidate
+          JOIN pg_catalog.pg_depend AS dependency
+            ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
+           AND dependency.objid = candidate.oid
+           AND dependency.deptype = 'e'
+          JOIN pg_catalog.pg_extension AS extension
+            ON extension.oid = dependency.refobjid
+         WHERE extension.extname IN ('pgcrypto', 'citext')
+         ORDER BY candidate.oid::pg_catalog.regtype::text
+    LOOP
+        EXECUTE format('REVOKE USAGE ON TYPE %%s FROM PUBLIC', extension_type);
+        EXECUTE format('GRANT USAGE ON TYPE %%s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', extension_type);
+    END LOOP;
+END
+$extension_type_acl$;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE USAGE ON TYPES FROM PUBLIC;
+`, name, name)
+	if _, err := db.ExecContext(ctx, statement); err != nil {
+		return fmt.Errorf("provision test database %s: %w", name, err)
+	}
+	return nil
+}
+
+func provisionClusterRoles(ctx context.Context, admin *sql.Conn) error {
+	const statement = `
+DO $cartulary_roles$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_schema_owner') THEN
+        CREATE ROLE cartulary_schema_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_runtime') THEN
+        CREATE ROLE cartulary_runtime NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_recovery') THEN
+        CREATE ROLE cartulary_recovery NOLOGIN;
+    END IF;
+	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_migration_login') THEN
+		CREATE ROLE cartulary_migration_login LOGIN PASSWORD 'cartulary-migration';
+	END IF;
+	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_runtime_login') THEN
+		CREATE ROLE cartulary_runtime_login LOGIN PASSWORD 'cartulary-runtime';
+	END IF;
+	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_recovery_login') THEN
+		CREATE ROLE cartulary_recovery_login LOGIN PASSWORD 'cartulary-recovery';
+	END IF;
+END
+$cartulary_roles$;
+ALTER ROLE cartulary_schema_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ALTER ROLE cartulary_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ALTER ROLE cartulary_recovery NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+ALTER ROLE cartulary_migration_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-migration';
+ALTER ROLE cartulary_runtime_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-runtime';
+ALTER ROLE cartulary_recovery_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD 'cartulary-recovery';
+GRANT cartulary_schema_owner TO cartulary_migration_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+GRANT cartulary_runtime TO cartulary_runtime_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+GRANT cartulary_recovery TO cartulary_recovery_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+REVOKE cartulary_runtime, cartulary_recovery FROM cartulary_migration_login;
+REVOKE cartulary_schema_owner, cartulary_recovery FROM cartulary_runtime_login;
+REVOKE cartulary_schema_owner, cartulary_runtime FROM cartulary_recovery_login;`
+	if _, err := admin.ExecContext(ctx, statement); err != nil {
+		return fmt.Errorf("provision postgres test roles: %w", err)
 	}
 	return nil
 }

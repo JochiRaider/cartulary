@@ -101,7 +101,7 @@ func (executor collaborationExecutor) runCommand(ctx context.Context, args []str
 		}
 		return executor.deliverCollaborationFailure(operationID, startedAt, parsed, failure, 2)
 	}
-	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(loaded.Deployment()), nil)
+	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(loaded.Deployment()), postgres.PurposeRuntime, nil)
 	if err != nil {
 		failure := &operatorCollaborationRequeueError{
 			Code:       "invalid_operator_request",

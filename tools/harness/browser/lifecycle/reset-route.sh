@@ -38,6 +38,34 @@ if (partial) {
 EOF
 }
 
+web_e2e_reset_mark_tainted() {
+  local taint_marker_file="$1"
+  local runtime_root="$2"
+
+  printf '%s\n' "partial_failure" >"$taint_marker_file"
+  if [[ -n "$runtime_root" ]]; then
+    printf '%s\n' "partial_failure" >"${runtime_root%/}/stack.tainted"
+  fi
+}
+
+web_e2e_reset_database() {
+  local root_dir="$1"
+  local runtime_root="${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
+  local test_services_bin="${CARTULARY_TEST_SERVICES_BIN:-}"
+
+  if [[ -z "$runtime_root" ]]; then
+    echo "CARTULARY_WEB_E2E_RUNTIME_ROOT is required for Recovery-purpose reset" >&2
+    return 2
+  fi
+  if [[ -z "$test_services_bin" || ! -x "$test_services_bin" ]]; then
+    echo "CARTULARY_TEST_SERVICES_BIN must name an executable for Recovery-purpose reset" >&2
+    return 2
+  fi
+  "$test_services_bin" reset-web-e2e \
+    --credential-root "$runtime_root" \
+    --bootstrap-manifest "$root_dir/configs/dev/bootstrap-admin.json"
+}
+
 web_e2e_reset_validate_response() {
   local response_file="$1"
   local data_file="$2"
@@ -157,10 +185,16 @@ web_e2e_reset_stack() {
   route_origin="${route_origin%/}"
   test_route_token="$(web_e2e_reset_route_token)" || return $?
 
-  status="$(web_e2e_reset_request "$api_origin" "$route_origin" "$test_route_token" "$response_file")"
+  web_e2e_reset_database "$root_dir" || return $?
+  if ! status="$(web_e2e_reset_request "$api_origin" "$route_origin" "$test_route_token" "$response_file")"; then
+    web_e2e_reset_mark_tainted "$taint_marker_file" "${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
+    echo "test runtime reset request failed after database reset committed" >&2
+    return 1
+  fi
   printf '%s\n' "$status" >"$status_file"
 
   if [[ "$status" != "200" ]]; then
+    web_e2e_reset_mark_tainted "$taint_marker_file" "${CARTULARY_WEB_E2E_RUNTIME_ROOT:-}"
     web_e2e_reset_mark_tainted_on_partial_failure \
       "$response_file" \
       "$taint_marker_file" \

@@ -22,10 +22,10 @@ type providerSQLSource struct {
 
 type schemaOwnershipManifest struct {
 	Entries []struct {
-		Owner          string `json:"owner"`
-		ObjectPatterns []struct {
-			NamePattern string `json:"name_pattern"`
-		} `json:"object_patterns"`
+		ObjectKind      string `json:"object_kind"`
+		QualifiedName   string `json:"qualified_name"`
+		ManagementClass string `json:"management_class"`
+		SourceOwner     string `json:"source_owner"`
 	} `json:"entries"`
 }
 
@@ -256,16 +256,17 @@ func loadSchemaOwnerPatterns(t testing.TB, root string) []schemaOwnerPattern {
 	}
 	patterns := make([]schemaOwnerPattern, 0)
 	for _, entry := range manifest.Entries {
-		for _, objectPattern := range entry.ObjectPatterns {
-			if objectPattern.NamePattern == "" {
-				continue
-			}
-			compiled, err := regexp.Compile(objectPattern.NamePattern)
-			if err != nil {
-				t.Fatalf("compile schema owner %s pattern %q: %v", entry.Owner, objectPattern.NamePattern, err)
-			}
-			patterns = append(patterns, schemaOwnerPattern{owner: entry.Owner, pattern: compiled})
+		if entry.ManagementClass != "cartulary_authored" || (entry.ObjectKind != "table" && entry.ObjectKind != "view") {
+			continue
 		}
+		name := strings.TrimPrefix(entry.QualifiedName, "public.")
+		if name == "" || name == entry.QualifiedName {
+			t.Fatalf("schema owner %s has invalid qualified relation %q", entry.SourceOwner, entry.QualifiedName)
+		}
+		patterns = append(patterns, schemaOwnerPattern{
+			owner:   entry.SourceOwner,
+			pattern: regexp.MustCompile("^" + regexp.QuoteMeta(name) + "$"),
+		})
 	}
 	return patterns
 }

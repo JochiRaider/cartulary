@@ -12,11 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 const testRuntimeResetToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
@@ -50,7 +53,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	if _, exists := effectiveEnv[httpapi.TestRouteTokenEnv]; !exists {
 		effectiveEnv[httpapi.TestRouteTokenEnv] = testRuntimeResetToken
 	}
-	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv, postgres.PurposeRuntime)
 
 	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, effectiveEnv).Deployment()
 	ctx := context.Background()
@@ -63,8 +66,28 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 		pool.Close()
 		t.Fatalf("open Network Flow reset object-store fixture: %v", err)
 	}
+	bootstrapSettings := bootstrap.Settings{ManifestPath: cfg.Bootstrap.FirstAdminManifestPath}
+	if err := bootstrap.Preflight(ctx, bootstrapSettings, pool); err != nil {
+		pool.Close()
+		_ = store.Close()
+		t.Fatalf("bootstrap Network Flow reset fixture: %v", err)
+	}
 	deps.TestResetBootstrap = func(ctx context.Context, tx pgx.Tx) error {
-		return bootstrap.PreflightTx(ctx, bootstrap.Settings{ManifestPath: cfg.Bootstrap.FirstAdminManifestPath}, tx)
+		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
+	}
+	recoveryPool, err := postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          effectiveEnv[suiteservices.PostgresDSNEnv],
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
+	if err != nil {
+		pool.Close()
+		_ = store.Close()
+		t.Fatalf("open Network Flow reset Recovery fixture: %v", err)
+	}
+	deps.TestResetDatabase = func(ctx context.Context) error {
+		return harnessruntime.ResetDatabase(ctx, recoveryPool, deps.TestResetBootstrap)
 	}
 	deps.Env = effectiveEnv
 	deps.Postgres = pool
@@ -81,6 +104,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	server := httptest.NewServer(handler)
 	t.Cleanup(func() {
 		server.Close()
+		recoveryPool.Close()
 		pool.Close()
 		_ = store.Close()
 	})

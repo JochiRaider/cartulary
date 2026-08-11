@@ -115,7 +115,7 @@ func (executor recoveryExecutor) loadDeployment(path string) (application.Deploy
 		return application.Deployment{}, err
 	}
 	cfg := loaded.Deployment()
-	postgresSettings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
+	postgresSettings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeRecovery, nil)
 	if err != nil {
 		return application.Deployment{}, err
 	}

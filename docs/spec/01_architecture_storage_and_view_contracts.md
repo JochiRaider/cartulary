@@ -87,7 +87,9 @@ Verified by: AC-509, AC-510, AC-511, AC-512, AC-515
 
 Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
 
-When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v1`. Databases with applied goose versions from a different or unmarked migration line are not upgraded in place by the current line; operators MUST reset the database or move data through an explicit owner-approved export/import path before adopting the rebaseline. The current profile does not define an automatic row-level bridge from historical migration lines into the current production DDL line. Repository migration tooling MUST fail closed for such databases with boundary `prod_ddl_rebaseline_v1` and reason code `historical_migration_lineage`.
+When an owner-authorized production DDL rebaseline is adopted, the runnable migration line MUST identify its lineage in the database and repository migration source. The current production DDL lineage is `cartulary.prod_ddl_rebaseline.v2`; its repository head and immutable boundary are both version `29`. A database with v1 lineage, another lineage, unmarked nonzero Goose history, or pre-existing Cartulary application objects is not a v2 upgrade source. Repository migration tooling MUST reject it before executing v2 DDL with boundary `prod_ddl_rebaseline_v2`, reason code `historical_migration_lineage`, and the exact remediation hint `Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1.`
+
+The v2 transition is pre-production and reset-only. The current profile defines no export/import transition, row transformation, data bridge, migration 62, compatibility view, dual catalog, downgrade, automatic remediation, or retained executable v1 source. A requirement to preserve database content blocks the v2 rebaseline and requires a separately adopted data-migration contract. Version `30` is the first permissible later forward migration after the v2 line.
 
 Server startup MUST verify the configured database is on the current production DDL lineage and at the repository migration head before object-store setup, bootstrap mutation, WebSocket setup, background-job runner setup, HTTP handler construction, or readiness. A current-line database behind the repository head MUST fail startup with `invalid_deployment_config` and reason code `schema_migration_required`; a current-line database ahead of the repository head MUST fail startup with reason code `schema_version_ahead`; a database from an unmarked or different migration line MUST surface the same `cartulary.migration_remediation_report.v1` remediation report used by repository migration tooling.
 
@@ -164,6 +166,46 @@ Physical package placement, migration SQL placement, test placement, and
 verification routing do not transfer this lifecycle ownership.
 Profiles: base
 Verified by: AC-537
+
+**REQ-01-661**
+The Production DDL Rebaseline v2 source MUST contain exactly 29 contiguous
+authored SQL migrations, versions `1..29`, and MUST use the application schema
+`public`, Goose ledger `public.goose_db_version`, and lineage relation
+`public.schema_migration_lineage` on PostgreSQL major 16. The exact filenames,
+bytes, hashes, order, physical object allocation, dependencies, FK coverage,
+routine classes, and per-purpose access classes MUST be authored machine
+contracts downstream of the applicable logical owners; Core 02 MUST NOT own
+that physical topology.
+
+The migration source MUST validate administrator-provisioned `pgcrypto` 1.3
+and `citext` 1.6 in `public` before creating an authored object. It MUST NOT
+create or drop an extension, create a schema or role, use `IF NOT EXISTS`, use
+a Goose `NO TRANSACTION` directive, or accept a pre-existing Cartulary object.
+Every Up section MUST be transactional and every authored or ledger reference
+MUST be schema-qualified. Down sections are disposable Testing Harness cleanup
+only, MUST reverse owner objects explicitly without `CASCADE`, and MUST leave
+only administrator-provisioned roles/logins/extensions and Goose's exact
+version-zero metadata residue.
+
+The migration-history evidence contract remains
+`cartulary.migration_history_evidence.v2`; the remediation contract remains
+`cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
+and corresponding goldens change intentionally for lineage v2. Recovery MUST
+retain exactly 111 table entries, exactly 83 `authoritative_required` entries,
+and the unique Revisions-owned authoritative
+`record_revision_conflict_facts` entry. Public product routes, payloads,
+lifecycle, ordering, and authorization MUST NOT change. SQLC output may change
+only for an owner-approved physical schema delta and MUST have no unexplained
+generated difference.
+
+Server and non-Recovery Operator composition MUST select the runtime
+PostgreSQL purpose, `cmd/migrate` MUST select the migration purpose, and every
+backup, restore, restore-verification, and repository Recovery tool MUST select
+the Recovery purpose. No caller may select a purpose implicitly or receive an
+unselected-purpose credential.
+Profiles: base, enterprise_authentication, import, incident_portability,
+network_flow_activity, reference_pack, snapshot_reporting
+Verified by: AC-542
 
 **REQ-01-006**
 File-based structured import beyond clipboard paste MUST be implemented as a dedicated internal `imports` module within the modular monolith.

@@ -117,7 +117,7 @@ func readSQLMigrationState(ctx context.Context, reader sqlLedgerReader) (migrati
 		return migrationStateSnapshot{}, fmt.Errorf("inspect migration ledger: %w", err)
 	}
 	if snapshot.LedgerTablePresent {
-		rows, err := reader.QueryContext(ctx, `SELECT version_id, is_applied FROM goose_db_version ORDER BY id ASC`)
+		rows, err := reader.QueryContext(ctx, `SELECT version_id, is_applied FROM public.goose_db_version ORDER BY id ASC`)
 		if err != nil {
 			return migrationStateSnapshot{}, fmt.Errorf("read migration ledger: %w", err)
 		}
@@ -144,7 +144,7 @@ func readSQLMigrationState(ctx context.Context, reader sqlLedgerReader) (migrati
 	if !snapshot.LineageTablePresent {
 		return snapshot, nil
 	}
-	rows, err := reader.QueryContext(ctx, `SELECT lineage_id FROM schema_migration_lineage ORDER BY lineage_id ASC`)
+	rows, err := reader.QueryContext(ctx, `SELECT lineage_id FROM public.schema_migration_lineage ORDER BY lineage_id ASC`)
 	if err != nil {
 		return migrationStateSnapshot{}, fmt.Errorf("read migration lineage: %w", err)
 	}

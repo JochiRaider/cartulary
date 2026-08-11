@@ -103,6 +103,37 @@ func (root *Root) Check() error {
 	return root.checkReady("check")
 }
 
+// Exists reports whether a rooted object exists without opening or reading the
+// object. The final component is inspected with no-follow semantics, so callers
+// can safely perform presence-only policy checks for regular files, symlinks,
+// directories, and other filesystem objects.
+func (root *Root) Exists(reference Reference) (bool, error) {
+	root.mu.RLock()
+	defer root.mu.RUnlock()
+	if err := root.checkReady("exists"); err != nil {
+		return false, err
+	}
+	chain, finalName, err := root.openParent(reference)
+	if err != nil {
+		return false, operationError("exists", reference, "parent traversal failed", err)
+	}
+	defer chain.close()
+	var stat unix.Stat_t
+	if err := unix.Fstatat(chain.lastFD(), finalName, &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		if errors.Is(err, unix.ENOENT) {
+			return false, nil
+		}
+		return false, operationError("exists", reference, "object presence is unavailable", err)
+	}
+	if err := root.validateChain(chain); err != nil {
+		return false, operationError("exists", reference, "directory identity changed", err)
+	}
+	if err := root.checkRootIdentity(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (root *Root) MakePrivateDir(reference Reference) error {
 	root.mu.RLock()
 	defer root.mu.RUnlock()

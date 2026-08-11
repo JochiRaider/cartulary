@@ -77,7 +77,7 @@ func (runner migrateRunner) run(ctx context.Context) error {
 	}
 
 	cfg := loaded.Deployment()
-	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), nil)
+	settings, err := postgres.ResolveSettings(configassembly.PostgresBinding(cfg), postgres.PurposeMigration, nil)
 	if err != nil {
 		return fmt.Errorf("resolve postgres settings: %w", err)
 	}

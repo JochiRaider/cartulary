@@ -10,6 +10,7 @@ const (
 	reasonMigrationSourceInvalid         = "migration_source_invalid"
 	reasonMigrationDatabaseUnavailable   = "migration_database_unavailable"
 	reasonMigrationLockAcquisitionFailed = "migration_lock_acquisition_failed"
+	reasonSchemaExtensionPrerequisite    = "schema_extension_prerequisite_invalid"
 	reasonSchemaMigrationHistoryInvalid  = "schema_migration_history_invalid"
 	reasonHistoricalMigrationLineage     = "historical_migration_lineage"
 	reasonSchemaMigrationRequired        = "schema_migration_required"

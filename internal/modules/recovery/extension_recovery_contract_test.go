@@ -92,9 +92,13 @@ VALUES ('restore-target@example.test', 'Restore Target', 'not-a-real-hash', fals
 			mutate: func(t *testing.T, target *recovery.RestoreTarget) {
 				t.Helper()
 				if _, err := target.Postgres.Exec(ctx, `
-UPDATE extension_state_metadata
-   SET state_version = 2, updated_at = updated_at + interval '1 second'
- WHERE profile_id = 'network_flow_activity'
+INSERT INTO extension_state_metadata (
+    profile_id, migration_lineage_id, state_version, last_migration_id,
+    metadata_version, created_at, updated_at
+) VALUES (
+    'network_flow_activity', 'network_flow_activity.state_v1', 2, NULL,
+    1, statement_timestamp(), statement_timestamp()
+)
 `); err != nil {
 					t.Fatalf("alter extension metadata: %v", err)
 				}

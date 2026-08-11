@@ -661,8 +661,7 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 			"TestManagerProgressIntentFailureRollsBackJobMutation_Integration",
 		},
 		"module.extensions.integration.clean_job_cutover_migration_4917a0cdef": {
-			"TestExtensionJobCutoverMigration34FreshSchema_Integration",
-			"TestExtensionJobCutoverMigration34RejectsEveryRetiredHandlerBeforeMutation_Integration",
+			"TestExtensionJobHeadSchemaContract_Integration",
 		},
 	}
 	for rowID, testNames := range jobRows {

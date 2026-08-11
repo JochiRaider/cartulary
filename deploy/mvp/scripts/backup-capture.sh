@@ -56,6 +56,6 @@ compose stop app >/dev/null
 
 compose run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app \
+  recovery-operator \
   backup create \
   --source-config-file "$SOURCE_CONFIG_CONTAINER"

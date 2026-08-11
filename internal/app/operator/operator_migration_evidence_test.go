@@ -130,7 +130,7 @@ func captureMigrationEvidenceUnitAtManifest(t *testing.T, manifestPath string) m
 	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
 	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
@@ -209,7 +209,7 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 func runMigrationEvidenceCaptureV2GoldenDigest(t *testing.T) {
 	capture := captureMigrationEvidenceUnit(t)
 	digest := sha256.Sum256([]byte(capture.stdout))
-	const wantDigest = "29bd46ab2d3d6a2e10c7d01972773baa070614dcf4ec75492b7c3241fdc45df4"
+	const wantDigest = "37b82b6be4c098e84d34c159263d89a104e3da462cb9210a98bb45927cc5e13e"
 	if got := fmt.Sprintf("%x", digest); got != wantDigest {
 		t.Fatalf("v2 migration evidence digest = %s, want %s", got, wantDigest)
 	}
@@ -243,7 +243,7 @@ func runMigrationEvidenceRelocationInvariance(t *testing.T) {
 func runMigrationEvidenceManifestFailureRedaction(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
 	secretPath := filepath.Join(t.TempDir(), "operator-private-manifest.json")
 	pool := newMigrationEvidenceFakePool(true, nil)
 	runner := operatorRunner{
@@ -326,7 +326,7 @@ func runMigrationEvidenceCaptureProjectionSemantics(t *testing.T) {
 func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
 	pool := newMigrationEvidenceFakePool(false, nil)
 	manifestPath := migrationEvidenceManifestPathForTest(t)
 	runner := operatorRunner{

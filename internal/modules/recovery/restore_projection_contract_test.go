@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -111,7 +112,12 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 	}
 	t.Cleanup(sourcePool.Close)
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix+"-target")
-	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
+	targetPool, err := postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          targetDB.DSN,
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
 	if err != nil {
 		t.Fatalf("open target postgres fixture: %v", err)
 	}

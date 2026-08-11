@@ -24,6 +24,10 @@ func (*Root) Check() error {
 	return ErrUnsupportedPlatform
 }
 
+func (*Root) Exists(Reference) (bool, error) {
+	return false, ErrUnsupportedPlatform
+}
+
 func (*Root) MakePrivateDir(Reference) error {
 	return ErrUnsupportedPlatform
 }

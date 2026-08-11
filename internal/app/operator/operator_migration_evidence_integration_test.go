@@ -84,7 +84,7 @@ func (pool *migrationEvidenceTrackingPool) Close() {
 
 func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) migrationEvidenceIntegrationCapture {
 	t.Helper()
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", dsn)
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", dsn)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	var acquiredPool *migrationEvidenceTrackingPool

@@ -10,6 +10,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -50,7 +51,7 @@ func newProcessEnv(t testing.TB, options processEnvOptions) map[string]string {
 	}
 	configtest.EnsureRevisionsConflictTokenTestEnvironment(env)
 	mergeProcessEnv(env, options.Overrides)
-	configtest.BindPostgresEnvToDatabaseRoot(t, env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
+	configtest.BindPostgresEnvToDatabaseRoot(t, env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env, postgres.PurposeRuntime)
 	return env
 }
 

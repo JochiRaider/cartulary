@@ -457,6 +457,93 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "standard"
+    },
+    {
+      "row_id": "harness.browser.integration.runtime_reset_recovery_purpose_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessruntime",
+        "tests": [
+          "TestTestRuntimeIdentityRouteRequiresHarnessAuthorization",
+          "TestTestRuntimeResetRouteClearsRegisteredTestClock",
+          "TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap",
+          "TestTestRuntimeResetRouteDisabledByDefault",
+          "TestTestRuntimeResetRouteRejectsConcurrentReset",
+          "TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates",
+          "TestTestRuntimeRoutesRejectNonHarnessOriginAndHost"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
+      "row_id": "harness.browser.unit.testservices_lifecycle_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/testservices",
+        "tests": [
+          "TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak",
+          "TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce",
+          "TestCleanupOwnedServicesTerminatesServicesConcurrently",
+          "TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval",
+          "TestCleanupPreviousSuiteServiceContainersAcceptsNotFound",
+          "TestCleanupPreviousSuiteServiceContainersRemovesEligibleContainer",
+          "TestCleanupPreviousSuiteServiceContainersReportsFatalRemove",
+          "TestCleanupPreviousSuiteServiceContainersReportsListFailure",
+          "TestCleanupPreviousSuiteServiceContainersRequiresOwnershipProof",
+          "TestCleanupPreviousSuiteServiceContainersSkipsCurrentSuite",
+          "TestCleanupPreviousSuiteServiceContainersTimeoutStillRunningFails",
+          "TestCleanupPreviousSuiteServiceContainersTimeoutThenGone",
+          "TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead",
+          "TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup",
+          "TestPrepareWebE2ECleansFixtureWhenEnvWriteFails",
+          "TestPrepareWebE2ERequiresActiveSuiteAndTemplate",
+          "TestPrepareWebE2EWritesShellEnvAndMetadata",
+          "TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge",
+          "TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths",
+          "TestRunCleansUpObjectStoreWhenPostgresStartupFails",
+          "TestRunDisablesRyukOnlyForSuiteStartup",
+          "TestRunFailsFastWhenSuitePreflightFails",
+          "TestRunPassThroughModeStartsNoServices",
+          "TestRunRecordsChildStartFailureWithStructuredSummary",
+          "TestRunRecordsObjectStoreStartupFailureWithStructuredSummary",
+          "TestRunRecordsPostgresTemplateFailureWithStructuredSummary",
+          "TestRunRedactsCredentialsInDiagnostics",
+          "TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess",
+          "TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus",
+          "TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing",
+          "TestServiceStartupAttemptTimingSummarizesRetries",
+          "TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures",
+          "TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts",
+          "TestWarmImagesUsesPinnedServiceImages"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
     }
   ]
 }

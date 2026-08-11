@@ -25,8 +25,8 @@ type migrationHistoryManifestEntry struct {
 }
 
 const (
-	expectedCanonicalLineageID       = "cartulary.prod_ddl_rebaseline.v1"
-	expectedCanonicalLineageBoundary = "prod_ddl_rebaseline_v1"
+	expectedCanonicalLineageID       = "cartulary.prod_ddl_rebaseline.v2"
+	expectedCanonicalLineageBoundary = "prod_ddl_rebaseline_v2"
 )
 
 func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
@@ -45,11 +45,11 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if manifest.SchemaID != "cartulary.migration_history_manifest.v1" || manifest.MigrationRoot != "db/migrations" {
 		t.Fatalf("unexpected migration manifest identity: schema=%q root=%q", manifest.SchemaID, manifest.MigrationRoot)
 	}
-	if manifest.ImmutableThroughVersion != 23 {
+	if manifest.ImmutableThroughVersion != 29 {
 		t.Fatalf("unexpected immutable boundary: %d", manifest.ImmutableThroughVersion)
 	}
-	if len(manifest.Entries) != 61 {
-		t.Fatalf("migration manifest entry count = %d, want 61", len(manifest.Entries))
+	if len(manifest.Entries) != 29 {
+		t.Fatalf("migration manifest entry count = %d, want 29", len(manifest.Entries))
 	}
 
 	first, err := dbmigrations.Source()
@@ -83,7 +83,7 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if first != second {
 		t.Fatal("repeated canonical source construction did not return the same pointer")
 	}
-	if inspection.VersionCount != 61 || inspection.MinVersion != 1 || inspection.MaxVersion != 61 || len(inspection.Entries) != 61 {
+	if inspection.VersionCount != 29 || inspection.MinVersion != 1 || inspection.MaxVersion != 29 || len(inspection.Entries) != 29 {
 		t.Fatalf("unexpected canonical source ordering facts: %#v", inspection)
 	}
 	if !inspection.Entries[0].HasGooseUp || !inspection.Entries[0].HasGooseDown {
@@ -103,7 +103,7 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical source: %v", err)
 	}
-	const wantHash = "fccebd1e8dd194c362a352e25041b33ad371c258a337d5d00bad75248805d9cc"
+	const wantHash = "a13d942fa136c2d2039013047ef0b8e2ef5911db617b275d9b0829fac3ba70e6"
 	if hash != wantHash {
 		t.Fatalf("canonical source hash = %s, want %s", hash, wantHash)
 	}

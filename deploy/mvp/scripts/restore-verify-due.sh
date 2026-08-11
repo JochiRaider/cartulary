@@ -40,17 +40,6 @@ compose() {
   docker compose "${args[@]}" "$@"
 }
 
-operator_env_args() {
-  printf '%s\0' \
-    -e "CARTULARY_CONFIG_FILE=${TARGET_CONFIG_CONTAINER}" \
-    -e "CARTULARY_POSTGRES_RESTORE_VERIFY_DSN=${CARTULARY_POSTGRES_RESTORE_VERIFY_DSN}" \
-    -e "CARTULARY_S3_RESTORE_VERIFY_ENDPOINT=${CARTULARY_S3_RESTORE_VERIFY_ENDPOINT}" \
-    -e "CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID=${CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID}" \
-    -e "CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY=${CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY}" \
-    -e "CARTULARY_S3_RESTORE_VERIFY_BUCKET=${CARTULARY_S3_RESTORE_VERIFY_BUCKET}" \
-    -e "CARTULARY_S3_RESTORE_VERIFY_SECURE=${CARTULARY_S3_RESTORE_VERIFY_SECURE:-false}"
-}
-
 require_command docker
 require_command date
 require_command sha256sum
@@ -69,7 +58,6 @@ if [[ ! "$target_db" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
   fail "RESTORE_VERIFY_POSTGRES_DB must be a simple database identifier"
 fi
 for name in \
-  CARTULARY_POSTGRES_RESTORE_VERIFY_DSN \
   CARTULARY_S3_RESTORE_VERIFY_ENDPOINT \
   CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID \
   CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY \
@@ -82,21 +70,19 @@ done
 if ! compose exec -T postgres psql -U "${POSTGRES_USER:-cartulary}" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '${target_db}'" | grep -qx "1"; then
   compose exec -T postgres createdb -U "${POSTGRES_USER:-cartulary}" "$target_db"
 fi
+compose exec -T -e "PGDATABASE=${target_db}" postgres /docker-entrypoint-initdb.d/010-cartulary-provision.sh
 
-mapfile -d '' target_env < <(operator_env_args)
 compose run --rm --no-deps \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \
   --volume "${TARGET_ROOT_HOST}:${TARGET_ROOT_CONTAINER}" \
-  "${target_env[@]}" \
   --entrypoint /usr/local/bin/cartulary-migrate \
-  app up
+  restore-verify-migrate up
 
 compose run --rm --no-deps \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \
   --volume "${TARGET_ROOT_HOST}:${TARGET_ROOT_CONTAINER}" \
-  "${target_env[@]}" \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app object-store init -config "$TARGET_CONFIG_CONTAINER" >"$OBJECT_INIT_OUTPUT"
+  restore-verify-operator object-store init -config "$TARGET_CONFIG_CONTAINER" >"$OBJECT_INIT_OUTPUT"
 
 generation_source="/proc/sys/kernel/random/uuid"
 if [[ ! -r "$generation_source" ]]; then
@@ -125,10 +111,10 @@ chmod 0644 \
   "${TARGET_ROOT_HOST}/backups/restore-target-marker.json"
 
 compose run --rm --no-deps \
+  --volume "${SOURCE_CONFIG_HOST}:${SOURCE_CONFIG_CONTAINER}:ro" \
   --volume "${TARGET_CONFIG_HOST}:${TARGET_CONFIG_CONTAINER}:ro" \
   --volume "${TARGET_ROOT_HOST}:${TARGET_ROOT_CONTAINER}" \
-  "${target_env[@]}" \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app restore-verify due \
+  restore-verify-operator restore-verify due \
   --source-config-file "$SOURCE_CONFIG_CONTAINER" \
   --target-config-file "$TARGET_CONFIG_CONTAINER"

@@ -97,7 +97,7 @@ set -euo pipefail
 
 printf '%s\n' "$*" >>"${DOCKER_LOG:?}"
 if [[ "$*" == *"schema_migration_lineage"* ]]; then
-  printf '%s\n' "cartulary.prod_ddl_rebaseline.v1"
+  printf '%s\n' "cartulary.prod_ddl_rebaseline.v2"
 fi
 EOF
   chmod +x "${dir}/bin/docker"
@@ -114,13 +114,13 @@ EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf '%s|%s|%s\n' "$PWD" "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
+printf '%s|%s|%s\n' "$PWD" "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
 printf '%s\n' "start" >>"${MIGRATE_EVENT_LOG:?}"
 sleep 0.2
 printf '%s\n' "end" >>"${MIGRATE_EVENT_LOG:?}"
 case "${FAIL_MIGRATE_SCENARIO:-}" in
   empty|both)
-    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN}" == *"_empty_"* ]]; then
+    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN}" == *"_empty_"* ]]; then
       echo "synthetic empty migration failure" >&2
       exit 41
     fi
@@ -128,7 +128,7 @@ case "${FAIL_MIGRATE_SCENARIO:-}" in
 esac
 case "${FAIL_MIGRATE_SCENARIO:-}" in
   penultimate|both)
-    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN}" == *"_penultimate_"* ]]; then
+    if [[ "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN}" == *"_penultimate_"* ]]; then
       echo "synthetic penultimate migration failure" >&2
       exit 42
     fi

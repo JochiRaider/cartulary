@@ -100,6 +100,9 @@ CARTULARY_PUBLIC_ORIGIN=${public_origin}
 POSTGRES_DB=cartulary
 POSTGRES_USER=cartulary
 POSTGRES_PASSWORD=cartulary-postgres-smoke-password
+CARTULARY_POSTGRES_MIGRATION_PASSWORD=cartulary-migration-smoke-password
+CARTULARY_POSTGRES_RUNTIME_PASSWORD=cartulary-runtime-smoke-password
+CARTULARY_POSTGRES_RECOVERY_PASSWORD=cartulary-recovery-smoke-password
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 CARTULARY_RECOVERY_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
@@ -110,7 +113,8 @@ CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY=cartulary-local-secret
 CARTULARY_S3_PRIMARY_BUCKET=cartulary-mvp-smoke
 
 RESTORE_VERIFY_POSTGRES_DB=cartulary_restore_verify
-CARTULARY_POSTGRES_RESTORE_VERIFY_DSN=postgresql://cartulary:cartulary-postgres-smoke-password@postgres:5432/cartulary_restore_verify?sslmode=disable
+CARTULARY_POSTGRES_RESTORE_VERIFY_MIGRATION_DSN=postgresql://cartulary_migration_login:cartulary-migration-smoke-password@postgres:5432/cartulary_restore_verify?sslmode=disable
+CARTULARY_POSTGRES_RESTORE_VERIFY_RECOVERY_DSN=postgresql://cartulary_recovery_login:cartulary-recovery-smoke-password@postgres:5432/cartulary_restore_verify?sslmode=disable
 CARTULARY_S3_RESTORE_VERIFY_ENDPOINT=seaweedfs-s3:8333
 CARTULARY_S3_RESTORE_VERIFY_ACCESS_KEY_ID=cartulary-local
 CARTULARY_S3_RESTORE_VERIFY_SECRET_ACCESS_KEY=cartulary-local-secret

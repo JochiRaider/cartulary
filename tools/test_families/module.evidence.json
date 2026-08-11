@@ -563,7 +563,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestEvidenceBlobUniquenessMigration53PreflightAndEnforcement_Integration"
+          "TestEvidenceBlobAssociationHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -571,7 +571,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {

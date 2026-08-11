@@ -5,6 +5,8 @@ mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD
 find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
 "${NODE_BIN:?NODE_BIN is required}" \
   ./tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs
+"$RUN_STEP_SCRIPT" "generate migration catalog projections" -- \
+  "$NODE_BIN" ./tools/database-migrations/generate-catalog-projections.mjs
 "${RUN_STEP_SCRIPT:?RUN_STEP_SCRIPT is required}" "generate sqlc" -- \
   "${SQLC_BIN:?SQLC_BIN is required}" generate
 "$RUN_STEP_SCRIPT" "assemble OpenAPI" -- \

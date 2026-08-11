@@ -9,7 +9,7 @@ NODE_BIN="${NODE:-node}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 GOOSE_BIN="${GOOSE_BIN:-}"
 CONFIG_FILE="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
-EXPECTED_LINEAGE_ID="${CARTULARY_EXPECTED_MIGRATION_LINEAGE_ID:-cartulary.prod_ddl_rebaseline.v1}"
+EXPECTED_LINEAGE_ID="${CARTULARY_EXPECTED_MIGRATION_LINEAGE_ID:-cartulary.prod_ddl_rebaseline.v2}"
 export GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 export GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
 export GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}"
@@ -140,6 +140,11 @@ run_scratch_apply() {
 
   docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
   "$DEV_SERVICES_SCRIPT" wait-postgres
+  # Role provisioning is cluster-scoped. Provision the scratch databases
+  # serially before the migration scenarios run in parallel so concurrent role
+  # reconciliation cannot race in PostgreSQL's shared catalogs.
+  create_database "$EMPTY_DB"
+  create_database "$PENULTIMATE_DB"
 
   run_scenario_capture empty run_empty_database_scenario &
   empty_pid="$!"
@@ -189,14 +194,12 @@ emit_scenario_logs() {
 
 run_empty_database_scenario() {
   echo "migration verification: empty database apply to head"
-  create_database "$EMPTY_DB" || return "$?"
   run_migrate "$EMPTY_DB" "$MIGRATE_WORK_DIR/empty" up || return "$?"
   verify_lineage "$EMPTY_DB" || return "$?"
 }
 
 run_penultimate_database_scenario() {
   echo "migration verification: upgrade path from penultimate boundary"
-  create_database "$PENULTIMATE_DB" || return "$?"
   if [ "$MIGRATION_COUNT" -ge 2 ]; then
     PENULTIMATE_VERSION="$(migration_version_at_index "$((MIGRATION_COUNT - 2))")"
     run_migrate "$PENULTIMATE_DB" "$MIGRATE_WORK_DIR/penultimate" up-to "$PENULTIMATE_VERSION" || return "$?"
@@ -214,6 +217,8 @@ create_database() {
     psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";" >/dev/null
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -U cartulary -d postgres -c "CREATE DATABASE \"$db_name\";" >/dev/null
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -U cartulary -d "$db_name" -f /docker-entrypoint-initdb.d/010-cartulary-provision.sql >/dev/null
 }
 
 run_migrate() {
@@ -222,10 +227,10 @@ run_migrate() {
   local command="$3"
   local dsn
   shift 3
-  dsn="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
+  dsn="postgres://cartulary_migration_login:cartulary-migration@localhost:5432/$db_name?sslmode=disable"
   (
     export CARTULARY_CONFIG_FILE="$CONFIG_FILE"
-    export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="$dsn"
+    export CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN="$dsn"
     case "$command" in
       up)
         if [[ -z "$MIGRATE_BIN" || ! -x "$MIGRATE_BIN" ]]; then
@@ -239,7 +244,7 @@ run_migrate() {
           fail "GOOSE_BIN must name the Make-built database-contract migration driver"
         fi
         cd "$work_dir"
-        "$GOOSE_BIN" -dir "$MIGRATIONS_DIR" postgres "$dsn" up-to "$@"
+        "$GOOSE_BIN" -dir "$MIGRATIONS_DIR" postgres "${dsn}&options=-c%20role%3Dcartulary_schema_owner" up-to "$@"
         ;;
       *)
         fail "unsupported database-contract migration command $command"

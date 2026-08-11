@@ -134,7 +134,7 @@ func TestOperatorCollaborationRequeueArgs_U_RejectsClosedGrammarMatrix(t *testin
 func TestOperatorCollaborationRequeueCommand_U_V2DeliveryAndClosure(t *testing.T) {
 	operationID := uuid.MustParse("10000000-0000-0000-0000-000000000001")
 	incidentID := uuid.MustParse("20000000-0000-0000-0000-000000000002")
-	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN", "postgres://unit-test")
+	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", "postgres://unit-test")
 
 	t.Run("help is the sole non-envelope path", func(t *testing.T) {
 		var stdout bytes.Buffer

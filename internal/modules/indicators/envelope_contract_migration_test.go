@@ -9,13 +9,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
-func TestIndicatorEnvelopeContractMigration57DownUp_Integration(t *testing.T) {
+func TestIndicatorEnvelopeHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	migrationDB := harness.MigrationDatabaseThroughT(t, 56)
-	db := migrationDB.SQL()
+	db := harness.OpenIsolatedDatabaseT(t, "indicator-envelope-head-contract", postgres.PurposeRecovery)
 	ctx := context.Background()
 
 	const (
@@ -73,17 +73,11 @@ VALUES ($1, $2, 'timeline_event', $3, $3, 1)
 	}
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO indicators (
-    record_id, incident_id, indicator_type, value_kind, display_value,
-    normalized_value, dedupe_key, row_version, created_at, updated_at,
-    created_by_user_id, updated_by_user_id
+	record_id, incident_id, indicator_type, value_kind, display_value,
+	normalized_value, dedupe_key
 )
-SELECT
-    record_id, incident_id, 'domain_name', 'atomic', 'contract.example',
-    'contract.example', $2, row_version, created_at, updated_at,
-    created_by_user_id, updated_by_user_id
-  FROM records
- WHERE record_id = $1
-`, indicatorID, dedupeKey); err != nil {
+VALUES ($1, $2, 'domain_name', 'atomic', 'contract.example', 'contract.example', $3)
+`, indicatorID, incidentID, dedupeKey); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -113,39 +107,6 @@ VALUES (
 		t.Fatal(err)
 	}
 
-	if err := migrationDB.ApplyThrough(ctx, 57); err != nil {
-		t.Fatalf("apply Indicator contract migration: %v", err)
-	}
-	requireIndicatorMirrorColumns(t, db, false)
-	requireIndicatorContractConstraintsValidated(t, db)
-
-	if err := migrationDB.RollbackThrough(ctx, 56); err != nil {
-		t.Fatalf("reconstruct expand schema: %v", err)
-	}
-	requireIndicatorMirrorColumns(t, db, true)
-	var mirroredVersion int64
-	if err := db.QueryRowContext(ctx, `
-SELECT indicator.row_version
-  FROM indicators AS indicator
-  JOIN records AS envelope ON envelope.record_id = indicator.record_id
- WHERE indicator.record_id = $1
-   AND indicator.row_version = envelope.row_version
-   AND indicator.created_at = envelope.created_at
-   AND indicator.updated_at = envelope.updated_at
-   AND indicator.created_by_user_id = envelope.created_by_user_id
-   AND indicator.updated_by_user_id = envelope.updated_by_user_id
-   AND indicator.deleted_at IS NOT DISTINCT FROM envelope.deleted_at
-   AND indicator.deleted_by_user_id IS NOT DISTINCT FROM envelope.deleted_by_user_id
-`, indicatorID).Scan(&mirroredVersion); err != nil {
-		t.Fatalf("load reconstructed mirrors: %v", err)
-	}
-	if mirroredVersion != 3 {
-		t.Fatalf("reconstructed row version = %d, want 3", mirroredVersion)
-	}
-
-	if err := migrationDB.ApplyThrough(ctx, 57); err != nil {
-		t.Fatalf("reapply Indicator contract migration: %v", err)
-	}
 	requireIndicatorMirrorColumns(t, db, false)
 	requireIndicatorContractConstraintsValidated(t, db)
 

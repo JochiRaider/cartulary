@@ -1097,9 +1097,16 @@ The default local loop is:
 3. `make dev`
 4. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
 
-`make db-up` starts services and initializes the object-store bucket; it does not migrate a retained database. Use `make db-migrate` for a non-destructive current-line migration. `make db-migrate` and `make dev` preserve an inherited `CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN`; when it is unset they derive the default local Compose DSN for the `postgres_primary` development service. If the local database is from an unmarked historical migration line, reset it with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset` or move data through an owner-approved export/import path before using the current server.
-
-The pre-release incident-bundle and Reference Pack storage-reference cutovers do not preserve rows that contain host paths. Migrations `00037` and `00038` stop with a development-database-reset diagnostic when their respective export, pack, or job-payload rows exist. For a local development database, run `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`, restart the application so ordinary bootstrap reconciliation and minimum disconnected-pack seeding run, and recreate any needed incident-bundle or Reference Pack fixtures. There is no path backfill or legacy dual-read mode.
+`make db-up` starts services and initializes the object-store bucket; it does
+not migrate a retained database. Use `make db-migrate` for a non-destructive
+current-v2-line migration. `make db-migrate` preserves only an inherited
+`CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`; `make dev` preserves only
+`CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN`. When the selected variable
+is unset, the command derives the matching local Compose credential for the
+`postgres_primary` development service. A v1, foreign-lineage,
+unmarked-nonzero, or contaminated database is not an upgrade source. Reset it
+with `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset`; v2 defines no data
+bridge, export/import transition, legacy dual read, or compatibility alias.
 
 Production packaging MUST embed the built frontend assets into the application deployable. `build-server` is the deployable server shape and MUST stage the frontend bundle before compiling the binary. `build-operator` builds the deployment-local operational tooling binary and accepts `OPERATOR_BIN=<path>` for its output path; scheduled operator scenario tests consume only harness-injected `CARTULARY_OPERATOR_BIN`. The production deployable MUST NOT depend on the Vite dev server.
 

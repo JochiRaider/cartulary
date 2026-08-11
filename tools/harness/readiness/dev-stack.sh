@@ -24,10 +24,8 @@ POSTGRES_READY_PORT="${CARTULARY_DEV_STACK_POSTGRES_PORT:-5432}"
 LOCAL_POSTGRES_HOST="${CARTULARY_LOCAL_POSTGRES_HOST:-localhost}"
 LOCAL_POSTGRES_PORT="${CARTULARY_LOCAL_POSTGRES_PORT:-5432}"
 LOCAL_POSTGRES_DATABASE="${CARTULARY_LOCAL_POSTGRES_DATABASE:-cartulary}"
-LOCAL_POSTGRES_USER="${CARTULARY_LOCAL_POSTGRES_USER:-cartulary}"
-LOCAL_POSTGRES_PASSWORD="${CARTULARY_LOCAL_POSTGRES_PASSWORD:-cartulary}"
 LOCAL_POSTGRES_SSLMODE="${CARTULARY_LOCAL_POSTGRES_SSLMODE:-disable}"
-POSTGRES_PRIMARY_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:-postgres://${LOCAL_POSTGRES_USER}:${LOCAL_POSTGRES_PASSWORD}@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
+POSTGRES_PRIMARY_RUNTIME_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN:-postgres://cartulary_runtime_login:cartulary-runtime@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
 OBJECT_STORE_READY_HOST="${CARTULARY_DEV_STACK_OBJECT_STORE_HOST:-127.0.0.1}"
 OBJECT_STORE_READY_PORT="${CARTULARY_DEV_STACK_OBJECT_STORE_PORT:-${SEAWEEDFS_S3_UPSTREAM_PORT:-18333}}"
 OBJECT_STORE_ENDPOINT="${OBJECT_STORE_ENDPOINT:-localhost:${OBJECT_STORE_READY_PORT}}"
@@ -169,7 +167,7 @@ wait_for_http() {
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
       echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
       if [[ "${name}" == "backend" ]]; then
-        echo "If the backend log reports prod_ddl_rebaseline_v1/historical_migration_lineage, reset the local database with CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset or use an owner-approved export/import path." >&2
+        echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
       fi
       cat "${SERVER_LOG}" >&2 || true
       return 1
@@ -185,7 +183,7 @@ wait_for_http() {
 
   echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
   if [[ "${name}" == "backend" ]]; then
-    echo "If the backend log reports prod_ddl_rebaseline_v1/historical_migration_lineage, reset the local database with CARTULARY_DESTRUCTIVE_CONFIRM=db-reset make db-reset or use an owner-approved export/import path." >&2
+    echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
   fi
   cat "${SERVER_LOG}" >&2 || true
   cat "${WEB_LOG}" >&2 || true
@@ -302,7 +300,7 @@ main() {
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \
     CARTULARY__REVISIONS__CONFLICT_TOKEN_KEY_RING_MANIFEST_PATH="${ROOT_DIR}/configs/dev/revisions-conflict-token-key-ring.json" \
     CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
-    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="${POSTGRES_PRIMARY_DSN}" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${POSTGRES_PRIMARY_RUNTIME_DSN}" \
     CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT="${OBJECT_STORE_ENDPOINT}" \
     CARTULARY_S3_OBJECT_PRIMARY_ACCESS_KEY_ID="${SEAWEEDFS_S3_ACCESS_KEY_ID}" \
     CARTULARY_S3_OBJECT_PRIMARY_SECRET_ACCESS_KEY="${SEAWEEDFS_S3_SECRET_ACCESS_KEY}" \

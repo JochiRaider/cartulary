@@ -8,9 +8,8 @@ LOCAL_POSTGRES_HOST="${CARTULARY_LOCAL_POSTGRES_HOST:-localhost}"
 LOCAL_POSTGRES_PORT="${CARTULARY_LOCAL_POSTGRES_PORT:-5432}"
 LOCAL_POSTGRES_DATABASE="${CARTULARY_LOCAL_POSTGRES_DATABASE:-cartulary}"
 LOCAL_POSTGRES_USER="${CARTULARY_LOCAL_POSTGRES_USER:-cartulary}"
-LOCAL_POSTGRES_PASSWORD="${CARTULARY_LOCAL_POSTGRES_PASSWORD:-cartulary}"
 LOCAL_POSTGRES_SSLMODE="${CARTULARY_LOCAL_POSTGRES_SSLMODE:-disable}"
-POSTGRES_PRIMARY_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:-postgres://${LOCAL_POSTGRES_USER}:${LOCAL_POSTGRES_PASSWORD}@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
+POSTGRES_PRIMARY_MIGRATION_DSN="${CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN:-postgres://cartulary_migration_login:cartulary-migration@${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DATABASE}?sslmode=${LOCAL_POSTGRES_SSLMODE}}"
 OBJECT_STORE_READY_TIMEOUT_SECONDS="${CARTULARY_OBJECT_STORE_READY_TIMEOUT_SECONDS:-120}"
 SEAWEEDFS_S3_PORT="${SEAWEEDFS_S3_PORT:-8333}"
 SEAWEEDFS_S3_UPSTREAM_PORT="${SEAWEEDFS_S3_UPSTREAM_PORT:-18333}"
@@ -111,6 +110,13 @@ wait_postgres() {
   echo "postgres did not become ready after ${POSTGRES_READY_TIMEOUT_SECONDS}s (state=${status} health=${health})" >&2
   compose logs --no-color --tail 120 postgres >&2 || true
   return 1
+}
+
+provision_postgres_database() {
+  compose exec -T postgres psql \
+    -U "$LOCAL_POSTGRES_USER" \
+    -d "$LOCAL_POSTGRES_DATABASE" \
+    -f /docker-entrypoint-initdb.d/010-cartulary-provision.sql
 }
 
 probe_object_store() {
@@ -371,6 +377,7 @@ init_object_store() {
 services_up() {
   compose up -d --remove-orphans postgres seaweedfs-s3
   wait_postgres
+  provision_postgres_database
   wait_object_store
 }
 
@@ -398,7 +405,7 @@ run_local_migrate() {
 
   cd "$ROOT_DIR"
   env CARTULARY_CONFIG_FILE="$config_file" \
-    CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="$POSTGRES_PRIMARY_DSN" \
+    CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN="$POSTGRES_PRIMARY_MIGRATION_DSN" \
     GOCACHE="$go_cache" GOMODCACHE="$go_mod_cache" GOTMPDIR="$go_tmp" \
     "$go_bin" run ./cmd/migrate up
 }
@@ -406,6 +413,7 @@ run_local_migrate() {
 db_migrate() {
   compose up -d postgres
   wait_postgres
+  provision_postgres_database
   printf '%s\n' 'db-migrate: applying local database migrations only; object storage is not reset.'
   run_local_migrate
 }
@@ -423,6 +431,7 @@ db_reset() {
   printf '%s\n' 'db-reset: database reset only; object storage is not reset.'
   compose exec -T postgres psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS cartulary;"
   compose exec -T postgres psql -U cartulary -d postgres -c "CREATE DATABASE cartulary;"
+  provision_postgres_database
   run_local_migrate
 }
 

@@ -19,26 +19,31 @@ func TestSchemaBootstrapMigrationGuard(t *testing.T) {
 	}
 
 	sqlText := string(data)
-	requiredIdempotentStatements := []string{
-		"CREATE EXTENSION IF NOT EXISTS pgcrypto;",
-		"CREATE EXTENSION IF NOT EXISTS citext;",
-		"CREATE TABLE IF NOT EXISTS public.schema_migration_lineage (",
-		"cartulary.prod_ddl_rebaseline.v1",
+	requiredStatements := []string{
+		"WHERE extension.extname = 'pgcrypto'",
+		"WHERE extension.extname = 'citext'",
+		"pgcrypto_version IS DISTINCT FROM '1.3'",
+		"pgcrypto_schema IS DISTINCT FROM 'public'",
+		"citext_version IS DISTINCT FROM '1.6'",
+		"citext_schema IS DISTINCT FROM 'public'",
+		"MESSAGE = 'schema_extension_prerequisite_invalid'",
+		"CREATE TABLE public.schema_migration_lineage (",
+		"cartulary.prod_ddl_rebaseline.v2",
 	}
-	for _, statement := range requiredIdempotentStatements {
+	for _, statement := range requiredStatements {
 		if !strings.Contains(sqlText, statement) {
-			t.Fatalf("database infrastructure migration must keep lineage-safe DDL %q", statement)
+			t.Fatalf("database infrastructure migration must keep prerequisite and lineage contract %q", statement)
 		}
 	}
 
-	nonIdempotentStatements := []string{
-		"CREATE EXTENSION pgcrypto;",
-		"CREATE EXTENSION citext;",
-		"CREATE TABLE schema_migration_lineage (",
+	forbiddenStatements := []string{
+		"CREATE EXTENSION",
+		"IF NOT EXISTS",
+		"cartulary.prod_ddl_rebaseline.v1",
 	}
-	for _, statement := range nonIdempotentStatements {
+	for _, statement := range forbiddenStatements {
 		if strings.Contains(sqlText, statement) {
-			t.Fatalf("database infrastructure migration must not use non-idempotent DDL %q", statement)
+			t.Fatalf("database infrastructure migration must not retain permissive or v1 DDL %q", statement)
 		}
 	}
 }

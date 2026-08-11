@@ -186,7 +186,7 @@ func requireProcessEnvBuilderContract(t *testing.T) {
 	if env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] != "bootstrap.json" {
 		t.Fatalf("environment bootstrap default missing: %#v", env)
 	}
-	boundDSN, err := os.ReadFile(filepath.Join(overrideRoot, postgres.FilesystemRootDSNFile))
+	boundDSN, err := os.ReadFile(filepath.Join(overrideRoot, postgres.FilesystemRuntimeDSNFile))
 	if err != nil {
 		t.Fatalf("read final database-root binding: %v", err)
 	}

@@ -31,39 +31,11 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "platform.jobs.integration.drained_cutover_recovery",
-      "owner_id": "platform.jobs",
-      "family_id": "platform.jobs.integration",
-      "collaborator_ids": [
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "platform.jobs.verification.durable_runner",
-        "platform.jobs.verification.recovery",
-        "platform.jobs.verification.storage_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/jobs",
-        "tests": [
-          "TestDrainedJobsCutoverRollbackBeforeFirstCompaction_Integration",
-          "TestDrainedV2CutoverAndRecovery_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_migration",
-      "minimum_tier": "standard"
-    },
-    {
       "row_id": "platform.jobs.integration.execution_migration",
       "owner_id": "platform.jobs",
       "family_id": "platform.jobs.integration",
       "collaborator_ids": [
-        "module.database_migrations"
+        "platform.postgres"
       ],
       "verification_ids": [
         "platform.jobs.verification.execution_fencing"
@@ -72,8 +44,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
-          "TestJobsExecutionMigration59FreshAndGuarded_Integration",
-          "TestJobsExecutionMigration59RejectsUnsafeIdentityBeforeMutation_Integration"
+          "TestJobsExecutionHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -81,7 +52,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {
@@ -129,7 +100,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
-          "TestJobsExpiryMigration60FreshAndGuarded_Integration"
+          "TestJobsExpiryHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -137,7 +108,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {
@@ -182,8 +153,7 @@
       "selector": {
         "package": "./internal/platform/jobs",
         "tests": [
-          "TestJobsDefinitionMigration58FreshAndExactUpgrade_Integration",
-          "TestJobsDefinitionMigration58RejectsUnsafeCorporaBeforeMutation_Integration"
+          "TestJobsDefinitionHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -191,7 +161,7 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {

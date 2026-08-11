@@ -20,12 +20,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
@@ -216,6 +219,7 @@ type dependencies struct {
 	preflightSuite      func(context.Context, map[string]string) (suitePreflightResult, error)
 	createTemplate      func(context.Context, string, string) error
 	prepareWebE2E       func(context.Context, map[string]string) (webE2EFixture, error)
+	resetWebE2EDB       func(context.Context, string, string) error
 	cleanupWebE2EDB     func(context.Context, webE2EMetadata, map[string]string) error
 	cleanupWebE2EBucket func(context.Context, webE2EMetadata, map[string]string) error
 	detectWebE2ELeaks   func(context.Context, []webE2EMetadata, map[string]string) error
@@ -233,7 +237,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | reset-web-e2e --credential-root <path> --bootstrap-manifest <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -246,6 +250,8 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runRecordLifecycle(args[1:], env)
 	case "prepare-web-e2e":
 		return runPrepareWebE2E(args[1:], env, deps)
+	case "reset-web-e2e":
+		return runResetWebE2E(args[1:], env, deps)
 	case "cleanup-web-e2e":
 		return runCleanupWebE2E(args[1:], env, deps)
 	case "terminate-suite":
@@ -733,6 +739,26 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 	return 0
 }
 
+func runResetWebE2E(args []string, env map[string]string, deps dependencies) int {
+	credentialRoot, bootstrapManifest, err := parseResetWebE2EArgs(args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	if !suiteservices.SuiteActive(env) {
+		fmt.Fprintf(os.Stderr, "reset-web-e2e requires %s=1\n", suiteservices.ActiveEnv)
+		return 1
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := deps.resetWebE2EDB(ctx, credentialRoot, bootstrapManifest); err != nil {
+		fmt.Fprintf(os.Stderr, "reset browser database through Recovery purpose: %s\n", err)
+		return 1
+	}
+	return 0
+}
+
 func runRecordLifecycle(args []string, env map[string]string) int {
 	envFile, event, childKey, err := parseRecordLifecycleArgs(args)
 	if err != nil {
@@ -916,6 +942,22 @@ func parsePrepareWebE2EArgs(args []string) (string, string, error) {
 	return envFile, metadataFile, nil
 }
 
+func parseResetWebE2EArgs(args []string) (string, string, error) {
+	values, err := parseFlagPairs(args, map[string]struct{}{
+		"--credential-root":    {},
+		"--bootstrap-manifest": {},
+	})
+	if err != nil {
+		return "", "", err
+	}
+	credentialRoot := strings.TrimSpace(values["--credential-root"])
+	bootstrapManifest := strings.TrimSpace(values["--bootstrap-manifest"])
+	if credentialRoot == "" || bootstrapManifest == "" {
+		return "", "", errors.New("usage: testservices reset-web-e2e --credential-root <path> --bootstrap-manifest <path>")
+	}
+	return credentialRoot, bootstrapManifest, nil
+}
+
 func parseRecordLifecycleArgs(args []string) (string, string, string, error) {
 	values, err := parseFlagPairs(args, map[string]struct{}{
 		"--env-file":  {},
@@ -1007,6 +1049,7 @@ func defaultDependencies() dependencies {
 		preflightSuite:      runSuiteStartupPreflight,
 		createTemplate:      createTemplateDatabase,
 		prepareWebE2E:       prepareWebE2EFixture,
+		resetWebE2EDB:       resetWebE2EDatabase,
 		cleanupWebE2EDB:     cleanupWebE2EDatabase,
 		cleanupWebE2EBucket: cleanupWebE2EBucket,
 		detectWebE2ELeaks:   detectWebE2EFixtureLeaks,
@@ -1412,12 +1455,15 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 	if err := createDatabase(ctx, adminDSN, templateDB); err != nil {
 		return err
 	}
+	if err := pgtest.ProvisionDatabase(ctx, adminDSN, templateDB); err != nil {
+		return err
+	}
 
 	templateDSN, err := replaceDatabaseInDSN(adminDSN, templateDB)
 	if err != nil {
 		return err
 	}
-	db, err := sql.Open("pgx", templateDSN)
+	db, err := pgtest.OpenPurposeDatabase(templateDSN, postgres.PurposeMigration)
 	if err != nil {
 		return fmt.Errorf("open template database: %w", err)
 	}
@@ -1535,6 +1581,26 @@ func prepareWebE2EFixture(ctx context.Context, env map[string]string) (webE2EFix
 		S3SecretKey:  s3Harness.SecretKey,
 		S3Secure:     s3Harness.Secure,
 	}, nil
+}
+
+func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapManifest string) error {
+	settings, err := postgres.ResolveSettings(postgres.Binding{
+		BindingKind: "filesystem_root",
+		RootPath:    credentialRoot,
+	}, postgres.PurposeRecovery, map[string]string{})
+	if err != nil {
+		return errors.New("recovery_settings_invalid")
+	}
+	pool, err := postgres.Setup(ctx, settings)
+	if err != nil {
+		return errors.New("recovery_connection_failed")
+	}
+	defer pool.Close()
+
+	bootstrapSettings := bootstrap.Settings{ManifestPath: bootstrapManifest}
+	return harnessruntime.ResetDatabase(ctx, pool, func(ctx context.Context, tx pgx.Tx) error {
+		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
+	})
 }
 
 func cleanupWebE2EFixture(ctx context.Context, deps dependencies, env map[string]string, metadata webE2EMetadata) error {
@@ -1672,7 +1738,8 @@ func writeWebE2EEnv(path string, fixture webE2EFixture) error {
 	}
 	lines := []string{
 		"# Generated by cartulary-test-services prepare-web-e2e.",
-		shellExport(mustPostgresServiceRefEnvKey("postgres_primary"), fixture.DSN),
+		shellExport(mustPostgresServiceRefEnvKey("postgres_primary", postgres.PurposeRuntime), fixture.DSN),
+		shellAssignment(mustPostgresServiceRefEnvKey("postgres_primary", postgres.PurposeRecovery), fixture.DSN),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").Endpoint, fixture.S3Endpoint),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").AccessKey, fixture.S3AccessKey),
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").SecretKey, fixture.S3SecretKey),
@@ -1680,11 +1747,18 @@ func writeWebE2EEnv(path string, fixture webE2EFixture) error {
 		shellExport(mustObjectStoreServiceRefEnvKeys("object_primary").Bucket, fixture.Bucket),
 		"",
 	}
-	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600)
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		return err
+	}
+	credentialPath := filepath.Join(filepath.Dir(path), postgres.FilesystemRecoveryDSNFile)
+	if err := os.WriteFile(credentialPath, []byte(fixture.DSN+"\n"), 0o600); err != nil {
+		return fmt.Errorf("write browser Recovery credential: %w", err)
+	}
+	return os.Chmod(credentialPath, 0o600)
 }
 
-func mustPostgresServiceRefEnvKey(serviceRef string) string {
-	key, err := postgres.EnvKeyForServiceRef(serviceRef)
+func mustPostgresServiceRefEnvKey(serviceRef string, purpose postgres.Purpose) string {
+	key, err := postgres.EnvKeyForServiceRef(serviceRef, purpose)
 	if err != nil {
 		panic(err)
 	}
@@ -1701,6 +1775,10 @@ func mustObjectStoreServiceRefEnvKeys(serviceRef string) objectstore.ServiceRefE
 
 func shellExport(key string, value string) string {
 	return fmt.Sprintf("export %s=%s", key, shellQuote(value))
+}
+
+func shellAssignment(key string, value string) string {
+	return fmt.Sprintf("%s=%s", key, shellQuote(value))
 }
 
 func shellQuote(value string) string {

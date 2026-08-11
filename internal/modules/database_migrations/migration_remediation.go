@@ -6,7 +6,7 @@ import (
 
 const (
 	migrationRemediationSchemaID   = "cartulary.migration_remediation_report.v1"
-	historicalMigrationLineageHint = "Reset this database, or move data through an explicit owner-approved export/import path before applying the production DDL rebaseline."
+	historicalMigrationLineageHint = "Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."
 )
 
 type migrationRemediationReport struct {

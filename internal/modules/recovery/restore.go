@@ -391,7 +391,7 @@ func (mutation *vNextRestoreMutation) PreparePostgresTables(
 	}
 	if _, err := mutation.tx.Exec(
 		ctx,
-		"TRUNCATE "+sanitizedTableList(tableNames)+" RESTART IDENTITY CASCADE",
+		"TRUNCATE "+sanitizedTableList(tableNames)+" CASCADE",
 	); err != nil {
 		return fmt.Errorf("truncate vNext restore target: %w", err)
 	}
@@ -639,7 +639,7 @@ SELECT table_name
 		_ = tx.Rollback(ctx)
 	}()
 	if len(tableNames) > 0 {
-		query := "TRUNCATE " + sanitizedTableList(tableNames) + " RESTART IDENTITY CASCADE"
+		query := "TRUNCATE " + sanitizedTableList(tableNames) + " CASCADE"
 		if _, err := tx.Exec(ctx, query); err != nil {
 			return fmt.Errorf("truncate restore verification target: %w", err)
 		}
@@ -878,7 +878,7 @@ func restorePostgresSnapshot(ctx context.Context, db postgres.DB, artifact Postg
 		tableNames = append(tableNames, table.TableName)
 	}
 	if len(tableNames) > 0 {
-		truncateSQL := "TRUNCATE " + sanitizedTableList(tableNames) + " RESTART IDENTITY CASCADE"
+		truncateSQL := "TRUNCATE " + sanitizedTableList(tableNames) + " CASCADE"
 		if _, err := tx.Exec(ctx, truncateSQL); err != nil {
 			return fmt.Errorf("truncate postgres restore target tables: %w", err)
 		}

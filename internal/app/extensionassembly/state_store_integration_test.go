@@ -43,10 +43,7 @@ func TestStateStore_Integration_LogicalPortAndScope(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if snapshot.Metadata == nil ||
-			snapshot.Metadata.StateVersion != 1 ||
-			snapshot.Metadata.MigrationLineageID != "network_flow_activity.state_v1" ||
-			len(snapshot.Ledger) != 0 {
+		if snapshot.Metadata != nil || len(snapshot.Ledger) != 0 {
 			t.Fatalf("logical snapshot = %#v", snapshot)
 		}
 		for _, familyID := range familyIDs {

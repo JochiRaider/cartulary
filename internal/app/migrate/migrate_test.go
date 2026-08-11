@@ -123,7 +123,7 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v1","from_version":49,"to_version":23,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"reset or export/import"}]}` + "\n"
+	want := `{"schema_id":"cartulary.migration_remediation_report.v1","boundary":"prod_ddl_rebaseline_v2","from_version":30,"to_version":29,"findings":[{"field":"schema_migration_lineage","raw_value":"cartulary.prod_ddl_rebaseline.v1","reason_code":"historical_migration_lineage","remediation_hint":"Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1."}]}` + "\n"
 	runner.apply = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return fakeRemediationFailure{report: strings.TrimSuffix(want, "\n")}
 	}
@@ -207,6 +207,7 @@ func newTestMigrateRunner(t testing.TB) migrateRunner {
 		t,
 		roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
 		"postgres://unit-test",
+		postgres.PurposeMigration,
 	)
 	loaded := configtest.LoadFixture(t, []string{"config", "valid.toml"}, roots.Paths)
 

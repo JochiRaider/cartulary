@@ -3,6 +3,33 @@
   "owner_id": "platform.postgres",
   "rows": [
     {
+      "row_id": "platform.postgres.integration.purpose_identity_roles_and_acl",
+      "owner_id": "platform.postgres",
+      "family_id": "platform.postgres.integration",
+      "collaborator_ids": [
+        "module.database_migrations"
+      ],
+      "verification_ids": [
+        "platform.postgres.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/postgres",
+        "tests": [
+          "TestPostgresEffectiveRoleMismatchClosesConnection_Integration",
+          "TestPostgresPurposeConnectionsEstablishExactIdentity_Integration",
+          "TestPostgresRolesOwnershipAndPrivileges_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "platform.postgres.support_unit.root_bound_dsn_is_bounded_and_no_follow_5c8a0a293d",
       "owner_id": "platform.postgres",
       "family_id": "platform.postgres.support_unit",
@@ -16,7 +43,10 @@
       "selector": {
         "package": "./internal/platform/postgres",
         "tests": [
-          "TestPostgresRootBindingResolution"
+          "TestPostgresDiagnosticsAreOpaque",
+          "TestPostgresFilesystemCredentialSafety",
+          "TestPostgresPurposeContracts",
+          "TestPostgresResolutionPrecedence"
         ]
       },
       "evidence_class": "unit",

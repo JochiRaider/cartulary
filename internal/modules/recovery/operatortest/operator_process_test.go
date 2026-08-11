@@ -29,6 +29,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/application"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -104,7 +105,7 @@ func TestMVPObjectStoreInitOperatorTransport(t *testing.T) {
 		}
 	})
 
-	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary")
+	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary", postgres.PurposeRecovery)
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
 	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env, "object-store", "init", "-config", configFixture.path)
@@ -133,7 +134,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 		}
 	}()
 
-	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary")
+	configFixture := operatorManagedS3Config(t, "postgres://unused", "object_primary", postgres.PurposeRecovery)
 	cfg := loadOperatorConfig(t, configFixture.path)
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("object_primary", bucket))
 	if _, err := appsupport.OpenObjectStore(ctx, cfg, env); err == nil {
@@ -162,7 +163,7 @@ func TestOperatorCollaborationRequeueV2_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "operator-collaboration-requeue-v2")
-	configFixture := operatorExplicitConfig(t, testDB.DSN)
+	configFixture := operatorExplicitConfig(t, testDB.DSN, postgres.PurposeRuntime)
 	actorID := seedOperatorUser(t, testDB.DSN, "operator-collaboration-requeue@example.test", true, true)
 	incidentID := uuid.New()
 	seededAt := time.Now().UTC().Add(-time.Minute)
@@ -282,7 +283,7 @@ func TestCanonicalOperatorBackupInspectLatest_Process(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-inspect")
-	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN, postgres.PurposeRecovery)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102501")
@@ -339,7 +340,7 @@ func TestCanonicalOperatorBackupCreate_Process(t *testing.T) {
 		}
 	})
 
-	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-create")
+	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-create", postgres.PurposeRecovery)
 	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-create@example.test", true, true)
 	blob := seedOperatorObjectBlob(t, sourceDB.DSN, actorID, []byte("backup_restore canonical backup create object proof"))
 	if _, err := s3Harness.RoundTrip(ctx, bucket, blob.storageKey, blob.body); err != nil {
@@ -424,8 +425,8 @@ func TestCanonicalOperatorRestoreLatest_Process(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-restore-source")
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-restore-target")
-	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
-	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN, postgres.PurposeRecovery)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN, postgres.PurposeRecovery)
 
 	adminEmail := "backup_restore-e-10-01-canonical-restore@example.test"
 	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
@@ -546,8 +547,8 @@ func TestCanonicalOperatorRestoreVerifyLatest_Process(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-latest-source")
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-latest-target")
-	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
-	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN, postgres.PurposeRecovery)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN, postgres.PurposeRecovery)
 	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-latest@example.test", true, true)
 	seedOperatorIncident(t, sourceDB.DSN, actorID, "RESTORE-VERIFY-LATEST")
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
@@ -624,8 +625,8 @@ func TestCanonicalOperatorRestoreVerifyDue_Process(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-due-source")
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-10-01-canonical-verify-due-target")
-	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
-	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN, postgres.PurposeRecovery)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN, postgres.PurposeRecovery)
 	seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-10-01-canonical-verify-due@example.test", true, true)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
@@ -718,8 +719,8 @@ func TestOperatorRestoreVerifyDueContinuesAfterDeterminateFailure_Process(t *tes
 	postgresHarness := pgtest.Start(t)
 	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-11-01-determinate-source")
 	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "backup_restore-e-11-01-determinate-target")
-	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
-	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN, postgres.PurposeRecovery)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN, postgres.PurposeRecovery)
 	actorID := seedOperatorUser(t, sourceDB.DSN, "backup_restore-e-11-01@example.test", true, true)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
@@ -1357,11 +1358,11 @@ func runOperatorBinaryWithTimeout(t testing.TB, timeout time.Duration, bin strin
 	return "", "", 1
 }
 
-func operatorExplicitConfig(t testing.TB, dsn string) operatorExplicitConfigFixture {
+func operatorExplicitConfig(t testing.TB, dsn string, purpose postgres.Purpose) operatorExplicitConfigFixture {
 	t.Helper()
 
 	roots := configtest.SetupTempRoots(t)
-	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], dsn)
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], dsn, purpose)
 	contents := string(fixtures.MustRead("config", "valid.toml"))
 	replacements := map[string]string{
 		"/var/lib/cartulary/postgres":         roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"],
@@ -1386,11 +1387,11 @@ func operatorExplicitConfig(t testing.TB, dsn string) operatorExplicitConfigFixt
 	}
 }
 
-func operatorManagedS3Config(t testing.TB, dsn string, serviceRef string) operatorExplicitConfigFixture {
+func operatorManagedS3Config(t testing.TB, dsn string, serviceRef string, purpose postgres.Purpose) operatorExplicitConfigFixture {
 	t.Helper()
 
 	roots := configtest.SetupTempRoots(t)
-	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], dsn)
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], dsn, purpose)
 	contents := string(fixtures.MustRead("config", "valid.toml"))
 	contents = strings.Replace(contents, `deployment_profile = "disconnected"`, `deployment_profile = "on_prem"`, 1)
 	replacements := map[string]string{

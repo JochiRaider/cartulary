@@ -68,27 +68,29 @@ database schema matches the current server code.
 `migrate up` surface. It passes `CONFIG_FILE` through as
 `CARTULARY_CONFIG_FILE`. For the default development config, which uses
 `roots.database_storage.service_ref = "postgres_primary"`, the selected DSN
-environment variable is `CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN`. When that
-variable is already set, `make db-migrate` and `make dev` preserve it. When it is
-unset, they derive the default local Compose DSN for the local development
-Postgres service.
+environment variables are
+`CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN` for `make db-migrate` and
+`CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN` for `make dev`. When the
+selected variable is already set, the matching command preserves it. When it
+is unset, the command derives only its purpose-specific local Compose DSN.
 
 To use a non-default config or database for browser review, pass the same config
 and selected managed-service DSN to migration and dev startup:
 
 ```bash
-CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://user:pass@db.example:5432/cartulary?sslmode=require" \
+CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN="postgres://migration-user:pass@db.example:5432/cartulary?sslmode=require" \
   CONFIG_FILE="$PWD/configs/dev/browser-review.toml" \
   make db-migrate
-CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://user:pass@db.example:5432/cartulary?sslmode=require" \
+CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="postgres://runtime-user:pass@db.example:5432/cartulary?sslmode=require" \
   CONFIG_FILE="$PWD/configs/dev/browser-review.toml" \
   make dev
 ```
 
-A historical-line local database must be reset or moved through an owner-approved
-export/import path before the current server can start. For a clean review
-database on the default local Compose Postgres service, reset and migrate the
-local database instead:
+A historical-line or contaminated local database must be destroyed and
+recreated before the current server can start. The v2 cutover has no
+export/import transition or compatibility bridge. For a clean review database
+on the default local Compose Postgres service, reset and migrate the local
+database:
 
 ```bash
 make db-reset CARTULARY_DESTRUCTIVE_CONFIRM=db-reset

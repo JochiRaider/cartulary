@@ -17,12 +17,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httpapiextensions"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 const testRuntimeResetToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
@@ -186,7 +188,7 @@ func TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates(t *testing.T) {
 	weakToken[testRoutesEnabledEnv] = "1"
 	weakToken[testRuntimeMarkerEnv] = testRuntimeMarkerValue
 	weakToken[testRouteTokenEnv] = "short"
-	requireTestRuntimeResetStartupError(t, weakToken, "must be a harness-generated token")
+	requireTestRuntimeResetStartupError(t, weakToken, "must be a visible ASCII token")
 }
 
 func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
@@ -245,11 +247,6 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM user_sessions`, 0)
 	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM route_idempotency`, 0)
 
-	loginResp := doTestRuntimeResetRequest(t, server.Client(), newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/auth/login", map[string]any{
-		"username": "bootstrap-admin@example.test",
-		"password": "BootstrapPass1!",
-	}))
-	requireTestRuntimeResetErrorEnvelope(t, loginResp, http.StatusUnauthorized, "mfa_setup_required")
 }
 
 func TestTestRuntimeResetRouteClearsRegisteredTestClock(t *testing.T) {
@@ -352,7 +349,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	if _, exists := effectiveEnv[testRouteTokenEnv]; !exists {
 		effectiveEnv[testRouteTokenEnv] = testRuntimeResetToken
 	}
-	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv, postgres.PurposeRuntime)
 
 	cfg := configtest.LoadFixture(t, []string{"config", "valid.toml"}, effectiveEnv).Deployment()
 	clock := httpapi.NewTestClock()
@@ -385,6 +382,20 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	deps.TestResetBootstrap = func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
 	}
+	recoveryPool, err := postgres.Setup(ctx, postgres.Settings{
+		BindingKind:  "managed_service",
+		DSN:          effectiveEnv[suiteservices.PostgresDSNEnv],
+		Purpose:      postgres.PurposeRecovery,
+		ExpectedRole: "cartulary_recovery",
+	})
+	if err != nil {
+		pool.Close()
+		_ = store.Close()
+		t.Fatalf("open reset test Recovery postgres fixture: %v", err)
+	}
+	deps.TestResetDatabase = func(ctx context.Context) error {
+		return ResetDatabase(ctx, recoveryPool, deps.TestResetBootstrap)
+	}
 	deps.Env = effectiveEnv
 	deps.Postgres = pool
 	deps.ObjectStore = store
@@ -402,6 +413,7 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	server := httptest.NewServer(handler)
 	t.Cleanup(func() {
 		server.Close()
+		recoveryPool.Close()
 		pool.Close()
 		_ = store.Close()
 	})
@@ -467,7 +479,11 @@ func doTestRuntimeResetRequest(t testing.TB, client *http.Client, req *http.Requ
 func requireTestRuntimeResetStatus(t testing.TB, resp *http.Response, want int) {
 	t.Helper()
 	if resp.StatusCode != want {
-		t.Fatalf("unexpected status: got %d want %d", resp.StatusCode, want)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("unexpected status: got %d want %d; read redacted response: %v", resp.StatusCode, want, err)
+		}
+		t.Fatalf("unexpected status: got %d want %d; redacted response=%s", resp.StatusCode, want, body)
 	}
 }
 

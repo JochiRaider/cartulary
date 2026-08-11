@@ -261,6 +261,7 @@ func NewProvider(db *sql.DB, catalog *Catalog, locker gooselock.SessionLocker) (
 		goose.WithDisableGlobalRegistry(true),
 		goose.WithLogger(log.New(io.Discard, "", 0)),
 		goose.WithSessionLocker(locker),
+		goose.WithTableName("public.goose_db_version"),
 	)
 }
 

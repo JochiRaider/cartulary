@@ -605,7 +605,7 @@ func loadRuntimeConfig(t testing.TB, overlays map[string]string) (configassembly
 	t.Helper()
 
 	roots := configtest.SetupTempRoots(t)
-	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], "postgres://unit-test")
+	configtest.BindPostgresDSNToDatabaseRoot(t, roots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], "postgres://unit-test", postgres.PurposeRuntime)
 	conflictTokenManifestPath := filepath.Join(roots.Base, "revisions-conflict-token-key-ring.json")
 	if err := os.WriteFile(conflictTokenManifestPath, []byte(`{"schema_id":"cartulary.revisions_conflict_token_key_ring.v1","algorithm":"aes_256_gcm_v1","keys":[{"conflict_token_key_id":"runtime-test","state":"active","secret_ref":{"kind":"env","name":"runtime-test-revisions-conflict"}}]}`), 0o600); err != nil {
 		t.Fatalf("write Revisions conflict-token key-ring fixture: %v", err)

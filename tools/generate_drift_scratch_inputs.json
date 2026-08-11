@@ -28,7 +28,9 @@
     "tools/browser_e2e_batch_manifest.json",
     "tools/execution_topology_render_index.json",
     "tools/harness/contract/generated/foundation-schema-validators.cjs",
+    "tools/migration_history_manifest.json",
     "tools/scheduler_manifest.json",
+    "tools/schema_object_ownership_manifest.json",
     "tools/task_surface.generated.mk",
     "tools/task_surface.runtime.generated.mk",
     "tools/task_surface_manifest.json"
@@ -64,6 +66,7 @@
     "tools/openapi-assemble",
     "tools/openapi-compatibility",
     "tools/openapi-operation-catalog",
+    "tools/database-migrations",
     "tools/networkflow-tzdb",
     "tools/networkflow-unicode17",
     "tools/generate_drift_scratch_inputs.json",

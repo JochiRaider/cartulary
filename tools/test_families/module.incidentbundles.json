@@ -273,8 +273,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestIncidentBundleStorageReferenceMigration37FreshSchema_Integration",
-          "TestIncidentBundleStorageReferenceMigration37RejectsPopulatedTablesBeforeMutation_Integration"
+          "TestIncidentBundleStorageReferenceHeadSchemaContract_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -282,7 +281,7 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_migration",
+      "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard"
     },
     {

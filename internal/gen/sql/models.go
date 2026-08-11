@@ -408,8 +408,6 @@ type EnterpriseAuthProvider struct {
 	AuthorizationEndpoint      pgtype.Text        `json:"authorization_endpoint"`
 	Issuer                     pgtype.Text        `json:"issuer"`
 	Audience                   pgtype.Text        `json:"audience"`
-	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
 	TokenEndpoint              pgtype.Text        `json:"token_endpoint"`
 	JwksUri                    pgtype.Text        `json:"jwks_uri"`
 	ClientID                   pgtype.Text        `json:"client_id"`
@@ -421,6 +419,8 @@ type EnterpriseAuthProvider struct {
 	SamlIdpSigningCertificates []byte             `json:"saml_idp_signing_certificates"`
 	SamlSpEntityID             pgtype.Text        `json:"saml_sp_entity_id"`
 	SamlSubjectSource          []byte             `json:"saml_subject_source"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EnterpriseAuthTransaction struct {
@@ -432,7 +432,10 @@ type EnterpriseAuthTransaction struct {
 	State                  pgtype.Text        `json:"state"`
 	Nonce                  pgtype.Text        `json:"nonce"`
 	PkceVerifierHash       []byte             `json:"pkce_verifier_hash"`
+	PkceVerifierCiphertext []byte             `json:"pkce_verifier_ciphertext"`
+	PkceVerifierNonce      []byte             `json:"pkce_verifier_nonce"`
 	RelayState             pgtype.Text        `json:"relay_state"`
+	SamlRequestID          pgtype.Text        `json:"saml_request_id"`
 	BrowserBindingHash     []byte             `json:"browser_binding_hash"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
@@ -440,9 +443,6 @@ type EnterpriseAuthTransaction struct {
 	SamlCompletionHash     []byte             `json:"saml_completion_hash"`
 	SamlSubject            pgtype.Text        `json:"saml_subject"`
 	SamlStagedAt           pgtype.Timestamptz `json:"saml_staged_at"`
-	PkceVerifierCiphertext []byte             `json:"pkce_verifier_ciphertext"`
-	PkceVerifierNonce      []byte             `json:"pkce_verifier_nonce"`
-	SamlRequestID          pgtype.Text        `json:"saml_request_id"`
 }
 
 type EntityAlias struct {
@@ -648,6 +648,7 @@ type GraphProjectionEdge struct {
 
 type GraphProjectionIdempotency struct {
 	Operation          string             `json:"operation"`
+	ScopeKey           string             `json:"scope_key"`
 	IdempotencyKey     string             `json:"idempotency_key"`
 	RequestFingerprint string             `json:"request_fingerprint"`
 	GraphViewID        pgtype.Text        `json:"graph_view_id"`
@@ -655,7 +656,6 @@ type GraphProjectionIdempotency struct {
 	ResponseJson       []byte             `json:"response_json"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-	ScopeKey           string             `json:"scope_key"`
 }
 
 type GraphProjectionRun struct {
@@ -668,18 +668,18 @@ type GraphProjectionRun struct {
 	ProjectionConfigDigest string             `json:"projection_config_digest"`
 	ProjectionSourceDigest string             `json:"projection_source_digest"`
 	AcceptedAt             pgtype.Timestamptz `json:"accepted_at"`
+	StartedAt              pgtype.Timestamptz `json:"started_at"`
+	GeneratedAt            pgtype.Timestamptz `json:"generated_at"`
 	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
+	ReplacedAt             pgtype.Timestamptz `json:"replaced_at"`
+	InvalidatedAt          pgtype.Timestamptz `json:"invalidated_at"`
 	ValidationSummaryJson  []byte             `json:"validation_summary_json"`
 	FailureReason          pgtype.Text        `json:"failure_reason"`
 	GraphViewJson          []byte             `json:"graph_view_json"`
 	InvalidationJson       []byte             `json:"invalidation_json"`
 	RetentionExpiresAt     pgtype.Timestamptz `json:"retention_expires_at"`
-	ProjectionOutputDigest pgtype.Text        `json:"projection_output_digest"`
-	StartedAt              pgtype.Timestamptz `json:"started_at"`
-	GeneratedAt            pgtype.Timestamptz `json:"generated_at"`
-	ReplacedAt             pgtype.Timestamptz `json:"replaced_at"`
-	InvalidatedAt          pgtype.Timestamptz `json:"invalidated_at"`
 	RetentionPolicyJson    []byte             `json:"retention_policy_json"`
+	ProjectionOutputDigest pgtype.Text        `json:"projection_output_digest"`
 }
 
 type GraphProjectionVertex struct {
@@ -698,10 +698,10 @@ type GraphProjectionView struct {
 	LatestProjectionRunID   pgtype.Text        `json:"latest_projection_run_id"`
 	LatestSourceSnapshotID  pgtype.Text        `json:"latest_source_snapshot_id"`
 	ProjectionVersion       pgtype.Text        `json:"projection_version"`
+	SelectedProjectionRunID pgtype.Text        `json:"selected_projection_run_id"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 	ValidationStatus        string             `json:"validation_status"`
 	InvalidationJson        []byte             `json:"invalidation_json"`
-	SelectedProjectionRunID pgtype.Text        `json:"selected_projection_run_id"`
 }
 
 type HandoffRiskRef struct {

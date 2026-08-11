@@ -356,6 +356,45 @@ status object is unsupported. The broker MUST preserve ordinary owned-resource
 cleanup and MUST NOT close or delete a borrowed database capability.
 Verified by: TH-HARNESS-AC-094
 
+**TH-HARNESS-REQ-811**
+The disposable PostgreSQL migration capability MUST use the Production DDL
+Rebaseline v2 catalog and PostgreSQL major 16. It MUST provision the exact
+administrator-owned `public` schema, `pgcrypto` 1.3 and `citext` 1.6
+prerequisites, fixed roles, deployment logins, memberships, database grants,
+schema ownership, extension privilege cleanup, and default privileges required
+by Core 04 REQ-04-153 before applying authored SQL.
+
+The full-chain fixture MUST apply exactly versions `1..29` from a pristine
+database. Contamination fixtures MUST cover pre-existing Cartulary objects,
+wrong extension version or schema, missing prerequisites, v1 lineage, foreign
+lineage, and unmarked nonzero Goose history. The historical-line fixtures MUST
+construct only the minimum synthetic ledger and lineage rows needed to prove
+pre-DDL rejection and MUST NOT retain or execute v1 migration SQL.
+
+Targeted rollback remains a harness-only operation. Rollback through version
+zero MUST leave no Cartulary-authored table, view, sequence, type, routine,
+trigger, constraint, index, lineage object, or application-created schema. It
+MUST retain administrator-provisioned roles/logins, `pgcrypto`, `citext`, their
+extension-managed objects, and Goose's exact version-zero metadata residue. No
+Down section may use `CASCADE`, drop an extension, or establish a production
+rollback, downgrade, restore, or recovery capability.
+
+Harness role and ACL fixtures MUST prove newly created and recycled physical
+connections establish the exact `session_user` and `current_user`; runtime and
+Recovery own no object and cannot assume another fixed role; runtime lacks
+`TRUNCATE`, sequence update, `session_replication_role`, DDL, and ledger
+mutation; Recovery can complete backup, restore, restore verification, journal,
+audit, sequence restoration, and projection rebuild without schema-owner
+membership; `PUBLIC` and future-object defaults are closed; and every positive
+and negative operation matches the authored object access classes.
+
+Credential fixtures MUST cover all three purposes, resolver precedence,
+retired and cross-purpose presence without value reads, bounded no-follow file
+decoding, safe failure mapping, and complete diagnostic redaction. Profile
+claim-state fixtures MUST prove that physical extension-profile tables and
+metadata do not claim a profile or create authoritative state presence.
+Verified by: TH-HARNESS-AC-095
+
 ## 3. Terminology
 
 | Term                     | Meaning                                                                                                                                                    |
@@ -3977,7 +4016,7 @@ Successful fixture creation MUST return a saved-view resource with `scope='syste
 ### 12.6 Runtime Reset Algorithm and Partial Failure
 
 **TH-HARNESS-REQ-452**
-The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, clear route idempotency state, clear registered in-memory test-clock state, clear in-memory public-error fault state, clear registered in-memory Network Flow fault state, clear registered in-memory Network Flow deterministic-randomness state, clear registered in-memory Network Flow auth-transition state, clear registered in-memory Network Flow audit-assertion state, and clear the configured object store bucket or prefix for the harness-owned runtime.
+The harness reset coordinator MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, reset owned sequence values, clear route idempotency state, clear registered in-memory test-clock state, clear in-memory public-error fault state, clear registered in-memory Network Flow fault state, clear registered in-memory Network Flow deterministic-randomness state, clear registered in-memory Network Flow auth-transition state, clear registered in-memory Network Flow audit-assertion state, and clear the configured object store bucket or prefix for the harness-owned runtime. The destructive database step MUST execute through a purpose-specific Recovery credential before the runtime-only reset route clears and validates process-local and object-store state. Product server composition MUST receive only the runtime credential and MUST NOT acquire, resolve, or retain the Recovery credential. Retained process fixtures MAY inject the same Recovery adapter directly into test-only composition when they prove the selected purpose and effective role.
 
 The database reset table set is selected by this algorithm:
 
@@ -3991,25 +4030,25 @@ select_reset_tables(database):
   return table_name list
 ```
 
-The reset MUST execute `TRUNCATE TABLE public.<table> ... RESTART IDENTITY CASCADE` for the selected table list inside one database transaction, using identifier-safe table quoting. If the selected table list is empty, the truncate step is a successful no-op and the bootstrap restoration step still runs. After truncate, bootstrap restoration MUST restore exactly one active deployment admin and exactly one bootstrap marker before commit. The `goose_db_version` row count before reset MUST equal the count after reset and MUST be nonzero. The `route_idempotency` row count after reset MUST be `0`.
+The Recovery adapter MUST execute `TRUNCATE TABLE public.<table> ... CASCADE` for the selected table list inside one database transaction, using identifier-safe table quoting, and MUST reset each owned sequence explicitly with Recovery sequence authority. It MUST NOT use `RESTART IDENTITY`, because Recovery owns no objects. If the selected table list is empty, the truncate step is a successful no-op and the bootstrap restoration step still runs. After truncate and sequence reset, bootstrap restoration MUST restore exactly one active deployment admin and exactly one bootstrap marker before commit. The `goose_db_version` row count before reset MUST equal the count after reset and MUST be nonzero. The `route_idempotency` row count after reset MUST be `0`.
 
-Database table truncation and bootstrap restoration MUST execute in one database transaction when the database supports that transaction shape. Object-store deletion occurs after the database transaction commits. The route MUST NOT claim rollback across object-store deletion.
+Database table truncation, sequence reset, and bootstrap restoration MUST execute in one Recovery transaction when the database supports that transaction shape. Object-store deletion occurs through the runtime route after the Recovery transaction commits. Neither the route nor its wrapper MUST claim rollback across that process boundary or object-store deletion. Any route or transport failure after the Recovery transaction commits MUST taint the owned stack before further browser child work.
 
 The reset response MUST include `tables_reset` in sorted order, post-reset counts, `object_count_after`, `partial_failure`, and `failed_action` when a failed action exists. `tables_reset` MUST be the exact output of `select_reset_tables(database)` for the reset attempt.
 
 | Surface | Selection rule | Mutation | Success proof | Failure status/code |
 | --- | --- | --- | --- | --- |
 | Migration metadata | `public.goose_db_version` only | Preserve; never truncate | before and after counts equal and nonzero | `500`, `error.code=test_runtime_reset_failed` |
-| Public mutable DB tables | `select_reset_tables(database)` | Truncate with `RESTART IDENTITY CASCADE` inside the reset transaction | `tables_reset` sorted and post-reset mutable counts are zero except bootstrap-restored rows | `500`, `error.code=test_runtime_reset_failed` |
+| Public mutable DB tables | `select_reset_tables(database)` | Recovery adapter truncates with `CASCADE` and explicitly resets owned sequences inside the reset transaction | `tables_reset` sorted and post-reset mutable counts are zero except bootstrap-restored rows | Adapter failure before route invocation; no product-runtime credential escalation |
 | Bootstrap admin state | Ordinary bootstrap preflight inside the reset transaction | Restore active deployment admin and bootstrap marker | exactly one active deployment admin and exactly one bootstrap marker | `500`, `error.code=test_runtime_reset_failed` |
-| Route idempotency | `public.route_idempotency` when selected by the table algorithm | Truncate with other mutable tables | post-reset `route_idempotency` count equals `0` | `500`, `error.code=test_runtime_reset_failed` |
+| Route idempotency | `public.route_idempotency` when selected by the table algorithm | Truncate with other mutable tables through Recovery | post-reset `route_idempotency` count equals `0` | Adapter failure before route invocation |
 | Public-error fault state | In-memory harness runtime fault slot | Clear pending fault before success is accepted | no pending fault remains after reset | `500`, `error.code=test_runtime_reset_failed` when clear hook fails |
 | Configured object-store bucket or prefix | Harness-owned object-store configuration for the runtime | Delete every object after DB transaction commit | `object_count_after=0` | `500`, `error.code=test_runtime_reset_failed`, `partial_failure=true` |
 
 | Failure point                                      | Required response                                                                                                  |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Before DB transaction commit                       | `500`, `error.code=test_runtime_reset_failed`, `partial_failure=false` unless prior mutation occurred.             |
-| After DB commit and before object cleanup complete | `500`, `error.code=test_runtime_reset_failed`, `partial_failure=true`.                                             |
+| Before DB transaction commit                       | Recovery adapter fails without invoking the route; database transaction rolls back and the wrapper reports no successful reset. |
+| After DB commit and before object cleanup complete | Route or transport failure; wrapper marks the owned stack tainted before further browser work.                    |
 | Object cleanup partial deletion                    | `500`, `error.code=test_runtime_reset_failed`, `partial_failure=true`, include `object_count_after` if measurable. |
 | Bootstrap admin not restored                       | `500`, `error.code=test_runtime_reset_failed`, `partial_failure=true`.                                             |
 
@@ -4126,7 +4165,7 @@ candidate tree.
 
 `make db-reset` MUST recreate only the local development database and rerun migrations. It MAY start Postgres to perform the reset, but it MUST NOT reset, delete, or inspect object storage. A real `db-reset` MUST reject before Compose, database, migration, or object-store commands unless `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset` was supplied on the Make command line.
 
-`make dev` MUST start the backend process and prove backend readiness before starting the frontend process. If backend readiness fails because the database is behind the current line, the dev-stack diagnostic MUST direct the caller to `make db-migrate`; if the backend log reports `prod_ddl_rebaseline_v1` with `historical_migration_lineage`, the diagnostic MUST direct the caller to reset the local database or use an owner-approved export/import path. The frontend process MUST NOT start after a backend readiness failure.
+`make dev` MUST start the backend process and prove backend readiness before starting the frontend process. If backend readiness fails because the database is behind the current line, the dev-stack diagnostic MUST direct the caller to `make db-migrate`; if the backend log reports `prod_ddl_rebaseline_v2` with `historical_migration_lineage`, the diagnostic MUST emit the exact reset-only remediation hint from Core 01 REQ-01-661. The frontend process MUST NOT start after a backend readiness failure.
 
 `make object-store-reset` MUST clear only objects in the configured local object-store bucket and MUST leave the bucket present afterward. In the current implementation profile the local object store is SeaweedFS S3, and the public command and command ID are provider-neutral. A real `object-store-reset` MUST reject before Compose or object-store commands unless `CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset` was supplied on the Make command line.
 
@@ -4796,6 +4835,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, and pin-drift validation | Public preflight obtains pinned Node first; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure passes exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, and isolated filesystem observations | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, or failed install removes the old executable | isolated scratch removed; borrowed machine state and symlink targets unchanged |
 | TH-HARNESS-AC-093 | Sections 4, 5 | Negative-fixture determinism | Prewarmed successful graph-cache entry followed by a fake failing tool; empty and valid artifact fixtures behind ordinary and phony producer prerequisites; repeated and reordered invocations | Owner-controlled lint-shell and release-task-surface smoke fixtures | Success only when the nested failing tool executes with cache reuse disabled at its public invocation, every injected artifact reaches validation byte-identically without producer execution, and warm or reordered execution cannot change the fixture verdict | Existing bounded smoke summary | Exact fake-tool, cache-mode, artifact-mutation, or validation diagnostic | Fake-tool invocation log, nested run manifest, seeded artifact bytes, and ordinary target summaries | Cached success bypasses the fake tool, producer regeneration replaces an injected artifact, parent-only cache control is treated as sufficient, prerequisite enumeration substitutes for artifact isolation, or repeated execution changes the verdict | isolated scratch removed; shared production cache and generated artifacts unchanged |
 | TH-HARNESS-AC-094 | Sections 2.1, 9 | Disposable targeted migration capability | Harness-issued migration scratch databases; arbitrary database/source construction attempts; apply targets `-1`, `0`, and positive versions; rollback targets `-1`, `0`, and positive versions; preparation success/failure/cleanup | pgtest capability unit and service-backed fixtures plus affected source-owner slices | Only the opaque harness-issued capability performs canonical-source targeted execution; invalid targets fail before source/database access; preparation events exactly describe the outcome | Existing bounded row and lease summaries | Exact capability, target-validation, fixture, or cleanup diagnostic | Migration lease identity, preparation lifecycle events, and selected row outcomes | A free production helper survives, an arbitrary handle/source is accepted, invalid input touches source/database state, duplicate status conflicts with events, or borrowed state is closed | owned scratch database destroyed; borrowed database unchanged |
+| TH-HARNESS-AC-095 | Sections 2.1, 9 | Production DDL Rebaseline v2 isolation and residue | Pristine, contaminated, prerequisite, lineage, purpose, role, ACL/default, recycled-connection, profile-claim, and rollback-through-zero PostgreSQL 16 fixtures | Database Migrations, PostgreSQL, Recovery, pgtest, testservices, dev-stack, and owner-routed unit/service-backed slices | Only versions 1..29 apply; incompatible state fails before v2 DDL; exact roles and purpose credentials are isolated; runtime and Recovery positive/negative operations match the object manifest; rollback residue is exact; physical extension state does not claim a profile | Existing bounded row, run, and lease summaries | Closed migration, binding, role, ACL, prerequisite, claim-state, or residue diagnostic | Manifest parity, PostgreSQL catalog facts, role identity, allow/deny/default matrices, remediation object, and cleanup evidence | Legacy SQL, compatibility credential, wrong extension, contamination, mixed role, excess privilege, incomplete Recovery, claimed-by-table profile, or undeclared rollback residue passes | owned scratch database destroyed; borrowed database unchanged |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -4815,7 +4855,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012, TH-HARNESS-AC-092                    |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056, TH-HARNESS-AC-067, TH-HARNESS-AC-075, TH-HARNESS-AC-076 |
 | `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-039, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056, TH-HARNESS-AC-062, TH-HARNESS-AC-066, TH-HARNESS-AC-068, TH-HARNESS-AC-069, TH-HARNESS-AC-070, TH-HARNESS-AC-071, TH-HARNESS-AC-080, TH-HARNESS-AC-081, TH-HARNESS-AC-082 |
-| `TH-HARNESS-REQ-800..810` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094 |
+| `TH-HARNESS-REQ-800..811` | V3 execution control               | TH-HARNESS-AC-082, TH-HARNESS-AC-083, TH-HARNESS-AC-084, TH-HARNESS-AC-085, TH-HARNESS-AC-086, TH-HARNESS-AC-087, TH-HARNESS-AC-088, TH-HARNESS-AC-089, TH-HARNESS-AC-090, TH-HARNESS-AC-091, TH-HARNESS-AC-094, TH-HARNESS-AC-095 |
 
 ## 18. Sources and Evidence Limits
 

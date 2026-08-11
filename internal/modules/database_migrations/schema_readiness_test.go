@@ -48,7 +48,7 @@ func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
 	db := openSchemaReadinessSQL(t, testDB.DSN)
 	pool := openSchemaReadinessPool(t, testDB.DSN)
 
-	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES (62, true)`); err != nil {
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true)`); err != nil {
 		t.Fatalf("seed ahead migration version: %v", err)
 	}
 
@@ -60,13 +60,13 @@ func TestEnsureSchemaReadyRejectsHistoricalLineAboveHead(t *testing.T) {
 	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-historical-above-head", 0)
 	if _, err := db.ExecContext(context.Background(), `
 DROP TABLE schema_migration_lineage;
-INSERT INTO goose_db_version (version_id, is_applied) VALUES (62, true);
+INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true);
 `); err != nil {
 		t.Fatalf("seed historical migration line above head: %v", err)
 	}
 
 	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
-	if report.Boundary != expectedCanonicalLineageBoundary || report.FromVersion != 62 || report.ToVersion != 61 {
+	if report.Boundary != expectedCanonicalLineageBoundary || report.FromVersion != 30 || report.ToVersion != 29 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
 	finding := report.Findings[0]
