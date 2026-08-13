@@ -96,6 +96,68 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.timeline.browser_support.clipboard_paste_helper_contract",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_clipboard_paste"
+        ],
+        "titles": [
+          "clipboard paste emits the anchored paste contract"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "module.timeline.browser_support.fill_down_helper_contract",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_fill_down"
+        ],
+        "titles": [
+          "exact-range fill-down emits the anchored bulk-mutation contract"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
+    },
+    {
       "row_id": "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser_support",
@@ -127,6 +189,68 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.timeline.browser_support.one_click_scalar_edit_anchor",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_one_click_edit"
+        ],
+        "titles": [
+          "one-click scalar editing focuses at the caret and emits one anchored patch"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
+    },
+    {
+      "row_id": "module.timeline.browser_support.query_control_helper_contract",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.browser_support",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/timeline.support.spec.ts",
+        "project_id": "chromium",
+        "stage": "support",
+        "scenario_ids": [
+          "scenario_timeline_query_controls"
+        ],
+        "titles": [
+          "sort filter group and expand-collapse helpers emit canonical query contracts"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full"
+    },
+    {
       "row_id": "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.browser_support",
@@ -146,7 +270,7 @@
           "scenario_43b01a263473"
         ],
         "titles": [
-          "Verify one-click focused editing, reviewed-edit demotion, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers."
+          "reviewed edit demotion refreshes the filtered query and renders the filtered empty state"
         ]
       },
       "evidence_class": "browser",

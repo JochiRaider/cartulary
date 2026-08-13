@@ -490,6 +490,37 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "harness.browser.unit.object_store_fixture_admission",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestAttachedObjectStoreUsesMutationProbeContract",
+          "TestObjectStoreMutationProbeDeadlineRetainsCleanupEvidence",
+          "TestObjectStoreMutationProbePreservesPrimaryFailureDuringCleanupFailure",
+          "TestObjectStoreMutationProbeRejectsCapabilitiesImmediately",
+          "TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane",
+          "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
+          "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
+          "TestPackageBucketAdmissionProbesWithoutRemovingTheBucket",
+          "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "harness.browser.unit.testservices_lifecycle_contract",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",

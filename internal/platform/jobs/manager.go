@@ -9,33 +9,36 @@ import (
 )
 
 type RuntimePolicy struct {
-	HandlerLease       time.Duration
-	LeaseRenewal       time.Duration
-	RecoveryScan       time.Duration
-	RecoveryBatch      int
-	HandlerConcurrency int
-	MaximumFailures    int
-	RetryDelays        []time.Duration
-	ExpirySweep        time.Duration
-	ExpiryBatch        int
+	HandlerLease            time.Duration
+	LeaseRenewal            time.Duration
+	AttemptOperationTimeout time.Duration
+	RecoveryScan            time.Duration
+	RecoveryBatch           int
+	HandlerConcurrency      int
+	MaximumFailures         int
+	RetryDelays             []time.Duration
+	ExpirySweep             time.Duration
+	ExpiryBatch             int
 }
 
 func ProductionRuntimePolicy() RuntimePolicy {
 	return RuntimePolicy{
-		HandlerLease:       30 * time.Second,
-		LeaseRenewal:       10 * time.Second,
-		RecoveryScan:       5 * time.Second,
-		RecoveryBatch:      100,
-		HandlerConcurrency: 8,
-		MaximumFailures:    3,
-		RetryDelays:        []time.Duration{5 * time.Second, 30 * time.Second},
-		ExpirySweep:        5 * time.Minute,
-		ExpiryBatch:        1000,
+		HandlerLease:            30 * time.Second,
+		LeaseRenewal:            10 * time.Second,
+		AttemptOperationTimeout: 10 * time.Second,
+		RecoveryScan:            5 * time.Second,
+		RecoveryBatch:           100,
+		HandlerConcurrency:      8,
+		MaximumFailures:         3,
+		RetryDelays:             []time.Duration{5 * time.Second, 30 * time.Second},
+		ExpirySweep:             5 * time.Minute,
+		ExpiryBatch:             1000,
 	}
 }
 
 func (policy RuntimePolicy) validate() error {
 	if policy.HandlerLease <= 0 || policy.LeaseRenewal <= 0 || policy.LeaseRenewal >= policy.HandlerLease ||
+		policy.AttemptOperationTimeout <= 0 ||
 		policy.RecoveryScan <= 0 || policy.RecoveryBatch <= 0 || policy.HandlerConcurrency <= 0 ||
 		policy.MaximumFailures < 1 || len(policy.RetryDelays) != policy.MaximumFailures-1 ||
 		policy.ExpirySweep <= 0 || policy.ExpiryBatch <= 0 {

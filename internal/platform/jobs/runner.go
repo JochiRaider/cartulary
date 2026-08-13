@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,27 +33,36 @@ type RunnerOptions struct {
 }
 
 type Runner struct {
-	ctx             context.Context
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
-	mu              sync.Mutex
-	closed          bool
-	activated       bool
-	manager         *Manager
-	selection       *RuntimeSelection
-	policy          RuntimePolicy
-	handlers        map[string]HandlerFunc
-	gate            DequeueGate
-	notifications   chan uuid.UUID
-	notified        map[uuid.UUID]struct{}
-	inFlight        map[uuid.UUID]struct{}
-	attemptSlots    chan struct{}
-	onComponentLoss func()
-	lossOnce        sync.Once
-	shutdownErr     error
-	renewalTicks    func(time.Duration) (<-chan time.Time, func())
-	renewExecution  func(context.Context, Execution) error
-	beforeWait      func()
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	mu               sync.Mutex
+	closed           bool
+	activated        bool
+	manager          *Manager
+	selection        *RuntimeSelection
+	policy           RuntimePolicy
+	handlers         map[string]HandlerFunc
+	gate             DequeueGate
+	notifications    chan uuid.UUID
+	notified         map[uuid.UUID]struct{}
+	inFlight         map[uuid.UUID]struct{}
+	attemptSlots     chan int
+	onComponentLoss  func()
+	lossOnce         sync.Once
+	shutdownCtx      context.Context
+	shutdownFailures []shutdownReleaseFailure
+	renewalTicks     func(time.Duration) (<-chan time.Time, func())
+	renewExecution   func(context.Context, Execution) error
+	releaseExecution func(context.Context, Execution) error
+	beforeWait       func()
+}
+
+type shutdownReleaseFailure struct {
+	stage   string
+	jobKind string
+	slot    int
+	reason  string
 }
 
 func NewRunner(options RunnerOptions) (*Runner, error) {
@@ -64,7 +75,7 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Runner{
+	runner := &Runner{
 		ctx:             ctx,
 		cancel:          cancel,
 		manager:         options.Manager,
@@ -75,14 +86,19 @@ func NewRunner(options RunnerOptions) (*Runner, error) {
 		notifications:   make(chan uuid.UUID, options.Policy.RecoveryBatch),
 		notified:        map[uuid.UUID]struct{}{},
 		inFlight:        map[uuid.UUID]struct{}{},
-		attemptSlots:    make(chan struct{}, options.Policy.HandlerConcurrency),
+		attemptSlots:    make(chan int, options.Policy.HandlerConcurrency),
 		onComponentLoss: options.OnComponentLoss,
 		renewalTicks: func(interval time.Duration) (<-chan time.Time, func()) {
 			ticker := time.NewTicker(interval)
 			return ticker.C, ticker.Stop
 		},
-		renewExecution: options.Manager.RenewExecution,
-	}, nil
+		renewExecution:   options.Manager.RenewExecution,
+		releaseExecution: options.Manager.ReleaseExecution,
+	}
+	for slot := 1; slot <= options.Policy.HandlerConcurrency; slot++ {
+		runner.attemptSlots <- slot
+	}
+	return runner, nil
 }
 
 func (r *Runner) RegisterHandler(name string, handler HandlerFunc) error {
@@ -224,8 +240,9 @@ func (r *Runner) schedule(jobID uuid.UUID) {
 		r.mu.Unlock()
 		return
 	}
+	var attemptSlot int
 	select {
-	case r.attemptSlots <- struct{}{}:
+	case attemptSlot = <-r.attemptSlots:
 	default:
 		r.mu.Unlock()
 		return
@@ -233,12 +250,12 @@ func (r *Runner) schedule(jobID uuid.UUID) {
 	r.inFlight[jobID] = struct{}{}
 	r.wg.Add(1)
 	r.mu.Unlock()
-	go r.execute(jobID)
+	go r.execute(jobID, attemptSlot)
 }
 
-func (r *Runner) execute(jobID uuid.UUID) {
+func (r *Runner) execute(jobID uuid.UUID, attemptSlot int) {
 	defer func() {
-		<-r.attemptSlots
+		r.attemptSlots <- attemptSlot
 		r.mu.Lock()
 		delete(r.inFlight, jobID)
 		r.mu.Unlock()
@@ -253,10 +270,12 @@ func (r *Runner) execute(jobID uuid.UUID) {
 	r.mu.Unlock()
 	if handler == nil {
 		r.signalComponentLoss()
-		_ = r.manager.ReleaseExecution(context.Background(), execution)
+		r.withAttemptTimeout(func(ctx context.Context) {
+			_ = r.releaseExecution(ctx, execution)
+		})
 		return
 	}
-	r.runExecution(execution, handler, jobKind)
+	r.runExecution(execution, handler, jobKind, attemptSlot)
 }
 
 type handlerResult struct {
@@ -279,7 +298,7 @@ func (outcome attemptTelemetryOutcome) telemetryError() error {
 	return nil
 }
 
-func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind string) {
+func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind string, attemptSlot int) {
 	attemptCtx, span := r.manager.startJobSpan(r.ctx, "cartulary.jobs.run", jobKind, "run")
 	attemptOutcome := attemptTelemetryOutcome{result: "failed", failed: true}
 	defer func() {
@@ -314,16 +333,16 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 		}
 		select {
 		case <-r.ctx.Done():
-			attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
+			attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, false)
 			return
 		case <-renewal:
 			if r.ctx.Err() != nil {
-				attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
+				attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, false)
 				return
 			}
 			if err := r.renewExecution(r.ctx, execution); err != nil {
 				if r.ctx.Err() != nil {
-					attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, false)
+					attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, false)
 					return
 				}
 				result := "failed"
@@ -342,7 +361,7 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 			}
 		case handlerOutcome := <-result:
 			if r.ctx.Err() != nil {
-				attemptOutcome = r.releaseForShutdown(execution, cancelHandler, result, true)
+				attemptOutcome = r.releaseForShutdown(execution, jobKind, attemptSlot, cancelHandler, result, true)
 				return
 			}
 			cancelHandler()
@@ -359,7 +378,7 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 			case r.ctx.Err() != nil && errors.Is(handlerOutcome.err, context.Canceled):
 				fallback = "canceled"
 				r.withAttemptTimeout(func(ctx context.Context) {
-					_ = r.manager.ReleaseExecution(ctx, execution)
+					_ = r.releaseExecution(ctx, execution)
 				})
 			default:
 				r.withAttemptTimeout(func(ctx context.Context) {
@@ -374,17 +393,30 @@ func (r *Runner) runExecution(execution Execution, handler HandlerFunc, jobKind 
 
 func (r *Runner) releaseForShutdown(
 	execution Execution,
+	jobKind string,
+	attemptSlot int,
 	cancelHandler context.CancelFunc,
 	handlerResult <-chan handlerResult,
 	handlerDrained bool,
 ) attemptTelemetryOutcome {
 	cancelHandler()
-	var releaseErr error
-	r.withAttemptTimeout(func(ctx context.Context) {
-		releaseErr = r.manager.ReleaseExecution(ctx, execution)
-	})
+	releaseCtx, cancelRelease := r.shutdownAttemptContext()
+	releaseErr := r.releaseExecution(releaseCtx, execution)
+	releaseContextErr := releaseCtx.Err()
+	cancelRelease()
 	if releaseErr != nil && !errors.Is(releaseErr, ErrExecutionLost) {
-		r.recordShutdownError(fmt.Errorf("release execution during runner shutdown: %w", releaseErr))
+		reason := "operation_failed"
+		if errors.Is(releaseErr, context.DeadlineExceeded) || errors.Is(releaseContextErr, context.DeadlineExceeded) {
+			reason = "deadline_exceeded"
+		} else if errors.Is(releaseErr, context.Canceled) || errors.Is(releaseContextErr, context.Canceled) {
+			reason = "caller_canceled"
+		}
+		r.recordShutdownFailure(shutdownReleaseFailure{
+			stage:   "release",
+			jobKind: jobKind,
+			slot:    attemptSlot,
+			reason:  reason,
+		})
 	}
 	if !handlerDrained {
 		<-handlerResult
@@ -392,20 +424,15 @@ func (r *Runner) releaseForShutdown(
 	return r.classifyAttempt(execution.JobID(), "canceled")
 }
 
-func (r *Runner) recordShutdownError(err error) {
-	if err == nil {
-		return
-	}
+func (r *Runner) recordShutdownFailure(failure shutdownReleaseFailure) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.shutdownErr == nil {
-		r.shutdownErr = err
-	}
+	r.shutdownFailures = append(r.shutdownFailures, failure)
 }
 
 func (r *Runner) classifyAttempt(jobID uuid.UUID, fallback string) attemptTelemetryOutcome {
 	outcome := attemptTelemetryOutcome{result: fallback, failed: fallback == "failed" || fallback == "conflict"}
-	timeout := r.policy.LeaseRenewal
+	timeout := r.policy.AttemptOperationTimeout
 	if timeout <= 0 {
 		timeout = time.Second
 	}
@@ -425,13 +452,23 @@ func (r *Runner) classifyAttempt(jobID uuid.UUID, fallback string) attemptTeleme
 }
 
 func (r *Runner) withAttemptTimeout(operation func(context.Context)) {
-	timeout := r.policy.LeaseRenewal
+	timeout := r.policy.AttemptOperationTimeout
 	if timeout <= 0 {
 		timeout = time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	operation(ctx)
+}
+
+func (r *Runner) shutdownAttemptContext() (context.Context, context.CancelFunc) {
+	r.mu.Lock()
+	base := r.shutdownCtx
+	r.mu.Unlock()
+	if base == nil {
+		base = context.Background()
+	}
+	return context.WithTimeout(base, r.policy.AttemptOperationTimeout)
 }
 
 func (r *Runner) signalComponentLoss() {
@@ -451,6 +488,7 @@ func (r *Runner) Close(ctx context.Context) error {
 	r.mu.Lock()
 	if !r.closed {
 		r.closed = true
+		r.shutdownCtx = ctx
 		r.cancel()
 	}
 	r.mu.Unlock()
@@ -464,8 +502,35 @@ func (r *Runner) Close(ctx context.Context) error {
 	case <-done:
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		return r.shutdownErr
+		return aggregateShutdownFailures(r.shutdownFailures)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func aggregateShutdownFailures(failures []shutdownReleaseFailure) error {
+	if len(failures) == 0 {
+		return nil
+	}
+	ordered := append([]shutdownReleaseFailure(nil), failures...)
+	sort.Slice(ordered, func(i int, j int) bool {
+		if ordered[i].slot != ordered[j].slot {
+			return ordered[i].slot < ordered[j].slot
+		}
+		if ordered[i].jobKind != ordered[j].jobKind {
+			return ordered[i].jobKind < ordered[j].jobKind
+		}
+		return ordered[i].reason < ordered[j].reason
+	})
+	parts := make([]string, 0, len(ordered))
+	for _, failure := range ordered {
+		parts = append(parts, fmt.Sprintf(
+			"stage=%s job_kind=%s attempt_slot=%d reason=%s",
+			failure.stage,
+			failure.jobKind,
+			failure.slot,
+			failure.reason,
+		))
+	}
+	return fmt.Errorf("jobs: runner shutdown unsuccessful: %s", strings.Join(parts, "; "))
 }

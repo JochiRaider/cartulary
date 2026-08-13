@@ -37,22 +37,14 @@ import {
 import { createViewRow } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
-test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, group, paste, exact-range fill-down, scroll-to-cell, group expand/collapse, and anchor assertions through browser command helpers.", async ({
+test("one-click scalar editing focuses at the caret and emits one anchored patch", async ({
   page,
 }) => {
   const incidentId = await createIncident(
     page,
     uniqueIncidentKey("S301"),
-    "Timeline support query controls",
+    "Timeline one-click editing",
   );
-  const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("s301-alpha"),
-    "timeline.activity_synopsis_text": "Alpha summary",
-  });
-  const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
-    client_txn_id: uniqueTxn("s301-beta"),
-    "timeline.activity_synopsis_text": "Beta summary",
-  });
   const clickEditRow = await createViewRow(
     page,
     incidentId,
@@ -64,18 +56,6 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
   );
 
   await page.goto(`/?incident_id=${incidentId}`);
-  await scrollGridCellIntoView({
-    cellKey: "timeline.activity_synopsis_text",
-    page,
-    recordId: alphaRow.record_id,
-    surface: timelineViewSchemaId,
-  });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
-    ),
-  ).toHaveText("Alpha summary");
-
   await scrollGridCellIntoView({
     cellKey: "timeline.device_object_text",
     page,
@@ -125,6 +105,22 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
       },
     ],
   });
+});
+
+test("sort filter group and expand-collapse helpers emit canonical query contracts", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("S303"),
+    "Timeline query control helpers",
+  );
+  const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s303-beta"),
+    "timeline.activity_synopsis_text": "Beta summary",
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
 
   await clickTimelineRowAction(
     page,
@@ -225,43 +221,67 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
     ),
   ).toBeVisible();
 
-  const bulkMutationRequest = page.waitForRequest(
-    (request) =>
-      request.method() === "POST" &&
-      request
-        .url()
-        .endsWith(
-          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
-        ),
-  );
-  const bulkMutationResponse = await fillDownGridCells({
-    apiBase,
-    csrfHeaders: await csrfHeaders(page),
-    fieldKey: "timeline.raw_activity_text",
-    incidentId,
+  const expectedRemoveReviewedFilterBody = {
+    group_by: "timeline.capture_state",
+    sort: [
+      { direction: "asc", field_key: "timeline.capture_state" },
+      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
+    ],
+  };
+  const removeReviewedFilterRequest = waitForTimelineQuery(
     page,
-    surface: timelineViewSchemaId,
-    targetRecords: [
-      {
-        baseRowVersion: alphaRow.row_version,
-        recordId: alphaRow.record_id,
-      },
-    ],
-    value: "Filled details through helper",
+    incidentId,
+    expectedRemoveReviewedFilterBody,
+  );
+  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
+  expect(readPostBody(await removeReviewedFilterRequest)).toEqual(
+    expectedRemoveReviewedFilterBody,
+  );
+});
+
+test("reviewed edit demotion refreshes the filtered query and renders the filtered empty state", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("S304"),
+    "Timeline reviewed edit demotion",
+  );
+  const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s304-beta"),
+    "timeline.activity_synopsis_text": "Beta summary",
   });
-  expect(bulkMutationResponse.ok()).toBeTruthy();
-  expect(readPostBody(await bulkMutationRequest)).toMatchObject({
-    view_schema_id: timelineViewSchemaId,
-    kind: "fill_down_v1",
-    field_key: "timeline.raw_activity_text",
-    value: "Filled details through helper",
-    targets: [
-      {
-        base_row_version: alphaRow.row_version,
-        record_id: alphaRow.record_id,
-      },
-    ],
-  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  await clickTimelineRowAction(
+    page,
+    betaRow.record_id,
+    timelineRowMarkReviewedButtonTestId(betaRow.record_id),
+  );
+  await expect(
+    page.getByTestId(
+      rowCellTestId(betaRow.record_id, "timeline.capture_state"),
+    ),
+  ).toHaveText("reviewed");
+
+  const sortRequest = waitForTimelineQuery(page, incidentId);
+  await sortByHeader(
+    page,
+    timelineViewSchemaId,
+    "timeline.activity_synopsis_text",
+  );
+  await sortRequest;
+  const filterRequest = waitForTimelineQuery(page, incidentId);
+  await applyFilterChip(
+    page,
+    timelineViewSchemaId,
+    "timeline.capture_state",
+    "reviewed",
+  );
+  await filterRequest;
+  const groupRequest = waitForTimelineQuery(page, incidentId);
+  await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  await groupRequest;
 
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
@@ -323,7 +343,9 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
     expectedValue: "Beta summary anchored",
     fieldKey: "timeline.activity_synopsis_text",
   });
-  const summaryPatchPayload = (await (await summaryPatchResponse).json()) as {
+  const completedSummaryPatchResponse = await summaryPatchResponse;
+  expect(completedSummaryPatchResponse.ok()).toBeTruthy();
+  const summaryPatchPayload = (await completedSummaryPatchResponse.json()) as {
     data: {
       row: {
         cells: Record<string, { value: unknown }>;
@@ -337,38 +359,82 @@ test("Verify one-click focused editing, reviewed-edit demotion, sort, filter, gr
   expect(readPostBody(postEditQueryRequest)).toEqual(expectedPostEditQueryBody);
   const completedPostEditQueryResponse = await postEditQueryResponse;
   expect(completedPostEditQueryResponse.ok()).toBeTruthy();
-  expect(await completedPostEditQueryResponse.finished()).toBeNull();
   await expect(
     page.getByText("No rows match the current filters."),
   ).toBeVisible();
+});
 
-  const expectedRemoveReviewedFilterBody = {
-    group_by: "timeline.capture_state",
-    sort: [
-      { direction: "asc", field_key: "timeline.capture_state" },
-      { direction: "asc", field_key: "timeline.activity_synopsis_text" },
-    ],
-  };
-  const removeReviewedFilterRequest = waitForTimelineQuery(
+test("exact-range fill-down emits the anchored bulk-mutation contract", async ({
+  page,
+}) => {
+  const incidentId = await createIncident(
     page,
+    uniqueIncidentKey("S305"),
+    "Timeline fill-down helper",
+  );
+  const alphaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s305-alpha"),
+    "timeline.activity_synopsis_text": "Alpha summary",
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
+  const bulkMutationRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request
+        .url()
+        .endsWith(
+          `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`,
+        ),
+  );
+  const bulkMutationResponse = await fillDownGridCells({
+    apiBase,
+    csrfHeaders: await csrfHeaders(page),
+    fieldKey: "timeline.raw_activity_text",
     incidentId,
-    expectedRemoveReviewedFilterBody,
+    page,
+    surface: timelineViewSchemaId,
+    targetRecords: [
+      {
+        baseRowVersion: alphaRow.row_version,
+        recordId: alphaRow.record_id,
+      },
+    ],
+    value: "Filled details through helper",
+  });
+  expect(bulkMutationResponse.ok()).toBeTruthy();
+  expect(readPostBody(await bulkMutationRequest)).toMatchObject({
+    view_schema_id: timelineViewSchemaId,
+    kind: "fill_down_v1",
+    field_key: "timeline.raw_activity_text",
+    value: "Filled details through helper",
+    targets: [
+      {
+        base_row_version: alphaRow.row_version,
+        record_id: alphaRow.record_id,
+      },
+    ],
+  });
+});
+
+test("clipboard paste emits the anchored paste contract", async ({ page }) => {
+  const incidentId = await createIncident(
+    page,
+    uniqueIncidentKey("S306"),
+    "Timeline clipboard paste helper",
   );
-  await removeFilterChip(page, timelineViewSchemaId, "timeline.capture_state");
-  expect(readPostBody(await removeReviewedFilterRequest)).toEqual(
-    expectedRemoveReviewedFilterBody,
-  );
+  const betaRow = await createViewRow(page, incidentId, timelineViewSchemaId, {
+    client_txn_id: uniqueTxn("s306-beta"),
+    "timeline.activity_synopsis_text": "Beta summary",
+  });
+
+  await page.goto(`/?incident_id=${incidentId}`);
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
     page,
     recordId: betaRow.record_id,
     surface: timelineViewSchemaId,
   });
-  await expect(
-    page.getByTestId(
-      rowCellTestId(betaRow.record_id, "timeline.activity_synopsis_text"),
-    ),
-  ).toHaveText("Beta summary anchored");
 
   const pasteRequest = page.waitForRequest(
     (request) =>

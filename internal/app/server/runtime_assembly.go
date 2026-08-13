@@ -676,7 +676,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	jobRunner := runtime.jobRunner
 	runtime.own(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), runtime.shutdownDrainTimeout)
 		defer cancel()
 		_ = jobRunner.Close(ctx)
 	})

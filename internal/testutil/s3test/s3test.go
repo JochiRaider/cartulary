@@ -32,10 +32,12 @@ const (
 	defaultSeaweedFSS3BrowserPortEnd   = 19199
 	objectStorePortMappingTimeout      = 30 * time.Second
 	objectStoreHealthPollInterval      = 500 * time.Millisecond
-	objectStoreClientReadyTimeout      = 60 * time.Second
+	objectStoreClientReadyTimeout      = 120 * time.Second
 	objectStoreClientAttemptTimeout    = 5 * time.Second
+	objectStoreProbeCleanupTimeout     = 5 * time.Second
 	objectStoreAccessKey               = "cartulary-local"
 	objectStoreSecretKey               = "cartulary-local-secret"
+	objectStoreProbePayload            = "cartulary-object-store-readiness"
 )
 
 func ContainerImage() string {
@@ -54,6 +56,7 @@ type Harness struct {
 	counter     uint64
 	shared      bool
 	attached    bool
+	probeBucket string
 
 	packageBucketMu sync.Mutex
 	packageBuckets  map[string]*packageBucket
@@ -76,6 +79,36 @@ type fixtureAttribution struct {
 	CallerPackage string
 }
 
+type objectStoreReadinessClient interface {
+	ListBuckets(context.Context) error
+	CreateNamespace(context.Context, string) error
+	Put(context.Context, string, string, []byte) error
+	HeadSize(context.Context, string, string) (int64, error)
+	Delete(context.Context, string, string) error
+	DeleteNamespace(context.Context, string) error
+}
+
+type minioReadinessClient struct {
+	client *minio.Client
+}
+
+type objectStoreReadinessConfig struct {
+	ReadyTimeout    time.Duration
+	PollInterval    time.Duration
+	AttemptTimeout  time.Duration
+	CreateNamespace bool
+	ListFirst       bool
+	Bucket          string
+	Key             string
+}
+
+type objectStoreProbeFailure struct {
+	Stage          string
+	CleanupOutcome string
+	Cause          error
+	CleanupErr     error
+}
+
 var (
 	sharedHarnessMu   sync.Mutex
 	sharedHarness     *Harness
@@ -84,6 +117,13 @@ var (
 	startContainerFn  = testcontainers.GenericContainer
 	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
+	}
+	newReadinessClientFn = func(ctx context.Context, harness *Harness) (objectStoreReadinessClient, error) {
+		client, err := harness.Client(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return minioReadinessClient{client: client}, nil
 	}
 	startPreflightFn func(context.Context) (string, error)
 	startSleepFn     func(context.Context, time.Duration) error
@@ -288,6 +328,7 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 		suiteHash:   resolveSuiteHash(),
 		processHash: suiteservices.ProcessHash(),
 		attached:    true,
+		probeBucket: strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.S3ProbeBucketEnv)),
 	}
 	if err := verifyAttachedFn(ctx, harness); err != nil {
 		return nil, false, fmt.Errorf("attach object-store harness: authenticated readiness: %w", err)
@@ -297,40 +338,26 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 }
 
 func (h *Harness) WaitReady(ctx context.Context) error {
-	readyCtx, cancel := context.WithTimeout(ctx, objectStoreClientReadyTimeout)
-	defer cancel()
-
-	ticker := time.NewTicker(objectStoreHealthPollInterval)
-	defer ticker.Stop()
-
-	var lastErr error
-	for {
-		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, objectStoreClientAttemptTimeout)
-		client, err := h.Client(attemptCtx)
-		if err == nil {
-			_, err = client.ListBuckets(attemptCtx)
-		}
-		attemptCancel()
-		if err == nil {
-			return nil
-		}
-
-		lastErr = err
-		select {
-		case <-readyCtx.Done():
-			if lastErr == nil {
-				lastErr = readyCtx.Err()
-			}
-			return &objectStoreReadinessError{
-				LastErr:         lastErr,
-				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
-			}
-		case <-ticker.C:
-		}
+	config := objectStoreReadinessConfig{
+		ReadyTimeout:    objectStoreClientReadyTimeout,
+		PollInterval:    objectStoreHealthPollInterval,
+		AttemptTimeout:  objectStoreClientAttemptTimeout,
+		CreateNamespace: true,
+		ListFirst:       true,
+		Bucket:          h.nextBucketName("readiness"),
+		Key:             h.nextProbeKey(),
 	}
+	if h.attached && h.probeBucket != "" {
+		config.CreateNamespace = false
+		config.Bucket = h.probeBucket
+	}
+	return h.waitForObjectStoreReadiness(ctx, config)
 }
 
 type objectStoreReadinessError struct {
+	Stage           string
+	Attempts        int
+	CleanupOutcome  string
 	LastErr         error
 	DeadlineExpired bool
 }
@@ -339,28 +366,139 @@ func (e *objectStoreReadinessError) Error() string {
 	if e == nil {
 		return ""
 	}
-	if e.LastErr == nil {
-		return "object-store did not become ready via authenticated api"
+	reason := "unavailable"
+	if e.DeadlineExpired {
+		reason = "deadline_expired"
+	} else if isNonRetryableObjectStoreReadinessError(e.LastErr) {
+		reason = "capability_rejected"
 	}
-	return fmt.Sprintf("object-store did not become ready via authenticated api: %v", e.LastErr)
+	return fmt.Sprintf("object-store readiness failed: stage=%s attempts=%d cleanup=%s reason=%s", e.Stage, e.Attempts, e.CleanupOutcome, reason)
 }
 
-func (e *objectStoreReadinessError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.LastErr
+func isRetryableObjectStoreStartupFailure(_ error) bool {
+	// Readiness polling is the terminal phase of a started lane. Only failures
+	// before this phase may cause StartWithRetry to create a replacement lane.
+	return false
 }
 
-func isRetryableObjectStoreStartupFailure(err error) bool {
-	var readinessErr *objectStoreReadinessError
-	if !errors.As(err, &readinessErr) {
-		return false
+func (h *Harness) waitForObjectStoreReadiness(ctx context.Context, config objectStoreReadinessConfig) error {
+	readyCtx, cancel := context.WithTimeout(ctx, config.ReadyTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(config.PollInterval)
+	defer ticker.Stop()
+
+	attempts := 0
+	lastFailure := &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed"}
+	for {
+		attempts++
+		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, config.AttemptTimeout)
+		client, err := newReadinessClientFn(attemptCtx, h)
+		if err != nil {
+			lastFailure = &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed", Cause: err}
+		} else {
+			lastFailure = runObjectStoreMutationProbe(attemptCtx, client, config)
+		}
+		attemptCancel()
+		if lastFailure == nil {
+			return nil
+		}
+		if isNonRetryableObjectStoreReadinessError(lastFailure.Cause) ||
+			isNonRetryableObjectStoreReadinessError(lastFailure.CleanupErr) {
+			return newObjectStoreReadinessError(lastFailure, attempts, false)
+		}
+
+		select {
+		case <-readyCtx.Done():
+			return newObjectStoreReadinessError(lastFailure, attempts, errors.Is(readyCtx.Err(), context.DeadlineExceeded))
+		case <-ticker.C:
+		}
 	}
-	if !readinessErr.DeadlineExpired {
-		return false
+}
+
+func newObjectStoreReadinessError(failure *objectStoreProbeFailure, attempts int, deadlineExpired bool) error {
+	if failure == nil {
+		failure = &objectStoreProbeFailure{Stage: "list", CleanupOutcome: "not_needed"}
 	}
-	return !isNonRetryableObjectStoreReadinessError(readinessErr.LastErr)
+	return &objectStoreReadinessError{
+		Stage:           failure.Stage,
+		Attempts:        attempts,
+		CleanupOutcome:  failure.CleanupOutcome,
+		LastErr:         failure.Cause,
+		DeadlineExpired: deadlineExpired,
+	}
+}
+
+func runObjectStoreMutationProbe(ctx context.Context, client objectStoreReadinessClient, config objectStoreReadinessConfig) (failure *objectStoreProbeFailure) {
+	namespaceMayExist := false
+	objectMayExist := false
+	cleanupOutcome := "not_needed"
+
+	defer func() {
+		if !objectMayExist && !namespaceMayExist {
+			if failure != nil && failure.CleanupOutcome == "" {
+				failure.CleanupOutcome = cleanupOutcome
+			}
+			return
+		}
+
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), objectStoreProbeCleanupTimeout)
+		defer cancel()
+		cleanupErr := client.Delete(cleanupCtx, config.Bucket, config.Key)
+		if namespaceMayExist {
+			cleanupErr = errors.Join(cleanupErr, client.DeleteNamespace(cleanupCtx, config.Bucket))
+		}
+		if cleanupErr != nil {
+			cleanupOutcome = "failed"
+		} else {
+			cleanupOutcome = "completed"
+		}
+		if failure == nil && cleanupErr != nil {
+			failure = &objectStoreProbeFailure{Stage: "delete_verify", Cause: cleanupErr, CleanupErr: cleanupErr}
+		}
+		if failure != nil {
+			failure.CleanupOutcome = cleanupOutcome
+			failure.CleanupErr = cleanupErr
+		}
+	}()
+
+	if config.ListFirst {
+		if err := client.ListBuckets(ctx); err != nil {
+			return &objectStoreProbeFailure{Stage: "list", Cause: err}
+		}
+	}
+	if config.CreateNamespace {
+		// The generated namespace is run-owned before the create call. A lost
+		// response may report failure after creation, so cleanup must still prove
+		// that the namespace is absent.
+		namespaceMayExist = true
+		if err := client.CreateNamespace(ctx, config.Bucket); err != nil {
+			return &objectStoreProbeFailure{Stage: "create_namespace", Cause: err}
+		}
+	}
+
+	payload := []byte(objectStoreProbePayload)
+	objectMayExist = true
+	if err := client.Put(ctx, config.Bucket, config.Key, payload); err != nil {
+		return &objectStoreProbeFailure{Stage: "put", Cause: err}
+	}
+	size, err := client.HeadSize(ctx, config.Bucket, config.Key)
+	if err != nil {
+		return &objectStoreProbeFailure{Stage: "head", Cause: err}
+	}
+	if size != int64(len(payload)) {
+		return &objectStoreProbeFailure{Stage: "head", Cause: fmt.Errorf("probe size mismatch")}
+	}
+	if err := client.Delete(ctx, config.Bucket, config.Key); err != nil {
+		return &objectStoreProbeFailure{Stage: "delete", Cause: err}
+	}
+	if _, err := client.HeadSize(ctx, config.Bucket, config.Key); err == nil {
+		return &objectStoreProbeFailure{Stage: "delete_verify", Cause: fmt.Errorf("probe object remains visible")}
+	} else if !isNoSuchObjectError(err) {
+		return &objectStoreProbeFailure{Stage: "delete_verify", Cause: err}
+	}
+	objectMayExist = false
+	return nil
 }
 
 func isNonRetryableObjectStoreReadinessError(err error) bool {
@@ -371,7 +509,12 @@ func isNonRetryableObjectStoreReadinessError(err error) bool {
 	var response minio.ErrorResponse
 	if errors.As(err, &response) {
 		switch strings.ToLower(response.Code) {
-		case "accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch":
+		case "accessdenied", "allaccessdisabled", "authorizationheadermalformed",
+			"invalidaccesskeyid", "invalidrequest", "methodnotallowed",
+			"notimplemented", "signaturedoesnotmatch", "xnotimplemented":
+			return true
+		}
+		if response.StatusCode == 401 || response.StatusCode == 403 || response.StatusCode == 405 || response.StatusCode == 501 {
 			return true
 		}
 	}
@@ -384,6 +527,15 @@ func isNonRetryableObjectStoreReadinessError(err error) bool {
 		strings.Contains(lower, "signature does not match")
 }
 
+func isNoSuchObjectError(err error) bool {
+	if err == nil {
+		return false
+	}
+	response := minio.ToErrorResponse(err)
+	return strings.EqualFold(response.Code, "NoSuchKey") ||
+		strings.EqualFold(response.Code, "NoSuchObject") || strings.EqualFold(response.Code, "NotFound")
+}
+
 func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {
 	_ = ctx
 	return minio.New(h.Endpoint, &minio.Options{
@@ -392,12 +544,68 @@ func (h *Harness) Client(ctx context.Context) (*minio.Client, error) {
 	})
 }
 
+func (c minioReadinessClient) ListBuckets(ctx context.Context) error {
+	_, err := c.client.ListBuckets(ctx)
+	return err
+}
+
+func (c minioReadinessClient) CreateNamespace(ctx context.Context, bucket string) error {
+	return c.client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
+}
+
+func (c minioReadinessClient) Put(ctx context.Context, bucket string, key string, payload []byte) error {
+	_, err := c.client.PutObject(ctx, bucket, key, bytes.NewReader(payload), int64(len(payload)), minio.PutObjectOptions{})
+	return err
+}
+
+func (c minioReadinessClient) HeadSize(ctx context.Context, bucket string, key string) (int64, error) {
+	info, err := c.client.StatObject(ctx, bucket, key, minio.StatObjectOptions{})
+	return info.Size, err
+}
+
+func (c minioReadinessClient) Delete(ctx context.Context, bucket string, key string) error {
+	return c.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+}
+
+func (c minioReadinessClient) DeleteNamespace(ctx context.Context, bucket string) error {
+	err := c.client.RemoveBucket(ctx, bucket)
+	if isNoSuchBucketError(err) {
+		return nil
+	}
+	return err
+}
+
 func (h *Harness) BootstrapBucket(ctx context.Context, prefix string) (string, error) {
 	name := h.nextBucketName(prefix)
 	if err := h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
 		return "", err
 	}
 	return name, nil
+}
+
+// BootstrapProbeBucket creates a broker-owned namespace and proves the exact
+// mutation path that attached child processes will use within unique prefixes.
+// The broker retains ownership of the bucket for the suite lifetime.
+func (h *Harness) BootstrapProbeBucket(ctx context.Context) (string, error) {
+	bucket, err := h.BootstrapBucket(ctx, "readiness-shared")
+	if err != nil {
+		return "", fmt.Errorf("create broker object-store probe namespace: %w", err)
+	}
+	if err := h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+		ReadyTimeout:    objectStoreClientReadyTimeout,
+		PollInterval:    objectStoreHealthPollInterval,
+		AttemptTimeout:  objectStoreClientAttemptTimeout,
+		CreateNamespace: false,
+		ListFirst:       false,
+		Bucket:          bucket,
+		Key:             h.nextProbeKey(),
+	}); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), objectStoreProbeCleanupTimeout)
+		cleanupErr := h.CleanupBucket(cleanupCtx, bucket)
+		cancel()
+		return "", errors.Join(fmt.Errorf("admit broker object-store probe namespace: %w", err), cleanupErr)
+	}
+	return bucket, nil
 }
 
 func (h *Harness) CreateBucket(ctx context.Context, name string) error {
@@ -447,6 +655,18 @@ func (h *Harness) PreparePackageBucketT(t testing.TB, prefix string) string {
 	} else if err := h.cleanupPrefixWithDetails(context.Background(), fixture.bucket, "", suiteservices.FixtureReusePrefix, attribution); err != nil {
 		fixture.mu.Unlock()
 		t.Fatalf("reset package s3 bucket: %v", err)
+	}
+	if err := h.waitForObjectStoreReadiness(context.Background(), objectStoreReadinessConfig{
+		ReadyTimeout:    objectStoreClientReadyTimeout,
+		PollInterval:    objectStoreHealthPollInterval,
+		AttemptTimeout:  objectStoreClientAttemptTimeout,
+		CreateNamespace: false,
+		ListFirst:       false,
+		Bucket:          fixture.bucket,
+		Key:             h.nextProbeKey(),
+	}); err != nil {
+		fixture.mu.Unlock()
+		t.Fatalf("admit package s3 bucket: %v", err)
 	}
 
 	t.Cleanup(func() {
@@ -560,8 +780,8 @@ func isNoSuchBucketError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var response minio.ErrorResponse
-	return errors.As(err, &response) && strings.EqualFold(response.Code, "NoSuchBucket")
+	response := minio.ToErrorResponse(err)
+	return strings.EqualFold(response.Code, "NoSuchBucket")
 }
 
 func (h *Harness) Env(bucket string) map[string]string {
@@ -673,6 +893,18 @@ func (h *Harness) nextBucketName(prefix string) string {
 	return truncateBucketName(base+"-"+truncateBucketName(suffix, available), 63)
 }
 
+func (h *Harness) nextProbeKey() string {
+	suiteHash := h.suiteHash
+	if suiteHash == "" {
+		suiteHash = resolveSuiteHash()
+	}
+	processHash := h.processHash
+	if processHash == "" {
+		processHash = suiteservices.ProcessHash()
+	}
+	return fmt.Sprintf(".cartulary-readiness/%s-%s-%06d", suiteHash, processHash, atomic.AddUint64(&h.counter, 1))
+}
+
 func truncateBucketName(value string, max int) string {
 	if len(value) <= max {
 		return value
@@ -681,12 +913,7 @@ func truncateBucketName(value string, max int) string {
 }
 
 func verifyAttachedHarness(ctx context.Context, harness *Harness) error {
-	client, err := harness.Client(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = client.ListBuckets(ctx)
-	return err
+	return harness.WaitReady(ctx)
 }
 
 func recordSuiteEvent(event suiteservices.Event) {

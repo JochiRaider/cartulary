@@ -250,11 +250,12 @@ func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 		select {
 		case <-releaseObjectStore:
 			return objectStoreService{
-				endpoint:  "127.0.0.1:9000",
-				accessKey: "object-store-access",
-				secretKey: "object-store-secret",
-				secure:    false,
-				close:     func(context.Context) error { return nil },
+				endpoint:    "127.0.0.1:9000",
+				accessKey:   "object-store-access",
+				secretKey:   "object-store-secret",
+				secure:      false,
+				probeBucket: "ct-suite-readiness-probe",
+				close:       func(context.Context) error { return nil },
 			}, nil
 		case <-ctx.Done():
 			return objectStoreService{}, ctx.Err()
@@ -280,6 +281,9 @@ func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 		if env[suiteservices.S3AccessKeyEnv] != "object-store-access" || env[suiteservices.S3SecretKeyEnv] != "object-store-secret" {
 			t.Fatalf("child missing object-store credentials: %#v", env)
 		}
+		if env[suiteservices.S3ProbeBucketEnv] != "ct-suite-readiness-probe" {
+			t.Fatalf("child missing broker object-store probe namespace: %#v", env)
+		}
 		return fakeChild{}, nil
 	}
 
@@ -300,9 +304,11 @@ func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	previousPostgresStarter := startPostgresHarnessWithOptions
 	previousObjectStoreStarter := startObjectStoreHarnessWithOptions
+	previousProbeBootstrap := bootstrapObjectStoreProbeBucket
 	defer func() {
 		startPostgresHarnessWithOptions = previousPostgresStarter
 		startObjectStoreHarnessWithOptions = previousObjectStoreStarter
+		bootstrapObjectStoreProbeBucket = previousProbeBootstrap
 	}()
 
 	var postgresAttemptTimeout time.Duration
@@ -324,6 +330,9 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 			AccessKey: "object-store-access",
 			SecretKey: "object-store-secret",
 		}, nil
+	}
+	bootstrapObjectStoreProbeBucket = func(context.Context, *s3test.Harness) (string, error) {
+		return "ct-suite-readiness-probe", nil
 	}
 
 	env := map[string]string{suiteservices.SuiteIDEnv: "suite-attempt-timeouts"}

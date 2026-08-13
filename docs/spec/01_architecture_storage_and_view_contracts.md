@@ -8169,12 +8169,14 @@ bookkeeping alone MUST NOT change public `updated_at` or publish a public
 progress event.
 
 The production execution policy is immutable: handler lease 30 seconds,
-renewal cadence 10 seconds, recovery scan cadence 5 seconds, recovery batch
-100 rows, global handler concurrency 8, maximum failures 3, retry delays 5
-seconds and then 30 seconds, expiry sweep cadence 5 minutes, and expiry batch
-1,000 rows. Tests MAY inject shorter values through harness-owned composition;
-deployment configuration MUST NOT redefine these values in the current
-profile.
+renewal cadence 10 seconds, attempt-operation timeout 10 seconds, recovery scan
+cadence 5 seconds, recovery batch 100 rows, global handler concurrency 8,
+maximum failures 3, retry delays 5 seconds and then 30 seconds, expiry sweep
+cadence 5 minutes, and expiry batch 1,000 rows. The attempt-operation timeout
+is independent of lease-renewal cadence and bounds attempt persistence and
+observation operations. Tests MAY inject shorter values through harness-owned
+composition; deployment configuration MUST NOT redefine these values in the
+current profile.
 
 Handler error, recovered panic, incomplete nil return, or expiry of an attempt
 not conditionally released during graceful shutdown consumes one failure. A
@@ -8200,7 +8202,15 @@ MUST follow conditional release and MUST NOT consume a failure. A renewal or
 handler error observed without runner shutdown retains its ordinary failure or
 execution-loss semantics. A successful runner close MUST mean that supervised
 handler goroutines have drained; deadline expiry remains an unsuccessful
-close.
+close. Graceful conditional releases MUST remain concurrent and MUST NOT exceed
+global handler concurrency. Each release is bounded by the attempt-operation
+timeout and by an earlier caller close deadline. Release timeout or operational
+failure makes close unsuccessful but MUST NOT increment failure count or set a
+retry delay; execution loss remains neutral. Shutdown-release diagnostics MAY
+contain only operation stage, job kind, a bounded attempt-slot ordinal, and a
+closed reason. They MUST NOT contain job or attempt identifiers, raw database
+errors, payloads, or incident content. Multiple release failures MUST be
+reported deterministically in ascending attempt-slot order.
 
 Terminal state and progress are immutable. Progress `completed` MUST never
 decrease; a known `total` MUST never clear or decrease; the transition from an

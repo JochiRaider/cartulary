@@ -24,3 +24,15 @@ func ConfigureRunnerSynchronizationForTest(
 		runner.renewExecution = renewExecution
 	}
 }
+
+// ConfigureRunnerReleaseForTest replaces the private conditional-release
+// operation. It exists only in the package's test build.
+func ConfigureRunnerReleaseForTest(
+	runner *Runner,
+	releaseExecution func(context.Context, Execution) error,
+) {
+	if runner == nil || releaseExecution == nil {
+		return
+	}
+	runner.releaseExecution = releaseExecution
+}

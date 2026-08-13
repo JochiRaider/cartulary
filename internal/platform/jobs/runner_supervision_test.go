@@ -3,6 +3,9 @@ package jobs_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -284,8 +287,31 @@ UPDATE jobs
 		}
 		var current atomic.Int32
 		var maximum atomic.Int32
-		entered := make(chan struct{}, 16)
-		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+		var releasing atomic.Int32
+		var maximumReleasing atomic.Int32
+		releaseWaveReady := make(chan struct{})
+		var releaseWaveOnce sync.Once
+		entered := make(chan uuid.UUID, 16)
+		jobs.ConfigureRunnerReleaseForTest(runner, func(ctx context.Context, execution jobs.Execution) error {
+			active := releasing.Add(1)
+			defer releasing.Add(-1)
+			for {
+				observed := maximumReleasing.Load()
+				if active <= observed || maximumReleasing.CompareAndSwap(observed, active) {
+					break
+				}
+			}
+			if active == int32(policy.HandlerConcurrency) {
+				releaseWaveOnce.Do(func() { close(releaseWaveReady) })
+			}
+			select {
+			case <-releaseWaveReady:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			return manager.ReleaseExecution(ctx, execution)
+		})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, execution jobs.Execution) error {
 			active := current.Add(1)
 			defer current.Add(-1)
 			for {
@@ -294,7 +320,7 @@ UPDATE jobs
 					break
 				}
 			}
-			entered <- struct{}{}
+			entered <- execution.JobID()
 			<-ctx.Done()
 			return ctx.Err()
 		}); err != nil {
@@ -308,34 +334,43 @@ UPDATE jobs
 			jobIDs[index] = createSupervisedJob(t, manager, actorID, incidentID)
 			runner.Notify(jobIDs[index])
 		}
-		for range 8 {
+		enteredJobIDs := make([]uuid.UUID, 0, policy.HandlerConcurrency)
+		enteredSet := make(map[uuid.UUID]struct{}, policy.HandlerConcurrency)
+		for range policy.HandlerConcurrency {
 			select {
-			case <-entered:
+			case jobID := <-entered:
+				if _, duplicate := enteredSet[jobID]; duplicate {
+					t.Fatalf("handler entered twice for %s", jobID)
+				}
+				enteredSet[jobID] = struct{}{}
+				enteredJobIDs = append(enteredJobIDs, jobID)
 			case <-time.After(2 * time.Second):
 				t.Fatal("timed out waiting for eight concurrent attempts")
 			}
 		}
-		select {
-		case <-entered:
-			t.Fatal("runner exceeded eight concurrent attempts")
-		case <-time.After(3 * policy.RecoveryScan):
-		}
 		if maximum.Load() != 8 {
 			t.Fatalf("maximum concurrency = %d, want 8", maximum.Load())
 		}
-		closeRunner(t, runner)
-		for _, jobID := range jobIDs[:8] {
+		closeRunnerWithBudget(t, runner, 2*policy.AttemptOperationTimeout+time.Second)
+		if maximumReleasing.Load() > int32(policy.HandlerConcurrency) {
+			t.Fatalf("maximum release concurrency = %d, want <= %d", maximumReleasing.Load(), policy.HandlerConcurrency)
+		}
+		if maximumReleasing.Load() < 2 {
+			t.Fatalf("shutdown releases were unexpectedly serialized: maximum concurrency %d", maximumReleasing.Load())
+		}
+		for _, jobID := range enteredJobIDs {
 			var attemptID *uuid.UUID
 			var failureCount int
+			var nextAttemptAt *time.Time
 			if err := pool.QueryRow(context.Background(), `
-SELECT handler_attempt_id, handler_failure_count
+SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
   FROM jobs
  WHERE job_id = $1
-`, jobID).Scan(&attemptID, &failureCount); err != nil {
+`, jobID).Scan(&attemptID, &failureCount, &nextAttemptAt); err != nil {
 				t.Fatal(err)
 			}
-			if attemptID != nil || failureCount != 0 {
-				t.Fatalf("shutdown release for %s = attempt %v failures %d", jobID, attemptID, failureCount)
+			if attemptID != nil || failureCount != 0 || nextAttemptAt != nil {
+				t.Fatalf("shutdown release for %s = attempt %v failures %d next %v", jobID, attemptID, failureCount, nextAttemptAt)
 			}
 		}
 	})
@@ -420,6 +455,207 @@ SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
 		}
 	})
 
+	t.Run("shutdown release timeout is neutral and safely diagnosed", func(t *testing.T) {
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-release-timeout")
+		policy.LeaseRenewal = 2 * time.Millisecond
+		policy.AttemptOperationTimeout = 50 * time.Millisecond
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		releaseBudget := make(chan time.Duration, 1)
+		jobs.ConfigureRunnerReleaseForTest(runner, func(ctx context.Context, _ jobs.Execution) error {
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				return errors.New("release context has no deadline")
+			}
+			releaseBudget <- time.Until(deadline)
+			<-ctx.Done()
+			return ctx.Err()
+		})
+		entered := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(entered)
+			<-ctx.Done()
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		runner.Notify(jobID)
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for release-timeout handler")
+		}
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancelClose()
+		closeErr := runner.Close(closeCtx)
+		if closeErr == nil {
+			t.Fatal("expected shutdown release timeout")
+		}
+		budget := <-releaseBudget
+		if budget < 35*time.Millisecond {
+			t.Fatalf("attempt operation budget %v was coupled to %v renewal cadence", budget, policy.LeaseRenewal)
+		}
+		diagnostic := closeErr.Error()
+		for _, want := range []string{"stage=release", "job_kind=" + supervisedJobKind, "attempt_slot=1", "reason=deadline_exceeded"} {
+			if !strings.Contains(diagnostic, want) {
+				t.Fatalf("shutdown diagnostic %q missing %q", diagnostic, want)
+			}
+		}
+		if strings.Contains(diagnostic, jobID.String()) {
+			t.Fatalf("shutdown diagnostic exposed job identity: %q", diagnostic)
+		}
+		assertNeutralAttemptState(t, pool, jobID, true)
+	})
+
+	t.Run("multiple shutdown release failures are slot ordered and redacted", func(t *testing.T) {
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-release-aggregate")
+		policy.HandlerConcurrency = 3
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs.ConfigureRunnerReleaseForTest(runner, func(_ context.Context, execution jobs.Execution) error {
+			return fmt.Errorf("raw database release failure for %s", execution.JobID())
+		})
+		entered := make(chan uuid.UUID, policy.HandlerConcurrency)
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, execution jobs.Execution) error {
+			entered <- execution.JobID()
+			<-ctx.Done()
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		jobIDs := make([]uuid.UUID, policy.HandlerConcurrency)
+		for index := range jobIDs {
+			jobIDs[index] = createSupervisedJob(t, manager, actorID, incidentID)
+			runner.Notify(jobIDs[index])
+		}
+		for range policy.HandlerConcurrency {
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for aggregate release handlers")
+			}
+		}
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), time.Second)
+		defer cancelClose()
+		closeErr := runner.Close(closeCtx)
+		if closeErr == nil {
+			t.Fatal("expected aggregate shutdown release failure")
+		}
+		diagnostic := closeErr.Error()
+		first := strings.Index(diagnostic, "attempt_slot=1")
+		second := strings.Index(diagnostic, "attempt_slot=2")
+		third := strings.Index(diagnostic, "attempt_slot=3")
+		if first < 0 || second <= first || third <= second {
+			t.Fatalf("shutdown failures are not slot ordered: %q", diagnostic)
+		}
+		if strings.Contains(diagnostic, "raw database release failure") {
+			t.Fatalf("shutdown diagnostic exposed raw database error: %q", diagnostic)
+		}
+		for _, jobID := range jobIDs {
+			if strings.Contains(diagnostic, jobID.String()) {
+				t.Fatalf("shutdown diagnostic exposed job identity: %q", diagnostic)
+			}
+			assertNeutralAttemptState(t, pool, jobID, true)
+		}
+	})
+
+	t.Run("execution loss during shutdown remains neutral", func(t *testing.T) {
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-release-loss")
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs.ConfigureRunnerReleaseForTest(runner, func(context.Context, jobs.Execution) error {
+			return jobs.ErrExecutionLost
+		})
+		entered := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(entered)
+			<-ctx.Done()
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		runner.Notify(jobID)
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for execution-loss handler")
+		}
+		closeRunnerWithBudget(t, runner, 2*policy.AttemptOperationTimeout+time.Second)
+		assertNeutralAttemptState(t, pool, jobID, true)
+	})
+
+	t.Run("caller deadline bounds handler drain", func(t *testing.T) {
+		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-close-deadline")
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs.ConfigureRunnerReleaseForTest(runner, func(context.Context, jobs.Execution) error {
+			return jobs.ErrExecutionLost
+		})
+		entered := make(chan struct{})
+		allowDrain := make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(entered)
+			<-ctx.Done()
+			<-allowDrain
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		jobID := createSupervisedJob(t, manager, actorID, incidentID)
+		runner.Notify(jobID)
+		select {
+		case <-entered:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for deadline handler")
+		}
+		closeCtx, cancelClose := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		err = runner.Close(closeCtx)
+		cancelClose()
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("close deadline error = %v", err)
+		}
+		close(allowDrain)
+		closeRunnerWithBudget(t, runner, time.Second)
+	})
+
 	t.Run("successful close waits for handler drain", func(t *testing.T) {
 		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-handler-drain")
 		jobID := createSupervisedJob(t, manager, actorID, incidentID)
@@ -496,6 +732,7 @@ func newSupervisedJobsHarness(
 	policy := jobs.ProductionRuntimePolicy()
 	policy.HandlerLease = 120 * time.Millisecond
 	policy.LeaseRenewal = 30 * time.Millisecond
+	policy.AttemptOperationTimeout = 250 * time.Millisecond
 	policy.RecoveryScan = 20 * time.Millisecond
 	policy.RetryDelays = []time.Duration{20 * time.Millisecond, 40 * time.Millisecond}
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
@@ -583,9 +820,38 @@ SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
 
 func closeRunner(t testing.TB, runner *jobs.Runner) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	closeRunnerWithBudget(t, runner, time.Second)
+}
+
+func closeRunnerWithBudget(t testing.TB, runner *jobs.Runner, budget time.Duration) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	if err := runner.Close(ctx); err != nil {
 		t.Fatalf("close Jobs runner: %v", err)
+	}
+}
+
+func assertNeutralAttemptState(t testing.TB, pool *pgxpool.Pool, jobID uuid.UUID, expectAttempt bool) {
+	t.Helper()
+	var attemptID *uuid.UUID
+	var failureCount int
+	var nextAttemptAt *time.Time
+	if err := pool.QueryRow(context.Background(), `
+SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
+  FROM jobs
+ WHERE job_id = $1
+`, jobID).Scan(&attemptID, &failureCount, &nextAttemptAt); err != nil {
+		t.Fatal(err)
+	}
+	if (attemptID != nil) != expectAttempt || failureCount != 0 || nextAttemptAt != nil {
+		t.Fatalf(
+			"neutral shutdown state for %s = attempt %v failures %d next %v, want attempt_present %t failures 0 next nil",
+			jobID,
+			attemptID,
+			failureCount,
+			nextAttemptAt,
+			expectAttempt,
+		)
 	}
 }

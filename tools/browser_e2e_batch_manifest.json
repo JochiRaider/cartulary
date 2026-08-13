@@ -1105,7 +1105,11 @@
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
+            "module.timeline.browser_support.clipboard_paste_helper_contract",
+            "module.timeline.browser_support.fill_down_helper_contract",
             "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
+            "module.timeline.browser_support.one_click_scalar_edit_anchor",
+            "module.timeline.browser_support.query_control_helper_contract",
             "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10"
           ],
           "specs": [

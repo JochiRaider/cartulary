@@ -259,7 +259,10 @@ only when an owner test proves the same migration chain produced it; every owned
 migration chain retains at least one full-chain proof.
 
 Infrastructure setup MAY retry once on a newly created lane only when no product
-work began. Product test failures MUST NOT be retried by scheduler policy.
+work began and the failure occurred before service readiness polling began.
+Once readiness polling begins, its expiry is terminal for that lane and MUST NOT
+start a replacement lane. Product test failures MUST NOT be retried by scheduler
+policy.
 Verified by: TH-HARNESS-AC-086
 
 **TH-HARNESS-REQ-805**
@@ -3542,6 +3545,40 @@ The frontend is ready only when the wrapper-started preview process group is sti
 
 A dynamically allocated browser backend or frontend port lease MUST remain exclusive for the full owned-session lifetime. Before the transient startup controller exits, it MUST transfer each lease to the corresponding live owned process group; the controller exiting MUST NOT make the lease stale while that process group remains alive. A stop controller MAY adopt the exact session's leases, but MUST release them only after it has stopped the recorded process groups and proved the listeners are gone. Allocation MUST reject a lease whose recorded owner is still alive even when the allocating shell that originally created the lease has exited. This ownership transfer and release policy applies across all same-worktree browser schedulers and run roots.
 
+Object-store readiness MUST prove the smallest mutation lifecycle required by
+object-backed fixtures, not only port, authentication, or list availability.
+The broker MUST create a uniquely named, run-owned probe namespace and perform
+one bounded small-object `put`, `head` with exact size verification, `delete`,
+and not-found verification sequence. The probe object and namespace MUST be
+cleaned on success, failure, cancellation, and deadline expiry. Cleanup failure
+is retained as secondary cleanup evidence and MUST NOT replace an earlier
+readiness failure.
+
+Authentication, authorization, or required-capability rejection is terminal.
+Transient availability failures MAY continue polling only within the same
+120-second object-store readiness window. Once polling starts, expiry MUST NOT
+start a replacement container or lane. Owned and attached services MUST use the
+same probe contract. Attach mode MAY mutate only its proven run-owned probe
+namespace and MUST NOT close, delete, or clean unrelated borrowed resources.
+Readiness diagnostics MAY disclose only the stage (`list`,
+`create_namespace`, `put`, `head`, `delete`, or `delete_verify`), attempt count,
+and cleanup outcome; credentials and unrelated object identities are forbidden.
+
+To prevent readiness admission itself from overwhelming one brokered service,
+the broker MAY retain one run-owned parent probe bucket for the suite lifetime
+and export its exact identity to attached child processes. Each attached process
+MUST use a unique run-owned prefix inside that bucket, clean its probe object on
+every outcome, and MUST NOT create or delete the shared parent bucket. The
+broker MUST prove the parent bucket's mutation path before child work and clean
+the bucket during owned teardown. An attached process without this broker proof
+MUST create and clean its own unique probe namespace instead.
+
+Before returning a newly created or recycled package bucket to a fixture
+consumer, the broker MUST run the same `put`, `head` with exact size
+verification, `delete`, and not-found verification inside a unique run-owned
+probe prefix in that bucket. Product object-store operations remain fail-fast;
+fixture admission MUST NOT introduce product-operation retry behavior.
+
 Owned-stack supervision MUST test liveness of the complete process group, not
 only the original group-leader PID. A short-lived launcher exiting while its
 descendant reporter remains in the group MUST NOT be interpreted as child
@@ -3596,7 +3633,19 @@ Attach mode MAY write diagnostic records and lease observations. It MUST NOT del
 
 For browser owned stacks, a listener conflict detected before process startup or during backend/frontend process bind/startup maps to `resource_conflict`. Backend or frontend process exit before readiness maps to `service_start_error` only when retained startup diagnostics and logs do not identify a listener, port, lock, or other resource conflict. A live owned process that does not satisfy its readiness predicates before the deadline maps to `service_readiness_timeout`. Suite-admin login failures after owned readiness has been proven are no longer treated as readiness failures.
 
-Startup retry windows and readiness deadlines are separate. If a Postgres or object-store startup attempt reaches readiness polling and then the Section 11.4 readiness deadline expires, the operation MUST NOT retry that service. The failure MUST be `failure_class=infra`, `failure_reason=service_readiness_timeout`, and public exit `3`. Browser backend startup, browser frontend startup, runtime reset, and cleanup have `max_attempts=1`; their polling or operation deadlines do not create retry attempts. Browser ports are dynamically allocated before process startup, but a later strict-port collision is terminal `failure_class=infra`, `failure_reason=resource_conflict`; silently changing the admitted port or replacing terminal startup evidence is forbidden.
+Startup retry windows and readiness deadlines are separate. If a Postgres or
+object-store startup attempt reaches readiness polling and then the Section
+11.4 readiness deadline expires, the operation MUST NOT retry that service or
+start a replacement lane. The failure MUST be `failure_class=infra`,
+`failure_reason=service_readiness_timeout`, and public exit `3`. A transient
+object-store probe failure MAY cause another probe attempt only inside that
+same readiness window and against that same service lane. Browser backend
+startup, browser frontend startup, runtime reset, and cleanup have
+`max_attempts=1`; their polling or operation deadlines do not create retry
+attempts. Browser ports are dynamically allocated before process startup, but
+a later strict-port collision is terminal `failure_class=infra`,
+`failure_reason=resource_conflict`; silently changing the admitted port or
+replacing terminal startup evidence is forbidden.
 
 ### 11.6 Duration Baselines
 
@@ -4747,7 +4796,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-004 | Sections 7, 8      | Machine output accepted          | Toolchain ready; explicit result root/run ID                                 | `CARTULARY_OUTPUT_MODE=machine make backend-unit`; `... make test-fast`; `... make check` | Target status                                                  | Exactly one JSON object plus LF                        | Empty after wrapper starts                                   | `cartulary.tool_run_summary.v5` and target artifacts                                               | Progress prose or duplicate JSON fails                                       | normal target cleanup                                   |
 | TH-HARNESS-AC-005 | Section 7          | Machine output rejected          | No child work                                                                | `CARTULARY_OUTPUT_MODE=machine make clean`; `... make dev`; `... make help`               | `2`                                                            | Empty                                                  | Bounded `usage_error` diagnostic                             | None required                                                                                      | Child work starts despite rejection                                          | no deletion or service start                            |
 | TH-HARNESS-AC-006 | Section 10         | Scheduler determinism            | Controlled manifest with simultaneous child completions and scheduled browser groups | Run scheduler fixture twice with same manifest; validate generated browser worker-admin slot ranges | `0`                                                            | Bounded summary or machine object                      | Empty on success                                             | Byte-identical scheduler events after dynamic timestamp normalization allowed only by schema rules; browser group worker slots are explicit, contiguous, and non-overlapping | Event sequence differs; browser worker slot env is missing or overlaps       | finalizers run                                          |
-| TH-HARNESS-AC-007 | Section 11         | Service modes                    | Owned and attach fixtures                                                    | Owned service target; attach target missing one required var                              | owned success; attach failure `2`                              | Bounded summary                                        | Empty on owned success; config diagnostic for attach failure | Owned lease before child work; attach failure summary                                              | Attach mode deletes container-level resource                                 | owned teardown recorded                                 |
+| TH-HARNESS-AC-007 | Section 11         | Service modes                    | Owned and attach fixtures, including object-store mutation-probe faults      | Owned service target; attach target missing one required var; injected transient and capability failures | owned success; attach failure `2`; readiness expiry `3`       | Bounded stage, attempt, and cleanup summary             | Empty on owned success; config/readiness diagnostic         | Owned lease before child work; same-lane object probe succeeds with zero residue; attach failure summary | Attach mode deletes unrelated resource, capability rejection polls, or readiness expiry replaces lane | owned teardown and probe cleanup recorded               |
 | TH-HARNESS-AC-008 | Section 12         | Test-only harness routes         | Browser test runtime with test route token and saved-view fixture inputs     | Reset route success, saved-view system fixture success, auth rejection, origin/host rejection, concurrent reset, timeout, partial failure fixtures | Expected HTTP statuses from Section 12                         | HTTP JSON response                                     | n/a                                                          | Reset response validates schema; saved-view fixture response is a normal saved-view resource with `scope='system'`; tainted stack marker on partial failure; no permissive CORS headers | Default runtime exposes any test route, wrong host/origin reaches mutation, product auth bypasses the test token, saved-view fixture accepts caller-supplied scope/owner/identity, or wildcard CORS is emitted | tainted stack restarted before further work             |
 | TH-HARNESS-AC-009 | Section 13         | Cleanup and destructive reset guard | Synthetic registry with safe and unsafe paths; fake Compose, database, migration, and object-store commands | Cleanup guard unit; `CARTULARY_CLEANUP_DRY_RUN=1 make clean`; dry-run and missing-confirmation invocations for `services-down`, `db-reset`, and `object-store-reset` | `0` for safe dry-run; nonzero for unsafe synthetic path or missing destructive confirmation | Dry-run lines match format                             | Bounded guard or confirmation diagnostic before mutation      | Candidate list, guard evidence, and command-shape evidence for confirmed local resets                              | Empty path, `/`, `.`, `..`, traversal, protected root, outside-repo path, symlink-following, inherited-env-only destructive confirmation, object-store reset touching another bucket, or `services-down` removing volumes accepted | no deletion, service start, or service stop in dry-run  |
 | TH-HARNESS-AC-010 | Section 13         | Stale janitor proof gates        | Fake DB, bucket, container, and browser fixtures with/without proof          | Focused stale-janitor tests                                                               | `0`                                                            | Bounded summary                                        | Empty on success                                             | Evidence that unproven resources retained and proven stale fixtures deleted only outside dry-run   | Resource lacking generated name/proof deleted                                | unproven resources retained                             |
@@ -4826,7 +4875,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-083 | Section 2.1 | Canonical graph identity | Equivalent direct, aggregate, leaf, and owner-slice selectors plus semantic mutations | Compile and compare graphs | Equivalent selections have identical units/digests and changed semantics change the digest | Bounded graph summary | Graph validation diagnostic | Canonical graph and digest report | Duplicate execution, cycle, or invalid claim reaches child work | scratch graph removed |
 | TH-HARNESS-AC-084 | Section 2.1 | Unified scheduling | Contention, starvation, failure, cancellation, and simultaneous-completion fixtures | Deterministic scheduler simulation and process tests | Rank, fit, backfill, aging, failure propagation, and cancellation match REQ-802 | Bounded scheduler summary | Scheduler diagnostic | Unit events and capability snapshot | Unheld reservation, starvation, or leaked process passes | owned work cleaned |
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, and override fixtures | Capability resolver validation | Resolved capacity is the safe multidimensional minimum and every override is declared/recorded | Bounded capability summary | Configuration diagnostic | Capability snapshot and sources | CPU-only inference or undeclared override passes | no child work |
-| TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, group, dedicated, migration, object, process, browser, contamination, and borrowed-resource fixtures | Broker lifecycle and affected owner slices | Explicit leases preserve isolation and owned cleanup without closing borrowed resources | Bounded lease summary | Fixture/cleanup diagnostic | Lease and lifecycle events | Implicit clone fallback, contamination, or borrowed deletion passes | unhealthy leases destroyed |
+| TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, group, dedicated, migration, object, process, browser, contamination, and borrowed-resource fixtures | Broker lifecycle, object-store put/head/delete admission, and affected owner slices | Explicit leases preserve isolation; object probes and package probes leave zero residue; owned cleanup does not close borrowed resources | Bounded lease and safe object-stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Lease, probe-attempt, cleanup, and lifecycle events | Implicit clone fallback, contamination, probe residue, post-readiness lane replacement, or borrowed deletion passes | unhealthy leases destroyed; exact package bucket re-probed |
 | TH-HARNESS-AC-087 | Section 2.1 | Go grouping | Compatible, incompatible, oversized, raw, exact-symbol, and missing-output fixtures | Deterministic shard planning and Go JSON reconciliation | LPT plans are capacity-derived and every selected row resolves exactly once | Bounded shard summary | Row/shard diagnostic | Plan digest and row outcomes | Fixed packing, incompatible merge, or missing row passes | ordinary test cleanup |
 | TH-HARNESS-AC-088 | Section 2.1 | Browser group scheduling | Parallel isolated, stateful, reset, measurement, visual-read/update, failed-lane, and cancellation fixtures | Browser graph and lifecycle tests | Groups share only declared state, conflicting writes never overlap, and every lane cleans | Bounded browser summary | Lifecycle diagnostic | Group events, leases, and target projections | Batch loop, stage lock, reset drift, or lane leak passes | all lanes cleaned |
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |

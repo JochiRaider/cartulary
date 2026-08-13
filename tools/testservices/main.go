@@ -88,6 +88,9 @@ const (
 var (
 	startPostgresHarnessWithOptions    = pgtest.StartOwnedWithOptions
 	startObjectStoreHarnessWithOptions = s3test.StartOwnedWithOptions
+	bootstrapObjectStoreProbeBucket    = func(ctx context.Context, harness *s3test.Harness) (string, error) {
+		return harness.BootstrapProbeBucket(ctx)
+	}
 )
 
 type postgresService struct {
@@ -104,15 +107,17 @@ type postgresService struct {
 }
 
 type objectStoreService struct {
-	endpoint    string
-	accessKey   string
-	secretKey   string
-	secure      bool
-	close       func(context.Context) error
-	containerID string
-	name        string
-	image       string
-	labels      map[string]string
+	endpoint     string
+	accessKey    string
+	secretKey    string
+	secure       bool
+	probeBucket  string
+	cleanupProbe func(context.Context) error
+	close        func(context.Context) error
+	containerID  string
+	name         string
+	image        string
+	labels       map[string]string
 }
 
 type postgresStartResult struct {
@@ -484,6 +489,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
+	if objectStoreSvc.probeBucket != "" {
+		childEnv[suiteservices.S3ProbeBucketEnv] = objectStoreSvc.probeBucket
+	}
 
 	child, err := deps.startChild(command, childEnv)
 	if err != nil {
@@ -684,6 +692,9 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
 	childEnv[suiteservices.S3SecureEnv] = fmt.Sprintf("%t", objectStoreSvc.secure)
+	if objectStoreSvc.probeBucket != "" {
+		childEnv[suiteservices.S3ProbeBucketEnv] = objectStoreSvc.probeBucket
+	}
 	if err := writeEnvJSON(envFile, childEnv); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "write suite child environment", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
@@ -1217,6 +1228,9 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		},
 		CleanupState: "not_started",
 	}
+	if objectStoreSvc.probeBucket != "" {
+		lease.ProofPrefixes["object_store_probe_bucket"] = objectStoreSvc.probeBucket
+	}
 	payload, err := json.MarshalIndent(lease, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("encode suite service lease: %w", err)
@@ -1362,11 +1376,22 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 	if err != nil {
 		return objectStoreService{}, err
 	}
+	probeBucket, err := bootstrapObjectStoreProbeBucket(ctx, harness)
+	if err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+		closeErr := harness.Close(cleanupCtx)
+		cancel()
+		return objectStoreService{}, errors.Join(err, closeErr)
+	}
 	return objectStoreService{
 		endpoint:    harness.Endpoint,
 		accessKey:   harness.AccessKey,
 		secretKey:   harness.SecretKey,
 		secure:      harness.Secure,
+		probeBucket: probeBucket,
+		cleanupProbe: func(cleanupCtx context.Context) error {
+			return harness.CleanupBucket(cleanupCtx, probeBucket)
+		},
 		close:       harness.Close,
 		containerID: harness.ContainerID(),
 		name:        containerName(ctx, harness.Container),
@@ -2286,6 +2311,16 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 			printSuiteFailure(env, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
 		} else {
 			recordTimingSpan(deps, env, bucketTeardown, "test-services janitor stale browser fixtures", janitorStart, time.Now().UTC(), "pass")
+		}
+	}
+
+	if objectStoreSvc.cleanupProbe != nil {
+		probeCleanupStart := time.Now().UTC()
+		probeCleanupErr := objectStoreSvc.cleanupProbe(cleanupCtx)
+		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services cleanup object-store probe namespace", probeCleanupStart, probeCleanupErr)
+		if probeCleanupErr != nil {
+			cleanupStatus = "cleanup_failed"
+			printSuiteFailure(env, failureSummary(suiteservices.ServiceObjectStore, stageCleanupObjectStore, "cleanup object-store probe namespace", probeCleanupErr))
 		}
 	}
 
