@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "web.networkflow",
   "rows": [
     {
@@ -23,11 +23,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
@@ -48,11 +49,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
@@ -71,11 +73,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_table_scoped_sta_4ce4a111f2",
@@ -94,11 +97,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_enforces_the_viewer_edi_3fd452e838",
@@ -117,11 +121,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_keeps_the_import_entry_5fb0310ae5",
@@ -140,11 +145,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a",
@@ -163,11 +169,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_refreshes_table_metadat_20159fd951",
@@ -186,11 +193,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_removes_mutation_surfac_5007c81f80",
@@ -209,11 +217,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_renames_by_stable_table_860bb787a3",
@@ -232,11 +241,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_renders_rejected_diagno_b512f0748b",
@@ -255,11 +265,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_supports_keyboard_table_054e6e4ff9",
@@ -278,11 +289,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowclient_requires_a_claimed_profile_and_65c861c0d2",
@@ -301,11 +313,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowcollaborationinterpreter_admits_only_5a57dc4e3c",
@@ -324,11 +337,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_clears_all_table_state_whe_f8e4dfa97e",
@@ -347,11 +361,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_preserves_selection_on_ref_31d35066ee",
@@ -370,11 +385,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_preserves_table_identity_o_b7a9b004a8",
@@ -393,11 +409,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowerrors_suite_08956c54be",
@@ -419,11 +436,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowimportmodel_suite_12249943c5",
@@ -445,11 +463,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_accepts_the_active_696bb36228",
@@ -468,11 +487,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_a_same_va_85200de10e",
@@ -491,11 +511,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_one_activ_a7580fde22",
@@ -514,11 +535,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_rejects_mixed_valu_8ebb38270c",
@@ -537,11 +559,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowpresentation_suite_ad52825df6",
@@ -565,11 +588,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowquerymodel_suite_a62cc77196",
@@ -593,11 +617,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_restores_semantic_focus_5fbb80e46c",
@@ -616,11 +641,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_supports_keyboard_column_9fbd5af078",
@@ -639,11 +665,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowextensionevents_deduplicates_chang_833a3ccd56",
@@ -662,11 +689,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowextensionevents_maps_incident_clos_fd1f06b3ef",
@@ -685,11 +713,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowgridlayout_suite_7c663dc67a",
@@ -709,11 +738,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowpagedquery_suite_7dc8b8d06a",
@@ -734,11 +764,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "package.view_contracts",
   "rows": [
     {
@@ -34,11 +34,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "package.view_contracts.frontend_unit.facade",
@@ -57,11 +58,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "package.view_contracts.frontend_unit.rows",
@@ -86,11 +88,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "package.view_contracts.frontend_unit.surfaces",
@@ -114,11 +117,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

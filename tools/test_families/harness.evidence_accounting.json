@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -16,11 +16,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     }
   ]
 }

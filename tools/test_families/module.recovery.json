@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.recovery",
   "rows": [
     {
@@ -31,7 +31,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.atomic_typed_terminal_evidence_7a41f0d8c2",
@@ -59,7 +63,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.database_coverage_rejects_an_unclassified_recove_a609c7d3a3",
@@ -84,7 +91,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.evidence_inventory_closure_9f2714ac10",
@@ -110,7 +120,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b",
@@ -133,7 +147,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085",
@@ -156,7 +174,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.restore_target_serving_admission_cancels_mutatio_f73b480d23",
@@ -182,7 +203,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.selected_backup_restore_fails_before_readiness_w_3a6ccb7d7a",
@@ -207,7 +231,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.integration.selecting_a_retained_backup_set_missing_a_requir_d6af667fba",
@@ -230,7 +257,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.process.canonical_operator_process_evidence_maps_the_imp_9808fdd4e9",
@@ -257,7 +287,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.process.due_verification_continues_after_a_determinate_f_2af5cf65e1",
@@ -282,7 +316,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e",
@@ -309,7 +347,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
@@ -338,7 +380,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.store.incident_bearing_backup_capture_requires_an_encr_4c5363373e",
@@ -362,7 +407,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.recovery.support_unit.recovery_test_support_preserves_copied_inputs_sa_ef57aa0762",
@@ -392,7 +440,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.authored_public_route_inventory_exposes_no_api_v_bb82dec1de",
@@ -417,7 +466,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.closed_typed_failure_catalog_2d89c71ab4",
@@ -444,7 +494,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.due_verification_batches_use_independent_attempt_94e1273d9c",
@@ -469,7 +520,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.exact_recovery_state_catalog_and_synthetic_goose_774b28fd25",
@@ -495,7 +547,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.filesystem_backup_storage_is_rooted_and_bounded_58ce799613",
@@ -520,7 +573,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.frozen_catalog_classifies_every_authored_recover_ce34eaea4f",
@@ -543,7 +597,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.owner_registered_workbook_probe_and_v2_artifact_a881cb6053",
@@ -571,7 +626,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.restore_target_marker_v2_validates_purpose_gener_492d40e257",
@@ -597,7 +653,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.runtime_resource_lifetimes_9c37e10ad6",
@@ -625,7 +682,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.streaming_authenticated_envelope_v2_75ff1a51f9",
@@ -650,7 +708,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.recovery.unit.vnext_parallel_capture_restore_codecs_8d6a20d34c",
@@ -675,7 +734,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

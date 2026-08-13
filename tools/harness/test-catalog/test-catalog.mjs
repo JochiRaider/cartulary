@@ -10,6 +10,7 @@ import path from "node:path";
 import { validateSchemaSync } from "../contract/index.mjs";
 import { loadVerificationContracts } from "./verification-contracts.mjs";
 import { assertSortedUnique, resolveRowSelector } from "./selector-resolution.mjs";
+import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import {
   canonicalJSONString,
   parseStrictJSON,
@@ -17,7 +18,7 @@ import {
 } from "./semantic-json.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v3";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v4";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -61,46 +62,10 @@ const expectedProfiles = Object.freeze({
     "browser_isolated",
     "browser_measurement_quiet",
     "io_heavy",
-    "none",
+    "managed_process",
     "standard",
   ],
 });
-const expectedProfileDefinitions = Object.freeze({
-  runtime_profiles: [
-    { id: "default", managed_service_ids: ["object_store", "postgres"], browser_capable: true, startup_contract: "ordinary_unclaimed_configuration" },
-    { id: "network_flow_claimed", managed_service_ids: ["object_store", "postgres"], browser_capable: true, startup_contract: "network_flow_claimed_configuration" },
-    { id: "none", managed_service_ids: [], browser_capable: false, startup_contract: "no_managed_runtime" },
-  ],
-  resource_profiles: [
-    { id: "browser_isolated", resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, process: 1 } },
-    {
-      id: "browser_measurement_quiet",
-      resource_claims: {
-        browser_stack: 1,
-        cpu: 1,
-        io: 1,
-        memory_mb: 512,
-        port_lane: 1,
-        process: 1,
-      },
-      runner_timeout_ms: 3_600_000,
-    },
-    { id: "io_heavy", resource_claims: { cpu: 1, io: 2, memory_mb: 256, process: 1 } },
-    { id: "none", resource_claims: {} },
-    { id: "standard", resource_claims: { cpu: 1, io: 1, memory_mb: 256, process: 1 } },
-  ],
-  fixture_profiles: [
-    { id: "none", fixture_kind: "none", isolation_scope: "none", postgres_policy: "none", budget: {} },
-    { id: "object_store_isolated", fixture_kind: "object_store", isolation_scope: "row", postgres_policy: "none", budget: { max_buckets_or_prefixes: 1 } },
-    { id: "postgres_group_clone", fixture_kind: "postgres", isolation_scope: "execution_group", postgres_policy: "group_clone", budget: { max_group_clones: 1 } },
-    { id: "postgres_migration_scratch", fixture_kind: "postgres", isolation_scope: "row", postgres_policy: "migration_scratch", budget: { max_migration_scratch: 2 } },
-    { id: "postgres_package_reset", fixture_kind: "postgres", isolation_scope: "package", postgres_policy: "package_reset", budget: { max_resets: 4 } },
-    { id: "postgres_template_clone", fixture_kind: "postgres", isolation_scope: "package", postgres_policy: "template_clone", budget: { max_template_clones: 20 } },
-    { id: "postgres_transaction", fixture_kind: "postgres", isolation_scope: "row", postgres_policy: "transaction", budget: { max_transactions: 32 } },
-    { id: "service_stack", fixture_kind: "managed_services", isolation_scope: "execution_group", postgres_policy: "none", budget: { max_stacks: 1 } },
-  ],
-});
-
 function readStrictJSON(file) {
   return parseStrictJSON(readFileSync(file, "utf8"), file);
 }
@@ -147,23 +112,49 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
+  validateSchemaSync(topology.schema_id, topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
     }
     assertExactIDs(topology[key], ids, `${topologyPath}.${key}`);
-    if (canonicalProfileBytes(topology[key]) !== canonicalProfileBytes(expectedProfileDefinitions[key])) {
-      throw new Error(`${topologyPath}.${key} does not match the closed profile definitions`);
-    }
   }
   const resources = readStrictJSON(path.join(root, "tools/scheduler_resource_registry.json"));
   const knownResources = new Set(resources.resources.map((entry) => entry.name));
+  const knownServices = new Set(Object.keys(topology.service_resource_minimums));
+  for (const profile of topology.runtime_profiles) {
+    assertSortedUnique(
+      profile.managed_service_ids,
+      `${topologyPath}.runtime_profiles.${profile.id}.managed_service_ids`,
+    );
+    for (const service of profile.managed_service_ids) {
+      if (!knownServices.has(service)) {
+        throw new Error(`${topologyPath}.runtime_profiles.${profile.id} has unknown service ${service}`);
+      }
+    }
+  }
   for (const profile of topology.resource_profiles) {
     const claims = Object.keys(profile.resource_claims);
     assertSortedUnique(claims, `${topologyPath}.resource_profiles.${profile.id}.resource_claims`);
+    for (const required of ["cpu", "io", "memory_mb", "process"]) {
+      if (!Object.hasOwn(profile.resource_claims, required)) {
+        throw new Error(
+          `${topologyPath}.resource_profiles.${profile.id} must bound executable work with ${required}`,
+        );
+      }
+    }
     for (const [resource, amount] of Object.entries(profile.resource_claims)) {
       if (!knownResources.has(resource) || !Number.isInteger(amount) || amount < 1) {
         throw new Error(`${topologyPath}.resource_profiles.${profile.id} has invalid claim ${resource}`);
+      }
+    }
+  }
+  for (const [service, minimums] of Object.entries(topology.service_resource_minimums)) {
+    const resourcesForService = Object.keys(minimums);
+    assertSortedUnique(resourcesForService, `${topologyPath}.service_resource_minimums.${service}`);
+    for (const resource of resourcesForService) {
+      if (!knownResources.has(resource)) {
+        throw new Error(`${topologyPath}.service_resource_minimums.${service} has unknown resource ${resource}`);
       }
     }
   }
@@ -173,12 +164,9 @@ function loadTopologyProfiles(root) {
     semantic: {
       runtime_profiles: topology.runtime_profiles,
       resource_profiles: topology.resource_profiles,
+      service_resource_minimums: topology.service_resource_minimums,
     },
   };
-}
-
-function canonicalProfileBytes(value) {
-  return canonicalJSONString(value);
 }
 
 function loadRunnerRegistry(root) {
@@ -231,6 +219,7 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
   }
   assertSortedUnique(row.collaborator_ids, `${label}.collaborator_ids`);
   assertSortedUnique(row.verification_ids, `${label}.verification_ids`);
+  assertSortedUnique(row.service_dependencies, `${label}.service_dependencies`);
   for (const [field, values] of [
     ["tests", row.selector.tests],
     ["titles", row.selector.titles],
@@ -286,6 +275,16 @@ function validateRowSemantics({ row, manifest, verification, runners, profiles, 
   );
   const resourceProfile = profiles.semantic.resource_profiles.find(
     (entry) => entry.id === row.resource_profile_id,
+  );
+  for (const dependency of row.service_dependencies) {
+    if (!runtimeProfile.managed_service_ids.includes(dependency)) {
+      throw new Error(`${label}.service_dependencies ${dependency} is unavailable in ${row.runtime_profile_id}`);
+    }
+  }
+  assertFixtureServiceDependencies(
+    row.fixture_capability,
+    row.service_dependencies,
+    `${label}.fixture_capability`,
   );
   if (
     row.fixture_capability.startsWith("postgres_") &&

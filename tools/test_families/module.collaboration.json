@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.collaboration",
   "rows": [
     {
@@ -32,7 +32,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
@@ -63,7 +67,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
@@ -94,7 +102,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
@@ -125,7 +137,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
@@ -156,7 +172,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
@@ -187,7 +207,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b",
@@ -218,7 +242,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
@@ -250,7 +278,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
@@ -275,11 +307,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend.the_resolver_keeps_the_grid_visible_leaves_confl_41a75525b7",
@@ -300,11 +333,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_2fb0a37e0b",
@@ -326,11 +360,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_8bcc6e7d75",
@@ -353,11 +388,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_e44b13cfa1",
@@ -378,11 +414,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85",
@@ -406,11 +443,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_41074df88b",
@@ -434,11 +472,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
@@ -461,7 +500,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.integration.durable_incident_stream_commits_intents_atomically_s_80128fe153",
@@ -490,7 +533,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.integration.historical_intent_suppression_transaction_scope_a1b2c3d4e5",
@@ -516,7 +563,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
@@ -539,7 +590,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
@@ -562,7 +617,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2",
@@ -586,7 +645,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.store.strict_frame_and_failure_contract_a3b4c5d6e7",
@@ -611,7 +674,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8",
@@ -634,7 +701,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e",
@@ -657,7 +728,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.support_unit.lifecycle_telemetry_vocabulary_b1c2d3e4f5",
@@ -683,7 +758,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.support_unit.semantic_hub_and_payload_ownership_d1e2f3a4b5",
@@ -716,7 +792,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.support_unit.semantic_telemetry_ownership_e1f2a3b4c5",
@@ -743,7 +820,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e",
@@ -767,7 +845,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
@@ -806,7 +885,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
@@ -839,7 +922,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
@@ -872,7 +959,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
@@ -905,7 +996,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     }
   ]
 }

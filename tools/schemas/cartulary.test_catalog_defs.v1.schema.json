@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_catalog_defs.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_catalog_defs.v1" }
+  },
+  "$defs": {
+    "segment": { "type": "string", "pattern": "^(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
+    "owner_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
+    "family_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
+    "row_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
+    "verification_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.verification\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
+    "repo_path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" },
+    "service_dependency": { "enum": ["object_store", "postgres"] },
+    "service_dependencies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/service_dependency" }
+    }
+  }
+}

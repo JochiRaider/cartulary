@@ -459,6 +459,126 @@ func TestPackageBucketAdmissionProbesWithoutRemovingTheBucket(t *testing.T) {
 	}
 }
 
+func TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure(t *testing.T) {
+	stubPackageBucketAdmission(t)
+	preparePackageWaitReadyFn = func(context.Context, *Harness, string) error {
+		return &objectStoreReadinessError{
+			Stage:           "put",
+			Attempts:        25,
+			CleanupOutcome:  "failed",
+			LastErr:         context.DeadlineExceeded,
+			DeadlineExpired: true,
+		}
+	}
+	harness := &Harness{suiteHash: "suitehash", processHash: "process1"}
+	_, release, err := harness.preparePackageBucket(
+		context.Background(),
+		"package-timeout",
+		fixtureAttribution{CallerPackage: "example/timeout"},
+	)
+	if err == nil || release != nil {
+		t.Fatalf("expected terminal package admission error, got release=%v err=%v", release != nil, err)
+	}
+	envelope := objectStoreSetupEnvelope("create_bucket", err)
+	if envelope.FailureClass != "infra" || envelope.FailureReason != "service_readiness_timeout" ||
+		envelope.ReadinessStage != "put" || envelope.AttemptCount != 25 || envelope.CleanupOutcome != "failed" {
+		t.Fatalf("unexpected timeout envelope: %#v", envelope)
+	}
+}
+
+func TestPreparePackageBucketCoreRejectsCapabilityAndCancellation(t *testing.T) {
+	for name, readinessErr := range map[string]error{
+		"capability": &objectStoreReadinessError{
+			Stage:          "create_namespace",
+			Attempts:       1,
+			CleanupOutcome: "completed",
+			LastErr:        minio.ErrorResponse{Code: "AccessDenied", StatusCode: 403},
+		},
+		"cancelled": context.Canceled,
+	} {
+		t.Run(name, func(t *testing.T) {
+			stubPackageBucketAdmission(t)
+			preparePackageWaitReadyFn = func(context.Context, *Harness, string) error { return readinessErr }
+			harness := &Harness{suiteHash: "suitehash", processHash: "process1"}
+			_, _, err := harness.preparePackageBucket(
+				context.Background(),
+				"package-failure",
+				fixtureAttribution{CallerPackage: "example/" + name},
+			)
+			if err == nil {
+				t.Fatal("expected package admission failure")
+			}
+			envelope := objectStoreSetupEnvelope("create_bucket", err)
+			if name == "capability" && (envelope.FailureClass != "harness" || envelope.ReadinessStage != "create_bucket") {
+				t.Fatalf("unexpected capability envelope: %#v", envelope)
+			}
+			if name == "cancelled" && (envelope.FailureClass != "interrupted" || envelope.FailureReason != "cancelled_or_interrupted") {
+				t.Fatalf("unexpected cancellation envelope: %#v", envelope)
+			}
+		})
+	}
+}
+
+func TestPreparePackageBucketCoreReusesPackageBucket(t *testing.T) {
+	stubPackageBucketAdmission(t)
+	creates := 0
+	resets := 0
+	preparePackageCreateBucketFn = func(context.Context, *Harness, string, fixtureAttribution) error {
+		creates++
+		return nil
+	}
+	preparePackageCleanupFn = func(context.Context, *Harness, string, fixtureAttribution) error {
+		resets++
+		return nil
+	}
+	harness := &Harness{suiteHash: "suitehash", processHash: "process1"}
+	attribution := fixtureAttribution{CallerPackage: "example/reuse"}
+	first, releaseFirst, err := harness.preparePackageBucket(context.Background(), "reuse", attribution)
+	if err != nil {
+		t.Fatalf("first package admission: %v", err)
+	}
+	releaseFirst()
+	second, releaseSecond, err := harness.preparePackageBucket(context.Background(), "reuse", attribution)
+	if err != nil {
+		t.Fatalf("second package admission: %v", err)
+	}
+	releaseSecond()
+	if first != second || creates != 1 || resets != 1 {
+		t.Fatalf("package bucket was not reused: first=%q second=%q creates=%d resets=%d", first, second, creates, resets)
+	}
+}
+
+func TestPreparePackageBucketCoreAdmitsDistinctPackagesConcurrently(t *testing.T) {
+	stubPackageBucketAdmission(t)
+	harness := &Harness{suiteHash: "suitehash", processHash: "process1"}
+	type result struct {
+		bucket  string
+		release func()
+		err     error
+	}
+	results := make(chan result, 2)
+	for _, callerPackage := range []string{"example/first", "example/second"} {
+		go func(packageName string) {
+			bucket, release, err := harness.preparePackageBucket(
+				context.Background(),
+				"concurrent",
+				fixtureAttribution{CallerPackage: packageName},
+			)
+			results <- result{bucket: bucket, release: release, err: err}
+		}(callerPackage)
+	}
+	first := <-results
+	second := <-results
+	if first.err != nil || second.err != nil {
+		t.Fatalf("concurrent admission failed: first=%v second=%v", first.err, second.err)
+	}
+	first.release()
+	second.release()
+	if first.bucket == second.bucket {
+		t.Fatalf("distinct packages shared bucket %q", first.bucket)
+	}
+}
+
 func TestHarnessStartsSeaweedFSS3AndRoundTripsObjects(t *testing.T) {
 	harness := Start(t)
 
@@ -588,6 +708,21 @@ func configureReadinessClient(t testing.TB, client objectStoreReadinessClient) {
 	}
 	t.Cleanup(func() {
 		newReadinessClientFn = old
+	})
+}
+
+func stubPackageBucketAdmission(t testing.TB) {
+	t.Helper()
+	oldCreate := preparePackageCreateBucketFn
+	oldCleanup := preparePackageCleanupFn
+	oldWait := preparePackageWaitReadyFn
+	preparePackageCreateBucketFn = func(context.Context, *Harness, string, fixtureAttribution) error { return nil }
+	preparePackageCleanupFn = func(context.Context, *Harness, string, fixtureAttribution) error { return nil }
+	preparePackageWaitReadyFn = func(context.Context, *Harness, string) error { return nil }
+	t.Cleanup(func() {
+		preparePackageCreateBucketFn = oldCreate
+		preparePackageCleanupFn = oldCleanup
+		preparePackageWaitReadyFn = oldWait
 	})
 }
 

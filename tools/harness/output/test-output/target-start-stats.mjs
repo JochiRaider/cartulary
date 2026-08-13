@@ -17,7 +17,7 @@ export function targetStartStats(root, target, children = []) {
     selectedTargets.has(targetForCatalogRow(row, { commandTargetByID })),
   );
   return {
-    serviceBacked: rows.some((row) => row.fixture_capability !== "none"),
+    serviceBacked: rows.some((row) => row.service_dependencies.length > 0),
     expectedSteps: new Set(rows.map((row) => row.owner_id)).size,
     expectedTests: rows.length,
   };

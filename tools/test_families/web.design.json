@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "web.design",
   "rows": [
     {
@@ -31,7 +31,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
@@ -62,7 +66,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
@@ -94,7 +102,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
@@ -126,7 +138,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
@@ -158,7 +174,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     }
   ]
 }

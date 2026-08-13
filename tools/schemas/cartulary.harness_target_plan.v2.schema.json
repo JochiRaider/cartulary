@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_target_plan.v1",
+  "$id": "cartulary.harness_target_plan.v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "target", "graph_digest", "projections", "units"],
   "properties": {
-    "schema_id": { "const": "cartulary.harness_target_plan.v1" },
+    "schema_id": { "const": "cartulary.harness_target_plan.v2" },
     "target": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
-    "graph_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "graph_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" },
     "projections": {
       "type": "object",
       "minProperties": 1,
@@ -23,17 +23,18 @@
       "type": "array", "minItems": 1,
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["unit_id", "owner_id", "kind", "needs", "resource_claims", "fixture_capability", "cache_policy", "estimated_work_ms", "semantic_digest", "evidence_outputs"],
+        "required": ["unit_id", "owner_id", "kind", "needs", "resource_claims", "fixture_capability", "service_dependencies", "cache_policy", "estimated_work_ms", "semantic_digest", "evidence_outputs"],
         "properties": {
           "unit_id": { "type": "string", "minLength": 1 },
           "owner_id": { "type": "string", "minLength": 1 },
           "kind": { "type": "string", "minLength": 1 },
           "needs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-          "resource_claims": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
+          "resource_claims": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims" },
           "fixture_capability": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+          "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
           "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
           "estimated_work_ms": { "type": "integer", "minimum": 1 },
-          "semantic_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "semantic_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" },
           "evidence_outputs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
         }
       }

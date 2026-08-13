@@ -113,6 +113,21 @@ function invocationsForRows(rows) {
 }
 
 function canonicalFailure(result) {
+  if (result.failure_class && result.failure_reason) {
+    return {
+      failure_class: result.failure_class,
+      failure_reason: result.failure_reason,
+      exit_code: result.failure_class === "product"
+        ? 10
+        : result.failure_class === "infra"
+          ? 3
+          : result.failure_class === "interrupted"
+            ? 130
+            : result.failure_reason === "fixture_error"
+              ? 3
+              : 11,
+    };
+  }
   switch (result.terminal_state) {
     case "failed":
       return {
@@ -166,7 +181,7 @@ function main() {
   }
   for (const result of results) {
     writeResult({
-      schema_id: "cartulary.harness_row_result.v1",
+      schema_id: "cartulary.harness_row_result.v2",
       ...result,
       runner: rows[0].runner,
       started_at: startedAt,
@@ -187,6 +202,7 @@ function main() {
   if (failures.some((failure) => failure.failure_class === "product")) return 10;
   if (failures.some((failure) => failure.failure_class === "infra")) return 3;
   if (failures.some((failure) => failure.failure_class === "interrupted")) return 130;
+  if (failures.some((failure) => failure.failure_reason === "fixture_error")) return 3;
   return 11;
 }
 

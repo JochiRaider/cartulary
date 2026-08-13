@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "platform.audit",
   "rows": [
     {
@@ -28,7 +28,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "platform.audit.unit.contract_and_safe_projection",
@@ -57,7 +60,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.graphprojection",
   "rows": [
     {
@@ -44,7 +44,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.graphprojection.fixtures.fixture_verifier",
@@ -69,7 +70,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.graphprojection.storage.lifecycle",
@@ -99,7 +101,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.graphprojection.storage.migration_reset",
@@ -124,7 +129,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.graphprojection.storage.transaction_binding",
@@ -147,7 +155,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     }
   ]
 }

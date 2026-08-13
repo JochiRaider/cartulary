@@ -6,8 +6,8 @@
   "required": ["schema_id", "unit_id", "semantic_digest", "status", "exit_code", "signal", "failure_class", "failure_reason", "evidence_outputs", "missing_outputs"],
   "properties": {
     "schema_id": { "const": "cartulary.harness_unit_result.v1" },
-    "unit_id": { "$ref": "cartulary.harness_work_graph.v1#/$defs/id" },
-    "semantic_digest": { "$ref": "cartulary.harness_work_graph.v1#/$defs/digest" },
+    "unit_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
+    "semantic_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" },
     "status": { "enum": ["passed", "failed", "skipped", "cancelled"] },
     "exit_code": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
     "signal": { "type": ["string", "null"], "minLength": 1, "maxLength": 32 },

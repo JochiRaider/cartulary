@@ -126,6 +126,7 @@ function schedulerEvent(seq, monotonicMs, event, unit, status, extra = {}) {
     unit_id: unit.unit_id,
     status,
     resource_claims: unit.resource_claims,
+    service_dependencies: unit.service_dependencies ?? [],
     ...extra,
   };
   validateSchemaSync(record.schema_id, record);

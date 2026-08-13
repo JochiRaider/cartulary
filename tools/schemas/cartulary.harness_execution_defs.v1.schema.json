@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_defs.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_execution_defs.v1" }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[A-Za-z0-9_.:@+-]+$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "resource_claims": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    }
+  }
+}

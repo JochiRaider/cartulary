@@ -11,7 +11,7 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v8";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v9";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages"]);
@@ -40,6 +40,7 @@ const browserGroupKeys = new Set([
   "browser_session_isolation_reason",
   "runtime_profile_id",
   "resource_profile_id",
+  "service_dependencies",
   "service_requirement",
   "specs",
 ]);
@@ -316,6 +317,17 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       `browser E2E batch group ${group.name} service requirement ${serviceRequirement} does not match runtime profile ${runtimeProfileID}`,
     );
   }
+  if (!Array.isArray(group.service_dependencies)) {
+    throw new Error(`browser E2E batch group ${group.name} must declare service_dependencies`);
+  }
+  const serviceDependencies = group.service_dependencies.map((entry) => String(entry));
+  if (
+    JSON.stringify(serviceDependencies) !== JSON.stringify([...serviceDependencies].sort()) ||
+    new Set(serviceDependencies).size !== serviceDependencies.length ||
+    serviceDependencies.some((entry) => !new Set(["object_store", "postgres"]).has(entry))
+  ) {
+    throw new Error(`browser E2E batch group ${group.name} has invalid service_dependencies`);
+  }
   const browserSessionGroup = normalizeOptionalString(group.browser_session_group);
   if (!browserSessionGroup) {
     throw new Error(`browser E2E batch group ${group.name} must declare browser_session_group`);
@@ -341,6 +353,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     browserSessionIsolationReason,
     runtimeProfileID,
     resourceProfileID,
+    serviceDependencies,
     serviceRequirement,
   };
 }

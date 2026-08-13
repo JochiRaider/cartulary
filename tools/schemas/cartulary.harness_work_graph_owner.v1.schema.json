@@ -12,7 +12,6 @@
     "aggregate_policy_roots",
     "target_members",
     "policy_units",
-    "runner_resource_claims",
     "evidence_estimates_ms",
     "default_timeout_ms",
     "aging_quantum_ms"
@@ -53,7 +52,7 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["needs", "cache_policy", "estimated_work_ms"],
+        "required": ["needs", "resource_profile_id", "service_dependencies", "cache_policy", "estimated_work_ms"],
         "properties": {
           "needs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/target" } },
           "owner_slices": {
@@ -64,20 +63,11 @@
           "fixture_lease": {
             "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]
           },
+          "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
+          "resource_profile_id": { "enum": ["browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "standard"] },
           "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
           "estimated_work_ms": { "type": "integer", "minimum": 1 }
         }
-      }
-    },
-    "runner_resource_claims": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["go", "playwright", "shell", "vitest"],
-      "properties": {
-        "go": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
-        "playwright": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
-        "shell": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" },
-        "vitest": { "$ref": "cartulary.harness_work_graph.v1#/$defs/resource_claims" }
       }
     },
     "evidence_estimates_ms": {

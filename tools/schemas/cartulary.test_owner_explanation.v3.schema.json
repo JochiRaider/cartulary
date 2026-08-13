@@ -13,8 +13,8 @@
   "properties": {
     "schema_id": { "const": "cartulary.test_owner_explanation.v3" },
     "evidence_epoch": { "type": "string", "minLength": 1 },
-    "owner_id": { "$ref": "cartulary.test_family_manifest.v3#/$defs/owner_id" },
-    "manifest_path": { "$ref": "cartulary.test_family_manifest.v3#/$defs/repo_path" },
+    "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
+    "manifest_path": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/repo_path" },
     "test_catalog_digest": { "$ref": "#/$defs/digest" },
     "verification_routing_digest": { "$ref": "#/$defs/digest" },
     "row_count": { "type": "integer", "minimum": 1 },
@@ -25,7 +25,7 @@
         "type": "object", "additionalProperties": false,
         "required": ["family_id", "row_count"],
         "properties": {
-          "family_id": { "$ref": "cartulary.test_family_manifest.v3#/$defs/family_id" },
+          "family_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/family_id" },
           "row_count": { "type": "integer", "minimum": 1 }
         }
       }

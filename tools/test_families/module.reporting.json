@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.reporting",
   "rows": [
     {
@@ -28,7 +28,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
@@ -51,7 +55,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
@@ -74,7 +82,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f",
@@ -97,7 +109,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_singleton_reads_and_release_a_943c339eea",
@@ -120,7 +136,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.reporting.unit.admitted_render_export_participant_c0da40986c",
@@ -147,7 +167,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_open_api_uses_reusable_closed_0d1a4531ba",
@@ -171,7 +192,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_post_redaction_validation_fai_9df5c768cd",
@@ -194,7 +216,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_recipient_redaction_profiles_75c820718c",
@@ -217,7 +240,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_redaction_applies_determinist_7f142ce89d",
@@ -240,7 +264,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_rejects_duplicate_same_preced_7daa9a6a07",
@@ -263,7 +288,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_route_decoders_reject_legacy_9d9f64130f",
@@ -286,7 +312,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

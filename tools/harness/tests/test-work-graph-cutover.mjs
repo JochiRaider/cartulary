@@ -8,6 +8,8 @@ import path from "node:path";
 import { FixtureBroker } from "../scheduler/fixture-broker/index.mjs";
 import {
   WorkGraphCompiler,
+  assertFixtureServiceDependencies,
+  assertServiceDependencies,
   buildWorkGraph,
   simulateWorkGraph,
   writeAtomicNDJSON,
@@ -35,6 +37,7 @@ function unit(unitID, claims, work, needs = []) {
     needs,
     resource_claims: claims,
     fixture_lease: "none",
+    service_dependencies: [],
     cache_policy: "none",
     timeout_ms: 1000,
     evidence_outputs: [`rows/${unitID}.json`],
@@ -49,6 +52,61 @@ function unit(unitID, claims, work, needs = []) {
 
 function assertGraphCutover() {
   const compiler = new WorkGraphCompiler(root);
+  const topology = JSON.parse(
+    readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
+  );
+  assert.throws(
+    () => assertServiceDependencies(topology, "default", ["postgres", "postgres"], "duplicate"),
+    /duplicate/u,
+  );
+  assert.throws(
+    () => assertServiceDependencies(topology, "default", ["postgres", "object_store"], "unsorted"),
+    /sorted/u,
+  );
+  assert.throws(
+    () => assertServiceDependencies(topology, "default", ["message_bus"], "unknown"),
+    /unknown/u,
+  );
+  assert.throws(
+    () => assertServiceDependencies(topology, "none", ["postgres"], "runtime-incompatible"),
+    /unavailable/u,
+  );
+  assert.throws(
+    () => assertFixtureServiceDependencies("postgres_dedicated", [], "omitted"),
+    /requires service dependency postgres/u,
+  );
+  assert.throws(
+    () => buildWorkGraph([{ ...unit("omitted", { cpu: 1 }, 1), service_dependencies: undefined }]),
+    /service_dependencies is required/u,
+  );
+  assert.throws(
+    () => buildWorkGraph([unit("unbounded", {}, 1)]),
+    /resource_claims must bound executable work/u,
+  );
+  const affectedRowID = "module.entities.integration.the_mention_resolve_route_persists_durable_resol_d68c1befd6";
+  const affectedDirect = compiler.compile({ kind: "rows", row_ids: [affectedRowID] });
+  const affectedOwner = compiler.compile({
+    kind: "owner",
+    owner_id: "module.entities",
+    row_ids: [affectedRowID],
+  });
+  assert.deepEqual(affectedDirect, affectedOwner, "equivalent row selectors must compile identically");
+  const affectedUnit = affectedDirect.units.find((entry) =>
+    entry.evidence_outputs.includes(`rows/${affectedRowID}.json`),
+  );
+  assert.equal(affectedUnit.fixture_lease, "postgres_dedicated");
+  assert.deepEqual(affectedUnit.service_dependencies, ["object_store", "postgres"]);
+  assert.equal(affectedUnit.resource_claims.object_store, 1);
+  assert.equal(affectedUnit.resource_claims.postgres, 1);
+
+  const ioHeavy = compiler.compile({
+    kind: "rows",
+    row_ids: ["platform.audit.integration.transactional_immutable_persistence"],
+  }).units.find((entry) =>
+    entry.evidence_outputs.includes("rows/platform.audit.integration.transactional_immutable_persistence.json"),
+  );
+  assert.equal(ioHeavy.resource_claims.io, 2, "io_heavy must be topology-authoritative");
+
   const first = compiler.compileAggregatePlan("test-fast");
   const second = compiler.compileAggregatePlan("test-fast");
   assert.deepEqual(first, second, "same-source graph compilation must be byte-stable");
@@ -107,7 +165,7 @@ function assertScheduler() {
 
   const blocker = unit("shared-blocker", { cpu: 1 }, 10);
   blocker.shared_locks = ["host_activity"];
-  const gate = unit("exclusive-gate", {}, 1);
+  const gate = unit("exclusive-gate", { cpu: 1 }, 1);
   const exclusive = unit("quiet-measurement", { cpu: 1 }, 1, ["exclusive-gate"]);
   exclusive.exclusive_locks = ["host_activity"];
   const laterShared = unit("later-shared", { cpu: 1 }, 1, ["exclusive-gate"]);

@@ -3,12 +3,18 @@ import path from "node:path";
 
 import { loadBrowserBatchStages } from "../adapters/browser.mjs";
 import { buildWorkGraph } from "./model.mjs";
+import {
+  assertFixtureServiceDependencies,
+  topologyResourceClaims,
+} from "./resource-claims.mjs";
 
 const manifestRelativePath = "tools/browser_e2e_batch_manifest.json";
-// One browser stack owns a server pool plus setup/reset clients. Four logical
-// Postgres lanes prevent the scheduler from admitting enough simultaneous
-// stacks to exhaust the shared service's connection limit.
-const browserPostgresLanes = 4;
+
+function topology(root) {
+  return JSON.parse(
+    readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
+  );
+}
 
 function resourceProfile(root, group) {
   const topology = JSON.parse(
@@ -30,8 +36,13 @@ function resourceProfile(root, group) {
 }
 
 function resourceClaims(root, group) {
-  const profile = resourceProfile(root, group);
-  return { ...profile.resource_claims, postgres: browserPostgresLanes };
+  assertFixtureServiceDependencies("browser_stack", group.serviceDependencies, `browser group ${group.name}`);
+  return topologyResourceClaims(
+    topology(root),
+    group.resourceProfileID,
+    group.serviceDependencies,
+    `browser group ${group.name}`,
+  );
 }
 
 function hostLocks(group) {
@@ -86,6 +97,7 @@ function lifecycleUnit(root, stage, group, owner) {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
       CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
+      CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
@@ -95,6 +107,7 @@ function lifecycleUnit(root, stage, group, owner) {
     exclusive_locks: locks.exclusive,
     affinity_key: key,
     fixture_lease: "browser_stack",
+    service_dependencies: group.serviceDependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [],
@@ -114,6 +127,7 @@ function resetUnit(root, stage, group, previousID, owner) {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
       CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
+      CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
@@ -123,6 +137,7 @@ function resetUnit(root, stage, group, previousID, owner) {
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
     fixture_lease: "browser_stack",
+    service_dependencies: group.serviceDependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [],
@@ -173,6 +188,7 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
         CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
         CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
         CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
+        CARTULARY_HARNESS_SERVICE_DEPENDENCIES: group.serviceDependencies.join(","),
         CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
         CARTULARY_BROWSER_SESSION_GROUP: key,
         CARTULARY_TEST_TARGET: target,
@@ -190,6 +206,7 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
     fixture_lease: "browser_stack",
+    service_dependencies: group.serviceDependencies,
     cache_policy: "none",
     timeout_ms:
       resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms,
@@ -204,7 +221,7 @@ function groupUnit(root, stage, group, dependencyID, owner, mode) {
   };
 }
 
-function targetFinalizer(stage, target, groupUnits, needs, owner) {
+function targetFinalizer(root, stage, target, groupUnits, needs, owner) {
   const groupTargets = stage.groups
     .map((group) => `${group.name}=${target === "browser-e2e-visual-update" ? target : group.target}`)
     .sort(compareASCII);
@@ -234,10 +251,16 @@ function targetFinalizer(stage, target, groupUnits, needs, owner) {
       { CARTULARY_DEFER_OBSERVABILITY_FINALIZE: "1" },
     ),
     needs: needs.sort(compareASCII),
-    resource_claims: { cpu: 1, io: 1, memory_mb: 128, process: 1 },
+    resource_claims: topologyResourceClaims(
+      topology(root),
+      "standard",
+      [],
+      `browser target finalizer ${target}`,
+    ),
     shared_locks: quiet ? [] : ["host_activity"],
     exclusive_locks: quiet ? ["host_activity"] : [],
     fixture_lease: "none",
+    service_dependencies: [],
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [
@@ -301,6 +324,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : stage.target;
   units.push(
     targetFinalizer(
+      root,
       stage,
       target,
       groupUnits,

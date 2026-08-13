@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.indicators",
   "rows": [
     {
@@ -23,11 +23,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.frontend.source_span_and_transition_requests",
@@ -53,11 +54,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.identity.active_identity_claims_follow_records_and_rebuild",
@@ -83,7 +85,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.identity.create_command_projects_identity_validation",
@@ -108,7 +113,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.identity.indicator_identity_normalization_and_dedupe_are_50da60e4b0",
@@ -134,7 +140,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.identity.z_concurrent_find_or_create_convergence",
@@ -159,7 +166,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.integration.indicator_create_and_query_routes_persist_canoni_e3a29b7aaf",
@@ -183,7 +193,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.integration.production_observation_and_lifecycle_routes",
@@ -213,7 +227,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.lifecycle.exact_production_vocabulary",
@@ -236,7 +254,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.observation.closed_transition_state_machine",
@@ -259,7 +278,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.observation.source_span_utf8_admission",
@@ -282,7 +302,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.origin.observation_origin_registry_and_producer_context_40d43e15e1",
@@ -307,7 +328,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.origin.observation_origin_storage_constraint_and_system_93f5dcc952",
@@ -330,7 +352,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.origin.rollback_rejects_nonregistry_observation_origin_41b5cf9c90",
@@ -355,7 +380,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.portability.indicator_source_rows_are_deterministic_complete_68b42b02f6",
@@ -382,7 +408,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.portability.partition_deterministic",
@@ -410,7 +439,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.portability.state_invariants",
@@ -435,7 +465,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.projection.indicator_mutations_delegate_row_refresh_and_loa_026301a7c8",
@@ -460,7 +493,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.storage.envelope_contract_migration_down_up",
@@ -486,7 +520,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.store.indicator_storage_keeps_source_bound_observation_07c064324e",
@@ -509,7 +546,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.store.indicators_persist_as_canonical_indicator_record_3998750e91",
@@ -532,7 +572,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.structure.indicator_store_requires_complete_composition_an_6ecc4edf41",
@@ -557,7 +600,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.surface.iteration2_exported_surface_reachability",
@@ -580,7 +624,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d",
@@ -604,7 +649,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.indicators.unit.indicator_revision_contribution_owns_current_sna_b8894bd1ae",
@@ -629,7 +677,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

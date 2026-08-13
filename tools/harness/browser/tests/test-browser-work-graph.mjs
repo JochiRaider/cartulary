@@ -223,6 +223,8 @@ const stateful = compiler.compile({ kind: "target", target: "browser-e2e-statefu
 assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");
 for (const unit of stateful.units.filter((entry) => entry.fixture_lease === "browser_stack")) {
   assert.equal(unit.resource_claims.postgres, 4, `${unit.unit_id} must reserve a safe browser Postgres connection budget`);
+  assert.equal(unit.resource_claims.object_store, 1, `${unit.unit_id} must reserve object-store capacity`);
+  assert.deepEqual(unit.service_dependencies, ["object_store", "postgres"]);
 }
 const byAffinity = Map.groupBy(
   stateful.units.filter((unit) => unit.fixture_lease === "browser_stack"),

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -31,7 +31,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
@@ -62,7 +66,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38",
@@ -93,7 +101,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.clipboard_paste_helper_contract",
@@ -124,7 +136,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.fill_down_helper_contract",
@@ -155,7 +171,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
@@ -186,7 +206,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.one_click_scalar_edit_anchor",
@@ -217,7 +241,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.query_control_helper_contract",
@@ -248,7 +276,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10",
@@ -279,7 +311,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
@@ -310,7 +346,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.frontend.ac043_fixture_supported_envelope_shape_1cc29c4d92",
@@ -332,11 +372,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.ac043_paint_qualification_rejects_invalid_state_0a20837e7b",
@@ -358,11 +399,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
@@ -383,11 +425,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_saved_row_ide_9b0e823cea",
@@ -408,11 +451,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_sorted_and_fi_b16b9731e1",
@@ -433,11 +477,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_blank_row_action_submits_exactly_on_ad8dcf13e4",
@@ -458,11 +503,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_component_proves_autosave_commits_o_8ef38ab5ed",
@@ -487,11 +533,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_create_payload_builder_omits_zero_f_deaef46bf2",
@@ -512,11 +559,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.timeline_action_ports_73c9f1a40e",
@@ -541,11 +589,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.timeline_bulk_tag_controller_8a15df23b4",
@@ -569,11 +618,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1",
@@ -598,11 +648,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.timeline_query_port_validation_6d44f87e20",
@@ -624,11 +675,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.frontend.timeline_row_mutation_coordinator_1a7e2c9b44",
@@ -652,11 +704,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
@@ -679,7 +732,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6",
@@ -703,7 +760,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1",
@@ -726,7 +787,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.rough_and_uncertain_timeline_capture_preserves_n_a868f4aa14",
@@ -749,7 +814,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585",
@@ -772,7 +841,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.the_canonical_incident_web_socket_route_proves_h_aef38ee6e5",
@@ -795,7 +868,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.the_query_route_reads_projection_rows_instead_of_2edde6eb1c",
@@ -818,7 +895,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b",
@@ -841,7 +922,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829",
@@ -864,21 +949,34 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
-      "collaborator_ids": ["harness.browser", "web.application"],
-      "verification_ids": ["module.timeline.verification.ac043_typing_ack"],
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_typing_ack"
+      ],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
-        "scenario_ids": ["scenario_16cecef06dc8"],
-        "titles": ["measures paint-qualified committed Timeline summary typing acknowledgment within AC-043"]
+        "scenario_ids": [
+          "scenario_16cecef06dc8"
+        ],
+        "titles": [
+          "measures paint-qualified committed Timeline summary typing acknowledgment within AC-043"
+        ]
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "default",
@@ -886,21 +984,34 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "release"
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
-      "collaborator_ids": ["harness.browser", "web.application"],
-      "verification_ids": ["module.timeline.verification.ac043_blank_row_create"],
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_blank_row_create"
+      ],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
-        "scenario_ids": ["scenario_f544ec2ea8ff"],
-        "titles": ["measures paint-qualified Timeline blank-row creation within AC-043"]
+        "scenario_ids": [
+          "scenario_f544ec2ea8ff"
+        ],
+        "titles": [
+          "measures paint-qualified Timeline blank-row creation within AC-043"
+        ]
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "default",
@@ -908,21 +1019,34 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "release"
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
-      "collaborator_ids": ["harness.browser", "web.application"],
-      "verification_ids": ["module.timeline.verification.ac043_selection_down"],
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_selection_down"
+      ],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
-        "scenario_ids": ["scenario_f091d7d67ca0"],
-        "titles": ["measures paint-qualified Timeline summary ArrowDown selection within AC-043"]
+        "scenario_ids": [
+          "scenario_f091d7d67ca0"
+        ],
+        "titles": [
+          "measures paint-qualified Timeline summary ArrowDown selection within AC-043"
+        ]
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "default",
@@ -930,21 +1054,34 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "release"
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
-      "collaborator_ids": ["harness.browser", "web.application"],
-      "verification_ids": ["module.timeline.verification.ac043_focus_edit"],
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_focus_edit"
+      ],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
-        "scenario_ids": ["scenario_f778decccc50"],
-        "titles": ["measures paint-qualified Timeline summary Enter focus within AC-043"]
+        "scenario_ids": [
+          "scenario_f778decccc50"
+        ],
+        "titles": [
+          "measures paint-qualified Timeline summary Enter focus within AC-043"
+        ]
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "default",
@@ -952,7 +1089,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "release"
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.a_committed_timeline_create_initializes_capture_e04b19cb10",
@@ -975,7 +1116,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.a_material_edit_demotes_reviewed_enriched_legal_29bb8697de",
@@ -998,7 +1142,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.a_one_value_timeline_create_commits_a_real_row_a_1964bc0936",
@@ -1021,7 +1168,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.closed_incidents_remain_readable_and_permit_exac_1af610054a",
@@ -1044,7 +1194,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.patch_replay_returns_the_original_committed_resu_b93ddcbc77",
@@ -1067,7 +1220,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.repeated_identical_mention_tokens_persist_as_sep_d79faec8e6",
@@ -1090,7 +1246,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.stale_timeline_patches_derive_committed_writable_b89a3c27fa",
@@ -1113,7 +1272,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.successful_timeline_create_and_patch_each_write_686ca358f8",
@@ -1136,7 +1298,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.supersede_with_replacement_rejects_illegal_targe_e4d81b8a06",
@@ -1159,7 +1324,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.the_first_material_patch_transitions_rough_enric_c36dc39675",
@@ -1182,7 +1350,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.timeline_mention_fields_prove_mention_origin_bin_46b2abfeb9",
@@ -1205,7 +1376,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.store.timeline_query_accepts_timeline_evidence_count_a_22cc245694",
@@ -1228,7 +1402,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.support_integration.integration_authorization_matrix_2699762a78",
@@ -1251,7 +1428,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d",
@@ -1275,7 +1456,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.support_unit.clipboard_paste_parsing_mapping_provenance_and_b_43e8f0fd4f",
@@ -1300,7 +1485,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.support_unit.rollback_provider_mapping_dafe7d4b5c",
@@ -1325,7 +1511,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.support_unit.time_contract_parser_98d70c6b65",
@@ -1348,7 +1535,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.support_unit.unit_capture_state_and_payload_helpers_772e7f2e60",
@@ -1374,7 +1562,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.evidence_fact_mapping_is_lossless_and_ordered_6c9e41ad52",
@@ -1399,7 +1588,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.restore_workbook_probe_matches_canonical_fixture_4fbe5d13e2",
@@ -1424,7 +1614,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.timeline_admission_decoding_and_hashing_46ac663c5c",
@@ -1449,7 +1640,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.timeline_admission_maps_public_errors_c11874aa1a",
@@ -1472,7 +1664,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.timeline_create_and_patch_decoding_accepts_manua_d80720f76e",
@@ -1495,7 +1688,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0",
@@ -1521,7 +1715,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.unit.timeline_request_decoding_preserves_authoritativ_aa7608a640",
@@ -1544,7 +1739,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
@@ -1577,7 +1773,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
@@ -1610,7 +1810,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
@@ -1643,7 +1847,11 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     }
   ]
 }

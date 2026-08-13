@@ -94,178 +94,230 @@
         "toolchain-drift"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "browser-e2e-support": {
       "needs": [],
       "cache_policy": "none",
-      "estimated_work_ms": 12000
+      "estimated_work_ms": 12000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "build-migrate": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "build-operator": {
       "needs": [
         "embedded-web-assets"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "build-server": {
       "needs": [
         "embedded-web-assets"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "build-server-harness": {
       "needs": [
         "embedded-web-assets"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "build-web": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "check-harness-smoke": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "codegen-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "deployable-shape": {
       "needs": [
         "build"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "embedded-web-assets": {
       "needs": [
         "build-web"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "frontend-fallow-static": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "frontend-import-boundary-check": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "frontend-install": {
       "needs": [],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "frontend-typecheck": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "generate-drift": {
       "needs": [
         "codegen-toolchain"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "generated-artifact-policy-check": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "go-gosec-audit": {
       "needs": [
         "gosec-toolchain"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 8000
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "go-gosec-targeted": {
       "needs": [
         "gosec-toolchain"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 8000
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "go-lint-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "go-test-duration-baseline-coverage": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "go-vulncheck": {
       "needs": [
         "govulncheck-toolchain"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 8000
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "goose-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "gosec-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "govulncheck-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "harness-contract": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 10000
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "json-shape-check": {
       "needs": [
@@ -273,42 +325,54 @@
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "license-report": {
       "needs": [
         "release-inventory-artifacts"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "lint-biome": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "lint-go": {
       "needs": [
         "go-lint-toolchain"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "lint-scripts": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "lint-shell": {
       "needs": [
         "shell-lint-toolchain"
       ],
       "cache_policy": "content_addressed",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "migration-drift": {
       "needs": [
@@ -316,26 +380,34 @@
         "goose-toolchain"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "migration-input-drift": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "object-store-init": {
       "needs": [],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "openapi-compatibility-check": {
       "needs": [
         "codegen-toolchain"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "otel-conformance": {
       "needs": [
@@ -346,14 +418,18 @@
         "platform.telemetry"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "playwright-install": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "release-inventory-artifacts": {
       "needs": [
@@ -361,7 +437,9 @@
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 10000
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "release-readiness-evidence": {
       "needs": [
@@ -374,14 +452,18 @@
         "seaweedfs-release-gate"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "sbom": {
       "needs": [
         "release-inventory-artifacts"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "seaweedfs-compatibility": {
       "needs": [
@@ -389,7 +471,11 @@
       ],
       "fixture_lease": "object_store_namespace",
       "cache_policy": "none",
-      "estimated_work_ms": 10000
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "standard",
+      "service_dependencies": [
+        "object_store"
+      ]
     },
     "seaweedfs-release-evidence": {
       "needs": [
@@ -398,7 +484,9 @@
         "seaweedfs-compatibility"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "seaweedfs-release-gate": {
       "needs": [
@@ -407,89 +495,79 @@
         "seaweedfs-compatibility"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "semantic-identity-check": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "shell-lint-toolchain": {
       "needs": [
         "toolchain-drift"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1000
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "standup-operational-recovery-smoke": {
       "needs": [
         "deployable-shape"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 15000
+      "estimated_work_ms": 15000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "standup-package-smoke": {
       "needs": [
         "deployable-shape"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 15000
+      "estimated_work_ms": 15000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "test-catalog-check": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 1500
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "test-service-images": {
       "needs": [
         "testservices-build"
       ],
       "cache_policy": "none",
-      "estimated_work_ms": 5000
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "testservices-build": {
       "needs": [],
       "cache_policy": "none",
-      "estimated_work_ms": 3000
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     },
     "toolchain-drift": {
       "needs": [
         "frontend-install"
       ],
       "cache_policy": "same_run",
-      "estimated_work_ms": 1500
-    }
-  },
-  "runner_resource_claims": {
-    "go": {
-      "cpu": 1,
-      "io": 1,
-      "memory_mb": 256,
-      "process": 1
-    },
-    "playwright": {
-      "browser_stack": 1,
-      "cpu": 1,
-      "io": 1,
-      "memory_mb": 512,
-      "port_lane": 1,
-      "process": 1
-    },
-    "shell": {
-      "cpu": 1,
-      "io": 1,
-      "memory_mb": 128,
-      "process": 1
-    },
-    "vitest": {
-      "cpu": 1,
-      "io": 1,
-      "memory_mb": 256,
-      "process": 1
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
     }
   },
   "evidence_estimates_ms": {

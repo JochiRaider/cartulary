@@ -18,6 +18,8 @@ export function adaptShellInvocation(invocation, result) {
     terminal_state: terminalState,
     duration_ms: 0,
     exit_code: result.status,
+    failure_class: terminalState === "passed" ? null : "product",
     failure_reason: terminalState === "passed" ? null : "test_assertion_failure",
+    failure_diagnostic: null,
   }));
 }

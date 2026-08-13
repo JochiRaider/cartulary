@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.artifacts",
   "rows": [
     {
@@ -29,7 +29,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.collection_semantics.artifact_risk_references_use_canonical_parent_sc_b69b618649",
@@ -53,7 +56,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.conflict_revalidation.artifact_conflict_resolution_revalidates_source_07b695d48b",
@@ -81,7 +85,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.import_facade.artifact_import_facade_preserves_registered_targ_a54c97551b",
@@ -110,7 +117,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.linked_notes.artifact_linked_note_creation_is_atomic_across_f_bce1ac123b",
@@ -140,7 +150,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.rollback_provider.artifact_rollback_maps_all_scalar_artifact_varia_4126aafbba",
@@ -166,7 +179,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.rollback_provider.artifact_rollback_service_executes_all_eight_sour_0dcd05ed0a",
@@ -191,7 +205,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.source_mutations.application_idempotency_adapter_preserves_stored_payloads",
@@ -212,11 +229,12 @@
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.source_mutations.artifact_source_create_and_patch_preserve_all_ei_c8d63cf5cd",
@@ -248,7 +266,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.artifacts.surface.iteration2_exported_surface_reachability",
@@ -271,7 +292,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.surface_contracts.artifact_projection_provider_matches_canonical_a_6e485ff11b",
@@ -296,7 +318,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.artifacts.surface_contracts.artifact_surface_registry_recognizes_all_eight_c_778e06f594",
@@ -326,7 +349,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

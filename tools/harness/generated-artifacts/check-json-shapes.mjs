@@ -107,6 +107,7 @@ const topologyTopLevelKeys = new Set([
   "schema_id",
   "runtime_profiles",
   "resource_profiles",
+  "service_resource_minimums",
   "generated_outputs",
   "runtime_binaries",
   "execution_dependencies",

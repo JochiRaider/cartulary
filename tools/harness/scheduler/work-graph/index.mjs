@@ -13,6 +13,12 @@ export {
   validateWorkGraph,
 } from "./model.mjs";
 export {
+  assertFixtureServiceDependencies,
+  assertServiceDependencies,
+  requiredServicesForFixture,
+  topologyResourceClaims,
+} from "./resource-claims.mjs";
+export {
   captureCapabilitySnapshot,
   resourceCapacities,
 } from "./capability.mjs";

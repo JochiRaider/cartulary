@@ -53,7 +53,7 @@ function assertGeneralContract(index) {
   switch (index % 8) {
     case 0:
       assert.equal(taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(topology.schema_id, "cartulary.execution_topology.v6");
+      assert.equal(topology.schema_id, "cartulary.execution_topology.v7");
       break;
     case 1:
       assert.equal(taskSurface.targets.length, 147);
@@ -93,7 +93,7 @@ function assertBoundaryContract(index) {
     assert.equal(new Set(ids).size, ids.length);
   } else if (index % 5 === 1) {
     for (const schema of [
-      "cartulary.harness_work_graph.v1.schema.json",
+      "cartulary.harness_work_graph.v2.schema.json",
       "cartulary.harness_run_manifest.v1.schema.json",
       "cartulary.harness_unit_event.v1.schema.json",
       "cartulary.harness_run_summary.v1.schema.json",
@@ -248,6 +248,7 @@ function schedulerFixture() {
     needs,
     resource_claims: claims,
     fixture_lease: "none",
+    service_dependencies: [],
     cache_policy: "none",
     timeout_ms: 1000,
     evidence_outputs: [`rows/${unitID}.json`],

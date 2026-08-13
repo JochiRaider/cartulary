@@ -18,6 +18,7 @@ function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
     unit_id: unitID,
     status,
     resource_claims: { cpu: 1, memory_bytes: 1024, process: 1 },
+    service_dependencies: [],
     ...extra,
   };
 }

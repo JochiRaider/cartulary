@@ -12,6 +12,11 @@ import {
   compileBrowserRowSelectionGraph,
   compileBrowserStageGraph,
 } from "./browser.mjs";
+import {
+  assertFixtureServiceDependencies,
+  assertServiceDependencies,
+  topologyResourceClaims,
+} from "./resource-claims.mjs";
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
@@ -42,16 +47,27 @@ function fixtureCapability(row) {
   return capability;
 }
 
-function resourceClaims(row, owner) {
-  const claims = { ...owner.runner_resource_claims[row.runner] };
-  const capability = fixtureCapability(row);
-  if (capability.startsWith("postgres_")) claims.postgres = 1;
-  if (capability === "object_store_namespace") claims.object_store = 1;
-  if (capability === "managed_process") claims.service_stack = 1;
-  return Object.fromEntries(Object.entries(claims).sort(([left], [right]) => compareASCII(left, right)));
+function resourceClaims(row, topology) {
+  assertFixtureServiceDependencies(
+    row.fixture_capability,
+    row.service_dependencies,
+    row.row_id,
+  );
+  assertServiceDependencies(
+    topology,
+    row.runtime_profile_id,
+    row.service_dependencies,
+    row.row_id,
+  );
+  return topologyResourceClaims(
+    topology,
+    row.resource_profile_id,
+    row.service_dependencies,
+    row.row_id,
+  );
 }
 
-function fixtureEnvironment(capability) {
+function fixtureEnvironment(capability, serviceDependencies) {
   const postgresPolicies = {
     postgres_transaction: "transaction",
     postgres_group: "group_clone",
@@ -63,6 +79,7 @@ function fixtureEnvironment(capability) {
   };
   return {
     CARTULARY_FIXTURE_CAPABILITY: capability,
+    CARTULARY_HARNESS_SERVICE_DEPENDENCIES: serviceDependencies.join(","),
     ...(postgresPolicies[capability]
       ? { CARTULARY_POSTGRES_FIXTURE_POLICY_DEFAULT: postgresPolicies[capability] }
       : {}),
@@ -76,7 +93,7 @@ function rowCommand(row, target, runtimeEnvironment = {}) {
     environment: {
       CARTULARY_TEST_ROWS: row.row_id,
       ...(target ? { CARTULARY_TEST_TARGET: target } : {}),
-      ...fixtureEnvironment(row.fixture_capability),
+      ...fixtureEnvironment(row.fixture_capability, row.service_dependencies),
       ...runtimeEnvironment,
     },
   };
@@ -102,15 +119,16 @@ function policyEvidenceOutputs(target) {
   return [];
 }
 
-function rowUnit(row, target, owner, needs, runtimeEnvironment) {
+function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
   return {
     unit_id: `row:${row.row_id}`,
     owner_id: row.owner_id,
     kind: "runner",
     command: rowCommand(row, target, runtimeEnvironment),
     needs,
-    resource_claims: resourceClaims(row, owner),
+    resource_claims: resourceClaims(row, topology),
     fixture_lease: fixtureCapability(row),
+    service_dependencies: row.service_dependencies,
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [`rows/${row.row_id}.json`],
@@ -123,7 +141,7 @@ function rowUnit(row, target, owner, needs, runtimeEnvironment) {
   };
 }
 
-function goShardUnit(shard, rows, target, owner, needs, runtimeEnvironment) {
+function goShardUnit(shard, rows, target, owner, topology, needs, runtimeEnvironment) {
   const rowIDs = shard.item_ids;
   const first = rows[0];
   return {
@@ -136,13 +154,14 @@ function goShardUnit(shard, rows, target, owner, needs, runtimeEnvironment) {
       environment: {
         CARTULARY_TEST_ROWS: rowIDs.join(","),
         CARTULARY_TEST_TARGET: target,
-        ...fixtureEnvironment(first.fixture_capability),
+        ...fixtureEnvironment(first.fixture_capability, first.service_dependencies),
         ...runtimeEnvironment,
       },
     },
     needs,
-    resource_claims: resourceClaims(first, owner),
+    resource_claims: resourceClaims(first, topology),
     fixture_lease: fixtureCapability(first),
+    service_dependencies: first.service_dependencies,
     cache_policy: rows.every((row) => rowCachePolicy(row) === "content_addressed")
       ? "content_addressed"
       : "none",
@@ -157,9 +176,9 @@ function goShardUnit(shard, rows, target, owner, needs, runtimeEnvironment) {
   };
 }
 
-function rawGoUnit(entry, owner, needs) {
-  const claims = { ...owner.runner_resource_claims.go };
-  if (entry.fixture_capability.startsWith("postgres_")) claims.postgres = 1;
+function rawGoUnit(entry, owner, topology, needs) {
+  assertFixtureServiceDependencies(entry.fixture_capability, entry.service_dependencies, entry.id);
+  assertServiceDependencies(topology, entry.runtime_profile_id, entry.service_dependencies, entry.id);
   return {
     unit_id: `raw_go:${entry.id}`,
     owner_id: "harness.backend",
@@ -177,12 +196,18 @@ function rawGoUnit(entry, owner, needs) {
       ],
       environment: {
         CARTULARY_TEST_TARGET: entry.target,
-        ...fixtureEnvironment(entry.fixture_capability),
+        ...fixtureEnvironment(entry.fixture_capability, entry.service_dependencies),
       },
     },
     needs,
-    resource_claims: Object.fromEntries(Object.entries(claims).sort(([left], [right]) => compareASCII(left, right))),
+    resource_claims: topologyResourceClaims(
+      topology,
+      entry.resource_profile_id,
+      entry.service_dependencies,
+      entry.id,
+    ),
     fixture_lease: entry.fixture_capability,
+    service_dependencies: entry.service_dependencies,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [],
@@ -267,7 +292,7 @@ export class WorkGraphCompiler {
           targets.add(target);
         }
       }
-      if (row.fixture_capability !== "none") targets.add("test-service-images");
+      if (row.service_dependencies.length > 0) targets.add("test-service-images");
       for (const binaryID of this.familyRuntimeBinaries.get(row.family_id) ?? []) {
         const producer = this.runtimeBinaryProducer.get(binaryID);
         if (!producer) throw new Error(`${row.family_id} references unknown runtime binary ${binaryID}`);
@@ -319,6 +344,7 @@ export class WorkGraphCompiler {
             runtime_profile_id: row.runtime_profile_id,
             resource_profile_id: row.resource_profile_id,
             fixture_capability: row.fixture_capability,
+            service_dependencies: row.service_dependencies,
             runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
           },
           isolated: new Set(["managed_process", "postgres_dedicated", "postgres_migration"]).has(row.fixture_capability),
@@ -332,6 +358,7 @@ export class WorkGraphCompiler {
           shardRows,
           this.rowTargets.get(shard.item_ids[0]),
           this.owner,
+          this.topology,
           needsForRow(shardRows[0]),
           runtimeEnvironmentForRow(shardRows[0]),
         ));
@@ -367,6 +394,7 @@ export class WorkGraphCompiler {
           row,
           this.rowTargets.get(row.row_id),
           this.owner,
+          this.topology,
           needsForRow(row),
           runtimeEnvironmentForRow(row),
         ),
@@ -441,10 +469,14 @@ export class WorkGraphCompiler {
       : "policy";
     const policy = this.owner.policy_units[target];
     const fixtureLease = policy?.fixture_lease ?? "none";
-    const resourceClaims = { cpu: 1, io: 1, memory_mb: 128, process: 1 };
-    if (fixtureLease.startsWith("postgres_")) resourceClaims.postgres = 1;
-    if (fixtureLease === "object_store_namespace") resourceClaims.object_store = 1;
-    if (fixtureLease === "managed_process") resourceClaims.service_stack = 1;
+    const serviceDependencies = policy?.service_dependencies ?? [];
+    assertFixtureServiceDependencies(fixtureLease, serviceDependencies, `policy ${target}`);
+    const resourceClaims = topologyResourceClaims(
+      this.topology,
+      policy?.resource_profile_id ?? "standard",
+      serviceDependencies,
+      `policy ${target}`,
+    );
     return buildWorkGraph([
       {
         unit_id: `target:${target}`,
@@ -455,6 +487,7 @@ export class WorkGraphCompiler {
           args: ["--silent", "--no-print-directory", target],
           environment: {
             CARTULARY_TEST_TARGET: target,
+            CARTULARY_HARNESS_SERVICE_DEPENDENCIES: serviceDependencies.join(","),
             ...(recipe?.type === "artifact_binding"
               ? { CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1" }
               : {}),
@@ -463,6 +496,7 @@ export class WorkGraphCompiler {
         needs: [],
         resource_claims: resourceClaims,
         fixture_lease: fixtureLease,
+        service_dependencies: serviceDependencies,
         cache_policy: policy?.cache_policy ?? "none",
         timeout_ms: this.owner.default_timeout_ms,
         evidence_outputs: policyEvidenceOutputs(target),
@@ -479,7 +513,7 @@ export class WorkGraphCompiler {
   compileRawGoTarget(target) {
     const entries = this.rawGoAggregates.filter((entry) => entry.target === target);
     if (entries.length === 0) return buildWorkGraph([]);
-    const needsServices = entries.some((entry) => entry.fixture_capability !== "none");
+    const needsServices = entries.some((entry) => entry.service_dependencies.length > 0);
     const readiness = needsServices ? this.compilePolicyTarget("test-service-images") : buildWorkGraph([]);
     const dependencies = new Set(readiness.units.flatMap((unit) => unit.needs));
     const terminals = readiness.units
@@ -488,7 +522,7 @@ export class WorkGraphCompiler {
       .sort(compareASCII);
     return buildWorkGraph([
       ...readiness.units,
-      ...entries.map((entry) => rawGoUnit(entry, this.owner, entry.fixture_capability === "none" ? [] : terminals)),
+      ...entries.map((entry) => rawGoUnit(entry, this.owner, this.topology, entry.service_dependencies.length === 0 ? [] : terminals)),
     ]);
   }
 

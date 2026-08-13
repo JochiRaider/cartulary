@@ -26,7 +26,7 @@
       "const": "module-author"
     },
     "owner_id": {
-      "$ref": "cartulary.test_family_manifest.v3#/$defs/owner_id"
+      "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id"
     },
     "test_catalog_digest": {
       "$ref": "#/$defs/digest"

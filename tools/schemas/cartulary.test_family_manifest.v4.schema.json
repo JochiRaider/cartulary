@@ -1,35 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_family_manifest.v3",
+  "$id": "cartulary.test_family_manifest.v4",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "owner_id", "rows"],
   "properties": {
-    "schema_id": { "const": "cartulary.test_family_manifest.v3" },
-    "owner_id": { "$ref": "#/$defs/owner_id" },
+    "schema_id": { "const": "cartulary.test_family_manifest.v4" },
+    "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" },
     "rows": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/row" } }
   },
   "$defs": {
-    "segment": { "type": "string", "pattern": "^(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
-    "owner_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
-    "family_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
-    "row_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
-    "verification_id": { "type": "string", "maxLength": 191, "pattern": "^(?:module|platform|app|web|package|harness)\\.(?!phase[0-9]+\\.|fe_p[0-9]+\\.)[a-z][a-z0-9_]{0,62}\\.verification\\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$" },
-    "repo_path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$" },
     "go_selector": {
       "type": "object", "additionalProperties": false, "required": ["package", "tests"],
       "properties": { "package": { "type": "string", "pattern": "^(?:\\./(?:internal|cmd)/[A-Za-z0-9._@+/-]+|\\./tools/testservices)$" }, "tests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^Test[A-Za-z0-9_]+$" } } }
     },
     "vitest_selector": {
       "type": "object", "additionalProperties": false, "required": ["file", "titles"],
-      "properties": { "file": { "$ref": "#/$defs/repo_path" }, "titles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } } }
+      "properties": { "file": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/repo_path" }, "titles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } } }
     },
     "playwright_selector": {
       "type": "object", "additionalProperties": false, "required": ["file", "project_id", "stage", "scenario_ids", "titles"],
       "properties": {
-        "file": { "$ref": "#/$defs/repo_path" }, "project_id": { "$ref": "#/$defs/segment" },
+        "file": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/repo_path" }, "project_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/segment" },
         "stage": { "enum": ["webserver_backed", "stateful", "support", "visual", "accessibility", "measurement"] },
-        "scenario_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/segment" } },
+        "scenario_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/segment" } },
         "titles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 500 } }
       }
     },
@@ -40,17 +34,18 @@
     "row": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["row_id", "owner_id", "family_id", "collaborator_ids", "verification_ids", "runner", "selector", "evidence_class", "runtime_profile_id", "resource_profile_id", "fixture_capability", "minimum_tier", "claim_posture", "status"],
+      "required": ["row_id", "owner_id", "family_id", "collaborator_ids", "verification_ids", "runner", "selector", "evidence_class", "runtime_profile_id", "resource_profile_id", "fixture_capability", "service_dependencies", "minimum_tier", "claim_posture", "status"],
       "properties": {
-        "row_id": { "$ref": "#/$defs/row_id" }, "owner_id": { "$ref": "#/$defs/owner_id" }, "family_id": { "$ref": "#/$defs/family_id" },
-        "collaborator_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/owner_id" } },
-        "verification_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/verification_id" } },
+        "row_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" }, "owner_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" }, "family_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/family_id" },
+        "collaborator_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id" } },
+        "verification_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/verification_id" } },
         "runner": { "enum": ["go", "vitest", "playwright", "shell"] },
         "selector": { "oneOf": [{ "$ref": "#/$defs/go_selector" }, { "$ref": "#/$defs/vitest_selector" }, { "$ref": "#/$defs/playwright_selector" }, { "$ref": "#/$defs/shell_selector" }] },
         "evidence_class": { "enum": ["unit", "integration", "browser", "accessibility", "visual", "measurement", "static", "security", "release"] },
         "runtime_profile_id": { "enum": ["none", "default", "network_flow_claimed"] },
-        "resource_profile_id": { "enum": ["browser_isolated", "browser_measurement_quiet", "io_heavy", "none", "standard"] },
+        "resource_profile_id": { "enum": ["browser_isolated", "browser_measurement_quiet", "io_heavy", "managed_process", "standard"] },
         "fixture_capability": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+        "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
         "minimum_tier": { "enum": ["fast", "standard", "full", "release"] },
         "claim_posture": { "type": "string", "pattern": "^(?:implementation|informative|claim\\.[a-z][a-z0-9_]{0,62})$" },
         "status": { "const": "active" }

@@ -65,7 +65,7 @@ function writeRowResults(rowResults, runner, startedAt, finishedAt, wallDuration
   secureMkdir(rowsRoot);
   for (const row of rowResults) {
     const payload = {
-      schema_id: "cartulary.harness_row_result.v1",
+      schema_id: "cartulary.harness_row_result.v2",
       ...row,
       runner,
       started_at: startedAt,
@@ -300,7 +300,7 @@ function main() {
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v3",
+    schema_id: "cartulary.browser_group_result.v4",
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,
@@ -312,6 +312,7 @@ function main() {
     runtime_profile_id: group.runtimeProfileID,
     service_requirement: group.serviceRequirement,
     fixture_capabilities: [...new Set(rows.map((row) => row.fixture_capability))].sort(),
+    service_dependencies: [...new Set(rows.flatMap((row) => row.service_dependencies))].sort(),
     resource_profile_ids: [...new Set(rows.map((row) => row.resource_profile_id))].sort(),
     selected_rows: rows.map((row) => row.row_id).sort(),
     started_at: startedAt,

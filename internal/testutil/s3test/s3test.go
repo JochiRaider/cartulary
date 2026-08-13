@@ -23,6 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
 const (
@@ -125,22 +126,43 @@ var (
 		}
 		return minioReadinessClient{client: client}, nil
 	}
-	startPreflightFn func(context.Context) (string, error)
-	startSleepFn     func(context.Context, time.Duration) error
+	startPreflightFn             func(context.Context) (string, error)
+	startSleepFn                 func(context.Context, time.Duration) error
+	preparePackageCreateBucketFn = func(ctx context.Context, h *Harness, name string, attribution fixtureAttribution) error {
+		return h.createBucket(ctx, name, suiteservices.FixtureReusePackage, attribution)
+	}
+	preparePackageCleanupFn = func(ctx context.Context, h *Harness, bucket string, attribution fixtureAttribution) error {
+		return h.cleanupPrefixWithDetails(ctx, bucket, "", suiteservices.FixtureReusePrefix, attribution)
+	}
+	preparePackageWaitReadyFn = func(ctx context.Context, h *Harness, bucket string) error {
+		return h.waitForObjectStoreReadiness(ctx, objectStoreReadinessConfig{
+			ReadyTimeout:    objectStoreClientReadyTimeout,
+			PollInterval:    objectStoreHealthPollInterval,
+			AttemptTimeout:  objectStoreClientAttemptTimeout,
+			CreateNamespace: false,
+			ListFirst:       false,
+			Bucket:          bucket,
+			Key:             h.nextProbeKey(),
+		})
+	}
 )
 
 func Start(t testing.TB) *Harness {
 	t.Helper()
+	suiteservices.RequireServiceDependencies(t, "s3test", "object_store")
 
 	harness, err := StartShared(context.Background())
 	if err != nil {
-		t.Fatalf("%v", err)
+		failObjectStoreSetup(t, "start", err)
 	}
 
 	return harness
 }
 
 func StartShared(ctx context.Context) (*Harness, error) {
+	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+		return nil, err
+	}
 	sharedHarnessMu.Lock()
 	defer sharedHarnessMu.Unlock()
 
@@ -172,6 +194,9 @@ func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harne
 }
 
 func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
+	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+		return nil, err
+	}
 	return startHarnessWithOptions(ctx, options)
 }
 
@@ -373,6 +398,13 @@ func (e *objectStoreReadinessError) Error() string {
 		reason = "capability_rejected"
 	}
 	return fmt.Sprintf("object-store readiness failed: stage=%s attempts=%d cleanup=%s reason=%s", e.Stage, e.Attempts, e.CleanupOutcome, reason)
+}
+
+func (e *objectStoreReadinessError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.LastErr
 }
 
 func isRetryableObjectStoreStartupFailure(_ error) bool {
@@ -636,8 +668,22 @@ func (h *Harness) createBucket(ctx context.Context, name string, reuseScope stri
 
 func (h *Harness) PreparePackageBucketT(t testing.TB, prefix string) string {
 	t.Helper()
+	suiteservices.RequireServiceDependencies(t, "s3test", "object_store")
 
 	attribution := fixtureAttributionFor(t, "s3test")
+	bucket, release, err := h.preparePackageBucket(context.Background(), prefix, attribution)
+	if err != nil {
+		failObjectStoreSetup(t, "create_bucket", err)
+	}
+	t.Cleanup(release)
+	return bucket
+}
+
+func (h *Harness) preparePackageBucket(
+	ctx context.Context,
+	prefix string,
+	attribution fixtureAttribution,
+) (string, func(), error) {
 	key := attribution.CallerPackage
 	if key == "" {
 		key = sanitizeBucket(prefix)
@@ -647,32 +693,86 @@ func (h *Harness) PreparePackageBucketT(t testing.TB, prefix string) string {
 
 	if fixture.bucket == "" {
 		name := h.nextBucketName(prefix)
-		if err := h.createBucket(context.Background(), name, suiteservices.FixtureReusePackage, attribution); err != nil {
+		if err := preparePackageCreateBucketFn(ctx, h, name, attribution); err != nil {
 			fixture.mu.Unlock()
-			t.Fatalf("prepare package s3 bucket: %v", err)
+			return "", nil, fmt.Errorf("prepare package s3 bucket: %w", err)
 		}
 		fixture.bucket = name
-	} else if err := h.cleanupPrefixWithDetails(context.Background(), fixture.bucket, "", suiteservices.FixtureReusePrefix, attribution); err != nil {
+	} else if err := preparePackageCleanupFn(ctx, h, fixture.bucket, attribution); err != nil {
 		fixture.mu.Unlock()
-		t.Fatalf("reset package s3 bucket: %v", err)
+		return "", nil, fmt.Errorf("reset package s3 bucket: %w", err)
 	}
-	if err := h.waitForObjectStoreReadiness(context.Background(), objectStoreReadinessConfig{
-		ReadyTimeout:    objectStoreClientReadyTimeout,
-		PollInterval:    objectStoreHealthPollInterval,
-		AttemptTimeout:  objectStoreClientAttemptTimeout,
-		CreateNamespace: false,
-		ListFirst:       false,
-		Bucket:          fixture.bucket,
-		Key:             h.nextProbeKey(),
-	}); err != nil {
+	if err := preparePackageWaitReadyFn(ctx, h, fixture.bucket); err != nil {
 		fixture.mu.Unlock()
-		t.Fatalf("admit package s3 bucket: %v", err)
+		return "", nil, fmt.Errorf("admit package s3 bucket: %w", err)
 	}
 
-	t.Cleanup(func() {
-		fixture.mu.Unlock()
-	})
-	return fixture.bucket
+	return fixture.bucket, func() { fixture.mu.Unlock() }, nil
+}
+
+func failObjectStoreSetup(t testing.TB, defaultStage string, err error) {
+	t.Helper()
+	testfailure.Fail(t, objectStoreSetupEnvelope(defaultStage, err))
+}
+
+func objectStoreSetupEnvelope(defaultStage string, err error) testfailure.Envelope {
+	failureClass := "harness"
+	failureReason := "fixture_error"
+	stage := defaultStage
+	attempts := 0
+	cleanup := "not_required"
+
+	var readinessErr *objectStoreReadinessError
+	if errors.As(err, &readinessErr) {
+		stage = normalizedReadinessStage(readinessErr.Stage)
+		attempts = readinessErr.Attempts
+		cleanup = normalizedCleanupOutcome(readinessErr.CleanupOutcome)
+		if readinessErr.DeadlineExpired {
+			failureClass = "infra"
+			failureReason = "service_readiness_timeout"
+		}
+	}
+	if errors.Is(err, context.Canceled) {
+		failureClass = "interrupted"
+		failureReason = "cancelled_or_interrupted"
+	}
+	var dependencyErr *suiteservices.ServiceDependencyError
+	if errors.As(err, &dependencyErr) {
+		stage = "dependency_guard"
+	}
+	return testfailure.NewEnvelope(
+		failureClass,
+		failureReason,
+		"s3test",
+		"object_store",
+		stage,
+		attempts,
+		cleanup,
+	)
+}
+
+func normalizedReadinessStage(stage string) string {
+	switch stage {
+	case "create_namespace":
+		return "create_bucket"
+	case "delete_verify":
+		return "not_found"
+	case "list":
+		return "capability"
+	case "put", "head", "delete":
+		return stage
+	default:
+		return "capability"
+	}
+}
+
+func normalizedCleanupOutcome(outcome string) string {
+	switch outcome {
+	case "completed", "failed":
+		return outcome
+	default:
+		return "not_required"
+	}
 }
 
 func (h *Harness) packageBucket(key string) *packageBucket {

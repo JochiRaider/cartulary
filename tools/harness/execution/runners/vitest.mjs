@@ -84,6 +84,7 @@ export function adaptVitestInvocation(invocation, result) {
       terminal_state: terminalState,
       duration_ms: 0,
       exit_code: terminalState === "passed" ? 0 : terminalState === "failed" ? 10 : 3,
+      failure_class: missing || skipped ? "infra" : failed ? "product" : null,
       failure_reason: missing
         ? "missing_selector_result"
         : skipped
@@ -91,6 +92,7 @@ export function adaptVitestInvocation(invocation, result) {
           : failed
             ? "test_assertion_failure"
             : null,
+      failure_diagnostic: null,
     };
   });
 }

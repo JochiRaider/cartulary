@@ -1,12 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.execution_topology.v6",
+  "$id": "cartulary.execution_topology.v7",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_id",
     "runtime_profiles",
     "resource_profiles",
+    "service_resource_minimums",
     "generated_outputs",
     "runtime_binaries",
     "execution_dependencies",
@@ -15,9 +16,24 @@
     "task_surface_owner"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.execution_topology.v6" },
+    "schema_id": { "const": "cartulary.execution_topology.v7" },
     "runtime_profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
     "resource_profiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
+    "service_resource_minimums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_store", "postgres"],
+      "properties": {
+        "object_store": {
+          "allOf": [{ "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims" }],
+          "minProperties": 1
+        },
+        "postgres": {
+          "allOf": [{ "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims" }],
+          "minProperties": 1
+        }
+      }
+    },
     "generated_outputs": { "type": "object", "minProperties": 1 },
     "runtime_binaries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },
     "execution_dependencies": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } },

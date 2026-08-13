@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v8",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v9",
   "runtime_profiles": [
     {
       "id": "default",
@@ -48,6 +48,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -66,6 +70,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -88,6 +96,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -107,6 +119,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -125,6 +141,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -147,6 +167,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -165,6 +189,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -187,6 +215,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -205,6 +237,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -228,6 +264,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -246,6 +286,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -268,6 +312,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -286,6 +334,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -304,6 +356,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -322,6 +378,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -340,6 +400,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -358,6 +422,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -376,6 +444,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -403,6 +475,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -421,6 +497,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -441,6 +521,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -460,6 +544,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -478,6 +566,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -501,6 +593,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
@@ -520,7 +616,11 @@
             "apps/web/e2e/import-assistant.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "functional-support-network-flow-claimed-network-flow",
@@ -547,7 +647,11 @@
             "apps/web/e2e/network-flow.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -581,6 +685,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -599,6 +707,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -621,6 +733,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -640,6 +756,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -658,6 +778,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -680,6 +804,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -698,6 +826,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -720,6 +852,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -738,6 +874,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -761,6 +901,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -779,6 +923,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -801,6 +949,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -819,6 +971,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -837,6 +993,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -855,6 +1015,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -873,6 +1037,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -891,6 +1059,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -909,6 +1081,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -936,6 +1112,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -954,6 +1134,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -974,6 +1158,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -993,6 +1181,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -1011,6 +1203,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -1034,6 +1230,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-functional-default"
         },
         {
@@ -1053,7 +1253,11 @@
             "apps/web/e2e/import-assistant.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "functional-network-flow-claimed-network-flow",
@@ -1080,7 +1284,11 @@
             "apps/web/e2e/network-flow.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -1108,7 +1316,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "support-incident-support",
@@ -1129,7 +1341,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "support-keyboard",
@@ -1148,7 +1364,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "support-timeline-support",
@@ -1172,7 +1392,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "support-workbook-support",
@@ -1191,7 +1415,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -1219,7 +1447,11 @@
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "stateful-default-clock",
@@ -1238,6 +1470,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-clock"
         },
         {
@@ -1257,6 +1493,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-collaboration"
         },
         {
@@ -1276,6 +1516,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-coordination-public-route"
         },
         {
@@ -1295,6 +1539,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-evidence-integration"
         },
         {
@@ -1315,6 +1563,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-inspector-actions"
         },
         {
@@ -1334,6 +1586,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
         {
@@ -1353,6 +1609,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-sentinel"
         },
         {
@@ -1372,6 +1632,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-session-recovery"
         },
         {
@@ -1391,6 +1655,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-timeline-public-route"
         },
         {
@@ -1410,6 +1678,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-workbook"
         },
         {
@@ -1429,7 +1701,11 @@
             "apps/web/e2e/extensions.stateful.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "stateful-network-flow-claimed-network-flow",
@@ -1449,6 +1725,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         }
       ]
@@ -1476,6 +1756,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-measurement-default-b615aabfe6"
         },
         {
@@ -1494,6 +1778,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-measurement-default-afddd2ce13"
         },
         {
@@ -1512,6 +1800,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-measurement-default-961a4ec1d3"
         },
         {
@@ -1530,6 +1822,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-measurement-default-d03cf54e95"
         },
         {
@@ -1549,7 +1845,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
@@ -1568,7 +1868,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -1608,7 +1912,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "a11y-network-flow-claimed-workbook-a11y",
@@ -1627,7 +1935,11 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -1678,7 +1990,11 @@
           ],
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "visual-network-flow-claimed-workbook-visual",
@@ -1697,7 +2013,11 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     },
@@ -1725,6 +2045,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-resettable-default-b615aabfe6"
         },
         {
@@ -1743,6 +2067,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-resettable-default-afddd2ce13"
         },
         {
@@ -1761,6 +2089,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-resettable-default-961a4ec1d3"
         },
         {
@@ -1779,6 +2111,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-resettable-default-d03cf54e95"
         },
         {
@@ -1798,7 +2134,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
@@ -1817,7 +2157,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "visual-workbook-visual",
@@ -1858,6 +2202,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-resettable-default"
         }
       ]
@@ -1888,7 +2236,11 @@
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "stateful-default-clock",
@@ -1907,6 +2259,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-clock"
         },
         {
@@ -1926,6 +2282,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-collaboration"
         },
         {
@@ -1945,6 +2305,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-coordination-public-route"
         },
         {
@@ -1964,6 +2328,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-evidence-integration"
         },
         {
@@ -1984,6 +2352,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-inspector-actions"
         },
         {
@@ -2003,6 +2375,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
         {
@@ -2022,6 +2398,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-sentinel"
         },
         {
@@ -2041,6 +2421,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-session-recovery"
         },
         {
@@ -2060,6 +2444,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-timeline-public-route"
         },
         {
@@ -2079,6 +2467,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-default-before-workbook"
         },
         {
@@ -2098,7 +2490,11 @@
             "apps/web/e2e/extensions.stateful.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "stateful-network-flow-claimed-network-flow",
@@ -2118,6 +2514,10 @@
           ],
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         },
         {
@@ -2137,6 +2537,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default-b615aabfe6"
         },
         {
@@ -2156,6 +2560,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default-afddd2ce13"
         },
         {
@@ -2175,6 +2583,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default-961a4ec1d3"
         },
         {
@@ -2194,6 +2606,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default-d03cf54e95"
         },
         {
@@ -2213,7 +2629,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
@@ -2232,7 +2652,11 @@
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
           "resource_profile_id": "browser_measurement_quiet",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "a11y-workbook-a11y",
@@ -2262,6 +2686,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default"
         },
         {
@@ -2282,7 +2710,11 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         },
         {
           "name": "visual-workbook-visual",
@@ -2323,6 +2755,10 @@
           "runtime_profile_id": "default",
           "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
           "browser_session_group": "browser-e2e-default"
         },
         {
@@ -2343,7 +2779,11 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "resource_profile_id": "browser_isolated",
-          "service_requirement": "test-services"
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ]
         }
       ]
     }

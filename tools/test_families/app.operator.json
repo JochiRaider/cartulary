@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "app.operator",
   "rows": [
     {
@@ -25,7 +25,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_migration",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "app.operator.process.collaboration_requeue_v2_process_contract_4ce8fef4eb",
@@ -50,7 +53,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "app.operator.process.object_store_init_process_transport_400591b90d",
@@ -75,7 +82,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "object_store_namespace",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store"
+      ]
     },
     {
       "row_id": "app.operator.unit.collaboration_requeue_v2_transport_contract_11562cd85f",
@@ -102,7 +112,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.migration_evidence_cli_transport_and_redaction_906768574c",
@@ -127,7 +138,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.object_store_init_typed_failure_transport_5cee6a5190",
@@ -154,7 +166,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.operator_facade_and_nested_recovery_cli_expose_o_0b8f75c21c",
@@ -177,7 +190,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.operator_registry_eight_paths_and_collaboration_01217009b8",
@@ -202,7 +216,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.recovery_cli_parser_and_invalid_invocation_trans_b3caf1f612",
@@ -227,7 +242,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.recovery_failure_mapping_is_exhaustive_465f2ab0de",
@@ -252,7 +268,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "app.operator.unit.the_due_verification_timeout_is_passed_to_recove_cbf25983a5",
@@ -277,7 +294,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

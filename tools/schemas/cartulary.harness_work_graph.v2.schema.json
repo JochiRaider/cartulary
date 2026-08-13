@@ -1,24 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph.v1",
+  "$id": "cartulary.harness_work_graph.v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_id", "selector", "units", "graph_digest"],
   "properties": {
-    "schema_id": { "const": "cartulary.harness_work_graph.v1" },
-    "selector": { "$ref": "#/$defs/nonempty" },
+    "schema_id": { "const": "cartulary.harness_work_graph.v2" },
+    "selector": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" },
     "units": { "type": "array", "items": { "$ref": "#/$defs/unit" } },
-    "graph_digest": { "$ref": "#/$defs/digest" }
+    "graph_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" }
   },
   "$defs": {
-    "nonempty": { "type": "string", "minLength": 1, "maxLength": 512 },
-    "id": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[A-Za-z0-9_.:@+-]+$" },
-    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
-    "resource_claims": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" }, "additionalProperties": { "type": "integer", "minimum": 1 } },
     "command": {
       "type": "object", "additionalProperties": false, "required": ["executable", "args", "environment"],
       "properties": {
-        "executable": { "$ref": "#/$defs/nonempty" },
+        "executable": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" },
         "args": { "type": "array", "items": { "type": "string", "maxLength": 4096 } },
         "environment": { "type": "object", "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" }, "additionalProperties": { "type": "string", "maxLength": 4096 } }
       }
@@ -29,23 +25,24 @@
     },
     "unit": {
       "type": "object", "additionalProperties": false,
-      "required": ["unit_id", "owner_id", "kind", "command", "needs", "resource_claims", "fixture_lease", "cache_policy", "timeout_ms", "evidence_outputs", "failure_policy", "estimated_work_ms", "semantic_digest"],
+      "required": ["unit_id", "owner_id", "kind", "command", "needs", "resource_claims", "fixture_lease", "service_dependencies", "cache_policy", "timeout_ms", "evidence_outputs", "failure_policy", "estimated_work_ms", "semantic_digest"],
       "properties": {
-        "unit_id": { "$ref": "#/$defs/id" }, "owner_id": { "$ref": "#/$defs/id" },
+        "unit_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" }, "owner_id": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
         "kind": { "enum": ["runner", "readiness", "lifecycle", "finalizer", "policy", "artifact"] },
         "command": { "$ref": "#/$defs/command" },
-        "needs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-        "resource_claims": { "$ref": "#/$defs/resource_claims" },
-        "shared_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-        "exclusive_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
-        "affinity_key": { "$ref": "#/$defs/id" },
+        "needs": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
+        "resource_claims": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims" },
+        "shared_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
+        "exclusive_locks": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" } },
+        "affinity_key": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/id" },
         "fixture_lease": { "enum": ["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"] },
+        "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
         "cache_policy": { "enum": ["none", "same_run", "content_addressed"] },
         "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 3600000 },
-        "evidence_outputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/nonempty" } },
+        "evidence_outputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/nonempty" } },
         "failure_policy": { "$ref": "#/$defs/failure_policy" },
         "estimated_work_ms": { "type": "integer", "minimum": 1 },
-        "semantic_digest": { "$ref": "#/$defs/digest" }
+        "semantic_digest": { "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest" }
       }
     }
   }

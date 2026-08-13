@@ -7,7 +7,7 @@ import {
   semanticJSONDigest,
 } from "../../test-catalog/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v1";
+const graphSchemaID = "cartulary.harness_work_graph.v2";
 
 export function loadWorkGraphOwner(root) {
   const owner = JSON.parse(
@@ -55,7 +55,14 @@ export function validateWorkGraph(graph, { capacities } = {}) {
   const byID = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
 
   for (const unit of graph.units) {
+    if (Object.keys(unit.resource_claims).length === 0) {
+      throw new Error(`${unit.unit_id}.resource_claims must bound executable work`);
+    }
     assertSortedUnique(unit.needs, `${unit.unit_id}.needs`);
+    assertSortedUnique(
+      unit.service_dependencies,
+      `${unit.unit_id}.service_dependencies`,
+    );
     assertSortedUnique(unit.shared_locks ?? [], `${unit.unit_id}.shared_locks`);
     assertSortedUnique(unit.exclusive_locks ?? [], `${unit.unit_id}.exclusive_locks`);
     for (const lock of unit.shared_locks ?? []) {
@@ -131,6 +138,13 @@ export function validateWorkGraph(graph, { capacities } = {}) {
 export function buildWorkGraph(units) {
   const byID = new Map();
   for (const rawUnit of units) {
+    if (!Array.isArray(rawUnit.service_dependencies)) {
+      throw new Error(`${rawUnit.unit_id}.service_dependencies is required`);
+    }
+    assertSortedUnique(
+      rawUnit.service_dependencies,
+      `${rawUnit.unit_id}.service_dependencies`,
+    );
     const safeID = rawUnit.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
     const unitResult = `unit-results/${safeID}.json`;
     const sharedLocks = [...(rawUnit.shared_locks ?? [])];
@@ -144,6 +158,7 @@ export function buildWorkGraph(units) {
     }
     const unit = finalizeUnit({
       ...rawUnit,
+      service_dependencies: [...rawUnit.service_dependencies],
       shared_locks: [...new Set(sharedLocks)].sort(),
       exclusive_locks: [...new Set(exclusiveLocks)].sort(),
       evidence_outputs: [...new Set([...rawUnit.evidence_outputs, unitResult])].sort(),

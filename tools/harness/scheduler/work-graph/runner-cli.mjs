@@ -183,10 +183,12 @@ function selectionFor(options, compiler) {
   }
   let rowIDs = options.rows;
   if (options.serviceBackedOnly) {
-    const capability = new Map(compiler.catalog.rows.map((row) => [row.row_id, row.fixture_capability]));
+    const serviceDependencies = new Map(
+      compiler.catalog.rows.map((row) => [row.row_id, row.service_dependencies]),
+    );
     const ownerRows = compiler.catalog.rows.filter((row) => row.owner_id === options.owner);
     rowIDs = (rowIDs ?? ownerRows.map((row) => row.row_id)).filter(
-      (rowID) => capability.get(rowID) !== "none",
+      (rowID) => (serviceDependencies.get(rowID)?.length ?? 0) > 0,
     );
     if (rowIDs.length === 0) throw new Error(`${options.owner} has no service-backed rows`);
   }

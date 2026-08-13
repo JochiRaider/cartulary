@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_test_failure.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "failure_class",
+    "failure_reason",
+    "setup_source",
+    "service",
+    "readiness_stage",
+    "attempt_count",
+    "cleanup_outcome"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_test_failure.v1" },
+    "failure_class": { "enum": ["harness", "infra", "interrupted"] },
+    "failure_reason": { "enum": ["cancelled_or_interrupted", "fixture_error", "service_readiness_timeout"] },
+    "setup_source": { "enum": ["appsupport", "pgtest", "s3test"] },
+    "service": { "enum": ["object_store", "postgres"] },
+    "readiness_stage": {
+      "enum": ["attach", "capability", "create_bucket", "delete", "dependency_guard", "head", "not_found", "put", "start"]
+    },
+    "attempt_count": { "type": "integer", "minimum": 0, "maximum": 1000 },
+    "cleanup_outcome": { "enum": ["completed", "failed", "not_required"] }
+  }
+}

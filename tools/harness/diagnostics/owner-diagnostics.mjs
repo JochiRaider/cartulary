@@ -44,10 +44,7 @@ function ownerProjection(root, ownerID) {
     row,
     target: targetForCatalogRow(row, { commandTargetByID: targetByCommand }),
   }));
-  const serviceRows = rows.filter((row) => {
-    const profile = catalog.profiles.semantic.runtime_profiles.find((entry) => entry.id === row.runtime_profile_id);
-    return profile?.managed_service_ids.length > 0;
-  });
+  const serviceRows = rows.filter((row) => row.service_dependencies.length > 0);
   return { catalog, owner, rows, targetRows, serviceRows };
 }
 

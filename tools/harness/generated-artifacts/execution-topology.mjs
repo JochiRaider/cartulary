@@ -7,11 +7,11 @@ import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v6";
+export const executionTopologySchemaID = "cartulary.execution_topology.v7";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v8";
+export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v9";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -124,11 +124,17 @@ function normalizeGoTargets(raw, runtimeBinaries) {
     executionFamily: entry.execution_family,
     executionLabel: entry.execution_label,
     fixtureCapability: entry.fixture_capability,
+    runtimeProfileID: entry.runtime_profile_id,
+    resourceProfileID: entry.resource_profile_id,
+    serviceDependencies: [...entry.service_dependencies],
     estimatedWorkMs: entry.estimated_work_ms,
   }));
   for (const entry of rawAggregates) {
     if (!new Set(["none", "postgres_transaction", "postgres_group", "postgres_dedicated", "postgres_migration", "object_store_namespace", "managed_process", "browser_stack"]).has(entry.fixtureCapability)) {
       throw new Error(`raw Go aggregate ${entry.id} has invalid fixture capability`);
+    }
+    if (!new Set(["default", "network_flow_claimed", "none"]).has(entry.runtimeProfileID)) {
+      throw new Error(`raw Go aggregate ${entry.id} has invalid runtime profile`);
     }
     if (!Number.isInteger(entry.estimatedWorkMs) || entry.estimatedWorkMs < 1) {
       throw new Error(`raw Go aggregate ${entry.id} has invalid estimated work`);
@@ -175,7 +181,7 @@ export function loadExecutionTopology(options = {}) {
   const raw = readJSON(manifestPath);
   requireSchema(raw, executionTopologySchemaID, manifestPath);
   const allowedKeys = new Set([
-    "schema_id", "runtime_profiles", "resource_profiles", "generated_outputs",
+    "schema_id", "runtime_profiles", "resource_profiles", "service_resource_minimums", "generated_outputs",
     "runtime_binaries", "execution_dependencies", "go_targets", "browser_e2e_batch",
     "task_surface_owner",
   ]);
@@ -270,6 +276,13 @@ export function renderBrowserBatchManifest(topology) {
             throw new Error(`browser selector file ${file} mixes resource profiles`);
           }
           const resourceProfileID = [...resourceProfileIDs][0];
+          const serviceDependencySets = new Set(
+            fileRows.map((row) => JSON.stringify(row.service_dependencies)),
+          );
+          if (serviceDependencySets.size !== 1) {
+            throw new Error(`browser selector file ${file} mixes service dependencies`);
+          }
+          const serviceDependencies = [...fileRows[0].service_dependencies];
           const fileIdentity = file
             .replace(/^apps\/web\/e2e\//u, "")
             .replace(/\.spec\.ts$/u, "")
@@ -291,6 +304,7 @@ export function renderBrowserBatchManifest(topology) {
               runtime_profile_id: runtimeProfileID,
               resource_profile_id: resourceProfileID,
               service_requirement: runtimeProfile.serviceRequirement,
+              service_dependencies: serviceDependencies,
               browser_session_group: [
                 policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
                 quietIdentity,

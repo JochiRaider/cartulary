@@ -90,6 +90,13 @@ export function adaptPlaywrightReport(rows, report, processStatus = 0) {
               : terminalState === "failed"
                 ? 10
                 : processStatus || 11,
+        failure_class: interrupted
+          ? "interrupted"
+          : timedOut || missing
+            ? "infra"
+            : failed
+              ? "product"
+              : null,
         failure_reason: interrupted
           ? "interrupted"
           : timedOut
@@ -99,6 +106,7 @@ export function adaptPlaywrightReport(rows, report, processStatus = 0) {
               : failed
                 ? "test_assertion_failure"
                 : null,
+        failure_diagnostic: null,
       };
     });
 }

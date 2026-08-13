@@ -168,6 +168,7 @@ var (
 
 func Start(t testing.TB) *Harness {
 	t.Helper()
+	suiteservices.RequireServiceDependencies(t, "pgtest", "postgres")
 
 	harness, err := StartShared(context.Background())
 	if err != nil {
@@ -178,6 +179,9 @@ func Start(t testing.TB) *Harness {
 }
 
 func StartShared(ctx context.Context) (*Harness, error) {
+	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
+		return nil, err
+	}
 	sharedHarnessMu.Lock()
 	defer sharedHarnessMu.Unlock()
 
@@ -209,6 +213,9 @@ func StartOwnedWithLabels(ctx context.Context, labels map[string]string) (*Harne
 }
 
 func StartOwnedWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
+	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
+		return nil, err
+	}
 	return startHarnessWithOptions(ctx, options)
 }
 

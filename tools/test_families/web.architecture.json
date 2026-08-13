@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "web.architecture",
   "rows": [
     {
@@ -19,11 +19,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_cross_boundary_sele_61868c7039",
@@ -42,11 +43,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_delivery_shaped_selecto_a659d356ed",
@@ -65,11 +67,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_rejects_raw__selector_lit_e8f92512d1",
@@ -88,11 +91,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.source_ownership_policy_suite_80cf87ef19",
@@ -113,11 +117,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
@@ -136,11 +141,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
@@ -159,11 +165,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.transportboundarypolicy_suite_aab5aaaedb",
@@ -183,11 +190,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.workbook_layout_policy_suite_5f8fee9a2f",
@@ -209,11 +217,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
@@ -235,11 +244,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     },
     {
       "row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
@@ -255,11 +265,12 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": []
     }
   ]
 }

@@ -38,7 +38,7 @@ function planFor(target) {
     [target]: compiled.graph.units.map((unit) => unit.unit_id),
   };
   const plan = {
-    schema_id: "cartulary.harness_target_plan.v1",
+    schema_id: "cartulary.harness_target_plan.v2",
     target,
     graph_digest: compiled.graph.graph_digest,
     projections,
@@ -49,6 +49,7 @@ function planFor(target) {
       needs: unit.needs,
       resource_claims: unit.resource_claims,
       fixture_capability: unit.fixture_lease,
+      service_dependencies: unit.service_dependencies,
       cache_policy: unit.cache_policy,
       estimated_work_ms: unit.estimated_work_ms,
       semantic_digest: unit.semantic_digest,
@@ -69,7 +70,7 @@ function human(plan, detail) {
     `target ${plan.target}`,
     `graph ${plan.graph_digest}`,
     ...plan.units.map((unit) =>
-      `${unit.unit_id} kind=${unit.kind} owner=${unit.owner_id} needs=${unit.needs.join(",") || "-"} fixture=${unit.fixture_capability} cache=${unit.cache_policy} work_ms=${unit.estimated_work_ms}`,
+      `${unit.unit_id} kind=${unit.kind} owner=${unit.owner_id} needs=${unit.needs.join(",") || "-"} fixture=${unit.fixture_capability} services=${unit.service_dependencies.join(",") || "-"} cache=${unit.cache_policy} work_ms=${unit.estimated_work_ms}`,
     ),
   ].join("\n");
 }

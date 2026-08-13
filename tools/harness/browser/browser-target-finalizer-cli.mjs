@@ -56,7 +56,7 @@ function groupResult(base, groupID, target) {
   if (!existsSync(file)) return null;
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v3", result);
+  validateSchemaSync("cartulary.browser_group_result.v4", result);
   return {
     file,
     bytes,

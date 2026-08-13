@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "module.extensions",
   "rows": [
     {
@@ -32,7 +32,11 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
@@ -53,11 +57,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
@@ -79,11 +87,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.clean_job_cutover_migration_4917a0cdef",
@@ -108,7 +120,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45",
@@ -133,7 +148,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2",
@@ -160,7 +178,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6",
@@ -187,7 +208,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.named_portability_job_recovery_f7c496c10b",
@@ -215,7 +239,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
@@ -261,7 +288,10 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d",
@@ -283,11 +313,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.process.bc017_component_loss_755919c8d7",
@@ -308,11 +342,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.static.bc004_dependency_declarations_7dd570e1e4",
@@ -331,11 +369,15 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.static.behavior_routing_e80c9e3dc7",
@@ -354,11 +396,15 @@
       },
       "evidence_class": "static",
       "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
+      "resource_profile_id": "managed_process",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "managed_process",
-      "minimum_tier": "standard"
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "module.extensions.unit.bc001_empty_state_7ca75ba0bc",
@@ -383,7 +429,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.bc002_validation_precedence_af944dca6e",
@@ -408,7 +455,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.bc005_descriptor_projection_1e0ea91df8",
@@ -431,7 +479,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.bc006_validation_inventory_6e85895643",
@@ -456,7 +505,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.bc016_capabilities_disabled_77bb995602",
@@ -481,7 +531,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.coordinator_binding_admission_c2d8beffdb",
@@ -504,7 +555,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.coordinator_claim_resolution_6cfce6db24",
@@ -527,7 +579,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.coordinator_collision_admission_590bd27481",
@@ -550,7 +603,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.coordinator_publication_plan_05ae1ed79d",
@@ -575,7 +629,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.coordinator_registry_1dce9a539a",
@@ -600,7 +655,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.inactive_configuration_catalog",
@@ -625,7 +681,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.job_admission_and_terminal_contracts_64d299b374",
@@ -651,7 +708,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.extensions.unit.job_inactive_reconciliation_49b5990495",
@@ -677,7 +735,8 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast"
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

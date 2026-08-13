@@ -1973,7 +1973,7 @@ function validateRuntimeBehavior(checks) {
       continue;
     }
     const result = JSON.parse(readFileSync(resultFile, "utf8"));
-    if (result.schema_id !== "cartulary.harness_row_result.v1" || result.terminal_state !== "passed") {
+    if (result.schema_id !== "cartulary.harness_row_result.v2" || result.terminal_state !== "passed") {
       failures.push(`${row.row_id}:${result.terminal_state ?? "invalid"}`);
     }
   }

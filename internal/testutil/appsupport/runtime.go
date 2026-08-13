@@ -3,6 +3,7 @@ package appsupport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +16,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
+)
+
+var (
+	startPostgresForRuntime = pgtest.Start
+	startS3ForRuntime       = s3test.Start
 )
 
 type Runtime struct {
@@ -48,10 +56,39 @@ type ServerOptions struct {
 
 func StartRuntime(t testing.TB) *Runtime {
 	t.Helper()
-	return &Runtime{
-		Postgres: pgtest.Start(t),
-		S3:       s3test.Start(t),
+	runtime, err := startRuntime(t, nil)
+	if err != nil {
+		testfailure.Fail(t, runtimeDependencyEnvelope(err))
 	}
+	return runtime
+}
+
+func startRuntime(t testing.TB, env map[string]string) (*Runtime, error) {
+	t.Helper()
+	if err := suiteservices.CheckServiceDependencies(env, "object_store", "postgres"); err != nil {
+		return nil, err
+	}
+	return &Runtime{
+		Postgres: startPostgresForRuntime(t),
+		S3:       startS3ForRuntime(t),
+	}, nil
+}
+
+func runtimeDependencyEnvelope(err error) testfailure.Envelope {
+	service := "object_store"
+	var dependencyErr *suiteservices.ServiceDependencyError
+	if errors.As(err, &dependencyErr) && dependencyErr.Service != "" {
+		service = dependencyErr.Service
+	}
+	return testfailure.NewEnvelope(
+		"harness",
+		"fixture_error",
+		"appsupport",
+		service,
+		"dependency_guard",
+		0,
+		"not_required",
+	)
 }
 
 func StartServer(t testing.TB, prefix string) *ServerHarness {

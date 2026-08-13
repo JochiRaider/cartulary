@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_group_result.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "target_id", "stage_id", "group_id", "browser_session_id", "runtime_profile_id", "service_requirement", "fixture_capabilities", "service_dependencies", "resource_profile_ids", "selected_rows", "started_at", "finished_at", "duration_ms", "status", "exit_code", "row_results", "session_artifacts", "artifacts"],
+  "properties": {
+    "schema_id": { "const": "cartulary.browser_group_result.v4" },
+    "target_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "stage_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "group_id": { "type": "string", "minLength": 1 },
+    "browser_session_id": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$" },
+    "runtime_profile_id": { "$ref": "#/$defs/nonempty" },
+    "service_requirement": { "enum": ["none", "test-services"] },
+    "fixture_capabilities": { "$ref": "#/$defs/unique_strings" },
+    "service_dependencies": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies" },
+    "resource_profile_ids": { "$ref": "#/$defs/unique_strings" },
+    "selected_rows": { "$ref": "#/$defs/row_ids" },
+    "started_at": { "$ref": "#/$defs/timestamp" },
+    "finished_at": { "$ref": "#/$defs/timestamp" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["pass", "fail"] },
+    "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "row_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["row_id", "terminal_state", "duration_ms", "exit_code", "failure_class", "failure_reason", "failure_diagnostic"],
+        "properties": {
+          "row_id": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" },
+          "terminal_state": { "enum": ["passed", "failed", "infrastructure_failed", "skipped_dependency", "cancelled", "skipped_authorized"] },
+          "duration_ms": { "type": "integer", "minimum": 0 },
+          "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "failure_class": { "oneOf": [{ "type": "null" }, { "enum": ["harness", "infra", "interrupted", "product"] }] },
+          "failure_reason": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }] },
+          "failure_diagnostic": { "oneOf": [{ "type": "null" }, { "$ref": "cartulary.harness_test_failure.v1" }] }
+        }
+      }
+    },
+    "session_artifacts": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/artifact" } },
+    "artifacts": {
+      "type": "object", "additionalProperties": false, "required": ["playwright_report", "stdout", "stderr"],
+      "properties": { "playwright_report": { "type": "string", "minLength": 1 }, "stdout": { "type": "string", "minLength": 1 }, "stderr": { "type": "string", "minLength": 1 } }
+    }
+  },
+  "$defs": {
+    "nonempty": { "type": "string", "minLength": 1 },
+    "unique_strings": { "type": "array", "items": { "$ref": "#/$defs/nonempty" }, "uniqueItems": true },
+    "row_ids": { "type": "array", "minItems": 1, "items": { "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id" }, "uniqueItems": true },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "artifact": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "ref", "sha256"],
+      "properties": {
+        "kind": { "enum": ["stack_v4", "startup_diagnostics_v2"] },
+        "ref": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

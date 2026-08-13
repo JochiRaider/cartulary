@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	ActiveEnv  = "CARTULARY_TEST_SERVICES_ACTIVE"
-	SuiteIDEnv = "CARTULARY_TEST_SUITE_ID"
-	TargetEnv  = "CARTULARY_TEST_TARGET"
+	ActiveEnv                     = "CARTULARY_TEST_SERVICES_ACTIVE"
+	SuiteIDEnv                    = "CARTULARY_TEST_SUITE_ID"
+	TargetEnv                     = "CARTULARY_TEST_TARGET"
+	HarnessServiceDependenciesEnv = "CARTULARY_HARNESS_SERVICE_DEPENDENCIES"
 
 	PGAdminDSNEnv    = "CARTULARY_PGTEST_ADMIN_DSN"
 	PGDSNTemplateEnv = "CARTULARY_PGTEST_DSN_TEMPLATE"

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v3",
+  "schema_id": "cartulary.test_family_manifest.v4",
   "owner_id": "harness.release",
   "rows": [
     {
@@ -16,11 +16,12 @@
       },
       "evidence_class": "release",
       "runtime_profile_id": "none",
-      "resource_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "release"
+      "minimum_tier": "release",
+      "service_dependencies": []
     }
   ]
 }
