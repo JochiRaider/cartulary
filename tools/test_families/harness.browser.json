@@ -283,10 +283,11 @@
       "selector": {
         "file": "apps/web/e2e/support/runtime/ownerCharacterization.test.ts",
         "titles": [
-          "ordinary measurement helpers computes p95 without letting one isolated outlier define a 25-sample run",
-          "ordinary measurement helpers keeps the p95 gate strict when two samples exceed the envelope",
-          "ordinary measurement helpers parses Server-Timing diagnostics while preserving raw metric entries",
-          "ordinary measurement helpers rejects p95 calculations below the ordinary measurement sample floor",
+          "qualified measurement helpers moves p95 to the high sample when six samples exceed the envelope",
+          "qualified measurement helpers parses Server-Timing diagnostics while preserving raw metric entries",
+          "qualified measurement helpers rejects non-finite and negative samples",
+          "qualified measurement helpers rejects p95 calculations below the typed measurement sample floor",
+          "qualified measurement helpers uses the nearest-rank boundary for exactly 100 measured samples",
           "reconcileSuiteAdminTotpState enrolls a new suite-admin secret when the backend requires TOTP setup",
           "reconcileSuiteAdminTotpState fails explicitly when shared harness state is missing for an active MFA setup",
           "reconcileSuiteAdminTotpState reuses the stored suite-admin secret when it still authenticates",

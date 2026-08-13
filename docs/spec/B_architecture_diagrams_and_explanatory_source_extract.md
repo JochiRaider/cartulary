@@ -389,14 +389,14 @@ flowchart LR
   "benchmark_profile_id": "cartulary.perf.desktop_ref.v1",
   "criterion_ids": ["AC-043", "AC-044"],
   "measurement_predicate_ids": [
-    "perf.selection_change.v1",
-    "perf.focus_change.v1",
+    "perf.timeline_summary_selection_down.v1",
+    "perf.timeline_summary_focus_edit.v1",
     "perf.typing_ack.v1",
     "perf.timeline_blank_row_create.v1",
     "perf.view_change.first_useful_viewport.v1",
     "perf.view_change.stable_viewport.v1"
   ],
-  "fixture_ids": ["fixture_a"],
+  "fixture_ids": ["cartulary.perf.large_grid.v1"],
   "traffic_trace_id": "cartulary.perf.live_updates_25sessions.v1",
   "seed": 20260405,
   "warmup_passes": 1,

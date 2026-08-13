@@ -264,27 +264,45 @@ export function renderBrowserBatchManifest(topology) {
       }
       return [...byFile.entries()]
         .sort(([left], [right]) => compareASCII(left, right))
-        .map(([file, fileRows], fileIndex) => {
+        .flatMap(([file, fileRows], fileIndex) => {
+          const resourceProfileIDs = new Set(fileRows.map((row) => row.resource_profile_id));
+          if (resourceProfileIDs.size !== 1) {
+            throw new Error(`browser selector file ${file} mixes resource profiles`);
+          }
+          const resourceProfileID = [...resourceProfileIDs][0];
           const fileIdentity = file
             .replace(/^apps\/web\/e2e\//u, "")
             .replace(/\.spec\.ts$/u, "")
             .replaceAll(/[^a-zA-Z0-9]+/gu, "-")
             .replaceAll(/^-|-$/gu, "")
             .toLowerCase();
-          const group = {
-            ...clone(policyGroup),
-            name: `${policyGroup.name}-${fileIdentity}`,
-            selected_row_ids: fileRows.map((row) => row.row_id),
-            specs: [file],
-            runtime_profile_id: runtimeProfileID,
-            service_requirement: runtimeProfile.serviceRequirement,
-            browser_session_group:
-              policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
-          };
-          if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {
-            group.reset_before = `${policyGroup.name}-before-${fileIdentity}`;
-          }
-          return group;
+          const rowPartitions = resourceProfileID === "browser_measurement_quiet"
+            ? fileRows.map((row) => [row])
+            : [fileRows];
+          return rowPartitions.map((partition) => {
+            const quietIdentity = resourceProfileID === "browser_measurement_quiet"
+              ? partition[0].row_id.slice(-10)
+              : "";
+            const group = {
+              ...clone(policyGroup),
+              name: [policyGroup.name, fileIdentity, quietIdentity].filter(Boolean).join("-"),
+              selected_row_ids: partition.map((row) => row.row_id),
+              specs: [file],
+              runtime_profile_id: runtimeProfileID,
+              resource_profile_id: resourceProfileID,
+              service_requirement: runtimeProfile.serviceRequirement,
+              browser_session_group: [
+                policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
+                quietIdentity,
+              ].filter(Boolean).join("-"),
+            };
+            if (resourceProfileID === "browser_measurement_quiet" && group.reset_before) {
+              group.reset_before = `${group.reset_before}-${quietIdentity}`;
+            } else if (selectorStage === "stateful" && fileIndex > 0 && !group.reset_before) {
+              group.reset_before = `${policyGroup.name}-before-${fileIdentity}`;
+            }
+            return group;
+          });
         });
     }),
   }));

@@ -39,6 +39,10 @@ export type TimelineRowMutationEditorPort = {
     readonly recordId: string;
   }) => void;
   readonly focusInput: (focusKey: string) => void;
+  readonly reveal: (input: {
+    readonly fieldKey: string;
+    readonly recordId: string;
+  }) => void;
 };
 
 export type PendingReplayRuntimeMeta = {

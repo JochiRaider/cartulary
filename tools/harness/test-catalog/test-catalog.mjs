@@ -18,6 +18,7 @@ import {
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
 const familyManifestSchemaID = "cartulary.test_family_manifest.v3";
+const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
@@ -58,6 +59,7 @@ const expectedProfiles = Object.freeze({
   runtime_profiles: ["default", "network_flow_claimed", "none"],
   resource_profiles: [
     "browser_isolated",
+    "browser_measurement_quiet",
     "io_heavy",
     "none",
     "standard",
@@ -71,6 +73,18 @@ const expectedProfileDefinitions = Object.freeze({
   ],
   resource_profiles: [
     { id: "browser_isolated", resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, process: 1 } },
+    {
+      id: "browser_measurement_quiet",
+      resource_claims: {
+        browser_stack: 1,
+        cpu: 1,
+        io: 1,
+        memory_mb: 512,
+        port_lane: 1,
+        process: 1,
+      },
+      runner_timeout_ms: 3_600_000,
+    },
     { id: "io_heavy", resource_claims: { cpu: 1, io: 2, memory_mb: 256, process: 1 } },
     { id: "none", resource_claims: {} },
     { id: "standard", resource_claims: { cpu: 1, io: 1, memory_mb: 256, process: 1 } },
@@ -373,6 +387,27 @@ export function loadTestCatalog(root) {
     throw new Error(`${familyRoot} contains an unregistered or missing owner manifest`);
   }
 
+  const rowMigrations = readStrictJSON(
+    path.join(root, "tools/test_catalog_row_migrations.json"),
+  );
+  validateSchemaSync(rowMigrationSchemaID, rowMigrations);
+  const retiredRowIDs = rowMigrations.migrations.map((entry) => entry.retired_row_id);
+  assertSortedUnique(retiredRowIDs, "tools/test_catalog_row_migrations.json.migrations.retired_row_id");
+  for (const migration of rowMigrations.migrations) {
+    assertSortedUnique(
+      migration.replacement_row_ids,
+      `${migration.retired_row_id}.replacement_row_ids`,
+    );
+    if (rowIDs.has(migration.retired_row_id)) {
+      throw new Error(`retired catalog row remains active: ${migration.retired_row_id}`);
+    }
+    for (const replacement of migration.replacement_row_ids) {
+      if (!rowIDs.has(replacement)) {
+        throw new Error(`${migration.retired_row_id} has unknown replacement ${replacement}`);
+      }
+    }
+  }
+
   const runnerCounts = Object.fromEntries(
     Object.keys(expectedRunners).sort(asciiCompare).map((runner) => [
       runner,
@@ -393,6 +428,7 @@ export function loadTestCatalog(root) {
     })),
     runner_registry: runners.registry,
     profiles: profiles.semantic,
+    row_migrations: rowMigrations,
   });
   const summary = {
     schema_id: "cartulary.test_catalog_check_summary.v2",
@@ -428,6 +464,7 @@ export function loadTestCatalog(root) {
     verification,
     runners: runners.registry,
     profiles,
+    rowMigrations,
     summary,
     test_catalog_digest: catalogSemanticDigest,
   };

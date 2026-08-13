@@ -747,6 +747,8 @@ function useSemanticDataGrid<Row>(
         }),
       focusRoot: () => focusGridRoot(vendorHandle.current?.element ?? null),
       getScrollElement: () => vendorHandle.current?.element ?? null,
+      isAnchorRendered: (anchor) =>
+        semanticCellElementsRef.current.has(gridAnchorKey(anchor)),
       moveFocus: (current, intent) => {
         const next = navigateSemanticPresentation(
           semanticPresentationRef.current,
@@ -991,9 +993,18 @@ function useSemanticDataGrid<Row>(
           setKeyboardAnnouncement("This row cannot be edited.");
           return;
         }
+        const timelineSummaryEnter =
+          event.key === "Enter" &&
+          surface.kind === "view_schema" &&
+          surface.viewSchemaId === "cartulary.view.timeline.v2" &&
+          anchor.fieldKey === "timeline.activity_synopsis_text";
         pendingEditorSeedRef.current = {
           activation: {
-            initialSelection: hasSeed ? "seed" : event.shiftKey ? "end" : "all",
+            initialSelection: hasSeed
+              ? "seed"
+              : event.shiftKey || timelineSummaryEnter
+                ? "end"
+                : "all",
             source: hasSeed
               ? event.key === "Backspace" || event.key === "Delete"
                 ? "clear"
@@ -1007,6 +1018,11 @@ function useSemanticDataGrid<Row>(
           hasValue: hasSeed,
           value: seed,
         };
+        if (timelineSummaryEnter) {
+          performance.mark("cartulary.workbook.focus_edit_accepted", {
+            detail: { field: anchor.fieldKey, surface: surface.viewSchemaId },
+          });
+        }
         args.selectCell(
           { idx: args.column.idx, rowIdx: args.rowIdx },
           { enableEditor: true, shouldFocusCell: true },
@@ -1062,6 +1078,19 @@ function useSemanticDataGrid<Row>(
         };
         pendingRangeEndRef.current = next;
         updateCellRange(range);
+      }
+      if (
+        event.key === "ArrowDown" &&
+        !event.shiftKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        surface.kind === "view_schema" &&
+        surface.viewSchemaId === "cartulary.view.timeline.v2" &&
+        anchor.fieldKey === "timeline.activity_synopsis_text"
+      ) {
+        performance.mark("cartulary.workbook.selection_change_accepted", {
+          detail: { field: anchor.fieldKey, surface: surface.viewSchemaId },
+        });
       }
       args.selectCell(nextPosition, { shouldFocusCell: true });
     },

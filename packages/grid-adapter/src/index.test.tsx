@@ -1598,7 +1598,9 @@ describe("grid-adapter", () => {
     expect(mountedHeaders.length).toBeLessThan(wideColumns.length);
 
     const lastAnchor = gridAnchor("virtual-record-499", "wide-23");
+    expect(handle.current?.isAnchorRendered(lastAnchor)).toBe(false);
     expect(handle.current?.scrollToAnchor(lastAnchor)).toBe(true);
+    expect(handle.current?.isAnchorRendered(lastAnchor)).toBe(false);
 
     rerender(
       <GridViewport testId="virtualized-grid-shell">

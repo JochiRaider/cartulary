@@ -1,0 +1,15 @@
+{
+  "schema_id": "cartulary.test_catalog_row_migration.v1",
+  "migrations": [
+    {
+      "retired_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
+      "replacement_row_ids": [
+        "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
+        "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
+        "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
+        "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
+      ],
+      "reason": "The retired informative row combined two small-fixture surrogates; AC-043 now requires four independent release-tier product predicates."
+    }
+  ]
+}

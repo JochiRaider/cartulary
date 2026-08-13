@@ -63,6 +63,13 @@ export function validateWorkGraph(graph, { capacities } = {}) {
         throw new Error(`${unit.unit_id} cannot hold ${lock} as both shared and exclusive`);
       }
     }
+    if (Object.keys(unit.resource_claims).length > 0) {
+      const hostModes = Number((unit.shared_locks ?? []).includes("host_activity")) +
+        Number((unit.exclusive_locks ?? []).includes("host_activity"));
+      if (hostModes !== 1) {
+        throw new Error(`${unit.unit_id} must hold exactly one host_activity lock mode`);
+      }
+    }
     assertSortedUnique(
       unit.evidence_outputs,
       `${unit.unit_id}.evidence_outputs`,
@@ -126,8 +133,19 @@ export function buildWorkGraph(units) {
   for (const rawUnit of units) {
     const safeID = rawUnit.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
     const unitResult = `unit-results/${safeID}.json`;
+    const sharedLocks = [...(rawUnit.shared_locks ?? [])];
+    const exclusiveLocks = [...(rawUnit.exclusive_locks ?? [])];
+    const hostModes = Number(sharedLocks.includes("host_activity")) +
+      Number(exclusiveLocks.includes("host_activity"));
+    if (Object.keys(rawUnit.resource_claims).length > 0 && hostModes === 0) {
+      sharedLocks.push("host_activity");
+    } else if (hostModes > 1) {
+      throw new Error(`${rawUnit.unit_id} cannot hold multiple host_activity lock modes`);
+    }
     const unit = finalizeUnit({
       ...rawUnit,
+      shared_locks: [...new Set(sharedLocks)].sort(),
+      exclusive_locks: [...new Set(exclusiveLocks)].sort(),
       evidence_outputs: [...new Set([...rawUnit.evidence_outputs, unitResult])].sort(),
     });
     const prior = byID.get(unit.unit_id);

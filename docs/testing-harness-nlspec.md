@@ -281,10 +281,33 @@ leases; shell code MUST NOT own group order or capacity. Stateful groups declare
 an affinity key and explicit dependency chain, and resets are graph units at the
 exact required boundary. Read-only visual work MAY overlap; snapshot update work
 claims an exclusive write key for its output. Measurement work is admitted only
-when no ordinary unit holds the resources covered by its quiet profile. A failed
-or unhealthy lane is quarantined and cleaned, and its product work is not
-retried. Direct and aggregate selectors use identical group IDs, dependencies,
-profiles, and evidence outputs.
+when no ordinary unit holds the resources covered by its quiet profile. Every
+executable graph unit that consumes CPU, memory, process, I/O, database,
+object-store, service-stack, or browser resources MUST hold `host_activity` in
+shared mode. A `browser_measurement_quiet` session MUST hold `host_activity` in
+exclusive mode from reset through fixture preparation, readiness and traffic
+stabilization, warm-up, measured operations, artifact finalization, cleanup,
+and lease release. Once an exclusive waiter is ready, later shared work MUST
+NOT backfill ahead of it. A central graph validator MUST reject host-active work
+without exactly one valid `host_activity` mode; constructors MUST resolve the
+mode and numeric claims from the catalog topology profile instead of restating
+them locally.
+
+Every p95 browser measurement consumes the typed harness policy: exactly one
+discarded warm-up operation, exactly 100 finite non-negative measured
+operations, nearest-rank p95 at `ceil(0.95 * N) - 1`, and zero retries. Before a
+threshold assertion, and on safe partial setup or sampling failure, each
+predicate MUST emit `cartulary.frontend_measurement_summary.v1` with predicate,
+criterion, policy, fixture, digest, threshold, counts, p50 and p95 when
+available, numeric stage samples, traffic qualification, and scheduler overlap
+proof. It MUST exclude entered text, record and transaction IDs, credentials,
+tokens, and payload data. The browser finalizer MUST validate and aggregate the
+attachments and fail closed as `environment_not_qualified` when the quiet proof
+is missing, malformed, or shows overlap.
+
+A failed or unhealthy lane is quarantined and cleaned, and its product work is
+not retried. Direct and aggregate selectors use identical group IDs,
+dependencies, profiles, and evidence outputs.
 Verified by: TH-HARNESS-AC-088
 
 **TH-HARNESS-REQ-807**
@@ -573,8 +596,9 @@ The current runtime profiles are:
 | `default` | yes | Ordinary unclaimed isolated test-service/browser configuration. |
 | `network_flow_claimed` | yes | Network Flow claimed startup configuration with its separately owned key-ring and secret-handling rules. |
 
-The current resource profiles are `none`, `standard`, `io_heavy`, and
-`browser_isolated`. Their exact claims MUST be present in the authored topology;
+The current resource profiles are `none`, `standard`, `io_heavy`,
+`browser_isolated`, and `browser_measurement_quiet`. Their exact claims MUST be
+present in the authored topology;
 omission has no implicit fallback. The fixture capability set is closed by
 TH-HARNESS-REQ-804. Work that holds or tests a fixed cluster-scoped PostgreSQL
 advisory lock MUST use a dedicated database lease and an exclusive compatibility

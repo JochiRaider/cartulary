@@ -135,6 +135,20 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.frontend_measurement_aggregate.v1",
+      "path": "tools/schemas/cartulary.frontend_measurement_aggregate.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser measurement target finalizer",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.frontend_measurement_summary.v1",
+      "path": "tools/schemas/cartulary.frontend_measurement_summary.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "browser measurement evidence",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.frontend_source_ownership.v1",
       "path": "tools/schemas/cartulary.frontend_source_ownership.v1.schema.json",
       "classification": "owner_input",
@@ -387,6 +401,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.measurement_policy.v1",
+      "path": "tools/schemas/cartulary.measurement_policy.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "measurement policy owner",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.migration_history_manifest.v1",
       "path": "tools/schemas/cartulary.migration_history_manifest.v1.schema.json",
       "classification": "owner_input",
@@ -471,6 +492,13 @@
       "validation": "json-shape-check"
     },
     {
+      "schema_id": "cartulary.performance_interaction_contract.v1",
+      "path": "tools/schemas/cartulary.performance_interaction_contract.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "Core 04 performance contract projection",
+      "validation": "json-shape-check"
+    },
+    {
       "schema_id": "cartulary.projection_provider_manifest.v4",
       "path": "tools/schemas/cartulary.projection_provider_manifest.v4.schema.json",
       "classification": "owner_input",
@@ -489,6 +517,13 @@
       "path": "tools/schemas/cartulary.protocol_ts_http_operations.v2.schema.json",
       "classification": "owner_input",
       "producer": "protocol TypeScript package owner",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.retained_run_relationships.v1",
+      "path": "tools/schemas/cartulary.retained_run_relationships.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "harness evidence retention owner",
       "validation": "json-shape-check"
     },
     {
@@ -601,6 +636,13 @@
       "path": "tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json",
       "classification": "public_contract",
       "producer": "test catalog validator",
+      "validation": "json-shape-check"
+    },
+    {
+      "schema_id": "cartulary.test_catalog_row_migration.v1",
+      "path": "tools/schemas/cartulary.test_catalog_row_migration.v1.schema.json",
+      "classification": "owner_input",
+      "producer": "test catalog owner",
       "validation": "json-shape-check"
     },
     {

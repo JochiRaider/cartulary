@@ -3,6 +3,48 @@
   "owner_id": "module.timeline",
   "verifications": [
     {
+      "verification_id": "module.timeline.verification.ac043_blank_row_create",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["playwright"],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac043_fixture_shape",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["vitest"],
+      "public_target": "frontend-unit"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac043_focus_edit",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["playwright"],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac043_paint_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["vitest"],
+      "public_target": "frontend-unit"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac043_selection_down",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["playwright"],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac043_typing_ack",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": ["playwright"],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
       "verification_id": "module.timeline.verification.behavior_contract",
       "behavior_class": "product",
       "profile": "base",

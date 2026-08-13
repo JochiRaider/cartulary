@@ -35,13 +35,19 @@ export function webE2EBaseConfig(
       "Cartulary browser configuration does not permit Playwright webServer",
     );
   }
-  const { use, ...rest } = overrides;
+  if (overrides.retries !== undefined && overrides.retries !== 0) {
+    throw new Error(
+      "Cartulary browser evidence does not permit Playwright retries",
+    );
+  }
+  const { retries: _retries, use, ...rest } = overrides;
 
   return {
     testDir: "./e2e",
     fullyParallel: false,
     globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
     globalTeardown: path.resolve(currentDirectory, "e2e", "global-teardown.ts"),
+    retries: 0,
     workers:
       Number.isNaN(configuredWorkers) || configuredWorkers < 1
         ? 1

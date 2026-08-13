@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { loadBrowserBatchStages } from "../adapters/browser.mjs";
@@ -8,6 +9,36 @@ const manifestRelativePath = "tools/browser_e2e_batch_manifest.json";
 // Postgres lanes prevent the scheduler from admitting enough simultaneous
 // stacks to exhaust the shared service's connection limit.
 const browserPostgresLanes = 4;
+
+function resourceProfile(root, group) {
+  const topology = JSON.parse(
+    readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
+  );
+  const profile = topology.resource_profiles.find(
+    (entry) => entry.id === group.resourceProfileID,
+  );
+  if (!profile) {
+    throw new Error(`browser group ${group.name} has unknown resource profile ${group.resourceProfileID}`);
+  }
+  if (
+    profile.runner_timeout_ms !== undefined &&
+    (!Number.isSafeInteger(profile.runner_timeout_ms) || profile.runner_timeout_ms < 1)
+  ) {
+    throw new Error(`browser resource profile ${profile.id} has invalid runner_timeout_ms`);
+  }
+  return profile;
+}
+
+function resourceClaims(root, group) {
+  const profile = resourceProfile(root, group);
+  return { ...profile.resource_claims, postgres: browserPostgresLanes };
+}
+
+function hostLocks(group) {
+  return group.resourceProfileID === "browser_measurement_quiet"
+    ? { shared: [], exclusive: ["host_activity"] }
+    : { shared: ["host_activity"], exclusive: [] };
+}
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -25,6 +56,14 @@ function requiredFailurePolicy() {
   };
 }
 
+function finalizableFailurePolicy() {
+  return {
+    block_descendants: false,
+    continue_independent: true,
+    aggregate_effect: "required",
+  };
+}
+
 function command(executable, args, environment = {}) {
   return { executable, args, environment };
 }
@@ -36,22 +75,24 @@ function lifecycleKey(stage, group) {
   return `${stage.name}-${group.name}-${group.runtimeProfileID}`;
 }
 
-function lifecycleUnit(stage, group, owner) {
+function lifecycleUnit(root, stage, group, owner) {
   const key = safeID(lifecycleKey(stage, group));
+  const locks = hostLocks(group);
   return {
     unit_id: `browser_lifecycle:${key}`,
     owner_id: "harness.browser",
     kind: "readiness",
     command: command("true", [], {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+      CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
     needs: [],
-    resource_claims: { browser_stack: 1, io: 1, memory_mb: 128, port_lane: 1, postgres: browserPostgresLanes, process: 1 },
-    shared_locks: ["host_activity"],
-    exclusive_locks: [],
+    resource_claims: resourceClaims(root, group),
+    shared_locks: locks.shared,
+    exclusive_locks: locks.exclusive,
     affinity_key: key,
     fixture_lease: "browser_stack",
     cache_policy: "none",
@@ -62,22 +103,24 @@ function lifecycleUnit(stage, group, owner) {
   };
 }
 
-function resetUnit(stage, group, previousID, owner) {
+function resetUnit(root, stage, group, previousID, owner) {
   const key = safeID(lifecycleKey(stage, group));
+  const locks = hostLocks(group);
   return {
     unit_id: `browser_reset:${safeID(stage.name)}:${safeID(group.resetBefore)}`,
     owner_id: "harness.browser",
     kind: "lifecycle",
     command: command("tools/harness/browser/reset-web-e2e-stack.sh", ["--label", group.resetBefore], {
       CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+      CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
       CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
       CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
       CARTULARY_BROWSER_SESSION_GROUP: key,
     }),
     needs: [previousID],
-    resource_claims: { browser_stack: 1, io: 1, memory_mb: 64, postgres: browserPostgresLanes, process: 1 },
-    shared_locks: ["host_activity"],
-    exclusive_locks: [`browser_session:${key}`],
+    resource_claims: resourceClaims(root, group),
+    shared_locks: locks.shared,
+    exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
     fixture_lease: "browser_stack",
     cache_policy: "none",
@@ -91,8 +134,9 @@ function resetUnit(stage, group, previousID, owner) {
 function groupLocks(group, mode) {
   const shared = [];
   const exclusive = [];
-  if (group.kind === "measurement") exclusive.push("host_activity");
-  else shared.push("host_activity");
+  const host = hostLocks(group);
+  shared.push(...host.shared);
+  exclusive.push(...host.exclusive);
   if (group.kind === "visual" && mode === "snapshot_update") {
     exclusive.push("browser_snapshots");
   } else if (group.kind === "visual") {
@@ -104,7 +148,7 @@ function groupLocks(group, mode) {
   };
 }
 
-function groupUnit(stage, group, dependencyID, owner, mode) {
+function groupUnit(root, stage, group, dependencyID, owner, mode) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = groupLocks(group, mode);
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : group.target;
@@ -126,6 +170,7 @@ function groupUnit(stage, group, dependencyID, owner, mode) {
       {
         BROWSER_E2E_BATCH_MANIFEST: manifestRelativePath,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
+        CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
         CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
         CARTULARY_BROWSER_SERVICE_REQUIREMENT: group.serviceRequirement,
         CARTULARY_BROWSER_SESSION_CONTRACT: group.browserSessionGroup,
@@ -140,18 +185,19 @@ function groupUnit(stage, group, dependencyID, owner, mode) {
       },
     ),
     needs: [dependencyID],
-    resource_claims: { browser_stack: 1, cpu: 1, io: 1, memory_mb: 512, port_lane: 1, postgres: browserPostgresLanes, process: 1 },
+    resource_claims: resourceClaims(root, group),
     shared_locks: locks.shared,
     exclusive_locks: [...locks.exclusive, `browser_session:${key}`].sort(compareASCII),
     affinity_key: key,
     fixture_lease: "browser_stack",
     cache_policy: "none",
-    timeout_ms: owner.default_timeout_ms,
+    timeout_ms:
+      resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms,
     evidence_outputs: [
       ...group.selectedRowIDs.map((rowID) => `rows/${rowID}.json`),
       `${target}/browser-groups/${safeID(group.name)}/browser-group-result.json`,
     ].sort(compareASCII),
-    failure_policy: requiredFailurePolicy(),
+    failure_policy: finalizableFailurePolicy(),
     estimated_work_ms:
       owner.evidence_estimates_ms[group.kind === "a11y" ? "accessibility" : group.kind] ??
       owner.evidence_estimates_ms.browser,
@@ -162,6 +208,12 @@ function targetFinalizer(stage, target, groupUnits, needs, owner) {
   const groupTargets = stage.groups
     .map((group) => `${group.name}=${target === "browser-e2e-visual-update" ? target : group.target}`)
     .sort(compareASCII);
+  const quiet = stage.groups.every(
+    (group) => group.resourceProfileID === "browser_measurement_quiet",
+  );
+  const includesAc043 = stage.groups.some((group) =>
+    group.specs.includes("apps/web/e2e/measurement/timeline-grid.spec.ts"),
+  );
   return {
     unit_id: `browser_target_summary:${safeID(target)}`,
     owner_id: "harness.browser",
@@ -183,13 +235,16 @@ function targetFinalizer(stage, target, groupUnits, needs, owner) {
     ),
     needs: needs.sort(compareASCII),
     resource_claims: { cpu: 1, io: 1, memory_mb: 128, process: 1 },
-    shared_locks: ["host_activity"],
-    exclusive_locks: [],
+    shared_locks: quiet ? [] : ["host_activity"],
+    exclusive_locks: quiet ? ["host_activity"] : [],
     fixture_lease: "none",
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     evidence_outputs: [
       `${target}/browser-target-result.json`,
+      ...(target === "browser-e2e-measurement" && includesAc043
+        ? [`${target}/frontend-measurement-aggregate.json`]
+        : []),
       ...(target === "browser-e2e-visual"
         ? [`${target}/frontend-visual-reconciliation.json`]
         : []),
@@ -220,7 +275,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     const key = safeID(lifecycleKey(stage, group));
     let lifecycleID = lifecycleIDs.get(key);
     if (!lifecycleID) {
-      const lifecycle = lifecycleUnit(stage, group, owner);
+      const lifecycle = lifecycleUnit(root, stage, group, owner);
       lifecycleID = lifecycle.unit_id;
       lifecycleIDs.set(key, lifecycleID);
       previousByLifecycle.set(key, lifecycleID);
@@ -228,11 +283,11 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     }
     let dependencyID = previousByLifecycle.get(key);
     if (group.resetBefore) {
-      const reset = resetUnit(stage, group, dependencyID, owner);
+      const reset = resetUnit(root, stage, group, dependencyID, owner);
       units.push(reset);
       dependencyID = reset.unit_id;
     }
-    const runner = groupUnit(stage, group, dependencyID, owner, mode);
+    const runner = groupUnit(root, stage, group, dependencyID, owner, mode);
     units.push(runner);
     groupUnits.push(runner);
     previousByLifecycle.set(key, runner.unit_id);

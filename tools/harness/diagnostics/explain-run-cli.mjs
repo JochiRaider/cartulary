@@ -10,7 +10,7 @@ import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "measurement"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -23,7 +23,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|measurement]\n",
   );
   process.exit(2);
 }
@@ -214,6 +214,78 @@ function failureLabels(summary) {
 function loadRunSummary(runDir) {
   const file = path.join(runDir, "run-summary.json");
   return existsSync(file) ? readJSON(file) : null;
+}
+
+function loadRunManifest(runDir) {
+  const file = path.join(runDir, "run-manifest.json");
+  return existsSync(file) ? readJSON(file) : null;
+}
+
+function writeRunIdentity(runDir) {
+  const manifest = loadRunManifest(runDir);
+  if (!manifest) {
+    process.stdout.write(`[RUN-IDENTITY] missing artifacts=${relToRepo(runDir)}\n`);
+    return;
+  }
+  process.stdout.write(
+    `[RUN-IDENTITY] run_id=${manifest.run_id} command=${manifest.command_id} source_commit=${manifest.source_commit} source_state=${manifest.source_state} source_digest=${manifest.source_digest} toolchain_digest=${manifest.toolchain_digest} system_digest=${manifest.system_digest} graph_digest=${manifest.graph_digest} started_at=${manifest.started_at}\n`,
+  );
+}
+
+function retainedRunInvestigation(runDir) {
+  const manifest = loadRunManifest(runDir);
+  const registryFile = path.join(repoRoot, "tools/retained_run_relationships.json");
+  if (!manifest || !existsSync(registryFile)) return null;
+  const registry = readJSON(registryFile);
+  return (registry.investigations ?? []).find((investigation) =>
+    investigation.runs.some((run) => run.run_id === manifest.run_id),
+  ) ?? null;
+}
+
+function measurementInterval(runDir) {
+  const eventsFile = path.join(runDir, "unit-events.ndjson");
+  if (!existsSync(eventsFile)) return null;
+  const events = readFileSync(eventsFile, "utf8")
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const starts = events.filter(
+    (event) =>
+      event.event === "started" &&
+      event.unit_id === "browser_group:measurement:measurement-measurement-timeline-grid",
+  );
+  const start = starts.at(-1);
+  if (!start) return null;
+  const end = events.find(
+    (event) =>
+      event.monotonic_ms >= start.monotonic_ms &&
+      event.unit_id === start.unit_id &&
+      ["completed", "failed", "cancelled"].includes(event.event),
+  );
+  if (!end) return null;
+  return {
+    durationMs: end.monotonic_ms - start.monotonic_ms,
+    endMs: end.monotonic_ms,
+    startMs: start.monotonic_ms,
+  };
+}
+
+function writeRetainedRunRelationship(runDir) {
+  const investigation = retainedRunInvestigation(runDir);
+  if (!investigation) return;
+  process.stdout.write(
+    `[RETAINED-INVESTIGATION] id=${investigation.investigation_id} historical_row_id=${investigation.historical_row_id}\n`,
+  );
+  for (const run of investigation.runs) {
+    const candidateDir = path.join(path.dirname(runDir), run.run_id);
+    const interval = measurementInterval(candidateDir);
+    const intervalFields = interval
+      ? ` interval_start_ms=${interval.startMs} interval_end_ms=${interval.endMs} interval_duration=${formatDuration(interval.durationMs)}`
+      : " interval=unavailable";
+    process.stdout.write(
+      `[RETAINED-RUN] run_id=${run.run_id} role=${run.role} outcome=${run.outcome} ordinary_overlap_count=${run.ordinary_overlap_count}${intervalFields} interpretation=${JSON.stringify(run.interpretation)}\n`,
+    );
+  }
 }
 
 function loadTargetSummary(runDir, target) {
@@ -675,6 +747,107 @@ function writeAccountingDetail(runSummary, targetSummary) {
   }
 }
 
+function measurementAggregate(runDir) {
+  const file = path.join(
+    runDir,
+    "browser-e2e-measurement/frontend-measurement-aggregate.json",
+  );
+  return existsSync(file) ? { file, value: readJSON(file) } : null;
+}
+
+function nearestRank(samples, percentile) {
+  if (samples.length === 0) return null;
+  const sorted = [...samples].sort((left, right) => left - right);
+  return sorted[Math.ceil((percentile / 100) * sorted.length) - 1];
+}
+
+function measurementCompatibilityKey(summary) {
+  return JSON.stringify({
+    analyst_sessions: summary.qualification.analyst_sessions,
+    background_updates_per_second:
+      summary.qualification.background_updates_per_second,
+    criterion_id: summary.criterion_id,
+    fixture_digest: summary.fixture_digest,
+    fixture_id: summary.fixture_id,
+    measured_samples: summary.measured_samples,
+    measurement_policy_id: summary.measurement_policy_id,
+    percentile: summary.percentile,
+    predicate_id: summary.predicate_id,
+    threshold_ms: summary.threshold_ms,
+    warmup_samples: summary.warmup_samples,
+  });
+}
+
+function measurementStages(summary) {
+  const measured = summary.samples.filter((sample) => !sample.warmup);
+  const stageNames = [...new Set(measured.flatMap((sample) =>
+    Object.keys(sample.stages_ms),
+  ))].sort((left, right) => left.localeCompare(right));
+  return stageNames.map((stage) => {
+    const samples = measured
+      .map((sample) => sample.stages_ms[stage])
+      .filter((sample) => Number.isFinite(sample));
+    return {
+      name: stage,
+      p50: nearestRank(samples, 50),
+      p95: nearestRank(samples, 95),
+      samples: samples.length,
+    };
+  });
+}
+
+function compatibleMeasurementRuns(runDir, currentSummary) {
+  const resultsRoot = path.dirname(runDir);
+  if (!existsSync(resultsRoot)) return [];
+  const compatibilityKey = measurementCompatibilityKey(currentSummary);
+  return readdirSync(resultsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== path.basename(runDir))
+    .map((entry) => {
+      const candidateDir = path.join(resultsRoot, entry.name);
+      const aggregate = measurementAggregate(candidateDir);
+      if (!aggregate) return null;
+      const summary = aggregate.value.summaries.find(
+        (entrySummary) =>
+          measurementCompatibilityKey(entrySummary) === compatibilityKey,
+      );
+      if (!summary) return null;
+      return { runID: entry.name, summary };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.runID.localeCompare(left.runID))
+    .slice(0, 5);
+}
+
+function writeMeasurementDetail(runDir) {
+  const aggregate = measurementAggregate(runDir);
+  if (!aggregate) {
+    process.stdout.write(
+      `[MEASUREMENT] missing artifacts=${relToRepo(path.join(runDir, "browser-e2e-measurement/frontend-measurement-aggregate.json"))}\n`,
+    );
+    return;
+  }
+  const runID = path.basename(runDir);
+  for (const summary of aggregate.value.summaries) {
+    process.stdout.write(
+      `[MEASUREMENT] run_id=${runID} predicate_id=${summary.predicate_id} outcome=${summary.outcome} threshold_ms=${summary.threshold_ms} p50_ms=${summary.p50_ms ?? "none"} p95_ms=${summary.p95_ms ?? "none"} samples=${summary.samples.length} fixture_digest=${summary.fixture_digest} policy_id=${summary.measurement_policy_id} overlap=${summary.qualification.scheduler_overlap_count}\n`,
+    );
+    for (const stage of measurementStages(summary)) {
+      process.stdout.write(
+        `[MEASUREMENT-STAGE] run_id=${runID} predicate_id=${summary.predicate_id} stage=${stage.name} samples=${stage.samples} p50_ms=${stage.p50 ?? "none"} p95_ms=${stage.p95 ?? "none"}\n`,
+      );
+    }
+    for (const compatible of compatibleMeasurementRuns(runDir, summary)) {
+      const p95Delta =
+        summary.p95_ms === null || compatible.summary.p95_ms === null
+          ? "none"
+          : summary.p95_ms - compatible.summary.p95_ms;
+      process.stdout.write(
+        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.summary.outcome} current_p95_ms=${summary.p95_ms ?? "none"} compatible_p95_ms=${compatible.summary.p95_ms ?? "none"} p95_delta_ms=${p95Delta}\n`,
+      );
+    }
+  }
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const { runDir, targetFromPath } = resolveRunContext(options);
@@ -692,6 +865,8 @@ function main() {
   }
 
   if (options.detail === "summary") {
+    writeRunIdentity(runDir);
+    writeRetainedRunRelationship(runDir);
     if (runSummary) {
       writeRunSummary(runDir, runSummary);
     } else if (toolSummary) {
@@ -737,6 +912,10 @@ function main() {
         process.stdout.write(`[HOTSPOT] rank=${hotspot.rank} phase=${hotspot.phase} name=${hotspot.name} duration=${formatDuration(hotspot.duration_ms)}\n`);
       }
     }
+    return;
+  }
+  if (options.detail === "measurement") {
+    writeMeasurementDetail(runDir);
     return;
   }
   if (toolSummary) {

@@ -75,8 +75,8 @@ const requiredFields = [
 ];
 
 const p95MeasurementPredicates = new Set([
-  "perf.selection_change.v1",
-  "perf.focus_change.v1",
+  "perf.timeline_summary_selection_down.v1",
+  "perf.timeline_summary_focus_edit.v1",
   "perf.typing_ack.v1",
   "perf.timeline_blank_row_create.v1",
   "perf.view_change.first_useful_viewport.v1",

@@ -45,6 +45,28 @@ describe("Timeline editor draft registry", () => {
     expect(refreshed.values.activitySynopsisText).toBe("authoritative value");
   });
 
+  it("prefers an explicit commit value over a stale registered draft", () => {
+    const registry = createTimelineEditorDraftRegistry();
+    const row = committedRow();
+    registry.setDraft(
+      {
+        field: "activitySynopsisText",
+        rowKey: recordId,
+        surface: "grid",
+      },
+      "stale registered value",
+    );
+
+    const committed = registry.materializeRow(row, {
+      field: "activitySynopsisText",
+      value: "value accepted by the input event",
+    });
+
+    expect(committed.values.activitySynopsisText).toBe(
+      "value accepted by the input event",
+    );
+  });
+
   it("keeps grid and inspector drafts distinct and clears only submitted values", () => {
     const registry = createTimelineEditorDraftRegistry();
     const submitted = committedRow().values;

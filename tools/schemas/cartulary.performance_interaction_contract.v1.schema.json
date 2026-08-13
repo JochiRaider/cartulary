@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_interaction_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "fixture",
+    "measurement_policy_id",
+    "predicates"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.performance_interaction_contract.v1" },
+    "contract_id": { "const": "cartulary.performance.ac043.v1" },
+    "criterion_id": { "const": "AC-043" },
+    "measurement_policy_id": { "const": "cartulary.measurement.interactive_p95.v1" },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "seed",
+        "timeline_rows",
+        "host_rows",
+        "identity_rows",
+        "tag_assignments",
+        "mention_assignments",
+        "link_assignments",
+        "analyst_sessions",
+        "background_sessions",
+        "background_update_interval_ms",
+        "background_updates_per_second",
+        "traffic_trace_id"
+      ],
+      "properties": {
+        "fixture_id": { "const": "cartulary.perf.large_grid.v1" },
+        "seed": { "const": 20260405 },
+        "timeline_rows": { "const": 20000 },
+        "host_rows": { "const": 1000 },
+        "identity_rows": { "const": 1000 },
+        "tag_assignments": { "const": 1000 },
+        "mention_assignments": { "const": 1000 },
+        "link_assignments": { "const": 1000 },
+        "analyst_sessions": { "const": 25 },
+        "background_sessions": { "const": 24 },
+        "background_update_interval_ms": { "const": 5000 },
+        "background_updates_per_second": { "const": 4.8 },
+        "traffic_trace_id": { "const": "cartulary.perf.live_updates_25sessions.v1" }
+      }
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predicate_id",
+          "view_schema_id",
+          "field_key",
+          "initiating_key",
+          "start_mark",
+          "stop_mark",
+          "threshold_ms",
+          "start_state",
+          "stop_state"
+        ],
+        "properties": {
+          "predicate_id": {
+            "enum": [
+              "perf.timeline_summary_selection_down.v1",
+              "perf.timeline_summary_focus_edit.v1",
+              "perf.typing_ack.v1",
+              "perf.timeline_blank_row_create.v1"
+            ]
+          },
+          "view_schema_id": { "const": "cartulary.view.timeline.v2" },
+          "field_key": { "const": "timeline.activity_synopsis_text" },
+          "initiating_key": { "enum": ["ArrowDown", "Enter", "x"] },
+          "start_mark": { "type": "string", "pattern": "^cartulary\\.workbook\\.[a-z0-9_]+$" },
+          "stop_mark": { "type": "string", "pattern": "^cartulary\\.workbook\\.[a-z0-9_]+$" },
+          "threshold_ms": { "enum": [100, 150] },
+          "start_state": { "type": "string", "minLength": 1 },
+          "stop_state": { "type": "string", "minLength": 1 }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "predicate_id": { "const": "perf.timeline_summary_selection_down.v1" },
+              "initiating_key": { "const": "ArrowDown" },
+              "start_mark": { "const": "cartulary.workbook.selection_change_accepted" },
+              "stop_mark": { "const": "cartulary.workbook.selection_change_visible_paint" },
+              "threshold_ms": { "const": 100 }
+            }
+          },
+          {
+            "properties": {
+              "predicate_id": { "const": "perf.timeline_summary_focus_edit.v1" },
+              "initiating_key": { "const": "Enter" },
+              "start_mark": { "const": "cartulary.workbook.focus_edit_accepted" },
+              "stop_mark": { "const": "cartulary.workbook.focus_edit_visible_paint" },
+              "threshold_ms": { "const": 100 }
+            }
+          },
+          {
+            "properties": {
+              "predicate_id": { "const": "perf.typing_ack.v1" },
+              "initiating_key": { "const": "x" },
+              "start_mark": { "const": "cartulary.workbook.typing_ack_accepted" },
+              "stop_mark": { "const": "cartulary.workbook.typing_ack_visible_paint" },
+              "threshold_ms": { "const": 100 }
+            }
+          },
+          {
+            "properties": {
+              "predicate_id": { "const": "perf.timeline_blank_row_create.v1" },
+              "initiating_key": { "const": "Enter" },
+              "start_mark": { "const": "cartulary.workbook.blank_row_commit_accepted" },
+              "stop_mark": { "const": "cartulary.workbook.blank_row_create_visible_paint" },
+              "threshold_ms": { "const": 150 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

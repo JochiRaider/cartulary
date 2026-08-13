@@ -374,6 +374,7 @@ export type GridHandle = {
   readonly focusAnchor: (anchor: GridCellAnchor) => boolean;
   readonly focusRoot: () => boolean;
   readonly getScrollElement: () => HTMLDivElement | null;
+  readonly isAnchorRendered: (anchor: GridCellAnchor) => boolean;
   readonly moveFocus: (
     current: GridCellAnchor,
     intent: GridNavigationIntent,

@@ -203,7 +203,10 @@ function assertEvidenceContract(index, entry) {
     const fixtureCounts = new Map();
     for (const row of catalog.rows) fixtureCounts.set(row.fixture_capability, (fixtureCounts.get(row.fixture_capability) ?? 0) + 1);
     assert.equal([...fixtureCounts.values()].reduce((sum, count) => sum + count, 0), catalog.rows.length);
-    assert.equal(fixtureCounts.get("browser_stack"), 149);
+    assert.equal(
+      fixtureCounts.get("browser_stack"),
+      catalog.rows.filter((row) => row.runner === "playwright").length,
+    );
   } else {
     assert.ok(catalog.registry.owners.filter((owner) => owner.status === "active").every((owner) => catalog.rows.some((row) => row.owner_id === owner.owner_id)));
   }
@@ -396,6 +399,7 @@ async function assertSchedulerContract(index) {
         ? { ...unit, fixture_lease: "managed_process" }
         : unit,
     ));
+    const liveEvents = [];
     const fixtureFailure = await runWorkGraph({
       graph: fixtureGraph,
       capacities: new Map([["cpu", 2], ["process", 2]]),
@@ -406,7 +410,13 @@ async function assertSchedulerContract(index) {
         close: async () => {},
       },
       executeUnit: async () => ({ status: "passed", exit_code: 0 }),
+      onEvent: (event) => liveEvents.push(event),
     });
+    assert.deepEqual(
+      liveEvents,
+      fixtureFailure.events,
+      "scheduler consumers must receive the complete ordered event journal before terminal projection",
+    );
     assert.deepEqual(
       Object.fromEntries(Object.entries(fixtureFailure.unit_results).map(([unitID, terminal]) => [unitID, terminal.status])),
       { a: "failed", b: "passed", c: "skipped" },

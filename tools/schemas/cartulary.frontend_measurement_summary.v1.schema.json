@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.frontend_measurement_summary.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "criterion_id",
+    "predicate_id",
+    "fixture_id",
+    "fixture_digest",
+    "measurement_policy_id",
+    "threshold_ms",
+    "warmup_samples",
+    "measured_samples",
+    "percentile",
+    "p50_ms",
+    "p95_ms",
+    "outcome",
+    "qualification",
+    "samples"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.frontend_measurement_summary.v1" },
+    "criterion_id": { "const": "AC-043" },
+    "predicate_id": { "type": "string", "pattern": "^perf\\.[a-z0-9_.]+\\.v[1-9][0-9]*$" },
+    "fixture_id": { "type": "string", "pattern": "^cartulary\\.perf\\.[a-z0-9_]+\\.v[1-9][0-9]*$" },
+    "fixture_digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "measurement_policy_id": { "const": "cartulary.measurement.interactive_p95.v1" },
+    "threshold_ms": { "type": "number", "minimum": 0 },
+    "warmup_samples": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "measured_samples": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "percentile": { "const": 95 },
+    "p50_ms": { "type": ["number", "null"], "minimum": 0 },
+    "p95_ms": { "type": ["number", "null"], "minimum": 0 },
+    "outcome": { "enum": ["passed", "threshold_failed", "incomplete", "environment_not_qualified"] },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quiet_profile_id", "scheduler_overlap_count", "analyst_sessions", "background_updates_per_second"],
+      "properties": {
+        "quiet_profile_id": { "const": "browser_measurement_quiet" },
+        "scheduler_overlap_count": { "type": ["integer", "null"], "minimum": 0 },
+        "analyst_sessions": { "const": 25 },
+        "background_updates_per_second": { "const": 4.8 }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "maxItems": 101,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sample_index", "warmup", "total_ms", "stages_ms"],
+        "properties": {
+          "sample_index": { "type": "integer", "minimum": 0 },
+          "warmup": { "type": "boolean" },
+          "total_ms": { "type": "number", "minimum": 0 },
+          "stages_ms": {
+            "type": "object",
+            "additionalProperties": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "failure_reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": { "enum": ["passed", "threshold_failed"] }
+        },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "warmup_samples": { "const": 1 },
+          "measured_samples": { "const": 100 },
+          "samples": { "minItems": 101, "maxItems": 101 }
+        }
+      }
+    }
+  ]
+}

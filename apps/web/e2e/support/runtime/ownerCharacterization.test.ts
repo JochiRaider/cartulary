@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  ordinaryMeasurementSamplePolicy,
+  interactiveMeasurementSamplePolicy,
   parseServerTiming,
   percentile95,
 } from "../../measurement/timingSupport";
@@ -182,36 +182,48 @@ describe("verifyOwnedHarnessRuntime", () => {
   });
 });
 
-describe("ordinary measurement helpers", () => {
-  it("computes p95 without letting one isolated outlier define a 25-sample run", () => {
+describe("qualified measurement helpers", () => {
+  it("uses the nearest-rank boundary for exactly 100 measured samples", () => {
     const samples = [
       ...Array.from(
-        { length: ordinaryMeasurementSamplePolicy.measuredSamples - 1 },
+        { length: interactiveMeasurementSamplePolicy.measuredSamples - 5 },
         () => 100,
       ),
-      1_000,
+      ...Array.from({ length: 5 }, () => 1_000),
     ];
 
     expect(percentile95(samples, { sampleLabel: "single-outlier" })).toBe(100);
   });
 
-  it("keeps the p95 gate strict when two samples exceed the envelope", () => {
+  it("moves p95 to the high sample when six samples exceed the envelope", () => {
     const samples = [
       ...Array.from(
-        { length: ordinaryMeasurementSamplePolicy.measuredSamples - 2 },
+        { length: interactiveMeasurementSamplePolicy.measuredSamples - 6 },
         () => 100,
       ),
-      1_000,
-      1_001,
+      ...Array.from({ length: 6 }, () => 1_000),
     ];
 
-    expect(percentile95(samples, { sampleLabel: "two-outliers" })).toBe(1_000);
+    expect(percentile95(samples, { sampleLabel: "six-outliers" })).toBe(1_000);
   });
 
-  it("rejects p95 calculations below the ordinary measurement sample floor", () => {
+  it("rejects p95 calculations below the typed measurement sample floor", () => {
     expect(() =>
       percentile95([100, 101, 102], { sampleLabel: "undersampled" }),
-    ).toThrow("expected at least 25 samples, got 3");
+    ).toThrow("expected at least 100 samples, got 3");
+  });
+
+  it("rejects non-finite and negative samples", () => {
+    expect(() =>
+      percentile95([...Array.from({ length: 99 }, () => 1), Number.NaN], {
+        sampleLabel: "nan",
+      }),
+    ).toThrow("finite non-negative");
+    expect(() =>
+      percentile95([...Array.from({ length: 99 }, () => 1), -1], {
+        sampleLabel: "negative",
+      }),
+    ).toThrow("finite non-negative");
   });
 
   it("parses Server-Timing diagnostics while preserving raw metric entries", () => {

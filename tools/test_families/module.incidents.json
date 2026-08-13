@@ -544,6 +544,29 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.incidents.store.concurrent_mutation_admission",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentMutationAdmissionUsesSharedLifecycleGuard_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_group",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.incidents.store.incident_create_idempotency_scopes_by_actor_plus_b2c23d5e25",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.store",

@@ -39,6 +39,7 @@ const browserGroupKeys = new Set([
   "browser_session_group",
   "browser_session_isolation_reason",
   "runtime_profile_id",
+  "resource_profile_id",
   "service_requirement",
   "specs",
 ]);
@@ -294,6 +295,16 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       `browser E2E batch group ${group.name} references unknown runtime profile ${runtimeProfileID}`,
     );
   }
+  const resourceProfileID = normalizeOptionalString(group.resource_profile_id);
+  if (!resourceProfileID) {
+    throw new Error(`browser E2E batch group ${group.name} must declare resource_profile_id`);
+  }
+  if (group.kind === "measurement" && resourceProfileID !== "browser_measurement_quiet") {
+    throw new Error(`browser E2E batch measurement group ${group.name} must use browser_measurement_quiet`);
+  }
+  if (group.kind !== "measurement" && resourceProfileID === "browser_measurement_quiet") {
+    throw new Error(`browser E2E batch non-measurement group ${group.name} cannot use browser_measurement_quiet`);
+  }
   const serviceRequirement = normalizeOptionalString(group.service_requirement);
   if (!new Set(["none", "test-services"]).has(serviceRequirement)) {
     throw new Error(
@@ -329,6 +340,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     browserSessionGroup,
     browserSessionIsolationReason,
     runtimeProfileID,
+    resourceProfileID,
     serviceRequirement,
   };
 }

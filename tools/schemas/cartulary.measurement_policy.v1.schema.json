@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.measurement_policy.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "percentile",
+    "estimator",
+    "finite_non_negative_samples",
+    "product_retries"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.measurement_policy.v1" },
+    "policy_id": { "const": "cartulary.measurement.interactive_p95.v1" },
+    "warmup_passes": { "const": 1 },
+    "measured_samples": { "const": 100 },
+    "percentile": { "const": 95 },
+    "estimator": { "const": "nearest_rank" },
+    "finite_non_negative_samples": { "const": true },
+    "product_retries": { "const": 0 }
+  }
+}

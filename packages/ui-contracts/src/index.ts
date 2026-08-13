@@ -70,7 +70,6 @@ export {
   cartularyDesignTokenVars,
   workbookGridRowHeightPx,
 } from "./designTokens";
-
 export {
   assessmentCreateControlTestId,
   assessmentCreatePanelTestId,
@@ -103,7 +102,6 @@ export {
   mentionResolveTargetSelectTestId,
   mentionRestoreUnresolvedButtonTestId,
 } from "./entityEvidenceSelectors";
-
 export {
   gridActionsHeaderTestId,
   gridDataCellsSelector,
@@ -125,7 +123,6 @@ export {
   gridScrollportSelector,
   gridSortHeaderTestId,
 } from "./gridSelectors";
-
 export {
   networkAnalysisColumnActionTestId,
   networkAnalysisDiagnosticCellTestId,
@@ -138,6 +135,12 @@ export {
   networkAnalysisTestId,
   networkAnalysisVertexTestId,
 } from "./networkFlowSelectors";
+export {
+  type CartularyAc043Predicate,
+  type CartularyAc043PredicateId,
+  cartularyAc043PerformanceContract,
+  cartularyInteractiveP95MeasurementPolicy,
+} from "./performanceContracts";
 
 export {
   savedViewActionMenuTestId,

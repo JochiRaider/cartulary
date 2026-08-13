@@ -272,8 +272,8 @@ export function useTimelineMutationCommands({
           : editorDraftRegistry.materializeRow(rowSnapshot, {
               field: focusField,
               value:
-                editorDraftRegistry.draftValueForFocusKey(focusKey) ??
-                currentValue,
+                currentValue ??
+                editorDraftRegistry.draftValueForFocusKey(focusKey),
             });
       if (!snapshot) {
         onSettled?.({

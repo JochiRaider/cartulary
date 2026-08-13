@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.measurement_policy.v1",
+  "policy_id": "cartulary.measurement.interactive_p95.v1",
+  "warmup_passes": 1,
+  "measured_samples": 100,
+  "percentile": 95,
+  "estimator": "nearest_rank",
+  "finite_non_negative_samples": true,
+  "product_retries": 0
+}

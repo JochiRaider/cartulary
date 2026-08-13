@@ -12,6 +12,12 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import { buildFrontendVisualReconciliation } from "./frontend-visual-reconciliation.mjs";
+import {
+  ac043PredicateIDsForRows,
+  collectFrontendMeasurementSummaries,
+  measurementSchedulerOverlapCount as measurementSchedulerOverlapCountFromEvents,
+} from "./frontend-measurement-evidence.mjs";
+import { loadTestCatalog } from "../test-catalog/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -70,6 +76,21 @@ function relativeToRun(base, file) {
   return relative;
 }
 
+function measurementSchedulerOverlapCount(base, groups) {
+  const eventsFile = path.join(base, "unit-events.ndjson");
+  if (!existsSync(eventsFile)) {
+    throw new Error("measurement qualification requires unit-events.ndjson");
+  }
+  const events = readFileSync(eventsFile, "utf8")
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  return measurementSchedulerOverlapCountFromEvents(
+    events,
+    groups.map((group) => group.result),
+  );
+}
+
 function writeTargetResult(base, options, groups) {
   const targetDirectory = path.join(base, options.target);
   const output = path.join(targetDirectory, "browser-target-result.json");
@@ -79,6 +100,56 @@ function writeTargetResult(base, options, groups) {
   secureMkdir(targetDirectory);
   const artifacts = [];
   let visualReconciliation = null;
+  let measurementAggregate = null;
+  if (options.target === "browser-e2e-measurement") {
+    const catalog = loadTestCatalog(root);
+    const selectedRows = groups.flatMap((group) =>
+      group.result.selected_rows.map((rowID) => {
+        const row = catalog.rowByID.get(rowID);
+        if (!row) throw new Error(`measurement target references unknown row ${rowID}`);
+        return row;
+      }),
+    );
+    const expectedPredicateIDs = ac043PredicateIDsForRows(root, selectedRows);
+    if (expectedPredicateIDs.length > 0) {
+      const reportPaths = groups.map((group) =>
+        path.join(path.dirname(group.file), "playwright-report.json"),
+      );
+      const schedulerOverlapCount = measurementSchedulerOverlapCount(base, groups);
+      if (schedulerOverlapCount !== 0) {
+        throw new Error(`measurement quiet interval overlapped ${schedulerOverlapCount} ordinary units`);
+      }
+      measurementAggregate = {
+        schema_id: "cartulary.frontend_measurement_aggregate.v1",
+        target_id: options.target,
+        status: "qualified",
+        scheduler_overlap_count: schedulerOverlapCount,
+        source_report_refs: reportPaths
+          .map((reportPath) => relativeToRun(base, reportPath))
+          .sort(),
+        summaries: collectFrontendMeasurementSummaries({
+          expectedPredicateIDs,
+          reportPaths,
+          runRoot: base,
+        }),
+      };
+      validateSchemaSync(measurementAggregate.schema_id, measurementAggregate);
+      const aggregateOutput = path.join(
+        targetDirectory,
+        "frontend-measurement-aggregate.json",
+      );
+      const aggregateBytes = Buffer.from(
+        `${JSON.stringify(measurementAggregate, null, 2)}\n`,
+        "utf8",
+      );
+      secureWriteFile(aggregateOutput, aggregateBytes);
+      artifacts.push({
+        kind: "frontend_measurement_aggregate_v1",
+        ref: relativeToRun(base, aggregateOutput),
+        sha256: sha256(aggregateBytes),
+      });
+    }
+  }
   if (options.target === "browser-e2e-visual") {
     const reconciliationOutput = path.join(
       targetDirectory,
@@ -129,7 +200,8 @@ function writeTargetResult(base, options, groups) {
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
-      (visualReconciliation === null || visualReconciliation.status === "pass")
+      (visualReconciliation === null || visualReconciliation.status === "pass") &&
+      (measurementAggregate === null || measurementAggregate.status === "qualified")
         ? "pass"
         : "fail",
     group_results: groups

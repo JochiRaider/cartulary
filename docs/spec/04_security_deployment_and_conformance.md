@@ -953,6 +953,72 @@ For timed or fixture-sensitive implementation criteria in this section:
 - `stable viewport` means the visible row window and result ordering match the final deterministic order for the active sort, filter, and grouping state and no further reorder occurs without new user or server input.
 - `metadata shell` means row fields and evidence metadata needed to inspect the selected record, including counts, filenames or media-type labels, attachment state, and preview handles, but excluding binary preview bytes or full blob download.
 
+**REQ-04-157**
+Timed and fixture-sensitive implementation conformance MUST use the following
+closed performance fixtures. `cartulary.perf.large_grid.v1` contains exactly
+20,000 Timeline rows, 1,000 Host rows, 1,000 Identity rows, and 1,000 each of
+deterministic tag, mention, and link associations distributed across every
+twentieth Timeline row. It uses seed `20260405`, the default Timeline sort,
+filter, and grouping state, ordinary security controls, and 25 authenticated
+analyst sessions on one incident with presence enabled. One foreground analyst
+performs the measured interaction; the other 24 sessions each commit one update
+to a non-target Timeline row every five seconds, evenly staggered, for a steady
+aggregate rate of 4.8 committed updates per second. Target rows MUST be excluded
+from the background-update pool.
+
+`cartulary.perf.evidence_heavy.v1` contains 5,000 Timeline rows, 10,000 Evidence
+records, tens of gigabytes of binary evidence in object storage, and at least
+one Timeline row linked to 100 Evidence records. Throughput tests MAY stub blob
+bytes, but Evidence metadata, counts, attachment state, and preview handles MUST
+be real. These fixtures define product-supported shape and load independently
+of any Core 05 publication environment.
+Profiles: base
+Verified by: AC-043, AC-044, AC-045, AC-047
+
+**REQ-04-158**
+The current implementation profile owns the following closed
+`measurement_predicate_id` registry. Each predicate starts when the product
+event handler accepts the named user action, not when a test driver dispatches
+it. A visible stop state is satisfied only when it holds on two consecutive
+animation frames, the target intersects the clipped grid viewport, and the
+target remains rendered, visible, and anchored on the second frame.
+
+| `measurement_predicate_id` | Bound criterion or criteria | Start state and initiating action | Stop predicate | Fixture and sampling |
+| --- | --- | --- | --- | --- |
+| `perf.timeline_paste_20x5.v1` | `AC-003` | Timeline surface loaded with default sort, filter, and grouping state; target range visible; the paste commit is accepted. | 20 committed rows are visibly painted with mapped values in five writable columns and stable `record_id` plus integer `row_version` binding. | `cartulary.perf.large_grid.v1`; single observation |
+| `perf.presence_delta.rendered.v1` | `AC-008`, `AC-132` | Analyst A commits a workbook-surface, focused-row, or same-cell edit-state presence change. | Analyst B visibly renders the corresponding indicator from matching `sheet_ref`, `record_id`, and `field_key`. | `cartulary.perf.large_grid.v1`; single observation |
+| `perf.rollback_or_row_restore.rendered.v1` | `AC-011` | A reviewer confirms rollback or whole-row restore. | The visible row reflects the new attributed revision and history shows the new entry. | `cartulary.perf.large_grid.v1`; single observation |
+| `perf.job_progress.visible_with_cancel.v1` | `AC-016`, `AC-027`, `AC-030`, `AC-033`, `AC-046` | A user submits an owner-defined background action. | Visible progress and cancel affordances render while another grid row remains selectable and accepts text input without modal capture. | The criterion-bound Core 04 fixture; single observation |
+| `perf.timeline_summary_selection_down.v1` | `AC-043` | `cartulary.view.timeline.v2` is loaded in its default state; an existing visible `timeline.activity_synopsis_text` cell is selected; keyboard targeting is on that cell; ArrowDown is accepted. | The next deterministic Timeline row is visibly selected and keyboard targeting follows the same field on that row. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.timeline_summary_focus_edit.v1` | `AC-043` | The same exact Timeline summary selection state holds; Enter is accepted. | The editor for the same `record_id` and `field_key` is visibly active and focused with a collapsed caret at the rendered text end. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.typing_ack.v1` | `AC-043` | An existing committed Timeline row is in active edit mode for `timeline.activity_synopsis_text`; the same row remains selected; the editor is focused; the caret is collapsed at the rendered text end; there is no selection and IME composition is inactive; the literal ASCII character `x` is accepted. | The same editor visibly renders the prior text plus one trailing `x` and remains anchored to the same `record_id` and field. Saved/sync state, badges, DOM mutation, network completion, collaboration messages, or `row_version` changes do not satisfy this predicate. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.timeline_blank_row_create.v1` | `AC-043` | Timeline is loaded in its default state; a visible blank row contains one qualifying non-empty summary value; Enter commit is accepted. | The committed row is visibly painted with stable `record_id`, integer `row_version`, and the entered value in the target field. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.view_change.first_useful_viewport.v1` | `AC-044` | The active surface is loaded in its default state; a sort, filter, or grouping change is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.view_change.stable_viewport.v1` | `AC-044` | The active surface is loaded in its default state; a sort, filter, or grouping change is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; p95 |
+| `perf.evidence_inspector.metadata_shell.v1` | `AC-045` | A user opens the inspector on a Timeline row linked to 100 Evidence records. | The selected-row summary, total count, and first Evidence-list window are visible with label, attachment state, and preview-handle availability for every rendered item. | `cartulary.perf.evidence_heavy.v1`; p95 |
+| `perf.anchor_stability_under_live_updates.v1` | `AC-047` | The deterministic live-update trace begins while an analyst holds an edit anchored to one `record_id`. | The edit remains on that record throughout scrolling, sorting, filtering, grouping, and live updates, and viewport stabilization avoids a full-sheet rerender. | `cartulary.perf.large_grid.v1`; seeded pass/fail scenario |
+
+One `measurement_predicate_id` MUST NOT denote interchangeable editor,
+field, or harness realizations. A changed anchor, editor family, action, or stop
+predicate requires a new ID. The retired generic IDs
+`perf.selection_change.v1` and `perf.focus_change.v1` MUST NOT satisfy current
+implementation conformance.
+Profiles: base
+Verified by: AC-003, AC-008, AC-011, AC-016, AC-027, AC-030, AC-033, AC-043, AC-044, AC-045, AC-046, AC-047, AC-132
+
+**REQ-04-159**
+Every p95 implementation predicate uses one discarded warm-up operation and
+exactly 100 measured operations. Samples MUST be finite and non-negative; p95
+is the nearest-rank sample at zero-based index `ceil(0.95 * N) - 1` after
+ascending sort. Product or harness retries, percentile slack, estimator
+substitution, and threshold relaxation are non-conformant. Test-driver dispatch
+latency MAY be retained as a diagnostic stage but MUST NOT enter the product
+threshold interval. The exact stages, when applicable, are driver dispatch,
+accepted-action-to-request, request round trip, response decode, client apply,
+apply-to-visible-paint, and total.
+Profiles: base
+Verified by: AC-043, AC-044, AC-045
+
 ### 9.0 Profile claim manifests
 
 The manifests below define implementation claim boundaries without restating requirement prose. Each manifest selects implementation requirements through the `Profiles:` trailers carried by Core 00 through Core 04 and pairs that selector with the acceptance criteria that complete the claim. Appendix F expands every selector into explicit navigation tables.

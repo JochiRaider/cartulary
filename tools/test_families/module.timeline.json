@@ -313,6 +313,58 @@
       "minimum_tier": "full"
     },
     {
+      "row_id": "module.timeline.frontend.ac043_fixture_supported_envelope_shape_1cc29c4d92",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_fixture_shape"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/performance/ac043Fixture.test.ts",
+        "titles": [
+          "defines the deterministic supported-envelope shape and cache invalidation key"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.timeline.frontend.ac043_paint_qualification_rejects_invalid_state_0a20837e7b",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timingSupport.test.ts",
+        "titles": [
+          "rejects wrong, hidden, offscreen, unfocused, unstable, and pre-acceptance states"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "none",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -815,35 +867,92 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
+      "row_id": "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.timeline.verification.behavior_contract"
-      ],
+      "collaborator_ids": ["harness.browser", "web.application"],
+      "verification_ids": ["module.timeline.verification.ac043_typing_ack"],
       "runner": "playwright",
       "selector": {
         "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
         "project_id": "chromium",
         "stage": "measurement",
-        "scenario_ids": [
-          "scenario_c9749616e90f"
-        ],
-        "titles": [
-          "measures user-visible typing_ack and blank-row-create completion within the Timeline envelope"
-        ]
+        "scenario_ids": ["scenario_16cecef06dc8"],
+        "titles": ["measures paint-qualified committed Timeline summary typing acknowledgment within AC-043"]
       },
       "evidence_class": "measurement",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
-      "claim_posture": "informative",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full"
+      "minimum_tier": "release"
+    },
+    {
+      "row_id": "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": ["harness.browser", "web.application"],
+      "verification_ids": ["module.timeline.verification.ac043_blank_row_create"],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": ["scenario_f544ec2ea8ff"],
+        "titles": ["measures paint-qualified Timeline blank-row creation within AC-043"]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "release"
+    },
+    {
+      "row_id": "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": ["harness.browser", "web.application"],
+      "verification_ids": ["module.timeline.verification.ac043_selection_down"],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": ["scenario_f091d7d67ca0"],
+        "titles": ["measures paint-qualified Timeline summary ArrowDown selection within AC-043"]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "release"
+    },
+    {
+      "row_id": "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": ["harness.browser", "web.application"],
+      "verification_ids": ["module.timeline.verification.ac043_focus_edit"],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-grid.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": ["scenario_f778decccc50"],
+        "titles": ["measures paint-qualified Timeline summary Enter focus within AC-043"]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "release"
     },
     {
       "row_id": "module.timeline.store.a_committed_timeline_create_initializes_capture_e04b19cb10",

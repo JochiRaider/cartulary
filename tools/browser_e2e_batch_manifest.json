@@ -46,6 +46,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -63,6 +64,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -84,6 +86,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -102,6 +105,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -119,6 +123,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -140,6 +145,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -157,6 +163,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -178,6 +185,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -195,6 +203,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -217,6 +226,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -234,6 +244,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -255,6 +266,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -272,6 +284,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -289,6 +302,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -306,6 +320,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -323,6 +338,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -340,6 +356,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -357,6 +374,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -383,6 +401,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -400,6 +419,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -419,6 +439,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -437,6 +458,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -454,6 +476,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -476,6 +499,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
@@ -495,6 +519,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -521,6 +546,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]
@@ -553,6 +579,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -570,6 +597,7 @@
           "specs": [
             "apps/web/e2e/autoresolve.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -591,6 +619,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -609,6 +638,7 @@
           "specs": [
             "apps/web/e2e/enterprise-auth.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -626,6 +656,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -647,6 +678,7 @@
           "specs": [
             "apps/web/e2e/evidence.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -664,6 +696,7 @@
           "specs": [
             "apps/web/e2e/grid-provenance.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -685,6 +718,7 @@
           "specs": [
             "apps/web/e2e/history.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -702,6 +736,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -724,6 +759,7 @@
           "specs": [
             "apps/web/e2e/incident-administration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -741,6 +777,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -762,6 +799,7 @@
           "specs": [
             "apps/web/e2e/keyboard.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -779,6 +817,7 @@
           "specs": [
             "apps/web/e2e/mentions.lifecycle.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -796,6 +835,7 @@
           "specs": [
             "apps/web/e2e/mentions.resolve.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -813,6 +853,7 @@
           "specs": [
             "apps/web/e2e/merge.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -830,6 +871,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -847,6 +889,7 @@
           "specs": [
             "apps/web/e2e/reference-pack.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -864,6 +907,7 @@
           "specs": [
             "apps/web/e2e/restore.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -890,6 +934,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -907,6 +952,7 @@
           "specs": [
             "apps/web/e2e/timeline-query.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -926,6 +972,7 @@
           "specs": [
             "apps/web/e2e/timeline-workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -944,6 +991,7 @@
           "specs": [
             "apps/web/e2e/workbook.assessments.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -961,6 +1009,7 @@
           "specs": [
             "apps/web/e2e/workbook.generic.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -983,6 +1032,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-functional-default"
         },
@@ -1002,6 +1052,7 @@
           "specs": [
             "apps/web/e2e/import-assistant.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1028,6 +1079,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]
@@ -1055,6 +1107,7 @@
             "apps/web/e2e/auth.support.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1075,6 +1128,7 @@
             "apps/web/e2e/incident.support.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1093,6 +1147,7 @@
             "apps/web/e2e/keyboard.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1116,6 +1171,7 @@
             "apps/web/e2e/timeline.support.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1134,6 +1190,7 @@
             "apps/web/e2e/workbook.support.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]
@@ -1161,6 +1218,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1178,6 +1236,7 @@
           "specs": [
             "apps/web/e2e/clock.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-clock"
         },
@@ -1196,6 +1255,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-collaboration"
         },
@@ -1214,6 +1274,7 @@
           "specs": [
             "apps/web/e2e/coordination-public-route.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-coordination-public-route"
         },
@@ -1232,6 +1293,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-evidence-integration"
         },
@@ -1251,6 +1313,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-inspector-actions"
         },
@@ -1269,6 +1332,7 @@
           "specs": [
             "apps/web/e2e/mention-lifecycle.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
@@ -1287,6 +1351,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-sentinel"
         },
@@ -1305,6 +1370,7 @@
           "specs": [
             "apps/web/e2e/session-recovery.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-session-recovery"
         },
@@ -1323,6 +1389,7 @@
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-timeline-public-route"
         },
@@ -1341,6 +1408,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-workbook"
         },
@@ -1360,6 +1428,7 @@
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1378,6 +1447,7 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         }
@@ -1391,39 +1461,113 @@
       ],
       "groups": [
         {
-          "name": "measurement-measurement-timeline-grid",
+          "name": "measurement-measurement-timeline-grid-b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "selected_row_ids": [
-            "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5"
+            "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6"
           ],
           "specs": [
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
-          "browser_session_group": "browser-e2e-measurement-default"
+          "browser_session_group": "browser-e2e-measurement-default-b615aabfe6"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid",
+          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-measurement-default-afddd2ce13"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-measurement-default-961a4ec1d3"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-measurement-default-d03cf54e95"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
+            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services"
         }
       ]
@@ -1463,6 +1607,7 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1481,6 +1626,7 @@
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]
@@ -1531,6 +1677,7 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1549,6 +1696,7 @@
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]
@@ -1562,39 +1710,113 @@
       ],
       "groups": [
         {
-          "name": "measurement-measurement-timeline-grid",
+          "name": "measurement-measurement-timeline-grid-b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "selected_row_ids": [
-            "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5"
+            "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6"
           ],
           "specs": [
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
-          "browser_session_group": "browser-e2e-resettable-default"
+          "browser_session_group": "browser-e2e-resettable-default-b615aabfe6"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid",
+          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-resettable-default-afddd2ce13"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-resettable-default-961a4ec1d3"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-resettable-default-d03cf54e95"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
+            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services"
         },
         {
@@ -1634,6 +1856,7 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-resettable-default"
         }
@@ -1664,6 +1887,7 @@
           "specs": [
             "apps/web/e2e/auth-and-incident-directory.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1681,6 +1905,7 @@
           "specs": [
             "apps/web/e2e/clock.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-clock"
         },
@@ -1699,6 +1924,7 @@
           "specs": [
             "apps/web/e2e/collaboration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-collaboration"
         },
@@ -1717,6 +1943,7 @@
           "specs": [
             "apps/web/e2e/coordination-public-route.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-coordination-public-route"
         },
@@ -1735,6 +1962,7 @@
           "specs": [
             "apps/web/e2e/evidence-integration.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-evidence-integration"
         },
@@ -1754,6 +1982,7 @@
           "specs": [
             "apps/web/e2e/inspector-actions.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-inspector-actions"
         },
@@ -1772,6 +2001,7 @@
           "specs": [
             "apps/web/e2e/mention-lifecycle.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-mention-lifecycle"
         },
@@ -1790,6 +2020,7 @@
           "specs": [
             "apps/web/e2e/sentinel.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-sentinel"
         },
@@ -1808,6 +2039,7 @@
           "specs": [
             "apps/web/e2e/session-recovery.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-session-recovery"
         },
@@ -1826,6 +2058,7 @@
           "specs": [
             "apps/web/e2e/timeline-public-route.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-timeline-public-route"
         },
@@ -1844,6 +2077,7 @@
           "specs": [
             "apps/web/e2e/workbook.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-default-before-workbook"
         },
@@ -1863,6 +2097,7 @@
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -1881,44 +2116,122 @@
           "specs": [
             "apps/web/e2e/network-flow.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "reset_before": "stateful-network-flow-claimed-before-network-flow"
         },
         {
-          "name": "measurement-measurement-timeline-grid",
+          "name": "measurement-measurement-timeline-grid-b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
-          "reset_before": "stateful-to-measurement",
+          "reset_before": "stateful-to-measurement-b615aabfe6",
           "selected_row_ids": [
-            "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5"
+            "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6"
           ],
           "specs": [
             "apps/web/e2e/measurement/timeline-grid.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services",
-          "browser_session_group": "browser-e2e-default"
+          "browser_session_group": "browser-e2e-default-b615aabfe6"
         },
         {
-          "name": "measurement-network-flow-claimed-measurement-network-flow-grid",
+          "name": "measurement-measurement-timeline-grid-afddd2ce13",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "reset_before": "stateful-to-measurement-afddd2ce13",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-default-afddd2ce13"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-961a4ec1d3",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "reset_before": "stateful-to-measurement-961a4ec1d3",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-default-961a4ec1d3"
+        },
+        {
+          "name": "measurement-measurement-timeline-grid-d03cf54e95",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "reset_before": "stateful-to-measurement-d03cf54e95",
+          "selected_row_ids": [
+            "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-grid.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "browser_session_group": "browser-e2e-default-d03cf54e95"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-297b6a7322",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
           "coverage": "authoritative",
           "execution_dependency": "browser_measurement",
           "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-measurement-network-flow-claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-297b6a7322",
           "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
           "selected_row_ids": [
-            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
+            "module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/network-flow-grid.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-network-flow-grid-f68f4c7a57",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-f68f4c7a57",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
             "module.networkflow.measurement.network_flow_selector_covers_the_actual_accepted_f68f4c7a57"
           ],
           "specs": [
             "apps/web/e2e/measurement/network-flow-grid.spec.ts"
           ],
+          "resource_profile_id": "browser_measurement_quiet",
           "service_requirement": "test-services"
         },
         {
@@ -1947,6 +2260,7 @@
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-default"
         },
@@ -1967,6 +2281,7 @@
           "specs": [
             "apps/web/e2e/workbook.a11y.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         },
         {
@@ -2006,6 +2321,7 @@
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
           "runtime_profile_id": "default",
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services",
           "browser_session_group": "browser-e2e-default"
         },
@@ -2026,6 +2342,7 @@
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
           ],
+          "resource_profile_id": "browser_isolated",
           "service_requirement": "test-services"
         }
       ]

@@ -125,6 +125,7 @@ function isCollectionDraftKey(
  */
 export function useTimelineRowMutationCoordinator({
   advanceViewportContinuity,
+  clearViewportContinuity,
   discardBlockedEditRef,
   editorDraftRegistry,
   editorPort,
@@ -147,6 +148,7 @@ export function useTimelineRowMutationCoordinator({
     token?: number,
     options?: { readonly target?: TimelineViewportContinuityTarget | null },
   ) => void;
+  readonly clearViewportContinuity: (token: number) => void;
   readonly discardBlockedEditRef: TimelineMutableRef<
     (unitId: string) => boolean
   >;
@@ -275,9 +277,7 @@ export function useTimelineRowMutationCoordinator({
       validateTimelineViewSchemaId(mutation.viewSchemaId, "mutation response");
       const responseRow = mutation.row;
       recordWorkbookTiming("apply_row_mutation_start", {
-        rowKey,
-        recordId: responseRow.record_id,
-        rowVersion: responseRow.row_version,
+        kind: "row_mutation",
       });
       const accepted = acceptCommittedTimelineRow(rowFromApi(responseRow));
       const committed = accepted.row;
@@ -356,24 +356,42 @@ export function useTimelineRowMutationCoordinator({
       ) {
         setSelectedRowId(committed.recordId);
       }
-      const target =
-        options.continueOnFreshDraft && draftSummaryKey !== null
-          ? ({ kind: "input", focusKey: draftSummaryKey } as const)
-          : options.promoteToCommittedRowInspect && committed.recordId !== null
-            ? ({ kind: "row-inspect", recordId: committed.recordId } as const)
-            : null;
-      advanceViewportContinuity(options.viewportContinuityToken, { target });
-      if (target?.kind === "input") editorPort.focusInput(target.focusKey);
-      recordWorkbookTiming("apply_row_mutation_end", {
-        rowKey,
-        recordId: committed.recordId,
-        rowVersion: committed.rowVersion,
-      });
+      const createdFromDraft = previousRow?.recordId === null;
+      if (
+        createdFromDraft &&
+        options.continueOnFreshDraft &&
+        draftSummaryKey !== null &&
+        committed.recordId !== null
+      ) {
+        if (options.viewportContinuityToken !== undefined) {
+          clearViewportContinuity(options.viewportContinuityToken);
+        }
+        editorPort.reveal({
+          fieldKey: "timeline.activity_synopsis_text",
+          recordId: committed.recordId,
+        });
+        editorPort.focusInput(draftSummaryKey);
+      } else {
+        const target =
+          options.continueOnFreshDraft && draftSummaryKey !== null
+            ? ({ kind: "input", focusKey: draftSummaryKey } as const)
+            : options.promoteToCommittedRowInspect &&
+                committed.recordId !== null
+              ? ({
+                  kind: "row-inspect",
+                  recordId: committed.recordId,
+                } as const)
+              : null;
+        advanceViewportContinuity(options.viewportContinuityToken, { target });
+        if (target?.kind === "input") editorPort.focusInput(target.focusKey);
+      }
+      recordWorkbookTiming("apply_row_mutation_end", { kind: "row_mutation" });
       return committed;
     },
     [
       acceptCommittedTimelineRow,
       advanceViewportContinuity,
+      clearViewportContinuity,
       editorPort,
       nextDraftIndex,
       pruneAutoResolutionNoticesForRows,

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.retained_run_relationships.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "investigations"],
+  "properties": {
+    "schema_id": { "const": "cartulary.retained_run_relationships.v1" },
+    "investigations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["investigation_id", "historical_row_id", "runs"],
+        "properties": {
+          "investigation_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+          "historical_row_id": { "type": "string", "minLength": 1 },
+          "runs": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["run_id", "role", "outcome", "ordinary_overlap_count", "interpretation"],
+              "properties": {
+                "run_id": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-p[0-9]+$" },
+                "role": { "enum": ["original_failure", "focused_corroboration", "full_release_corroboration"] },
+                "outcome": { "enum": ["pass", "fail"] },
+                "ordinary_overlap_count": { "type": "integer", "minimum": 0 },
+                "interpretation": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

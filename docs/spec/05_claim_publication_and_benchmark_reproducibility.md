@@ -21,32 +21,24 @@ Results produced without satisfying this companion MAY be reported as informativ
 Profiles: claim_publication
 Verified by: PC-001, PC-002, PC-006
 
-## 2. Benchmark fixtures and observable-timing rules
+## 2. Product-fixture bindings and observable-timing overlays
 
 **REQ-05-004**
-For performance-sensitive publication criteria, the following reference performance fixtures apply:
-
-- **Fixture A: large-grid incident**
-  - 20,000 timeline rows
-  - 1,000 host rows
-  - 1,000 identity rows
-  - 25 concurrently connected analyst sessions on one incident, with presence enabled and representative live row-update traffic
-  - representative tags, mentions, and links, but not evidence-heavy per row
-- **Fixture B: evidence-heavy incident**
-  - 5,000 timeline rows
-  - 10,000 evidence records
-  - tens of GB of binary evidence stored in object storage
-  - at least one timeline row linked to 100 evidence records
-  - evidence blobs MAY be stubbed for throughput tests, but evidence metadata, counts, attachment state, and preview handles MUST be real
+Claim-bearing publication MUST bind its `fixture_ids[]` and
+`measurement_predicate_ids[]` to the current exact Core 04 registry. Core 05
+does not redefine product-supported fixture shape, actions, start states, stop
+predicates, thresholds, or implementation sampling policy.
 Profiles: claim_publication
 Verified by: PC-003
 
-These fixtures define incident shape and concurrent load only. They do not by themselves define a claim-bearing benchmark environment.
-
-Unless a publication criterion states otherwise, `reference incident` in this companion means Fixture A.
+The Core 04 fixtures define incident shape and concurrent load only. They do not
+by themselves define a claim-bearing benchmark environment.
 
 **REQ-05-005**
-Latency measurements used for claim-bearing publication MUST use end-user-observable completion time from the initiating user action to the required visible UI state. Any criterion expressed as p95 MUST be evaluated over at least 100 completed operations of the named interaction after one warm-up pass on the named fixture.
+Latency measurements used for claim-bearing publication MUST preserve the exact
+Core 04 product-visible interval and sampling policy. Publication MAY add
+environment qualification and retention requirements but MUST NOT change the
+product predicate or estimator.
 Profiles: claim_publication
 Verified by: PC-003
 
@@ -150,32 +142,23 @@ Claim-bearing benchmark runs MUST keep ordinary security controls enabled. Bench
 Profiles: claim_publication
 Verified by: PC-004
 
-## 4. Measurement-predicate registry
+## 4. Measurement-predicate publication binding
 
 **REQ-05-011**
-The current profile MUST define a closed `measurement_predicate_id` registry for every timed or fixture-sensitive acceptance criterion it uses for claim-bearing publication. Each registry entry MUST define the initiating user action, required start state, stop predicate, bound fixture, warm-state assumptions, and whether the criterion is p95-sampled or single-observation. When a visible-state measurement predicate would otherwise vary by editor family, field class, or harness realization, the registry entry MUST bind an exact `view_schema_id`, exact `field_key`, exact literal initiating payload when input content matters, and exact anchor invariants sufficient to make the stop predicate decidable without local interpretation. One `measurement_predicate_id` MUST NOT denote a family of interchangeable editor-specific or harness-specific observables. A later profile that needs a different anchor, editor family, or stop predicate MUST define a different exact `measurement_predicate_id`.
+The current claim-publication profile MUST bind every timed or fixture-sensitive
+criterion to an exact current `measurement_predicate_id` and fixture ID owned by
+Core 04 REQ-04-157 through REQ-04-159. A historical predicate ID MAY remain in a
+retained historical manifest but MUST NOT satisfy a current publication claim.
 Profiles: claim_publication
 Verified by: PC-003
 
 For the current profile, the timed or fixture-sensitive criteria are `AC-003`, `AC-008`, `AC-011`, `AC-016`, `AC-027`, `AC-030`, `AC-033`, `AC-043`, `AC-044`, `AC-045`, `AC-046`, `AC-047`, and `AC-132`.
 
-| `measurement_predicate_id` | Bound criterion or criteria | Start state and initiating action | Stop predicate | Fixture and sampling |
-| --- | --- | --- | --- | --- |
-| `perf.timeline_paste_20x5.v1` | `AC-003` | Timeline surface loaded with default sort, filter, and grouping state; target range visible; timing starts when the paste commit is accepted. | 20 committed rows are visible with mapped values in five writable visible columns and stable `record_id` plus `row_version` binding on each new row. | Fixture A; single observation |
-| `perf.presence_delta.rendered.v1` | `AC-008`, `AC-132` | Analyst A commits a workbook-surface, focused-row, or same-cell edit-state presence change on an incident. | Analyst B renders the corresponding workbook-header, row-gutter, or same-cell indicator from matching `sheet_ref`, `record_id`, and `field_key`. | Fixture A; single observation |
-| `perf.rollback_or_row_restore.rendered.v1` | `AC-011` | A reviewer confirms rollback or whole-row restore. | The visible row reflects the new attributed revision and the history surface shows the new entry. | Fixture A; single observation |
-| `perf.job_progress.visible_with_cancel.v1` | `AC-016`, `AC-027`, `AC-030`, `AC-033`, `AC-046` | The user submits an import, evidence-processing action, projection rebuild, snapshot generation, report generation, or reference-pack action that must remain backgrounded. | Visible progress UI and a cancel affordance render, and another grid row can be selected and accept text input without modal capture. | Fixture A or Fixture B as named by the criterion; single observation |
-| `perf.selection_change.v1` | `AC-043` | A loaded workbook surface is visible and timing starts when a user action changes the selected grid cell or row. | The new selection is painted and keyboard input would target the newly selected item. | Fixture A; p95 |
-| `perf.focus_change.v1` | `AC-043` | A loaded workbook surface is visible and timing starts when a user action changes the focused editable cell or row. | The focus state is visibly rendered and direct typing would target that field. | Fixture A; p95 |
-| `perf.typing_ack.v1` | `AC-043` | `cartulary.view.timeline.v2` is loaded; an existing visible Timeline row is already in active edit mode for `field_key='timeline.activity_synopsis_text'`; the same `record_id` remains selected; the text editor is focused; the caret is collapsed at the end of the current rendered text; there is no selection; IME composition is inactive; timing starts when the editor accepts the literal printable ASCII character `x`. | The same active text editor for the same `record_id` and `field_key` visibly renders the pre-keypress text with one trailing literal `x` appended, and input remains anchored to that same `record_id` and `field_key`. `Saved`, `Syncing`, validation badges, conflict badges, DOM mutation counts, network completion, collaboration messages, or `row_version` change MUST NOT satisfy the predicate. | Fixture A; p95 |
-| `perf.timeline_blank_row_create.v1` | `AC-043` | Timeline surface loaded with default sort, filter, and grouping state; a blank row is visible; timing starts when the user commits Enter on a blank row containing one qualifying non-empty value. | The committed row is visible with stable `record_id`, stable `row_version`, and the entered value rendered in the target field. | Fixture A; p95 |
-| `perf.view_change.first_useful_viewport.v1` | `AC-044` | The active surface is loaded in its default current state; timing starts when the user submits a sort, filter, or grouping change. | The first useful viewport defined in Core 04 §9 is visible. | Fixture A; p95 |
-| `perf.view_change.stable_viewport.v1` | `AC-044` | The active surface is loaded in its default current state; timing starts when the user submits a sort, filter, or grouping change. | The stable viewport defined in Core 04 §9 is visible. | Fixture A; p95 |
-| `perf.evidence_inspector.metadata_shell.v1` | `AC-045` | A user opens the inspector on a Timeline row linked to 100 evidence records. | The selected-row summary, total linked-evidence count, and first rendered evidence-list window are visible, and each evidence item in that first rendered window shows filename or media-type label, attachment state, and preview-handle availability. Binary preview bytes are not required. | Fixture B; p95 |
-| `perf.anchor_stability_under_live_updates.v1` | `AC-047` | A deterministic live-update trace begins while an analyst holds a pending edit anchored to one `record_id`. | Throughout the trace, scrolling, sorting, filtering, grouping, and live updates never retarget the pending edit away from that `record_id`, and viewport stabilization completes without a full-sheet rerender. | Fixture A; pass or fail seeded scenario |
-
 **REQ-05-012**
-The claim-bearing benchmark profile MUST use `traffic_trace_id='cartulary.perf.live_updates_25sessions.v1'` and `warmup_passes=1`. Unless a measurement predicate declares a criterion-specific override, authentication MUST already be complete, the incident MUST already be open, the relevant workbook surface MUST already be loaded, and the active sort, filter, and grouping state MUST be the default current state before timing starts.
+The claim-bearing benchmark profile MUST use the Core 04 large-grid fixture's
+`traffic_trace_id='cartulary.perf.live_updates_25sessions.v1'`, seed, and warm
+state, and MUST declare `warmup_passes=1`. Publication bindings MUST preserve
+the fixture and predicate selected by the implementation criterion.
 Profiles: claim_publication
 Verified by: PC-002, PC-003
 
@@ -198,7 +181,7 @@ Definition of Done:
   - Verifies: REQ-05-003, REQ-05-006, REQ-05-009
 - **PC-002**: A claim-bearing timed or fixture-sensitive result is non-conformant if the emitted benchmark profile, browser build, browser mode, runner IDs, storage classes, network values, `traffic_trace_id`, `seed`, `warmup_passes`, or declared warm state differ from `cartulary.perf.desktop_ref.v1`; such a run MAY be reported only as informative.
   - Verifies: REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-013
-- **PC-003**: For each timed or fixture-sensitive criterion in the current profile, the result binds to an exact `measurement_predicate_id` from the companion registry, and that predicate makes the start state, stop predicate, fixture, and sampling mode decidable without local interpretation. When the predicate depends on a specific editor or visible edit artifact, the registry also binds an exact `view_schema_id`, exact `field_key`, exact initiating payload where relevant, and exact anchor invariants rather than an interchangeable equivalent observable.
+- **PC-003**: For each timed or fixture-sensitive criterion in the current profile, the result binds to an exact current Core 04 `measurement_predicate_id` and fixture ID and preserves their start state, action, stop predicate, threshold, and sampling mode without local reinterpretation.
   - Verifies: REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012
 - **PC-004**: A claim-bearing benchmark run is non-conformant if authentication, session handling, CSRF protection, sanitization, safe-preview restrictions, or integrity checks are disabled, or if a claim-bearing visible-state result is produced from headless browser mode.
   - Verifies: REQ-05-010

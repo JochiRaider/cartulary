@@ -50,5 +50,28 @@ export function createTimelineRowMutationEditorAdapter({
     focusInput: (focusKey) => {
       focusInput(focusKey);
     },
+    reveal: ({ fieldKey, recordId }) => {
+      const anchor = {
+        fieldKey,
+        rowIdentity: { kind: "core_record", recordId },
+        surface: {
+          kind: "view_schema",
+          viewSchemaId: timelineViewSchemaId,
+        },
+      } as const;
+      const revealAfterRender = (remainingFrames: number) => {
+        const handle = gridHandleRef.current;
+        handle?.scrollToAnchor(anchor);
+        if (handle?.isAnchorRendered(anchor)) {
+          return;
+        }
+        if (remainingFrames > 0) {
+          window.requestAnimationFrame(() =>
+            revealAfterRender(remainingFrames - 1),
+          );
+        }
+      };
+      revealAfterRender(120);
+    },
   };
 }

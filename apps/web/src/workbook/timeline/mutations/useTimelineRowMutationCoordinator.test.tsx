@@ -60,7 +60,10 @@ function renderCoordinator(
     cancelEdit: vi.fn(),
     focus: vi.fn(),
     focusInput: vi.fn(),
+    reveal: vi.fn(),
   };
+  const advanceViewportContinuity = vi.fn();
+  const clearViewportContinuity = vi.fn();
   const rendered = renderHook(() => {
     const [rows, setRows] = useState(initialRows);
     const rowsRef = useRef(rows);
@@ -81,7 +84,8 @@ function renderCoordinator(
     const loadRowsRef = useRef(async () => undefined);
     const nextDraftIndexRef = useRef(2);
     const coordinator = useTimelineRowMutationCoordinator({
-      advanceViewportContinuity: vi.fn(),
+      advanceViewportContinuity,
+      clearViewportContinuity,
       discardBlockedEditRef: { current: () => false },
       editorDraftRegistry,
       editorPort,
@@ -106,7 +110,12 @@ function renderCoordinator(
     });
     return { coordinator, rows };
   });
-  return { ...rendered, editorPort };
+  return {
+    ...rendered,
+    advanceViewportContinuity,
+    clearViewportContinuity,
+    editorPort,
+  };
 }
 
 afterEach(() => {
@@ -115,6 +124,43 @@ afterEach(() => {
 });
 
 describe("useTimelineRowMutationCoordinator", () => {
+  it("reveals a committed draft row without restoring the pre-create scroll", () => {
+    const runtime = runtimeFixture();
+    const draft = createDraftRow(1);
+    const {
+      advanceViewportContinuity,
+      clearViewportContinuity,
+      editorPort,
+      result,
+      unmount,
+    } = renderCoordinator(runtime, [draft]);
+
+    act(() => {
+      result.current.coordinator.commands.applyAcceptedRowMutation(
+        draft.key,
+        {
+          row: timelineApiRow(1, "created summary"),
+          viewSchemaId: timelineViewSchemaId,
+        },
+        { continueOnFreshDraft: true, viewportContinuityToken: 17 },
+      );
+    });
+
+    expect(clearViewportContinuity).toHaveBeenCalledWith(17);
+    expect(advanceViewportContinuity).not.toHaveBeenCalled();
+    expect(editorPort.reveal).toHaveBeenCalledWith({
+      fieldKey: "timeline.activity_synopsis_text",
+      recordId,
+    });
+    expect(editorPort.focusInput).toHaveBeenCalledOnce();
+    expect(result.current.rows.map((row) => row.recordId)).toEqual([
+      recordId,
+      null,
+    ]);
+    unmount();
+    runtime.invalidate({ kind: "runtime_disposed" });
+  });
+
   it("prevents stale action and mutation results from regressing a live high-water row", () => {
     const runtime = runtimeFixture();
     const initial = timelineRow(3, "live version");

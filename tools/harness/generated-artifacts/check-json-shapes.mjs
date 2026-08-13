@@ -942,7 +942,8 @@ function validateContractFamilyRegistryShape(file) {
         if (
           !generatedOutput.startsWith("internal/gen/") &&
           !generatedOutput.startsWith("packages/protocol-ts/src/generated/") &&
-          !generatedOutput.startsWith("packages/view-contracts/src/generated/")
+          !generatedOutput.startsWith("packages/view-contracts/src/generated/") &&
+          !generatedOutput.startsWith("packages/ui-contracts/src/generated/")
         ) {
           throw new Error(
             `${label}.generated_outputs[] must target the contract generated roots`,
@@ -1068,6 +1069,9 @@ function validateContractFamilyRegistryShape(file) {
   if (!familyIDs.includes("database-migrations")) {
     throw new Error(`${file}.families must declare database-migrations`);
   }
+  if (!familyIDs.includes("performance")) {
+    throw new Error(`${file}.families must declare performance`);
+  }
   const expectedActiveIDs = [
     "openapi",
     "ws",
@@ -1083,6 +1087,7 @@ function validateContractFamilyRegistryShape(file) {
     "view-inspector",
     "artifacts",
     "database-migrations",
+    "performance",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

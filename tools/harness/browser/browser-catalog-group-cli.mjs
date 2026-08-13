@@ -17,6 +17,10 @@ import { adaptPlaywrightReport } from "../execution/runners/playwright.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
+import {
+  ac043PredicateIDsForRows,
+  collectFrontendMeasurementSummaries,
+} from "./frontend-measurement-evidence.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -272,7 +276,26 @@ function main() {
     report = null;
   }
   const rowResults = adaptPlaywrightReport(rows, report, child.status ?? 11);
-  const exitCode = exitCodeForRows(rowResults, child);
+  let measurementEvidenceError = null;
+  const expectedMeasurementPredicates = ac043PredicateIDsForRows(root, rows);
+  if (expectedMeasurementPredicates.length > 0) {
+    try {
+      collectFrontendMeasurementSummaries({
+        expectedPredicateIDs: expectedMeasurementPredicates,
+        reportPaths: [reportPath],
+        runRoot: runRoot(),
+      });
+    } catch (error) {
+      measurementEvidenceError = error instanceof Error ? error : new Error(String(error));
+      secureWriteFile(
+        stderrPath,
+        `${readFileSync(stderrPath, "utf8")}${redactString(`frontend measurement evidence invalid: ${measurementEvidenceError.message}\n`)}`,
+      );
+    }
+  }
+  const exitCode = measurementEvidenceError === null
+    ? exitCodeForRows(rowResults, child)
+    : 11;
   const finishedAt = new Date().toISOString();
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);

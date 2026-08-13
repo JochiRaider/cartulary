@@ -39,6 +39,18 @@
       }
     },
     {
+      "id": "browser_measurement_quiet",
+      "resource_claims": {
+        "browser_stack": 1,
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 512,
+        "port_lane": 1,
+        "process": 1
+      },
+      "runner_timeout_ms": 3600000
+    },
+    {
       "id": "io_heavy",
       "resource_claims": {
         "cpu": 1,

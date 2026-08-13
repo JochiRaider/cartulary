@@ -65,7 +65,7 @@
         "required": ["kind", "ref", "sha256"],
         "properties": {
           "kind": {
-            "const": "frontend_visual_reconciliation_v1"
+            "enum": ["frontend_measurement_aggregate_v1", "frontend_visual_reconciliation_v1"]
           },
           "ref": {
             "$ref": "#/$defs/run_relative_path"

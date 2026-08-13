@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_catalog_row_migration.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "migrations"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_catalog_row_migration.v1" },
+    "migrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["retired_row_id", "replacement_row_ids", "reason"],
+        "properties": {
+          "retired_row_id": { "type": "string", "minLength": 1 },
+          "replacement_row_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+        }
+      }
+    }
+  }
+}

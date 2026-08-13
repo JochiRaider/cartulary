@@ -72,11 +72,11 @@ FROM incidents
 WHERE id = $1
 FOR UPDATE;
 
--- name: EnsureIncidentOpenForUpdate :one
+-- name: EnsureIncidentOpenForMutation :one
 SELECT status
 FROM incidents
 WHERE id = $1
-FOR UPDATE;
+FOR SHARE;
 
 -- name: CreateIncident :one
 INSERT INTO incidents (

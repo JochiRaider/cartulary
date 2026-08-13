@@ -42,6 +42,14 @@ function fitting(unit, capacities, activeClaims, activeSharedLocks, activeExclus
   );
 }
 
+function blockedByReadyExclusiveWaiter(unit, readyUnits) {
+  return (unit.shared_locks ?? []).some((lock) =>
+    readyUnits.some((waiting) =>
+      waiting.unit_id !== unit.unit_id && (waiting.exclusive_locks ?? []).includes(lock),
+    ),
+  );
+}
+
 function blockingDetails(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks, running, byID) {
   const resources = Object.entries(unit.resource_claims)
     .filter(([resource, amount]) => (activeClaims.get(resource) ?? 0) + amount > capacities.get(resource))
@@ -88,14 +96,25 @@ function addLocks(activeSharedLocks, activeExclusiveLocks, unit, direction) {
   }
 }
 
-function failedDependency(unit, state) {
+const dependencyFailureStates = new Set(["failed", "skipped", "cancelled"]);
+
+function dependencyBlocksDescendants(dependency, state, byID) {
+  return dependencyFailureStates.has(state.get(dependency)) &&
+    byID.get(dependency)?.failure_policy.block_descendants !== false;
+}
+
+function failedDependency(unit, state, byID) {
   return unit.needs.find((dependency) =>
-    ["failed", "skipped", "cancelled"].includes(state.get(dependency)),
+    dependencyBlocksDescendants(dependency, state, byID),
   );
 }
 
-function ready(unit, state) {
-  return unit.needs.every((dependency) => state.get(dependency) === "passed");
+function ready(unit, state, byID) {
+  return unit.needs.every((dependency) =>
+    state.get(dependency) === "passed" ||
+    (dependencyFailureStates.has(state.get(dependency)) &&
+      byID.get(dependency)?.failure_policy.block_descendants === false),
+  );
 }
 
 function schedulerEvent(seq, monotonicMs, event, unit, status, extra = {}) {
@@ -164,7 +183,7 @@ export function simulateWorkGraph({
       skipped = false;
       for (const unit of graph.units) {
         if (state.get(unit.unit_id) !== "pending") continue;
-        const dependency = failedDependency(unit, state);
+        const dependency = failedDependency(unit, state, byID);
         if (!dependency) continue;
         state.set(unit.unit_id, "skipped");
         emit("skipped", unit, "skipped", { failure_reason: "dependency_failure" });
@@ -176,9 +195,10 @@ export function simulateWorkGraph({
     while (true) {
       const readyUnits = graph.units
         .filter((unit) => state.get(unit.unit_id) === "pending")
-        .filter((unit) => ready(unit, state));
+        .filter((unit) => ready(unit, state, byID));
       const candidates = readyUnits
         .filter((unit) => fitting(unit, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
+        .filter((unit) => !blockedByReadyExclusiveWaiter(unit, readyUnits))
         .sort((left, right) => {
           const leftAge = Math.floor((now - queuedAt.get(left.unit_id)) / agingQuantumMs);
           const rightAge = Math.floor((now - queuedAt.get(right.unit_id)) / agingQuantumMs);
@@ -266,6 +286,7 @@ export async function runWorkGraph({
   signal,
   agingQuantumMs = 1000,
   cleanup = async () => {},
+  onEvent = () => {},
 }) {
   validateWorkGraph(graph, { capacities });
   cache?.validateGraph(graph);
@@ -291,7 +312,9 @@ export async function runWorkGraph({
   let seq = 0;
   const elapsed = () => Math.max(0, Math.floor(performance.now() - started));
   const emit = (event, unit, status, extra) => {
-    events.push(schedulerEvent(++seq, elapsed(), event, unit, status, extra));
+    const record = schedulerEvent(++seq, elapsed(), event, unit, status, extra);
+    events.push(record);
+    onEvent(record);
   };
   const runLifecycleUnit = {
     unit_id: "harness:run",
@@ -309,7 +332,7 @@ export async function runWorkGraph({
         skipped = false;
         for (const unit of graph.units) {
           if (state.get(unit.unit_id) !== "pending") continue;
-          const dependency = failedDependency(unit, state);
+          const dependency = failedDependency(unit, state, byID);
           if (!dependency) continue;
           state.set(unit.unit_id, "skipped");
           terminalResults.set(unit.unit_id, {
@@ -326,7 +349,7 @@ export async function runWorkGraph({
           const now = elapsed();
           const readyUnits = graph.units
             .filter((entry) => state.get(entry.unit_id) === "pending")
-            .filter((entry) => ready(entry, state));
+            .filter((entry) => ready(entry, state, byID));
           for (const waiting of readyUnits.filter(
             (entry) => !fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks),
           )) {
@@ -347,6 +370,7 @@ export async function runWorkGraph({
           }
           const unit = readyUnits
             .filter((entry) => fitting(entry, capacities, activeClaims, activeSharedLocks, activeExclusiveLocks))
+            .filter((entry) => !blockedByReadyExclusiveWaiter(entry, readyUnits))
             .sort((left, right) => {
               const leftWarm = warmAffinities.has(left.affinity_key) ? 1 : 0;
               const rightWarm = warmAffinities.has(right.affinity_key) ? 1 : 0;

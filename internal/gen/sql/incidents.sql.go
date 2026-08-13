@@ -262,15 +262,15 @@ func (q *Queries) DeleteIncidentMembership(ctx context.Context, arg DeleteIncide
 	return err
 }
 
-const ensureIncidentOpenForUpdate = `-- name: EnsureIncidentOpenForUpdate :one
+const ensureIncidentOpenForMutation = `-- name: EnsureIncidentOpenForMutation :one
 SELECT status
 FROM incidents
 WHERE id = $1
-FOR UPDATE
+FOR SHARE
 `
 
-func (q *Queries) EnsureIncidentOpenForUpdate(ctx context.Context, id pgtype.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, ensureIncidentOpenForUpdate, id)
+func (q *Queries) EnsureIncidentOpenForMutation(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, ensureIncidentOpenForMutation, id)
 	var status string
 	err := row.Scan(&status)
 	return status, err

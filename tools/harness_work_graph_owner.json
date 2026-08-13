@@ -496,7 +496,7 @@
     "accessibility": 15000,
     "browser": 12000,
     "integration": 5000,
-    "measurement": 20000,
+    "measurement": 1800000,
     "release": 10000,
     "security": 8000,
     "static": 1500,

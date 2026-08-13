@@ -239,6 +239,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Backend-only Database Migrations evidence schema and v2-only conformance fixtures."
+    },
+    {
+      "family_id": "performance",
+      "contract_root": "contracts/performance",
+      "generation_status": "active",
+      "go_name": "PerformanceArtifacts",
+      "output_order": 14,
+      "generated_outputs": [
+        "internal/gen/contractperformance/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Implementation-facing performance fixtures, observable predicates, thresholds, and policy bindings."
     }
   ]
 }

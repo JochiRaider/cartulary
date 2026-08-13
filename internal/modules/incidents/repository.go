@@ -346,7 +346,7 @@ func (r *repository) countIncidentAdmins(ctx context.Context, incidentID uuid.UU
 }
 
 func (r *repository) ensureOpen(ctx context.Context, incidentID uuid.UUID) error {
-	status, err := r.queries.EnsureIncidentOpenForUpdate(ctx, pgUUID(incidentID))
+	status, err := r.queries.EnsureIncidentOpenForMutation(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrIncidentNotFound
 	}

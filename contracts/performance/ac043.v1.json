@@ -1,0 +1,67 @@
+{
+  "schema_id": "cartulary.performance_interaction_contract.v1",
+  "contract_id": "cartulary.performance.ac043.v1",
+  "criterion_id": "AC-043",
+  "measurement_policy_id": "cartulary.measurement.interactive_p95.v1",
+  "fixture": {
+    "fixture_id": "cartulary.perf.large_grid.v1",
+    "seed": 20260405,
+    "timeline_rows": 20000,
+    "host_rows": 1000,
+    "identity_rows": 1000,
+    "tag_assignments": 1000,
+    "mention_assignments": 1000,
+    "link_assignments": 1000,
+    "analyst_sessions": 25,
+    "background_sessions": 24,
+    "background_update_interval_ms": 5000,
+    "background_updates_per_second": 4.8,
+    "traffic_trace_id": "cartulary.perf.live_updates_25sessions.v1"
+  },
+  "predicates": [
+    {
+      "predicate_id": "perf.timeline_summary_selection_down.v1",
+      "view_schema_id": "cartulary.view.timeline.v2",
+      "field_key": "timeline.activity_synopsis_text",
+      "initiating_key": "ArrowDown",
+      "start_mark": "cartulary.workbook.selection_change_accepted",
+      "stop_mark": "cartulary.workbook.selection_change_visible_paint",
+      "threshold_ms": 100,
+      "start_state": "An existing visible Timeline summary cell is selected, focused, and not editing.",
+      "stop_state": "The next deterministic Timeline summary cell is visibly selected, focused, and would receive direct keyboard input."
+    },
+    {
+      "predicate_id": "perf.timeline_summary_focus_edit.v1",
+      "view_schema_id": "cartulary.view.timeline.v2",
+      "field_key": "timeline.activity_synopsis_text",
+      "initiating_key": "Enter",
+      "start_mark": "cartulary.workbook.focus_edit_accepted",
+      "stop_mark": "cartulary.workbook.focus_edit_visible_paint",
+      "threshold_ms": 100,
+      "start_state": "An existing visible Timeline summary cell is selected, focused, and not editing.",
+      "stop_state": "The editor for the same record and field is visible and focused with a collapsed caret at the end."
+    },
+    {
+      "predicate_id": "perf.typing_ack.v1",
+      "view_schema_id": "cartulary.view.timeline.v2",
+      "field_key": "timeline.activity_synopsis_text",
+      "initiating_key": "x",
+      "start_mark": "cartulary.workbook.typing_ack_accepted",
+      "stop_mark": "cartulary.workbook.typing_ack_visible_paint",
+      "threshold_ms": 100,
+      "start_state": "An existing visible committed Timeline summary editor is active for the selected record, focused, at a collapsed end caret, and not composing.",
+      "stop_state": "The same active editor visibly renders the prior text with one trailing literal x and remains anchored to the same record and field."
+    },
+    {
+      "predicate_id": "perf.timeline_blank_row_create.v1",
+      "view_schema_id": "cartulary.view.timeline.v2",
+      "field_key": "timeline.activity_synopsis_text",
+      "initiating_key": "Enter",
+      "start_mark": "cartulary.workbook.blank_row_commit_accepted",
+      "stop_mark": "cartulary.workbook.blank_row_create_visible_paint",
+      "threshold_ms": 150,
+      "start_state": "The default Timeline view has a visible blank row containing exactly one qualifying non-empty summary value.",
+      "stop_state": "The committed row intersects the visible grid viewport with a stable record ID, positive integer row version, and the entered value rendered."
+    }
+  ]
+}

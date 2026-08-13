@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -809,6 +809,8 @@ async function main() {
     return { ...result, missing_outputs: missingOutputs };
   };
   let result;
+  const liveEventFile = path.join(runRoot, "unit-events.ndjson");
+  writeFileSync(liveEventFile, "", { encoding: "utf8", flag: "wx", mode: 0o600 });
   try {
     result = await runWorkGraph({
       graph,
@@ -821,6 +823,11 @@ async function main() {
       signal: controller.signal,
       agingQuantumMs: compiler.owner.aging_quantum_ms,
       cleanup: async () => suiteController.close(),
+      onEvent: (event) => {
+        appendFileSync(liveEventFile, `${canonicalJSONString(event)}\n`, {
+          encoding: "utf8",
+        });
+      },
     });
   } finally {
     process.removeListener("SIGINT", abort);

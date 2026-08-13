@@ -1,0 +1,32 @@
+{
+  "schema_id": "cartulary.retained_run_relationships.v1",
+  "investigations": [
+    {
+      "investigation_id": "ac043_timeline_measurement_20260813",
+      "historical_row_id": "module.timeline.measurement.the_isolated_measurement_suite_proves_one_real_s_6a3649dbd5",
+      "runs": [
+        {
+          "run_id": "20260813T134132Z-p1651245",
+          "role": "original_failure",
+          "outcome": "fail",
+          "ordinary_overlap_count": 11,
+          "interpretation": "The 153.3 ms blank-row-create p95 breach is retained as the original environmentally contaminated failure."
+        },
+        {
+          "run_id": "20260813T135034Z-p1848738",
+          "role": "focused_corroboration",
+          "outcome": "pass",
+          "ordinary_overlap_count": 0,
+          "interpretation": "The unchanged focused row passed and corroborates, but does not replace, the original failure."
+        },
+        {
+          "run_id": "20260813T135125Z-p1871376",
+          "role": "full_release_corroboration",
+          "outcome": "pass",
+          "ordinary_overlap_count": 0,
+          "interpretation": "The unchanged full release passed and corroborates, but does not replace, the original failure."
+        }
+      ]
+    }
+  ]
+}

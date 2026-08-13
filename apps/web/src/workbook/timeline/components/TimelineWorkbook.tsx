@@ -633,6 +633,7 @@ function TimelineWorkbookContent({
   );
   const timelineRowMutations = useTimelineRowMutationCoordinator({
     advanceViewportContinuity,
+    clearViewportContinuity,
     discardBlockedEditRef,
     editorDraftRegistry,
     editorPort: timelineMutationEditorPort,
@@ -1247,12 +1248,16 @@ function TimelineWorkbookContent({
         anchor === null &&
         (command.intent.key === "Enter" || command.intent.key === "Tab")
       ) {
-        recordWorkbookTiming("key_commit_accepted", {
-          field: focusField,
-          key: command.intent.key,
-          rowKey,
-          surface,
-        });
+        if (
+          command.intent.key === "Enter" &&
+          focusField === "activitySynopsisText" &&
+          surface === "grid"
+        ) {
+          recordWorkbookTiming("blank_row_commit_accepted", {
+            field: "timeline.activity_synopsis_text",
+            surface,
+          });
+        }
         queueScalarSave(
           rowKey,
           focusField,
@@ -1267,13 +1272,6 @@ function TimelineWorkbookContent({
       }
       if (command.kind === "navigate" && anchor !== null) {
         if (command.intent.key === "Enter" || command.intent.key === "Tab") {
-          recordWorkbookTiming("key_commit_accepted", {
-            field: focusField,
-            key: command.intent.key,
-            recordId: gridCoreRecordId(anchor) ?? "",
-            rowKey,
-            surface,
-          });
           queueScalarSave(
             rowKey,
             focusField,

@@ -8,6 +8,7 @@ import {
 import { Paperclip } from "lucide-react";
 import {
   type CSSProperties,
+  type ChangeEvent as ReactChangeEvent,
   type ClipboardEvent as ReactClipboardEvent,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -397,6 +398,27 @@ export function TimelineScalarEditor({
     setEditorValue(value);
     onDraftChange(rowKey, field, surface, value);
   };
+  const markTypingAcknowledgement = (
+    event: ReactChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const inputEvent = event.nativeEvent;
+    if (
+      rowRecordId !== null &&
+      surface === "grid" &&
+      presenceFieldKey === "timeline.activity_synopsis_text" &&
+      typeof InputEvent !== "undefined" &&
+      inputEvent instanceof InputEvent &&
+      inputEvent.data === "x" &&
+      !inputEvent.isComposing &&
+      event.currentTarget.value === `${editorValue}x` &&
+      event.currentTarget.selectionStart === event.currentTarget.value.length &&
+      event.currentTarget.selectionEnd === event.currentTarget.value.length
+    ) {
+      performance.mark("cartulary.workbook.typing_ack_accepted", {
+        detail: { field: presenceFieldKey, surface },
+      });
+    }
+  };
   const handleBlur = (
     event: ReactFocusEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -474,6 +496,7 @@ export function TimelineScalarEditor({
         value={editorValue}
         onBlur={handleBlur}
         onChange={(event) => {
+          markTypingAcknowledgement(event);
           handleChange(event.target.value);
         }}
         onFocus={handleFocus}
@@ -496,6 +519,7 @@ export function TimelineScalarEditor({
       value={editorValue}
       onBlur={handleBlur}
       onChange={(event) => {
+        markTypingAcknowledgement(event);
         handleChange(event.target.value);
       }}
       onFocus={handleFocus}

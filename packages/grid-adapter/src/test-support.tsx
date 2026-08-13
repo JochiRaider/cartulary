@@ -246,6 +246,8 @@ function useSemanticDataGridTestSupport<Row>(
         return true;
       },
       getScrollElement: () => scrollElement.current,
+      isAnchorRendered: (anchor) =>
+        semanticPresentation.positions.has(gridAnchorKey(anchor)),
       moveFocus: (current, intent) => {
         const next = navigateSemanticPresentation(
           semanticPresentation,

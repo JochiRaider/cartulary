@@ -104,14 +104,16 @@ it("executes creates through the incident-bound generated operation", async () =
       method: "POST",
     }),
   );
-  expect(recordTiming).toHaveBeenCalledWith(
-    "pending_fetch_response",
-    expect.objectContaining({ clientTxnId: "txn-create", status: 200 }),
-  );
-  expect(recordTiming).toHaveBeenCalledWith(
-    "pending_fetch_json_parsed",
-    expect.objectContaining({ clientTxnId: "txn-create" }),
-  );
+  expect(recordTiming).toHaveBeenCalledWith("pending_fetch_request", {
+    kind: "create",
+  });
+  expect(recordTiming).toHaveBeenCalledWith("pending_fetch_response", {
+    kind: "create",
+    status: 200,
+  });
+  expect(recordTiming).toHaveBeenCalledWith("pending_fetch_json_parsed", {
+    kind: "create",
+  });
 });
 
 it("builds patches from dispatch-time identity and version", async () => {

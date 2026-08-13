@@ -912,7 +912,25 @@
       "restricted_imports": [
         {
           "kind": "path_prefix",
-          "path": "packages/ui-contracts/src/generated"
+          "path": "packages/ui-contracts/src/generated/design-"
+        }
+      ]
+    },
+    {
+      "id": "frontend-generated-performance-contract-boundary",
+      "level": "error",
+      "message": "Import generated performance contracts only through the @cartulary/ui-contracts facade.",
+      "applies_to": {
+        "include": ["**"],
+        "exclude": []
+      },
+      "allowed_importers": [
+        "packages/ui-contracts/src/performanceContracts.ts"
+      ],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "packages/ui-contracts/src/generated/performance-contracts"
         }
       ]
     },

@@ -41,11 +41,7 @@ function observedTransport(
     | ((name: string, details?: Readonly<Record<string, unknown>>) => void)
     | undefined,
 ) {
-  const details = {
-    clientTxnId: unit.clientTxnId,
-    kind: unit.kind,
-    rowKey: unit.rowKey,
-  };
+  const details = { kind: unit.kind };
   return {
     onJSONParsed: () => {
       recordTiming?.("pending_fetch_json_parsed", details);
@@ -82,6 +78,7 @@ function executeCreate(
   if (unit.recordId !== null) {
     return Promise.resolve(invalidMutationResult<CreateViewRowResponse>());
   }
+  options.recordTiming?.("pending_fetch_request", { kind: unit.kind });
   return operations.execute({
     observeTransport: observedTransport(unit, options.recordTiming),
     operationID: "createViewRow",

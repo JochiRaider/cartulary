@@ -66,6 +66,15 @@ function assertGraphCutover() {
     );
   }
   const releaseGraph = compiler.compileAggregatePlan("release-check").graph;
+  for (const entry of releaseGraph.units) {
+    if (Object.keys(entry.resource_claims).length === 0) continue;
+    assert.equal(
+      entry.shared_locks.includes("host_activity") +
+        entry.exclusive_locks.includes("host_activity"),
+      1,
+      `${entry.unit_id} must have exactly one host_activity lock mode`,
+    );
+  }
   const compatibility = releaseGraph.units.find(
     (entry) => entry.unit_id === "target:seaweedfs-compatibility",
   );
@@ -95,6 +104,48 @@ function assertScheduler() {
     tail: "passed",
   });
   assert.equal(result.events.at(-1).event, "completed");
+
+  const blocker = unit("shared-blocker", { cpu: 1 }, 10);
+  blocker.shared_locks = ["host_activity"];
+  const gate = unit("exclusive-gate", {}, 1);
+  const exclusive = unit("quiet-measurement", { cpu: 1 }, 1, ["exclusive-gate"]);
+  exclusive.exclusive_locks = ["host_activity"];
+  const laterShared = unit("later-shared", { cpu: 1 }, 1, ["exclusive-gate"]);
+  laterShared.shared_locks = ["host_activity"];
+  const fairness = simulateWorkGraph({
+    graph: buildWorkGraph([blocker, gate, exclusive, laterShared]),
+    capacities: new Map([["cpu", 2]]),
+    durations: new Map([
+      ["shared-blocker", 10],
+      ["exclusive-gate", 1],
+      ["quiet-measurement", 1],
+      ["later-shared", 1],
+    ]),
+  });
+  assert.ok(
+    fairness.admissions.indexOf("quiet-measurement") <
+      fairness.admissions.indexOf("later-shared"),
+    "a ready exclusive measurement waiter must prevent later shared backfill",
+  );
+
+  const failedGroup = unit("failed-browser-group", { cpu: 1 }, 1);
+  failedGroup.failure_policy.block_descendants = false;
+  const evidenceFinalizer = unit(
+    "browser-target-finalizer",
+    { cpu: 1 },
+    1,
+    [failedGroup.unit_id],
+  );
+  const reporting = simulateWorkGraph({
+    graph: buildWorkGraph([failedGroup, evidenceFinalizer]),
+    capacities: new Map([["cpu", 1]]),
+    outcomes: new Map([[failedGroup.unit_id, "test_failure"]]),
+  });
+  assert.equal(reporting.status, "failed", "a reporting descendant must not hide its dependency failure");
+  assert.deepEqual(reporting.states, {
+    "browser-target-finalizer": "passed",
+    "failed-browser-group": "failed",
+  });
 }
 
 function assertAtomicNDJSON() {

@@ -14,6 +14,23 @@ const browser = JSON.parse(readFileSync(path.join(root, "tools/browser_e2e_batch
 validateSchemaSync(topology.schema_id, topology);
 validateSchemaSync(scheduler.schema_id, scheduler);
 validateSchemaSync(browser.schema_id, browser);
+const quietGroups = browser.stages.flatMap((stage) => stage.groups)
+  .filter((group) => group.resource_profile_id === "browser_measurement_quiet");
+assert.ok(quietGroups.length > 0, "browser manifest must contain quiet measurement groups");
+assert.ok(
+  quietGroups.every((group) => group.selected_row_ids.length === 1),
+  "every quiet measurement predicate must own one browser session",
+);
+for (const stage of browser.stages) {
+  const stageQuietGroups = stage.groups.filter(
+    (group) => group.resource_profile_id === "browser_measurement_quiet",
+  );
+  assert.equal(
+    new Set(stageQuietGroups.map((group) => group.browser_session_group)).size,
+    stageQuietGroups.length,
+    `quiet measurement browser sessions must not be shared in ${stage.name}`,
+  );
+}
 for (const retired of [
   "fixture_profiles",
   "sequence_resource_profiles",
