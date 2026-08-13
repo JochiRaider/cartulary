@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 )
 
 type WorkbookFieldValue struct {
@@ -57,16 +59,7 @@ func (e *LifecycleValidationError) Error() string {
 	return "evidence: illegal transition"
 }
 
-func ValidLifecycleState(value string) bool {
-	switch value {
-	case "requested", "pending_receipt", "received", "available", "quarantined", "released":
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *Store) InsertWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params WorkbookCreateParams, now time.Time) error {
+func (s *SourceMutationService) InsertWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params WorkbookCreateParams, now time.Time) error {
 	lifecycleState := "requested"
 	if lifecycleValue, present := params.Values["evidence.lifecycle_state"]; present && lifecycleValue.Text != nil {
 		lifecycleState = *lifecycleValue.Text
@@ -117,7 +110,7 @@ INSERT INTO evidence (
 	return nil
 }
 
-func (s *Store) ValidateWorkbookLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changes []WorkbookLifecyclePatchChange) error {
+func (s *SourceMutationService) ValidateWorkbookLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changes []WorkbookLifecyclePatchChange) error {
 	var from string
 	var objectBlobID sql.NullString
 	var uploadState sql.NullString
@@ -135,20 +128,20 @@ SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
 			to = *change.Text
 		}
 	}
-	if to != from && !legalLifecycleTransition(from, to) {
+	if !evidencepolicy.LegalEvidenceTransition(from, to) {
 		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "illegal_status_transition", ViolatedGuards: []string{"evidence.lifecycle_state"}}
 	}
 	linkedBlobState := ""
 	if uploadState.Valid {
 		linkedBlobState = uploadState.String
 	}
-	if violatesBlobBridge(to, objectBlobID.Valid, linkedBlobState) {
+	if evidencepolicy.ViolatesEvidenceBlobBridge(to, objectBlobID.Valid, linkedBlobState) {
 		return &LifecycleValidationError{FromStatus: from, ToStatus: to, ReasonCode: "violated_lifecycle_guards", ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"}}
 	}
 	return nil
 }
 
-func (s *Store) ApplyWorkbookDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value WorkbookFieldValue, now time.Time) (bool, error) {
+func (s *SourceMutationService) ApplyWorkbookDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value WorkbookFieldValue, now time.Time) (bool, error) {
 	if !strings.HasPrefix(fieldKey, "evidence.") {
 		return false, &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
@@ -161,44 +154,11 @@ func (s *Store) ApplyWorkbookDirectChangeTx(ctx context.Context, tx pgx.Tx, reco
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *Store) TouchWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
+func (s *SourceMutationService) TouchWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
 	if _, err := tx.Exec(ctx, `UPDATE evidence SET updated_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
 		return fmt.Errorf("touch evidence row: %w", err)
 	}
 	return nil
-}
-
-func legalLifecycleTransition(from string, to string) bool {
-	if from == to {
-		return true
-	}
-	switch from {
-	case "requested":
-		return to == "pending_receipt" || to == "received" || to == "available"
-	case "pending_receipt":
-		return to == "requested" || to == "received" || to == "available"
-	case "received":
-		return to == "pending_receipt" || to == "available" || to == "quarantined"
-	case "available":
-		return to == "received" || to == "quarantined" || to == "released"
-	case "quarantined":
-		return to == "received" || to == "available"
-	case "released":
-		return to == "available" || to == "quarantined"
-	default:
-		return false
-	}
-}
-
-func violatesBlobBridge(lifecycleState string, hasBlob bool, uploadState string) bool {
-	switch lifecycleState {
-	case "available", "released":
-		return !hasBlob || uploadState != "available"
-	case "quarantined":
-		return hasBlob && uploadState != "quarantined"
-	default:
-		return false
-	}
 }
 
 func directDBValue(value WorkbookFieldValue) any {

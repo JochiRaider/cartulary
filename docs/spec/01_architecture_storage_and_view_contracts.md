@@ -168,8 +168,10 @@ Profiles: base
 Verified by: AC-537
 
 **REQ-01-661**
-The Production DDL Rebaseline v2 source MUST contain exactly 29 contiguous
-authored SQL migrations, versions `1..29`, and MUST use the application schema
+The immutable Production DDL Rebaseline v2 baseline MUST contain exactly 29
+contiguous authored SQL migrations, versions `1..29`. The current source MUST
+contain exactly 31 contiguous authored SQL migrations: that immutable baseline
+plus owner-approved additive migrations 30 and 31. It MUST use the application schema
 `public`, Goose ledger `public.goose_db_version`, and lineage relation
 `public.schema_migration_lineage` on PostgreSQL major 16. The exact filenames,
 bytes, hashes, order, physical object allocation, dependencies, FK coverage,
@@ -191,7 +193,7 @@ The migration-history evidence contract remains
 `cartulary.migration_history_evidence.v2`; the remediation contract remains
 `cartulary.migration_remediation_report.v1`. Catalog bytes, hashes, digests,
 and corresponding goldens change intentionally for lineage v2. Recovery MUST
-retain exactly 111 table entries, exactly 83 `authoritative_required` entries,
+retain exactly 113 table entries, exactly 83 `authoritative_required` entries,
 and the unique Revisions-owned authoritative
 `record_revision_conflict_facts` entry. Public product routes, payloads,
 lifecycle, ordering, and authorization MUST NOT change. SQLC output may change
@@ -6665,12 +6667,16 @@ orchestrate only the frozen catalog; it MUST NOT discover another owner's
 authoritative state from a name predicate, an unrestricted schema scan, raw
 cross-owner query, or Harness/tooling metadata at runtime.
 
-The current vNext catalog accounts for exactly 111 catalog entries under the
+The current vNext catalog accounts for exactly 113 catalog entries under the
 current recovery-state counting model. Exactly 83 are
 `authoritative_required`. All five `graph_projection_*` tables are
 `excluded_rebuildable`; all four `collaboration_*` stream tables and
-`enterprise_auth_transactions` are `excluded_security_state` and MUST be
-invalidated across the restore generation. The seven explicit exclusions,
+`enterprise_auth_transactions` and `evidence_object_upload_leases` are
+`excluded_security_state` and MUST be invalidated across the restore
+generation. `evidence_blob_cleanup_claims` is `transient`,
+`excluded_transient`, and invalidated by
+`evidence.invalidate_blob_cleanup_claims.v1` across the restore generation.
+The seven explicit exclusions,
 synthetic `goose_db_version`, and ten `*_grid_projection` tables remain
 excluded under their owner-declared restore actions. The complete 83-table
 authoritative set and exclusion set are projected under `contracts/recovery`;
@@ -6682,11 +6688,12 @@ The current catalog cardinality is:
 ```text
 83 authoritative_required
 + 5 excluded_rebuildable
-+ 5 excluded_security_state
++ 6 excluded_security_state
++ 1 excluded_transient
 + 7 explicit exclusions
 + 1 synthetic goose_db_version
 + 10 grid projections
-= 111 catalog entries
+= 113 catalog entries
 ```
 
 `record_revision_conflict_facts` MUST appear exactly once with source owner

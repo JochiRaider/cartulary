@@ -85,9 +85,13 @@ export async function createAndUploadObjectBlob(
     throw new Error("invalid_public_contract_response");
   }
   const uploadTarget = resolveObjectUploadTarget(blob.upload_target);
+  const uploadHeaders = {
+    ...uploadTarget.headers,
+    ...(await csrfHeaders(page)),
+  };
   const upload = await page.request.put(uploadTarget.href, {
     data: options.body,
-    headers: uploadTarget.headers,
+    headers: uploadHeaders,
   });
   if (!upload.ok()) {
     throw new Error(`object blob upload failed with HTTP ${upload.status()}`);

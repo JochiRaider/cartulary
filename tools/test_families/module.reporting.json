@@ -3,6 +3,34 @@
   "owner_id": "module.reporting",
   "rows": [
     {
+      "row_id": "module.reporting.integration.evidence_provider_redaction_4b6d27e1e9",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.links"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingEvidenceLogicalSupportIdentity",
+          "TestReportingEvidenceProviderMalformedContributionPublishesNoPartialOutput",
+          "TestReportingEvidenceProviderRedaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",

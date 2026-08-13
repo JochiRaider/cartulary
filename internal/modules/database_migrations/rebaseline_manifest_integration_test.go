@@ -53,6 +53,11 @@ type recoveryCatalogView struct {
 
 func TestProductionDDLObjectManifestContract(t *testing.T) {
 	manifest := loadSchemaObjectManifest(t)
+	migrationHistory := loadMigrationHistoryManifest(t)
+	migrationFiles := make(map[int64]string, len(migrationHistory.Entries))
+	for _, entry := range migrationHistory.Entries {
+		migrationFiles[entry.Version] = entry.Filename
+	}
 	if manifest.SchemaID != "cartulary.schema_object_ownership_manifest.v2" ||
 		manifest.MigrationRoot != "db/migrations" ||
 		manifest.SupportedPostgresMajor != 16 ||
@@ -86,8 +91,12 @@ func TestProductionDDLObjectManifestContract(t *testing.T) {
 		}
 		assertManifestAccessClass(t, entry)
 		if entry.ManagementClass == "cartulary_authored" {
-			if entry.MigrationVersion == nil || *entry.MigrationVersion < 1 || *entry.MigrationVersion > 29 || entry.MigrationFile == nil {
+			if entry.MigrationVersion == nil || *entry.MigrationVersion < 1 || entry.MigrationFile == nil {
 				t.Fatalf("authored object lacks migration allocation: %#v", entry)
+			}
+			wantMigrationFile, exists := migrationFiles[int64(*entry.MigrationVersion)]
+			if !exists || *entry.MigrationFile != wantMigrationFile {
+				t.Fatalf("object %s has unknown migration allocation: %d/%s", entry.ObjectID, *entry.MigrationVersion, *entry.MigrationFile)
 			}
 			if !strings.HasPrefix(*entry.MigrationFile, leftPadVersion(*entry.MigrationVersion)+"_") {
 				t.Fatalf("object %s migration allocation is inconsistent: %d/%s", entry.ObjectID, *entry.MigrationVersion, *entry.MigrationFile)
@@ -169,7 +178,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		t.Fatal(err)
 	}
-	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 111 {
+	if recovery.SchemaID != "cartulary.recovery_state_catalog.v1" || len(recovery.Tables) != 113 {
 		t.Fatalf("Recovery catalog identity/cardinality = %q/%d", recovery.SchemaID, len(recovery.Tables))
 	}
 	authoritative := 0
@@ -195,7 +204,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			revisionConflictFacts++
 		}
 	}
-	if authoritative != 83 || revisionConflictFacts != 1 || len(manifestTables) != 111 {
+	if authoritative != 83 || revisionConflictFacts != 1 || len(manifestTables) != 113 {
 		t.Fatalf("Recovery facts = tables %d/%d, authoritative %d, revision conflict facts %d", len(recovery.Tables), len(manifestTables), authoritative, revisionConflictFacts)
 	}
 }

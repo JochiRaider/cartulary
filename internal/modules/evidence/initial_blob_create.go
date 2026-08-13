@@ -18,7 +18,7 @@ func (f *WorkbookFacade) observeInitialBlob(
 	incidentID uuid.UUID,
 	objectBlobID uuid.UUID,
 ) (*ObservedObject, error) {
-	blob, err := f.store.GetBlob(ctx, objectBlobID)
+	blob, err := f.blobs.load(ctx, objectBlobID)
 	if errors.Is(err, ErrBlobNotFound) {
 		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotFound}
 	}
@@ -70,7 +70,7 @@ func (f *WorkbookFacade) finalizeInitialBlobTx(
 	observed *ObservedObject,
 	now time.Time,
 ) (*InitialBlobAssociation, bool, error) {
-	blob, err := f.store.blobs.loadForUpdateTx(ctx, tx, objectBlobID)
+	blob, err := f.blobs.loadForUpdateTx(ctx, tx, objectBlobID)
 	if errors.Is(err, ErrBlobNotFound) {
 		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotFound}
 	}
@@ -94,7 +94,7 @@ func (f *WorkbookFacade) finalizeInitialBlobTx(
 		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
 	case "pending":
 		if !blob.PendingExpiresAt.After(now) {
-			if err := f.store.blobLifecycle.failTx(ctx, tx, objectBlobID, "pending_timeout", now); err != nil {
+			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "pending_timeout", now); err != nil {
 				return nil, false, err
 			}
 			return nil, true, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
@@ -103,18 +103,18 @@ func (f *WorkbookFacade) finalizeInitialBlobTx(
 			return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobPending, Cause: ErrBlobNotAttachable}
 		}
 		if observed.Size != blob.ByteSize {
-			if err := f.store.blobLifecycle.failTx(ctx, tx, objectBlobID, "declared_size_mismatch", now); err != nil {
+			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "declared_size_mismatch", now); err != nil {
 				return nil, false, err
 			}
 			return nil, true, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
 		if blob.ExpectedSHA256Hex != nil && observed.SHA256Hex != *blob.ExpectedSHA256Hex {
-			if err := f.store.blobLifecycle.failTx(ctx, tx, objectBlobID, "expected_sha256_mismatch", now); err != nil {
+			if err := f.blobLifecycle.failTx(ctx, tx, objectBlobID, "expected_sha256_mismatch", now); err != nil {
 				return nil, false, err
 			}
 			return nil, true, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
-		if err := f.store.blobLifecycle.markAvailableTx(ctx, tx, objectBlobID, observed, now); err != nil {
+		if err := f.blobLifecycle.markAvailableTx(ctx, tx, objectBlobID, observed, now); err != nil {
 			return nil, false, err
 		}
 		blob.UploadState = "available"

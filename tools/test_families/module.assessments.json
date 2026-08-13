@@ -411,7 +411,9 @@
       "selector": {
         "package": "./internal/app/importassembly",
         "tests": [
-          "TestOwnerCreateRegistryComposesEveryCurrentViewTarget"
+          "TestOwnerCreateRegistryComposesEveryCurrentViewTarget",
+          "TestOwnerCreateRegistryConsumesNarrowEvidenceFacade",
+          "TestOwnerCreateRegistryRequiresCompositionDependencies"
         ]
       },
       "evidence_class": "unit",

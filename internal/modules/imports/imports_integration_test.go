@@ -2326,7 +2326,7 @@ SELECT COUNT(*)
 	}
 }
 
-func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
+func TestImportsEvidenceCreateParity_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	harness := runtime.StartDefaultServer(t, "extension_profile-import-evidence-owner-facade")
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
@@ -2336,23 +2336,63 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 		"title":         "Enterprise integration evidence owner facade",
 	})
 	incidentID := incident["incident_id"].(string)
+	requestedAt := "2026-08-11T20:00:00Z"
+	createBody := map[string]any{
+		"client_txn_id":         "txn-extension_profile-evidence-ordinary-create",
+		"evidence.title":        "Evidence create parity",
+		"evidence.requested_at": requestedAt,
+	}
+	createResp := httptestx.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
+		createBody,
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
+	ordinaryRow := createData["row"].(map[string]any)
+	ordinaryRecordID := ordinaryRow["record_id"].(string)
+	createReplay := httptestx.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
+		createBody,
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	)
+	replayedCreate := httptestx.RequireSuccessEnvelope(t, createReplay, http.StatusOK)["data"].(map[string]any)
+	if replayedCreate["row"].(map[string]any)["record_id"] != ordinaryRecordID {
+		t.Fatalf("ordinary Evidence replay changed record: first=%s replay=%#v", ordinaryRecordID, replayedCreate)
+	}
 
-	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-extension_profile-import-evidence-owner-upload", "title\nEvidence from import\n", "evidence.csv")
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-extension_profile-import-evidence-owner-upload", "title,requested_at\nEvidence create parity,"+requestedAt+"\n", "evidence.csv")
 	mapping := map[string]any{
 		"client_txn_id":         "txn-extension_profile-import-evidence-owner-mapping",
 		"target_view_schema_id": "cartulary.view.evidence.v1",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
 		"unknown_column_policy": "reject_if_unmapped",
-		"source_columns": []map[string]any{{
-			"source_column_ordinal": 1,
-			"source_header_text":    "title",
-			"field_key":             "evidence.title",
-			"entity_binding_mode":   nil,
-			"transform_id":          nil,
-			"transform_options":     map[string]any{},
-			"empty_value_policy":    "omit_field",
-		}},
+		"source_columns": []map[string]any{
+			{
+				"source_column_ordinal": 1,
+				"source_header_text":    "title",
+				"field_key":             "evidence.title",
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 2,
+				"source_header_text":    "requested_at",
+				"field_key":             "evidence.requested_at",
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+		},
 	}
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mapping)
 	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
@@ -2365,21 +2405,87 @@ func TestEvidenceImportUsesOwnerFacadeAndJournal_Integration(t *testing.T) {
 	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
 		t.Fatalf("unexpected evidence apply job: %#v", appliedJob)
 	}
+	replayApplyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-extension_profile-import-evidence-owner-apply"})
+	replayedApplyJob := httptestx.RequireSuccessEnvelope(t, replayApplyResp, http.StatusAccepted)["data"].(map[string]any)
+	if replayedApplyJob["job_id"] != applyJob["job_id"] {
+		t.Fatalf("Evidence import replay returned a different job: first=%#v replay=%#v", applyJob, replayedApplyJob)
+	}
+
+	var importedRecordID string
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT record_id::text
+  FROM import_apply_journal
+ WHERE import_session_id::text = $1
+`, sessionID).Scan(&importedRecordID); err != nil {
+		t.Fatalf("load imported Evidence record: %v", err)
+	}
 
 	queryResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
-	if len(rows) != 1 {
-		t.Fatalf("expected one imported evidence row, got %#v", rows)
+	if len(rows) != 2 {
+		t.Fatalf("expected ordinary and imported Evidence rows, got %#v", rows)
 	}
-	cells := rows[0].(map[string]any)["cells"].(map[string]any)
-	if got := cells["evidence.title"].(map[string]any)["value"]; got != "Evidence from import" {
-		t.Fatalf("unexpected imported evidence title: %#v row=%#v", got, rows[0])
+	rowsByID := make(map[string]map[string]any, len(rows))
+	for _, value := range rows {
+		row := value.(map[string]any)
+		rowsByID[row["record_id"].(string)] = row
+	}
+	importedRow := rowsByID[importedRecordID]
+	if importedRow == nil {
+		t.Fatalf("query omitted imported Evidence record %s: %#v", importedRecordID, rows)
+	}
+	ordinaryQueriedRow := rowsByID[ordinaryRecordID]
+	if ordinaryQueriedRow == nil {
+		t.Fatalf("query omitted ordinary Evidence record %s: %#v", ordinaryRecordID, rows)
+	}
+	normalizedCells := func(row map[string]any) map[string]any {
+		cloned := cloneImportMappingPayload(t, row["cells"].(map[string]any))
+		delete(cloned, "evidence.edited_at")
+		return cloned
+	}
+	if !reflect.DeepEqual(normalizedCells(ordinaryQueriedRow), normalizedCells(importedRow)) {
+		t.Fatalf("ordinary/import returned projection cells diverged: ordinary=%#v imported=%#v", ordinaryQueriedRow, importedRow)
+	}
+	if ordinaryQueriedRow["row_version"] != importedRow["row_version"] {
+		t.Fatalf("ordinary/import row versions diverged: ordinary=%#v imported=%#v", ordinaryQueriedRow["row_version"], importedRow["row_version"])
+	}
+
+	var ordinarySource, importedSource string
+	for recordID, destination := range map[string]*string{
+		ordinaryRecordID: &ordinarySource,
+		importedRecordID: &importedSource,
+	} {
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT (to_jsonb(e) - 'record_id' - 'incident_id' - 'created_at' - 'updated_at')::text
+  FROM evidence e
+ WHERE record_id::text = $1
+`, recordID).Scan(destination); err != nil {
+			t.Fatalf("load Evidence source state for %s: %v", recordID, err)
+		}
+	}
+	if ordinarySource != importedSource {
+		t.Fatalf("ordinary/import source rows diverged: ordinary=%s imported=%s", ordinarySource, importedSource)
+	}
+	for _, recordID := range []string{ordinaryRecordID, importedRecordID} {
+		for effect, query := range map[string]string{
+			"record revision":      `SELECT COUNT(*) FROM record_revisions WHERE record_id::text = $1 AND row_version = 1`,
+			"change-set mutation":  `SELECT COUNT(*) FROM change_set_mutations WHERE target_kind = 'record' AND target_id = $1 AND operation_kind = 'create'`,
+			"Collaboration intent": `SELECT COUNT(*) FROM collaboration_event_intents WHERE source_record_id::text = $1 AND event_family = 'record_changed'`,
+			"projection row":       `SELECT COUNT(*) FROM evidence_grid_projection WHERE record_id::text = $1 AND row_version = 1`,
+		} {
+			if got := dbassert.CountSQL(t, harness.DB, query, recordID); got != 1 {
+				t.Fatalf("%s count for Evidence record %s = %d, want 1", effect, recordID, got)
+			}
+		}
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`, sessionID); got != 1 {
 		t.Fatalf("expected one import apply journal row, got %d", got)
 	}
 	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'imports.apply' AND client_txn_id = $1`, "import:"+sessionID+":"+unitID+":txn-extension_profile-import-evidence-owner-apply"); got != 1 {
 		t.Fatalf("expected one unit-level import change set, got %d", got)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM evidence WHERE incident_id::text = $1`, incidentID); got != 2 {
+		t.Fatalf("ordinary/import replays created duplicate Evidence rows: %d", got)
 	}
 }
 

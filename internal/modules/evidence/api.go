@@ -21,11 +21,28 @@ import (
 )
 
 const (
-	blobCreateRouteKey = "object_blobs.create"
-	blobAttachRouteKey = "evidence.attach_blob"
+	blobCreateRouteKey            = "object_blobs.create"
+	blobAttachRouteKey            = "evidence.attach_blob"
+	blobCreateRequestBodyMaxBytes = 64 * 1024
 
 	ViewSchemaID = "cartulary.view.evidence.v1"
 )
+
+func ReadBoundedBlobCreateRequest(reader io.Reader) ([]byte, *httpapi.APIError) {
+	body, err := io.ReadAll(io.LimitReader(reader, blobCreateRequestBodyMaxBytes+1))
+	if err != nil || len(body) > blobCreateRequestBodyMaxBytes {
+		return nil, invalidRequest("invalid_blob_create_request", "", "request_not_object")
+	}
+	return body, nil
+}
+
+func DecodeBlobCreateIncidentID(body []byte) (uuid.UUID, *httpapi.APIError) {
+	raw, apiErr := decodeStrictObject(strings.NewReader(string(body)), "invalid_blob_create_request")
+	if apiErr != nil {
+		return uuid.UUID{}, apiErr
+	}
+	return requiredBlobUUID(raw, "incident_id")
+}
 
 var sha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 

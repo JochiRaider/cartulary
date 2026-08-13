@@ -276,7 +276,17 @@ func (r *EvidenceRows) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordI
 }
 
 func (r *EvidenceRows) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	return r.loadTx(ctx, tx, evidenceViewSchemaID, recordID)
+	if r == nil || r.source == nil {
+		return nil, errors.New("evidence projection source is required")
+	}
+	input, found, err := r.source.LoadProjectionInputTx(ctx, tx, recordID)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, pgx.ErrNoRows
+	}
+	return evidenceprojection.ViewRow(input), nil
 }
 
 func (r *EvidenceRows) RebuildEvidenceTx(
@@ -407,10 +417,6 @@ func (r *AssessmentRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID str
 }
 
 func (r *ArtifactRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	return loadProviderRowTx(ctx, tx, r.store, viewSchemaID, recordID)
-}
-
-func (r *EvidenceRows) loadTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	return loadProviderRowTx(ctx, tx, r.store, viewSchemaID, recordID)
 }
 

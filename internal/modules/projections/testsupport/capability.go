@@ -48,6 +48,7 @@ type Dependencies struct {
 	IndicatorRebuilder indicatorprojection.Rebuilder
 	IndicatorRows      indicatorprojection.Rows
 	EvidenceRows       evidenceprojection.Rows
+	EvidenceEffects    evidenceprojection.SupportProjectionEffectsTx
 }
 
 type Capability struct {
@@ -56,6 +57,7 @@ type Capability struct {
 	indicatorRebuilder indicatorprojection.Rebuilder
 	indicatorRows      indicatorprojection.Rows
 	evidenceRows       evidenceprojection.Rows
+	evidenceEffects    evidenceprojection.SupportProjectionEffectsTx
 }
 
 func New(dependencies Dependencies) *Capability {
@@ -65,6 +67,7 @@ func New(dependencies Dependencies) *Capability {
 		indicatorRebuilder: dependencies.IndicatorRebuilder,
 		indicatorRows:      dependencies.IndicatorRows,
 		evidenceRows:       dependencies.EvidenceRows,
+		evidenceEffects:    dependencies.EvidenceEffects,
 	}
 }
 
@@ -108,4 +111,11 @@ func (capability *Capability) EvidencePort() evidenceprojection.Rows {
 		return nil
 	}
 	return capability.evidenceRows
+}
+
+func (capability *Capability) EvidenceSupportEffects() evidenceprojection.SupportProjectionEffectsTx {
+	if capability == nil {
+		return nil
+	}
+	return capability.evidenceEffects
 }

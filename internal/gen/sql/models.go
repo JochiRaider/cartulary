@@ -534,6 +534,21 @@ type EvidenceAccessHandle struct {
 	RecordRowVersion       int64              `json:"record_row_version"`
 }
 
+type EvidenceBlobCleanupClaim struct {
+	ObjectBlobID     pgtype.UUID        `json:"object_blob_id"`
+	ClaimToken       pgtype.UUID        `json:"claim_token"`
+	ClaimState       string             `json:"claim_state"`
+	AttemptCount     int32              `json:"attempt_count"`
+	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+	ClaimExpiresAt   pgtype.Timestamptz `json:"claim_expires_at"`
+	NextAttemptAt    pgtype.Timestamptz `json:"next_attempt_at"`
+	LastAttemptAt    pgtype.Timestamptz `json:"last_attempt_at"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	LastFailureClass pgtype.Text        `json:"last_failure_class"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EvidenceCustodyEvent struct {
 	CustodyEventID   pgtype.UUID        `json:"custody_event_id"`
 	IncidentID       pgtype.UUID        `json:"incident_id"`
@@ -563,6 +578,25 @@ type EvidenceGridProjection struct {
 	UploadState        string             `json:"upload_state"`
 	LinkedRecordCount  int32              `json:"linked_record_count"`
 	EditedAt           pgtype.Timestamptz `json:"edited_at"`
+}
+
+type EvidenceObjectUploadLease struct {
+	ObjectBlobID           pgtype.UUID        `json:"object_blob_id"`
+	LeaseID                pgtype.UUID        `json:"lease_id"`
+	CapabilityHash         []byte             `json:"capability_hash"`
+	IncidentID             pgtype.UUID        `json:"incident_id"`
+	IssuingUserID          pgtype.UUID        `json:"issuing_user_id"`
+	IssuingSessionID       pgtype.UUID        `json:"issuing_session_id"`
+	IssuedAt               pgtype.Timestamptz `json:"issued_at"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	RequiredMethod         string             `json:"required_method"`
+	RequiredHeaders        []byte             `json:"required_headers"`
+	AcceptedContractSha256 []byte             `json:"accepted_contract_sha256"`
+	LeaseState             string             `json:"lease_state"`
+	ClaimedAt              pgtype.Timestamptz `json:"claimed_at"`
+	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ExtensionJobCancellationObservation struct {

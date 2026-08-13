@@ -6,27 +6,29 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
 func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	runtimeType := reflect.TypeOf(Runtime{})
 	wantFields := map[string]struct{}{
-		"handler":                 {},
-		"stagedJanitor":           {},
-		"jobRunner":               {},
-		"collaborationDispatcher": {},
-		"processLease":            {},
-		"servingLease":            {},
-		"lifecycle":               {},
-		"publication":             {},
-		"publicHTTP":              {},
-		"shutdownDrainTimeout":    {},
-		"reconciliationTimeout":   {},
-		"stagedObjectSweepPeriod": {},
-		"closeOnce":               {},
-		"publicationOnce":         {},
-		"cleanups":                {},
-		"stagedJanitorContext":    {},
+		"handler":                   {},
+		"stagedJanitor":             {},
+		"jobRunner":                 {},
+		"collaborationDispatcher":   {},
+		"evidenceCleanupDispatcher": {},
+		"processLease":              {},
+		"servingLease":              {},
+		"lifecycle":                 {},
+		"publication":               {},
+		"publicHTTP":                {},
+		"shutdownDrainTimeout":      {},
+		"reconciliationTimeout":     {},
+		"stagedObjectSweepPeriod":   {},
+		"closeOnce":                 {},
+		"publicationOnce":           {},
+		"cleanups":                  {},
+		"stagedJanitorContext":      {},
 	}
 	if runtimeType.NumField() != len(wantFields) {
 		t.Fatalf("server Runtime field count = %d, want %d", runtimeType.NumField(), len(wantFields))
@@ -66,9 +68,25 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 		t.Fatal("Timeline bundle exposes an Evidence store")
 	}
 	ownerType := reflect.TypeOf(evidence.OwnerRuntime{})
-	for index := 0; index < ownerType.NumField(); index++ {
-		if ownerType.Field(index).Type == reflect.TypeOf((*evidence.Store)(nil)) {
-			t.Fatalf("Evidence owner runtime field %q exposes *evidence.Store", ownerType.Field(index).Name)
+	wantOwnerFields := map[string]reflect.Type{
+		"routes":       reflect.TypeOf((*evidence.RouteService)(nil)).Elem(),
+		"workbook":     reflect.TypeOf((*evidence.WorkbookContribution)(nil)).Elem(),
+		"attachments":  reflect.TypeOf((*evidence.TimelineAttachmentContribution)(nil)).Elem(),
+		"importCreate": reflect.TypeOf((*ownerfacade.ImportOwnerCreateFacade)(nil)).Elem(),
+	}
+	if ownerType.NumField() != len(wantOwnerFields) {
+		t.Fatalf("Evidence owner runtime field count = %d, want %d", ownerType.NumField(), len(wantOwnerFields))
+	}
+	for fieldName, wantType := range wantOwnerFields {
+		field, present := ownerType.FieldByName(fieldName)
+		if !present {
+			t.Fatalf("Evidence owner runtime is missing narrow capability %q", fieldName)
+		}
+		if field.IsExported() {
+			t.Fatalf("Evidence owner runtime field %q must remain private", fieldName)
+		}
+		if field.Type != wantType {
+			t.Fatalf("Evidence owner runtime field %q type = %v, want %v", fieldName, field.Type, wantType)
 		}
 	}
 }

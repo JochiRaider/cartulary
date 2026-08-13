@@ -10,6 +10,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 )
 
+func TestRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
+	testRecordChangeIntentBuildsSortedCompactPatch(t)
+}
+
 func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 	changeSetID := uuid.New()
 	recordID := uuid.New()
@@ -57,5 +61,75 @@ func testRecordChangeIntentBuildsSortedCompactPatch(t *testing.T) {
 	}
 	if cells["note.body"].(map[string]any)["value"] != "Body" {
 		t.Fatalf("missing note.body patch: %#v", patch)
+	}
+
+	multiViewIntent, err := collaboration.NewRecordChangeIntent(collaboration.RecordChange{
+		IncidentID:       uuid.New(),
+		RecordID:         recordID,
+		RowVersion:       4,
+		ChangeSetID:      changeSetID,
+		ClientTxnID:      "txn-multi-view",
+		ActorUserID:      uuid.New(),
+		ChangedFieldKeys: []string{"host.evidence_count", "timeline.evidence_count"},
+		AffectedViews: []collaboration.AffectedViewChange{
+			{ViewSchemaID: "cartulary.view.timeline.v2", ChangeKind: "invalidate"},
+			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
+		},
+	}, 3, time.Date(2026, time.July, 26, 12, 1, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var multiPayload map[string]any
+	if err := json.Unmarshal(multiViewIntent.CanonicalPayload, &multiPayload); err != nil {
+		t.Fatal(err)
+	}
+	multiViews := multiPayload["affected_views"].([]any)
+	if len(multiViews) != 2 ||
+		multiViews[0].(map[string]any)["view_schema_id"] != "cartulary.view.hosts.v1" ||
+		multiViews[1].(map[string]any)["view_schema_id"] != "cartulary.view.timeline.v2" {
+		t.Fatalf("multi-view intent order = %#v", multiViews)
+	}
+	streamSeq := int64(11)
+	parsed, err := collaboration.RecordChangeFromSequencedMessage(collaboration.Message{
+		Type:       "record_changed",
+		IncidentID: "",
+		EventID:    uuid.NewString(),
+		EmittedAt:  time.Date(2026, time.July, 26, 12, 1, 1, 0, time.UTC).Format(time.RFC3339Nano),
+		StreamSeq:  &streamSeq,
+		Payload:    multiViewIntent.CanonicalPayload,
+	})
+	if err == nil || parsed.RecordID != uuid.Nil {
+		t.Fatalf("sequenced parsing without envelope incident identity must fail, got parsed=%#v err=%v", parsed, err)
+	}
+
+	incidentID := uuid.New()
+	parsed, err = collaboration.RecordChangeFromSequencedMessage(collaboration.Message{
+		Type:       "record_changed",
+		IncidentID: incidentID.String(),
+		EventID:    uuid.NewString(),
+		EmittedAt:  time.Date(2026, time.July, 26, 12, 1, 1, 0, time.UTC).Format(time.RFC3339Nano),
+		StreamSeq:  &streamSeq,
+		Payload:    collaboration.RawPayload(multiPayload),
+	})
+	if err != nil {
+		t.Fatalf("parse canonical multi-view message: %v", err)
+	}
+	if len(parsed.AffectedViews) != 2 || parsed.AffectedViews[0].ViewSchemaID != "cartulary.view.hosts.v1" || parsed.AffectedViews[1].ViewSchemaID != "cartulary.view.timeline.v2" {
+		t.Fatalf("parsed multi-view changes = %#v", parsed.AffectedViews)
+	}
+
+	_, err = collaboration.NewRecordChangeIntent(collaboration.RecordChange{
+		IncidentID:  uuid.New(),
+		RecordID:    recordID,
+		RowVersion:  5,
+		ChangeSetID: changeSetID,
+		ActorUserID: uuid.New(),
+		AffectedViews: []collaboration.AffectedViewChange{
+			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
+			{ViewSchemaID: "cartulary.view.hosts.v1", ChangeKind: "invalidate"},
+		},
+	}, 4, time.Date(2026, time.July, 26, 12, 2, 0, 0, time.UTC))
+	if err == nil {
+		t.Fatal("duplicate affected views must be rejected")
 	}
 }

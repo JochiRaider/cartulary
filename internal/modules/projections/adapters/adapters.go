@@ -10,7 +10,6 @@ import (
 
 	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/workbookprojection"
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
@@ -21,7 +20,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookrestoreprobe "github.com/JochiRaider/cartulary/internal/modules/workbook/restoreprobe"
@@ -122,8 +120,7 @@ func New(dependencies Dependencies) (Ports, error) {
 		dependencies.TasksDecisions.DecisionSource(),
 	)
 	evidenceRows := &evidencePort{
-		rows:    projectionruntime.NewEvidenceRowsFromStore(store, dependencies.Evidence.Source()),
-		rebuild: store,
+		rows: projectionruntime.NewEvidenceRowsFromStore(store, dependencies.Evidence.Source()),
 	}
 	ports := Ports{
 		catalog: catalog,
@@ -158,8 +155,9 @@ func New(dependencies Dependencies) (Ports, error) {
 			Reader:    artifactRows,
 		},
 		evidence: evidenceprojection.Ports{
-			Rows:      evidenceRows,
-			Rebuilder: store,
+			Rows:           evidenceRows,
+			Rebuilder:      store,
+			SupportEffects: projectionruntime.NewEvidenceAssociationEffectsFromStore(store),
 		},
 		parties: partyprojection.Ports{
 			Rows:      projectionruntime.NewPartyRowsFromStore(store, dependencies.Parties.Source()),
@@ -299,7 +297,7 @@ func (ports Ports) validate() error {
 		{name: "Indicators", ready: ports.indicators.Rows != nil && ports.indicators.Rebuilder != nil},
 		{name: "Assessments", ready: ports.assessments.Rows != nil && ports.assessments.Rebuilder != nil},
 		{name: "Artifacts", ready: ports.artifacts.Rows != nil && ports.artifacts.Rebuilder != nil && ports.artifacts.Reader != nil},
-		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.Rebuilder != nil},
+		{name: "Evidence", ready: ports.evidence.Rows != nil && ports.evidence.Rebuilder != nil && ports.evidence.SupportEffects != nil},
 		{name: "Parties", ready: ports.parties.Rows != nil && ports.parties.Rebuilder != nil},
 		{name: "Tasks/Decisions", ready: ports.tasksDecisions.Rows != nil && ports.tasksDecisions.Rebuilder != nil && ports.tasksDecisions.Reader != nil},
 	}
@@ -312,10 +310,7 @@ func (ports Ports) validate() error {
 }
 
 type evidencePort struct {
-	rows    *projectionruntime.EvidenceRows
-	rebuild interface {
-		RebuildIncidentViewsTx(context.Context, pgx.Tx, uuid.UUID, []string) error
-	}
+	rows *projectionruntime.EvidenceRows
 }
 
 func (port *evidencePort) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
@@ -324,14 +319,6 @@ func (port *evidencePort) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, reco
 
 func (port *evidencePort) LoadEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
 	return port.rows.LoadEvidenceTx(ctx, tx, recordID)
-}
-
-func (port *evidencePort) RefreshEvidenceSupportTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return port.rebuild.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
-		timeline.TimelineViewSchemaID,
-		hostidentity.HostsViewSchemaID,
-		hostidentity.IdentitiesViewSchemaID,
-	})
 }
 
 func (port *evidencePort) RebuildEvidenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

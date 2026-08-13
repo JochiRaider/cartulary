@@ -48,7 +48,14 @@ describe("evidence upload adapter", () => {
     });
     expect(put).toHaveBeenCalledWith(
       `${apiBase}/api/v1/object-uploads/upl_valid-token_1`,
-      { data: body, headers: uploadTarget.headers },
+      {
+        data: body,
+        headers: {
+          "Content-Type": "application/cartulary-evidence",
+          "X-Cartulary-Upload": "opaque-header",
+          "X-CSRF-Token": "csrf-token",
+        },
+      },
     );
   });
 
@@ -68,7 +75,7 @@ describe("evidence upload adapter", () => {
       `${apiBase}/api/v1/object-uploads/upl_content-type-fallback`,
       {
         data: expect.any(Buffer),
-        headers: {},
+        headers: { "X-CSRF-Token": "csrf-token" },
       },
     );
   });

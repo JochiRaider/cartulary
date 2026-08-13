@@ -58,3 +58,16 @@ func (store *Store) DeleteHostIncidentTx(ctx context.Context, tx pgx.Tx, inciden
 	}
 	return nil
 }
+
+func (store *Store) LoadHostEvidenceAssociationStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int64, int64, error) {
+	var rowVersion int64
+	var evidenceCount int64
+	if err := tx.QueryRow(ctx, `
+SELECT row_version, evidence_count
+  FROM host_grid_projection
+ WHERE record_id = $1
+`, recordID).Scan(&rowVersion, &evidenceCount); err != nil {
+		return 0, 0, err
+	}
+	return rowVersion, evidenceCount, nil
+}

@@ -704,6 +704,7 @@
           "TestHubIncidentTerminalSubscribers",
           "TestHubSessionRevocationSubscribers",
           "TestPresenceReplayRevocationTransport",
+          "TestRecordChangeIntentBuildsSortedCompactPatch",
           "TestValidatePresenceInputAcceptsExtensionWorkspace",
           "TestWSContractExtensionResourceChangedPayloadShape",
           "TestWSContractJobProgressPayloadShape"

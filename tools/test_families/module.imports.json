@@ -241,7 +241,7 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.imports.integration.evidence_owner_facade_complete_ac652dc3b3",
+      "row_id": "module.imports.integration.evidence_create_parity_ac652dc3b3",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
       "collaborator_ids": [
@@ -254,7 +254,7 @@
       "selector": {
         "package": "./internal/modules/imports",
         "tests": [
-          "TestEvidenceImportUsesOwnerFacadeAndJournal_Integration"
+          "TestImportsEvidenceCreateParity_Integration"
         ]
       },
       "evidence_class": "integration",

@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,27 +19,39 @@ type evidenceCreateTxResult struct {
 	changedFieldKeys []string
 }
 
-// evidenceMutationCoordinator orders cross-owner durable effects in a supplied
-// transaction. Transaction begin, idempotency replay, commit, and HTTP response
-// handling remain application/route concerns.
-type evidenceMutationCoordinator struct {
+type evidenceCreateTxCommand struct {
+	IncidentID    uuid.UUID
+	ActorUserID   uuid.UUID
+	ViewSchemaID  string
+	ClientTxnID   string
+	RequestID     string
+	Source        string
+	ChangeSetID   *uuid.UUID
+	MutationOrder int
+	Values        map[string]WorkbookFieldValue
+	Now           time.Time
+}
+
+// evidenceSourceMutationKernel orders owner and cross-owner durable effects in
+// a supplied transaction. Transaction begin, idempotency replay, commit, and
+// HTTP response handling remain application/route concerns.
+type evidenceSourceMutationKernel struct {
 	incidents     evidenceIncidentAdmissionPort
 	source        evidenceSourceKernel
 	revisions     revisionAppendPort
 	collaboration collaboration.IntentAppender
 }
 
-func (coordinator evidenceMutationCoordinator) createTx(
+func (coordinator evidenceSourceMutationKernel) createTx(
 	ctx context.Context,
 	tx pgx.Tx,
-	command WorkbookCreateCommand,
+	command evidenceCreateTxCommand,
 	createParams WorkbookCreateParams,
 ) (evidenceCreateTxResult, error) {
-	request := command.Request
 	if err := coordinator.incidents.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	if err := validateEvidenceReferencesTx(ctx, tx, command.IncidentID, request.Values); err != nil {
+	if err := validateEvidenceReferencesTx(ctx, tx, command.IncidentID, command.Values); err != nil {
 		return evidenceCreateTxResult{}, err
 	}
 	now := command.Now.UTC()
@@ -46,7 +59,7 @@ func (coordinator evidenceMutationCoordinator) createTx(
 		ctx,
 		tx,
 		command.IncidentID,
-		command.Actor.ID,
+		command.ActorUserID,
 		createParams,
 		now,
 	)
@@ -58,7 +71,7 @@ func (coordinator evidenceMutationCoordinator) createTx(
 			IncidentID:       command.IncidentID,
 			EvidenceRecordID: recordID,
 			CustodyEventType: "made_available",
-			ActorUserID:      &command.Actor.ID,
+			ActorUserID:      &command.ActorUserID,
 			OccurredAt:       now,
 			Metadata: map[string]any{
 				"object_blob_id": createParams.InitialBlob.ObjectBlobID.String(),
@@ -75,21 +88,31 @@ func (coordinator evidenceMutationCoordinator) createTx(
 	if err != nil {
 		return evidenceCreateTxResult{}, err
 	}
-	changeSetID, err := coordinator.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
-		IncidentID:  command.IncidentID,
-		ActorUserID: command.Actor.ID,
-		Source:      command.RouteKey,
-		ClientTxnID: &request.ClientTxnID,
-		RequestID:   &command.RequestID,
-		CreatedAt:   now,
-	})
-	if err != nil {
-		return evidenceCreateTxResult{}, err
+	var changeSetID uuid.UUID
+	if command.ChangeSetID != nil {
+		changeSetID = *command.ChangeSetID
+	} else {
+		requestID := command.RequestID
+		changeSetID, err = coordinator.revisions.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
+			IncidentID:  command.IncidentID,
+			ActorUserID: command.ActorUserID,
+			Source:      command.Source,
+			ClientTxnID: &command.ClientTxnID,
+			RequestID:   &requestID,
+			CreatedAt:   now,
+		})
+		if err != nil {
+			return evidenceCreateTxResult{}, err
+		}
+	}
+	mutationOrder := command.MutationOrder
+	if mutationOrder <= 0 {
+		mutationOrder = 1
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
 	if err := coordinator.revisions.AppendRecordMutationTx(ctx, tx, revisions.AppendRecordMutationParams{
 		ChangeSetID:    changeSetID,
-		SequenceNo:     1,
+		SequenceNo:     mutationOrder,
 		TargetKind:     "record",
 		RecordID:       recordID,
 		OperationKind:  "create",
@@ -113,13 +136,13 @@ func (coordinator evidenceMutationCoordinator) createTx(
 		tx,
 		coordinator.collaboration,
 		command.IncidentID,
-		command.Actor.ID,
-		request.ClientTxnID,
+		command.ActorUserID,
+		command.ClientTxnID,
 		changeSetID,
 		AttachRecordChange{
 			RecordID:         recordID,
 			RowVersion:       1,
-			ViewSchemaID:     request.ViewSchemaID,
+			ViewSchemaID:     command.ViewSchemaID,
 			ChangedFieldKeys: changedFieldKeys,
 		},
 		row,
@@ -129,7 +152,7 @@ func (coordinator evidenceMutationCoordinator) createTx(
 		return evidenceCreateTxResult{}, err
 	}
 	return evidenceCreateTxResult{
-		payload:          buildMutationPayload(request.ViewSchemaID, changeSetID, row),
+		payload:          buildMutationPayload(command.ViewSchemaID, changeSetID, row),
 		row:              row,
 		recordID:         recordID,
 		changeSetID:      changeSetID,

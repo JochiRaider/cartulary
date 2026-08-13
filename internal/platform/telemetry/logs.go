@@ -173,7 +173,7 @@ func copyResourceIdentity(resource ResourceIdentity) ResourceIdentity {
 
 func knownModule(module string) bool {
 	switch module {
-	case "httpapi", "workbook", "collaboration", "jobs", "postgres", "objectstore", "telemetry":
+	case "httpapi", "workbook", "collaboration", "evidence", "jobs", "postgres", "objectstore", "telemetry":
 		return true
 	default:
 		return false

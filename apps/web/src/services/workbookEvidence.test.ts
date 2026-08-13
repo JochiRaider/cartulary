@@ -69,56 +69,61 @@ describe("workbookEvidence", () => {
     );
   });
 
-  it("bounds evidence upload retries by transport outcome without reading response bodies", async () => {
-    vi.useFakeTimers();
+  it("uses one authenticated CSRF-bound upload attempt without reading response bodies", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=evidence-csrf",
+    );
     const responseText = vi.spyOn(Response.prototype, "text");
-    try {
-      fetchMock.mockResolvedValue(
-        new Response("s3://private-bucket/private-object", { status: 503 }),
-      );
-      const statusRetry = uploadEvidenceObjectBlobTarget(
+    fetchMock.mockResolvedValue(
+      new Response("s3://private-bucket/private-object", { status: 503 }),
+    );
+    await expect(
+      uploadEvidenceObjectBlobTarget(
         "/base",
         {
           expires_at: "2026-08-04T00:30:00Z",
           href: "/api/v1/object-uploads/upload-token",
           method: "PUT",
-          headers: {},
+          headers: { "Content-Type": "application/cartulary-evidence" },
         },
         new File(["abc"], "evidence.txt", { type: "text/plain" }),
-      );
+      ),
+    ).resolves.toEqual({
+      kind: "rejected",
+      message: "upload_failed_503",
+      retryable: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const uploadInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(uploadInit.credentials).toBe("include");
+    const uploadHeaders = new Headers(uploadInit.headers);
+    expect(uploadHeaders.get("Content-Type")).toBe(
+      "application/cartulary-evidence",
+    );
+    expect(uploadHeaders.get("X-CSRF-Token")).toBe("evidence-csrf");
+    expect(responseText).not.toHaveBeenCalled();
+  });
 
-      await vi.runAllTimersAsync();
-      await expect(statusRetry).resolves.toEqual({
-        kind: "rejected",
-        message: "upload_failed_503",
-        retryable: true,
-      });
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(responseText).not.toHaveBeenCalled();
+  it("fails closed before upload when the current CSRF cookie is absent", async () => {
+    vi.spyOn(document, "cookie", "get").mockReturnValue("");
 
-      fetchMock.mockReset();
-      fetchMock
-        .mockRejectedValueOnce(new TypeError("connection unavailable"))
-        .mockRejectedValueOnce(new TypeError("connection unavailable"))
-        .mockResolvedValueOnce(new Response("", { status: 200 }));
-      const networkRetry = uploadEvidenceObjectBlobTarget(
+    await expect(
+      uploadEvidenceObjectBlobTarget(
         "/base",
         {
           expires_at: "2026-08-04T00:30:00Z",
           href: "/api/v1/object-uploads/upload-token",
           method: "PUT",
-          headers: {},
+          headers: { "Content-Type": "application/cartulary-evidence" },
         },
         new File(["abc"], "evidence.txt", { type: "text/plain" }),
-      );
-
-      await vi.runAllTimersAsync();
-      await expect(networkRetry).resolves.toEqual({ kind: "accepted" });
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      expect(responseText).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+      ),
+    ).resolves.toEqual({
+      kind: "rejected",
+      message: "upload_failed_csrf",
+      retryable: false,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("creates and uploads a private Evidence object blob without exposing its target", async () => {
@@ -161,6 +166,11 @@ describe("workbookEvidence", () => {
       filename_hint: "evidence.txt",
       content_type_hint: "text/plain",
     });
+    const uploadRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(uploadRequest.credentials).toBe("include");
+    expect(new Headers(uploadRequest.headers).get("X-CSRF-Token")).toBe(
+      "evidence-csrf",
+    );
   });
 
   it("fails closed before upload for malformed or cross-incident blob-slot responses", async () => {
@@ -200,7 +210,7 @@ function objectBlobEnvelope(options: { readonly incidentId?: string } = {}) {
         href: "/api/v1/object-uploads/upload-token",
         method: "PUT",
         expires_at: "2026-07-26T12:05:00Z",
-        headers: {},
+        headers: { "Content-Type": "text/plain" },
       },
       accepted_contract: {
         incident_id: incidentId,

@@ -246,8 +246,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(tables) != 111 {
-		return nil, fmt.Errorf("recovery catalog must classify exactly 111 authored tables, got %d", len(tables))
+	if len(tables) != 113 {
+		return nil, fmt.Errorf("recovery catalog must classify exactly 113 authored tables, got %d", len(tables))
 	}
 	catalogNames := make([]string, 0, len(tables))
 	requiredNames := []string{}

@@ -2,6 +2,7 @@ package database_migrations_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -22,6 +23,7 @@ func TestMigrationLineagePreflightAllowsCurrentLine(t *testing.T) {
 }
 
 func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
+	repositoryHead := canonicalRepositoryHead(t)
 	postgresHarness := pgtest.Start(t)
 	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 1)
 	db := migrationDB.SQL()
@@ -34,7 +36,7 @@ func TestMigrationLineagePreflightRejectsUnmarkedNonzeroDatabase(t *testing.T) {
 	if report.SchemaID != "cartulary.migration_remediation_report.v1" ||
 		report.Boundary != expectedCanonicalLineageBoundary ||
 		report.FromVersion != 1 ||
-		report.ToVersion != 29 ||
+		report.ToVersion != repositoryHead ||
 		len(report.Findings) != 1 {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
@@ -78,6 +80,7 @@ VALUES ('cartulary.prod_ddl_rebaseline.v1', 'synthetic v1 lineage marker');
 }
 
 func TestMigrationLineagePreflightReportsApplyHeadTarget(t *testing.T) {
+	repositoryHead := canonicalRepositoryHead(t)
 	postgresHarness := pgtest.Start(t)
 	migrationDB := postgresHarness.MigrationDatabaseThroughT(t, 2)
 	db := migrationDB.SQL()
@@ -87,29 +90,31 @@ func TestMigrationLineagePreflightReportsApplyHeadTarget(t *testing.T) {
 
 	err := postgres.Apply(context.Background(), db, canonicalMigrationSource(t))
 	report := requireMigrationRemediation(t, err)
-	if report.FromVersion != 2 || report.ToVersion != 29 {
+	if report.FromVersion != 2 || report.ToVersion != repositoryHead {
 		t.Fatalf("unexpected apply-head remediation target: %#v", report)
 	}
 }
 
 func TestProductionPreflightStateMatrix(t *testing.T) {
+	repositoryHead := canonicalRepositoryHead(t)
+	aheadVersion := repositoryHead + 1
 	tests := []struct {
 		name       string
 		through    int64
-		mutate     string
+		mutate     func(testing.TB, *sql.DB)
 		wantReason string
 	}{
-		{name: "ahead", through: 29, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true)`, wantReason: "schema_version_ahead"},
-		{name: "duplicate", through: 2, mutate: `INSERT INTO goose_db_version (version_id, is_applied) VALUES (2, true)`, wantReason: "schema_migration_history_invalid"},
-		{name: "false", through: 1, mutate: `UPDATE goose_db_version SET is_applied = false WHERE version_id = 1`, wantReason: "schema_migration_history_invalid"},
-		{name: "gap", through: 3, mutate: `DELETE FROM goose_db_version WHERE version_id = 2`, wantReason: "schema_migration_history_invalid"},
-		{name: "out of order", through: 2, mutate: `UPDATE goose_db_version SET version_id = CASE version_id WHEN 1 THEN 2 WHEN 2 THEN 1 ELSE version_id END WHERE version_id IN (1, 2)`, wantReason: "schema_migration_history_invalid"},
-		{name: "corruption before wrong lineage", through: 3, mutate: `
+		{name: "ahead", through: repositoryHead, mutate: execMigrationMutation(`INSERT INTO goose_db_version (version_id, is_applied) VALUES ($1, true)`, aheadVersion), wantReason: "schema_version_ahead"},
+		{name: "duplicate", through: 2, mutate: execMigrationMutation(`INSERT INTO goose_db_version (version_id, is_applied) VALUES (2, true)`), wantReason: "schema_migration_history_invalid"},
+		{name: "false", through: 1, mutate: execMigrationMutation(`UPDATE goose_db_version SET is_applied = false WHERE version_id = 1`), wantReason: "schema_migration_history_invalid"},
+		{name: "gap", through: 3, mutate: execMigrationMutation(`DELETE FROM goose_db_version WHERE version_id = 2`), wantReason: "schema_migration_history_invalid"},
+		{name: "out of order", through: 2, mutate: execMigrationMutation(`UPDATE goose_db_version SET version_id = CASE version_id WHEN 1 THEN 2 WHEN 2 THEN 1 ELSE version_id END WHERE version_id IN (1, 2)`), wantReason: "schema_migration_history_invalid"},
+		{name: "corruption before wrong lineage", through: 3, mutate: execMigrationMutation(`
 DELETE FROM goose_db_version WHERE version_id = 2;
 DELETE FROM schema_migration_lineage;
 INSERT INTO schema_migration_lineage (lineage_id, description)
 VALUES ('cartulary.legacy_line.v1', 'legacy test line');
-`, wantReason: "schema_migration_history_invalid"},
+`), wantReason: "schema_migration_history_invalid"},
 	}
 
 	for _, test := range tests {
@@ -117,9 +122,7 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 			postgresHarness := pgtest.Start(t)
 			migrationDB := postgresHarness.MigrationDatabaseThroughT(t, test.through)
 			db := migrationDB.SQL()
-			if _, err := db.ExecContext(context.Background(), test.mutate); err != nil {
-				t.Fatalf("seed production preflight state: %v", err)
-			}
+			test.mutate(t, db)
 
 			var beforeCount int
 			if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM goose_db_version`).Scan(&beforeCount); err != nil {
@@ -135,6 +138,15 @@ VALUES ('cartulary.legacy_line.v1', 'legacy test line');
 				t.Fatalf("invalid preflight advanced ledger: before=%d after=%d", beforeCount, afterCount)
 			}
 		})
+	}
+}
+
+func execMigrationMutation(statement string, arguments ...any) func(testing.TB, *sql.DB) {
+	return func(t testing.TB, db *sql.DB) {
+		t.Helper()
+		if _, err := db.ExecContext(context.Background(), statement, arguments...); err != nil {
+			t.Fatalf("seed production preflight state: %v", err)
+		}
 	}
 }
 

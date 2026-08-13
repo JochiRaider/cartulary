@@ -3867,6 +3867,159 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-attempt-count-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_attempt_count_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-blob-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_blob_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims",
+        "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-claim-token-key",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_claim_token_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-failure-class-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_failure_class_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-state-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_state_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-time-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_time_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-transition-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_cleanup_claims.evidence_blob_cleanup_claims_transition_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.evidence-custody-events.evidence-custody-events-actor-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.evidence_custody_events.evidence_custody_events_actor_user_id_fkey",
@@ -4014,6 +4167,276 @@
       "dependency_object_ids": [
         "table.public.evidence",
         "table.public.evidence-grid-projection"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-blob-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_blob_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases",
+        "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-capability-digest-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_capability_digest_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-capability-hash-key",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_capability_hash_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-contract-digest-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_contract_digest_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-headers-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_headers_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-incident-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_incident_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases",
+        "table.public.incidents"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-lease-id-key",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_lease_id_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-method-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_method_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-session-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_session_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases",
+        "table.public.user-sessions"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-state-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_state_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-time-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_time_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-transition-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_transition_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-user-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_object_upload_leases.evidence_object_upload_leases_user_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases",
+        "table.public.users"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -18331,6 +18754,103 @@
       "approval": null
     },
     {
+      "object_id": "index.public.evidence-blob-cleanup-claims-claim-token-key",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_cleanup_claims_claim_token_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-claim-token-key",
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-cleanup-claims-completed-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_cleanup_claims_completed_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-cleanup-claims-due-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_cleanup_claims_due_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-cleanup-claims-lease-expiry-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_cleanup_claims_lease_expiry_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-cleanup-claims-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_cleanup_claims_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-pkey",
+        "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.evidence-collector-party-ref-lookup-idx",
       "object_kind": "index",
       "qualified_name": "public.evidence_collector_party_ref_lookup_idx",
@@ -18551,6 +19071,142 @@
       "migration_file": "00017_evidence.sql",
       "dependency_object_ids": [
         "table.public.evidence"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-capability-hash-key",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_capability_hash_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-capability-hash-key",
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-expiry-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_expiry_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-incident-id-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_incident_id_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-issuing-session-id-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_issuing_session_id_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-issuing-user-id-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_issuing_user_id_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-lease-id-key",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_lease_id_key",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-lease-id-key",
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-object-upload-leases-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_object_upload_leases_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-object-upload-leases.evidence-object-upload-leases-pkey",
+        "table.public.evidence-object-upload-leases"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -24992,6 +25648,40 @@
       "approval": null
     },
     {
+      "object_id": "routine.public.evidence-reject-cleanup-claimed-association",
+      "object_kind": "routine",
+      "qualified_name": "public.evidence_reject_cleanup_claimed_association",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "routine.public.evidence-reject-cleanup-claimed-blob-update",
+      "object_kind": "routine",
+      "qualified_name": "public.evidence_reject_cleanup_claimed_blob_update",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "routine_private",
+      "recovery_access_class": "routine_private",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "routine.public.indicator-active-identities-are-valid",
       "object_kind": "routine",
       "qualified_name": "public.indicator_active_identities_are_valid",
@@ -25655,6 +26345,23 @@
       "approval": null
     },
     {
+      "object_id": "table.public.evidence-blob-cleanup-claims",
+      "object_kind": "table",
+      "qualified_name": "public.evidence_blob_cleanup_claims",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_write",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "table.public.evidence-custody-events",
       "object_kind": "table",
       "qualified_name": "public.evidence_custody_events",
@@ -25684,6 +26391,23 @@
       "recovery_access_class": "table_restore",
       "extension_profile_id": null,
       "recovery_classification": "excluded_rebuildable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.evidence-object-upload-leases",
+      "object_kind": "table",
+      "qualified_name": "public.evidence_object_upload_leases",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 30,
+      "migration_file": "00030_evidence_upload_leases.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_write",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": null,
+      "recovery_classification": "excluded_security_state",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null
@@ -27087,6 +27811,25 @@
       "approval": null
     },
     {
+      "object_id": "trigger.public.evidence.evidence-reject-cleanup-claimed-association",
+      "object_kind": "trigger",
+      "qualified_name": "public.evidence.evidence_reject_cleanup_claimed_association",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.evidence"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "trigger.public.indicator-state-intervals.indicator-state-intervals-support-ref-incident",
       "object_kind": "trigger",
       "qualified_name": "public.indicator_state_intervals.indicator_state_intervals_support_ref_incident",
@@ -27157,6 +27900,25 @@
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
       "extension_profile_id": "network_flow_activity",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "trigger.public.object-blobs.evidence-reject-cleanup-claimed-blob-update",
+      "object_kind": "trigger",
+      "qualified_name": "public.object_blobs.evidence_reject_cleanup_claimed_blob_update",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 31,
+      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "dependency_object_ids": [
+        "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",

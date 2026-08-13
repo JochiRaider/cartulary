@@ -462,3 +462,7 @@ func (a evidenceAdapter) ValidateTimelineAttachmentsTx(ctx context.Context, tx p
 	}
 	return err
 }
+
+func (a evidenceAdapter) RefreshTimelineAttachmentProjectionsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	return a.attachments.RefreshTimelineAttachmentProjectionsTx(ctx, tx, recordIDs)
+}

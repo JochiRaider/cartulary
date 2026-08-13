@@ -202,7 +202,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		ConflictTokens:      conflicttest.NewCodec("tasks-decisions-import"),
 		Revisions:           appender,
 		Collaboration:       intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(storeHarness.DB),
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,
@@ -227,7 +227,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		EntityProjections:       projections.EntityPorts().Writer,
 		AssessmentProjections:   projections.AssessmentPorts().Rows,
 		ArtifactProjections:     projections.ArtifactPorts().Rows,
-		EvidenceProjections:     projections.EvidencePorts().Rows,
+		Evidence:                inertEvidenceImportFacade(t),
 		PartyProjections:        projections.PartyPorts().Rows,
 		TaskDecisionProjections: projections.TaskDecisionPorts().Rows,
 		Indicators:              indicatorOwner,
@@ -239,6 +239,23 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		db: storeHarness.DB, actor: actor, incidentID: incident.ID,
 		appender: appender, registry: registry,
 	}
+}
+
+func inertEvidenceImportFacade(t testing.TB) ownerfacade.ImportOwnerCreateFacade {
+	t.Helper()
+	facade, err := ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: evidence.ViewSchemaID,
+			FacadeID:           "evidence.import_create",
+		},
+		func(context.Context, pgx.Tx, ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+			return ownerfacade.ImportOwnerCreateResponse{}, errors.New("unexpected Evidence import")
+		},
+	)
+	if err != nil {
+		t.Fatalf("compose inert Evidence import facade: %v", err)
+	}
+	return facade
 }
 
 func seedTasksDecisionsImportUser(t testing.TB, harness tasksDecisionsImportHarness, active bool, member bool) authn.UserRecord {

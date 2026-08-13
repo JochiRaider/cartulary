@@ -547,15 +547,38 @@ func RecordChangeFromSequencedMessage(message Message) (RecordChange, error) {
 	eventID, eventErr := uuid.Parse(message.EventID)
 	emittedAt, emittedErr := time.Parse(time.RFC3339Nano, message.EmittedAt)
 	if incidentErr != nil || recordErr != nil || changeSetErr != nil || actorErr != nil ||
-		eventErr != nil || emittedErr != nil || payload.RowVersion < 1 || len(payload.AffectedViews) != 1 {
+		eventErr != nil || emittedErr != nil || payload.RowVersion < 1 || len(payload.AffectedViews) == 0 {
 		return RecordChange{}, errors.New("invalid sequenced record_changed identity")
 	}
-	viewSchemaID, _ := payload.AffectedViews[0]["view_schema_id"].(string)
-	changeKind, _ := payload.AffectedViews[0]["change_kind"].(string)
-	var patchCells map[string]any
-	if value, ok := payload.AffectedViews[0]["patch_cells"].(map[string]any); ok {
-		patchCells = value
+	affectedViews := make([]AffectedViewChange, 0, len(payload.AffectedViews))
+	for _, rawView := range payload.AffectedViews {
+		viewSchemaID, _ := rawView["view_schema_id"].(string)
+		changeKind, _ := rawView["change_kind"].(string)
+		var patchCells map[string]any
+		if value, ok := rawView["patch_cells"].(map[string]any); ok {
+			patchCells = value
+		}
+		if viewSchemaID == "" || !validAffectedViewChangeKind(changeKind) ||
+			(changeKind == "patch") != (patchCells != nil) {
+			return RecordChange{}, errors.New("invalid sequenced record_changed affected view")
+		}
+		affectedViews = append(affectedViews, AffectedViewChange{
+			ViewSchemaID: viewSchemaID,
+			ChangeKind:   changeKind,
+			PatchCells:   patchCells,
+		})
 	}
+	if !slices.IsSortedFunc(affectedViews, func(left AffectedViewChange, right AffectedViewChange) int {
+		return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
+	}) {
+		return RecordChange{}, errors.New("invalid sequenced record_changed affected view order")
+	}
+	for index := 1; index < len(affectedViews); index++ {
+		if affectedViews[index-1].ViewSchemaID == affectedViews[index].ViewSchemaID {
+			return RecordChange{}, errors.New("invalid sequenced record_changed duplicate affected view")
+		}
+	}
+	firstView := affectedViews[0]
 	return RecordChange{
 		IncidentID:       incidentID,
 		RecordID:         recordID,
@@ -564,33 +587,41 @@ func RecordChangeFromSequencedMessage(message Message) (RecordChange, error) {
 		ClientTxnID:      payload.ClientTxnID,
 		ActorUserID:      actorUserID,
 		ChangedFieldKeys: payload.ChangedFieldKeys,
-		ViewSchemaID:     viewSchemaID,
-		ChangeKind:       changeKind,
-		PatchCells:       patchCells,
+		ViewSchemaID:     firstView.ViewSchemaID,
+		ChangeKind:       firstView.ChangeKind,
+		PatchCells:       firstView.PatchCells,
+		AffectedViews:    affectedViews,
 		StreamSeq:        *message.StreamSeq,
 		EventID:          eventID,
 		EmittedAt:        emittedAt,
 	}, nil
 }
 
+func validAffectedViewChangeKind(changeKind string) bool {
+	switch changeKind {
+	case "invalidate", "patch", "remove":
+		return true
+	default:
+		return false
+	}
+}
+
 func RecordChangePayload(change RecordChange) map[string]any {
 	changedKeys := append(make([]string, 0, len(change.ChangedFieldKeys)), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
 	changedKeys = slices.Compact(changedKeys)
-	changeKind := change.ChangeKind
-	if changeKind == "" {
-		changeKind = "invalidate"
-	}
-	affectedView := map[string]any{
-		"view_schema_id": change.ViewSchemaID,
-		"change_kind":    changeKind,
-	}
-	if change.PatchCells != nil {
-		affectedView = map[string]any{
-			"view_schema_id": change.ViewSchemaID,
-			"change_kind":    "patch",
-			"patch_cells":    change.PatchCells,
+	affectedChanges := normalizedAffectedViewChanges(change)
+	affectedViews := make([]map[string]any, 0, len(affectedChanges))
+	for _, affected := range affectedChanges {
+		view := map[string]any{
+			"view_schema_id": affected.ViewSchemaID,
+			"change_kind":    affected.ChangeKind,
 		}
+		if affected.PatchCells != nil {
+			view["change_kind"] = "patch"
+			view["patch_cells"] = affected.PatchCells
+		}
+		affectedViews = append(affectedViews, view)
 	}
 	return map[string]any{
 		"record_id":          change.RecordID.String(),
@@ -599,8 +630,33 @@ func RecordChangePayload(change RecordChange) map[string]any {
 		"client_txn_id":      change.ClientTxnID,
 		"actor_user_id":      change.ActorUserID.String(),
 		"changed_field_keys": changedKeys,
-		"affected_views":     []map[string]any{affectedView},
+		"affected_views":     affectedViews,
 	}
+}
+
+func normalizedAffectedViewChanges(change RecordChange) []AffectedViewChange {
+	if len(change.AffectedViews) > 0 {
+		result := append([]AffectedViewChange(nil), change.AffectedViews...)
+		slices.SortFunc(result, func(left AffectedViewChange, right AffectedViewChange) int {
+			return strings.Compare(left.ViewSchemaID, right.ViewSchemaID)
+		})
+		return result
+	}
+	changeKind := change.ChangeKind
+	if changeKind == "" {
+		changeKind = "invalidate"
+	}
+	if change.PatchCells != nil {
+		changeKind = "patch"
+	}
+	if change.ViewSchemaID == "" {
+		return nil
+	}
+	return []AffectedViewChange{{
+		ViewSchemaID: change.ViewSchemaID,
+		ChangeKind:   changeKind,
+		PatchCells:   change.PatchCells,
+	}}
 }
 
 func BuildViewRowPatch(row map[string]any, changedFieldKeys []string) map[string]any {

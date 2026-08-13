@@ -27,6 +27,7 @@ import {
 } from "../models/genericWorkbookModel";
 import {
   assessmentsViewSchemaId,
+  evidenceViewSchemaId,
   partiesViewSchemaId,
   taskRequestsViewSchemaId,
   timelineViewSchemaId,
@@ -858,7 +859,15 @@ export function createWorkbookMutationCommandPorts(
           context.transactionIds,
           "evidence-attach",
         );
-        if (createClientTxnId === null || attachClientTxnId === null) {
+        const availableClientTxnId = createId(
+          context.transactionIds,
+          "evidence-available",
+        );
+        if (
+          createClientTxnId === null ||
+          attachClientTxnId === null ||
+          availableClientTxnId === null
+        ) {
           return operationIdentityFailure();
         }
         if (input.file.size <= 0) return invalidOperationPayload();
@@ -901,6 +910,30 @@ export function createWorkbookMutationCommandPorts(
         if (
           attach.value.data.row.record_id !== input.evidenceRecordId ||
           attach.value.data.object_blob_id !== objectBlobId
+        ) {
+          return invalidOperationContract();
+        }
+        const available = await operations.execute({
+          operationID: "patchRecord",
+          pathParameters: { record_id: input.evidenceRecordId },
+          request: {
+            view_schema_id: evidenceViewSchemaId,
+            base_row_version: attach.value.data.row.row_version,
+            client_txn_id: availableClientTxnId,
+            changes: [
+              {
+                field_key: "evidence.lifecycle_state",
+                value: "available",
+              },
+            ],
+          } satisfies PatchRecordRequest,
+        });
+        if (available.kind === "rejected") return available;
+        if (
+          available.value.data.view_schema_id !== evidenceViewSchemaId ||
+          available.value.data.row.record_id !== input.evidenceRecordId ||
+          available.value.data.row.cells["evidence.lifecycle_state"]?.value !==
+            "available"
         ) {
           return invalidOperationContract();
         }

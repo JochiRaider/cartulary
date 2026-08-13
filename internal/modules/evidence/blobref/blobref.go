@@ -84,11 +84,6 @@ func ParseObjectBlobStorageRef(ref string) (uuid.UUID, error) {
 	return parseCanonicalUUID(strings.TrimPrefix(ref, StorageRefScheme), "object_blob_id")
 }
 
-func IsServerManagedStorageRef(ref string) bool {
-	_, err := ParseObjectBlobStorageRef(strings.TrimSpace(ref))
-	return err == nil
-}
-
 func validateStorageKeySyntax(key string) error {
 	if key == "" {
 		return fmt.Errorf("object blob storage key is required")

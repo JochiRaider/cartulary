@@ -34,12 +34,19 @@ func (admission routeAdmission) authenticate(
 	})
 }
 
-func (admission routeAdmission) requireMembership(
+func (admission routeAdmission) visibleIncident(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	userID uuid.UUID,
-) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, admission.incidents, incidentID, userID)
+) (incidents.IncidentRecord, *httpapi.APIError) {
+	record, err := admission.incidents.GetVisibleIncident(ctx, incidentID, userID)
+	if admission.incidents.IsIncidentNotFound(err) {
+		return incidents.IncidentRecord{}, incidentNotFoundError()
+	}
+	if err != nil {
+		return incidents.IncidentRecord{}, httpapi.InternalAPIError(err)
+	}
+	return record, nil
 }
 
 func (admission routeAdmission) requireRole(

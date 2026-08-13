@@ -23,6 +23,7 @@ const (
 	ScopeHTTPAPI       Scope = "cartulary.httpapi"
 	ScopeWorkbook      Scope = "cartulary.workbook"
 	ScopeCollaboration Scope = "cartulary.collaboration"
+	ScopeEvidence      Scope = "cartulary.evidence"
 	ScopeJobs          Scope = "cartulary.jobs"
 	ScopePortability   Scope = "cartulary.incident_portability"
 	ScopePostgres      Scope = "cartulary.postgres"
@@ -34,6 +35,7 @@ var registeredScopes = map[Scope]struct{}{
 	ScopeHTTPAPI:       {},
 	ScopeWorkbook:      {},
 	ScopeCollaboration: {},
+	ScopeEvidence:      {},
 	ScopeJobs:          {},
 	ScopePortability:   {},
 	ScopePostgres:      {},

@@ -43,12 +43,13 @@ func TestEnsureSchemaReadyRejectsBehindCurrentLine(t *testing.T) {
 }
 
 func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
+	aheadVersion := canonicalRepositoryHead(t) + 1
 	postgresHarness := pgtest.Start(t)
 	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "schema-ready-ahead")
 	db := openSchemaReadinessSQL(t, testDB.DSN)
 	pool := openSchemaReadinessPool(t, testDB.DSN)
 
-	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true)`); err != nil {
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES ($1, true)`, aheadVersion); err != nil {
 		t.Fatalf("seed ahead migration version: %v", err)
 	}
 
@@ -57,16 +58,18 @@ func TestEnsureSchemaReadyRejectsAheadCurrentLine(t *testing.T) {
 }
 
 func TestEnsureSchemaReadyRejectsHistoricalLineAboveHead(t *testing.T) {
+	repositoryHead := canonicalRepositoryHead(t)
+	aheadVersion := repositoryHead + 1
 	db, pool := migratedSchemaReadinessDatabase(t, "schema-ready-historical-above-head", 0)
-	if _, err := db.ExecContext(context.Background(), `
-DROP TABLE schema_migration_lineage;
-INSERT INTO goose_db_version (version_id, is_applied) VALUES (30, true);
-`); err != nil {
+	if _, err := db.ExecContext(context.Background(), `DROP TABLE schema_migration_lineage`); err != nil {
+		t.Fatalf("remove current migration lineage: %v", err)
+	}
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO goose_db_version (version_id, is_applied) VALUES ($1, true)`, aheadVersion); err != nil {
 		t.Fatalf("seed historical migration line above head: %v", err)
 	}
 
 	report := requireMigrationRemediation(t, postgres.EnsureSchemaReady(context.Background(), pool, canonicalMigrationSource(t)))
-	if report.Boundary != expectedCanonicalLineageBoundary || report.FromVersion != 30 || report.ToVersion != 29 {
+	if report.Boundary != expectedCanonicalLineageBoundary || report.FromVersion != aheadVersion || report.ToVersion != repositoryHead {
 		t.Fatalf("unexpected remediation report: %#v", report)
 	}
 	finding := report.Findings[0]

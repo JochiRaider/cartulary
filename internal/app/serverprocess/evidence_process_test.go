@@ -14,7 +14,7 @@ import (
 )
 
 func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
-	server := startServerProcess(t, "evidence_lifecycle-e-smoke-01")
+	server, db := startServerProcessWithDB(t, "evidence_lifecycle-e-smoke-01")
 	adminLogin, _ := provisionBootstrapAdmin(t, server)
 	incident := createIncident(t, server, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"client_txn_id": "txn-e-5-smoke-incident",
@@ -46,16 +46,26 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
-	putObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, server.BaseURL, uploadTarget, payload, adminLogin)
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    "txn-e-5-smoke-attach",
 	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-	httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)
+	attachData := httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)["data"].(map[string]any)
+	attachedRow := attachData["row"].(map[string]any)
+	patchRecord(t, server, adminLogin, evidenceRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": attachedRow["row_version"],
+		"client_txn_id":    "txn-e-5-smoke-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
 
-	patchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
+	patched := patchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",
 		"base_row_version": timelineRowVersion,
 		"client_txn_id":    "txn-e-5-smoke-link",
@@ -70,6 +80,23 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 			},
 		}},
 	})
+	var activeLinks int
+	if err := db.QueryRow(`
+SELECT COUNT(*)
+  FROM active_record_links_v1
+ WHERE src_record_id::text = $1
+   AND dst_record_id::text = $2
+   AND link_type = 'attached_evidence'
+`, timelineRecordID, evidenceRecordID).Scan(&activeLinks); err != nil {
+		t.Fatalf("query active Timeline Evidence links: %v", err)
+	}
+	if activeLinks != 1 {
+		t.Fatalf("active Timeline Evidence links got %d want 1", activeLinks)
+	}
+	patchedCells := patched["row"].(map[string]any)["cells"].(map[string]any)
+	if got := int(patchedCells["timeline.evidence_count"].(map[string]any)["value"].(float64)); got != 1 {
+		t.Fatalf("timeline patch response evidence_count got %d want 1", got)
+	}
 	requireTimelineEvidenceCount(t, server, adminLogin, incidentID, timelineRecordID, 1, true)
 
 	requested := createViewRow(t, server, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
@@ -118,16 +145,22 @@ func requireTimelineEvidenceCount(t testing.TB, server *processtest.Server, logi
 	return nil
 }
 
-func putObject(t testing.TB, baseURL string, href string, payload []byte, contentType string) {
+func putObject(t testing.TB, baseURL string, target map[string]any, payload []byte, login flowtest.LoginResult) {
 	t.Helper()
+	href := target["href"].(string)
 	if strings.HasPrefix(href, "/") {
 		href = baseURL + href
 	}
-	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
+	req, err := http.NewRequest(target["method"].(string), href, bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("create upload request: %v", err)
 	}
-	req.Header.Set("Content-Type", contentType)
+	for name, rawValue := range target["headers"].(map[string]any) {
+		req.Header.Set(name, rawValue.(string))
+	}
+	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)
+	req.AddCookie(login.SessionCookie)
+	req.AddCookie(login.CSRFCookie)
 	resp, err := newProcessHTTPClient().Do(req)
 	if err != nil {
 		t.Fatalf("upload object: %v", err)

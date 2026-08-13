@@ -35,6 +35,7 @@ func TestWorkbookCreateValidation_AdoptedSignalAndLifecycleMatrix(t *testing.T) 
 		{name: "title", values: map[string]evidence.WorkbookFieldValue{"evidence.title": text("title")}},
 		{name: "storage ref", values: map[string]evidence.WorkbookFieldValue{"evidence.storage_ref": text("s3://case/object")}},
 		{name: "reserved object ref is owner rejected", values: map[string]evidence.WorkbookFieldValue{"evidence.storage_ref": text("object://00000000-0000-0000-0000-000000210004")}, wantReason: "reserved_server_managed_ref"},
+		{name: "malformed reserved object ref is owner rejected", values: map[string]evidence.WorkbookFieldValue{"evidence.storage_ref": text("object://not-a-uuid")}, wantReason: "reserved_server_managed_ref"},
 		{name: "collector text", values: map[string]evidence.WorkbookFieldValue{"evidence.collector_party_text": text("collector")}},
 		{name: "source text", values: map[string]evidence.WorkbookFieldValue{"evidence.source_party_text": text("source")}},
 		{name: "requested lifecycle alone", values: map[string]evidence.WorkbookFieldValue{"evidence.lifecycle_state": text("requested")}},

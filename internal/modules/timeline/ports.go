@@ -246,6 +246,7 @@ type EntityPort interface {
 
 type EvidencePort interface {
 	ValidateTimelineAttachmentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) error
+	RefreshTimelineAttachmentProjectionsTx(context.Context, pgx.Tx, []uuid.UUID) error
 }
 
 type CollectionFactPort interface {

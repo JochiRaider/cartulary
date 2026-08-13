@@ -2037,7 +2037,35 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 
 **REQ-02-195**
-A pending blob slot that is not successfully finalized by `pending_expires_at` MUST transition from `pending` to `failed`, persist `terminal_reason='pending_timeout'`, and record `failed_at`. For a failed blob slot that remains unattached to evidence, `cleanup_due_at` MUST be no later than 1 hour after terminal failure, orphaned blob bytes MUST be deleted by that deadline, and failed unattached slot metadata MUST remain queryable for at least 7 days before automatic hard deletion is allowed. `cleaned_up_at` MUST record completion of object-byte cleanup when that cleanup occurs.
+A pending blob slot that is not successfully finalized by `pending_expires_at` MUST transition from `pending` to `failed`, persist `terminal_reason='pending_timeout'`, and record `failed_at`. For a failed blob slot that remains unattached to evidence, `cleanup_due_at` MUST equal `failed_at + 45 minutes`, orphaned blob bytes MUST be deleted no later than 1 hour after terminal failure, and failed unattached slot metadata MUST remain queryable for at least 7 days after cleanup completion before automatic hard deletion is allowed. `cleaned_up_at` MUST record completion of object-byte cleanup when that cleanup occurs.
+
+Cleanup ownership MUST be coordinated by the Evidence-private durable
+`evidence_blob_cleanup_claims` relation. Each sweep MUST first fail expired
+pending slots and then claim no more than 100 eligible failed/unattached blobs
+using row locks with `SKIP LOCKED`. A claim MUST carry an opaque claim token, a
+5-minute lease, attempt count, and retry or completion timestamps. Object-byte
+deletion MUST occur outside the claim transaction under a 1-minute timeout.
+Object-not-found MUST be idempotent success. Other failures MUST retry after 1,
+5, and 15 minutes for attempts one, two, and three respectively; every later
+failure MUST continue at 15-minute intervals without terminal exhaustion.
+
+Completion MUST atomically recheck the claim token, current failed state, and
+absence of an Evidence association before setting `cleaned_up_at`. From claim
+acquisition until claim removal, database enforcement MUST reject association,
+finalization, quarantine, replacement, import, restore, or other authoritative
+blob-state mutation. Expired leases MUST be reclaimable after process restart,
+concurrent instances MUST never own the same unexpired claim, and hard deletion
+of the blob metadata and its claim MUST occur only after cleanup metadata has
+remained queryable for at least 7 days.
+
+The private dispatcher identity MUST be
+`evidence.failed_unattached_blob_cleanup.v1`. Application composition MUST
+start it only after serving readiness opens, it MUST begin its first sweep only
+after that activation, and it MUST run subsequent sweeps every 15 minutes. It
+MUST stop with application shutdown and MUST NOT publish a common Jobs kind,
+route, result, or progress resource. Object deletion MUST use the typed
+object-store purpose `evidence_cleanup`; provider-specific error strings MUST
+not determine not-found or retry behavior.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 

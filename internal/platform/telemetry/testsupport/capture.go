@@ -33,6 +33,8 @@ type Span struct {
 type MetricPoint struct {
 	Name       string
 	Value      int64
+	FloatValue float64
+	IsFloat    bool
 	Attributes map[string]string
 }
 
@@ -94,6 +96,18 @@ func (capture *Capture) MetricPoints(ctx context.Context) ([]MetricPoint, error)
 			case metricdata.Sum[int64]:
 				for _, point := range data.DataPoints {
 					result = append(result, MetricPoint{Name: measurement.Name, Value: point.Value, Attributes: stringAttributes(point.Attributes.ToSlice())})
+				}
+			case metricdata.Gauge[float64]:
+				for _, point := range data.DataPoints {
+					result = append(result, MetricPoint{Name: measurement.Name, FloatValue: point.Value, IsFloat: true, Attributes: stringAttributes(point.Attributes.ToSlice())})
+				}
+			case metricdata.Sum[float64]:
+				for _, point := range data.DataPoints {
+					result = append(result, MetricPoint{Name: measurement.Name, FloatValue: point.Value, IsFloat: true, Attributes: stringAttributes(point.Attributes.ToSlice())})
+				}
+			case metricdata.Histogram[float64]:
+				for _, point := range data.DataPoints {
+					result = append(result, MetricPoint{Name: measurement.Name, FloatValue: point.Sum, IsFloat: true, Attributes: stringAttributes(point.Attributes.ToSlice())})
 				}
 			}
 		}

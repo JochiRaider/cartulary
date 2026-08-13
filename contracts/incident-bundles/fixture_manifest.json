@@ -7,9 +7,9 @@
     {"fixture_id": "IB-FIX-004", "class": "invalid", "covers": ["unsupported_version", "mixed_timeline_paths", "version_path_mismatch"], "test": "TestVerifyBundleRejectsUnsupportedAndMixedTimelineVersions_Unit"},
     {"fixture_id": "IB-FIX-005", "class": "invalid", "covers": ["unsafe_archive", "duplicate_member", "checksum_mismatch"], "test": "TestVerifyBundleRejectsUnsafeAndCapabilityFailures_Unit"},
     {"fixture_id": "IB-FIX-006", "class": "invalid", "covers": ["catalog_duplicate", "catalog_missing_path", "catalog_cycle", "catalog_relation"], "test": "TestSourcePortCatalogRejectsInvalidDescriptors_Unit"},
-    {"fixture_id": "IB-FIX-007", "class": "invalid", "covers": ["family_semantic_invalid", "duplicate_identity", "orphan_reference", "tag_catalog"], "test": "TestFailureFamiliesLeaveNoVisibleIncident_Integration"},
+    {"fixture_id": "IB-FIX-007", "class": "invalid", "covers": ["family_semantic_invalid", "duplicate_identity", "orphan_reference", "tag_catalog"], "test": "TestIncidentBundlesEvidenceBlobStagingCleanup_Integration"},
     {"fixture_id": "IB-FIX-008", "class": "valid", "covers": ["actors_complete", "actors_unique", "actors_inert", "reference_pack_refs", "extension_payload"], "test": "TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration"},
-    {"fixture_id": "IB-FIX-009", "class": "invalid", "covers": ["rollback", "staged_non_visibility", "cancellation"], "test": "TestFailureFamiliesLeaveNoVisibleIncident_Integration"},
+    {"fixture_id": "IB-FIX-009", "class": "invalid", "covers": ["rollback", "staged_non_visibility", "cancellation"], "test": "TestIncidentBundlesEvidenceBlobStagingCleanup_Integration"},
     {"fixture_id": "IB-FIX-010", "class": "valid", "covers": ["row_permutation", "archive_permutation", "safe_redaction"], "test": "TestBundleManifestChecksumDeterministic_Unit"},
     {"fixture_id": "IB-FIX-011", "class": "valid", "covers": ["claimed_composition", "unclaimed_composition", "pre_activation_gate"], "test": "TestRuntime_ExtensionPublication_WorkspaceAndWorkerClaimFiltering"},
     {"fixture_id": "IB-FIX-012", "class": "valid", "covers": ["dispatch_failure", "component_loss", "restart", "exactly_once_terminal"], "test": "TestRunnerRecoversQueuedDurableHandlerJob"}

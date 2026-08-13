@@ -3,17 +3,17 @@ package evidence
 import (
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 )
 
 func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
 	if value, ok := params.Values["evidence.storage_ref"]; ok &&
 		value.Text != nil &&
-		blobref.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
+		evidencepolicy.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
 		return &ValidationError{Field: "evidence.storage_ref", ReasonCode: "reserved_server_managed_ref"}
 	}
 	lifecycle, lifecyclePresent := params.Values["evidence.lifecycle_state"]
-	if lifecyclePresent && (lifecycle.Text == nil || !ValidLifecycleState(*lifecycle.Text)) {
+	if lifecyclePresent && (lifecycle.Text == nil || !evidencepolicy.ValidEvidenceLifecycle(*lifecycle.Text)) {
 		return &ValidationError{Field: "evidence.lifecycle_state", ReasonCode: "invalid_value"}
 	}
 	effectiveLifecycle := "requested"
@@ -21,26 +21,15 @@ func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
 		effectiveLifecycle = *lifecycle.Text
 	}
 	hasBlob := params.InitialBlobFinalized
-	switch effectiveLifecycle {
-	case "available":
-		if !hasBlob && !params.InitialBlobWasSupplied {
-			return &LifecycleValidationError{
-				FromStatus:     "",
-				ToStatus:       effectiveLifecycle,
-				ReasonCode:     "violated_lifecycle_guards",
-				ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
-			}
+	switch evidencepolicy.InitialEvidenceLifecycleDisposition(effectiveLifecycle, params.InitialBlobWasSupplied, hasBlob) {
+	case evidencepolicy.InitialLifecycleGuardViolation:
+		return &LifecycleValidationError{
+			FromStatus:     "",
+			ToStatus:       effectiveLifecycle,
+			ReasonCode:     "violated_lifecycle_guards",
+			ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
 		}
-	case "quarantined":
-		if hasBlob || params.InitialBlobWasSupplied {
-			return &LifecycleValidationError{
-				FromStatus:     "",
-				ToStatus:       effectiveLifecycle,
-				ReasonCode:     "violated_lifecycle_guards",
-				ViolatedGuards: []string{"evidence.lifecycle_state", "object_blobs.upload_state"},
-			}
-		}
-	case "released":
+	case evidencepolicy.InitialLifecycleIllegalTransition:
 		return &LifecycleValidationError{
 			FromStatus:     "",
 			ToStatus:       effectiveLifecycle,
@@ -67,10 +56,10 @@ func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
 func ValidateWorkbookDirectPatchChange(fieldKey string, value WorkbookFieldValue) error {
 	if fieldKey == "evidence.storage_ref" &&
 		value.Text != nil &&
-		blobref.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
+		evidencepolicy.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "reserved_server_managed_ref"}
 	}
-	if fieldKey == "evidence.lifecycle_state" && value.Text != nil && !ValidLifecycleState(*value.Text) {
+	if fieldKey == "evidence.lifecycle_state" && value.Text != nil && !evidencepolicy.ValidEvidenceLifecycle(*value.Text) {
 		return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 	}
 	return nil

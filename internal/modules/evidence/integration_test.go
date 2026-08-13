@@ -10,17 +10,21 @@ import (
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -52,6 +56,68 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		"evidence.collector_party_text": "IR collector",
 	})
 	evidenceRecordID := appsupport.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	requireEvidenceProjectionLinkedCount(t, harness, login, incidentID, evidenceRecordID, 0)
+	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.timeline.v2",
+		"base_row_version": timelineRowVersion,
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-link-evidence",
+		"changes": []map[string]any{{
+			"field_key": "timeline.attached_evidence_ids",
+			"action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{{
+					"op":               "add_record_ref",
+					"linked_record_id": evidenceRecordID.String(),
+				}},
+			},
+		}},
+	})
+	// Requested Evidence is linked but does not count as attached until the blob
+	// becomes available.
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
+	if got := countAttachedEvidenceLinks(t, harness, incidentID, timelineRecordID, evidenceRecordID); got != 1 {
+		t.Fatalf("workbook patch wrote attached evidence links: got %d want 1", got)
+	}
+	requireEvidenceProjectionLinkedCount(t, harness, login, incidentID, evidenceRecordID, 1)
+
+	secondTimelineData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-evidence_lifecycle-i-01-second-timeline",
+		"timeline.activity_synopsis_text": "Second Evidence link",
+	})
+	secondTimelineRow := secondTimelineData["row"].(map[string]any)
+	secondTimelineRecordID := appsupport.MustUUID(t, secondTimelineRow["record_id"].(string))
+	requireHTTPWorkbookPatch(t, harness, login, secondTimelineRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.timeline.v2",
+		"base_row_version": 1,
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-second-link-evidence",
+		"changes": []map[string]any{{
+			"field_key": "timeline.attached_evidence_ids",
+			"action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{{
+					"op":               "add_record_ref",
+					"linked_record_id": evidenceRecordID.String(),
+				}},
+			},
+		}},
+	})
+	requireEvidenceProjectionLinkedCount(t, harness, login, incidentID, evidenceRecordID, 2)
+	requireHTTPWorkbookPatch(t, harness, login, secondTimelineRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.timeline.v2",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-remove-second-link",
+		"changes": []map[string]any{{
+			"field_key": "timeline.attached_evidence_ids",
+			"action_payload": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{{
+					"op":       "remove_record_ref",
+					"item_ref": "record_ref:" + evidenceRecordID.String(),
+				}},
+			},
+		}},
+	})
+	requireEvidenceProjectionLinkedCount(t, harness, login, incidentID, evidenceRecordID, 1)
 
 	payload := []byte("evidence_lifecycle projection object")
 	sum := sha256.Sum256(payload)
@@ -69,7 +135,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	if !strings.HasPrefix(href, "/api/v1/object-uploads/upl_") || strings.Contains(href, "://") {
 		t.Fatalf("create returned non-opaque same-origin upload target: %#v", uploadTarget)
 	}
-	putObject(t, harness.Server.HTTP.URL, href, payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, href, payload, "text/plain", login)
 
 	attachBody := map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
@@ -81,28 +147,17 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach object_blob_id got %#v want %#v", attachData["object_blob_id"], createData["object_blob_id"])
 	}
+	attachRow := attachData["row"].(map[string]any)
+	attachCells := attachRow["cells"].(map[string]any)
+	if got := int(attachCells["evidence.linked_record_count"].(map[string]any)["value"].(float64)); got != 1 {
+		t.Fatalf("attach row evidence.linked_record_count got %d want 1: %#v", got, attachRow)
+	}
+	queriedRow := requireEvidenceProjectionRow(t, harness, login, incidentID, evidenceRecordID)
+	if !reflect.DeepEqual(attachRow, queriedRow) {
+		t.Fatalf("canonical mutation row differs from provider query row:\nmutation=%#v\nquery=%#v", attachRow, queriedRow)
+	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
-
-	requireHTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
-		"view_schema_id":   "cartulary.view.timeline.v2",
-		"base_row_version": timelineRowVersion,
-		"client_txn_id":    "txn-evidence_lifecycle-i-01-link-evidence",
-		"changes": []map[string]any{{
-			"field_key": "timeline.attached_evidence_ids",
-			"action_payload": map[string]any{
-				"kind": "collection_actions_v1",
-				"actions": []map[string]any{{
-					"op":               "add_record_ref",
-					"linked_record_id": evidenceRecordID.String(),
-				}},
-			},
-		}},
-	})
-	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
-	if got := countAttachedEvidenceLinks(t, harness, incidentID, timelineRecordID, evidenceRecordID); got != 1 {
-		t.Fatalf("workbook patch wrote attached evidence links: got %d want 1", got)
-	}
 
 	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
@@ -110,9 +165,20 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		t.Fatalf("attach replay changed change_set_id: replay=%#v first=%#v", replayData["change_set_id"], attachData["change_set_id"])
 	}
 	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, attachData["change_set_id"].(string))
+	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
+	availableData := requireHTTPWorkbookPatch(t, harness, login, evidenceRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": 2,
+		"client_txn_id":    "txn-evidence_lifecycle-i-01-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
+	revisionsupport.RequireOneRecordChangeIntentPerRevisionSQL(t, harness.DB, availableData["change_set_id"].(string))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 1, true)
-	if got := countEvidenceRevisions(t, harness, evidenceRecordID); got != 2 {
-		t.Fatalf("attach replay created duplicate record revision: got %d want 2", got)
+	if got := countEvidenceRevisions(t, harness, evidenceRecordID); got != 3 {
+		t.Fatalf("attach replay or lifecycle transition produced wrong revision count: got %d want 3", got)
 	}
 	if got := countEvidenceBlobLinks(t, harness, evidenceRecordID); got != 1 {
 		t.Fatalf("evidence row has duplicate or missing blob link: got %d want 1", got)
@@ -153,7 +219,7 @@ func TestObjectUploadAtomicEvidenceCreate_Integration(t *testing.T) {
 
 	slot := createSlot("txn-evidence-atomic-create-slot")
 	target := slot["upload_target"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, target["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, target["href"].(string), payload, "text/plain", login)
 	createBody := map[string]any{
 		"client_txn_id":                   "txn-evidence-atomic-create-row",
 		"evidence.initial_object_blob_id": slot["object_blob_id"],
@@ -236,6 +302,9 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 			t.Fatalf("create upload request: %v", err)
 		}
 		req.Header.Set("Content-Type", "text/plain")
+		for _, option := range authOptions(login) {
+			option(req)
+		}
 		return httptestx.Do(t, http.DefaultClient, req)
 	}
 
@@ -266,6 +335,191 @@ func TestObjectUploadCapabilityRoute_Integration(t *testing.T) {
 	successTarget := successData["upload_target"].(map[string]any)
 	successResp := putUpload(t, successTarget["href"].(string), "hello")
 	httptestx.RequireStatus(t, successResp, http.StatusNoContent)
+}
+
+func TestEvidenceAuthorizationMatrixAC543_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "evidence-authorization-matrix-ac543")
+	bootstrapLogin, bootstrapAdminID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := appsupport.CreateIncident(t, harness.Server, bootstrapLogin, map[string]any{
+		"client_txn_id": "txn-evidence-ac543-incident",
+		"incident_key":  "evidence-ac543",
+		"title":         "Evidence authorization matrix AC-543",
+	})
+	incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
+	uploader := authflowtest.SeedLocalUserRecord(t, harness.DB, "evidence-ac543-uploader@example.test", "Evidence AC543 Uploader", "EvidenceAC543Uploader1!", false, true, true)
+	incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+	issuingLogin := loginLocalUserNoMFA(t, harness, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!")
+	otherSessionLogin := loginLocalUserNoMFA(t, harness, "evidence-ac543-uploader@example.test", "EvidenceAC543Uploader1!")
+
+	type slot struct {
+		blobID     uuid.UUID
+		href       string
+		storageKey string
+		headers    map[string]string
+	}
+	createSlot := func(t *testing.T, suffix string, login appsupport.LoginResult) slot {
+		t.Helper()
+		response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+			"incident_id":       incidentID.String(),
+			"client_txn_id":     "txn-evidence-ac543-" + suffix,
+			"byte_size":         5,
+			"filename_hint":     suffix + ".txt",
+			"content_type_hint": "text/plain",
+		}, authOptions(login)...)
+		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusCreated)["data"].(map[string]any)
+		blobID := appsupport.MustUUID(t, data["object_blob_id"].(string))
+		target := data["upload_target"].(map[string]any)
+		headers := map[string]string{}
+		for name, value := range target["headers"].(map[string]any) {
+			headers[name] = value.(string)
+		}
+		var storageKey string
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT storage_key
+  FROM object_blobs
+ WHERE object_blob_id = $1
+`, blobID).Scan(&storageKey); err != nil {
+			t.Fatalf("load AC-543 storage key: %v", err)
+		}
+		return slot{blobID: blobID, href: target["href"].(string), storageKey: storageKey, headers: headers}
+	}
+	put := func(t *testing.T, candidate slot, login *appsupport.LoginResult, contentType string, includeCSRF bool) *http.Response {
+		t.Helper()
+		request, err := http.NewRequest(http.MethodPut, harness.Server.HTTP.URL+candidate.href, strings.NewReader("hello"))
+		if err != nil {
+			t.Fatalf("create AC-543 upload request: %v", err)
+		}
+		for name, value := range candidate.headers {
+			request.Header.Set(name, value)
+		}
+		if contentType != "" {
+			request.Header.Set("Content-Type", contentType)
+		}
+		if login != nil {
+			if includeCSRF {
+				for _, option := range authOptions(*login) {
+					option(request)
+				}
+			} else {
+				appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)(request)
+			}
+		}
+		return httptestx.Do(t, http.DefaultClient, request)
+	}
+	requireLeaseState := func(t *testing.T, blobID uuid.UUID, want string) {
+		t.Helper()
+		var got string
+		if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT lease_state
+  FROM evidence_object_upload_leases
+ WHERE object_blob_id = $1
+`, blobID).Scan(&got); err != nil {
+			t.Fatalf("load AC-543 lease state: %v", err)
+		}
+		if got != want {
+			t.Fatalf("AC-543 lease state = %q, want %q", got, want)
+		}
+	}
+	requireObjectCount := func(t *testing.T, candidate slot, want int) {
+		t.Helper()
+		objects, err := harness.ObjectStore.ListObjects(context.Background(), candidate.storageKey)
+		if err != nil {
+			t.Fatalf("list AC-543 objects: %v", err)
+		}
+		if len(objects) != want {
+			t.Fatalf("AC-543 object count for %q = %d, want %d", candidate.storageKey, len(objects), want)
+		}
+	}
+	setRole := func(t *testing.T, role string) {
+		t.Helper()
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incident_memberships
+   SET role = $3,
+       membership_version = membership_version + 1
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, uploader.ID, role); err != nil {
+			t.Fatalf("set AC-543 role %q: %v", role, err)
+		}
+	}
+
+	t.Run("authentication precedes opaque token diagnostics", func(t *testing.T) {
+		unknown := slot{href: "/api/v1/object-uploads/not-a-token", headers: map[string]string{"Content-Type": "text/plain"}}
+		httptestx.RequireErrorEnvelope(t, put(t, unknown, nil, "", false), http.StatusUnauthorized, "session_required")
+	})
+	t.Run("CSRF precedes capability diagnostics", func(t *testing.T) {
+		unknown := slot{href: "/api/v1/object-uploads/not-a-token", headers: map[string]string{"Content-Type": "text/plain"}}
+		httptestx.RequireErrorEnvelope(t, put(t, unknown, &issuingLogin, "", false), http.StatusForbidden, "csrf_verification_failed")
+	})
+	t.Run("current role denial leaves lease and object untouched", func(t *testing.T) {
+		candidate := createSlot(t, "role-denied", issuingLogin)
+		setRole(t, "viewer")
+		httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusForbidden, "authorization_denied")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+		setRole(t, "editor")
+	})
+	t.Run("cross-session capability is concealed without effects", func(t *testing.T) {
+		candidate := createSlot(t, "cross-session", issuingLogin)
+		httptestx.RequireErrorEnvelope(t, put(t, candidate, &otherSessionLogin, "", true), http.StatusNotFound, "object_upload_not_found_or_revoked")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+	})
+	t.Run("required-header mismatch precedes claim and storage", func(t *testing.T) {
+		candidate := createSlot(t, "header-mismatch", issuingLogin)
+		body := httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "application/json", true), http.StatusBadRequest, "object_upload_rejected")
+		httptestx.RequireErrorDetail(t, body, "reason_code", "upload_contract_mismatch")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+	})
+	t.Run("membership loss defeats deployment admin and conceals capability", func(t *testing.T) {
+		candidate := createSlot(t, "membership-loss", issuingLogin)
+		if _, err := harness.DB.ExecContext(context.Background(), `
+DELETE FROM incident_memberships
+ WHERE incident_id = $1
+   AND user_id = $2
+`, incidentID, uploader.ID); err != nil {
+			t.Fatalf("remove AC-543 membership: %v", err)
+		}
+		httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusNotFound, "object_upload_not_found_or_revoked")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+		incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+	})
+	t.Run("closed incident rejects before claim and storage", func(t *testing.T) {
+		candidate := createSlot(t, "closed-incident", issuingLogin)
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incidents
+   SET status = 'closed',
+       closed_at = now()
+ WHERE id = $1
+`, incidentID); err != nil {
+			t.Fatalf("close AC-543 incident: %v", err)
+		}
+		httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusConflict, "incident_closed")
+		requireLeaseState(t, candidate.blobID, "issued")
+		requireObjectCount(t, candidate, 0)
+		if _, err := harness.DB.ExecContext(context.Background(), `
+UPDATE incidents
+   SET status = 'active',
+       closed_at = NULL
+ WHERE id = $1
+`, incidentID); err != nil {
+			t.Fatalf("reopen AC-543 incident: %v", err)
+		}
+	})
+	for _, role := range []string{"editor", "reviewer", "admin"} {
+		t.Run(role+" may use one capability exactly once", func(t *testing.T) {
+			setRole(t, role)
+			candidate := createSlot(t, "allowed-"+role, issuingLogin)
+			httptestx.RequireStatus(t, put(t, candidate, &issuingLogin, "", true), http.StatusNoContent)
+			requireLeaseState(t, candidate.blobID, "completed")
+			requireObjectCount(t, candidate, 1)
+			httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusNotFound, "object_upload_not_found_or_revoked")
+			requireLeaseState(t, candidate.blobID, "completed")
+			requireObjectCount(t, candidate, 1)
+		})
+	}
 }
 
 func TestAttachRouteContract_Integration(t *testing.T) {
@@ -520,6 +774,28 @@ func TestAttachPublishesWorkbookWebSocketRefresh_Integration(t *testing.T) {
 	})
 	identityRecordID := appsupport.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
 	identityRowVersion := int64(identityData["row"].(map[string]any)["row_version"].(float64))
+	unaffectedTimelineData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
+		"client_txn_id":                   "txn-evidence_lifecycle-i-07-unaffected-timeline",
+		"timeline.activity_synopsis_text": "Unrelated timeline row",
+	})
+	unaffectedTimelineID := appsupport.MustUUID(t, unaffectedTimelineData["row"].(map[string]any)["record_id"].(string))
+	unaffectedHostData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.hosts.v1", map[string]any{
+		"client_txn_id":     "txn-evidence_lifecycle-i-07-unaffected-host",
+		"host.display_name": "Unrelated host",
+		"host.hostname":     "UNRELATED-HOST",
+	})
+	unaffectedHostID := appsupport.MustUUID(t, unaffectedHostData["row"].(map[string]any)["record_id"].(string))
+	unaffectedIdentityData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.identities.v1", map[string]any{
+		"client_txn_id":         "txn-evidence_lifecycle-i-07-unaffected-identity",
+		"identity.display_name": "Unrelated identity",
+		"identity.email":        "unrelated.identity@example.test",
+	})
+	unaffectedIdentityID := appsupport.MustUUID(t, unaffectedIdentityData["row"].(map[string]any)["record_id"].(string))
+	unregisteredData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.notes.v1", map[string]any{
+		"client_txn_id": "txn-evidence_lifecycle-i-07-unregistered-note",
+		"note.title":    "Unregistered projection subject",
+	})
+	unregisteredRecordID := appsupport.MustUUID(t, unregisteredData["row"].(map[string]any)["record_id"].(string))
 	evidenceData := requireHTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-evidence_lifecycle-i-07-evidence",
 		"evidence.title": "WebSocket evidence",
@@ -544,6 +820,79 @@ INSERT INTO record_links (
 		}
 	}
 
+	for tableName, values := range map[string]map[uuid.UUID]int{
+		"timeline_grid_projection": {
+			timelineRecordID:     41,
+			unaffectedTimelineID: 77,
+		},
+		"host_grid_projection": {
+			hostRecordID:     42,
+			unaffectedHostID: 77,
+		},
+		"identity_grid_projection": {
+			identityRecordID:     43,
+			unaffectedIdentityID: 77,
+		},
+	} {
+		for recordID, evidenceCount := range values {
+			setProjectionEvidenceCount(t, harness, tableName, recordID, evidenceCount)
+		}
+	}
+
+	subjects := []evidenceprojection.EvidenceAssociationSubject{
+		{RecordID: timelineRecordID, RecordType: recordTypeForTest(t, harness, timelineRecordID)},
+		{RecordID: hostRecordID, RecordType: recordTypeForTest(t, harness, hostRecordID)},
+		{RecordID: identityRecordID, RecordType: recordTypeForTest(t, harness, identityRecordID)},
+		{RecordID: unregisteredRecordID, RecordType: recordTypeForTest(t, harness, unregisteredRecordID)},
+	}
+	slices.SortFunc(subjects, func(left evidenceprojection.EvidenceAssociationSubject, right evidenceprojection.EvidenceAssociationSubject) int {
+		return strings.Compare(left.RecordID.String(), right.RecordID.String())
+	})
+	tx, err := harness.Pool.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin support projection rollback proof: %v", err)
+	}
+	effectsResult, err := harness.Projections.EvidenceSupportEffects().RefreshEvidenceAssociationEffects(
+		context.Background(),
+		tx,
+		evidenceprojection.EvidenceAssociationEffectsInput{IncidentID: incidentID, Subjects: subjects},
+	)
+	if err != nil {
+		_ = tx.Rollback(context.Background())
+		t.Fatalf("refresh exact support projection effects: %v", err)
+	}
+	requireExactSupportEffects(t, effectsResult, map[uuid.UUID]expectedSupportEffect{
+		timelineRecordID: {rowVersion: timelineRowVersion, viewSchemaID: "cartulary.view.timeline.v2", fieldKeys: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"}},
+		hostRecordID:     {rowVersion: hostRowVersion, viewSchemaID: "cartulary.view.hosts.v1", fieldKeys: []string{"host.evidence_count"}},
+		identityRecordID: {rowVersion: identityRowVersion, viewSchemaID: "cartulary.view.identities.v1", fieldKeys: []string{"identity.evidence_count"}},
+	})
+	for tableName, recordID := range map[string]uuid.UUID{
+		"timeline_grid_projection": timelineRecordID,
+		"host_grid_projection":     hostRecordID,
+		"identity_grid_projection": identityRecordID,
+	} {
+		requireProjectionEvidenceCountTx(t, tx, tableName, recordID, 0)
+	}
+	if err := tx.Rollback(context.Background()); err != nil {
+		t.Fatalf("rollback support projection proof: %v", err)
+	}
+	for tableName, values := range map[string]map[uuid.UUID]int{
+		"timeline_grid_projection": {timelineRecordID: 41, unaffectedTimelineID: 77},
+		"host_grid_projection":     {hostRecordID: 42, unaffectedHostID: 77},
+		"identity_grid_projection": {identityRecordID: 43, unaffectedIdentityID: 77},
+	} {
+		for recordID, want := range values {
+			requireProjectionEvidenceCount(t, harness, tableName, recordID, want)
+		}
+	}
+	for tableName, recordID := range map[string]uuid.UUID{
+		"timeline_grid_projection": timelineRecordID,
+		"host_grid_projection":     hostRecordID,
+		"identity_grid_projection": identityRecordID,
+	} {
+		setProjectionEvidenceCount(t, harness, tableName, recordID, 0)
+	}
+
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
 		SessionToken:     login.SessionCookie.Value,
 		ClientInstanceID: "evidence_lifecycle-i-07-record-change-listener",
@@ -554,7 +903,7 @@ INSERT INTO record_links (
 	})
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
-	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("evidence_lifecycle websocket attach"), "websocket.txt", "text/plain", "txn-evidence_lifecycle-i-07-blob", "txn-evidence_lifecycle-i-07-attach")
+	attachData := attachUploadedBlobWithoutLifecyclePromotion(t, harness, login, incidentID, evidenceRecordID, []byte("evidence_lifecycle websocket attach"), "websocket.txt", "text/plain", "txn-evidence_lifecycle-i-07-blob", "txn-evidence_lifecycle-i-07-attach")
 	rowVersion := int64(attachData["row"].(map[string]any)["row_version"].(float64))
 	changes := AwaitRecordChanges(t, socket, map[uuid.UUID]int64{
 		evidenceRecordID: rowVersion,
@@ -569,7 +918,7 @@ INSERT INTO record_links (
 		t.Fatalf("evidence attach changed keys missing evidence.upload_state: %#v", evidenceChange)
 	}
 	timelineChange := changes[timelineRecordID]
-	RequireAffectedView(t, timelineChange, "cartulary.view.timeline.v2")
+	RequireExactInvalidation(t, timelineChange, "cartulary.view.timeline.v2")
 	changedKeys := ChangedFieldKeys(t, timelineChange)
 	for _, key := range []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"} {
 		if !containsString(changedKeys, key) {
@@ -577,17 +926,45 @@ INSERT INTO record_links (
 		}
 	}
 	hostChange := changes[hostRecordID]
-	RequireAffectedView(t, hostChange, "cartulary.view.hosts.v1")
+	RequireExactInvalidation(t, hostChange, "cartulary.view.hosts.v1")
 	if !containsString(ChangedFieldKeys(t, hostChange), "host.evidence_count") {
 		t.Fatalf("host websocket changed keys missing host.evidence_count: %#v", hostChange)
 	}
 	identityChange := changes[identityRecordID]
-	RequireAffectedView(t, identityChange, "cartulary.view.identities.v1")
+	RequireExactInvalidation(t, identityChange, "cartulary.view.identities.v1")
 	if !containsString(ChangedFieldKeys(t, identityChange), "identity.evidence_count") {
 		t.Fatalf("identity websocket changed keys missing identity.evidence_count: %#v", identityChange)
 	}
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 0)
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 0)
+	availableData := requireHTTPWorkbookPatch(t, harness, login, evidenceRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": rowVersion,
+		"client_txn_id":    "txn-evidence_lifecycle-i-07-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
+	availableRowVersion := int64(availableData["row"].(map[string]any)["row_version"].(float64))
+	availabilityChanges := AwaitRecordChanges(t, socket, map[uuid.UUID]int64{
+		evidenceRecordID: availableRowVersion,
+		timelineRecordID: timelineRowVersion,
+		hostRecordID:     hostRowVersion,
+		identityRecordID: identityRowVersion,
+	})
+	RequireExactInvalidation(t, availabilityChanges[timelineRecordID], "cartulary.view.timeline.v2")
+	RequireExactInvalidation(t, availabilityChanges[hostRecordID], "cartulary.view.hosts.v1")
+	RequireExactInvalidation(t, availabilityChanges[identityRecordID], "cartulary.view.identities.v1")
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 1)
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
+	for tableName, recordID := range map[string]uuid.UUID{
+		"timeline_grid_projection": unaffectedTimelineID,
+		"host_grid_projection":     unaffectedHostID,
+		"identity_grid_projection": unaffectedIdentityID,
+	} {
+		requireProjectionEvidenceCount(t, harness, tableName, recordID, 77)
+	}
 	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET evidence_count = 0 WHERE record_id = $1`, hostRecordID); err != nil {
 		t.Fatalf("corrupt host evidence count: %v", err)
 	}
@@ -605,14 +982,19 @@ INSERT INTO record_links (
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
 
 	objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
-	quarantine, err := newEvidenceLifecycleTestStore(harness).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
+	quarantine, err := newEvidenceLifecycleTestService(harness).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-evidence_lifecycle-i-07-quarantine", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("quarantine entity-linked evidence: %v", err)
 	}
 	quarantineChanges := map[uuid.UUID]evidence.AttachRecordChange{}
+	supportQuarantineChanges := make([]evidence.AttachRecordChange, 0, len(quarantine.ChangedEvidenceRows))
 	for _, change := range quarantine.ChangedEvidenceRows {
 		quarantineChanges[change.RecordID] = change
+		if len(change.AffectedViews) > 0 {
+			supportQuarantineChanges = append(supportQuarantineChanges, change)
+		}
 	}
+	requireOrderedAttachRecordChanges(t, supportQuarantineChanges)
 	if !containsString(quarantineChanges[hostRecordID].ChangedFieldKeys, "host.evidence_count") {
 		t.Fatalf("quarantine host change missing host.evidence_count: %#v", quarantineChanges[hostRecordID])
 	}
@@ -621,6 +1003,47 @@ INSERT INTO record_links (
 	}
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 0)
 	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 0)
+}
+
+type expectedSupportEffect struct {
+	rowVersion   int64
+	viewSchemaID string
+	fieldKeys    []string
+}
+
+func requireExactSupportEffects(t testing.TB, result evidenceprojection.EvidenceAssociationEffectsResult, expected map[uuid.UUID]expectedSupportEffect) {
+	t.Helper()
+	if len(result.Changes) != len(expected) {
+		t.Fatalf("support projection effect count got %d want %d: %#v", len(result.Changes), len(expected), result.Changes)
+	}
+	for index, change := range result.Changes {
+		if index > 0 && strings.Compare(result.Changes[index-1].RecordID.String(), change.RecordID.String()) >= 0 {
+			t.Fatalf("support projection effects are not uniquely ordered: %#v", result.Changes)
+		}
+		want, ok := expected[change.RecordID]
+		if !ok {
+			t.Fatalf("unexpected support projection effect: %#v", change)
+		}
+		if change.RowVersion != want.rowVersion || len(change.AffectedViews) != 1 {
+			t.Fatalf("support projection effect got %#v want row_version=%d with one view", change, want.rowVersion)
+		}
+		view := change.AffectedViews[0]
+		if view.ViewSchemaID != want.viewSchemaID || view.ChangeKind != evidenceprojection.SupportChangeInvalidate || view.Patch != nil || !reflect.DeepEqual(view.ChangedFieldKeys, want.fieldKeys) {
+			t.Fatalf("support projection view got %#v want view=%s invalidate fields=%#v", view, want.viewSchemaID, want.fieldKeys)
+		}
+	}
+}
+
+func requireOrderedAttachRecordChanges(t testing.TB, changes []evidence.AttachRecordChange) {
+	t.Helper()
+	for index, change := range changes {
+		if index > 0 && strings.Compare(changes[index-1].RecordID.String(), change.RecordID.String()) >= 0 {
+			t.Fatalf("attach record changes are not uniquely ordered: %#v", changes)
+		}
+		if len(change.AffectedViews) != 1 || change.AffectedViews[0].ChangeKind != evidenceprojection.SupportChangeInvalidate || change.AffectedViews[0].Patch != nil {
+			t.Fatalf("attach record change is not a neutral invalidation: %#v", change)
+		}
+	}
 }
 
 func AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected map[uuid.UUID]int64) map[uuid.UUID]map[string]any {
@@ -657,15 +1080,18 @@ func AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected ma
 	return changes
 }
 
-func newEvidenceLifecycleTestStore(harness *appsupport.ServerHarness) *evidence.Store {
-	return evidence.NewStore(
-		harness.Pool,
-		evidence.WithRevisionAppender(harness.Revisions.Appender()),
-		evidence.WithCollaborationIntents(harness.Collaboration.IntentAppender()),
-		evidence.WithWorkbookProjections(
-			harness.Projections.EvidencePort(),
-		),
-	)
+func newEvidenceLifecycleTestService(harness *appsupport.ServerHarness) *evidence.BlobLifecycleService {
+	service, err := evidence.NewBlobLifecycleService(evidence.BlobLifecycleDependencies{
+		Postgres:       harness.Pool,
+		Revisions:      harness.Revisions.Appender(),
+		Projections:    harness.Projections.EvidencePort(),
+		SupportEffects: harness.Projections.EvidenceSupportEffects(),
+		Collaboration:  harness.Collaboration.IntentAppender(),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return service
 }
 
 func requireEntityEvidenceProjectionCount(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, fieldKey string, want int) {
@@ -674,6 +1100,44 @@ func requireEntityEvidenceProjectionCount(t testing.TB, harness *appsupport.Serv
 	got := int(row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"].(float64))
 	if got != want {
 		t.Fatalf("%s got %d want %d in row %#v", fieldKey, got, want, row)
+	}
+}
+
+func recordTypeForTest(t testing.TB, harness *appsupport.ServerHarness, recordID uuid.UUID) string {
+	t.Helper()
+	var recordType string
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT record_type FROM records WHERE record_id = $1`, recordID).Scan(&recordType); err != nil {
+		t.Fatalf("load record type for %s: %v", recordID, err)
+	}
+	return recordType
+}
+
+func setProjectionEvidenceCount(t testing.TB, harness *appsupport.ServerHarness, tableName string, recordID uuid.UUID, evidenceCount int) {
+	t.Helper()
+	if _, err := harness.DB.ExecContext(context.Background(), "UPDATE "+tableName+" SET evidence_count = $1 WHERE record_id = $2", evidenceCount, recordID); err != nil {
+		t.Fatalf("set %s Evidence count for %s: %v", tableName, recordID, err)
+	}
+}
+
+func requireProjectionEvidenceCount(t testing.TB, harness *appsupport.ServerHarness, tableName string, recordID uuid.UUID, want int) {
+	t.Helper()
+	var got int
+	if err := harness.DB.QueryRowContext(context.Background(), "SELECT evidence_count FROM "+tableName+" WHERE record_id = $1", recordID).Scan(&got); err != nil {
+		t.Fatalf("load %s Evidence count for %s: %v", tableName, recordID, err)
+	}
+	if got != want {
+		t.Fatalf("%s Evidence count for %s got %d want %d", tableName, recordID, got, want)
+	}
+}
+
+func requireProjectionEvidenceCountTx(t testing.TB, tx pgx.Tx, tableName string, recordID uuid.UUID, want int) {
+	t.Helper()
+	var got int
+	if err := tx.QueryRow(context.Background(), "SELECT evidence_count FROM "+tableName+" WHERE record_id = $1", recordID).Scan(&got); err != nil {
+		t.Fatalf("load transactional %s Evidence count for %s: %v", tableName, recordID, err)
+	}
+	if got != want {
+		t.Fatalf("transactional %s Evidence count for %s got %d want %d", tableName, recordID, got, want)
 	}
 }
 
@@ -696,6 +1160,21 @@ func RequireAffectedView(t testing.TB, payload map[string]any, viewSchemaID stri
 		}
 	}
 	t.Fatalf("record_changed payload missing affected view %s: %#v", viewSchemaID, payload)
+}
+
+func RequireExactInvalidation(t testing.TB, payload map[string]any, viewSchemaID string) {
+	t.Helper()
+	affectedViews, ok := payload["affected_views"].([]any)
+	if !ok || len(affectedViews) != 1 {
+		t.Fatalf("record_changed payload must contain exactly one affected view: %#v", payload)
+	}
+	view, ok := affectedViews[0].(map[string]any)
+	if !ok || view["view_schema_id"] != viewSchemaID || view["change_kind"] != "invalidate" {
+		t.Fatalf("record_changed affected view must be %s invalidate: %#v", viewSchemaID, affectedViews[0])
+	}
+	if _, present := view["patch_cells"]; present {
+		t.Fatalf("record_changed invalidation must not carry patch_cells: %#v", view)
+	}
 }
 
 func ChangedFieldKeys(t testing.TB, payload map[string]any) []string {
@@ -760,6 +1239,9 @@ func TestExpiredSlotReplay_Integration(t *testing.T) {
 		t.Fatalf("create expired upload request: %v", err)
 	}
 	expiredReq.Header.Set("Content-Type", "text/plain")
+	for _, option := range authOptions(login) {
+		option(expiredReq)
+	}
 	expiredUpload := httptestx.Do(t, http.DefaultClient, expiredReq)
 	httptestx.RequireErrorEnvelope(t, expiredUpload, http.StatusGone, "object_upload_expired")
 
@@ -966,10 +1448,11 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		expiredBlobID := uuid.New()
 		insertExpiredPendingBlob(t, harness, incidentID, adminID, expiredBlobID, "evidence_lifecycle/i-04/expired/"+expiredBlobID.String(), now)
 
-		result, err := evidence.NewStore(
-			harness.Pool,
-			evidence.WithRevisionAppender(harness.Revisions.Appender()),
-		).CleanupFailedUnattachedBlobBytes(context.Background(), harness.ObjectStore, now, 10)
+		cleanup, err := evidence.NewCleanupService(harness.Pool)
+		if err != nil {
+			t.Fatalf("compose cleanup service: %v", err)
+		}
+		result, err := cleanup.SweepFailedUnattachedBlobs(context.Background(), harness.ObjectStore, now)
 		if err != nil {
 			t.Fatalf("cleanup failed unattached blob bytes: %v", err)
 		}
@@ -1003,7 +1486,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
 
-		store := newEvidenceLifecycleTestStore(harness)
+		store := newEvidenceLifecycleTestService(harness)
 		if _, err := store.QuarantineBlob(context.Background(), adminID, objectBlobID, "unsupported_trigger", "req-evidence_lifecycle-i-04-bad-trigger", time.Now().UTC()); !errors.Is(err, evidence.ErrIllegalBlobTransition) {
 			t.Fatalf("unsupported quarantine trigger got %v want ErrIllegalBlobTransition", err)
 		}
@@ -1076,7 +1559,7 @@ func TestQuarantineBoundaryPreservesTwoStepAttach_Integration(t *testing.T) {
 				recordID := uuid.New()
 				seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 				payload := []byte("<script>window.__cartulary_evidence_lifecycle_active_content = true</script>")
-				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, "image/png", active.contentType, "txn-evidence_lifecycle-i-04-active-"+active.name+"-blob", "txn-evidence_lifecycle-i-04-active-"+active.name+"-attach")
+				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, active.contentType, active.contentType, "txn-evidence_lifecycle-i-04-active-"+active.name+"-blob", "txn-evidence_lifecycle-i-04-active-"+active.name+"-attach")
 				objectBlobID := appsupport.MustUUID(t, attachData["object_blob_id"].(string))
 				requireObservedContentType(t, harness, objectBlobID, active.contentType)
 
@@ -1169,6 +1652,29 @@ func requireTimelineEvidenceProjection(t testing.TB, harness *appsupport.ServerH
 		return
 	}
 	t.Fatalf("timeline row %s not found in query %#v", recordID, data["rows"])
+}
+
+func requireEvidenceProjectionRow(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) map[string]any {
+	t.Helper()
+	resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.evidence.v1/query", map[string]any{}, authOptions(login)...)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	for _, raw := range data["rows"].([]any) {
+		row := raw.(map[string]any)
+		if row["record_id"] == recordID.String() {
+			return row
+		}
+	}
+	t.Fatalf("Evidence row %s not found in query %#v", recordID, data["rows"])
+	return nil
+}
+
+func requireEvidenceProjectionLinkedCount(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, want int) {
+	t.Helper()
+	row := requireEvidenceProjectionRow(t, harness, login, incidentID, recordID)
+	cells := row["cells"].(map[string]any)
+	if got := int(cells["evidence.linked_record_count"].(map[string]any)["value"].(float64)); got != want {
+		t.Fatalf("evidence.linked_record_count got %d want %d in row %#v", got, want, row)
+	}
 }
 
 type SourceHistoryCounts struct {
@@ -1412,17 +1918,21 @@ func requireExpiredPendingFailed(t testing.TB, harness *appsupport.ServerHarness
 	t.Helper()
 	var uploadState string
 	var terminalReason string
-	var cleanupDue bool
+	var failedAt time.Time
+	var cleanupDueAt time.Time
 	var cleaned bool
 	if err := harness.DB.QueryRowContext(context.Background(), `
-SELECT upload_state, terminal_reason, cleanup_due_at IS NOT NULL, cleaned_up_at IS NOT NULL
+SELECT upload_state, terminal_reason, failed_at, cleanup_due_at, cleaned_up_at IS NOT NULL
   FROM object_blobs
  WHERE object_blob_id = $1
-`, objectBlobID).Scan(&uploadState, &terminalReason, &cleanupDue, &cleaned); err != nil {
+`, objectBlobID).Scan(&uploadState, &terminalReason, &failedAt, &cleanupDueAt, &cleaned); err != nil {
 		t.Fatalf("load expired pending blob: %v", err)
 	}
-	if uploadState != "failed" || terminalReason != "pending_timeout" || !cleanupDue || cleaned {
-		t.Fatalf("expired pending blob got state=%s reason=%s cleanup_due=%v cleaned=%v", uploadState, terminalReason, cleanupDue, cleaned)
+	if uploadState != "failed" || terminalReason != "pending_timeout" || cleaned {
+		t.Fatalf("expired pending blob got state=%s reason=%s failed_at=%s cleanup_due_at=%s cleaned=%v", uploadState, terminalReason, failedAt, cleanupDueAt, cleaned)
+	}
+	if !cleanupDueAt.Equal(failedAt.Add(45 * time.Minute)) {
+		t.Fatalf("expired pending cleanup_due_at = %s, want failed_at + 45 minutes (%s)", cleanupDueAt, failedAt.Add(45*time.Minute))
 	}
 }
 
@@ -1497,11 +2007,23 @@ func attachUploadedBlobWithHints(t *testing.T, harness *appsupport.ServerHarness
 		"sha256_hex":        fmt.Sprintf("%x", sha256Sum(payload)),
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType)
+	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType, login)
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,
 	}, authOptions(login)...)
-	return httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	row := attachData["row"].(map[string]any)
+	available := requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": int(row["row_version"].(float64)),
+		"client_txn_id":    attachTxn + "-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
+	attachData["row"] = available["row"]
+	return attachData
 }

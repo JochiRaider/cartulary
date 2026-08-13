@@ -40,6 +40,7 @@ const (
 	PurposeMigrationValidation Purpose = "migration_validation"
 	PurposeDiagnostic          Purpose = "diagnostic"
 	PurposeStagedCleanup       Purpose = "staged_cleanup"
+	PurposeEvidenceCleanup     Purpose = "evidence_cleanup"
 )
 
 type Operation string
@@ -445,7 +446,7 @@ func validateDeleteObjectRequest(request DeleteObjectRequest) error {
 		return err
 	}
 	switch request.Purpose {
-	case PurposeProbeStartup, PurposeTestCleanup, PurposeMigrationValidation, PurposeStagedCleanup:
+	case PurposeProbeStartup, PurposeTestCleanup, PurposeMigrationValidation, PurposeStagedCleanup, PurposeEvidenceCleanup:
 		return nil
 	default:
 		return invalidRequest(OperationDeleteObject, "purpose is not allowed for delete")

@@ -192,14 +192,24 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
-	putObject(t, server.BaseURL, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, server.BaseURL, uploadTarget, payload, adminLogin)
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   objectBlobID,
 		"base_row_version": 1,
 		"client_txn_id":    "txn-" + prefix + "-attach",
 	}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
-	httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)
+	attachData := httptestx.RequireSuccessEnvelope(t, attach, http.StatusOK)["data"].(map[string]any)
+	attachedRow := attachData["row"].(map[string]any)
+	patchRecord(t, server, adminLogin, evidenceRecordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": attachedRow["row_version"],
+		"client_txn_id":    "txn-" + prefix + "-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
 
 	patchRecord(t, server, adminLogin, timelineRecordID, map[string]any{
 		"view_schema_id":   "cartulary.view.timeline.v2",

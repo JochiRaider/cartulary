@@ -23,6 +23,25 @@ func TestProjectionProviderRegistryOrdersAndIndexesContributions(t *testing.T) {
 			t.Fatalf("projection surface %s has no provider", viewSchemaID)
 		}
 	}
+	if got, want := providerKeys(registry.evidenceAssociationProviders("host")), []string{"host"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("host Evidence association providers: got %#v want %#v", got, want)
+	}
+	if got, want := providerKeys(registry.evidenceAssociationProviders("identity")), []string{"identity"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("identity Evidence association providers: got %#v want %#v", got, want)
+	}
+	if got := registry.evidenceAssociationProviders("note"); len(got) != 0 {
+		t.Fatalf("unregistered note Evidence association providers: got %#v want none", providerKeys(got))
+	}
+
+	multiViewProviders := registryValidationProviders()
+	multiViewProviders[1].descriptor.SourceRecordTypes = []string{"host"}
+	multiViewRegistry, err := newProviderRegistry(multiViewProviders)
+	if err != nil {
+		t.Fatalf("multi-view provider registry: %v", err)
+	}
+	if got, want := providerKeys(multiViewRegistry.evidenceAssociationProviders("host")), []string{"host", "identity"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("deterministic host Evidence association providers: got %#v want %#v", got, want)
+	}
 }
 
 func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
@@ -150,6 +169,13 @@ func TestProjectionProviderRegistryRejectsInvalidContributions(t *testing.T) {
 				return providers
 			},
 			want: "refresh implementation without capability",
+		},
+		"association fields without state loader": {
+			mutate: func(providers []Provider) []Provider {
+				providers[0].loadEvidenceAssociationStateTx = nil
+				return providers
+			},
+			want: "Evidence association effects require a state loader",
 		},
 		"restore rebuild required without capability": {
 			mutate: func(providers []Provider) []Provider {

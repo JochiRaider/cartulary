@@ -60,6 +60,21 @@ func requireObjectStoreAdapterInputContracts(t *testing.T) {
 		Purpose:    objectstore.PurposeProductRead,
 	})
 	requireAdapterError(t, err, objectstore.ErrorCodeInvalidRequest, objectstore.ReasonInvalidRequest)
+
+	typed := objectstore.TypedStore(store)
+	if err := store.PutObject(context.Background(), "evidence/cleanup-purpose.txt", strings.NewReader("cleanup"), int64(len("cleanup")), "text/plain"); err != nil {
+		t.Fatalf("seed Evidence cleanup purpose object: %v", err)
+	}
+	if err := typed.Delete(context.Background(), objectstore.DeleteObjectRequest{
+		Key: "evidence/cleanup-purpose.txt", Purpose: objectstore.PurposeEvidenceCleanup,
+	}); err != nil {
+		t.Fatalf("typed Evidence cleanup purpose was rejected: %v", err)
+	}
+	if err := typed.Delete(context.Background(), objectstore.DeleteObjectRequest{
+		Key: "evidence/disallowed-delete.txt", Purpose: objectstore.PurposeProductRead,
+	}); err == nil {
+		t.Fatal("non-delete object-store purpose was accepted for delete")
+	}
 }
 
 func requireObjectStoreAdapterRetryAlgorithm(t *testing.T) {

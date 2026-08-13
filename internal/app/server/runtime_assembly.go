@@ -71,31 +71,33 @@ import (
 )
 
 type Options struct {
-	Env                  map[string]string
-	HTTP                 httpapi.Options
-	Postgres             *pgxpool.Pool
-	ObjectStore          objectstore.Store
-	Now                  func() time.Time
-	ObserveJobs          func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
-	ObserveCollaboration func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
-	ObserveProjections   func(*projectionassembly.Runtime)
-	ObserveTimeline      func(*timelineassembly.Bundle)
-	ObserveRevisions     func(*revisionassembly.Runtime)
+	Env                    map[string]string
+	HTTP                   httpapi.Options
+	Postgres               *pgxpool.Pool
+	ObjectStore            objectstore.Store
+	Now                    func() time.Time
+	ObserveJobs            func(*jobs.Manager, *jobs.TransactionService, *jobs.Runner, *pgxpool.Pool)
+	ObserveCollaboration   func(*collaboration.Hub, *collaboration.Dispatcher, collaboration.IntentAppender)
+	ObserveEvidenceCleanup func(*evidence.CleanupDispatcher)
+	ObserveProjections     func(*projectionassembly.Runtime)
+	ObserveTimeline        func(*timelineassembly.Bundle)
+	ObserveRevisions       func(*revisionassembly.Runtime)
 }
 
 type Runtime struct {
-	handler                 http.Handler
-	stagedJanitor           *stagedobjects.Janitor
-	jobRunner               *jobs.Runner
-	collaborationDispatcher *collaboration.Dispatcher
-	processLease            *processlease.ApplicationProcessLease
-	servingLease            *processlease.ApplicationRecoveryServingLease
-	lifecycle               *processlifecycle.Controller
-	publication             *publicationController
-	publicHTTP              httpapi.RouteDiagnostics
-	shutdownDrainTimeout    time.Duration
-	reconciliationTimeout   time.Duration
-	stagedObjectSweepPeriod time.Duration
+	handler                   http.Handler
+	stagedJanitor             *stagedobjects.Janitor
+	jobRunner                 *jobs.Runner
+	collaborationDispatcher   *collaboration.Dispatcher
+	evidenceCleanupDispatcher *evidence.CleanupDispatcher
+	processLease              *processlease.ApplicationProcessLease
+	servingLease              *processlease.ApplicationRecoveryServingLease
+	lifecycle                 *processlifecycle.Controller
+	publication               *publicationController
+	publicHTTP                httpapi.RouteDiagnostics
+	shutdownDrainTimeout      time.Duration
+	reconciliationTimeout     time.Duration
+	stagedObjectSweepPeriod   time.Duration
 
 	closeOnce            sync.Once
 	publicationOnce      sync.Once
@@ -552,7 +554,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		normalizedCfg.Telemetry.Resource.ServiceVersion,
 		postgresPool,
 	)
-
 	if err := dependencies.runBootstrap(ctx, configassembly.BootstrapSettings(normalizedCfg), postgresPool); err != nil {
 		runtime.Close()
 		return nil, err
@@ -586,6 +587,37 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
 	}
+	cleanupService, err := evidence.NewCleanupService(postgresHandle)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence cleanup service: %w", err)
+	}
+	cleanupDeleter, err := evidence.NewCleanupObjectDeleter(objectStore)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	cleanupObserver, err := newEvidenceCleanupTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence cleanup telemetry: %w", err)
+	}
+	runtime.evidenceCleanupDispatcher, err = evidence.NewCleanupDispatcher(
+		cleanupService,
+		cleanupDeleter,
+		cleanupObserver,
+		now,
+	)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	cleanupDispatcher := runtime.evidenceCleanupDispatcher
+	runtime.own(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_ = cleanupDispatcher.Close(closeCtx)
+	})
 	hub := dependencies.newCollaborationHub()
 	intentAppender := collaboration.NewIntentAppender()
 	runtime.collaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
@@ -763,16 +795,20 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Projections runtime: %w", err)
 	}
-	evidenceOwner := evidence.NewOwnerRuntime(
-		postgresHandle,
-		workbookConflictTokens,
-		revisionRuntime.Appender(),
-		intentAppender,
-		objectStore,
-		revisionRuntime.ConflictFieldResolver(),
-		workbookassembly.NewConflictIdempotencyPort(postgresHandle),
-		projectionRuntime.EvidencePorts().Rows,
-	)
+	evidenceOwner, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
+		Postgres:            postgresHandle,
+		ConflictTokens:      &workbookConflictTokens,
+		Revisions:           revisionRuntime.Appender(),
+		Collaboration:       intentAppender,
+		ObjectStore:         objectStore,
+		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
+		ConflictIdempotency: workbookassembly.NewConflictIdempotencyPort(postgresHandle),
+		Projections:         projectionRuntime.EvidencePorts(),
+	})
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence owner: %w", err)
+	}
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            postgresHandle,
 		ConflictTokens:      workbookConflictTokens,
@@ -917,7 +953,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			EntityProjections:       projectionRuntime.EntityPorts().Writer,
 			AssessmentProjections:   projectionRuntime.AssessmentPorts().Rows,
 			ArtifactProjections:     projectionRuntime.ArtifactPorts().Rows,
-			EvidenceProjections:     projectionRuntime.EvidencePorts().Rows,
+			Evidence:                evidenceOwner.ImportCreateFacade(),
 			PartyProjections:        projectionRuntime.PartyPorts().Rows,
 			TaskDecisionProjections: projectionRuntime.TaskDecisionPorts().Rows,
 			Indicators:              indicatorOwner,
@@ -1222,6 +1258,9 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	if options.ObserveCollaboration != nil {
 		options.ObserveCollaboration(hub, runtime.collaborationDispatcher, intentAppender)
+	}
+	if options.ObserveEvidenceCleanup != nil {
+		options.ObserveEvidenceCleanup(runtime.evidenceCleanupDispatcher)
 	}
 	if options.ObserveProjections != nil {
 		options.ObserveProjections(projectionRuntime)
@@ -1555,6 +1594,12 @@ func (r *Runtime) ActivatePublication() error {
 		if err := r.collaborationDispatcher.Start(context.Background()); err != nil {
 			r.publication.componentLost("collaboration_dispatcher")
 			return fmt.Errorf("activate collaboration dispatcher: %w", err)
+		}
+	}
+	if r.evidenceCleanupDispatcher != nil {
+		if err := r.evidenceCleanupDispatcher.Start(context.Background()); err != nil {
+			r.publication.componentLost("evidence_cleanup_dispatcher")
+			return fmt.Errorf("activate Evidence cleanup dispatcher: %w", err)
 		}
 	}
 	r.publicationOnce.Do(func() {

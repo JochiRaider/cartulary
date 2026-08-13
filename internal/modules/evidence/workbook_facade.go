@@ -32,15 +32,18 @@ type WorkbookFacade struct {
 	incidentAccess    incidents.Access
 	recordStore       *records.Store
 	projectionRows    evidenceprojection.Rows
+	supportEffects    evidenceprojection.SupportProjectionEffectsTx
 	revisionHistory   conflicttokens.RevisionWindowReader
 	revisionAppender  *revisions.Appender
-	store             *Store
+	sourceMutations   *SourceMutationService
+	blobs             blobRepository
+	blobLifecycle     blobLifecycleRepository
 	conflictTokens    conflicttokens.ConflictTokenCodec
 	conflictFields    conflicttokens.FieldResolver
 	conflictSnapshots conflicttokens.RevisionSnapshotProjector
 	keepSaved         conflicttokens.IdempotencyPort
 	collaboration     collaboration.IntentAppender
-	mutations         evidenceMutationCoordinator
+	mutations         evidenceSourceMutationKernel
 	objects           objectstore.Store
 }
 
@@ -116,43 +119,37 @@ func (e *SameFieldConflictError) Error() string {
 	return "evidence: same field conflict"
 }
 
-func NewWorkbookFacade(
-	pool postgres.DB,
-	conflictTokens conflicttokens.ConflictTokenCodec,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-	conflictFields conflicttokens.FieldResolver,
-	keepSaved conflicttokens.IdempotencyPort,
-	projectionRows evidenceprojection.Rows,
-) *WorkbookFacade {
-	if intents == nil {
-		panic("compose Evidence workbook facade: Collaboration intent appender is required")
-	}
-	if projectionRows == nil {
-		panic("compose Evidence workbook facade: projection rows are required")
-	}
-	store := NewStore(
-		pool,
-		WithRevisionAppender(appender),
-		WithCollaborationIntents(intents),
-		WithWorkbookProjections(projectionRows),
-	)
-	return newWorkbookFacade(pool, conflictTokens, appender, intents, store, nil, conflictFields, keepSaved, projectionRows)
-}
-
 func newWorkbookFacade(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
-	store *Store,
+	sourceMutations *SourceMutationService,
 	objects objectstore.Store,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
 	projectionRows evidenceprojection.Rows,
-) *WorkbookFacade {
-	if projectionRows == nil {
-		panic("compose Evidence workbook facade: projection rows are required")
+	supportEffects evidenceprojection.SupportProjectionEffectsTx,
+) (*WorkbookFacade, error) {
+	switch {
+	case pool == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: Postgres is required")
+	case appender == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: Revisions is required")
+	case intents == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: Collaboration is required")
+	case sourceMutations == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: source mutations are required")
+	case objects == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: object store is required")
+	case conflictFields == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: conflict fields are required")
+	case keepSaved == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: conflict idempotency is required")
+	case projectionRows == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: projection rows are required")
+	case supportEffects == nil:
+		return nil, fmt.Errorf("compose Evidence workbook facade: support projection effects are required")
 	}
 	recordStore := records.NewStore()
 	incidentAccess := incidents.NewAccess(pool)
@@ -162,22 +159,20 @@ func newWorkbookFacade(
 		incidentAccess:    incidentAccess,
 		recordStore:       recordStore,
 		projectionRows:    projectionRows,
+		supportEffects:    supportEffects,
 		revisionHistory:   conflicttokens.NewRevisionWindowReader(),
 		revisionAppender:  appender,
-		store:             store,
+		sourceMutations:   sourceMutations,
+		blobs:             blobRepository{db: pool},
+		blobLifecycle:     blobLifecycleRepository{db: pool},
 		conflictTokens:    conflictTokens,
 		conflictFields:    conflictFields,
 		conflictSnapshots: newEvidenceConflictSnapshotProjector(),
 		keepSaved:         keepSaved,
 		collaboration:     intents,
 		objects:           objects,
-		mutations: evidenceMutationCoordinator{
-			incidents:     incidentAccess,
-			source:        store.source,
-			revisions:     newRevisionAppendAdapter(appender),
-			collaboration: intents,
-		},
-	}
+		mutations:         sourceMutations.mutations,
+	}, nil
 }
 
 func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateCommand) (WorkbookMutationResult, error) {
@@ -252,7 +247,17 @@ func (f *WorkbookFacade) Create(ctx context.Context, command WorkbookCreateComma
 	if err := ValidateWorkbookCreateParams(createParams); err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	result, err := f.mutations.createTx(ctx, tx, command, createParams)
+	result, err := f.mutations.createTx(ctx, tx, evidenceCreateTxCommand{
+		IncidentID:    command.IncidentID,
+		ActorUserID:   command.Actor.ID,
+		ViewSchemaID:  request.ViewSchemaID,
+		ClientTxnID:   request.ClientTxnID,
+		RequestID:     command.RequestID,
+		Source:        command.RouteKey,
+		MutationOrder: 1,
+		Values:        request.Values,
+		Now:           command.Now,
+	}, createParams)
 	if err != nil {
 		if request.InitialObjectBlobID != nil && isEvidenceBlobUniqueViolation(err) {
 			return WorkbookMutationResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
@@ -386,7 +391,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 	if err != nil {
 		return WorkbookMutationResult{}, err
 	}
-	if err := f.store.TouchWorkbookRowTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
+	if err := f.sourceMutations.TouchWorkbookRowTx(ctx, tx, command.RecordID, command.Now.UTC()); err != nil {
 		return WorkbookMutationResult{}, err
 	}
 	if err := f.projectionRows.RefreshEvidenceTx(ctx, tx, command.RecordID); err != nil {
@@ -440,6 +445,19 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 		return WorkbookMutationResult{}, err
 	}
 	patchChangedFieldKeys := changedFieldKeys(beforeRow, afterRow)
+	var affectedChanges []AttachRecordChange
+	if slices.Contains(patchChangedFieldKeys, "evidence.lifecycle_state") {
+		affectedChanges, err = refreshEvidenceSupportProjectionsTx(
+			ctx,
+			tx,
+			f.supportEffects,
+			meta.IncidentID,
+			command.RecordID,
+		)
+		if err != nil {
+			return WorkbookMutationResult{}, err
+		}
+	}
 	if err := appendEvidenceRecordChangeIntentsTx(
 		ctx,
 		tx,
@@ -455,7 +473,7 @@ func (f *WorkbookFacade) Patch(ctx context.Context, command WorkbookPatchCommand
 			ChangedFieldKeys: patchChangedFieldKeys,
 		},
 		afterRow,
-		nil,
+		affectedChanges,
 		command.Now.UTC(),
 	); err != nil {
 		return WorkbookMutationResult{}, err
@@ -492,7 +510,7 @@ func (f *WorkbookFacade) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx
 		}
 		changes = append(changes, WorkbookLifecyclePatchChange{FieldKey: change.FieldKey, Text: text})
 	}
-	return f.store.ValidateWorkbookLifecyclePatchTx(ctx, tx, recordID, changes)
+	return f.sourceMutations.ValidateWorkbookLifecyclePatchTx(ctx, tx, recordID, changes)
 }
 
 func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, request WorkbookPatchRequest, now time.Time) (bool, error) {
@@ -504,7 +522,7 @@ func (f *WorkbookFacade) applyPatchTx(ctx context.Context, tx pgx.Tx, recordID u
 		if err := ValidateWorkbookDirectPatchChange(change.FieldKey, *change.Value); err != nil {
 			return false, err
 		}
-		applied, err := f.store.ApplyWorkbookDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
+		applied, err := f.sourceMutations.ApplyWorkbookDirectChangeTx(ctx, tx, recordID, change.FieldKey, *change.Value, now)
 		if err != nil {
 			return false, err
 		}

@@ -570,6 +570,7 @@ SELECT record_id, incident_id, record_type
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	rows.Close()
 	if len(seen) != len(expected) {
 		return recordsInvariantFailure("records.envelope_legal")
 	}

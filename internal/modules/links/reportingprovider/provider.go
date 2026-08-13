@@ -9,14 +9,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 )
 
-func CollectSupportRefsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
+func CollectSupportRefsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, logicalTargetRefs map[string]string) (map[string][]string, error) {
 	rows, err := tx.Query(ctx, `
-SELECT src_record_id::text, dst_record_id::text
-  FROM record_links
- WHERE incident_id = $1
-   AND deleted_at IS NULL
-   AND link_type IN ('supported_by', 'references_record', 'attached_evidence')
- ORDER BY src_record_id::text ASC, dst_record_id::text ASC
+SELECT rl.src_record_id::text, rl.dst_record_id::text
+  FROM record_links rl
+ WHERE rl.incident_id = $1
+   AND rl.deleted_at IS NULL
+   AND rl.link_type IN ('supported_by', 'references_record', 'attached_evidence')
+ ORDER BY rl.src_record_id::text ASC, rl.dst_record_id::text ASC
 `, incidentID)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,11 @@ SELECT src_record_id::text, dst_record_id::text
 		if err := rows.Scan(&src, &dst); err != nil {
 			return nil, err
 		}
-		out[src] = append(out[src], "/record_envelopes/"+dst)
+		target := "/record_envelopes/" + dst
+		if contributed := logicalTargetRefs[dst]; contributed != "" {
+			target = contributed
+		}
+		out[src] = append(out[src], target)
 	}
 	return out, rows.Err()
 }

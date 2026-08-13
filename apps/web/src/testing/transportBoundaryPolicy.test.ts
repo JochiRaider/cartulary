@@ -48,7 +48,9 @@ describe("frontend transport boundary policy", () => {
     );
     expect(source).toContain("uploadTarget.href");
     expect(source).toContain("method: uploadTarget.method");
-    expect(source).toContain('credentials: "omit"');
+    expect(source).toContain('credentials: "include"');
+    expect(source).toContain('readCookie("cartulary_csrf")');
+    expect(source).toContain("headers.set(csrfHeaderName, csrfToken);");
     expect(source).toContain("Object.entries(uploadTarget.headers)");
     expect(source).toContain("headers.set(key, value);");
   });

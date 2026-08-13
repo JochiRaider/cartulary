@@ -8,8 +8,11 @@ const migrationFiles = readdirSync(migrationRoot)
   .filter((name) => /^\d{5}_.+\.sql$/u.test(name))
   .sort((left, right) => left.localeCompare(right));
 
-if (migrationFiles.length !== 29) {
-  throw new Error(`Production DDL Rebaseline v2 requires exactly 29 migrations; found ${migrationFiles.length}`);
+const immutableBaselineVersion = 29;
+if (migrationFiles.length < immutableBaselineVersion) {
+  throw new Error(
+    `Production DDL Rebaseline v2 requires at least ${immutableBaselineVersion} migrations; found ${migrationFiles.length}`,
+  );
 }
 for (const [index, filename] of migrationFiles.entries()) {
   const version = Number.parseInt(filename.slice(0, 5), 10);
@@ -22,7 +25,7 @@ for (const [index, filename] of migrationFiles.entries()) {
 const history = {
   schema_id: "cartulary.migration_history_manifest.v1",
   migration_root: "db/migrations",
-  immutable_through_version: 29,
+  immutable_through_version: immutableBaselineVersion,
   entries: migrationFiles.map((filename, index) => {
     const body = readFileSync(path.join(migrationRoot, filename));
     return {
@@ -44,7 +47,14 @@ const ownersByVersion = new Map([
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
   [27, "extensions"], [28, "audit"], [29, "collaboration"],
+  [30, "evidence"], [31, "evidence"],
 ]);
+for (const [index, filename] of migrationFiles.entries()) {
+  const version = index + 1;
+  if (!ownersByVersion.has(version)) {
+    throw new Error(`migration ${filename} has no source-owner assignment`);
+  }
+}
 const profileByVersion = new Map([
   [2, "enterprise_authentication"],
   [19, "import"],

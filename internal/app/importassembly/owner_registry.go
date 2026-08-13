@@ -10,8 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -34,7 +32,7 @@ type OwnerRegistryDependencies struct {
 	EntityProjections       entityprojection.Writer
 	AssessmentProjections   assessmentprojection.Rows
 	ArtifactProjections     artifactprojection.Rows
-	EvidenceProjections     evidenceprojection.Rows
+	Evidence                ownerfacade.ImportOwnerCreateFacade
 	PartyProjections        partyprojection.Rows
 	TaskDecisionProjections taskdecisionprojection.Rows
 	Indicators              *indicators.Store
@@ -76,9 +74,9 @@ func NewOwnerCreateRegistry(
 			"compose import owner-create registry: Artifacts projection rows are required",
 		)
 	}
-	if dependencies.EvidenceProjections == nil {
+	if dependencies.Evidence == nil {
 		return nil, fmt.Errorf(
-			"compose import owner-create registry: Evidence projection rows are required",
+			"compose import owner-create registry: Evidence owner facade is required",
 		)
 	}
 	if dependencies.PartyProjections == nil {
@@ -179,14 +177,17 @@ func newOwnerCreateFacade(
 			dependencies.EntityProjections,
 		)
 	case "module.evidence@1":
-		return evidence.NewImportCreateFacade(
-			targetViewSchemaID,
-			facadeID,
-			dependencies.Postgres,
-			dependencies.RevisionAppender,
-			dependencies.Intents,
-			dependencies.EvidenceProjections,
-		)
+		binding := dependencies.Evidence.ImportOwnerCreateBinding()
+		if binding.TargetViewSchemaID != targetViewSchemaID || binding.FacadeID != facadeID {
+			return nil, fmt.Errorf(
+				"evidence owner facade binding = %s/%s, want %s/%s",
+				binding.TargetViewSchemaID,
+				binding.FacadeID,
+				targetViewSchemaID,
+				facadeID,
+			)
+		}
+		return dependencies.Evidence, nil
 	case "module.indicators@1":
 		return indicators.NewImportCreateFacade(
 			targetViewSchemaID,

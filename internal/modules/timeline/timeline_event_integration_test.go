@@ -1944,7 +1944,7 @@ func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.Ser
 		ConflictTokens:      conflicttest.NewCodec("timeline"),
 		Revisions:           harness.Revisions.Appender(),
 		Collaboration:       harness.Collaboration.IntentAppender(),
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(harness.Pool),
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

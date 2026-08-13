@@ -17,7 +17,7 @@ const (
 	CatalogSchemaID      = "cartulary.recovery_state_catalog.v1"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
-	AuthoredTableCount  = 111
+	AuthoredTableCount  = 113
 	RequiredTableCount  = 83
 	ContributionCount   = 29
 	ObjectFamilyCount   = 6
@@ -143,6 +143,13 @@ func RebuildableTables(algorithmID string, names ...string) []Table {
 
 func SecurityStateTables(algorithmID string, names ...string) []Table {
 	return algorithmTables(StateSecurity, InclusionSecurity, InvalidateState, algorithmID, names...)
+}
+
+// TransientStateTables describes restart-safe coordination state that is not
+// restored. Restore invalidates it so owner reconciliation can reconstruct
+// fresh coordination from authoritative state.
+func TransientStateTables(algorithmID string, names ...string) []Table {
+	return algorithmTables(StateTransient, InclusionTransient, InvalidateState, algorithmID, names...)
 }
 
 func RecoveryMetadataTables(names ...string) []Table {
@@ -471,8 +478,8 @@ func validateTable(table Table) error {
 			return fmt.Errorf("schema metadata table %s has inconsistent exclusion facts", table.TableName)
 		}
 	case InclusionTransient:
-		if table.StateClass != StateTransient || table.RestoreAction != IgnoreState ||
-			table.CodecID != nil || table.AlgorithmID != nil {
+		if table.StateClass != StateTransient || table.RestoreAction != InvalidateState ||
+			table.CodecID != nil || !validIdentifier(stringValue(table.AlgorithmID)) {
 			return fmt.Errorf("transient table %s has inconsistent exclusion facts", table.TableName)
 		}
 	default:

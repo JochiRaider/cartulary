@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -17,17 +18,25 @@ type uploadCapabilityService struct {
 	keys authn.MasterKeys
 }
 
+type createdUploadTarget struct {
+	Target objectstore.UploadTarget
+	Token  string
+}
+
 func (service uploadCapabilityService) createTarget(
 	claims objectUploadTokenClaims,
-) (objectstore.UploadTarget, error) {
+) (createdUploadTarget, error) {
 	token, err := encodeObjectUploadToken(service.keys, claims)
 	if err != nil {
-		return objectstore.UploadTarget{}, err
+		return createdUploadTarget{}, err
 	}
-	return objectstore.UploadTarget{
-		Href:    "/api/v1/object-uploads/" + url.PathEscape(token),
-		Method:  "PUT",
-		Headers: map[string]string{},
+	return createdUploadTarget{
+		Target: objectstore.UploadTarget{
+			Href:    "/api/v1/object-uploads/" + url.PathEscape(token),
+			Method:  "PUT",
+			Headers: map[string]string{},
+		},
+		Token: token,
 	}, nil
 }
 
@@ -41,7 +50,7 @@ func (adapter routeObjectStoreAdapter) observeUploadedObject(
 	ctx context.Context,
 	blob BlobRecord,
 ) (*ObservedObject, error) {
-	if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
 		return nil, err
 	}
 	stat, err := adapter.head(ctx, blob.StorageKey, objectstore.PurposeProductUpload)
@@ -71,7 +80,7 @@ func (adapter routeObjectStoreAdapter) verifyEvidenceObjectAvailable(
 	if access.StorageKey == nil || access.ObjectBlobID == nil {
 		return "evidence_inconsistent", nil
 	}
-	if err := validatePersistedObjectBlobStorageKey(*access.StorageKey, access.IncidentID, *access.ObjectBlobID); err != nil {
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(*access.StorageKey, access.IncidentID, *access.ObjectBlobID); err != nil {
 		return "", objectStoreDependencyAPIError(err)
 	}
 	if _, err := adapter.head(ctx, *access.StorageKey, objectstore.PurposeProductRead); err != nil {

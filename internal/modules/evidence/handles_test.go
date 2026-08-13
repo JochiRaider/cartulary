@@ -89,12 +89,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-handle-current-state")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	store := appsupport.NewEvidenceRouteOperations(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 
@@ -314,6 +309,22 @@ func requireEvidenceHandleContract(t testing.TB, data map[string]any, want evide
 }
 
 func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
+	data := attachUploadedBlobWithoutLifecyclePromotion(t, harness, login, incidentID, recordID, payload, filename, contentType, createTxn, attachTxn)
+	row := data["row"].(map[string]any)
+	available := requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": int(row["row_version"].(float64)),
+		"client_txn_id":    attachTxn + "-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
+	data["row"] = available["row"]
+	return data
+}
+
+func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsupport.ServerHarness, login appsupport.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, contentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
 	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
@@ -324,7 +335,7 @@ func attachUploadedBlobWithMetadata(t *testing.T, harness *appsupport.ServerHarn
 		"sha256_hex":        fmt.Sprintf("%x", sha256Sum(payload)),
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType)
+	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType, login)
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
@@ -365,7 +376,7 @@ UPDATE evidence
 	}
 }
 
-func currentStoreHandle(t testing.TB, store *evidence.Store, recordID uuid.UUID, kind string) evidence.HandleRecord {
+func currentStoreHandle(t testing.TB, store *evidence.RouteOperations, recordID uuid.UUID, kind string) evidence.HandleRecord {
 	t.Helper()
 	access, err := store.LoadEvidenceAccess(context.Background(), recordID)
 	if err != nil {

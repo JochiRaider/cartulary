@@ -13,7 +13,7 @@ import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
-import { createViewRow, queryViewRows } from "../workbook/query";
+import { createViewRow, patchRecord, queryViewRows } from "../workbook/query";
 import { createAndUploadObjectBlob } from "./uploads";
 
 export type EvidenceUploadOptions = {
@@ -101,6 +101,12 @@ export async function createUploadedEvidenceFixture(
       `attachBlobToEvidenceRecord failed with HTTP ${attach.status}: ${JSON.stringify(attach.payload)}`,
     );
   }
+  await patchRecord(page, row.record_id, {
+    view_schema_id: evidenceViewSchemaId,
+    base_row_version: attach.payload.data.row.row_version,
+    client_txn_id: uniqueTxn(`${options.txnPrefix}-available`),
+    changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
   return waitForEvidenceFixtureState(page, incidentId, row.record_id, {
     lifecycleState: "available",
     uploadState: "available",

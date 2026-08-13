@@ -27,7 +27,7 @@
     "cartulary.restore_verification.v1"
   ],
   "limits": {
-    "authored_table_count": 111,
+    "authored_table_count": 113,
     "required_table_count": 83,
     "chunk_plaintext_bytes": 4194304,
     "envelope_salt_bytes": 32,

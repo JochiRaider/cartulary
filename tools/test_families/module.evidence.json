@@ -369,7 +369,8 @@
       "selector": {
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
-          "bounds evidence upload retries by transport outcome without reading response bodies"
+          "fails closed before upload when the current CSRF cookie is absent",
+          "uses one authenticated CSRF-bound upload attempt without reading response bodies"
         ]
       },
       "evidence_class": "unit",
@@ -575,6 +576,31 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.evidence.integration.durable_cleanup_claim_engine_5be2d5d937",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.recovery"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceDurableCleanupClaimEngine_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.evidence.integration.expired_slot_replay_returns_the_same_expired_slo_6d29ac9f3a",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -658,7 +684,9 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestObjectBlobCreate_Integration"
+          "TestEvidenceAuthorizationMatrixAC543_Integration",
+          "TestObjectBlobCreate_Integration",
+          "TestObjectUploadCapabilityRoute_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -927,6 +955,33 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.evidence.unit.canonical_evidence_view_row_mapping_preserves_ri_1550a3228d",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.projections"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/workbookprojection",
+        "tests": [
+          "TestViewRowMapsRichProjectionInput",
+          "TestViewRowPreservesLifecycleAndBlobStates",
+          "TestViewRowPreservesNullProjectionCells"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.evidence.unit.create_effect_order_and_fault_boundary_5d70a3c812",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -1014,6 +1069,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
+          "TestLegacyObjectUploadCapabilitiesFailClosed_Unit",
           "TestReasonCodeRegistryConformance_Unit"
         ]
       },
@@ -1026,7 +1082,90 @@
       "minimum_tier": "fast"
     },
     {
-      "row_id": "module.evidence.unit.source_owner_contributions_remain_exact_f247686138",
+      "row_id": "module.evidence.unit.evidence_lifecycle_reference_and_failure_policy_d38e1adcdb",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/internal/policy",
+        "tests": [
+          "TestAssociationFailureAndIncidentPolicy",
+          "TestEvidenceLifecyclePolicy",
+          "TestInitialLifecycleAndBlobBridgePolicy",
+          "TestReferencePolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.evidence.unit.evidence_rollback_validates_shared_lifecycle_bri_5be78560c9",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/rollbackprovider",
+        "tests": [
+          "TestProviderRejectsInvalidLifecycleAndReferences",
+          "TestSourceForRollbackValuePreservesPresenceAndAssociations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.evidence.unit.owner_private_cleanup_dispatcher_and_typed_storage_a1b2c3d4e5",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [
+        "app.server",
+        "platform.objectstore",
+        "platform.telemetry"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceCleanupDispatcherRejectsIncompleteDependencies",
+          "TestEvidenceCleanupDispatcherShutdownCancelsInFlightSweep",
+          "TestEvidenceCleanupDispatcherStartsAfterActivationRunsEveryFifteenMinutesAndStops",
+          "TestEvidenceCleanupObjectDeleterRejectsLegacyOnlyStore",
+          "TestEvidenceCleanupObjectDeleterUsesTypedPurposeAndPreservesNotFound"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
+      "row_id": "module.evidence.unit.provider_contribution_closure_f247686138",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
       "collaborator_ids": [
@@ -1041,7 +1180,9 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestEvidenceSourceOwnerContributionsRemainExact"
+          "TestEvidenceOwnerRuntimeRejectsIncompleteDependencies",
+          "TestEvidenceServiceConstructionRejectsIncompleteDependencies",
+          "TestModuleEvidenceProviderContributionClosure"
         ]
       },
       "evidence_class": "unit",

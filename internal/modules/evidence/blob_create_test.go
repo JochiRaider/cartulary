@@ -212,14 +212,11 @@ func TestObjectBlobCreate_Unit(t *testing.T) {
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-blob-idempotency")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actorA := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
 	actorB := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
+	seedBlobCreateTestSession(t, harness, actorA.ID)
+	seedBlobCreateTestSession(t, harness, actorB.ID)
 	incidentA := appsupport.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")
 	incidentB := appsupport.CreateIncidentInStore(t, harness.DB, actorA, "txn-evidence_lifecycle-blob-incident-b", "IR-P5-BLOB-B", "Evidence blob incident B")
 
@@ -414,7 +411,7 @@ func mustBlobCreateRequest(t testing.TB, incidentID uuid.UUID, clientTxnID strin
 	return request
 }
 
-func createBlobSlot(t testing.TB, store *evidence.Store, request evidence.BlobCreateRequest, actorID uuid.UUID, incidentID uuid.UUID, objectBlobID uuid.UUID, label string) evidence.BlobSlotResult {
+func createBlobSlot(t testing.TB, store *evidence.BlobLifecycleService, request evidence.BlobCreateRequest, actorID uuid.UUID, incidentID uuid.UUID, objectBlobID uuid.UUID, label string) evidence.BlobSlotResult {
 	t.Helper()
 	result, err := store.CreateBlobSlot(context.Background(), blobSlotParams(request, actorID, incidentID, objectBlobID, label))
 	if err != nil {
@@ -425,6 +422,8 @@ func createBlobSlot(t testing.TB, store *evidence.Store, request evidence.BlobCr
 
 func blobSlotParams(request evidence.BlobCreateRequest, actorID uuid.UUID, incidentID uuid.UUID, objectBlobID uuid.UUID, label string) evidence.BlobSlotParams {
 	now := time.Date(2026, 5, 4, 12, 0, 0, 0, time.UTC)
+	capabilityHash := sha256.Sum256([]byte("capability:" + label))
+	contractHash := sha256.Sum256([]byte("contract:" + label))
 	return evidence.BlobSlotParams{
 		ObjectBlobID:      objectBlobID,
 		IncidentID:        incidentID,
@@ -445,6 +444,27 @@ func blobSlotParams(request evidence.BlobCreateRequest, actorID uuid.UUID, incid
 		AcceptedContract: request.AcceptedContract,
 		RequestHash:      evidence.BlobCreateRequestHash(request),
 		ClientTxnID:      request.ClientTxnID,
+		UploadLease: evidence.UploadLeaseCreateParams{
+			LeaseID: uuid.New(), CapabilityHash: capabilityHash[:],
+			IssuingUserID: actorID, IssuingSessionID: actorID,
+			IssuedAt: now, ExpiresAt: now.Add(60 * time.Minute), RequiredMethod: http.MethodPut,
+			RequiredHeaders: map[string]string{}, AcceptedContractSHA256: contractHash[:],
+		},
+	}
+}
+
+func seedBlobCreateTestSession(t testing.TB, harness *appsupport.StoreHarness, userID uuid.UUID) {
+	t.Helper()
+	now := time.Date(2026, 5, 4, 12, 0, 0, 0, time.UTC)
+	fingerprint := sha256.Sum256([]byte("session:" + userID.String()))
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO user_sessions (
+    id, user_id, token_fingerprint, authenticated_at,
+    last_qualifying_activity_at, idle_expires_at, absolute_expires_at,
+    session_expires_at, created_at, updated_at
+) VALUES ($1, $1, $2, $3, $3, $4, $4, $4, $3, $3)
+`, userID, fingerprint[:], now, now.Add(time.Hour)); err != nil {
+		t.Fatalf("seed blob create test session: %v", err)
 	}
 }
 

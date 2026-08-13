@@ -30,26 +30,15 @@ const (
 )
 
 func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("resolve source test path")
-	}
-	manifestBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "..", "..", "..", "tools", "migration_history_manifest.json"))
-	if err != nil {
-		t.Fatalf("read migration history manifest: %v", err)
-	}
-	var manifest migrationHistoryManifest
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatalf("decode migration history manifest: %v", err)
-	}
+	manifest := loadMigrationHistoryManifest(t)
 	if manifest.SchemaID != "cartulary.migration_history_manifest.v1" || manifest.MigrationRoot != "db/migrations" {
 		t.Fatalf("unexpected migration manifest identity: schema=%q root=%q", manifest.SchemaID, manifest.MigrationRoot)
 	}
 	if manifest.ImmutableThroughVersion != 29 {
 		t.Fatalf("unexpected immutable boundary: %d", manifest.ImmutableThroughVersion)
 	}
-	if len(manifest.Entries) != 29 {
-		t.Fatalf("migration manifest entry count = %d, want 29", len(manifest.Entries))
+	if len(manifest.Entries) < int(manifest.ImmutableThroughVersion) {
+		t.Fatalf("migration manifest entry count = %d, below immutable boundary %d", len(manifest.Entries), manifest.ImmutableThroughVersion)
 	}
 
 	first, err := dbmigrations.Source()
@@ -83,7 +72,9 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if first != second {
 		t.Fatal("repeated canonical source construction did not return the same pointer")
 	}
-	if inspection.VersionCount != 29 || inspection.MinVersion != 1 || inspection.MaxVersion != 29 || len(inspection.Entries) != 29 {
+	wantMaxVersion := manifest.Entries[len(manifest.Entries)-1].Version
+	if inspection.VersionCount != len(manifest.Entries) || inspection.MinVersion != manifest.Entries[0].Version ||
+		inspection.MaxVersion != wantMaxVersion || len(inspection.Entries) != len(manifest.Entries) {
 		t.Fatalf("unexpected canonical source ordering facts: %#v", inspection)
 	}
 	if !inspection.Entries[0].HasGooseUp || !inspection.Entries[0].HasGooseDown {
@@ -103,7 +94,7 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical source: %v", err)
 	}
-	const wantHash = "a13d942fa136c2d2039013047ef0b8e2ef5911db617b275d9b0829fac3ba70e6"
+	const wantHash = "7c3fab864d1ab7c0d02624446517b79d4acff8cfbc61b48b8279600d373c74bb"
 	if hash != wantHash {
 		t.Fatalf("canonical source hash = %s, want %s", hash, wantHash)
 	}
@@ -119,4 +110,30 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if _, err := database_migrations.SchemaHash(first, " "); err == nil {
 		t.Fatal("empty runner identity unexpectedly produced a schema hash")
 	}
+}
+
+func loadMigrationHistoryManifest(t testing.TB) migrationHistoryManifest {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve source test path")
+	}
+	manifestBytes, err := os.ReadFile(filepath.Join(filepath.Dir(filename), "..", "..", "..", "tools", "migration_history_manifest.json"))
+	if err != nil {
+		t.Fatalf("read migration history manifest: %v", err)
+	}
+	var manifest migrationHistoryManifest
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("decode migration history manifest: %v", err)
+	}
+	return manifest
+}
+
+func canonicalRepositoryHead(t testing.TB) int64 {
+	t.Helper()
+	manifest := loadMigrationHistoryManifest(t)
+	if len(manifest.Entries) == 0 {
+		t.Fatal("canonical migration manifest is empty")
+	}
+	return manifest.Entries[len(manifest.Entries)-1].Version
 }

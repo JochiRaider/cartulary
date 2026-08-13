@@ -237,7 +237,7 @@
       "minimum_tier": "standard"
     },
     {
-      "row_id": "module.incidentbundles.integration.incident_bundle_missing_source_blobs_malformed_o_a3d619b413",
+      "row_id": "module.incidentbundles.integration.incident_bundle_import_z_evidence_cleanup_a3d619b413",
       "owner_id": "module.incidentbundles",
       "family_id": "module.incidentbundles.integration",
       "collaborator_ids": [],
@@ -248,7 +248,7 @@
       "selector": {
         "package": "./internal/modules/incidentbundles",
         "tests": [
-          "TestFailureFamiliesLeaveNoVisibleIncident_Integration"
+          "TestIncidentBundlesEvidenceBlobStagingCleanup_Integration"
         ]
       },
       "evidence_class": "integration",

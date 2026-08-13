@@ -1,5 +1,8 @@
 import { Buffer } from "node:buffer";
-import type { ViewRow } from "@cartulary/protocol-ts/http";
+import type {
+  AttachBlobToEvidenceRecordResponse,
+  ViewRow,
+} from "@cartulary/protocol-ts/http";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   dataTestIdSelector,
@@ -672,12 +675,12 @@ async function createUploadedEvidence(
     },
   );
   expect(attach.ok()).toBeTruthy();
-  const rows = await queryViewRows(page, incidentId, evidenceViewSchemaId);
-  const attached = rows.find(
-    (candidate) => candidate.record_id === row.record_id,
-  );
-  if (!attached) {
-    throw new Error(`missing attached evidence row ${row.record_id}`);
-  }
-  return attached;
+  const attachEnvelope =
+    (await attach.json()) as AttachBlobToEvidenceRecordResponse;
+  return patchRecord(page, row.record_id, {
+    view_schema_id: evidenceViewSchemaId,
+    base_row_version: attachEnvelope.data.row.row_version,
+    client_txn_id: uniqueTxn("e5-preview-available"),
+    changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
 }

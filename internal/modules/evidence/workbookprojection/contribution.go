@@ -18,7 +18,6 @@ const evidenceViewSchemaID = "cartulary.view.evidence.v1"
 type Rows interface {
 	RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error
 	RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error
 }
 
@@ -41,6 +40,56 @@ type ProjectionInput struct {
 	EditedAt           time.Time
 }
 
+// ViewRow is the canonical Evidence projection-input-to-workbook-row mapper.
+// Source mutations, revision live values, and provider transaction reads use
+// this boundary so new Evidence fields cannot drift across parallel serializers.
+func ViewRow(input ProjectionInput) map[string]any {
+	return map[string]any{
+		"record_id":   input.RecordID.String(),
+		"row_version": input.RowVersion,
+		"cells": map[string]any{
+			"evidence.title":                viewCell(stringValue(input.Title)),
+			"evidence.lifecycle_state":      viewCell(input.LifecycleState),
+			"evidence.requested_at":         viewCell(timeValue(input.RequestedAt)),
+			"evidence.received_at":          viewCell(timeValue(input.ReceivedAt)),
+			"evidence.storage_ref":          viewCell(stringValue(input.StorageRef)),
+			"evidence.blob_hash":            viewCell(stringValue(input.BlobHash)),
+			"evidence.collector_party_text": viewCell(stringValue(input.CollectorPartyText)),
+			"evidence.collector_party_id":   viewCell(uuidValue(input.CollectorPartyID)),
+			"evidence.source_party_text":    viewCell(stringValue(input.SourcePartyText)),
+			"evidence.source_party_id":      viewCell(uuidValue(input.SourcePartyID)),
+			"evidence.upload_state":         viewCell(input.UploadState),
+			"evidence.linked_record_count":  viewCell(int32(input.LinkedRecordCount)),
+			"evidence.edited_at":            viewCell(input.EditedAt.UTC().Format(time.RFC3339Nano)),
+		},
+	}
+}
+
+func viewCell(value any) map[string]any {
+	return map[string]any{"value": value}
+}
+
+func stringValue(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func timeValue(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func uuidValue(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
+}
+
 type ProjectionInputPage struct {
 	Inputs       []ProjectionInput
 	NextRecordID *uuid.UUID
@@ -56,8 +105,9 @@ type Rebuilder interface {
 }
 
 type Ports struct {
-	Rows      Rows
-	Rebuilder Rebuilder
+	Rows           Rows
+	Rebuilder      Rebuilder
+	SupportEffects SupportProjectionEffectsTx
 }
 
 type Contribution struct {

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -24,12 +25,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	revisionComposition := revisionsupport.MustComposition(t)
-	evidenceStore := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	evidenceStore := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
@@ -97,7 +93,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		t.Fatalf("attach available blob to requested evidence: %v", err)
 	}
 	attachedRow := attached.Payload["row"].(map[string]any)
-	requireRowCellValue(t, attachedRow, "evidence.lifecycle_state", "available")
+	requireRowCellValue(t, attachedRow, "evidence.lifecycle_state", "requested")
 	requireRowCellValue(t, attachedRow, "evidence.upload_state", "available")
 	requireRowCellValue(t, attachedRow, "evidence.collector_party_text", "IR collector")
 	requireRowCellValue(t, attachedRow, "evidence.source_party_text", "Endpoint owner")
@@ -114,6 +110,14 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	}
 	requireChangeSetAttribution(t, harness.DB, attached.Payload["change_set_id"].(string), actor.ID, "evidence.attach_blob", attachRequest.ClientTxnID)
 
+	available := patchEvidenceViaWorkbook(t, workbookStore, actor, attachRecordID, `{
+		"view_schema_id":"cartulary.view.evidence.v1",
+		"base_row_version":2,
+		"client_txn_id":"txn-evidence_lifecycle-lifecycle-available-after-attach",
+		"changes":[{"field_key":"evidence.lifecycle_state","value":"available"}]
+	}`)
+	requireRowCellValue(t, available.Payload["row"].(map[string]any), "evidence.lifecycle_state", "available")
+
 	quarantined := createEvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
 		"client_txn_id":"txn-evidence_lifecycle-lifecycle-quarantined",
 		"evidence.title":"Quarantined evidence"
@@ -128,6 +132,14 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 		t.Fatalf("quarantined evidence attach got %v want ErrEvidenceQuarantined", err)
 	} else {
 		requireAttachRejectedReason(t, err, evidence.AttachReasonEvidenceQuarantined)
+	}
+
+	closedBlobID := seedBlob(t, harness.DB, incident.ID, actor.ID, "available", BlobOptions{ByteSize: 1, ObservedSize: ptrInt64(1)})
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE incidents SET status = 'closed', closed_at = now() WHERE id = $1`, incident.ID); err != nil {
+		t.Fatalf("close incident before quarantine: %v", err)
+	}
+	if _, err := evidenceStore.QuarantineBlob(context.Background(), actor.ID, closedBlobID, "admin_quarantine", "req-closed-quarantine", time.Now().UTC()); !errors.Is(err, incidents.ErrIncidentClosed) {
+		t.Fatalf("closed-incident quarantine got %v, want incidents.ErrIncidentClosed", err)
 	}
 
 	requireEvidenceState(t, harness.DB, attachRecordID, "available", "available", blobID)

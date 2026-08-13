@@ -935,7 +935,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 		ConflictTokens:      conflicttest.NewCodec("timeline-query"),
 		Revisions:           appender,
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(pool),
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

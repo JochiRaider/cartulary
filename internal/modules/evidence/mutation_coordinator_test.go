@@ -13,7 +13,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
@@ -22,7 +21,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 	recordID := uuid.MustParse("d8ba17f5-bf78-49c3-b113-5e8e645c3c02")
 	changeSetID := uuid.MustParse("14ec06dd-f7ae-4915-b447-38ec75df8fa8")
 	rows := &coordinatorSourceRows{events: &events, failInsert: expectedFailure}
-	coordinator := evidenceMutationCoordinator{
+	coordinator := evidenceSourceMutationKernel{
 		incidents: coordinatorIncidentAdmission{events: &events},
 		source: evidenceSourceKernel{
 			records:     coordinatorRecords{events: &events, recordID: recordID},
@@ -34,7 +33,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 	}
 	command := coordinatorCreateCommand()
 
-	if _, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Request.Values}); !errors.Is(err, expectedFailure) {
+	if _, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Values}); !errors.Is(err, expectedFailure) {
 		t.Fatalf("createTx() error = %v, want injected source-row failure", err)
 	}
 	if want := []string{"incident", "record", "source-row"}; !reflect.DeepEqual(events, want) {
@@ -43,7 +42,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 
 	events = events[:0]
 	rows.failInsert = nil
-	result, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Request.Values})
+	result, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Values})
 	if err != nil {
 		t.Fatalf("createTx() success error = %v", err)
 	}
@@ -67,20 +66,18 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 	}
 }
 
-func coordinatorCreateCommand() WorkbookCreateCommand {
+func coordinatorCreateCommand() evidenceCreateTxCommand {
 	title := "Disk image"
-	return WorkbookCreateCommand{
-		Actor:      authn.UserRecord{ID: uuid.MustParse("8d8a27c9-d070-4bb0-baf8-b7f8f48d47c1")},
-		IncidentID: uuid.MustParse("c3b6b590-bf8f-489e-bfdd-5244074cd45e"),
-		Request: WorkbookCreateRequest{
-			ViewSchemaID: ViewSchemaID,
-			ClientTxnID:  "txn-evidence-coordinator",
-			Values: map[string]WorkbookFieldValue{
-				"evidence.title": {Text: &title},
-			},
+	return evidenceCreateTxCommand{
+		ActorUserID:  uuid.MustParse("8d8a27c9-d070-4bb0-baf8-b7f8f48d47c1"),
+		IncidentID:   uuid.MustParse("c3b6b590-bf8f-489e-bfdd-5244074cd45e"),
+		ViewSchemaID: ViewSchemaID,
+		ClientTxnID:  "txn-evidence-coordinator",
+		Values: map[string]WorkbookFieldValue{
+			"evidence.title": {Text: &title},
 		},
 		RequestID: "request-evidence-coordinator",
-		RouteKey:  "workbook.rows.create",
+		Source:    "workbook.rows.create",
 		Now:       time.Date(2026, time.July, 30, 18, 0, 0, 0, time.UTC),
 	}
 }
@@ -148,10 +145,6 @@ func (port coordinatorProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uu
 			"evidence.title": map[string]any{"value": "Disk image"},
 		},
 	}, nil
-}
-
-func (coordinatorProjectionRows) RefreshEvidenceSupportTx(context.Context, pgx.Tx, uuid.UUID) error {
-	return errors.New("unexpected RefreshEvidenceSupportTx")
 }
 
 func (coordinatorProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {

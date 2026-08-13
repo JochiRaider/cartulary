@@ -2,6 +2,7 @@ package importassembly
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -11,7 +12,7 @@ import (
 	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/workbookprojection"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/workbookprojection"
 	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/workbookprojection"
@@ -32,7 +33,7 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 		EntityProjections:       inertEntityProjectionWriter{},
 		AssessmentProjections:   inertAssessmentProjectionRows{},
 		ArtifactProjections:     inertArtifactProjectionRows{},
-		EvidenceProjections:     inertEvidenceProjectionRows{},
+		Evidence:                inertEvidenceOwnerFacade(t),
 		PartyProjections:        inertPartyProjectionRows{},
 		TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 		Indicators:              inertIndicatorOwner(),
@@ -66,6 +67,23 @@ func TestOwnerCreateRegistryComposesEveryCurrentViewTarget(t *testing.T) {
 	}
 }
 
+func TestOwnerCreateRegistryConsumesNarrowEvidenceFacade(t *testing.T) {
+	t.Parallel()
+
+	dependencies := reflect.TypeOf(OwnerRegistryDependencies{})
+	field, present := dependencies.FieldByName("Evidence")
+	if !present {
+		t.Fatal("owner registry dependencies omit the Evidence facade")
+	}
+	wantType := reflect.TypeOf((*ownerfacade.ImportOwnerCreateFacade)(nil)).Elem()
+	if field.Type != wantType {
+		t.Fatalf("Evidence dependency type = %v, want %v", field.Type, wantType)
+	}
+	if _, present := dependencies.FieldByName("EvidenceProjections"); present {
+		t.Fatal("owner registry dependencies reconstruct Evidence from projection rows")
+	}
+}
+
 func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -82,7 +100,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
@@ -97,7 +115,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
@@ -112,7 +130,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
@@ -127,26 +145,10 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
-			},
-		},
-		{
-			name: "projection catalog",
-			deps: OwnerRegistryDependencies{
-				Postgres:                inertOwnerRegistryDB{},
-				RevisionAppender:        &revisions.Appender{},
-				Intents:                 inertIntentAppender{},
-				Timeline:                inertTimelineFacade(),
-				Indicators:              inertIndicatorOwner(),
-				EntityProjections:       inertEntityProjectionWriter{},
-				AssessmentProjections:   inertAssessmentProjectionRows{},
-				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
-				PartyProjections:        inertPartyProjectionRows{},
-				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 			},
 		},
 		{
@@ -158,7 +160,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				Timeline:                inertTimelineFacade(),
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
@@ -173,7 +175,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
@@ -188,14 +190,14 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				Timeline:                inertTimelineFacade(),
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
 			},
 		},
 		{
-			name: "evidence projections",
+			name: "evidence owner facade",
 			deps: OwnerRegistryDependencies{
 				Postgres:                inertOwnerRegistryDB{},
 				RevisionAppender:        &revisions.Appender{},
@@ -219,7 +221,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 				Indicators:              inertIndicatorOwner(),
 			},
@@ -234,7 +236,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:     inertEntityProjectionWriter{},
 				AssessmentProjections: inertAssessmentProjectionRows{},
 				ArtifactProjections:   inertArtifactProjectionRows{},
-				EvidenceProjections:   inertEvidenceProjectionRows{},
+				Evidence:              inertEvidenceOwnerFacade(t),
 				PartyProjections:      inertPartyProjectionRows{},
 				Indicators:            inertIndicatorOwner(),
 			},
@@ -249,7 +251,7 @@ func TestOwnerCreateRegistryRequiresCompositionDependencies(t *testing.T) {
 				EntityProjections:       inertEntityProjectionWriter{},
 				AssessmentProjections:   inertAssessmentProjectionRows{},
 				ArtifactProjections:     inertArtifactProjectionRows{},
-				EvidenceProjections:     inertEvidenceProjectionRows{},
+				Evidence:                inertEvidenceOwnerFacade(t),
 				PartyProjections:        inertPartyProjectionRows{},
 				TaskDecisionProjections: inertTaskDecisionProjectionRows{},
 			},
@@ -276,10 +278,6 @@ type inertAssessmentProjectionRows struct {
 
 type inertArtifactProjectionRows struct {
 	artifactprojection.Rows
-}
-
-type inertEvidenceProjectionRows struct {
-	evidenceprojection.Rows
 }
 
 type inertPartyProjectionRows struct {
@@ -317,6 +315,23 @@ func inertTimelineFacade() *timeline.Facade {
 		timeline.Collaborators{},
 		conflicttokens.ConflictTokenCodec{},
 	)
+}
+
+func inertEvidenceOwnerFacade(t testing.TB) ownerfacade.ImportOwnerCreateFacade {
+	t.Helper()
+	facade, err := ownerfacade.NewImportOwnerCreateFacade(
+		ownerfacade.ImportOwnerCreateBinding{
+			TargetViewSchemaID: "cartulary.view.evidence.v1",
+			FacadeID:           "evidence.import_create",
+		},
+		func(context.Context, pgx.Tx, ownerfacade.ImportOwnerCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+			panic("owner registry construction must not invoke the Evidence facade")
+		},
+	)
+	if err != nil {
+		t.Fatalf("compose inert Evidence owner facade: %v", err)
+	}
+	return facade
 }
 
 type inertOwnerRegistryDB struct{}

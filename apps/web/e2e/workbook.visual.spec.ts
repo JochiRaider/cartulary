@@ -1854,6 +1854,9 @@ test.describe("workbook visual evidence", () => {
       buffer: Buffer.from("evidence_lifecycle visual evidence", "utf8"),
     });
     await expect(
+      page.getByTestId(evidenceAccessMessageTestId(evidenceRow.record_id)),
+    ).toHaveText("Evidence attached.", { timeout: 30_000 });
+    await expect(
       await mountedGridCell(
         page,
         evidenceViewSchemaId,

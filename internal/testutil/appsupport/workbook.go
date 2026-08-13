@@ -1,6 +1,11 @@
 package appsupport
 
 import (
+	"context"
+	"errors"
+	"io"
+	"time"
+
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/revisionassembly"
@@ -11,10 +16,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
+
+var errUnavailableEvidenceObjectStore = errors.New("test Evidence object store is unavailable")
 
 func ArtifactProjectionRows(pool postgres.DB) artifactprojection.Rows {
 	return mustBuildProjectionRuntime(pool).ArtifactPorts().Rows
@@ -22,6 +31,72 @@ func ArtifactProjectionRows(pool postgres.DB) artifactprojection.Rows {
 
 func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.Rows {
 	return mustBuildProjectionRuntime(pool).EvidencePorts().Rows
+}
+
+func NewEvidenceBlobLifecycleService(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) *evidence.BlobLifecycleService {
+	projectionRuntime := mustBuildProjectionRuntime(pool)
+	service, err := evidence.NewBlobLifecycleService(evidence.BlobLifecycleDependencies{
+		Postgres:       pool,
+		Revisions:      appender,
+		Projections:    projectionRuntime.EvidencePorts().Rows,
+		SupportEffects: projectionRuntime.EvidencePorts().SupportEffects,
+		Collaboration:  intents,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return service
+}
+
+func NewEvidenceRouteOperations(
+	pool postgres.DB,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+) *evidence.RouteOperations {
+	blobs := NewEvidenceBlobLifecycleService(pool, appender, intents)
+	access, err := evidence.NewAccessHandleService(pool)
+	if err != nil {
+		panic(err)
+	}
+	operations, err := evidence.NewRouteOperations(blobs, access)
+	if err != nil {
+		panic(err)
+	}
+	return operations
+}
+
+func NewEvidenceOwnerRuntime(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+	objects objectstore.Store,
+	conflictFields conflicttokens.FieldResolver,
+	keepSaved conflicttokens.IdempotencyPort,
+	projectionRuntime *projectionassembly.Runtime,
+) *evidence.OwnerRuntime {
+	runtime, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
+		Postgres:            pool,
+		ConflictTokens:      &conflictTokens,
+		Revisions:           appender,
+		Collaboration:       intents,
+		ObjectStore:         objects,
+		ConflictFields:      conflictFields,
+		ConflictIdempotency: keepSaved,
+		Projections:         projectionRuntime.EvidencePorts(),
+	})
+	if err != nil {
+		panic(err)
+	}
+	return runtime
+}
+
+func UnavailableEvidenceObjectStore() objectstore.Store {
+	return unavailableEvidenceObjectStore{}
 }
 
 // NewWorkbookStore composes the same code-backed projection catalog used by
@@ -44,8 +119,8 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	}
 	appender := revisionRuntime.Appender()
 	conflictFields := revisionRuntime.ConflictFieldResolver()
-	evidenceAttachments := evidence.NewTimelineAttachmentContribution(pool)
 	projectionRuntime := mustBuildProjectionRuntime(pool)
+	evidenceAttachments := evidence.NewTimelineAttachmentContribution(projectionRuntime.EvidencePorts().Rows)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
@@ -68,14 +143,15 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	if err != nil {
 		panic(err)
 	}
-	evidenceContribution := evidence.NewWorkbookContribution(
+	evidenceOwner := NewEvidenceOwnerRuntime(
 		pool,
 		conflictTokens,
 		appender,
 		intents,
+		UnavailableEvidenceObjectStore(),
 		conflictFields,
 		workbookassembly.NewConflictIdempotencyPort(pool),
-		projectionRuntime.EvidencePorts().Rows,
+		projectionRuntime,
 	)
 	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
 		pool,
@@ -106,7 +182,7 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
-		evidenceContribution,
+		evidenceOwner.WorkbookContribution(),
 		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
@@ -128,6 +204,38 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	}
 	return store
 }
+
+type unavailableEvidenceObjectStore struct{}
+
+func (unavailableEvidenceObjectStore) UploadTarget(context.Context, string, time.Time) (objectstore.UploadTarget, error) {
+	return objectstore.UploadTarget{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) CompleteUploadTarget(context.Context, string, io.Reader, string) error {
+	return errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) PutObject(context.Context, string, io.Reader, int64, string) error {
+	return errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) ReadObject(context.Context, string, objectstore.ReadOptions) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	return nil, objectstore.ObjectInfo{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) StatObject(context.Context, string) (objectstore.ObjectInfo, error) {
+	return objectstore.ObjectInfo{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) ListObjects(context.Context, string) ([]objectstore.ObjectInfo, error) {
+	return nil, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) DeleteObject(context.Context, string) error {
+	return errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) Close() error { return nil }
 
 func mustBuildProjectionRuntime(pool postgres.DB) *projectionassembly.Runtime {
 	runtime, err := projectionassembly.Build(pool)

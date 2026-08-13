@@ -1,14 +1,24 @@
 package evidence
 
 import (
+	"context"
 	"slices"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
-func TestEvidenceSourceOwnerContributionsRemainExact(t *testing.T) {
+func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 	t.Parallel()
 
 	t.Run("incident_bundle", func(t *testing.T) {
@@ -45,6 +55,8 @@ func TestEvidenceSourceOwnerContributionsRemainExact(t *testing.T) {
 			"evidence_custody_events",
 			"object_blobs",
 			"evidence_access_handles",
+			"evidence_object_upload_leases",
+			"evidence_blob_cleanup_claims",
 		}
 		gotTables := make([]string, 0, len(contribution.Tables))
 		for _, table := range contribution.Tables {
@@ -79,4 +91,186 @@ func TestEvidenceSourceOwnerContributionsRemainExact(t *testing.T) {
 			t.Fatalf("unexpected Evidence revision routes: %#v", record.RecordViewRoutes)
 		}
 	})
+
+	t.Run("record subtype presence", func(t *testing.T) {
+		t.Parallel()
+		contribution := IncidentBundleSubtypeContribution()
+		if contribution.FamilyID != "evidence" || contribution.Source == nil ||
+			!slices.Equal(contribution.Source.SupportedRecordTypes(), []subtypepresence.RecordType{subtypepresence.RecordTypeEvidence}) {
+			t.Fatalf("unexpected Evidence subtype-presence contribution: %#v", contribution)
+		}
+	})
+}
+
+func TestEvidenceServiceConstructionRejectsIncompleteDependencies(t *testing.T) {
+	t.Parallel()
+
+	valid := BlobLifecycleDependencies{
+		Postgres:       constructionDB{},
+		Revisions:      &revisions.Appender{},
+		Projections:    constructionProjectionRows{},
+		SupportEffects: constructionSupportEffects{},
+		Collaboration:  collaboration.NewIntentAppender(),
+	}
+	tests := []struct {
+		name   string
+		mutate func(*BlobLifecycleDependencies)
+	}{
+		{name: "postgres", mutate: func(dependencies *BlobLifecycleDependencies) { dependencies.Postgres = nil }},
+		{name: "revisions", mutate: func(dependencies *BlobLifecycleDependencies) { dependencies.Revisions = nil }},
+		{name: "projections", mutate: func(dependencies *BlobLifecycleDependencies) { dependencies.Projections = nil }},
+		{name: "support effects", mutate: func(dependencies *BlobLifecycleDependencies) { dependencies.SupportEffects = nil }},
+		{name: "collaboration", mutate: func(dependencies *BlobLifecycleDependencies) { dependencies.Collaboration = nil }},
+	}
+	for _, test := range tests {
+		t.Run("blob lifecycle requires "+test.name, func(t *testing.T) {
+			dependencies := valid
+			test.mutate(&dependencies)
+			if _, err := NewBlobLifecycleService(dependencies); err == nil {
+				t.Fatalf("NewBlobLifecycleService() accepted missing %s dependency", test.name)
+			}
+		})
+	}
+
+	if _, err := NewAccessHandleService(nil); err == nil {
+		t.Fatal("NewAccessHandleService() accepted a missing Postgres dependency")
+	}
+	if _, err := NewCleanupService(nil); err == nil {
+		t.Fatal("NewCleanupService() accepted a missing Postgres dependency")
+	}
+	blobs, err := NewBlobLifecycleService(valid)
+	if err != nil {
+		t.Fatalf("NewBlobLifecycleService(valid): %v", err)
+	}
+	access, err := NewAccessHandleService(constructionDB{})
+	if err != nil {
+		t.Fatalf("NewAccessHandleService(valid): %v", err)
+	}
+	if _, err := NewRouteOperations(nil, access); err == nil {
+		t.Fatal("NewRouteOperations() accepted a missing blob lifecycle capability")
+	}
+	if _, err := NewRouteOperations(blobs, nil); err == nil {
+		t.Fatal("NewRouteOperations() accepted a missing access-handle capability")
+	}
+	if _, err := newSourceMutationService(constructionDB{}, nil, valid.Revisions, valid.Collaboration); err == nil {
+		t.Fatal("newSourceMutationService() accepted a missing Projections dependency")
+	}
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, nil, valid.Collaboration); err == nil {
+		t.Fatal("newSourceMutationService() accepted a missing Revisions dependency")
+	}
+	if _, err := newSourceMutationService(nil, valid.Projections, valid.Revisions, valid.Collaboration); err == nil {
+		t.Fatal("newSourceMutationService() accepted a missing Postgres dependency")
+	}
+	if _, err := newSourceMutationService(constructionDB{}, valid.Projections, valid.Revisions, nil); err == nil {
+		t.Fatal("newSourceMutationService() accepted a missing Collaboration dependency")
+	}
+}
+
+func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
+	t.Parallel()
+
+	codec := conflicttokens.ConflictTokenCodec{}
+	valid := OwnerRuntimeDependencies{
+		Postgres:            constructionDB{},
+		ConflictTokens:      &codec,
+		Revisions:           &revisions.Appender{},
+		Collaboration:       collaboration.NewIntentAppender(),
+		ObjectStore:         constructionObjectStore{},
+		ConflictFields:      constructionConflictFields{},
+		ConflictIdempotency: constructionConflictIdempotency{},
+		Projections: evidenceprojection.Ports{
+			Rows:           constructionProjectionRows{},
+			SupportEffects: constructionSupportEffects{},
+		},
+	}
+	tests := []struct {
+		name   string
+		mutate func(*OwnerRuntimeDependencies)
+	}{
+		{name: "postgres", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Postgres = nil }},
+		{name: "conflict tokens", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictTokens = nil }},
+		{name: "revisions", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Revisions = nil }},
+		{name: "collaboration", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Collaboration = nil }},
+		{name: "object store", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ObjectStore = nil }},
+		{name: "conflict fields", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictFields = nil }},
+		{name: "conflict idempotency", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictIdempotency = nil }},
+		{name: "projection rows", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Projections.Rows = nil }},
+		{name: "support effects", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Projections.SupportEffects = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dependencies := valid
+			test.mutate(&dependencies)
+			if _, err := NewOwnerRuntime(dependencies); err == nil {
+				t.Fatalf("NewOwnerRuntime() accepted missing %s dependency", test.name)
+			}
+		})
+	}
+
+	runtime, err := NewOwnerRuntime(valid)
+	if err != nil {
+		t.Fatalf("NewOwnerRuntime(valid): %v", err)
+	}
+	if runtime.RouteService() == nil || runtime.WorkbookContribution() == nil ||
+		runtime.TimelineAttachmentContribution() == nil || runtime.ImportCreateFacade() == nil {
+		t.Fatal("NewOwnerRuntime(valid) returned an incomplete capability set")
+	}
+	binding := runtime.ImportCreateFacade().ImportOwnerCreateBinding()
+	if binding.TargetViewSchemaID != ViewSchemaID || binding.FacadeID != "evidence.import_create" {
+		t.Fatalf("Evidence import binding = %#v", binding)
+	}
+}
+
+type constructionDB struct{}
+
+func (constructionDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (constructionDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return nil, nil
+}
+
+func (constructionDB) QueryRow(context.Context, string, ...any) pgx.Row {
+	return nil
+}
+
+func (constructionDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
+	return nil, nil
+}
+
+type constructionProjectionRows struct{}
+
+func (constructionProjectionRows) RefreshEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+
+func (constructionProjectionRows) LoadEvidenceTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error) {
+	return nil, nil
+}
+
+func (constructionProjectionRows) RebuildEvidenceTx(context.Context, pgx.Tx, uuid.UUID) error {
+	return nil
+}
+
+type constructionSupportEffects struct{}
+
+func (constructionSupportEffects) RefreshEvidenceAssociationEffects(
+	context.Context,
+	pgx.Tx,
+	evidenceprojection.EvidenceAssociationEffectsInput,
+) (evidenceprojection.EvidenceAssociationEffectsResult, error) {
+	return evidenceprojection.EvidenceAssociationEffectsResult{}, nil
+}
+
+type constructionObjectStore struct {
+	objectstore.Store
+}
+
+type constructionConflictFields struct {
+	conflicttokens.FieldResolver
+}
+
+type constructionConflictIdempotency struct {
+	conflicttokens.IdempotencyPort
 }

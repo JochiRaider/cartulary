@@ -55,6 +55,7 @@ The instrumentation subsystem MUST make these operational questions answerable:
 | Are workbook queries, mutations, and projection updates healthy? | Workbook spans plus duration, row-count, conflict, and result metrics. |
 | Are WebSocket subscriptions, presence updates, and live row updates healthy? | WebSocket active gauges, event counters, bounded operation spans, and low-cardinality close or drop classification. |
 | Are background jobs queued, running, canceled, failed, or completing? | Job enqueue and run spans, active gauges, terminal duration metrics, and terminal-status attributes. |
+| Is failed unattached Evidence cleanup running and meeting its deletion deadline? | Cleanup operation/result counters, sweep duration, overdue count, and oldest eligible age without Evidence identity. |
 | Are Postgres or object-storage dependencies degraded? | Dependency spans, dependency duration metrics, retry/drop counters, and low-cardinality error classification. |
 | Are telemetry exporters failing or dropping data? | Telemetry self-metrics and bounded local diagnostics. |
 | Can operators correlate safe local logs with traces? | Trace correlation fields, OTel LogRecord mapping when enabled, bounded body rules, and redaction-before-recording rules. |
@@ -312,6 +313,7 @@ Instrumentation ownership MUST follow this table:
 | Background jobs | Jobs instrumentation | Enqueue, start, terminal state, cancellation, duration, active count, and error metrics. | Job IDs, progress-unit IDs, raw handler errors, and recovered panic values MUST NOT be emitted. |
 | Postgres access | Platform/Postgres instrumentation | Standard database client spans and duration metrics without SQL text, bind values, table names, projection names, or connection endpoints. | Workbook modules MUST NOT directly emit raw database query text. |
 | Object storage | Platform/object-store instrumentation | Cartulary object-store dependency spans and byte/duration metrics without bucket names, keys, hashes, filenames, upload IDs, copy sources, or handles. | Object-store implementation details MUST NOT leak into evidence telemetry. |
+| Evidence cleanup | Evidence-owned cleanup observer bound by application assembly | Sweep result/duration, overdue count, oldest eligible age, and bounded static logs. | Incident, record, blob, object-key, filename, hash, capability, and raw-error values MUST NOT enter telemetry. |
 | Workbook query and mutation | Workbook/projection instrumentation | Query, create, patch, conflict, projection-maintenance, and refresh spans. | Projection table names and visible row positions MUST NOT become telemetry identity. |
 | Browser UI | Browser controller instrumentation | Local performance marks MAY exist. | Browser direct OTLP, vendor-native, or third-party telemetry export is forbidden. |
 | Telemetry bootstrap | Server-side telemetry boundary | SDK provider setup, processors, exporters, metric readers, samplers, shutdown, and self-diagnostics. | Ordinary instrumentation units MUST NOT configure SDK, exporter, processor, reader, sampler, propagator, or Collector behavior. |
@@ -326,6 +328,7 @@ Each tracer, meter, or logger MUST be created with one of the following instrume
 | `cartulary.httpapi` | HTTP API and route-family classification | traces, metrics, logs |
 | `cartulary.workbook` | Workbook query, row create, row mutation, conflict, projection work, and row refresh | traces, metrics, logs |
 | `cartulary.collaboration` | WebSocket subscription and server-to-client events | traces, metrics, logs |
+| `cartulary.evidence` | Failed unattached Evidence cleanup | metrics, logs |
 | `cartulary.jobs` | Background-job enqueue and execution | traces, metrics, logs |
 | `cartulary.postgres` | Postgres dependency spans and pool/dependency metrics | traces, metrics |
 | `cartulary.objectstore` | S3-compatible object storage abstraction | traces, metrics |
@@ -717,14 +720,14 @@ The current profile permits only the custom attributes in this registry:
 | --- | --- | --- | --- | --- |
 | `cartulary.deployment.profile` | string | Active deployment profile token | Deployment profile vocabulary | resource |
 | `cartulary.profile.claims` | string | ASCII-sorted comma-delimited set containing `base` plus claimed extension `profile_id` tokens | Current profile vocabulary combinations | resource |
-| `cartulary.module` | string | `httpapi`, `workbook`, `collaboration`, `jobs`, `postgres`, `objectstore`, `telemetry` | 7 | spans, metrics, logs |
+| `cartulary.module` | string | `httpapi`, `workbook`, `collaboration`, `evidence`, `jobs`, `postgres`, `objectstore`, `telemetry` | 8 | spans, metrics, logs |
 | `cartulary.route_family` | string | Closed route-family token, not a route path | Route-family registry count | spans, metrics, logs |
 | `cartulary.view_schema_id` | string | Standardized `view_schema_id` token only | Current profile view-schema count | spans, metrics |
 | `cartulary.record_type` | string | Closed record-type vocabulary | Current profile record-type count | spans, metrics |
 | `cartulary.operation` | string | Closed operation token owned by signal registry | Operation registry count | spans, metrics, logs |
 | `cartulary.result` | string | `success`, `rejected`, `conflict`, `canceled`, `failed`, `timeout`, `dropped` | 7 | spans, metrics, logs |
 | `cartulary.error_code` | string | Public error-code token or `internal_error` | Public error-code registry count | spans, logs |
-| `cartulary.error_class` | string | Closed low-cardinality implementation or dependency class | Error-class registry count | spans, logs |
+| `cartulary.error_class` | string | Closed low-cardinality implementation or dependency class | Error-class registry count | spans, metrics, logs |
 | `cartulary.websocket.event_type` | string | Public WebSocket event type, not payload content | WebSocket event vocabulary count | spans, metrics |
 | `cartulary.job_kind` | string | Exact active catalog-backed background-job kind, not scope, job ID, or progress-unit ID | Job-kind vocabulary count | spans, metrics |
 | `cartulary.job_terminal_status` | string | `succeeded`, `failed`, `canceled`, `expired` | 4 | spans, metrics |
@@ -1051,6 +1054,10 @@ When metrics are enabled, the implementation MUST emit only the metric instrumen
 | `cartulary.workbook.rows.returned` | Histogram | `{row}` | Serialized rows returned by one successful workbook view-query response. | `cartulary.view_schema_id`, `cartulary.result`. |
 | `cartulary.collaboration.connections.active` | ObservableGauge | `{connection}` | Active accepted WebSocket connections. | `cartulary.result` omitted; no per-connection labels. |
 | `cartulary.collaboration.events.sent` | Counter | `{event}` | WebSocket events sent. | `cartulary.websocket.event_type`, `cartulary.result`, optional `cartulary.drop_reason`. |
+| `cartulary.evidence.cleanup.operations` | Counter | `{operation}` | Evidence cleanup sweep operations by closed result. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.evidence.cleanup.sweep.duration` | Histogram | `s` | Evidence cleanup sweep duration. | `cartulary.operation='cleanup_sweep'`, `cartulary.result`, optional `cartulary.error_class`. |
+| `cartulary.evidence.cleanup.overdue` | ObservableGauge | `{blob}` | Current failed unattached Evidence blobs beyond the deletion deadline. | No attributes. |
+| `cartulary.evidence.cleanup.oldest_eligible.age` | ObservableGauge | `s` | Age of the oldest currently eligible failed unattached Evidence blob. | No attributes. |
 | `cartulary.jobs.active` | ObservableGauge | `{job}` | Active background jobs by kind. | `cartulary.job_kind`. |
 | `cartulary.jobs.duration` | Histogram | `s` | Background job runtime duration. | `cartulary.job_kind`, `cartulary.job_terminal_status`, `cartulary.result`, optional `cartulary.error_code`. |
 | `cartulary.jobs.attempts` | Counter | `{attempt}` | Completed handler attempts by kind and closed outcome. | `cartulary.job_kind`, `cartulary.result`. |

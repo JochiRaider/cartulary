@@ -18,9 +18,13 @@ import (
 
 func NewTimelineProvider(descriptor providercontract.ProviderDescriptor, source TimelineSource) Provider {
 	return Provider{
-		descriptor:    descriptor,
-		queryStrategy: queryStrategyCompiledPlan,
-		queryPlans:    queryengine.TimelinePlans(),
+		descriptor:                      descriptor,
+		queryStrategy:                   queryStrategyCompiledPlan,
+		queryPlans:                      queryengine.TimelinePlans(),
+		evidenceAssociationEffectFields: []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"},
+		loadEvidenceAssociationStateTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+			return store.LoadRowTx(ctx, tx, descriptor.ViewSchemaIDs[0], recordID)
+		},
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshTimelineTxCore(ctx, tx, recordID, source)
 		},
@@ -32,8 +36,12 @@ func NewTimelineProvider(descriptor providercontract.ProviderDescriptor, source 
 
 func NewHostProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
-		descriptor:    descriptor,
-		queryStrategy: queryStrategySourceOwnerHydration,
+		descriptor:                      descriptor,
+		queryStrategy:                   queryStrategySourceOwnerHydration,
+		evidenceAssociationEffectFields: []string{"host.evidence_count"},
+		loadEvidenceAssociationStateTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+			return loadHostEvidenceAssociationStateTx(ctx, store, tx, recordID)
+		},
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshHostTxCore(ctx, tx, recordID, source)
 		},
@@ -45,8 +53,12 @@ func NewHostProvider(descriptor providercontract.ProviderDescriptor, source enti
 
 func NewIdentityProvider(descriptor providercontract.ProviderDescriptor, source entityprojection.SourceReader) Provider {
 	return Provider{
-		descriptor:    descriptor,
-		queryStrategy: queryStrategySourceOwnerHydration,
+		descriptor:                      descriptor,
+		queryStrategy:                   queryStrategySourceOwnerHydration,
+		evidenceAssociationEffectFields: []string{"identity.evidence_count"},
+		loadEvidenceAssociationStateTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
+			return loadIdentityEvidenceAssociationStateTx(ctx, store, tx, recordID)
+		},
 		refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 			return store.refreshIdentityTxCore(ctx, tx, recordID, source)
 		},

@@ -6,45 +6,28 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
-func NewImportCreateFacade(
-	targetViewSchemaID string,
+func newImportCreateFacade(
 	facadeID string,
-	pool postgres.DB,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-	projectionRows evidenceprojection.Rows,
+	service *SourceMutationService,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
-	if targetViewSchemaID != ViewSchemaID {
-		return nil, fmt.Errorf("evidence import surface %q not mapped", targetViewSchemaID)
+	if service == nil {
+		return nil, fmt.Errorf("compose Evidence import contribution: source mutations are required")
 	}
-	if projectionRows == nil {
-		return nil, fmt.Errorf("evidence import projection rows are required")
-	}
-	store := NewStore(
-		pool,
-		WithRevisionAppender(appender),
-		WithCollaborationIntents(intents),
-		WithWorkbookProjections(projectionRows),
-	)
 	return ownerfacade.NewImportOwnerCreateFacade(
 		ownerfacade.ImportOwnerCreateBinding{
-			TargetViewSchemaID: targetViewSchemaID,
+			TargetViewSchemaID: ViewSchemaID,
 			FacadeID:           facadeID,
 		},
-		store.CreateImportRowTx,
+		service.CreateImportRowTx,
 	)
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (s *SourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("evidence import surface %q not mapped", request.TargetViewSchemaID)
@@ -53,35 +36,31 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	if err := ValidateWorkbookCreateParams(params); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	if err := validateEvidenceReferencesTx(ctx, tx, request.IncidentID, params.Values); err != nil {
-		return ownerfacade.ImportOwnerCreateResponse{}, err
-	}
-	now := command.Now.UTC()
-	recordID, err := s.source.createRecordTx(
-		ctx,
-		tx,
-		request.IncidentID,
-		request.ActorUserID,
-		params,
-		now,
-	)
+	mutationOrder, err := command.AllocateMutationSequence(1)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	row, err := s.source.refreshRowTx(ctx, tx, recordID)
+	result, err := s.mutations.createTx(ctx, tx, evidenceCreateTxCommand{
+		IncidentID:    request.IncidentID,
+		ActorUserID:   request.ActorUserID,
+		ViewSchemaID:  request.TargetViewSchemaID,
+		ClientTxnID:   request.ClientTxnID,
+		ChangeSetID:   &command.ChangeSetID,
+		MutationOrder: mutationOrder,
+		Values:        params.Values,
+		Now:           command.Now,
+	}, params)
 	if err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeRecordRevisionTx(ctx, tx, s.revisionStore, ownerfacade.FinalizeCommand{
-		Request:         request,
-		ChangeSetID:     command.ChangeSetID,
-		SequenceNo:      command.SequenceNo,
-		RecordID:        recordID,
-		Operation:       "create",
-		CreatedOrReused: "created",
-		OwnerResultCode: "created",
-		Row:             row,
-	})
+	return ownerfacade.ImportOwnerCreateResponse{
+		RecordID:             result.recordID,
+		RowVersion:           1,
+		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", result.changeSetID, mutationOrder),
+		CreatedOrReused:      "created",
+		OwnerResultCode:      "created",
+		RowRefresh:           result.row,
+	}, nil
 }
 
 func evidenceValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]WorkbookFieldValue {

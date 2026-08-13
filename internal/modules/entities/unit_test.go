@@ -53,7 +53,7 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 		ConflictTokens:      conflicttest.NewCodec("timeline"),
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(pool),
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

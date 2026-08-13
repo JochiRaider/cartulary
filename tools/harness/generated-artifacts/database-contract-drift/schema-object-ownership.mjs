@@ -18,37 +18,6 @@ import {
 } from "../../contract/json-shape.mjs";
 
 const schemaID = "cartulary.schema_object_ownership_manifest.v2";
-const migrationFilenames = [
-  "00001_database_infrastructure.sql",
-  "00002_auth.sql",
-  "00003_incidents.sql",
-  "00004_recovery.sql",
-  "00005_deployment_admin.sql",
-  "00006_platform_jobs.sql",
-  "00007_records.sql",
-  "00008_revisions.sql",
-  "00009_parties.sql",
-  "00010_timeline.sql",
-  "00011_entities.sql",
-  "00012_indicators.sql",
-  "00013_assessments.sql",
-  "00014_links.sql",
-  "00015_tasks_and_decisions.sql",
-  "00016_artifacts.sql",
-  "00017_evidence.sql",
-  "00018_saved_views.sql",
-  "00019_imports.sql",
-  "00020_network_flow.sql",
-  "00021_projections.sql",
-  "00022_graph_projection.sql",
-  "00023_reporting.sql",
-  "00024_report_composition.sql",
-  "00025_incident_bundles.sql",
-  "00026_reference_data.sql",
-  "00027_extensions.sql",
-  "00028_administrative_audit.sql",
-  "00029_collaboration.sql",
-];
 const ownerByVersion = new Map([
   [1, "database_migrations"], [2, "auth"], [3, "incidents"], [4, "recovery"],
   [5, "deployment_admin"], [6, "platform_jobs"], [7, "records"], [8, "revisions"],
@@ -57,7 +26,8 @@ const ownerByVersion = new Map([
   [17, "evidence"], [18, "savedviews"], [19, "imports"], [20, "networkflow"],
   [21, "projections"], [22, "graphprojection"], [23, "reporting"],
   [24, "reportcomposition"], [25, "incidentbundles"], [26, "reference_data"],
-  [27, "extensions"], [28, "audit"], [29, "collaboration"],
+  [27, "extensions"], [28, "audit"], [29, "collaboration"], [30, "evidence"],
+  [31, "evidence"],
 ]);
 const manifestKeys = new Set([
   "schema_id", "migration_root", "supported_postgres_major", "application_schemas",
@@ -97,7 +67,7 @@ const profileIDs = new Set([
 ]);
 const recoveryClasses = new Set([
   "authoritative_required", "excluded_rebuildable", "excluded_security_state",
-  "excluded_recovery_metadata", "not_applicable",
+  "excluded_recovery_metadata", "excluded_transient", "not_applicable",
 ]);
 const fkStatuses = new Set(["covered", "intentionally_unindexed", "not_applicable"]);
 const ownerPattern = /^[a-z][a-z0-9_]*$/u;
@@ -106,19 +76,21 @@ const requirementPattern = /^[A-Z][A-Z0-9-]*-[0-9]+$/u;
 
 export function validateSchemaObjectOwnershipManifestShape(file) {
   const manifest = readJsonObject(file, file);
-  validateManifestShape(manifest, file);
+  validateManifestShape(manifest, file, canonicalMigrationAllocation(file));
   return manifest;
 }
 
 export function validateSchemaObjectOwnership(root) {
   const manifestFile = path.join(root, "tools/schema_object_ownership_manifest.json");
   const manifest = validateSchemaObjectOwnershipManifestShape(manifestFile);
+  const migrationAllocation = canonicalMigrationAllocation(manifestFile);
   const migrationDir = path.join(root, manifest.migration_root);
   const actualFiles = readdirSync(migrationDir)
     .filter((filename) => /^\d{5}_.+\.sql$/u.test(filename))
     .sort((left, right) => left.localeCompare(right));
-  if (JSON.stringify(actualFiles) !== JSON.stringify(migrationFilenames)) {
-    throw new Error(`${migrationDir} must contain exactly the Production DDL Rebaseline v2 catalog`);
+  const allocatedFiles = [...migrationAllocation.values()];
+  if (JSON.stringify(actualFiles) !== JSON.stringify(allocatedFiles)) {
+    throw new Error(`${migrationDir} must match the canonical migration-history allocation`);
   }
 
   const entryByID = new Map(manifest.entries.map((entry) => [entry.object_id, entry]));
@@ -170,7 +142,7 @@ export function validateSchemaObjectOwnership(root) {
   return { manifestFile, objectCount: observed.size, entryCount: manifest.entries.length };
 }
 
-function validateManifestShape(manifest, label) {
+function validateManifestShape(manifest, label, migrationAllocation) {
   assertObjectKeys(manifest, manifestKeys, label);
   assertRequiredKeys(manifest, manifestKeys, label);
   requireSchemaID(manifest, schemaID, label);
@@ -194,7 +166,7 @@ function validateManifestShape(manifest, label) {
   const identities = [];
   for (const [index, rawEntry] of entries.entries()) {
     const entry = requireObject(rawEntry, `${label}.entries[${index}]`);
-    validateEntry(entry, `${label}.entries[${index}]`, ownerSet);
+    validateEntry(entry, `${label}.entries[${index}]`, ownerSet, migrationAllocation);
     objectIDs.push(entry.object_id);
     identities.push(`${entry.object_kind}:${entry.qualified_name}`);
   }
@@ -202,7 +174,7 @@ function validateManifestShape(manifest, label) {
   assertUnique(identities, `${label}.entries object kind/name identity`);
 }
 
-function validateEntry(entry, label, ownerSet) {
+function validateEntry(entry, label, ownerSet, migrationAllocation) {
   assertObjectKeys(entry, entryKeys, label);
   assertRequiredKeys(entry, entryKeys, label);
   requireString(entry.object_id, `${label}.object_id`, { pattern: objectIDPattern });
@@ -216,7 +188,7 @@ function validateEntry(entry, label, ownerSet) {
   if (!ownerSet.has(sourceOwner)) throw new Error(`${label}.source_owner is not allowed`);
   if (management === "cartulary_authored") {
     const version = requireInteger(entry.migration_version, `${label}.migration_version`, { min: 1 });
-    if (version > 29 || entry.migration_file !== migrationFilenames[version - 1]) {
+    if (entry.migration_file !== migrationAllocation.get(version)) {
       throw new Error(`${label} must use the canonical migration version/file allocation`);
     }
     const allocatedOwner = ownerByVersion.get(version);
@@ -239,6 +211,23 @@ function validateEntry(entry, label, ownerSet) {
   const fkStatus = requireEnum(entry.foreign_key_index_status, `${label}.foreign_key_index_status`, fkStatuses);
   if (fkStatus === "intentionally_unindexed") validateApproval(entry.approval, `${label}.approval`, sourceOwner);
   else if (entry.approval !== null) throw new Error(`${label}.approval must be null unless the foreign key is intentionally unindexed`);
+}
+
+function canonicalMigrationAllocation(ownershipManifestFile) {
+  const historyFile = path.join(path.dirname(ownershipManifestFile), "migration_history_manifest.json");
+  const history = readJsonObject(historyFile, historyFile);
+  const entries = requireArray(history.entries, `${historyFile}.entries`, { nonEmpty: true });
+  const allocation = new Map();
+  for (const [index, rawEntry] of entries.entries()) {
+    const entry = requireObject(rawEntry, `${historyFile}.entries[${index}]`);
+    const version = requireInteger(entry.version, `${historyFile}.entries[${index}].version`, { min: 1 });
+    const filename = requireString(entry.filename, `${historyFile}.entries[${index}].filename`);
+    if (version !== index + 1 || allocation.has(version)) {
+      throw new Error(`${historyFile}.entries must be uniquely contiguous by version`);
+    }
+    allocation.set(version, filename);
+  }
+  return allocation;
 }
 
 function validateApproval(rawApproval, label, sourceOwner) {

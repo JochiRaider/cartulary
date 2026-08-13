@@ -40,6 +40,18 @@ func appendEvidenceRecordChangeIntentsTx(
 		Row:              primaryRow,
 	})
 	for _, change := range affected {
+		affectedViews := make([]collaboration.AffectedViewChange, 0, len(change.AffectedViews))
+		for _, view := range change.AffectedViews {
+			var patchCells map[string]any
+			if view.Patch != nil {
+				patchCells = view.Patch.Cells
+			}
+			affectedViews = append(affectedViews, collaboration.AffectedViewChange{
+				ViewSchemaID: view.ViewSchemaID,
+				ChangeKind:   string(view.ChangeKind),
+				PatchCells:   patchCells,
+			})
+		}
 		changes = append(changes, collaboration.RecordChange{
 			IncidentID:       incidentID,
 			RecordID:         change.RecordID,
@@ -49,6 +61,7 @@ func appendEvidenceRecordChangeIntentsTx(
 			ActorUserID:      actorUserID,
 			ChangedFieldKeys: change.ChangedFieldKeys,
 			ViewSchemaID:     change.ViewSchemaID,
+			AffectedViews:    affectedViews,
 		})
 	}
 	for ordinal, change := range changes {

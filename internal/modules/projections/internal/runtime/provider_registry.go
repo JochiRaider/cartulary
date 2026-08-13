@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -20,17 +22,20 @@ const (
 )
 
 type Provider struct {
-	descriptor        providercontract.ProviderDescriptor
-	queryStrategy     queryStrategy
-	queryPlans        []queryengine.Surface
-	refreshRowTx      func(context.Context, *Store, pgx.Tx, uuid.UUID) error
-	rebuildIncidentTx func(context.Context, *Store, pgx.Tx, uuid.UUID) error
+	descriptor                      providercontract.ProviderDescriptor
+	queryStrategy                   queryStrategy
+	queryPlans                      []queryengine.Surface
+	evidenceAssociationEffectFields []string
+	loadEvidenceAssociationStateTx  func(context.Context, *Store, pgx.Tx, uuid.UUID) (map[string]any, error)
+	refreshRowTx                    func(context.Context, *Store, pgx.Tx, uuid.UUID) error
+	rebuildIncidentTx               func(context.Context, *Store, pgx.Tx, uuid.UUID) error
 }
 
 type providerRegistry struct {
 	providers     []*Provider
 	byViewSchema  map[string]*Provider
 	querySurfaces map[string]genericSurface
+	bySourceType  map[string][]*Provider
 	rebuildOrder  []*Provider
 }
 
@@ -69,6 +74,7 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 		providers:     make([]*Provider, 0, len(providers)),
 		byViewSchema:  map[string]*Provider{},
 		querySurfaces: map[string]genericSurface{},
+		bySourceType:  map[string][]*Provider{},
 	}
 	byProviderID := map[string]*Provider{}
 	tableOwners := map[string]string{}
@@ -84,6 +90,17 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 		providerPointer := &providerCopy
 		byProviderID[provider.descriptor.ProviderID] = providerPointer
 		registry.providers = append(registry.providers, providerPointer)
+		if len(provider.evidenceAssociationEffectFields) > 0 {
+			if len(provider.descriptor.ViewSchemaIDs) != 1 {
+				return nil, fmt.Errorf("projection provider %q Evidence association effects require exactly one view", provider.descriptor.ProviderID)
+			}
+			if provider.loadEvidenceAssociationStateTx == nil {
+				return nil, fmt.Errorf("projection provider %q Evidence association effects require a state loader", provider.descriptor.ProviderID)
+			}
+			for _, recordType := range provider.descriptor.SourceRecordTypes {
+				registry.bySourceType[recordType] = append(registry.bySourceType[recordType], providerPointer)
+			}
+		}
 		for _, tableID := range provider.descriptor.ProjectionTableIDs {
 			if existing := tableOwners[tableID]; existing != "" {
 				return nil, fmt.Errorf(
@@ -122,6 +139,11 @@ func newProviderRegistry(providers []Provider) (*providerRegistry, error) {
 		return nil, err
 	}
 	registry.rebuildOrder = rebuildOrder
+	for recordType := range registry.bySourceType {
+		slices.SortFunc(registry.bySourceType[recordType], func(left *Provider, right *Provider) int {
+			return strings.Compare(left.descriptor.ViewSchemaIDs[0], right.descriptor.ViewSchemaIDs[0])
+		})
+	}
 	return registry, nil
 }
 
@@ -139,6 +161,13 @@ func (r *providerRegistry) querySurfaceForView(viewSchemaID string) (genericSurf
 	}
 	surface, ok := r.querySurfaces[viewSchemaID]
 	return surface, ok
+}
+
+func (r *providerRegistry) evidenceAssociationProviders(recordType string) []*Provider {
+	if r == nil {
+		return nil
+	}
+	return append([]*Provider(nil), r.bySourceType[recordType]...)
 }
 
 func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {

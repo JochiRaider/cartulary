@@ -60,6 +60,10 @@ func TestMetricRegistryClosed(t *testing.T) {
 		"cartulary.workbook.rows.returned",
 		"cartulary.collaboration.connections.active",
 		"cartulary.collaboration.events.sent",
+		EvidenceCleanupOperationsMetricName,
+		EvidenceCleanupSweepDurationMetricName,
+		EvidenceCleanupOverdueMetricName,
+		EvidenceCleanupOldestAgeMetricName,
 		"cartulary.jobs.active",
 		"cartulary.jobs.duration",
 		"cartulary.jobs.attempts",
@@ -115,6 +119,16 @@ func TestMetricRegistryClosed(t *testing.T) {
 	}
 	if row := seen["cartulary.jobs.expired"]; row.InstrumentKind != "Counter" || row.Unit != "{job}" || !slices.Equal(row.AllowedAttributes, []string{"cartulary.job_kind"}) {
 		t.Fatalf("jobs expired metric row mismatch: %#v", row)
+	}
+	if row := seen[EvidenceCleanupOperationsMetricName]; row.InstrumentKind != "Counter" ||
+		!slices.Equal(row.AllowedAttributes, []string{"cartulary.operation", "cartulary.result"}) ||
+		!slices.Equal(row.OptionalAttributes, []string{"cartulary.error_class"}) {
+		t.Fatalf("Evidence cleanup operations metric row mismatch: %#v", row)
+	}
+	for _, name := range []string{EvidenceCleanupOverdueMetricName, EvidenceCleanupOldestAgeMetricName} {
+		if row := seen[name]; row.InstrumentKind != "ObservableGauge" || len(row.AllowedAttributes) != 0 || len(row.OptionalAttributes) != 0 {
+			t.Fatalf("Evidence cleanup gauge row mismatch for %s: %#v", name, row)
+		}
 	}
 }
 

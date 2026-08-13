@@ -97,7 +97,13 @@ func newReportingExportMaterializer(
 	return reportingExportMaterializer{
 		incidentProvider: reportingIncidentProviderFunc{},
 		supportRefProvider: reportingSupportRefProviderFunc{
-			collect: linkreporting.CollectSupportRefsTx,
+			collect: func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
+				targets, err := evidencereporting.CollectLogicalSupportTargetsTx(ctx, tx, incidentID)
+				if err != nil {
+					return nil, err
+				}
+				return linkreporting.CollectSupportRefsTx(ctx, tx, incidentID, targets)
+			},
 		},
 		fieldProviders: fieldProviders,
 	}, nil

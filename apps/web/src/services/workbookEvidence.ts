@@ -4,7 +4,12 @@ import type {
   ErrorEnvelope,
 } from "@cartulary/protocol-ts/http";
 import { publicErrorStatusText } from "../shared/publicError";
-import { apiPath, fetchHTTPOperation } from "./browserApi";
+import {
+  apiPath,
+  csrfHeaderName,
+  fetchHTTPOperation,
+  readCookie,
+} from "./browserApi";
 
 export type EvidenceUploadOutcome =
   | { readonly kind: "accepted" }
@@ -30,53 +35,37 @@ export async function uploadEvidenceObjectBlobTarget(
   for (const [key, value] of Object.entries(uploadTarget.headers)) {
     headers.set(key, value);
   }
-  let hasContentType = false;
-  headers.forEach((_value, key) => {
-    if (key.toLowerCase() === "content-type") {
-      hasContentType = true;
-    }
-  });
-  if (!hasContentType) {
-    headers.set("Content-Type", file.type || "application/octet-stream");
-  }
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    let upload: Response;
-    try {
-      upload = await fetch(uploadHref, {
-        method: uploadTarget.method,
-        credentials: "omit",
-        headers,
-        body: file,
-      });
-    } catch {
-      if (attempt < 2) {
-        await sleep(200 * (attempt + 1));
-        continue;
-      }
-      return {
-        kind: "rejected",
-        retryable: true,
-        message: "upload_failed_network",
-      };
-    }
-    if (upload.ok) {
-      return { kind: "accepted" };
-    }
-    const retryable = upload.status === 503 || upload.status === 504;
-    if (attempt < 2 && retryable) {
-      await sleep(200 * (attempt + 1));
-      continue;
-    }
+  const csrfToken = readCookie("cartulary_csrf");
+  if (!csrfToken) {
     return {
       kind: "rejected",
-      retryable,
-      message: `upload_failed_${upload.status}`,
+      retryable: false,
+      message: "upload_failed_csrf",
     };
+  }
+  headers.set(csrfHeaderName, csrfToken);
+  let upload: Response;
+  try {
+    upload = await fetch(uploadHref, {
+      method: uploadTarget.method,
+      credentials: "include",
+      headers,
+      body: file,
+    });
+  } catch {
+    return {
+      kind: "rejected",
+      retryable: false,
+      message: "upload_failed_network",
+    };
+  }
+  if (upload.ok) {
+    return { kind: "accepted" };
   }
   return {
     kind: "rejected",
-    retryable: true,
-    message: "upload_failed_network",
+    retryable: false,
+    message: `upload_failed_${upload.status}`,
   };
 }
 
@@ -136,10 +125,6 @@ function createdBlobMatchesRequest(
     accepted.filename_hint === request.filename_hint &&
     accepted.content_type_hint === request.content_type_hint
   );
-}
-
-function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 const rawEvidenceStorageDetailPatterns = [

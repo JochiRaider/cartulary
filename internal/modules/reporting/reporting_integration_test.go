@@ -1561,11 +1561,11 @@ relationshipPresent:
 		t.Fatalf("snapshot export model missing entity mention metadata; paths=%#v", byPath)
 	}
 	supportRefs := byPath["/task_requests/"+ids["task"]]["support_refs"].([]any)
-	if len(supportRefs) != 1 || supportRefs[0] != "/record_envelopes/"+ids["evidence"] {
+	if len(supportRefs) != 1 || supportRefs[0] != "/evidence/"+ids["evidence"] {
 		t.Fatalf("task export field must carry deterministic support refs, got %#v", supportRefs)
 	}
 	findingSupportRefs := byPath["/findings/"+ids["finding"]]["support_refs"].([]any)
-	if len(findingSupportRefs) != 1 || findingSupportRefs[0] != "/record_envelopes/"+ids["evidence"] {
+	if len(findingSupportRefs) != 1 || findingSupportRefs[0] != "/evidence/"+ids["evidence"] {
 		t.Fatalf("curated finding export field must carry deterministic support refs, got %#v", findingSupportRefs)
 	}
 	partyPartitions := byPath["/parties/"+ids["party"]]["disclosure_partition_refs"].([]any)

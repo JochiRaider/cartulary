@@ -324,6 +324,9 @@ it("validates Timeline clipboard rows and sanitized same-field conflicts", async
 });
 
 it("creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty", async () => {
+  vi.spyOn(document, "cookie", "get").mockReturnValue(
+    "cartulary_csrf=evidence-timeline-csrf",
+  );
   let evidenceRowAttempts = 0;
   const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input);
@@ -344,7 +347,7 @@ it("creates a blob-backed Evidence row atomically and reuses the row transaction
           upload_state: "pending",
           upload_target: {
             expires_at: "2026-07-31T12:05:00Z",
-            headers: {},
+            headers: { "Content-Type": "text/plain" },
             href: "/api/v1/object-uploads/upload-token",
             method: "PUT",
           },

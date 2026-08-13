@@ -22,9 +22,16 @@ type RecordChange struct {
 	ChangeKind       string
 	Row              map[string]any
 	PatchCells       map[string]any
+	AffectedViews    []AffectedViewChange
 	StreamSeq        int64
 	EventID          uuid.UUID
 	EmittedAt        time.Time
+}
+
+type AffectedViewChange struct {
+	ViewSchemaID string
+	ChangeKind   string
+	PatchCells   map[string]any
 }
 
 // ChangedCellKeys returns the canonical public cell keys whose JSON values
@@ -82,16 +89,28 @@ func canonicalCells(row map[string]any) (map[string]json.RawMessage, error) {
 }
 
 func NewRecordChangeIntent(change RecordChange, mutationOrdinal int, createdAt time.Time) (EventIntent, error) {
-	if change.RecordID == uuid.Nil || change.ChangeSetID == uuid.Nil || change.IncidentID == uuid.Nil ||
-		change.ActorUserID == uuid.Nil || change.RowVersion < 1 || change.ViewSchemaID == "" {
-		return EventIntent{}, fmt.Errorf("record_change_intent_v1 identity is incomplete")
-	}
 	changedKeys := append(make([]string, 0, len(change.ChangedFieldKeys)), change.ChangedFieldKeys...)
 	slices.Sort(changedKeys)
 	changedKeys = slices.Compact(changedKeys)
 	patchCells := change.PatchCells
 	if patchCells == nil && change.Row != nil && change.ChangeKind == "" {
 		patchCells = BuildViewRowPatch(change.Row, changedKeys)
+	}
+	payloadChange := change
+	payloadChange.PatchCells = patchCells
+	affectedViews := normalizedAffectedViewChanges(payloadChange)
+	if change.RecordID == uuid.Nil || change.ChangeSetID == uuid.Nil || change.IncidentID == uuid.Nil ||
+		change.ActorUserID == uuid.Nil || change.RowVersion < 1 || len(affectedViews) == 0 {
+		return EventIntent{}, fmt.Errorf("record_change_intent_v1 identity is incomplete")
+	}
+	for index, view := range affectedViews {
+		if view.ViewSchemaID == "" || !validAffectedViewChangeKind(view.ChangeKind) ||
+			(view.ChangeKind == "patch") != (view.PatchCells != nil) {
+			return EventIntent{}, fmt.Errorf("record_change_intent_v1 affected view is invalid")
+		}
+		if index > 0 && affectedViews[index-1].ViewSchemaID == view.ViewSchemaID {
+			return EventIntent{}, fmt.Errorf("record_change_intent_v1 affected views must be unique")
+		}
 	}
 	payload := RecordChangePayload(RecordChange{
 		IncidentID:       change.IncidentID,
@@ -104,6 +123,7 @@ func NewRecordChangeIntent(change RecordChange, mutationOrdinal int, createdAt t
 		ViewSchemaID:     change.ViewSchemaID,
 		ChangeKind:       change.ChangeKind,
 		PatchCells:       patchCells,
+		AffectedViews:    affectedViews,
 	})
 	intentKey := fmt.Sprintf(
 		"record_changed:%s:%s:%d",

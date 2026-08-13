@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import type {
   AttachBlobToEvidenceRecordRequest,
+  AttachBlobToEvidenceRecordResponse,
   CreateObjectBlobSlotRequest,
   CreateObjectBlobSlotResponse,
   IssueEvidenceDownloadHandleRequest,
@@ -35,7 +36,11 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { createViewRow, queryViewRows } from "./support/workbook/query";
+import {
+  createViewRow,
+  patchRecord,
+  queryViewRows,
+} from "./support/workbook/query";
 
 test.beforeEach(({ page }) => {
   failOnUnexpectedPageError(page);
@@ -753,6 +758,14 @@ async function createUploadedEvidence(
     },
   );
   expect(attach.ok()).toBeTruthy();
+  const attachEnvelope =
+    (await attach.json()) as AttachBlobToEvidenceRecordResponse;
+  await patchRecord(page, row.record_id, {
+    view_schema_id: evidenceViewSchemaId,
+    base_row_version: attachEnvelope.data.row.row_version,
+    client_txn_id: uniqueTxn("fee-p6-uploaded-available"),
+    changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+  });
   return waitForEvidenceState(page, incidentId, row.record_id, {
     lifecycleState: "available",
     uploadState: "available",

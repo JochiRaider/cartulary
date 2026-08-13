@@ -240,6 +240,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 				IndicatorRebuilder: runtime.IndicatorPorts().Rebuilder,
 				IndicatorRows:      runtime.IndicatorPorts().Rows,
 				EvidenceRows:       runtime.EvidencePorts().Rows,
+				EvidenceEffects:    runtime.EvidencePorts().SupportEffects,
 			})
 			indicatorSourceText = indicatorassembly.NewSourceTextPort(runtime.SourceTextRows())
 		},

@@ -14,6 +14,18 @@ func RecoveryStateContribution() recoverystate.Contribution {
 			"evidence_access_handles",
 		)...,
 	)
+	tables = append(tables,
+		recoverystate.SecurityStateTables(
+			"evidence.invalidate_upload_leases.v1",
+			"evidence_object_upload_leases",
+		)...,
+	)
+	tables = append(tables,
+		recoverystate.TransientStateTables(
+			"evidence.invalidate_blob_cleanup_claims.v1",
+			"evidence_blob_cleanup_claims",
+		)...,
+	)
 	return recoverystate.NewContribution(
 		"module.evidence",
 		tables,

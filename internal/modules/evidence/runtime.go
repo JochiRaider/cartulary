@@ -2,12 +2,14 @@ package evidence
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -24,48 +26,106 @@ type TimelineAttachmentContribution interface {
 		incidentID uuid.UUID,
 		recordIDs []uuid.UUID,
 	) error
+	RefreshTimelineAttachmentProjectionsTx(
+		ctx context.Context,
+		tx pgx.Tx,
+		recordIDs []uuid.UUID,
+	) error
 }
 
 // OwnerRuntime is the immutable application-facing Evidence capability set.
 // It intentionally exposes no Store or database handle.
 type OwnerRuntime struct {
-	routes      RouteService
-	workbook    WorkbookContribution
-	attachments TimelineAttachmentContribution
+	routes       RouteService
+	workbook     WorkbookContribution
+	attachments  TimelineAttachmentContribution
+	importCreate ownerfacade.ImportOwnerCreateFacade
 }
 
-func NewOwnerRuntime(
-	pool postgres.DB,
-	conflictTokens conflicttokens.ConflictTokenCodec,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-	objects objectstore.Store,
-	conflictFields conflicttokens.FieldResolver,
-	keepSaved conflicttokens.IdempotencyPort,
-	projectionRows evidenceprojection.Rows,
-	options ...StoreOption,
-) *OwnerRuntime {
-	if appender == nil {
-		panic("compose Evidence owner runtime: Revisions appender is required")
+type OwnerRuntimeDependencies struct {
+	Postgres            postgres.DB
+	ConflictTokens      *conflicttokens.ConflictTokenCodec
+	Revisions           *revisions.Appender
+	Collaboration       collaboration.IntentAppender
+	ObjectStore         objectstore.Store
+	ConflictFields      conflicttokens.FieldResolver
+	ConflictIdempotency conflicttokens.IdempotencyPort
+	Projections         evidenceprojection.Ports
+}
+
+func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, error) {
+	switch {
+	case dependencies.Postgres == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: Postgres is required")
+	case dependencies.ConflictTokens == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: conflict-token codec is required")
+	case dependencies.Revisions == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: Revisions appender is required")
+	case dependencies.Collaboration == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: Collaboration intent appender is required")
+	case dependencies.ObjectStore == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: object store is required")
+	case dependencies.ConflictFields == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: conflict field resolver is required")
+	case dependencies.ConflictIdempotency == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: conflict idempotency is required")
+	case dependencies.Projections.Rows == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: projection rows are required")
+	case dependencies.Projections.SupportEffects == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: support projection effects are required")
 	}
-	if intents == nil {
-		panic("compose Evidence owner runtime: Collaboration intent appender is required")
+	sourceMutations, err := newSourceMutationService(
+		dependencies.Postgres,
+		dependencies.Projections.Rows,
+		dependencies.Revisions,
+		dependencies.Collaboration,
+	)
+	if err != nil {
+		return nil, err
 	}
-	if projectionRows == nil {
-		panic("compose Evidence owner runtime: projection rows are required")
+	blobs, err := NewBlobLifecycleService(BlobLifecycleDependencies{
+		Postgres:       dependencies.Postgres,
+		Revisions:      dependencies.Revisions,
+		Projections:    dependencies.Projections.Rows,
+		SupportEffects: dependencies.Projections.SupportEffects,
+		Collaboration:  dependencies.Collaboration,
+	})
+	if err != nil {
+		return nil, err
 	}
-	storeOptions := append([]StoreOption{
-		WithRevisionAppender(appender),
-		WithCollaborationIntents(intents),
-		WithWorkbookProjections(projectionRows),
-	}, options...)
-	store := NewStore(pool, storeOptions...)
-	workbook := newWorkbookFacade(pool, conflictTokens, appender, intents, store, objects, conflictFields, keepSaved, projectionRows)
+	access, err := NewAccessHandleService(dependencies.Postgres)
+	if err != nil {
+		return nil, err
+	}
+	routes, err := NewRouteOperations(blobs, access)
+	if err != nil {
+		return nil, err
+	}
+	workbook, err := newWorkbookFacade(
+		dependencies.Postgres,
+		*dependencies.ConflictTokens,
+		dependencies.Revisions,
+		dependencies.Collaboration,
+		sourceMutations,
+		dependencies.ObjectStore,
+		dependencies.ConflictFields,
+		dependencies.ConflictIdempotency,
+		dependencies.Projections.Rows,
+		dependencies.Projections.SupportEffects,
+	)
+	if err != nil {
+		return nil, err
+	}
+	importCreate, err := newImportCreateFacade("evidence.import_create", sourceMutations)
+	if err != nil {
+		return nil, err
+	}
 	return &OwnerRuntime{
-		routes:      store,
-		workbook:    workbook,
-		attachments: timelineAttachmentReader{},
-	}
+		routes:       routes,
+		workbook:     workbook,
+		attachments:  timelineAttachmentReader{projections: dependencies.Projections.Rows},
+		importCreate: importCreate,
+	}, nil
 }
 
 func (runtime *OwnerRuntime) RouteService() RouteService {
@@ -80,8 +140,12 @@ func (runtime *OwnerRuntime) TimelineAttachmentContribution() TimelineAttachment
 	return runtime.attachments
 }
 
+func (runtime *OwnerRuntime) ImportCreateFacade() ownerfacade.ImportOwnerCreateFacade {
+	return runtime.importCreate
+}
+
 // NewTimelineAttachmentContribution is an explicit narrow composition helper
 // for focused tests that do not construct the Server runtime.
-func NewTimelineAttachmentContribution(_ postgres.DB) TimelineAttachmentContribution {
-	return timelineAttachmentReader{}
+func NewTimelineAttachmentContribution(projectionRows evidenceprojection.Rows) TimelineAttachmentContribution {
+	return timelineAttachmentReader{projections: projectionRows}
 }

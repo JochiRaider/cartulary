@@ -63,7 +63,9 @@
         "00026_reference_data.sql",
         "00027_extensions.sql",
         "00028_administrative_audit.sql",
-        "00029_collaboration.sql"
+        "00029_collaboration.sql",
+        "00030_evidence_upload_leases.sql",
+        "00031_evidence_blob_cleanup_claims.sql"
       ]
     },
     "object_kind": {
@@ -146,6 +148,7 @@
         "excluded_rebuildable",
         "excluded_security_state",
         "excluded_recovery_metadata",
+        "excluded_transient",
         "not_applicable"
       ]
     },
@@ -248,7 +251,7 @@
           },
           "then": {
             "properties": {
-              "migration_version": { "type": "integer", "minimum": 1, "maximum": 29 },
+              "migration_version": { "type": "integer", "minimum": 1, "maximum": 30 },
               "migration_file": { "$ref": "#/$defs/migration_file" }
             }
           },

@@ -1,6 +1,12 @@
 package telemetry
 
-const IncidentBundleV1ImportMetricName = "cartulary.incident_bundle.v1_import"
+const (
+	IncidentBundleV1ImportMetricName       = "cartulary.incident_bundle.v1_import"
+	EvidenceCleanupOperationsMetricName    = "cartulary.evidence.cleanup.operations"
+	EvidenceCleanupSweepDurationMetricName = "cartulary.evidence.cleanup.sweep.duration"
+	EvidenceCleanupOverdueMetricName       = "cartulary.evidence.cleanup.overdue"
+	EvidenceCleanupOldestAgeMetricName     = "cartulary.evidence.cleanup.oldest_eligible.age"
+)
 
 type SpanRegistryRow struct {
 	Family              string
@@ -194,6 +200,10 @@ func MetricRegistry() []MetricRegistryRow {
 		{Name: "cartulary.workbook.rows.returned", InstrumentKind: "Histogram", Unit: "{row}", Description: "Serialized rows returned by one successful workbook view-query response.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: rowBuckets, AllowedAttributes: []string{"cartulary.view_schema_id", "cartulary.result"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.collaboration.connections.active", InstrumentKind: "ObservableGauge", Unit: "{connection}", Description: "Active accepted WebSocket connections.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.collaboration.events.sent", InstrumentKind: "Counter", Unit: "{event}", Description: "WebSocket events sent.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.websocket.event_type", "cartulary.result"}, OptionalAttributes: []string{"cartulary.drop_reason"}, OverflowBehavior: "drop_metric_overflow"},
+		{Name: EvidenceCleanupOperationsMetricName, InstrumentKind: "Counter", Unit: "{operation}", Description: "Evidence cleanup sweep operations by closed result.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
+		{Name: EvidenceCleanupSweepDurationMetricName, InstrumentKind: "Histogram", Unit: "s", Description: "Evidence cleanup sweep duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"cartulary.operation", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_class"}, OverflowBehavior: "drop_metric_overflow"},
+		{Name: EvidenceCleanupOverdueMetricName, InstrumentKind: "ObservableGauge", Unit: "{blob}", Description: "Current failed unattached Evidence blobs beyond the deletion deadline.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
+		{Name: EvidenceCleanupOldestAgeMetricName, InstrumentKind: "ObservableGauge", Unit: "s", Description: "Age of the oldest currently eligible failed unattached Evidence blob.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: nil, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.jobs.active", InstrumentKind: "ObservableGauge", Unit: "{job}", Description: "Active background jobs by kind.", Aggregation: "last_value", Temporality: "cumulative_equivalent_current_observation", AllowedAttributes: []string{"cartulary.job_kind"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.jobs.duration", InstrumentKind: "Histogram", Unit: "s", Description: "Background job runtime duration.", Aggregation: "explicit_bucket_histogram", Temporality: "cumulative", Buckets: durationBuckets, AllowedAttributes: []string{"cartulary.job_kind", "cartulary.job_terminal_status", "cartulary.result"}, OptionalAttributes: []string{"cartulary.error_code"}, OverflowBehavior: "drop_metric_overflow"},
 		{Name: "cartulary.jobs.attempts", InstrumentKind: "Counter", Unit: "{attempt}", Description: "Completed handler attempts by kind and closed outcome.", Aggregation: "monotonic_sum", Temporality: "cumulative", AllowedAttributes: []string{"cartulary.job_kind", "cartulary.result"}, OverflowBehavior: "drop_metric_overflow"},

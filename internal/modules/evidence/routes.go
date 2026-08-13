@@ -1,7 +1,9 @@
 package evidence
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -49,6 +52,10 @@ type routeOptions struct {
 type RouteService interface {
 	CreateBlobSlot(context.Context, BlobSlotParams) (BlobSlotResult, error)
 	GetBlob(context.Context, uuid.UUID) (BlobRecord, error)
+	GetUploadLease(context.Context, uuid.UUID) (UploadLeaseRecord, error)
+	ClaimUploadLease(context.Context, uuid.UUID, []byte, time.Time) error
+	CompleteUploadLease(context.Context, uuid.UUID, time.Time) error
+	PreflightAttachBlob(context.Context, authn.UserRecord, uuid.UUID, AttachBlobRequest, []byte, time.Time) (AttachBlobPreflightResult, error)
 	AttachBlob(context.Context, authn.UserRecord, uuid.UUID, AttachBlobRequest, []byte, *ObservedObject, string, time.Time) (AttachBlobResult, error)
 	LoadEvidenceAccess(context.Context, uuid.UUID) (EvidenceAccessRecord, error)
 	InsertHandle(context.Context, HandleRecord, uuid.UUID) error
@@ -57,7 +64,7 @@ type RouteService interface {
 	ConsumeDownloadHandle(context.Context, string, time.Time) error
 }
 
-var _ RouteService = (*Store)(nil)
+var _ RouteService = (*RouteOperations)(nil)
 
 // WithRouteService injects the immutable Evidence application capability used
 // by transport.
@@ -129,17 +136,37 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeBlobCreateRequest(r.Body, s.maxBlobBytes)
+	body, apiErr := ReadBoundedBlobCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.admission.requireRole(r.Context(), request.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	incidentID, apiErr := DecodeBlobCreateIncidentID(body)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	now := s.now().UTC()
+	incident, apiErr := s.admission.visibleIncident(r.Context(), incidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if _, apiErr := s.admission.requireRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	request, apiErr := DecodeBlobCreateRequest(bytes.NewReader(body), s.maxBlobBytes)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+		writeAPIError(w, r, incidentClosedError())
+		return
+	}
+	now := s.now().UTC().Truncate(time.Microsecond)
 	objectBlobID := uuid.New()
+	leaseID := uuid.New()
 	storageKey, err := blobref.ObjectBlobStorageKey(request.IncidentID, objectBlobID)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(fmt.Errorf("build object blob storage key: %w", err)))
@@ -147,20 +174,46 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	targetExpiresAt := now.Add(60 * time.Minute)
 	pendingExpiresAt := now.Add(24 * time.Hour)
-	target, err := s.uploads.createTarget(objectUploadTokenClaims{
-		Version:           1,
-		ObjectBlobID:      objectBlobID,
-		IncidentID:        request.IncidentID,
-		StorageKey:        storageKey,
-		ByteSize:          request.ByteSize,
-		ExpiresAtUnixNano: targetExpiresAt.UnixNano(),
+	requiredHeaders := map[string]string{
+		"Content-Type": firstNonEmptyPtr(request.ContentTypeHint, nil, "application/octet-stream"),
+	}
+	requiredHeadersDigest, requiredHeadersDigestHex, err := objectUploadBindingDigest(requiredHeaders)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = requiredHeadersDigest
+	acceptedContractDigest, acceptedContractDigestHex, err := objectUploadBindingDigest(request.AcceptedContract)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	expectedSHA256Hex := ""
+	if request.SHA256Hex != nil {
+		expectedSHA256Hex = *request.SHA256Hex
+	}
+	createdTarget, err := s.uploads.createTarget(objectUploadTokenClaims{
+		Version:                objectUploadTokenVersion,
+		LeaseID:                leaseID,
+		ObjectBlobID:           objectBlobID,
+		IncidentID:             request.IncidentID,
+		IssuingUserID:          principal.User.ID,
+		IssuingSessionID:       principal.Session.ID,
+		StorageKey:             storageKey,
+		ByteSize:               request.ByteSize,
+		ExpectedSHA256Hex:      expectedSHA256Hex,
+		RequiredMethod:         http.MethodPut,
+		RequiredHeadersSHA256:  requiredHeadersDigestHex,
+		AcceptedContractSHA256: acceptedContractDigestHex,
+		IssuedAtUnixNano:       now.UnixNano(),
+		ExpiresAtUnixNano:      targetExpiresAt.UnixNano(),
 	})
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	target.Headers = copyUploadTargetHeaders(target.Headers)
-	target.Headers["Content-Type"] = firstNonEmptyPtr(request.ContentTypeHint, nil, "application/octet-stream")
+	target := createdTarget.Target
+	target.Headers = copyUploadTargetHeaders(requiredHeaders)
 	result, err := s.operations.CreateBlobSlot(r.Context(), BlobSlotParams{
 		ObjectBlobID: objectBlobID, IncidentID: request.IncidentID, ActorUserID: principal.User.ID,
 		StorageKey: storageKey, ByteSize: request.ByteSize, FilenameHint: request.FilenameHint,
@@ -175,6 +228,12 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		AcceptedContract: request.AcceptedContract,
 		RequestHash:      BlobCreateRequestHash(request),
 		ClientTxnID:      request.ClientTxnID,
+		UploadLease: UploadLeaseCreateParams{
+			LeaseID: leaseID, CapabilityHash: objectUploadTokenDigest(createdTarget.Token),
+			IssuingUserID: principal.User.ID, IssuingSessionID: principal.Session.ID,
+			IssuedAt: now, ExpiresAt: targetExpiresAt, RequiredMethod: http.MethodPut,
+			RequiredHeaders: requiredHeaders, AcceptedContractSHA256: acceptedContractDigest,
+		},
 	})
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -182,6 +241,9 @@ func (s *Service) handleCreateBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -203,19 +265,28 @@ func copyUploadTargetHeaders(source map[string]string) map[string]string {
 }
 
 func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := s.admission.authenticate(r, true)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	token := r.PathValue("upload_token")
 	claims, err := decodeObjectUploadToken(s.keys, token)
 	if err != nil {
 		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
 		return
 	}
-	now := s.now().UTC()
-	if !time.Unix(0, claims.ExpiresAtUnixNano).After(now) {
-		writeAPIError(w, r, objectUploadExpired("target_expired"))
+	incident, apiErr := s.admission.visibleIncident(r.Context(), claims.IncidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
 		return
 	}
-	blob, err := s.operations.GetBlob(r.Context(), claims.ObjectBlobID)
-	if errors.Is(err, ErrBlobNotFound) {
+	if _, apiErr := s.admission.requireRole(r.Context(), claims.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	lease, err := s.operations.GetUploadLease(r.Context(), claims.LeaseID)
+	if errors.Is(err, ErrUploadLeaseNotFound) || errors.Is(err, ErrBlobNotFound) {
 		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
 		return
 	}
@@ -223,11 +294,41 @@ func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	now := s.now().UTC()
+	capabilityHash := objectUploadTokenDigest(token)
+	if !uploadLeaseBindingsMatch(lease, claims, capabilityHash, principal.User.ID, principal.Session.ID) {
+		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		return
+	}
+	if !lease.ExpiresAt.After(now) || !time.Unix(0, claims.ExpiresAtUnixNano).After(now) {
+		writeAPIError(w, r, objectUploadExpired("target_expired"))
+		return
+	}
+	if lease.LeaseState != "issued" {
+		writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		return
+	}
+	blob := lease.Blob
 	if blob.IncidentID != claims.IncidentID || blob.StorageKey != claims.StorageKey || blob.ByteSize != claims.ByteSize {
 		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
 		return
 	}
-	if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+	acceptedContract := map[string]any{
+		"incident_id": blob.IncidentID.String(), "byte_size": blob.ByteSize,
+		"filename_hint": nullableString(blob.FilenameHint), "content_type_hint": nullableString(blob.ContentTypeHint),
+		"sha256_hex": nullableString(blob.ExpectedSHA256Hex),
+	}
+	_, acceptedDigestHex, digestErr := objectUploadBindingDigest(acceptedContract)
+	if digestErr != nil || acceptedDigestHex != claims.AcceptedContractSHA256 {
+		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		return
+	}
+	_, headerDigestHex, digestErr := objectUploadBindingDigest(lease.RequiredHeaders)
+	if digestErr != nil || headerDigestHex != claims.RequiredHeadersSHA256 {
+		writeAPIError(w, r, objectUploadRejected(http.StatusConflict, "upload_contract_mismatch", nil))
+		return
+	}
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
 		writeAPIError(w, r, objectStoreDependencyAPIError(err))
 		return
 	}
@@ -256,10 +357,30 @@ func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		}))
 		return
 	}
-	contentType := strings.TrimSpace(r.Header.Get("Content-Type"))
-	if contentType == "" {
-		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
+	for name, required := range lease.RequiredHeaders {
+		if strings.TrimSpace(r.Header.Get(name)) != required {
+			writeAPIError(w, r, objectUploadRejected(http.StatusBadRequest, "upload_contract_mismatch", nil))
+			return
+		}
 	}
+	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+		writeAPIError(w, r, incidentClosedError())
+		return
+	}
+	if err := s.operations.ClaimUploadLease(r.Context(), claims.LeaseID, capabilityHash, now); err != nil {
+		switch {
+		case errors.Is(err, incidents.ErrIncidentClosed):
+			writeAPIError(w, r, incidentClosedError())
+		case errors.Is(err, ErrUploadLeaseNotFound):
+			writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		case errors.Is(err, ErrUploadLeaseUnavailable):
+			writeAPIError(w, r, objectUploadNotFoundOrRevoked())
+		default:
+			writeAPIError(w, r, internalAPIError(err))
+		}
+		return
+	}
+	contentType := lease.RequiredHeaders["Content-Type"]
 	body := http.MaxBytesReader(w, r.Body, blob.ByteSize)
 	defer body.Close()
 	if err := s.objects.put(r.Context(), blob.StorageKey, body, blob.ByteSize, contentType, objectstore.PurposeProductUpload); err != nil {
@@ -270,22 +391,53 @@ func (s *Service) handleUploadTarget(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	if err := s.operations.CompleteUploadLease(r.Context(), claims.LeaseID, s.now().UTC()); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
+func uploadLeaseBindingsMatch(
+	lease UploadLeaseRecord,
+	claims objectUploadTokenClaims,
+	capabilityHash []byte,
+	currentUserID uuid.UUID,
+	currentSessionID uuid.UUID,
+) bool {
+	if claims.IssuingUserID != currentUserID || claims.IssuingSessionID != currentSessionID ||
+		lease.LeaseID != claims.LeaseID || lease.ObjectBlobID != claims.ObjectBlobID ||
+		lease.IncidentID != claims.IncidentID || lease.IssuingUserID != claims.IssuingUserID ||
+		lease.IssuingSessionID != claims.IssuingSessionID || lease.RequiredMethod != claims.RequiredMethod ||
+		lease.IssuedAt.UnixNano() != claims.IssuedAtUnixNano || lease.ExpiresAt.UnixNano() != claims.ExpiresAtUnixNano ||
+		!bytes.Equal(lease.CapabilityHash, capabilityHash) ||
+		!digestHexEquals(lease.AcceptedContractSHA256, claims.AcceptedContractSHA256) {
+		return false
 	}
+	expectedHash := ""
+	if lease.Blob.ExpectedSHA256Hex != nil {
+		expectedHash = *lease.Blob.ExpectedSHA256Hex
+	}
+	return expectedHash == claims.ExpectedSHA256Hex
+}
+
+func digestHexEquals(digest []byte, encoded string) bool {
+	decoded, err := hex.DecodeString(encoded)
+	return err == nil && bytes.Equal(digest, decoded)
+}
+
+func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	principal, apiErr := s.admission.authenticate(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeAttachBlobRequest(r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
 		return
 	}
 	access, err := s.operations.LoadEvidenceAccess(r.Context(), recordID)
@@ -297,18 +449,43 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	incident, apiErr := s.admission.visibleIncident(r.Context(), access.IncidentID, principal.User.ID)
+	if apiErr != nil {
+		writeAPIError(w, r, evidenceRecordNotFound())
+		return
+	}
 	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	blob, err := s.operations.GetBlob(r.Context(), request.ObjectBlobID)
-	if err != nil && !errors.Is(err, ErrBlobNotFound) {
-		writeAPIError(w, r, internalAPIError(err))
+	request, apiErr := DecodeAttachBlobRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
+	if evidencepolicy.IncidentMutationBlocked(incident.Status) {
+		writeAPIError(w, r, incidentClosedError())
+		return
+	}
+	now := s.now().UTC()
+	requestHash := AttachBlobRequestHash(request)
+	preflight, err := s.operations.PreflightAttachBlob(r.Context(), principal.User, recordID, request, requestHash, now)
+	if apiErr := translateAttachError(err, request.ClientTxnID); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if preflight.Replay != nil {
+		if err := s.admission.slide(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		_ = httpapi.WriteSuccess(w, r, preflight.Replay.StatusCode, preflight.Replay.Payload)
+		return
+	}
+	blob := preflight.Blob
 	var observed *ObservedObject
-	if err == nil && blob.UploadState == "pending" {
-		if err := validatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
+	if blob.UploadState == "pending" {
+		if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
 			writeAPIError(w, r, objectStoreDependencyAPIError(err))
 			return
 		}
@@ -318,10 +495,11 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			observed = nil
+			writeAPIError(w, r, evidenceAttachRejected(AttachReasonBlobFailed))
+			return
 		}
 	}
-	result, err := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, AttachBlobRequestHash(request), observed, httpapi.RequestIDFromContext(r.Context()), s.now().UTC())
+	result, err := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, requestHash, observed, httpapi.RequestIDFromContext(r.Context()), now)
 	if apiErr := translateAttachError(err, request.ClientTxnID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -342,17 +520,13 @@ func (s *Service) handleDownloadHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind string) {
-	recordID, ok := pathUUID(w, r, "record_id")
-	if !ok {
-		return
-	}
 	principal, apiErr := s.admission.authenticate(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := DecodeHandleIssueRequest(r.Body); apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	recordID, ok := pathUUID(w, r, "record_id")
+	if !ok {
 		return
 	}
 	access, err := s.operations.LoadEvidenceAccess(r.Context(), recordID)
@@ -364,8 +538,12 @@ func (s *Service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.admission.requireMembership(r.Context(), access.IncidentID, principal.User.ID); apiErr != nil {
+	if _, apiErr := s.admission.requireRole(r.Context(), access.IncidentID, principal.User.ID, "viewer", "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, evidenceRecordNotFound())
+		return
+	}
+	if apiErr := DecodeHandleIssueRequest(r.Body); apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if reasonCode := classifyEvidenceAccess(access, nil); reasonCode != "" {
@@ -456,6 +634,14 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
+	if handle.SessionID != principal.Session.ID {
+		writeAPIError(w, r, handleNotFoundOrRevoked())
+		return
+	}
+	if _, apiErr := s.admission.requireRole(r.Context(), handle.IncidentID, principal.User.ID, "viewer", "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, handleNotFoundOrRevoked())
+		return
+	}
 	now := s.now().UTC()
 	if handle.ExpiresAt.Before(now) || handle.ExpiresAt.Equal(now) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusGone, Code: "handle_expired", Details: map[string]any{}})
@@ -465,14 +651,6 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusGone, Code: "handle_consumed", Details: map[string]any{}})
 		return
 	}
-	if handle.SessionID != principal.Session.ID {
-		writeAPIError(w, r, handleNotFoundOrRevoked())
-		return
-	}
-	if _, apiErr := s.admission.requireMembership(r.Context(), handle.IncidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, handleNotFoundOrRevoked())
-		return
-	}
 	if reasonCode, err := s.operations.CheckHandleAccess(r.Context(), handle); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -480,7 +658,7 @@ func (s *Service) handleRedeemHandle(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, evidenceAccessUnavailable(reasonCode))
 		return
 	}
-	if err := validatePersistedObjectBlobStorageKey(handle.StorageKey, handle.IncidentID, handle.ObjectBlobID); err != nil {
+	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(handle.StorageKey, handle.IncidentID, handle.ObjectBlobID); err != nil {
 		writeAPIError(w, r, objectStoreDependencyAPIError(err))
 		return
 	}
@@ -576,42 +754,13 @@ func internalAPIError(err error) *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
 }
 
-const (
-	objectBlobStorageKeyMalformedReason        = "object_blob_storage_key_malformed"
-	objectBlobStorageKeyIdentityMismatchReason = "object_blob_storage_key_identity_mismatch"
-)
-
-type persistedObjectBlobStorageKeyError struct {
-	reasonCode string
-}
-
-func (e *persistedObjectBlobStorageKeyError) Error() string {
-	return "persisted object blob storage_key violates object_blob_storage_key_v1"
-}
-
 func PersistedObjectBlobStorageKeyErrorReason(err error) (string, bool) {
-	var storageKeyError *persistedObjectBlobStorageKeyError
-	if !errors.As(err, &storageKeyError) {
-		return "", false
-	}
-	return storageKeyError.reasonCode, true
-}
-
-func validatePersistedObjectBlobStorageKey(key string, incidentID uuid.UUID, objectBlobID uuid.UUID) error {
-	parts, err := blobref.ParseObjectBlobStorageKey(key)
-	if err != nil {
-		return &persistedObjectBlobStorageKeyError{reasonCode: objectBlobStorageKeyMalformedReason}
-	}
-	if parts.IncidentID != incidentID || parts.ObjectBlobID != objectBlobID {
-		return &persistedObjectBlobStorageKeyError{reasonCode: objectBlobStorageKeyIdentityMismatchReason}
-	}
-	return nil
+	return evidencepolicy.PersistedObjectBlobStorageKeyErrorReason(err)
 }
 
 func objectStoreDependencyAPIError(err error) *httpapi.APIError {
-	var storageKeyErr *persistedObjectBlobStorageKeyError
-	if errors.As(err, &storageKeyErr) {
-		return objectStoreInvalidRequestAPIError(storageKeyErr.reasonCode)
+	if reasonCode, ok := evidencepolicy.PersistedObjectBlobStorageKeyErrorReason(err); ok {
+		return objectStoreInvalidRequestAPIError(reasonCode)
 	}
 	adapterErr, ok := objectstore.AsAdapterError(err)
 	if !ok {

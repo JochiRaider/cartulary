@@ -20,9 +20,11 @@ func TestSafeAttributesPreservesAdoptedLowCardinalityAttributes(t *testing.T) {
 		attribute.String("cartulary.profile.claims", "base,import,network_flow_activity"),
 		attribute.String("cartulary.incident.hash64", "0123456789abcdef"),
 		attribute.String("cartulary.job_kind", "import.discovery_v1"),
+		attribute.String("cartulary.module", "evidence"),
+		attribute.String("cartulary.operation", "cleanup_sweep"),
 	)
 
-	if len(attrs) != 11 {
+	if len(attrs) != 13 {
 		t.Fatalf("expected all adopted attributes to be preserved, got %#v", attrs)
 	}
 }

@@ -138,8 +138,9 @@ export function useEvidenceWorkbookBindings({
         return;
       }
       setMessage(row.record_id, "Evidence attached.");
-      mutation.markMutationSaved();
       await onRefresh();
+      if (generationRef.current !== generation) return;
+      mutation.markMutationSaved();
     },
     [mutation, mutationCommands, onRefresh, setMessage],
   );

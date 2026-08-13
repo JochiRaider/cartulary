@@ -128,7 +128,7 @@ UPDATE incident_memberships
 		t.Fatalf("expected normalized filename_hint, got %#v", accepted["filename_hint"])
 	}
 	uploadTarget := createData["upload_target"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
 
 	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
@@ -161,8 +161,20 @@ UPDATE incident_memberships
 	if got := cells["evidence.upload_state"].(map[string]any)["value"]; got != "available" {
 		t.Fatalf("expected attached evidence upload_state available, got %#v", got)
 	}
+	if got := cells["evidence.lifecycle_state"].(map[string]any)["value"]; got != "received" {
+		t.Fatalf("attachment must preserve evidence lifecycle_state: got %#v want received", got)
+	}
 	attachReplay := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	httptestx.RequireSuccessEnvelope(t, attachReplay, http.StatusOK)
+	requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": int(row["row_version"].(float64)),
+		"client_txn_id":    "txn-attach-blob-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
 
 	previewResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...)
 	previewData := httptestx.RequireSuccessEnvelope(t, previewResp, http.StatusOK)["data"].(map[string]any)
@@ -498,13 +510,25 @@ func attachUploadedBlob(t *testing.T, harness *appsupport.ServerHarness, login a
 	createResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := createData["upload_target"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,
 	}, authOptions(login)...)
-	return httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
+	row := attachData["row"].(map[string]any)
+	available := requireHTTPWorkbookPatch(t, harness, login, recordID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": int(row["row_version"].(float64)),
+		"client_txn_id":    attachTxn + "-available",
+		"changes": []map[string]any{{
+			"field_key": "evidence.lifecycle_state",
+			"value":     "available",
+		}},
+	})
+	attachData["row"] = available["row"]
+	return attachData
 }
 
 func countObjectBlobs(t *testing.T, harness *appsupport.ServerHarness, incidentID uuid.UUID) int {
@@ -686,7 +710,7 @@ VALUES ($1, $2, 'Evidence payload', 'received', 'pending', now())
 	}
 }
 
-func putObject(t *testing.T, baseURL string, href string, payload []byte, contentType string) {
+func putObject(t *testing.T, baseURL string, href string, payload []byte, contentType string, login appsupport.LoginResult) {
 	t.Helper()
 	if strings.HasPrefix(href, "/") {
 		href = baseURL + href
@@ -696,6 +720,9 @@ func putObject(t *testing.T, baseURL string, href string, payload []byte, conten
 		t.Fatalf("create object upload request: %v", err)
 	}
 	req.Header.Set("Content-Type", contentType)
+	for _, option := range authOptions(login) {
+		option(req)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("upload object: %v", err)

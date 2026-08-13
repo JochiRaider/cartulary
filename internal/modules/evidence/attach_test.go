@@ -46,12 +46,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 
 	harness := appsupport.StartStore(t, "evidence_lifecycle-attach-validation")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
@@ -69,7 +64,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		if result.StatusCode != http.StatusOK || result.Replayed {
 			t.Fatalf("unexpected attach result: %#v", result)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "available", "available", blobID)
+		requireEvidenceState(t, harness.DB, recordID, "received", "available", blobID)
 		changeSet := result.Payload["change_set_id"]
 
 		replay, err := store.AttachBlob(context.Background(), actor, recordID, request, evidence.AttachBlobRequestHash(request), nil, "req-replay", time.Now().UTC())
@@ -104,7 +99,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 		if after != before {
 			t.Fatalf("divergent replay changed durable counts: before=%+v after=%+v", before, after)
 		}
-		requireEvidenceState(t, harness.DB, recordID, "available", "available", blobID)
+		requireEvidenceState(t, harness.DB, recordID, "received", "available", blobID)
 	})
 
 	t.Run("conflict and lifecycle failures leave evidence unchanged", func(t *testing.T) {
@@ -314,6 +309,9 @@ SELECT upload_state, terminal_reason, failed_at, cleanup_due_at, finalize_attemp
 	if uploadState != "failed" || terminalReason != wantReason || failedAt == nil || cleanupDueAt == nil || attempts != wantAttempts {
 		t.Fatalf("blob failure got state=%s reason=%s failed_at=%v cleanup_due_at=%v attempts=%d want reason=%s attempts=%d", uploadState, terminalReason, failedAt, cleanupDueAt, attempts, wantReason, wantAttempts)
 	}
+	if !cleanupDueAt.Equal(failedAt.Add(45 * time.Minute)) {
+		t.Fatalf("cleanup_due_at = %s, want failed_at + 45 minutes (%s)", cleanupDueAt, failedAt.Add(45*time.Minute))
+	}
 }
 
 func requirePendingAttemptCount(t testing.TB, db postgres.DB, objectBlobID uuid.UUID, wantAttempts int) {
@@ -362,12 +360,7 @@ SELECT COUNT(*)
 func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence-blob-association-characterization")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
 	firstRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
@@ -419,12 +412,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	t.Cleanup(pool.Close)
 	harness := &appsupport.StoreHarness{DB: pool}
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := evidence.NewStore(
-		harness.DB,
-		evidence.WithRevisionAppender(revisionComposition.Runtime.Appender()),
-		evidence.WithCollaborationIntents(revisionComposition.Intents),
-		evidence.WithWorkbookProjections(appsupport.EvidenceProjectionRows(harness.DB)),
-	)
+	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
 	recordIDs := []uuid.UUID{

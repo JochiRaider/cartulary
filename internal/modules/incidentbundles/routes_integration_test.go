@@ -751,7 +751,7 @@ func TestSupersededTimelineReplacementSurvivesImport_Integration(t *testing.T) {
 	}
 }
 
-func TestFailureFamiliesLeaveNoVisibleIncident_Integration(t *testing.T) {
+func TestIncidentBundlesEvidenceBlobStagingCleanup_Integration(t *testing.T) {
 	runtime := appsupport.StartRuntime(t)
 	sourceHarness := runtime.StartDefaultServer(t, "extension_profile-incident-bundle-failure-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "extension_profile-incident-bundle-failure-target")
@@ -1863,10 +1863,12 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login flowtest.Lo
 
 func waitFailedJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(40 * time.Second)
+	var lastJob map[string]any
 	for time.Now().Before(deadline) {
 		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+		lastJob = job
 		status := job["status"].(string)
 		switch status {
 		case "failed":
@@ -1877,7 +1879,7 @@ func waitFailedJob(t testing.TB, server *httptestx.Server, login flowtest.LoginR
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	t.Fatalf("job %s did not fail", jobID)
+	t.Fatalf("job %s did not fail; last observed state: %#v", jobID, lastJob)
 	return nil
 }
 

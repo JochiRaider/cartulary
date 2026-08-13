@@ -503,6 +503,9 @@ describe("WorkbookShell surface selection", () => {
 
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+    vi.spyOn(document, "cookie", "get").mockReturnValue(
+      "cartulary_csrf=evidence-shell-csrf",
+    );
     const currentScenario = createSurfaceTestScenario();
     scenario = currentScenario;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -777,6 +780,8 @@ describe("WorkbookShell surface selection", () => {
               method: "PUT",
               expires_at: "2026-07-26T12:05:00Z",
               headers: {
+                "Content-Type":
+                  request.content_type_hint ?? "application/octet-stream",
                 "X-Upload-Contract": "evidence_lifecycle",
               },
             },
@@ -805,14 +810,22 @@ describe("WorkbookShell surface selection", () => {
           "/api/v1/evidence-records/00000000-0000-4000-8000-000000004001/attach-blob",
         )
       ) {
+        const row = evidenceStateRow(
+          "00000000-0000-4000-8000-000000004001",
+          2,
+          "Attached screenshot",
+          { lifecycleState: "requested", uploadState: "available" },
+        );
+        currentScenario.evidenceRows = [
+          row,
+          ...currentScenario.evidenceRows.filter(
+            (candidate) => candidate.record_id !== row.record_id,
+          ),
+        ];
         return successEnvelope({
           view_schema_id: evidenceViewSchemaId,
           change_set_id: "30000000-0000-4000-8000-000000000001",
-          row: evidenceRow(
-            "00000000-0000-4000-8000-000000004001",
-            2,
-            "Attached screenshot",
-          ),
+          row,
           object_blob_id: "00000000-0000-4000-8000-000000003001",
         });
       }
@@ -826,7 +839,7 @@ describe("WorkbookShell surface selection", () => {
           return error;
         }
         const row = evidenceStateRow(recordId, 2, "Attached evidence", {
-          lifecycleState: "available",
+          lifecycleState: "requested",
           uploadState: "available",
         });
         currentScenario.evidenceRows = [
@@ -853,6 +866,44 @@ describe("WorkbookShell surface selection", () => {
           );
           if (override) {
             return override;
+          }
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            changes?: Array<{ field_key?: unknown; value?: unknown }>;
+            view_schema_id?: unknown;
+          };
+          if (body.view_schema_id === evidenceViewSchemaId) {
+            const current = currentScenario.evidenceRows.find(
+              (candidate) => candidate.record_id === recordPatchMatch[1],
+            );
+            const lifecycle = body.changes?.find(
+              (change) =>
+                change.field_key === "evidence.lifecycle_state" &&
+                typeof change.value === "string",
+            )?.value;
+            if (current && typeof lifecycle === "string") {
+              const row = evidenceStateRow(
+                current.record_id,
+                current.row_version + 1,
+                String(current.cells["evidence.title"]?.value ?? "Evidence"),
+                {
+                  lifecycleState: lifecycle,
+                  uploadState: String(
+                    current.cells["evidence.upload_state"]?.value ?? "pending",
+                  ),
+                },
+              );
+              currentScenario.evidenceRows = [
+                row,
+                ...currentScenario.evidenceRows.filter(
+                  (candidate) => candidate.record_id !== row.record_id,
+                ),
+              ];
+              return successEnvelope({
+                view_schema_id: evidenceViewSchemaId,
+                change_set_id: "30000000-0000-4000-8000-000000000002",
+                row,
+              });
+            }
           }
         }
       }
@@ -3342,6 +3393,25 @@ describe("WorkbookShell surface selection", () => {
       base_row_version: 4,
       client_txn_id: expect.stringMatching(/^evidence-attach-/u),
     });
+    const lifecyclePatchCall = fetchMock.mock.calls.find(
+      ([input, init]) =>
+        String(input).endsWith(
+          "/api/v1/records/00000000-0000-4000-8000-000000004010",
+        ) &&
+        (init as RequestInit | undefined)?.method === "PATCH" &&
+        String((init as RequestInit | undefined)?.body).includes(
+          "evidence.lifecycle_state",
+        ),
+    );
+    expect(lifecyclePatchCall).toBeDefined();
+    expect(
+      JSON.parse(String((lifecyclePatchCall?.[1] as RequestInit).body)),
+    ).toEqual({
+      view_schema_id: evidenceViewSchemaId,
+      base_row_version: 2,
+      client_txn_id: expect.stringMatching(/^evidence-available-/u),
+      changes: [{ field_key: "evidence.lifecycle_state", value: "available" }],
+    });
 
     fireEvent.change(
       screen.getByTestId(
@@ -3489,8 +3559,9 @@ describe("WorkbookShell surface selection", () => {
     );
     expect(uploadCall).toBeDefined();
     const uploadInit = uploadCall?.[1] as RequestInit;
-    expect(uploadInit.credentials).toBe("omit");
+    expect(uploadInit.credentials).toBe("include");
     const uploadHeaders = uploadInit.headers as Headers;
+    expect(uploadHeaders.get("X-CSRF-Token")).toBe("evidence-shell-csrf");
     expect(uploadHeaders.get("X-Upload-Contract")).toBe("evidence_lifecycle");
     expect(uploadHeaders.get("Content-Type")).toBe("text/plain");
   });

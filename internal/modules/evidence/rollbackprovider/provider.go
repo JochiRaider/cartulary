@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
@@ -23,18 +24,46 @@ func (Provider) ValidateRollbackValue(value map[string]any) error {
 	}
 	if raw, present := source["lifecycle_state"]; present {
 		state, valid := raw.(string)
-		if !valid || !validLifecycleState(state) {
+		if !valid || !evidencepolicy.ValidEvidenceLifecycle(state) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
 	if raw, present := source["upload_state"]; present {
 		state, valid := raw.(string)
-		if !valid || !validUploadState(state) {
+		if !valid || !evidencepolicy.ValidBlobUploadState(state) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
 	for _, key := range []string{"collector_party_id", "source_party_id", "object_blob_id"} {
 		if _, _, err := nullableUUID(source, key); err != nil {
+			return rollbackcontract.ErrTargetNotReversible
+		}
+	}
+	objectBlobValue, objectBlobPresent, err := nullableUUID(source, "object_blob_id")
+	if err != nil {
+		return rollbackcontract.ErrTargetNotReversible
+	}
+	var objectBlobID *uuid.UUID
+	if objectBlobPresent && objectBlobValue != nil {
+		parsed, ok := objectBlobValue.(uuid.UUID)
+		if !ok {
+			return rollbackcontract.ErrTargetNotReversible
+		}
+		objectBlobID = &parsed
+	}
+	if raw, present := source["storage_ref"]; present && raw != nil {
+		storageRef, valid := raw.(string)
+		if !valid || !evidencepolicy.ServerManagedStorageRefMatchesAssociation(storageRef, objectBlobID) {
+			return rollbackcontract.ErrTargetNotReversible
+		}
+	}
+	if lifecycleRaw, present := source["lifecycle_state"]; present {
+		lifecycleState := lifecycleRaw.(string)
+		blobState := ""
+		if uploadRaw, uploadPresent := source["upload_state"]; uploadPresent && uploadRaw != nil {
+			blobState, _ = uploadRaw.(string)
+		}
+		if evidencepolicy.ViolatesEvidenceBlobBridge(lifecycleState, objectBlobID != nil, blobState) {
 			return rollbackcontract.ErrTargetNotReversible
 		}
 	}
@@ -115,22 +144,4 @@ func nullableUUID(value map[string]any, key string) (any, bool, error) {
 		return nil, true, err
 	}
 	return parsed, true, nil
-}
-
-func validLifecycleState(value string) bool {
-	switch value {
-	case "requested", "pending_receipt", "received", "available", "quarantined", "released":
-		return true
-	default:
-		return false
-	}
-}
-
-func validUploadState(value string) bool {
-	switch value {
-	case "pending", "available", "failed", "quarantined":
-		return true
-	default:
-		return false
-	}
 }

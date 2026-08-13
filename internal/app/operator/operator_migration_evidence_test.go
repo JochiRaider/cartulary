@@ -209,7 +209,7 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 func runMigrationEvidenceCaptureV2GoldenDigest(t *testing.T) {
 	capture := captureMigrationEvidenceUnit(t)
 	digest := sha256.Sum256([]byte(capture.stdout))
-	const wantDigest = "37b82b6be4c098e84d34c159263d89a104e3da462cb9210a98bb45927cc5e13e"
+	const wantDigest = "0e15d98fd130cdcf18655df6cba26666cd8b76ca698f732dd6ae168a6fb72861"
 	if got := fmt.Sprintf("%x", digest); got != wantDigest {
 		t.Fatalf("v2 migration evidence digest = %s, want %s", got, wantDigest)
 	}

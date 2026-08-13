@@ -58,12 +58,9 @@ func TestObjectBlobStorageRefContract(t *testing.T) {
 	if parsed != objectBlobID {
 		t.Fatalf("parsed ref got %s want %s", parsed, objectBlobID)
 	}
-	if !blobref.IsServerManagedStorageRef(" " + ref + " ") {
-		t.Fatalf("trimmed server-managed ref was not detected")
-	}
 	for _, value := range []string{"ticket://collect", "object://NOT-A-UUID", "object://00000000-0000-0000-0000-000000000000"} {
-		if blobref.IsServerManagedStorageRef(value) {
-			t.Fatalf("non-server ref detected as reserved: %q", value)
+		if _, err := blobref.ParseObjectBlobStorageRef(value); err == nil {
+			t.Fatalf("invalid storage ref parsed: %q", value)
 		}
 	}
 }

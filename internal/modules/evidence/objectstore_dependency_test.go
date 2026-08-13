@@ -73,6 +73,9 @@ func requireObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t.Fatalf("create object upload request: %v", err)
 		}
 		req.Header.Set("Content-Type", "text/plain")
+		for _, option := range authOptions(login) {
+			option(req)
+		}
 		resp := httptestx.Do(t, http.DefaultClient, req)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusServiceUnavailable, "object_store_unavailable")
 		errorValue := body["error"].(map[string]any)

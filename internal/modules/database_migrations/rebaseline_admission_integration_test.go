@@ -16,6 +16,7 @@ import (
 )
 
 func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T) {
+	repositoryHead := canonicalRepositoryHead(t)
 	harness := pgtest.Start(t)
 	testDB, err := harness.NewDatabase(context.Background(), "ddl-v2-contaminated")
 	if err != nil {
@@ -36,7 +37,7 @@ func TestProductionDDLContaminationFailsBeforeMutation_Integration(t *testing.T)
 	err = database_migrations.Apply(context.Background(), db, source)
 	report := requireMigrationRemediation(t, err)
 	finding := report.Findings[0]
-	if report.FromVersion != 0 || report.ToVersion != 29 ||
+	if report.FromVersion != 0 || report.ToVersion != repositoryHead ||
 		finding.RawValue != nil || finding.RawValuePair.LineageTablePresent ||
 		finding.RemediationHint != "Destroy and recreate this database, then apply the Production DDL Rebaseline v2 catalog from version 1." {
 		t.Fatalf("unexpected contamination remediation: %#v", report)
@@ -95,6 +96,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 	}
 
 	t.Run("correct", func(t *testing.T) {
+		repositoryHead := canonicalRepositoryHead(t)
 		harness := pgtest.Start(t)
 		testDB, err := harness.NewDatabase(context.Background(), "ddl-v2-extension-valid")
 		if err != nil {
@@ -113,7 +115,7 @@ func TestProductionDDLExtensionPrerequisiteMatrix_Integration(t *testing.T) {
 			t.Fatalf("valid extension prerequisites rejected: %v", err)
 		}
 		var head int
-		if err := db.QueryRowContext(context.Background(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || head != 29 {
+		if err := db.QueryRowContext(context.Background(), `SELECT max(version_id) FROM public.goose_db_version WHERE is_applied`).Scan(&head); err != nil || int64(head) != repositoryHead {
 			t.Fatalf("valid prerequisite head = %d: %v", head, err)
 		}
 	})

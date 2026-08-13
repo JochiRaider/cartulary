@@ -176,6 +176,18 @@
       "filename": "00029_collaboration.sql",
       "sha256": "a14e3809974a118ed700a2ce5392fa27b7eb05b7d7a22fbb35577585b01be3f1",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 30,
+      "filename": "00030_evidence_upload_leases.sql",
+      "sha256": "b068bff7c5a93d7d82e3d4674e3cf8d2280154933c4b5162cb46d9a9cc9514cc",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 31,
+      "filename": "00031_evidence_blob_cleanup_claims.sql",
+      "sha256": "acf86625925b46198086acd93fa232d999165bf0fe2b4e4e657cacaceedcb95c",
+      "historical_phase_shaped": false
     }
   ]
 }

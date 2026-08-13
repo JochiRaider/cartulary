@@ -87,6 +87,32 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.recovery.integration.evidence_inventory_closure_9f2714ac10",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [
+        "module.evidence",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.recovery.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRecoveryEvidenceInventoryClosure_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard"
+    },
+    {
       "row_id": "module.recovery.integration.real_postgres_backed_runtime_metadata_persistenc_d652f0998b",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",

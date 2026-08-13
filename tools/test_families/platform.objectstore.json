@@ -72,6 +72,31 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "full"
+    },
+    {
+      "row_id": "platform.objectstore.unit.typed_adapter_purpose_and_error_contract_a1b2c3d4e5",
+      "owner_id": "platform.objectstore",
+      "family_id": "platform.objectstore.unit",
+      "collaborator_ids": [
+        "module.evidence"
+      ],
+      "verification_ids": [
+        "platform.objectstore.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/objectstore",
+        "tests": [
+          "TestObjectStoreAdapterContractHardening"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
     }
   ]
 }

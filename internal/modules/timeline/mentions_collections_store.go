@@ -199,6 +199,11 @@ func (s *store) applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, a
 	if err != nil {
 		return nil, err
 	}
+	affectedRecordIDs := append([]uuid.UUID{}, command.AddRecordIDs...)
+	affectedRecordIDs = append(affectedRecordIDs, command.RemoveRecordIDs...)
+	if err := s.evidenceStore.RefreshTimelineAttachmentProjectionsTx(ctx, tx, affectedRecordIDs); err != nil {
+		return nil, err
+	}
 	mutations := make([]attachedEvidenceMutation, 0, len(result.RecordLinks))
 	for _, mutation := range result.RecordLinks {
 		mutations = append(mutations, attachedEvidenceMutation(mutation))

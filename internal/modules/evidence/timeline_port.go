@@ -2,12 +2,19 @@ package evidence
 
 import (
 	"context"
+	"errors"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 )
 
-type timelineAttachmentReader struct{}
+type timelineAttachmentReader struct {
+	projections evidenceprojection.Rows
+}
 
 func (timelineAttachmentReader) ValidateTimelineAttachmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordIDs []uuid.UUID) error {
 	for _, recordID := range recordIDs {
@@ -29,6 +36,31 @@ SELECT EXISTS (
 		}
 		if !exists {
 			return ErrEvidenceNotFound
+		}
+	}
+	return nil
+}
+
+func (reader timelineAttachmentReader) RefreshTimelineAttachmentProjectionsTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	if reader.projections == nil {
+		return errors.New("evidence projection rows are required")
+	}
+	unique := make(map[uuid.UUID]struct{}, len(recordIDs))
+	for _, recordID := range recordIDs {
+		if recordID != uuid.Nil {
+			unique[recordID] = struct{}{}
+		}
+	}
+	ordered := make([]uuid.UUID, 0, len(unique))
+	for recordID := range unique {
+		ordered = append(ordered, recordID)
+	}
+	slices.SortFunc(ordered, func(left uuid.UUID, right uuid.UUID) int {
+		return strings.Compare(left.String(), right.String())
+	})
+	for _, recordID := range ordered {
+		if err := reader.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
+			return err
 		}
 	}
 	return nil

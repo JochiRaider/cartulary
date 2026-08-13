@@ -566,14 +566,15 @@ func newCatalogBackedWorkbookStore(
 	if err != nil {
 		t.Fatalf("compose conflict field resolver: %v", err)
 	}
-	evidenceContribution := evidence.NewWorkbookContribution(
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntime(
 		pool,
 		conflictTokens,
 		appender,
 		intents,
+		appsupport.UnavailableEvidenceObjectStore(),
 		conflictFields,
 		workbookassembly.NewConflictIdempotencyPort(pool),
-		projections.EvidencePorts().Rows,
+		projections,
 	)
 	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
 		pool,
@@ -613,7 +614,7 @@ func newCatalogBackedWorkbookStore(
 		projections.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
-		evidenceContribution,
+		evidenceOwner.WorkbookContribution(),
 		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
@@ -652,7 +653,7 @@ func newWorkbookTimelineComposition(
 		ConflictTokens:      workbookTestConflictTokens(),
 		Revisions:           appender,
 		Collaboration:       intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(pool),
+		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

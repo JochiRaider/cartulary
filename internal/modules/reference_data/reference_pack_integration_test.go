@@ -800,7 +800,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 		"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 	}, csrfOptions(login)...)
 	blobData := requireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
-	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any)["href"].(string), payload, "text/plain")
+	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any), payload, login)
 	attachResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": evidenceVersion,
@@ -932,16 +932,22 @@ func setDeploymentAdmin(t testing.TB, db *sql.DB, userID string, isAdmin bool) {
 	}
 }
 
-func putObject(t testing.TB, baseURL string, href string, payload []byte, contentType string) {
+func putObject(t testing.TB, baseURL string, target map[string]any, payload []byte, login flowtest.LoginResult) {
 	t.Helper()
+	href := target["href"].(string)
 	if strings.HasPrefix(href, "/") {
 		href = baseURL + href
 	}
-	req, err := http.NewRequest(http.MethodPut, href, bytes.NewReader(payload))
+	req, err := http.NewRequest(target["method"].(string), href, bytes.NewReader(payload))
 	if err != nil {
 		t.Fatalf("create object upload request: %v", err)
 	}
-	req.Header.Set("Content-Type", contentType)
+	for name, value := range target["headers"].(map[string]any) {
+		req.Header.Set(name, value.(string))
+	}
+	for _, option := range csrfOptions(login) {
+		option(req)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("upload object: %v", err)
