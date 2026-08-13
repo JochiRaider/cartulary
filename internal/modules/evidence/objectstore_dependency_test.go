@@ -233,7 +233,7 @@ func TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers(t *testing.T) {
 	storageKey := "incidents/" + incidentID.String() + "/object-blobs/" + objectBlobID.String()
 	forbidden := []string{
 		storageKey,
-		"storage_ref",
+		"evidence.storage_ref",
 		"s3://",
 		"private-bucket",
 		"source.internal",

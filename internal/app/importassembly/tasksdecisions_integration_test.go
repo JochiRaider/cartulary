@@ -197,12 +197,20 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
 	}
+	conflictTokens := conflicttest.NewCodec("tasks-decisions-import")
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		storeHarness.DB,
+		conflictTokens,
+		appender,
+		intents,
+		projections,
+	)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            storeHarness.DB,
-		ConflictTokens:      conflicttest.NewCodec("tasks-decisions-import"),
+		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
 		Collaboration:       intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

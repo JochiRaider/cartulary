@@ -33,8 +33,8 @@ var (
 	ErrRowVersionConflict     = errors.New("evidence: row version conflict")
 	ErrIllegalBlobTransition  = errors.New("evidence: illegal blob transition")
 	ErrObjectStoreUnavailable = errors.New("evidence: object store unavailable")
-	ErrUploadLeaseNotFound    = errors.New("evidence: upload lease not found")
-	ErrUploadLeaseUnavailable = errors.New("evidence: upload lease unavailable")
+	errUploadLeaseNotFound    = errors.New("evidence: upload lease not found")
+	errUploadLeaseUnavailable = errors.New("evidence: upload lease unavailable")
 )
 
 const (
@@ -63,9 +63,9 @@ func (e AttachRejectedError) Unwrap() error {
 	return e.Cause
 }
 
-// BlobLifecycleService owns object-blob slot, lease, attach, finalization, and
+// blobLifecycleService owns object-blob slot, lease, attach, finalization, and
 // quarantine behavior. It has no access-handle or cleanup surface.
-type BlobLifecycleService struct {
+type blobLifecycleService struct {
 	pool           postgres.DB
 	authStore      *authn.Store
 	incidentAccess incidents.Access
@@ -80,7 +80,7 @@ type BlobLifecycleService struct {
 	uploadLeases   uploadLeaseRepository
 }
 
-type BlobLifecycleDependencies struct {
+type blobLifecycleDependencies struct {
 	Postgres       postgres.DB
 	Revisions      *revisions.Appender
 	Projections    evidenceprojection.Rows
@@ -88,32 +88,7 @@ type BlobLifecycleDependencies struct {
 	Collaboration  collaboration.IntentAppender
 }
 
-// AccessHandleService owns Evidence access snapshots and opaque handle state.
-// It has no blob mutation, projection, revision, or object-store dependency.
-type AccessHandleService struct {
-	accessHandles accessHandleRepository
-}
-
-// CleanupService owns durable failed-blob claim coordination. It remains inert
-// until the private dispatcher is activated by application assembly in S09.
-type CleanupService struct {
-	pool          postgres.DB
-	blobLifecycle blobLifecycleRepository
-}
-
-// RouteOperations is the narrow transport facade composed from the blob and
-// access capabilities. It does not expose cleanup or source mutation.
-type RouteOperations struct {
-	*BlobLifecycleService
-	*AccessHandleService
-}
-
-type SourceMutationService struct {
-	source    evidenceSourceKernel
-	mutations evidenceSourceMutationKernel
-}
-
-type BlobSlotParams struct {
+type blobSlotParams struct {
 	ObjectBlobID      uuid.UUID
 	IncidentID        uuid.UUID
 	ActorUserID       uuid.UUID
@@ -128,10 +103,10 @@ type BlobSlotParams struct {
 	AcceptedContract  map[string]any
 	RequestHash       []byte
 	ClientTxnID       string
-	UploadLease       UploadLeaseCreateParams
+	UploadLease       uploadLeaseCreateParams
 }
 
-type UploadLeaseCreateParams struct {
+type uploadLeaseCreateParams struct {
 	LeaseID                uuid.UUID
 	CapabilityHash         []byte
 	IssuingUserID          uuid.UUID
@@ -143,7 +118,7 @@ type UploadLeaseCreateParams struct {
 	AcceptedContractSHA256 []byte
 }
 
-type UploadLeaseRecord struct {
+type uploadLeaseRecord struct {
 	LeaseID                uuid.UUID
 	ObjectBlobID           uuid.UUID
 	IncidentID             uuid.UUID
@@ -156,16 +131,16 @@ type UploadLeaseRecord struct {
 	RequiredHeaders        map[string]string
 	AcceptedContractSHA256 []byte
 	LeaseState             string
-	Blob                   BlobRecord
+	Blob                   blobRecord
 }
 
-type BlobSlotResult struct {
+type blobSlotResult struct {
 	Payload    map[string]any
 	StatusCode int
 	Replayed   bool
 }
 
-type BlobRecord struct {
+type blobRecord struct {
 	ObjectBlobID        uuid.UUID
 	IncidentID          uuid.UUID
 	StorageKey          string
@@ -182,13 +157,13 @@ type BlobRecord struct {
 	UploadLeaseState    string
 }
 
-type ObservedObject struct {
+type observedObject struct {
 	Size        int64
 	ContentType string
 	SHA256Hex   string
 }
 
-type AttachBlobResult struct {
+type attachBlobResult struct {
 	Payload               map[string]any
 	StatusCode            int
 	Replayed              bool
@@ -198,15 +173,15 @@ type AttachBlobResult struct {
 	ClientTxnID           string
 	RowVersion            int64
 	ChangedFieldKeys      []string
-	AffectedRecordChanges []AttachRecordChange
+	AffectedRecordChanges []attachRecordChange
 }
 
-type AttachBlobPreflightResult struct {
-	Blob   BlobRecord
-	Replay *AttachBlobResult
+type attachBlobPreflightResult struct {
+	Blob   blobRecord
+	Replay *attachBlobResult
 }
 
-type AttachRecordChange struct {
+type attachRecordChange struct {
 	RecordID         uuid.UUID
 	RowVersion       int64
 	ViewSchemaID     string
@@ -214,54 +189,15 @@ type AttachRecordChange struct {
 	AffectedViews    []evidenceprojection.EvidenceAffectedViewChange
 }
 
-type QuarantineBlobResult struct {
+type quarantineBlobResult struct {
 	IncidentID            uuid.UUID
 	ObjectBlobID          uuid.UUID
 	ChangeSetID           uuid.UUID
-	ChangedEvidenceRows   []AttachRecordChange
+	ChangedEvidenceRows   []attachRecordChange
 	ChangedEvidenceRecord int
 }
 
-type EvidenceAccessRecord struct {
-	IncidentID             uuid.UUID
-	RecordID               uuid.UUID
-	RecordRowVersion       int64
-	ObjectBlobID           *uuid.UUID
-	BlobMetadataVisible    bool
-	StorageKey             *string
-	EvidenceLifecycleState string
-	UploadState            string
-	FilenameSource         string
-	ContentType            string
-	SizeBytes              int64
-	SHA256                 *string
-	MediaClass             string
-	PreviewKind            *string
-}
-
-type HandleRecord struct {
-	Token                  string
-	IncidentID             uuid.UUID
-	RecordID               uuid.UUID
-	RecordRowVersion       int64
-	ObjectBlobID           uuid.UUID
-	StorageKey             string
-	SessionID              uuid.UUID
-	HandleKind             string
-	MediaClass             string
-	PreviewKind            *string
-	Disposition            string
-	Filename               string
-	ContentType            string
-	SizeBytes              int64
-	SHA256                 *string
-	EvidenceLifecycleState string
-	UploadState            string
-	ExpiresAt              time.Time
-	ConsumedAt             *time.Time
-}
-
-func NewBlobLifecycleService(dependencies BlobLifecycleDependencies) (*BlobLifecycleService, error) {
+func newBlobLifecycleService(dependencies blobLifecycleDependencies) (*blobLifecycleService, error) {
 	if dependencies.Postgres == nil {
 		return nil, errors.New("compose Evidence blob lifecycle: Postgres is required")
 	}
@@ -277,7 +213,7 @@ func NewBlobLifecycleService(dependencies BlobLifecycleDependencies) (*BlobLifec
 	if dependencies.Collaboration == nil {
 		return nil, errors.New("compose Evidence blob lifecycle: Collaboration is required")
 	}
-	return &BlobLifecycleService{
+	return &blobLifecycleService{
 		pool:           dependencies.Postgres,
 		authStore:      authn.NewStore(dependencies.Postgres),
 		incidentAccess: incidents.NewAccess(dependencies.Postgres),
@@ -293,79 +229,22 @@ func NewBlobLifecycleService(dependencies BlobLifecycleDependencies) (*BlobLifec
 	}, nil
 }
 
-func NewAccessHandleService(pool postgres.DB) (*AccessHandleService, error) {
-	if pool == nil {
-		return nil, errors.New("compose Evidence access handles: Postgres is required")
-	}
-	return &AccessHandleService{accessHandles: accessHandleRepository{db: pool}}, nil
-}
-
-func NewCleanupService(pool postgres.DB) (*CleanupService, error) {
-	if pool == nil {
-		return nil, errors.New("compose Evidence cleanup: Postgres is required")
-	}
-	return &CleanupService{pool: pool, blobLifecycle: blobLifecycleRepository{db: pool}}, nil
-}
-
-func NewRouteOperations(blobs *BlobLifecycleService, access *AccessHandleService) (*RouteOperations, error) {
-	if blobs == nil {
-		return nil, errors.New("compose Evidence routes: blob lifecycle is required")
-	}
-	if access == nil {
-		return nil, errors.New("compose Evidence routes: access handles are required")
-	}
-	return &RouteOperations{BlobLifecycleService: blobs, AccessHandleService: access}, nil
-}
-
-func newSourceMutationService(
-	pool postgres.DB,
-	projectionRows evidenceprojection.Rows,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-) (*SourceMutationService, error) {
-	if pool == nil {
-		return nil, errors.New("compose Evidence source mutations: Postgres is required")
-	}
-	if projectionRows == nil {
-		return nil, errors.New("compose Evidence source mutations: Projections is required")
-	}
-	if appender == nil {
-		return nil, errors.New("compose Evidence source mutations: Revisions is required")
-	}
-	if intents == nil {
-		return nil, errors.New("compose Evidence source mutations: Collaboration is required")
-	}
-	service := &SourceMutationService{}
-	service.source = evidenceSourceKernel{
-		records:     records.NewStore(),
-		rows:        service,
-		projections: projectionRows,
-	}
-	service.mutations = evidenceSourceMutationKernel{
-		incidents:     incidents.NewAccess(pool),
-		source:        service.source,
-		revisions:     newRevisionAppendAdapter(appender),
-		collaboration: intents,
-	}
-	return service, nil
-}
-
-func (s *BlobLifecycleService) CreateBlobSlot(ctx context.Context, params BlobSlotParams) (BlobSlotResult, error) {
+func (s *blobLifecycleService) CreateBlobSlot(ctx context.Context, params blobSlotParams) (blobSlotResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey: blobCreateRouteKey, ActorUserID: params.ActorUserID,
 		ScopeKey: params.IncidentID.String(), ClientTxnID: params.ClientTxnID,
 	}
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, params.RequestHash) {
-			return BlobSlotResult{}, authn.ErrClientTxnConflict
+			return blobSlotResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredPayload(existing.ResponseJSON)
 		if err != nil {
-			return BlobSlotResult{}, err
+			return blobSlotResult{}, err
 		}
-		return BlobSlotResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true}, nil
+		return blobSlotResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 
 	payload := map[string]any{
@@ -380,43 +259,43 @@ func (s *BlobLifecycleService) CreateBlobSlot(ctx context.Context, params BlobSl
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := ensureIncidentVisibleTx(ctx, tx, params.IncidentID); err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, params.IncidentID); err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	if err := s.blobSlots.insertTx(ctx, tx, params); err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	if err := s.uploadLeases.insertTx(ctx, tx, params.ObjectBlobID, params.IncidentID, params.UploadLease); err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, params.RequestHash, http.StatusCreated, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
-			return BlobSlotResult{}, authn.ErrClientTxnConflict
+			return blobSlotResult{}, authn.ErrClientTxnConflict
 		}
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return BlobSlotResult{}, err
+		return blobSlotResult{}, err
 	}
-	return BlobSlotResult{Payload: payload, StatusCode: http.StatusCreated}, nil
+	return blobSlotResult{Payload: payload, StatusCode: http.StatusCreated}, nil
 }
 
-func (s *BlobLifecycleService) GetBlob(ctx context.Context, objectBlobID uuid.UUID) (BlobRecord, error) {
+func (s *blobLifecycleService) GetBlob(ctx context.Context, objectBlobID uuid.UUID) (blobRecord, error) {
 	return s.blobs.load(ctx, objectBlobID)
 }
 
-func (s *BlobLifecycleService) GetUploadLease(ctx context.Context, leaseID uuid.UUID) (UploadLeaseRecord, error) {
+func (s *blobLifecycleService) GetUploadLease(ctx context.Context, leaseID uuid.UUID) (uploadLeaseRecord, error) {
 	return s.uploadLeases.load(ctx, leaseID)
 }
 
-func (s *BlobLifecycleService) ClaimUploadLease(ctx context.Context, leaseID uuid.UUID, capabilityHash []byte, now time.Time) error {
+func (s *blobLifecycleService) ClaimUploadLease(ctx context.Context, leaseID uuid.UUID, capabilityHash []byte, now time.Time) error {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -431,7 +310,7 @@ func (s *BlobLifecycleService) ClaimUploadLease(ctx context.Context, leaseID uui
 	}
 	if !bytes.Equal(lease.CapabilityHash, capabilityHash) || lease.LeaseState != "issued" || !lease.ExpiresAt.After(now) ||
 		lease.Blob.UploadState != "pending" || !lease.Blob.TargetExpiresAt.After(now) || !lease.Blob.PendingExpiresAt.After(now) {
-		return ErrUploadLeaseUnavailable
+		return errUploadLeaseUnavailable
 	}
 	if err := s.uploadLeases.claimTx(ctx, tx, leaseID, capabilityHash, now); err != nil {
 		return err
@@ -439,40 +318,40 @@ func (s *BlobLifecycleService) ClaimUploadLease(ctx context.Context, leaseID uui
 	return tx.Commit(ctx)
 }
 
-func (s *BlobLifecycleService) CompleteUploadLease(ctx context.Context, leaseID uuid.UUID, now time.Time) error {
+func (s *blobLifecycleService) CompleteUploadLease(ctx context.Context, leaseID uuid.UUID, now time.Time) error {
 	return s.uploadLeases.complete(ctx, leaseID, now)
 }
 
 // PreflightAttachBlob evaluates every durable authorization, lifecycle,
 // contract, version, and idempotency gate that must precede object-store
 // observation. AttachBlob repeats these checks inside its mutation transaction.
-func (s *BlobLifecycleService) PreflightAttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request AttachBlobRequest, requestHash []byte, now time.Time) (AttachBlobPreflightResult, error) {
+func (s *blobLifecycleService) PreflightAttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, now time.Time) (attachBlobPreflightResult, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	meta, err := s.evidenceRows.loadForUpdateTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	row, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	if evidenceRowCellValue(row, "evidence.lifecycle_state") == "quarantined" {
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
 	}
 	blob, err := s.blobs.loadForUpdateTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	if blob.IncidentID != meta.IncidentID {
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
 	}
 	var associatedRecordID uuid.UUID
 	associationErr := tx.QueryRow(ctx, `
@@ -481,24 +360,24 @@ SELECT record_id
  WHERE object_blob_id = $1
 `, request.ObjectBlobID).Scan(&associatedRecordID)
 	if associationErr != nil && !errors.Is(associationErr, pgx.ErrNoRows) {
-		return AttachBlobPreflightResult{}, associationErr
+		return attachBlobPreflightResult{}, associationErr
 	}
 	associated := associationErr == nil
 	if associated && associatedRecordID != recordID {
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
 	}
 	switch evidencepolicy.ClassifyBlobForAssociation(blob.UploadState, blob.PendingExpiresAt, now) {
 	case evidencepolicy.AssociationBlobNeedsFinalization:
 		if blob.UploadLeaseState != "completed" {
-			return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobPending, Cause: ErrBlobNotAttachable}
+			return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobPending, Cause: ErrBlobNotAttachable}
 		}
 	case evidencepolicy.AssociationBlobAvailable:
 	case evidencepolicy.AssociationBlobExpired, evidencepolicy.AssociationBlobFailed:
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
 	case evidencepolicy.AssociationBlobQuarantined:
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
 	case evidencepolicy.AssociationBlobInconsistent:
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
 	}
 	key := authn.RouteIdempotencyKey{
 		RouteKey: blobAttachRouteKey, ActorUserID: actor.ID,
@@ -506,139 +385,139 @@ SELECT record_id
 	}
 	if existing, err := authn.GetRouteIdempotencyTx(ctx, tx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return AttachBlobPreflightResult{}, authn.ErrClientTxnConflict
+			return attachBlobPreflightResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredPayload(existing.ResponseJSON)
 		if err != nil {
-			return AttachBlobPreflightResult{}, err
+			return attachBlobPreflightResult{}, err
 		}
-		replay := AttachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}
+		replay := attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}
 		if err := tx.Commit(ctx); err != nil {
-			return AttachBlobPreflightResult{}, err
+			return attachBlobPreflightResult{}, err
 		}
-		return AttachBlobPreflightResult{Blob: blob, Replay: &replay}, nil
+		return attachBlobPreflightResult{Blob: blob, Replay: &replay}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
 	if associated {
-		return AttachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		return attachBlobPreflightResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
 	}
 	if meta.RowVersion != request.BaseRowVersion {
-		return AttachBlobPreflightResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
+		return attachBlobPreflightResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return AttachBlobPreflightResult{}, err
+		return attachBlobPreflightResult{}, err
 	}
-	return AttachBlobPreflightResult{Blob: blob}, nil
+	return attachBlobPreflightResult{Blob: blob}, nil
 }
 
-func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request AttachBlobRequest, requestHash []byte, observed *ObservedObject, requestID string, now time.Time) (AttachBlobResult, error) {
+func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, observed *observedObject, requestID string, now time.Time) (attachBlobResult, error) {
 	key := authn.RouteIdempotencyKey{
 		RouteKey: blobAttachRouteKey, ActorUserID: actor.ID,
 		ScopeKey: recordID.String(), ClientTxnID: request.ClientTxnID,
 	}
 	if existing, err := s.authStore.GetRouteIdempotency(ctx, key); err == nil {
 		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return AttachBlobResult{}, authn.ErrClientTxnConflict
+			return attachBlobResult{}, authn.ErrClientTxnConflict
 		}
 		payload, err := decodeStoredPayload(existing.ResponseJSON)
 		if err != nil {
-			return AttachBlobResult{}, err
+			return attachBlobResult{}, err
 		}
-		return AttachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}, nil
+		return attachBlobResult{Payload: payload, StatusCode: http.StatusOK, Replayed: true, RecordID: recordID, ClientTxnID: request.ClientTxnID}, nil
 	} else if !errors.Is(err, authn.ErrNotFound) {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	meta, err := s.evidenceRows.loadForUpdateTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {
-		return AttachBlobResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
+		return attachBlobResult{}, &rowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 	}
 	beforeRow, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	beforeSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if evidenceRowCellValue(beforeRow, "evidence.lifecycle_state") == "quarantined" {
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceQuarantined, Cause: ErrEvidenceQuarantined}
 	}
 	blob, err := s.blobs.loadForUpdateTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if blob.IncidentID != meta.IncidentID {
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrIncidentMismatch}
 	}
 	associated, err := isBlobAssociatedTx(ctx, tx, request.ObjectBlobID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if associated {
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
 	}
 	switch evidencepolicy.ClassifyBlobForAssociation(blob.UploadState, blob.PendingExpiresAt, now) {
 	case evidencepolicy.AssociationBlobQuarantined:
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobQuarantined, Cause: ErrBlobNotAttachable}
 	case evidencepolicy.AssociationBlobFailed:
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
 	case evidencepolicy.AssociationBlobExpired:
 		if err := s.blobLifecycle.failTx(ctx, tx, request.ObjectBlobID, "pending_timeout", now); err != nil {
-			return AttachBlobResult{}, err
+			return attachBlobResult{}, err
 		}
 		if err := tx.Commit(ctx); err != nil {
-			return AttachBlobResult{}, err
+			return attachBlobResult{}, err
 		}
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobFailed, Cause: ErrBlobNotAttachable}
 	case evidencepolicy.AssociationBlobNeedsFinalization:
 		if observed == nil {
 			failed, err := s.blobLifecycle.recordFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now)
 			if err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
 			if err := tx.Commit(ctx); err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
 			reason := AttachReasonBlobPending
 			if failed {
 				reason = AttachReasonBlobFailed
 			}
-			return AttachBlobResult{}, AttachRejectedError{ReasonCode: reason, Cause: ErrBlobNotAttachable}
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: reason, Cause: ErrBlobNotAttachable}
 		}
 		if observed.Size != blob.ByteSize {
 			if err := s.blobLifecycle.failTx(ctx, tx, request.ObjectBlobID, "declared_size_mismatch", now); err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
 			if err := tx.Commit(ctx); err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
-			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
 		if blob.ExpectedSHA256Hex != nil && observed.SHA256Hex != *blob.ExpectedSHA256Hex {
 			if err := s.blobLifecycle.failTx(ctx, tx, request.ObjectBlobID, "expected_sha256_mismatch", now); err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
 			if err := tx.Commit(ctx); err != nil {
-				return AttachBlobResult{}, err
+				return attachBlobResult{}, err
 			}
-			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonAcceptedContractMismatch, Cause: ErrBlobNotAttachable}
 		}
 		if err := s.blobLifecycle.markAvailableTx(ctx, tx, request.ObjectBlobID, observed, now); err != nil {
-			return AttachBlobResult{}, err
+			return attachBlobResult{}, err
 		}
 		blob.UploadState = "available"
 		blob.ObservedSize = &observed.Size
@@ -646,10 +525,10 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		blob.ObservedSHA256Hex = &observed.SHA256Hex
 	case evidencepolicy.AssociationBlobAvailable:
 	case evidencepolicy.AssociationBlobInconsistent:
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
 	}
 	if blob.UploadState != "available" {
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
 	}
 	sha := blob.ObservedSHA256Hex
 	if sha == nil && observed != nil {
@@ -657,12 +536,12 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	}
 	storageRef, err := blobref.ObjectBlobStorageRef(request.ObjectBlobID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	evidenceLifecycle, ok := evidenceRowCellValue(beforeRow, "evidence.lifecycle_state").(string)
 	if !ok || !evidencepolicy.ValidEvidenceLifecycle(evidenceLifecycle) ||
 		evidencepolicy.ViolatesEvidenceBlobBridge(evidenceLifecycle, true, evidencepolicy.BlobAvailable) {
-		return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
+		return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonEvidenceInconsistent, Cause: ErrBlobNotAttachable}
 	}
 	if err := s.evidenceRows.associateBlobTx(
 		ctx,
@@ -674,9 +553,9 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		now.UTC(),
 	); err != nil {
 		if isEvidenceBlobUniqueViolation(err) {
-			return AttachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotAttachable}
 		}
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if err := insertEvidenceCustodyEventTx(ctx, tx, evidenceCustodyEventParams{
 		IncidentID:       meta.IncidentID,
@@ -686,29 +565,29 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		OccurredAt:       now.UTC(),
 		Metadata:         map[string]any{"object_blob_id": request.ObjectBlobID.String()},
 	}); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	rowVersion, err := records.NewStore().AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if err := s.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	afterRow, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	afterSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	changeSetID, err := s.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID: meta.IncidentID, ActorUserID: actor.ID, Source: blobAttachRouteKey,
 		ClientTxnID: &request.ClientTxnID, RequestID: &requestID, CreatedAt: now.UTC(),
 	})
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	beforeVersionID := fmt.Sprintf("%s:%d", recordID, request.BaseRowVersion)
 	afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
@@ -717,18 +596,18 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
 		BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 	}); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
 		BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 		LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRow, AfterValue: afterRow},
 	}); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	affectedChanges, err := s.refreshEvidenceSupportProjectionsTx(ctx, tx, meta.IncidentID, recordID)
 	if err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	changedFieldKeys := sortedChangedKeys(beforeRow, afterRow)
 	if err := appendEvidenceRecordChangeIntentsTx(
@@ -739,7 +618,7 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		actor.ID,
 		request.ClientTxnID,
 		changeSetID,
-		AttachRecordChange{
+		attachRecordChange{
 			RecordID:         recordID,
 			RowVersion:       rowVersion,
 			ViewSchemaID:     ViewSchemaID,
@@ -749,7 +628,7 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		affectedChanges,
 		now,
 	); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	payload := map[string]any{
 		"view_schema_id": ViewSchemaID,
@@ -759,39 +638,39 @@ func (s *BlobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
-			return AttachBlobResult{}, authn.ErrClientTxnConflict
+			return attachBlobResult{}, authn.ErrClientTxnConflict
 		}
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return AttachBlobResult{}, err
+		return attachBlobResult{}, err
 	}
-	return AttachBlobResult{
+	return attachBlobResult{
 		Payload: payload, StatusCode: http.StatusOK, IncidentID: meta.IncidentID, RecordID: recordID,
 		ChangeSetID: changeSetID, ClientTxnID: request.ClientTxnID, RowVersion: rowVersion,
 		ChangedFieldKeys: changedFieldKeys, AffectedRecordChanges: affectedChanges,
 	}, nil
 }
 
-func (s *BlobLifecycleService) QuarantineBlob(ctx context.Context, actorUserID uuid.UUID, objectBlobID uuid.UUID, trigger string, requestID string, now time.Time) (QuarantineBlobResult, error) {
+func (s *blobLifecycleService) QuarantineBlob(ctx context.Context, actorUserID uuid.UUID, objectBlobID uuid.UUID, trigger string, requestID string, now time.Time) (quarantineBlobResult, error) {
 	if !evidencepolicy.ValidQuarantineEntryTrigger(trigger) {
-		return QuarantineBlobResult{}, ErrIllegalBlobTransition
+		return quarantineBlobResult{}, ErrIllegalBlobTransition
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	blob, err := loadBlobForUpdateTx(ctx, tx, objectBlobID)
 	if err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, blob.IncidentID); err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 	if !evidencepolicy.LegalBlobTransition(blob.UploadState, evidencepolicy.BlobQuarantined, trigger) {
-		return QuarantineBlobResult{}, ErrIllegalBlobTransition
+		return quarantineBlobResult{}, ErrIllegalBlobTransition
 	}
 
 	rows, err := tx.Query(ctx, `
@@ -805,20 +684,20 @@ SELECT e.record_id
  FOR UPDATE OF e, r
 `, objectBlobID)
 	if err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 	recordIDs := make([]uuid.UUID, 0)
 	for rows.Next() {
 		var recordID uuid.UUID
 		if err := rows.Scan(&recordID); err != nil {
 			rows.Close()
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		recordIDs = append(recordIDs, recordID)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 	rows.Close()
 
@@ -828,12 +707,12 @@ SELECT e.record_id
 	for _, recordID := range recordIDs {
 		row, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		beforeRows[recordID] = row
 		snapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		beforeSnapshots[recordID] = snapshot
 		beforeVersions[recordID] = int64FromAny(row["row_version"])
@@ -847,11 +726,11 @@ UPDATE object_blobs
    AND upload_state = 'available'
 `, objectBlobID, now.UTC())
 	if err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
 
 	var changeSetID uuid.UUID
-	changedRows := make([]AttachRecordChange, 0, len(recordIDs))
+	changedRows := make([]attachRecordChange, 0, len(recordIDs))
 	if len(recordIDs) > 0 {
 		reason := trigger
 		requestIDPtr := &requestID
@@ -863,7 +742,7 @@ UPDATE object_blobs
 			Reason: &reason, RequestID: requestIDPtr, CreatedAt: now.UTC(),
 		})
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 	}
 
@@ -876,7 +755,7 @@ UPDATE evidence
  WHERE record_id = $1
 `, recordID, now.UTC())
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		if err := insertEvidenceCustodyEventTx(ctx, tx, evidenceCustodyEventParams{
 			IncidentID:       blob.IncidentID,
@@ -886,22 +765,22 @@ UPDATE evidence
 			OccurredAt:       now.UTC(),
 			Metadata:         map[string]any{"object_blob_id": objectBlobID.String(), "trigger": trigger},
 		}); err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		rowVersion, err := records.NewStore().AdvanceVersionTx(ctx, tx, recordID, actorUserID, now)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		if err := s.projections.RefreshEvidenceTx(ctx, tx, recordID); err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		afterRow, err := s.projections.LoadEvidenceTx(ctx, tx, recordID)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		afterSnapshot, err := s.revisionStore.CaptureRecordSnapshotTx(ctx, tx, recordID)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		beforeVersionID := fmt.Sprintf("%s:%d", recordID, beforeVersions[recordID])
 		afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
@@ -911,20 +790,20 @@ UPDATE evidence
 			OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
 			BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 		}); err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
 			BeforeSnapshot: &beforeSnapshot, AfterSnapshot: &afterSnapshot,
 			LiveChange: revisions.LiveRecordChange{BeforeValue: beforeRows[recordID], AfterValue: afterRow},
 		}); err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		projectionChanges, err := s.refreshEvidenceSupportProjectionsTx(ctx, tx, blob.IncidentID, recordID)
 		if err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
-		primaryChange := AttachRecordChange{
+		primaryChange := attachRecordChange{
 			RecordID: recordID, RowVersion: rowVersion, ViewSchemaID: ViewSchemaID,
 			ChangedFieldKeys: sortedChangedKeys(beforeRows[recordID], afterRow),
 		}
@@ -941,16 +820,16 @@ UPDATE evidence
 			projectionChanges,
 			now,
 		); err != nil {
-			return QuarantineBlobResult{}, err
+			return quarantineBlobResult{}, err
 		}
 		changedRows = append(changedRows, primaryChange)
 		changedRows = append(changedRows, projectionChanges...)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return QuarantineBlobResult{}, err
+		return quarantineBlobResult{}, err
 	}
-	return QuarantineBlobResult{
+	return quarantineBlobResult{
 		IncidentID: blob.IncidentID, ObjectBlobID: objectBlobID, ChangeSetID: changeSetID,
 		ChangedEvidenceRows: changedRows, ChangedEvidenceRecord: len(recordIDs),
 	}, nil
@@ -992,51 +871,6 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
 	return err
 }
 
-func (s *AccessHandleService) LoadEvidenceAccess(ctx context.Context, recordID uuid.UUID) (EvidenceAccessRecord, error) {
-	return s.accessHandles.loadEvidence(ctx, recordID)
-}
-
-func classifyEvidenceAccess(access EvidenceAccessRecord, boundObjectBlobID *uuid.UUID) string {
-	if access.ObjectBlobID == nil {
-		return "no_visible_blob"
-	}
-	if boundObjectBlobID != nil && *access.ObjectBlobID != *boundObjectBlobID {
-		return "evidence_inconsistent"
-	}
-	if !access.BlobMetadataVisible {
-		return "blob_missing"
-	}
-	if access.EvidenceLifecycleState == "quarantined" || access.UploadState == "quarantined" {
-		return "evidence_quarantined"
-	}
-	switch access.UploadState {
-	case "pending":
-		return "blob_pending"
-	case "failed":
-		return "blob_failed"
-	}
-	if (access.EvidenceLifecycleState != "available" && access.EvidenceLifecycleState != "released") || access.UploadState != "available" {
-		return "evidence_inconsistent"
-	}
-	return ""
-}
-
-func (s *AccessHandleService) InsertHandle(ctx context.Context, handle HandleRecord, issuedByUserID uuid.UUID) error {
-	return s.accessHandles.insert(ctx, handle, issuedByUserID)
-}
-
-func (s *AccessHandleService) LoadHandle(ctx context.Context, token string) (HandleRecord, error) {
-	return s.accessHandles.load(ctx, token)
-}
-
-func (s *AccessHandleService) ConsumeDownloadHandle(ctx context.Context, token string, now time.Time) error {
-	return s.accessHandles.consumeDownload(ctx, token, now)
-}
-
-func (s *AccessHandleService) CheckHandleAccess(ctx context.Context, handle HandleRecord) (string, error) {
-	return s.accessHandles.checkCurrent(ctx, handle)
-}
-
 type evidenceMeta struct {
 	IncidentID uuid.UUID
 	RowVersion int64
@@ -1068,7 +902,7 @@ SELECT r.incident_id, r.row_version
 	return meta, err
 }
 
-func loadBlobForUpdateTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID) (BlobRecord, error) {
+func loadBlobForUpdateTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID) (blobRecord, error) {
 	row := tx.QueryRow(ctx, `
 SELECT b.object_blob_id, b.incident_id, b.storage_key, b.upload_state, b.byte_size,
        b.filename_hint, b.content_type_hint, b.expected_sha256_hex,
@@ -1080,15 +914,15 @@ SELECT b.object_blob_id, b.incident_id, b.storage_key, b.upload_state, b.byte_si
  WHERE b.object_blob_id = $1
  FOR UPDATE OF b
 `, objectBlobID)
-	var record BlobRecord
+	var record blobRecord
 	if err := row.Scan(&record.ObjectBlobID, &record.IncidentID, &record.StorageKey, &record.UploadState, &record.ByteSize,
 		&record.FilenameHint, &record.ContentTypeHint, &record.ExpectedSHA256Hex,
 		&record.ObservedSize, &record.ObservedContentType, &record.ObservedSHA256Hex,
 		&record.TargetExpiresAt, &record.PendingExpiresAt, &record.UploadLeaseState); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return BlobRecord{}, ErrBlobNotFound
+			return blobRecord{}, ErrBlobNotFound
 		}
-		return BlobRecord{}, err
+		return blobRecord{}, err
 	}
 	return record, nil
 }
@@ -1132,7 +966,7 @@ UPDATE object_blobs
 	return uploadState == "failed", err
 }
 
-func markBlobAvailableTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, observed *ObservedObject, now time.Time) error {
+func markBlobAvailableTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, observed *observedObject, now time.Time) error {
 	tag, err := tx.Exec(ctx, `
 UPDATE object_blobs
    SET upload_state = 'available',
@@ -1180,7 +1014,7 @@ func int64FromAny(value any) int64 {
 	}
 }
 
-func (s *BlobLifecycleService) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
+func (s *blobLifecycleService) refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]attachRecordChange, error) {
 	return refreshEvidenceSupportProjectionsTx(ctx, tx, s.supportEffects, incidentID, evidenceRecordID)
 }
 
@@ -1190,7 +1024,7 @@ func refreshEvidenceSupportProjectionsTx(
 	effects evidenceprojection.SupportProjectionEffectsTx,
 	incidentID uuid.UUID,
 	evidenceRecordID uuid.UUID,
-) ([]AttachRecordChange, error) {
+) ([]attachRecordChange, error) {
 	subjects, err := loadEvidenceAssociationSubjectsTx(ctx, tx, incidentID, evidenceRecordID)
 	if err != nil {
 		return nil, err
@@ -1236,8 +1070,8 @@ SELECT r.record_id, r.record_type
 	return subjects, rows.Err()
 }
 
-func attachRecordChangesFromSupportEffects(result evidenceprojection.EvidenceAssociationEffectsResult) []AttachRecordChange {
-	changes := make([]AttachRecordChange, 0, len(result.Changes))
+func attachRecordChangesFromSupportEffects(result evidenceprojection.EvidenceAssociationEffectsResult) []attachRecordChange {
+	changes := make([]attachRecordChange, 0, len(result.Changes))
 	for _, effect := range result.Changes {
 		changedFieldKeys := make([]string, 0)
 		for _, view := range effect.AffectedViews {
@@ -1245,7 +1079,7 @@ func attachRecordChangesFromSupportEffects(result evidenceprojection.EvidenceAss
 		}
 		slices.Sort(changedFieldKeys)
 		changedFieldKeys = slices.Compact(changedFieldKeys)
-		changes = append(changes, AttachRecordChange{
+		changes = append(changes, attachRecordChange{
 			RecordID:         effect.RecordID,
 			RowVersion:       effect.RowVersion,
 			ChangedFieldKeys: changedFieldKeys,

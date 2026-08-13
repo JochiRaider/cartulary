@@ -955,6 +955,29 @@
       "minimum_tier": "standard"
     },
     {
+      "row_id": "module.evidence.surface.iteration2_exported_surface_reachability",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.surface",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.exported_surface_minimization"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceExportedSurfaceReachabilityLock"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast"
+    },
+    {
       "row_id": "module.evidence.unit.canonical_evidence_view_row_mapping_preserves_ri_1550a3228d",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -1023,7 +1046,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestWorkbookCreateValidation_AdoptedSignalAndLifecycleMatrix"
+          "TestEvidenceCreateValidation_AdoptedSignalAndLifecycleMatrix"
         ]
       },
       "evidence_class": "unit",
@@ -1069,7 +1092,7 @@
       "selector": {
         "package": "./internal/modules/evidence",
         "tests": [
-          "TestLegacyObjectUploadCapabilitiesFailClosed_Unit",
+          "TestObjectUploadCapabilityVersion1IsRejected_Unit",
           "TestReasonCodeRegistryConformance_Unit"
         ]
       },
@@ -1152,7 +1175,7 @@
           "TestEvidenceCleanupDispatcherRejectsIncompleteDependencies",
           "TestEvidenceCleanupDispatcherShutdownCancelsInFlightSweep",
           "TestEvidenceCleanupDispatcherStartsAfterActivationRunsEveryFifteenMinutesAndStops",
-          "TestEvidenceCleanupObjectDeleterRejectsLegacyOnlyStore",
+          "TestEvidenceCleanupObjectDeleterRequiresTypedStore",
           "TestEvidenceCleanupObjectDeleterUsesTypedPurposeAndPreservesNotFound"
         ]
       },

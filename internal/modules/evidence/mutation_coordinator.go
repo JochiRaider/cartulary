@@ -28,7 +28,7 @@ type evidenceCreateTxCommand struct {
 	Source        string
 	ChangeSetID   *uuid.UUID
 	MutationOrder int
-	Values        map[string]WorkbookFieldValue
+	Values        map[string]FieldValue
 	Now           time.Time
 }
 
@@ -46,7 +46,7 @@ func (coordinator evidenceSourceMutationKernel) createTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	command evidenceCreateTxCommand,
-	createParams WorkbookCreateParams,
+	createParams createParams,
 ) (evidenceCreateTxResult, error) {
 	if err := coordinator.incidents.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
 		return evidenceCreateTxResult{}, err
@@ -139,7 +139,7 @@ func (coordinator evidenceSourceMutationKernel) createTx(
 		command.ActorUserID,
 		command.ClientTxnID,
 		changeSetID,
-		AttachRecordChange{
+		attachRecordChange{
 			RecordID:         recordID,
 			RowVersion:       1,
 			ViewSchemaID:     command.ViewSchemaID,

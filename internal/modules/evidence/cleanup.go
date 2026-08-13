@@ -20,13 +20,13 @@ const (
 	cleanupOverdueThreshold  = 15 * time.Minute
 )
 
-// CleanupObjectDeleter is the only object-store capability used by the
-// durable cleanup engine. S09 supplies the governed typed-purpose adapter.
-type CleanupObjectDeleter interface {
+// cleanupObjectDeleter is the only object-store capability used by the
+// durable cleanup engine. The production adapter binds the governed purpose.
+type cleanupObjectDeleter interface {
 	DeleteObject(context.Context, string) error
 }
 
-type CleanupSweepResult struct {
+type cleanupSweepResult struct {
 	ExpiredPendingCount  int
 	ClaimedBlobCount     int
 	CleanedBlobCount     int
@@ -48,24 +48,24 @@ type cleanupClaim struct {
 // SweepFailedUnattachedBlobs performs one bounded, restart-safe cleanup sweep.
 // Claim acquisition and completion are transactional; object deletion is
 // deliberately outside a database transaction.
-func (s *CleanupService) SweepFailedUnattachedBlobs(
+func (s *cleanupService) SweepFailedUnattachedBlobs(
 	ctx context.Context,
-	deleter CleanupObjectDeleter,
+	deleter cleanupObjectDeleter,
 	now time.Time,
-) (CleanupSweepResult, error) {
+) (cleanupSweepResult, error) {
 	if deleter == nil {
-		return CleanupSweepResult{}, errors.New("sweep Evidence cleanup: object deleter is required")
+		return cleanupSweepResult{}, errors.New("sweep Evidence cleanup: object deleter is required")
 	}
 	now = now.UTC()
 	expired, err := s.blobLifecycle.markExpiredPending(ctx, now)
 	if err != nil {
-		return CleanupSweepResult{}, fmt.Errorf("expire pending Evidence blobs: %w", err)
+		return cleanupSweepResult{}, fmt.Errorf("expire pending Evidence blobs: %w", err)
 	}
 	claims, err := s.claimCleanupBatch(ctx, now)
 	if err != nil {
-		return CleanupSweepResult{}, err
+		return cleanupSweepResult{}, err
 	}
-	result := CleanupSweepResult{
+	result := cleanupSweepResult{
 		ExpiredPendingCount: expired,
 		ClaimedBlobCount:    len(claims),
 		HasMore:             len(claims) == cleanupBatchSize,
@@ -114,7 +114,7 @@ func (s *CleanupService) SweepFailedUnattachedBlobs(
 	return result, nil
 }
 
-func (s *CleanupService) cleanupHealthSnapshot(ctx context.Context, now time.Time) (int64, time.Duration, error) {
+func (s *cleanupService) cleanupHealthSnapshot(ctx context.Context, now time.Time) (int64, time.Duration, error) {
 	var overdue int64
 	var oldestSeconds float64
 	if err := s.pool.QueryRow(ctx, `
@@ -140,7 +140,7 @@ SELECT COUNT(*) FILTER (
 	return overdue, time.Duration(oldestSeconds * float64(time.Second)), nil
 }
 
-func (s *CleanupService) claimCleanupBatch(ctx context.Context, now time.Time) ([]cleanupClaim, error) {
+func (s *cleanupService) claimCleanupBatch(ctx context.Context, now time.Time) ([]cleanupClaim, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin Evidence cleanup claim transaction: %w", err)
@@ -222,7 +222,7 @@ ON CONFLICT (object_blob_id) DO UPDATE
 	return candidates, nil
 }
 
-func (s *CleanupService) scheduleCleanupRetry(
+func (s *cleanupService) scheduleCleanupRetry(
 	ctx context.Context,
 	claim cleanupClaim,
 	failureClass string,
@@ -261,7 +261,7 @@ func cleanupRetryDelay(attempt int) time.Duration {
 	}
 }
 
-func (s *CleanupService) completeCleanupClaim(
+func (s *cleanupService) completeCleanupClaim(
 	ctx context.Context,
 	claim cleanupClaim,
 	now time.Time,
@@ -332,7 +332,7 @@ UPDATE evidence_blob_cleanup_claims
 	return true, nil
 }
 
-func (s *CleanupService) deleteExpiredCleanupMetadata(ctx context.Context, now time.Time) (int, error) {
+func (s *cleanupService) deleteExpiredCleanupMetadata(ctx context.Context, now time.Time) (int, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("begin Evidence cleanup metadata retention: %w", err)

@@ -28,7 +28,7 @@ func TestSourceForRollbackValuePreservesPresenceAndAssociations(t *testing.T) {
 	if _, present := got["object_blob_id"]; present {
 		t.Fatal("absent blob identity unexpectedly became present")
 	}
-	if _, ok := sourceForRollbackValue(map[string]any{"cells": map[string]any{"evidence.title": map[string]any{"value": "legacy"}}}); ok {
+	if _, ok := sourceForRollbackValue(map[string]any{"cells": map[string]any{"evidence.title": map[string]any{"value": "unsupported"}}}); ok {
 		t.Fatal("schema-less projection row was accepted")
 	}
 }

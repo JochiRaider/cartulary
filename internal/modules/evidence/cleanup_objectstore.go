@@ -7,23 +7,15 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-type cleanupTypedObjectStore interface {
-	Delete(context.Context, objectstore.DeleteObjectRequest) error
-}
-
 type cleanupObjectStoreDeleter struct {
-	store cleanupTypedObjectStore
+	store objectstore.TypedStore
 }
 
-func NewCleanupObjectDeleter(store objectstore.Store) (CleanupObjectDeleter, error) {
+func newCleanupObjectDeleter(store objectstore.TypedStore) (cleanupObjectDeleter, error) {
 	if store == nil {
 		return nil, errors.New("compose Evidence cleanup object deleter: object store is required")
 	}
-	typed, ok := store.(cleanupTypedObjectStore)
-	if !ok {
-		return nil, errors.New("compose Evidence cleanup object deleter: typed delete capability is required")
-	}
-	return cleanupObjectStoreDeleter{store: typed}, nil
+	return cleanupObjectStoreDeleter{store: store}, nil
 }
 
 func (deleter cleanupObjectStoreDeleter) DeleteObject(ctx context.Context, key string) error {

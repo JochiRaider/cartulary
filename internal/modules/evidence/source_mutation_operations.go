@@ -1,5 +1,7 @@
 package evidence
 
+// Source mutation operations implement Evidence-owned row changes.
+
 import (
 	"context"
 	"database/sql"
@@ -13,7 +15,7 @@ import (
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 )
 
-type WorkbookFieldValue struct {
+type FieldValue struct {
 	Text      *string
 	Timestamp *time.Time
 	UUID      *uuid.UUID
@@ -21,20 +23,20 @@ type WorkbookFieldValue struct {
 	Bool      *bool
 }
 
-type WorkbookCreateParams struct {
-	Values                 map[string]WorkbookFieldValue
-	InitialBlob            *InitialBlobAssociation
+type createParams struct {
+	Values                 map[string]FieldValue
+	InitialBlob            *initialBlobAssociation
 	InitialBlobFinalized   bool
 	InitialBlobWasSupplied bool
 }
 
-type InitialBlobAssociation struct {
+type initialBlobAssociation struct {
 	ObjectBlobID uuid.UUID
 	StorageRef   string
 	SHA256Hex    *string
 }
 
-type WorkbookLifecyclePatchChange struct {
+type lifecyclePatchChange struct {
 	FieldKey string
 	Text     *string
 }
@@ -59,7 +61,7 @@ func (e *LifecycleValidationError) Error() string {
 	return "evidence: illegal transition"
 }
 
-func (s *SourceMutationService) InsertWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params WorkbookCreateParams, now time.Time) error {
+func (s *sourceMutationService) insertRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params createParams, now time.Time) error {
 	lifecycleState := "requested"
 	if lifecycleValue, present := params.Values["evidence.lifecycle_state"]; present && lifecycleValue.Text != nil {
 		lifecycleState = *lifecycleValue.Text
@@ -110,7 +112,7 @@ INSERT INTO evidence (
 	return nil
 }
 
-func (s *SourceMutationService) ValidateWorkbookLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changes []WorkbookLifecyclePatchChange) error {
+func (s *sourceMutationService) validateLifecyclePatchTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, changes []lifecyclePatchChange) error {
 	var from string
 	var objectBlobID sql.NullString
 	var uploadState sql.NullString
@@ -141,7 +143,7 @@ SELECT e.lifecycle_state, e.object_blob_id::text, b.upload_state
 	return nil
 }
 
-func (s *SourceMutationService) ApplyWorkbookDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value WorkbookFieldValue, now time.Time) (bool, error) {
+func (s *sourceMutationService) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
 	if !strings.HasPrefix(fieldKey, "evidence.") {
 		return false, &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
@@ -154,14 +156,14 @@ func (s *SourceMutationService) ApplyWorkbookDirectChangeTx(ctx context.Context,
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *SourceMutationService) TouchWorkbookRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
+func (s *sourceMutationService) touchRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, now time.Time) error {
 	if _, err := tx.Exec(ctx, `UPDATE evidence SET updated_at = $2 WHERE record_id = $1`, recordID, now); err != nil {
 		return fmt.Errorf("touch evidence row: %w", err)
 	}
 	return nil
 }
 
-func directDBValue(value WorkbookFieldValue) any {
+func directDBValue(value FieldValue) any {
 	switch {
 	case value.Text != nil:
 		return *value.Text
@@ -178,21 +180,21 @@ func directDBValue(value WorkbookFieldValue) any {
 	}
 }
 
-func nullableTextValue(values map[string]WorkbookFieldValue, field string) any {
+func nullableTextValue(values map[string]FieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Text != nil {
 		return *value.Text
 	}
 	return nil
 }
 
-func nullableUUIDValue(values map[string]WorkbookFieldValue, field string) any {
+func nullableUUIDValue(values map[string]FieldValue, field string) any {
 	if value, ok := values[field]; ok && value.UUID != nil {
 		return *value.UUID
 	}
 	return nil
 }
 
-func nullableTimestampValue(values map[string]WorkbookFieldValue, field string) any {
+func nullableTimestampValue(values map[string]FieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Timestamp != nil {
 		return value.Timestamp.UTC()
 	}

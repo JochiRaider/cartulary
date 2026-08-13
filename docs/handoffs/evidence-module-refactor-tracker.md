@@ -9,11 +9,11 @@
 | Target path | `internal/modules/evidence` |
 | Target label | `evidence`, derived from the final path segment and normalized to lowercase kebab case |
 | Output path | `docs/handoffs/evidence-module-refactor-tracker.md` |
-| Status | DONE: S00-S10 complete; all required gaps and validation gates closed |
-| Gap closure | End-to-end remediation through validation and handoff |
-| Implementation sequence | S00 through S10, strictly serial |
-| Compatibility posture | Clean upload-capability cutover; no Store or token compatibility shim |
-| Permitted writes | Owner specifications, authored contracts, migrations, implementation, tests, frontend, authored harness inputs, generated outputs through Make, and this tracker |
+| Status | Iteration 1 S00-S10 and Iteration 2 S11-S17 complete |
+| Gap closure | Iteration 1 G01-G11 and Iteration 2 G12-G18 closed |
+| Implementation sequence | S00-S10 are the completed Iteration 1 record; S11-S17 are the controlling serial Iteration 2 sequence |
+| Compatibility posture | Preserve normative behavior and data; remove obsolete internal Go surfaces, untyped Evidence storage fallbacks, and transitional structure without shims |
+| Permitted writes | S11 changes only this tracker; later authorized slices may change internal implementation, tests, authored verification inputs, generated outputs through Make, and required callers |
 | Prohibited writes | Hand edits to generated roots, dependency lock files, and test/runtime dependencies on Markdown |
 
 `MUST`, `MUST NOT`, `SHALL`, and `REQUIRED` in this tracker govern only the
@@ -23,11 +23,19 @@ authority within their scopes. If this tracker conflicts with an adopted owner,
 the owner controls and the affected work MUST record
 `BLOCKED: owner contradiction`.
 
-Implementation was explicitly authorized on 2026-08-11. Each slice MUST update
-this tracker and pass `make lint-markdown` before the next slice begins. A slice
-that cannot satisfy its exit criteria MUST be marked `BLOCKED`; later slices
-MUST NOT begin. Tests, generators, conformance, and runtime code MUST NOT read
-this tracker or any other Markdown.
+Iteration 1 implementation was explicitly authorized on 2026-08-11 and is
+complete. Iteration 2 implementation was explicitly authorized on 2026-08-12;
+S11 through S17 are complete. Each slice updated this tracker and passed
+`make lint-markdown` before its successor began.
+A slice that cannot satisfy its exit criteria MUST be marked `BLOCKED`; later
+slices MUST NOT begin. Tests, generators, conformance, and runtime code MUST
+NOT read this tracker or any other Markdown.
+
+Sections 2 through 12 preserve the completed Iteration 1 inventory, decisions,
+execution evidence, and handoff. Sections 13 through 22 are the controlling
+Iteration 2 production-readiness plan. A historical finding is not open work
+unless the Iteration 2 delta inventory or gap matrix explicitly carries it
+forward.
 
 ### 1.2 Source hierarchy and evidence inspected
 
@@ -47,7 +55,7 @@ inspected include Core 00 through Core 04, the Reporting and Testing Harness
 NLSpecs, and `docs/domain.md`. Core 05 is inapplicable because no conformance
 claim is published here.
 
-Repository evidence inspected includes all 70 current target files in Section 2 and
+Repository evidence inspected includes all 70 Iteration 1 target files in Section 2 and
 the exact live Evidence routes, admission, tokens, handles, former Store and
 current cohesive services, runtime,
 Workbook/projection contributions, Projections adapters/storage, Collaboration
@@ -76,7 +84,11 @@ Those seams MUST be judged by semantic ownership, not directory depth.
 
 ## 2. Current-State Repository Inventory
 
-The target contains 70 files: 48 production Go files, 21 Go test files, and one inert placeholder. Every file is inventoried below. Generated contracts are read-only dependencies or downstream outputs; none is to be hand-edited.
+At the Iteration 1 handoff, the target contained 70 files: 48 production Go
+files, 21 Go test files, and one inert placeholder. That historical inventory
+is preserved below; the S16 completion record owns the final Iteration 2 layout.
+Generated contracts are read-only dependencies or downstream outputs; none is
+to be hand-edited.
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1234,3 +1246,406 @@ be recorded as `BLOCKED: owner contradiction` and the affected work MUST stop.
 - **PASS:** Framework mismatch and document-placement matrix are explicit.
 - **PASS:** Product completion is established by §6.10, and this tracker records
   every slice `DONE` with no unresolved required gap or blocker.
+
+## 13. Iteration 2 Delta Inventory
+
+Iteration 2 starts from the completed S10 state and is a production-readiness
+cleanup, not a feature phase. It considers only accidental Go surface,
+fragmented owner construction, untyped Evidence object-store fallbacks,
+transitional terminology and files, and permanent evidence that prevents those
+conditions from returning. The Iteration 1 behavior and security freeze remains
+in force.
+
+| Current path or surface | Current evidence | Iteration 2 disposition | Reason |
+| --- | --- | --- | --- |
+| `internal/modules/evidence/.gitkeep` | The directory contains production and test files, but the original empty-directory marker remains. | Delete in S16. | It has no runtime or documentation value and falsely describes the package state. |
+| Root exported surface | Request decoders, request hashes, service implementations, operation DTOs, validators, cleanup internals, and constructors are exported despite having no non-test consumer outside Evidence. | Account for every export in S12; unexport or remove accidental members in S13 and S15; enforce the final set with an AST guard. | Capitalization has become an accidental compatibility mechanism and obscures the intended owner boundary. |
+| Route composition | `RegisterRoutes(settings, WithRouteService(evidenceOwner.RouteService()))` is the only production construction path; `RouteOption` and `WithRouteService` exist only to inject one required capability. | Replace with `OwnerRuntime.RouteRegistrar(Settings)` in S13 and remove the optional injection surface. | A required application capability must not be represented as an optional variadic route setting. |
+| Cleanup composition | Server assembly separately constructs the cleanup service, typed deleter, observer, and dispatcher before constructing `OwnerRuntime`. | Make cleanup part of the validated owner runtime in S13 while preserving server-owned activation after readiness and reverse-order shutdown. | Split construction permits an incomplete owner runtime and duplicates dependency validation. |
+| Test-only contribution constructor | `NewTimelineAttachmentContribution` is documented as a focused-test helper and has no production caller. | Remove in S13; cross-owner tests use one complete reusable owner-runtime fixture. | Production APIs must not exist solely to let tests bypass the owner composition path. |
+| Route object-store adapter | Evidence prefers `objectstore.TypedStore` but falls back to `PutObject`, `ReadObject`, and `StatObject`. | Require typed storage at composition and delete every fallback in S14. | The fallback bypasses closed purposes and permits less-governed storage implementations in a security-sensitive path. |
+| Incident-bundle blob portability | `IncidentBundleBlobPortability` exposes a public `objectstore.Store` field and calls untyped read, write, and delete methods. | Replace literal construction with a fallible typed constructor and closed operation purposes in S14. | Bundle staging and cleanup need the same typed error and purpose governance as ordinary Evidence operations. |
+| `store.go` | The former broad `Store` is gone, but the 1,285-line filename still combines blob lifecycle, access handles, cleanup, route operations, source mutation, DTOs, errors, and constructors. | Split along capability boundaries in S16 after surface reduction. | The obsolete name and mixed responsibilities make future changes harder to locate and review. |
+| `routes.go`, `api.go`, and `workbook_facade.go` | Blob routes, handle routes, registration, decoding, mutation types, create, and patch orchestration remain in large mixed files. | Split by cohesive behavior in S16 without adding a new module or transport owner. | Smaller owner-local units reduce change risk without inventing package boundaries. |
+| Large integration suites | `integration_test.go` and `evidence_integration_test.go` mix distinct route, lifecycle, projection, Collaboration, and cleanup behavior. | Split by existing semantic behavior in S16 while retaining test names and verification ownership. | Test layout should explain the contracts it protects and must not create false production seams. |
+| Transitional terminology | Production comments still refer to S09; tests and filenames use `legacy`, `characterization`, and phase-era wording. | Replace with current contract language in S16. Retain the underlying version-1 rejection and migration-history assertions. | Historical wording hides continuing invariants, while deleting the negative evidence would weaken security and upgrade safety. |
+| Workbook-oriented root names | Evidence publishes `WorkbookContribution`, `Workbook*Request`, `Workbook*Command`, `WorkbookMutationResult`, and `WorkbookFieldValue`. | Rename atomically to Evidence-native mutation names in S15, without aliases. | Workbook owns generic coordination; the Evidence owner API should describe Evidence mutations rather than its current consumer. |
+| Provider packages | Projection, Reporting, Recovery, Revisions, rollback, and delete/restore packages have live owner or assembly consumers and passed the Iteration 1 provider suites. | Retain unless executable evidence establishes an ownership inversion. | Package movement by appearance would add churn without removing coupling. |
+| `workbookprojection` published language | The package is an active cross-owner Projections contract with live row, contribution, and support-effect consumers. | Defer redesign to a separately authorized cross-owner iteration. | It is active behavior, not dead code, and changing it would dominate this cleanup. |
+
+The intended final cross-package surface consists of owner runtime construction
+and accessors, Evidence-native mutation contracts consumed by Workbook,
+Timeline facts and attachment validation, cleanup lifecycle observations,
+source-owner contribution constructors, `blobref`, and the active
+`workbookprojection` language. S12 freezes exact membership from repository
+reachability rather than relying on this summary alone.
+
+## 14. Iteration 2 Compatibility and Deletion Posture
+
+Iteration 2 preserves public Evidence routes, HTTP and OpenAPI shapes, frontend
+requests and responses, authorization and concealment precedence, upload
+capability version 2 behavior, idempotency rows, lifecycle transitions,
+revision and Collaboration ordering, Reporting allowlists, incident-bundle
+formats, Recovery identities, cleanup deadlines, telemetry vocabulary, and
+stored data.
+
+Internal Go APIs intentionally break without aliases, compatibility facades,
+or deprecation shims. Unused exports, test-only production constructors,
+variadic injection of a single required route dependency, untyped Evidence
+storage fallbacks, public dependency fields, historical phase comments, file
+layout, and Workbook-oriented names inside the Evidence owner API are not
+compatibility contracts.
+
+No database, data migration, Core owner, Domain, OpenAPI, frontend, Reporting,
+telemetry-vocabulary, generated contract, or public behavior change is planned.
+Domain vocabulary is unchanged. `docs/research/nlspec-spec.md` informs planning
+completeness and binary acceptance criteria only; it is not Evidence product
+authority. If implementation discovers a required normative behavior change,
+migration, or owner contradiction, the affected slice is blocked and returned
+to specification planning instead of expanding tactically.
+
+The negative version-1 upload-capability fixture, typed-storage rejection, and
+historical migration-index assertions remain because they provide continuing
+security and upgrade value. Their names will describe the protected invariant,
+not a supported legacy mode. No version-1 decoder, untyped Evidence fallback,
+or migration compatibility path is retained.
+
+## 15. Iteration 2 Gap Matrix
+
+| Gap | Areas | Remediation | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| G12 — The completed Iteration 1 plan is still presented as the active execution posture. | Tracker and documentation. | Preserve S00-S10 and Sections 2-12 as historical evidence; add a delta-only controlling Iteration 2 with S11-S17, G12-G18, validation, handoff, deferrals, and binary criteria. | Rewriting completed evidence would lose auditability, while leaving it controlling would direct future work at closed gaps. | One unambiguous current ledger with intact historical proof. | Documentation only. | A later session can repeat closed work, miss the current deletion policy, or misread a historical blocker as live. | Section 1 points to the new iteration; S11-S17 are serial and internally consistent; Markdown and diff gates pass. |
+| G13 — Accidental and test-only exports enlarge the Evidence API. | Implementation, tests, authored verification routing, and boundary policy. | Inventory every root and owner-facing subpackage export; classify it as retain, rename, unexport, or remove; add an AST-backed exact export guard; migrate private-service tests in-package and cross-owner tests to a complete owner-runtime fixture. | Current capitalization exposes implementation types and constructors merely because external-package tests use them. | A smaller deliberate API that resists accidental growth and makes dependency direction visible. | Internal Go source break only; no aliases. | Test helpers and owner-private DTOs become de facto production contracts, increasing coupling and blocking later decomposition. | Every remaining export has a production consumer or named contribution role; old symbols have zero references; exact export and consumer compilation tests pass. |
+| G14 — Routes and cleanup are composed outside the complete owner runtime. | Owner runtime, server assembly, test support, telemetry binding, and tests. | Make `OwnerRuntime` construct route, mutation, attachment, import, and cleanup capabilities from one validated dependency set; expose a route registrar and cleanup dispatcher; retain server-owned start-after-readiness and shutdown; remove optional route injection and standalone internal constructors. | A successful owner construction should prove that every production capability is complete and cannot be forgotten by a consumer. | One fallible composition path, simpler assembly, and consistent test construction. | Internal constructor and accessor break only. | Partial composition can silently omit cleanup, duplicate validation, or let tests exercise a topology production never uses. | Missing-dependency matrix, server composition contract, readiness/start/shutdown tests, and searches for external internal-service construction pass. |
+| G15 — Evidence still admits untyped object-store behavior. | Evidence routes, Workbook initial-blob flow, cleanup, Incident Bundles, server assembly, object-store tests, and telemetry tests. | Require `objectstore.TypedStore` before readiness; remove route and portability fallbacks; use `product_upload`, `product_read`, `migration_copy`, `staged_cleanup`, and `evidence_cleanup` for their exact operations; make bundle portability construction fallible and private-field based. | Typed requests carry closed purpose and error semantics that untyped calls cannot enforce. | One governed storage path with fail-fast capability validation and reliable telemetry/error classification. | Internal dependency type break; production stores already implement the typed contract; no data migration. | A permissive store can bypass purpose policy, emit provider-specific errors, or perform unsafe bundle cleanup. | Untyped-only stores fail construction; exact-purpose assertions, typed not-found behavior, route flows, bundle round trip, staged cleanup, Recovery, and platform telemetry pass; no untyped method call remains under Evidence. |
+| G16 — Workbook terminology and owner-private types leak through the root API. | Evidence mutation API, Workbook adapters, Imports, tests, and export guard. | Rename the live owner contract to `MutationContribution`, `CreateRequest`, `PatchRequest`, `PatchChange`, `CreateCommand`, `PatchCommand`, `ConflictCommand`, `MutationResult`, and `FieldValue`; make the facade, internal parameters, validators, request decoders, hashes, services, DTOs, and import aliases private where no cross-owner consumer exists. | The owner API should model Evidence concepts and expose only information required for independent consumers. | Clearer owner language and lower future rename/decomposition cost. | Internal Go source break without aliases; operation strings, persisted JSON, errors, and wire behavior remain exact. | Consumer vocabulary becomes embedded in Evidence and owner-private changes require broad caller migrations. | Exact export guard, zero old-name references, stored idempotency replay, public error translation, ordinary/import parity, and affected owner suites pass. |
+| G17 — Transitional files, tests, comments, and placeholders reduce cohesion. | Implementation layout, tests, harness routing, and documentation comments. | Delete `.gitkeep`; split `store.go`, route/API files, mutation facade, and integration evidence along existing capability boundaries; rename characterization and legacy-oriented tests to contract language; remove phase-era comments while preserving test identities and invariants. | The former implementation sequence should not remain encoded in the steady-state package structure. | Smaller review units, clearer ownership, and safer future feature expansion. | Structural only; no new production package or verification owner. | Mixed files encourage duplicate sequencing and stale comments mislead maintainers about active behavior. | No placeholder, `store.go`, transitional production comment, false package seam, or duplicate sequencing remains; test declarations and semantic routing stay complete. |
+| G18 — Final deletion and compatibility evidence is not yet assembled. | Validation, generated state, security, documentation, and handoff. | Run owner-first and cross-owner slices, storage/security/browser gates, generated and migration drift, finalization, broad checks, build, and release verification; record all roots and compatibility conclusions. | Local compilation cannot prove cross-owner compatibility or that removed surfaces have no hidden consumer. | Reproducible production-readiness evidence for future maintenance. | None beyond the internal breaks already assigned to earlier slices. | Dead paths, stale harness routing, or behavior drift can survive an apparently successful cleanup. | S17 matrix passes, removed surfaces have no shim or consumer, G12-G18 are closed, and tracker state, evidence, risks, and completion checklist agree. |
+
+## 16. Iteration 2 Execution Policy and Tracker Gate
+
+S11 through S17 are strictly serial. Only one slice may be `ACTIVE` or
+`VALIDATING`. `READY` means the slice is fully planned but implementation has
+not begun. After validating a slice and before activating its successor, this
+tracker MUST record status, gap changes, files changed, substantive decisions,
+compatibility impact, commands and results, run roots, retained evidence,
+risks, blockers, handoff state, and binary criteria. `make lint-markdown` is the
+last gate at every checkpoint.
+
+A failed required check marks the slice `BLOCKED`; later slices do not start.
+Failures are returned to the slice that owns the changed behavior rather than
+receiving tactical cleanup in S17. A discovered normative behavior change,
+database migration, or owner contradiction also blocks the slice until the
+adopted owner and this plan are corrected.
+
+Generated roots and generated execution topology are changed only through
+their authored inputs and public Make targets. Tests, tools, generators,
+conformance, and runtime code MUST NOT read or derive facts from this tracker or
+other Markdown. Each slice has an atomic rollback boundary and must preserve
+the last completed checkpoint evidence.
+
+## 17. Iteration 2 Serial Workstreams
+
+| Slice | Workstream | Depends on | Status | Rollback boundary | Exit criterion |
+| --- | --- | --- | --- | --- | --- |
+| S11 | Iteration 2 tracker rebaseline | S10 | DONE | Revert only the Iteration 2 tracker additions and Section 1 status update. | Controlling inventory, compatibility, gaps, workstreams, validation, handoff, deferrals, and criteria are recorded; diff and Markdown gates pass. |
+| S12 | Characterization and exported-surface accounting | S11 | DONE | Revert only additive characterization, export guard, and authored verification routing. | Every later removal has zero production consumers or a named migration; current contracts and export membership are executable. |
+| S13 | Owner runtime and application composition | S12 | DONE | Revert owner runtime, server/test assembly, and route/cleanup constructor changes together. | One validated runtime constructs every Evidence capability; no external caller constructs owner internals. |
+| S14 | Typed object-storage cutover | S13 | DONE | Revert typed port, Evidence adapters, Incident Bundle adapters, and their caller changes together. | Every Evidence storage operation is typed with its exact purpose and untyped-only construction fails closed. |
+| S15 | Module-native API minimization | S14 | DONE | Revert owner API renames, consumer migrations, private-symbol changes, and export guard update together. | The final export allowlist passes; old names, aliases, and accidental exports are absent. |
+| S16 | Cohesion and historical-residue cleanup | S15 | DONE | Revert file/test moves and terminology changes without changing S15 behavior. | Cohesive files and tests retain one implementation of each sequence and all verification identities. |
+| S17 | Final validation and handoff | S16 | DONE | Return any correction to its owning slice; S17 changes only final evidence and tracker state. | Required owner, cross-owner, security, generated-state, browser, broad, build, and release gates pass and G12-G18 close. |
+
+### S11 — Iteration 2 tracker rebaseline
+
+- **Areas:** tracker and documentation.
+- **Remediation:** Update Section 1; preserve Sections 2-12 as Iteration 1;
+  add Sections 13-22 as the controlling delta inventory, compatibility policy,
+  gaps, execution rules, workstreams, validation, ledger, handoff, deferrals,
+  and checklist.
+- **Compatibility:** Documentation only. Domain vocabulary is unchanged. No
+  runtime, test, contract, generated, migration, schema, or frontend behavior
+  changes.
+- **Validation:** `git diff --check --
+  docs/handoffs/evidence-module-refactor-tracker.md`, `make lint-markdown`, and
+  final status review.
+- **Exit:** G12 is closed, S12 is `READY` but inactive, and S13-S17 remain
+  `PENDING`.
+
+### S12 — Characterization and exported-surface accounting
+
+- **Areas:** tests, authored verification routing, generated topology through
+  Make, boundary policy, and tracker.
+- **Remediation:** Inventory exports in the root, `blobref`,
+  `workbookprojection`, and provider packages using actual non-test consumers.
+  Classify every export as retain, rename, unexport, or remove. Add an
+  AST-backed exact allowlist and an authored `module.evidence.api_minimization`
+  verification identity. Freeze HTTP/OpenAPI behavior, authorization order,
+  error mapping, stored idempotency replay, Collaboration effects, cleanup
+  identity/cadence, Reporting output, incident-bundle bytes, Recovery
+  contributions, and typed-storage purposes before structural edits.
+- **Compatibility:** Additive tests and harness accounting only. Existing
+  semantic identities remain; generated routing changes only through authored
+  inputs and Make.
+- **Validation:** Evidence unit/service-backed slices; affected Workbook,
+  Timeline, Imports, Incident Bundles, Recovery, Projections, Revisions, server,
+  object-store, and telemetry rows; harness and generated drift gates.
+- **Exit:** Every S13-S16 change has executable retained behavior and a complete
+  reachability disposition; no planned deletion depends solely on a text
+  search.
+
+### S13 — Owner runtime and application composition
+
+The final post-S15 application-facing shape is:
+
+```go
+type OwnerRuntimeDependencies struct {
+    // Existing required owner dependencies.
+    ObjectStore     objectstore.TypedStore
+    CleanupObserver CleanupObserver
+    Now             func() time.Time
+}
+
+func (*OwnerRuntime) RouteRegistrar(Settings) httpapi.RouteRegistrar
+func (*OwnerRuntime) CleanupDispatcher() *CleanupDispatcher
+func (*OwnerRuntime) MutationContribution() MutationContribution
+```
+
+S13 retains `objectstore.Store` and `WorkbookContribution()` temporarily so
+that the typed-storage cutover and mutation-language rename remain atomic S14
+and S15 rollback boundaries. S14 narrows the dependency to
+`objectstore.TypedStore`; S15 installs `MutationContribution()` and its renamed
+contract.
+
+- **Areas:** Evidence owner runtime, routes, cleanup, server assembly, test
+  support, Workbook/Timeline/Imports composition, and tests.
+- **Remediation:** Construct blob lifecycle, access handles, route operations,
+  mutation facade, Timeline attachment contribution, Imports facade, cleanup
+  engine, typed deleter, and dispatcher once in `NewOwnerRuntime`. Require and
+  validate every dependency. Keep server responsibility for calling `Start`
+  only after publication readiness and for reverse-order shutdown. Remove
+  `RouteOption`, `WithRouteService`, `RouteService`, standalone
+  `RegisterRoutes`, public service/deleter/dispatcher constructors, and
+  `NewTimelineAttachmentContribution`. Cross-owner tests use one complete
+  reusable owner-runtime fixture; focused private-service tests move into the
+  Evidence package.
+- **Compatibility:** Internal constructor/accessor break only; no public route,
+  lifecycle, cadence, or telemetry change.
+- **Validation:** Complete missing-dependency matrix, exact runtime surface,
+  server startup/readiness/shutdown, cleanup activation, cross-owner
+  composition, owner slices, boundary, and zero-construction searches.
+- **Exit:** A successful owner construction proves all capabilities are
+  available; no server or test caller reconstructs Evidence internals.
+
+### S14 — Typed object-storage cutover
+
+- **Areas:** Evidence routes and Workbook mutation, cleanup, Incident Bundles,
+  server assembly, object-store contracts, telemetry, tests, and tracker.
+- **Remediation:** Require `objectstore.TypedStore` before readiness. Delete
+  `PutObject`, `ReadObject`, `StatObject`, and `DeleteObject` fallback paths.
+  Use `product_upload` for upload writes and upload observation,
+  `product_read` for availability, preview, download, and attachment reads,
+  `migration_copy` for bundle export/import bytes, `staged_cleanup` for failed
+  import staging, and `evidence_cleanup` for durable orphan deletion. Replace
+  `IncidentBundleBlobPortability{ObjectStore: ...}` with a fallible constructor
+  and private typed-store field. Preserve typed not-found and retry/error
+  classification.
+- **Compatibility:** Internal dependency break; production adapters already
+  provide typed capabilities. No object key, byte, bundle, route, or data
+  migration change.
+- **Validation:** Untyped-only negative fixture, exact purpose calls, typed
+  failure/not-found matrix, upload/attach/handle flows, bundle round trip and
+  rollback cleanup, Recovery, object-store telemetry, browser-backed Evidence,
+  boundary, and static absence of untyped calls below Evidence.
+- **Exit:** Every Evidence-owned storage access is typed and purpose-bound; an
+  incomplete adapter fails before readiness.
+
+### S15 — Module-native API minimization
+
+- **Areas:** Evidence root API, Workbook and Imports adapters, Timeline and
+  application assembly, tests, export guard, and tracker.
+- **Remediation:** Rename without aliases:
+  `WorkbookContribution` to `MutationContribution`,
+  `WorkbookCreateRequest` to `CreateRequest`,
+  `WorkbookPatchRequest` to `PatchRequest`,
+  `WorkbookPatchChange` to `PatchChange`,
+  `WorkbookCreateCommand` to `CreateCommand`,
+  `WorkbookPatchCommand` to `PatchCommand`,
+  `WorkbookConflictCommand` to `ConflictCommand`,
+  `WorkbookMutationResult` to `MutationResult`, and
+  `WorkbookFieldValue` to `FieldValue`. Make the facade, source/blob/access and
+  cleanup services, route handler, operation DTOs, internal request decoders
+  and hashes, validators, parameters, and import alias private where no
+  cross-owner consumer exists.
+- **Retained surface:** `Settings`, owner runtime construction and accessors,
+  Evidence-native mutation commands/results/errors consumed by Workbook,
+  Timeline facts and attachment capability, cleanup observer/dispatcher
+  lifecycle, legitimate contribution constructors, `blobref`, and
+  `workbookprojection`.
+- **Compatibility:** Intentional internal Go API break without aliases.
+  Operation strings, persisted JSON, public errors, transaction order, and wire
+  behavior remain exact.
+- **Validation:** Export guard, zero old-name/alias search, existing idempotency
+  row replay, public error translation, ordinary/import parity, cross-owner
+  compilation, owner slices, boundary, harness, and generated drift.
+- **Exit:** Every remaining export is deliberate and every owner-private symbol
+  is private; provider packages remain only where behavior proves a legitimate
+  seam.
+
+### S16 — Cohesion and historical-residue cleanup
+
+- **Areas:** implementation layout, tests, authored routing if file selectors
+  change, comments, and tracker.
+- **Remediation:** Delete `.gitkeep`. Replace `store.go` with cohesive files for
+  blob lifecycle, access handles, cleanup state, route operations, and source
+  mutation. Split route registration, blob routes, handle routes, and request
+  decoding. Split mutation types/composition, create, patch, conflict,
+  idempotency, and shared transaction behavior. Split the large integration
+  suites along current semantic tests without creating a production or
+  test-only subpackage. Rename characterization and legacy-oriented tests to
+  contract language; remove S00-S09 and stale inert-until-S09 comments.
+- **Retained evidence:** Immutable migration-history checks, version-1 upload
+  rejection, typed-store rejection, test names required by semantic routing,
+  and one implementation of every transaction sequence.
+- **Compatibility:** Structural only.
+- **Validation:** Evidence and affected owner slices, exact test-declaration and
+  routing parity, export/import/boundary guards, absence searches, harness
+  contract, generated drift when routing changes, and `make test-fast`.
+- **Exit:** No `.gitkeep`, `store.go`, phase-era production comment, false
+  package boundary, or duplicate sequence remains.
+
+### S17 — Final validation and handoff
+
+- **Areas:** validation, generated state, security, tracker, documentation, and
+  handoff.
+- **Remediation:** Run the Section 18 matrix from narrow owner checks through
+  release verification. Return a failure to its owning slice. Reconcile the
+  final export set, owner runtime, typed storage purposes, filenames, test
+  routing, generated outputs, compatibility conclusions, retained roots,
+  risks, and checklist.
+- **Compatibility:** No new behavior or migration may be introduced in S17.
+- **Exit:** Every required gate passes, removed APIs have no alias or consumer,
+  G12-G18 are closed, and the tracker is internally consistent and marked
+  `DONE`.
+
+## 18. Iteration 2 Validation Matrix
+
+| Layer | Command or scenario | Required point |
+| --- | --- | --- |
+| Tracker checkpoint | `git diff --check -- docs/handoffs/evidence-module-refactor-tracker.md`; `make lint-markdown`; status review | S11 and every later slice. |
+| Owner guidance | `make task-guide ROLE=module-author OWNER=<owner-id>` | Before selecting or changing verification routing. |
+| Formatting | `make format` | Every implementation slice that changes Go; never for tracker-only S11. |
+| Evidence | `make test-slice OWNER=module.evidence`; `make service-backed-test-slice OWNER=module.evidence` | S12-S17. |
+| Application/server | Matching unit and service-backed slices for `app.server` | S13, S14, and S17. |
+| Mutation consumers | Matching unit and service-backed slices for `module.workbook`, `module.timeline`, and `module.imports` | S12-S16 as affected and S17. |
+| Storage/portability | Matching unit and service-backed slices for `module.incidentbundles`, `module.recovery`, and `platform.objectstore` | S12, S14, and S17. |
+| Projection/history | Matching unit and service-backed slices for `module.projections` and `module.revisions` | S12, S15, and S17. |
+| Telemetry | Matching unit and service-backed slices for `platform.telemetry` | S13, S14, and S17. |
+| Export surface | Exact AST allowlist; no removed name, alias, external internal-service constructor, public dependency field, or test-only production helper | S12-S16 and S17. |
+| Behavior freeze | HTTP/OpenAPI, AC-543 precedence, idempotency replay, Collaboration ordering, cleanup cadence/deadlines, Reporting allowlist, bundle bytes, Recovery set | Before and after the owning structural slice. |
+| Typed storage | Untyped-only rejection; exact operation purposes; typed error/not-found behavior; no untyped Evidence method call | S14 and S17. |
+| Frontend | `make frontend-unit`; `make frontend-typecheck` | S14 and S17. |
+| Boundaries and harness | `make backend-module-boundary-check`; `make harness-evidence-contract`; `make harness-contract` | Every changed-boundary or routing slice and S17. |
+| Generated state | `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make migration-drift` | Changed-input slices and S17. |
+| Security/browser | `make go-gosec-targeted`; `make browser-e2e-stateful`; `make browser-e2e-webserver-backed` | S14 and S17. |
+| Final repository | `make agent-finalize`; `make test-fast`; `make check`; `make build`; `make release-check` | S17. |
+
+S17 reruns the unit and service-backed owner slices for Evidence, server,
+Workbook, Timeline, Imports, Incident Bundles, Recovery, Projections,
+Revisions, object store, and telemetry before broad checks. `make
+agent-finalize` uses a retained successful `RESULTS_DIR` when available;
+otherwise the tracker records that retained-run maintenance was skipped because
+`RESULTS_DIR` was unset. A broad unrelated failure is recorded with its run
+root and ownership evidence rather than silently excluded.
+
+### S17 final evidence reconciliation
+
+| Evidence group | Passing result and retained roots |
+| --- | --- |
+| Unit owner graph | Evidence 63/63 at `20260813T034157Z-p438215`; server 45/45 at `20260813T022136Z-p2941599`; Workbook 100/100 at `20260813T022136Z-p2941574`; Timeline 68/68 at `20260813T022721Z-p3137607`; Imports 40/40 at `20260813T022409Z-p3037603`; Projections 17/17 at `20260813T022409Z-p3037607`; Revisions 56/56 at `20260813T022409Z-p3037622`; Recovery 38/38 at `20260813T022520Z-p3094976`; Reporting 14/14 at `20260813T022520Z-p3094975`; Collaboration 44/44 at `20260813T022721Z-p3137605`; object store 6/6 at `20260813T022721Z-p3137606`; telemetry 10/10 at `20260813T022911Z-p3199906`; the exact Incident Bundles affected row 3/3 at `20260813T024547Z-p3735353`. |
+| Service-backed owner graph | Evidence 47/47 at `20260813T034157Z-p438218`; server 34/34 at `20260813T022911Z-p3199930`; Workbook 66/66, Timeline 46/46, and Imports 29/29 at `20260813T023014Z-p3251079`, `20260813T023014Z-p3251078`, and `20260813T023014Z-p3251098`; Projections 13/13, Incident Bundles 15/15, and Recovery 26/26 at `20260813T023219Z-p3336081`, `20260813T023219Z-p3336086`, and `20260813T023219Z-p3336085`; Reporting 7/7, Revisions 40/40, and Collaboration 33/33 at `20260813T023259Z-p3372199`, `20260813T023259Z-p3372194`, and `20260813T023259Z-p3372205`; object store 5/5 at `20260813T023437Z-p3425269`. Telemetry publishes no service-backed rows. |
+| Frontend and browser | Frontend unit 364/364 and typecheck 2/2 at `20260813T023449Z-p3427797` and `20260813T023449Z-p3427798`; stateful browser 36/36 and webserver-backed browser 62/62 at `20260813T023534Z-p3460373` and `20260813T023534Z-p3460371`; support browser 20/20 with one port lane at `20260813T030725Z-p4182573`; final release reran the complete browser graph at `20260813T035357Z-p806092`. |
+| Security, boundaries, and harness | Targeted Go security 4/4 at `20260813T023449Z-p3427930`; backend boundary 3/3 at `20260813T023534Z-p3460324`; harness contract 2/2 at `20260813T023935Z-p3540183`. |
+| Generated and migration state | Generate drift 4/4 at `20260813T023935Z-p3539965`; migration drift 5/5 at `20260813T023935Z-p3539995`; generated-artifact policy 3/3 and JSON shape 3/3 at `20260813T023951Z-p3545901` and `20260813T023951Z-p3545913`. |
+| Final repository | `agent-finalize` 1/1 at `20260813T034458Z-p500768`; `test-fast` 355/355 at `20260813T034520Z-p503683`; build 7/7 at `20260813T034520Z-p503732`; check 755/755 at `20260813T035234Z-p726834`; release check 927/927 at `20260813T035357Z-p806092`. |
+
+The broad Incident Bundles unit graph twice reached an unavailable external
+object-store seed at `20260813T022520Z-p3094983` and
+`20260813T024406Z-p3678376`; its exact affected row and complete
+service-backed graph passed unchanged. The first release run at
+`20260813T025217Z-p3945849` exposed an Entities support fixture that omitted
+the adopted upload session and explicit Evidence lifecycle transition, plus a
+browser support timeout. The fixture was corrected at its S13 consumer
+boundary, the exact Entities row passed 3/3 at
+`20260813T030406Z-p4152697`, browser support passed 20/20 with serialized port
+lanes, and the complete final release passed. The first final check's unrelated
+Jobs shutdown timing miss at `20260813T034726Z-p587456` passed 3/3 unchanged at
+`20260813T035209Z-p725462`; the complete check then passed.
+
+## 19. Iteration 2 Slice Checkpoint Ledger
+
+| Slice | Status | Files changed | Decisions and compatibility | Commands and evidence | Risks, blockers, and next action |
+| --- | --- | --- | --- | --- | --- |
+| S11 | DONE | `docs/handoffs/evidence-module-refactor-tracker.md` only | Preserved S00-S10 and Sections 2-12; made Sections 13-22 controlling; recorded domain vocabulary unchanged, no product/specification/migration change, no implementation start, and no compatibility shims for future internal removals. | `git diff --check -- docs/handoffs/evidence-module-refactor-tracker.md` passed; `make lint-markdown` passed at `.cartulary/test-results/20260813T002119Z-p1363390`. | No implementation was performed. S12 is ready but inactive; S13-S17 remain pending. |
+| S12 | DONE | Evidence exported-surface test; Evidence verification contract and authored family manifest; generated execution-topology render index; this tracker | Classified every current root, `blobref`, `workbookprojection`, internal-policy, and provider-package export as retain, rename, unexport, or remove; added an exact AST lock and negative fixture; preserved all product and data behavior; clarified the final API versus the S13-S15 atomic boundaries. | `make format` passed at `20260813T003836Z-p1380171`; `make generate` passed at `20260813T003640Z-p1375531`; the exact export row passed at `20260813T003840Z-p1383502`; affected unit and service-backed owner graphs passed through `20260813T005746Z-p1870116`; boundary, harness, drift, generated-policy, and JSON-shape gates passed through `20260813T005811Z-p1875935`; tracker diff passed and `make lint-markdown` passed at `20260813T005913Z-p1876750`. | One Incident Bundles unit row initially failed because its fixture could not seed the object store at `20260813T004450Z-p1514192`; the exact row passed unchanged at `20260813T004531Z-p1517928`. `platform.telemetry` has no service-backed rows; its unit graph passed. No stable blocker; S13 is ready. |
+| S13 | DONE | Evidence owner runtime, route and cleanup composition; server assembly and lifecycle test; complete cross-owner test support; exact export guard; affected tests; this tracker | `OwnerRuntime` now validates the cleanup observer and clock, constructs routes, mutations, Timeline/Imports capabilities, cleanup service/deleter/dispatcher, and retains captured route dependencies. Server owns only readiness activation and reverse-order close. Removed production route options, standalone route registration, test-only Timeline constructor, and public internal-service constructors. S13 deliberately retains broad `objectstore.Store` and Workbook names for the S14/S15 rollback boundaries; no wire, data, schema, telemetry vocabulary, or migration change occurred. | Format passed at `20260813T012628Z-p2201542`; Evidence unit 63/63 at `20260813T011421Z-p1923034` and service-backed 47/47 at `20260813T011542Z-p1957629`; server unit 45/45 at `20260813T011752Z-p2013838` and service-backed 34/34 at `20260813T012255Z-p2142499`; Workbook 100/100 at `20260813T011838Z-p2040621`, Timeline 68/68 at `20260813T012052Z-p2083276`, Imports 40/40 at `20260813T012206Z-p2115072`, and telemetry 10/10 at `20260813T012342Z-p2165059`; boundary passed at `20260813T012632Z-p2204921`; harness Evidence contract passed. | A broad Entities run reached 45/46 but its unrelated shared support integration row used no upload session and received the established `session_required` result at `20260813T012353Z-p2167373`; the changed Entity composition unit compiled and passed. No stable S13 blocker; S14 is ready. |
+| S14 | DONE | Evidence owner/runtime, routes, initial-blob path, cleanup deleter, and Incident Bundle blob port; Incident Bundles builder/importer/worker/route/import-provider composition; server typed-capability derivation; test support and exact export guard; this tracker | Evidence now accepts only `objectstore.TypedStore`; every product upload/read, migration copy, staged cleanup, and durable Evidence cleanup request carries its closed purpose. Server validates the raw capability after bootstrap and before owner/readiness assembly while retaining broad `Options.ObjectStore` for unrelated owners. One fallible blob-port instance is injected through all Incident Bundle operations. No key, byte, bundle, stored data, public error, schema, or migration changed. | Format passed at `20260813T013822Z-p2372483`; Evidence unit 63/63 at `20260813T013157Z-p2240526` and service-backed 47/47 at `20260813T013609Z-p2341783`; server exact typed/runtime rows passed at `20260813T013834Z-p2375910` and service-backed 34/34 at `20260813T014007Z-p2380581`; Incident Bundles exact retry passed at `20260813T013906Z-p2376662` and service-backed 15/15 at `20260813T013935Z-p2378214`; object store 6/6 and telemetry 10/10 passed through `20260813T014104Z-p2408519`; boundary passed at `20260813T014110Z-p2411061`; static searches found no platform untyped Evidence storage call or operation-local Incident Bundle port literal. | The first Incident Bundles unit graph attempt failed while seeding its external object-store fixture at `20260813T013520Z-p2335331`; the exact affected row passed unchanged. No stable blocker; S15 is ready. |
+| S15 | DONE | Evidence mutation API and owner runtime; Workbook, Imports, Timeline, server, and test assembly consumers; root services, DTOs, decoders, validators, cleanup internals, and import adapter; `blobref`; exact export guard; affected tests; this tracker | Renamed the Evidence cross-owner mutation language without aliases and removed the Workbook-oriented accessor. Unexported owner-private services, route implementation, operation/request types, hashes, validators, parameters, import alias, and dispatcher test hooks. Removed unused panic/boolean `blobref` helpers and migrated tests to error-returning APIs. Durable operation strings, stored replay JSON, public errors, transaction/effect order, wire behavior, data, schema, and migrations are unchanged. | Format passed at `20260813T014547Z-p2415205`; exact export row passed at `20260813T014804Z-p2451915`; Evidence unit 63/63 at `20260813T014952Z-p2453288` and service-backed 47/47 at `20260813T015109Z-p2484682`; Workbook 100/100 at `20260813T015109Z-p2484671`, Imports 40/40 at `20260813T015109Z-p2484701`, server 45/45 at `20260813T015341Z-p2581216`, Revisions 56/56 at `20260813T015601Z-p2640834`, and Projections 17/17 at `20260813T015905Z-p2704814`; boundary 3/3 and generated drift 4/4 passed through `20260813T015905Z-p2704973`; the Evidence harness contract passed; zero-reference and diff searches passed. | Timeline's Go work completed but its browser measurement lifecycle failed fixture preflight at `20260813T015601Z-p2640822`; Incident Bundles reached the known unavailable external object-store seed at `20260813T015601Z-p2640830`. Neither path consumes a retired Evidence identifier, and all direct mutation consumers compile and pass. No stable S15 blocker; S16 is ready. |
+| S16 | DONE | Evidence blob lifecycle, access handles, cleanup state, route operations/registration/blob/handle/errors, request decoding, mutation facade/create/patch/conflict/shared/source operations, integration suites, test names, provider references, boundary/probe/test-support inputs, generated topology, and this tracker | Deleted `.gitkeep`; replaced catch-all `store.go`; decomposed routes and mutation sequencing; split the two mixed integration suites into upload, attachment/authorization, projection/Collaboration, access-handle, route, lifecycle, and quarantine units. Replaced phase-era and legacy terminology with continuing contract language while retaining version-1 rejection, typed-store rejection, migration history, semantic row IDs, and the provider contract's required `CharacterizationRefs` field name. No production behavior, wire/data/schema, operation string, or migration changed. | Format passed at `20260813T021316Z-p2748854`; generation passed at `20260813T021319Z-p2752213`; exact export guard passed at `20260813T021206Z-p2747792`; Evidence unit 63/63 and service-backed 47/47 passed at `20260813T021338Z-p2755132` and `20260813T021338Z-p2755134`; boundary 3/3, harness 2/2, generated drift 4/4, JSON shape 3/3, and generated policy 3/3 passed through `20260813T021500Z-p2820576`; final `make test-fast` passed 355/355 at `20260813T021809Z-p2887824`; absence, exact-sequence, selector, and diff searches passed. | The first fast graph exposed a missing Evidence import in an Import Assembly fixture retained from S15; the exact failed row passed after restoring its required `ViewSchemaID` dependency at `20260813T021758Z-p2887295`, then the full graph passed. No stable blocker; S17 is ready. |
+| S17 | DONE | Final owner/cross-owner validation; S13 consumer fixture correction; S14 lint cleanup; final export, storage, layout, routing, generated-state, compatibility, and handoff reconciliation; this tracker | The final production export set is exact and every member has an independent owner or contribution role. `OwnerRuntime` remains the single complete composition path. Typed purposes remain `product_upload`, `product_read`, `migration_copy`, `staged_cleanup`, and `evidence_cleanup`; no untyped Evidence platform-store call or operation-local Incident Bundle port remains. The final capability-oriented layout and semantic verification identities agree with generated topology. No public route, OpenAPI, frontend protocol, telemetry vocabulary, schema, stored-data, key/byte, bundle-format, or Domain change occurred; intentional internal Go breaks have no shim. | Final Evidence unit 63/63 and service-backed 47/47 passed at `20260813T034157Z-p438215` and `20260813T034157Z-p438218`; the exact export lock passed at `20260813T033628Z-p371103`. The complete owner matrix, frontend, browser, security, boundary, harness, generation/migration drift, generated-policy, and JSON-shape evidence is retained in the S17 handoff below. `make agent-finalize` passed at `20260813T034458Z-p500768`; `make test-fast` passed 355/355 at `20260813T034520Z-p503683`; `make build` passed 7/7 at `20260813T034520Z-p503732`; final `make check` passed 755/755 at `20260813T035234Z-p726834`; final `make release-check` passed 927/927 at `20260813T035357Z-p806092`. Static zero-reference, typed-storage, constructor-literal, transitional-file, and diff searches passed. | No stable blocker or remaining implementation work. A Jobs shutdown timing assertion missed once in the first final check at `20260813T034726Z-p587456`, passed 3/3 unchanged at `20260813T035209Z-p725462`, and the full check then passed. Retained-run maintenance was skipped because no source-digest-compatible canonical check root existed before broad validation; `agent-finalize` passed with `RESULTS_DIR` unset. G12-G18 are closed. |
+
+## 20. Iteration 2 Session Handoff
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-08-12T20:18:22-04:00 | Codex / Iteration 2 planning and S11 document update | S11 done; S12 ready but inactive | Inspected the completed Evidence tracker, Domain vocabulary/ownership guidance, NLSpec planning guidance, current Evidence exports and callers, owner runtime, routes, cleanup, storage adapters, Incident Bundle portability, server/test assembly, verification owner guidance, and the completed Artifacts Iteration 2 pattern; touched only this tracker | Targeted read-only `rg`, `find`, `sed`, caller/export counts, `make task-guide ROLE=module-author OWNER=module.evidence`; `git diff --check -- docs/handoffs/evidence-module-refactor-tracker.md`; `make lint-markdown` at `.cartulary/test-results/20260813T002119Z-p1363390` | The next iteration is bounded to accidental API, composition, typed storage, cohesion, and retained negative evidence; diff and Markdown gates pass; Domain vocabulary is unchanged and no implementation began | None | A later authorized implementation session may activate S12 only, add characterization/export accounting, validate it, and update this tracker before S13. |
+| 2026-08-12T20:58:11-04:00 | Codex / S12 characterization and exported-surface accounting | S12 done; S13 ready but inactive | Added exact root/subpackage AST export accounting, its verification contract and authored test row, generated topology output, and this checkpoint | Format/generate; Evidence plus twelve affected owner unit graphs; available service-backed graphs; exact Incident Bundles retry; boundary, harness, generated drift/policy, and JSON-shape gates | Retained behavior and every planned API disposition are executable; no owner, Domain, public contract, schema, migration, or data change is required | No stable blocker; one transient object-store fixture failure cleared unchanged; telemetry has no service-backed row | Pass the S12 tracker diff and Markdown gates, then activate S13 only. |
+| 2026-08-12T21:26:54-04:00 | Codex / S13 owner runtime and application composition | S13 done; S14 ready but inactive | Consolidated Evidence production construction, captured route dependencies, server cleanup lifecycle, cross-owner runtime fixtures, private-service test bridges, export accounting, and this checkpoint | Format; Evidence/server/Workbook/Timeline/Imports/telemetry owner graphs; boundary and Evidence harness contract; static zero-consumer searches | One fallible owner constructor now produces every Evidence application capability; routes cannot obtain a second database, clock, or object store; cleanup starts only after readiness and closes in reverse order | No stable blocker; one unrelated Entities support row omitted the established upload session and failed closed | Pass the S13 tracker diff and Markdown gates, then activate S14 only. |
+| 2026-08-12T21:41:18-04:00 | Codex / S14 typed object-storage cutover | S14 done; S15 ready but inactive | Narrowed the complete Evidence runtime and all operation paths to typed storage; added the fallible private-field Incident Bundle blob port and injected it once through server, routes, worker, builder, importer, and import transactions; updated tests, export accounting, and this checkpoint | Format; Evidence/server/Incident Bundles/object-store/telemetry unit or exact graphs; Evidence/server/Incident Bundles service-backed graphs; boundary and static fallback/literal searches | Incomplete raw adapters fail before readiness; all owner operations carry the fixed purpose; typed errors and bundle rollback behavior remain green; no compatibility facade or data migration was added | No stable blocker; one transient Incident Bundles seed failure passed unchanged on exact retry | Pass the S14 tracker diff and Markdown gates, then activate S15 only. |
+| 2026-08-12T21:58:55-04:00 | Codex / S15 module-native API minimization | S15 done; S16 ready but inactive | Renamed the complete Evidence mutation contract and accessor, privatized unconsumed implementation surfaces and test hooks, removed unused `blobref` convenience APIs, migrated all consumers and tests, finalized exact export accounting, and updated this checkpoint | Format; exact export row; Evidence unit/service graphs; Workbook, Imports, server, Revisions, and Projections owner graphs; boundary, harness, generated drift, zero-name, zero-helper, and diff searches | Every remaining export has a production role; retired names have no Evidence consumer or alias; persisted and public compatibility contracts remain exact | No stable blocker; Timeline browser preflight and Incident Bundles external seeding produced retained infrastructure diagnostics outside the changed API paths | Pass the S15 tracker diff and Markdown gates, then activate S16 only. |
+| 2026-08-12T22:20:18-04:00 | Codex / S16 cohesion and residue cleanup | S16 done; S17 ready but inactive | Decomposed catch-all production and integration files, removed the placeholder, renamed current-contract tests and private source operations, updated authored routing/boundary/provider/probe inputs, regenerated projections, and updated this checkpoint | Format/generate; exact export; Evidence unit/service; boundary, harness, drift, policy, shape, absence/sequence/selector searches; 355/355 fast graph | Final package layout follows capability boundaries without a new package seam or duplicate create/patch path; verification identities and all observable behavior remain stable | No stable blocker; fast validation caught and cleared one missing Import Assembly test import from the S15 consumer migration | Pass the S16 tracker diff and Markdown gates, then activate S17 only. |
+| 2026-08-13T00:08:14-04:00 | Codex / S17 final validation and handoff | S11-S17 done; G12-G18 closed | Reran the complete owner matrix and repository gates; corrected the owning S13 Entities support fixture and S14 lint residue; reconciled exports, runtime topology, typed purposes, layout, routing, generated state, compatibility, deferrals, diagnostics, and this final checkpoint | Exact export and Evidence owner graphs; all affected unit/service owner graphs; frontend, browser, security, boundary, harness, drift, policy, and shape gates; `agent-finalize`; 355/355 fast; 7/7 build; 755/755 check; 927/927 release; zero-reference/storage/file/literal/diff searches | The complete refactor is production-ready. Public and persisted behavior is unchanged; internal Go compatibility was intentionally removed without aliases; all final APIs and storage operations have deliberate roles. | No stable blocker. Transient external fixture, browser contention, and Jobs timing diagnostics are recorded with passing retries and broad closing roots. Retained-run maintenance was skipped because no current source-digest-compatible canonical check existed before broad validation. | No further Iteration 2 work. Preserve Sections 13-22 as the final ledger and start a new adopted-owner plan for any deferred platform or feature change. |
+
+## 21. Iteration 2 Deferrals and Blockers
+
+| ID | Decision or blocker | Why it matters | Trigger or required authority | Status |
+| --- | --- | --- | --- | --- |
+| DEF-01 | Project-wide retirement of the platform `objectstore.Store` interface is outside Iteration 2. | Other owners still consume the broad interface; this iteration needs only to make Evidence typed-only. | Separate platform-owned reachability and migration plan. | DEFERRED |
+| DEF-02 | Redesign of `workbookprojection` is outside Iteration 2. | It is an active Evidence/Projections published language, not dead code. | Separate cross-owner contract and migration plan before a projection-language version change. | DEFERRED |
+| DEF-03 | Provider relocation without evidence of an ownership inversion is outside Iteration 2. | Current providers express legitimate source-owner seams and passed closure suites. | Reopen only if executable boundary evidence shows consumer-owned or cyclic construction. | DEFERRED |
+| DEF-04 | New routes, schemas, lifecycle tokens, telemetry vocabulary, Reporting fields, or Domain terms are outside Iteration 2. | This is structural cleanup; adding behavior would invalidate the compatibility freeze. | Adopted owner amendment and tracker replan. | DEFERRED |
+| None | No current stable blocker or remaining Iteration 2 work. | All slices and closing validation gates passed under the existing owner authority. | Start a new adopted-owner plan before any deferred platform, vocabulary, schema, or feature change. | CLEAR |
+
+Any later normative contradiction MUST be recorded as `BLOCKED: owner
+contradiction`. A required database migration or public behavior change also
+blocks the affected slice and returns it to planning; it is not absorbed into
+an implementation cleanup.
+
+## 22. Iteration 2 Binary Completion Criteria
+
+- [x] S00-S10 and Sections 2-12 remain available as the completed Iteration 1
+  record.
+- [x] Section 1 identifies Iteration 2 S11-S17 as the controlling sequence.
+- [x] The delta inventory distinguishes dead/accidental surface from active
+  provider and projection contracts.
+- [x] G12-G18 include remediation, areas, rationale, benefit, compatibility,
+  unresolved risk, and binary validation.
+- [x] The compatibility posture preserves public/data/security behavior and
+  rejects aliases or untyped Evidence fallbacks.
+- [x] Domain vocabulary is recorded unchanged and NLSpec research remains
+  non-authoritative planning doctrine.
+- [x] S11 changes only this tracker and passes its diff and Markdown gates.
+- [x] S12 characterizes retained behavior and installs exact export accounting.
+- [x] S13 makes `OwnerRuntime` the only complete production composition path.
+- [x] S14 removes every untyped Evidence storage path and binds exact purposes.
+- [x] S15 leaves only the deliberate module-native exported surface, without
+  aliases.
+- [x] S16 removes the dead placeholder, transitional structure/wording, and
+  catch-all file layout without duplicating behavior.
+- [x] S17 records passing owner, cross-owner, security, generated, browser,
+  broad, build, and release evidence.
+- [x] No removed identifier, constructor, package path, or fallback has a shim
+  or remaining consumer.
+- [x] G12-G18 are closed, no required blocker remains, and the final tracker,
+  implementation, verification routing, evidence roots, handoff, and checklist
+  agree.

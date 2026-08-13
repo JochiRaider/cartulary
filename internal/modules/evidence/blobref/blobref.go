@@ -30,14 +30,6 @@ func ObjectBlobStorageKey(incidentID uuid.UUID, objectBlobID uuid.UUID) (string,
 	return storageKeyIncidentSeg + "/" + incidentID.String() + "/" + storageKeyBlobSeg + "/" + objectBlobID.String(), nil
 }
 
-func MustObjectBlobStorageKey(incidentID uuid.UUID, objectBlobID uuid.UUID) string {
-	key, err := ObjectBlobStorageKey(incidentID, objectBlobID)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
-
 func ParseObjectBlobStorageKey(key string) (StorageKeyParts, error) {
 	if err := validateStorageKeySyntax(key); err != nil {
 		return StorageKeyParts{}, err
@@ -57,24 +49,11 @@ func ParseObjectBlobStorageKey(key string) (StorageKeyParts, error) {
 	return StorageKeyParts{IncidentID: incidentID, ObjectBlobID: objectBlobID}, nil
 }
 
-func ValidObjectBlobStorageKey(key string) bool {
-	_, err := ParseObjectBlobStorageKey(key)
-	return err == nil
-}
-
 func ObjectBlobStorageRef(objectBlobID uuid.UUID) (string, error) {
 	if objectBlobID == uuid.Nil {
 		return "", fmt.Errorf("object_blob_id is required")
 	}
 	return StorageRefScheme + objectBlobID.String(), nil
-}
-
-func MustObjectBlobStorageRef(objectBlobID uuid.UUID) string {
-	ref, err := ObjectBlobStorageRef(objectBlobID)
-	if err != nil {
-		panic(err)
-	}
-	return ref
 }
 
 func ParseObjectBlobStorageRef(ref string) (uuid.UUID, error) {

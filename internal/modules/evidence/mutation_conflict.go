@@ -1,5 +1,7 @@
 package evidence
 
+// Conflict resolution remains part of the Evidence mutation contract.
+
 import (
 	"context"
 	"fmt"
@@ -13,20 +15,20 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type WorkbookConflictCommand struct {
+type ConflictCommand struct {
 	Mechanics      conflictresolution.Command
 	Actor          authn.UserRecord
 	ResolutionKind string
-	Patch          *WorkbookPatchRequest
+	Patch          *PatchRequest
 	Now            time.Time
 }
 
-func (f *WorkbookFacade) ResolveConflict(
+func (f *mutationFacade) ResolveConflict(
 	ctx context.Context,
-	command WorkbookConflictCommand,
-) (WorkbookMutationResult, error) {
+	command ConflictCommand,
+) (MutationResult, error) {
 	if command.ResolutionKind != "keep_saved" {
-		return f.Patch(ctx, WorkbookPatchCommand{
+		return f.Patch(ctx, PatchCommand{
 			Actor:            command.Actor,
 			RecordID:         command.Mechanics.RecordID,
 			Request:          *command.Patch,
@@ -38,7 +40,7 @@ func (f *WorkbookFacade) ResolveConflict(
 		})
 	}
 	if f.keepSaved == nil {
-		return WorkbookMutationResult{}, fmt.Errorf("evidence: keep-saved idempotency is not configured")
+		return MutationResult{}, fmt.Errorf("evidence: keep-saved idempotency is not configured")
 	}
 	result, err := conflictresolution.KeepSaved(
 		ctx,
@@ -48,9 +50,9 @@ func (f *WorkbookFacade) ResolveConflict(
 		f.loadConflictTarget,
 	)
 	if err != nil {
-		return WorkbookMutationResult{}, err
+		return MutationResult{}, err
 	}
-	return WorkbookMutationResult{
+	return MutationResult{
 		Payload:      result.Payload,
 		StatusCode:   http.StatusOK,
 		Replayed:     result.Replayed,
@@ -62,7 +64,7 @@ func (f *WorkbookFacade) ResolveConflict(
 	}, nil
 }
 
-func (f *WorkbookFacade) loadConflictTarget(
+func (f *mutationFacade) loadConflictTarget(
 	ctx context.Context,
 	tx pgx.Tx,
 	command conflictresolution.Command,

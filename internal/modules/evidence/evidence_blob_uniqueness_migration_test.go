@@ -61,11 +61,11 @@ INSERT INTO public.evidence (
 	}
 }
 
-func requireEvidenceBlobIndexState(t testing.TB, db *sql.DB, uniquePresent bool, legacyPresent bool) {
+func requireEvidenceBlobIndexState(t testing.TB, db *sql.DB, uniquePresent bool, supersededPresent bool) {
 	t.Helper()
 	for indexName, want := range map[string]bool{
 		"evidence_object_blob_unique_idx": uniquePresent,
-		"evidence_object_blob_idx":        legacyPresent,
+		"evidence_object_blob_idx":        supersededPresent,
 	} {
 		var present bool
 		if err := db.QueryRowContext(context.Background(), `

@@ -92,16 +92,7 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 		t.Fatal(err)
 	}
 	acknowledgeAllPublicationComponents(t, controller)
-	sweeper := &serverCleanupSweeper{started: make(chan bool, 1), readiness: lifecycle.AdmissionOpen}
-	dispatcher, err := evidence.NewCleanupDispatcher(
-		sweeper,
-		serverCleanupDeleter{},
-		serverCleanupObserver{},
-		time.Now,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dispatcher := &serverCleanupLifecycle{started: make(chan bool, 1), readiness: lifecycle.AdmissionOpen}
 	runtime := &Runtime{
 		publication:               controller,
 		lifecycle:                 lifecycle,
@@ -114,7 +105,7 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 	})
 	t.Cleanup(runtime.Close)
 	select {
-	case <-sweeper.started:
+	case <-dispatcher.started:
 		t.Fatal("cleanup dispatcher started before serving readiness")
 	default:
 	}
@@ -122,7 +113,7 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 		t.Fatal(err)
 	}
 	select {
-	case ready := <-sweeper.started:
+	case ready := <-dispatcher.started:
 		if !ready {
 			t.Fatal("cleanup first sweep began before serving readiness opened")
 		}
@@ -131,24 +122,14 @@ func TestEvidenceCleanupDispatcherStartsOnlyAfterServingReadiness(t *testing.T) 
 	}
 }
 
-type serverCleanupSweeper struct {
+type serverCleanupLifecycle struct {
 	started   chan bool
 	readiness func() bool
 }
 
-func (sweeper *serverCleanupSweeper) SweepFailedUnattachedBlobs(
-	context.Context,
-	evidence.CleanupObjectDeleter,
-	time.Time,
-) (evidence.CleanupSweepResult, error) {
-	sweeper.started <- sweeper.readiness()
-	return evidence.CleanupSweepResult{HealthSnapshotValid: true}, nil
+func (lifecycle *serverCleanupLifecycle) Start(context.Context) error {
+	lifecycle.started <- lifecycle.readiness()
+	return nil
 }
 
-type serverCleanupDeleter struct{}
-
-func (serverCleanupDeleter) DeleteObject(context.Context, string) error { return nil }
-
-type serverCleanupObserver struct{}
-
-func (serverCleanupObserver) ObserveCleanupSweep(context.Context, evidence.CleanupSweepObservation) {}
+func (*serverCleanupLifecycle) Close(context.Context) error { return nil }

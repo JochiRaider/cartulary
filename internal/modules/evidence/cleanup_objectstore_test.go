@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -9,7 +10,7 @@ import (
 
 func TestEvidenceCleanupObjectDeleterUsesTypedPurposeAndPreservesNotFound(t *testing.T) {
 	typed := &cleanupTypedStoreFixture{}
-	deleter, err := NewCleanupObjectDeleter(typed)
+	deleter, err := newCleanupObjectDeleter(typed)
 	if err != nil {
 		t.Fatalf("compose typed cleanup deleter: %v", err)
 	}
@@ -31,14 +32,19 @@ func TestEvidenceCleanupObjectDeleterUsesTypedPurposeAndPreservesNotFound(t *tes
 	}
 }
 
-func TestEvidenceCleanupObjectDeleterRejectsLegacyOnlyStore(t *testing.T) {
-	if _, err := NewCleanupObjectDeleter(cleanupLegacyStoreFixture{}); err == nil {
-		t.Fatal("legacy-only object store was accepted for Evidence cleanup")
+func TestEvidenceCleanupObjectDeleterRequiresTypedStore(t *testing.T) {
+	field, ok := reflect.TypeOf(OwnerRuntimeDependencies{}).FieldByName("ObjectStore")
+	if !ok {
+		t.Fatal("Evidence owner runtime is missing its object-store dependency")
+	}
+	typedStore := reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem()
+	if field.Type != typedStore {
+		t.Fatalf("Evidence owner object-store dependency = %v, want %v", field.Type, typedStore)
 	}
 }
 
 type cleanupTypedStoreFixture struct {
-	objectstore.Store
+	objectstore.TypedStore
 	request objectstore.DeleteObjectRequest
 	err     error
 }
@@ -46,8 +52,4 @@ type cleanupTypedStoreFixture struct {
 func (store *cleanupTypedStoreFixture) Delete(_ context.Context, request objectstore.DeleteObjectRequest) error {
 	store.request = request
 	return store.err
-}
-
-type cleanupLegacyStoreFixture struct {
-	objectstore.Store
 }

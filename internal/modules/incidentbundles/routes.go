@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -42,6 +43,7 @@ type routeOptions struct {
 	jobAdmission      incidentBundleJobAdmission
 	jobOperations     incidentBundleJobOperations
 	jobRunner         incidentBundleJobRunner
+	blobPort          *evidencemodule.IncidentBundleBlobPortability
 }
 
 func WithJobs(admission incidentBundleJobAdmission, operations incidentBundleJobOperations, runner incidentBundleJobRunner) RouteOption {
@@ -101,6 +103,12 @@ func WithHistoricalIntentPolicy(policy historicalIntentPolicy) RouteOption {
 	}
 }
 
+func WithEvidenceBlobPortability(port *evidencemodule.IncidentBundleBlobPortability) RouteOption {
+	return func(options *routeOptions) {
+		options.blobPort = port
+	}
+}
+
 func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	resolved := routeOptions{}
 	for _, option := range options {
@@ -149,6 +157,9 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if options.historicalIntents == nil {
 		return nil, fmt.Errorf("incident bundle historical intent policy is required")
 	}
+	if options.blobPort == nil {
+		return nil, fmt.Errorf("incident bundle Evidence blob portability is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -158,7 +169,7 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres, options.jobAdmission)
-	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.limits, now)
+	worker := newIncidentBundleWorker(store, deps, options.jobOperations, options.jobRunner, options.storage, options.importFinalizer, options.jobFinalizer, options.portability, options.transactions, options.projectionRebuild, options.sourceCatalog, options.historicalIntents, options.blobPort, options.limits, now)
 	if err := worker.registerJobHandler(); err != nil {
 		return nil, err
 	}

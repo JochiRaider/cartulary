@@ -36,7 +36,7 @@ func TestObjectBlobStorageKeyContract(t *testing.T) {
 		"incidents/00000000-0000-0000-0000-000000210001/object-blobs/00000000-0000-0000-0000-000000210002\n",
 		"incidents/00000000-0000-0000-0000-000000210001/object-blobs/" + strings.Repeat("a", 1025),
 	} {
-		if blobref.ValidObjectBlobStorageKey(invalid) {
+		if _, err := blobref.ParseObjectBlobStorageKey(invalid); err == nil {
 			t.Fatalf("invalid key accepted: %q", invalid)
 		}
 	}

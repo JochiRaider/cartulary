@@ -13,11 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
-func (f *WorkbookFacade) observeInitialBlob(
+func (f *mutationFacade) observeInitialBlob(
 	ctx context.Context,
 	incidentID uuid.UUID,
 	objectBlobID uuid.UUID,
-) (*ObservedObject, error) {
+) (*observedObject, error) {
 	blob, err := f.blobs.load(ctx, objectBlobID)
 	if errors.Is(err, ErrBlobNotFound) {
 		return nil, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotFound}
@@ -62,14 +62,14 @@ func (f *WorkbookFacade) observeInitialBlob(
 // finalizeInitialBlobTx locks the slot and rechecks every mutable association
 // precondition in the transaction that creates the Evidence row. The bool
 // return requests a blob-only commit for a terminal failure disposition.
-func (f *WorkbookFacade) finalizeInitialBlobTx(
+func (f *mutationFacade) finalizeInitialBlobTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	objectBlobID uuid.UUID,
-	observed *ObservedObject,
+	observed *observedObject,
 	now time.Time,
-) (*InitialBlobAssociation, bool, error) {
+) (*initialBlobAssociation, bool, error) {
 	blob, err := f.blobs.loadForUpdateTx(ctx, tx, objectBlobID)
 	if errors.Is(err, ErrBlobNotFound) {
 		return nil, false, AttachRejectedError{ReasonCode: AttachReasonBlobNotVisible, Cause: ErrBlobNotFound}
@@ -127,7 +127,7 @@ func (f *WorkbookFacade) finalizeInitialBlobTx(
 	if err != nil {
 		return nil, false, err
 	}
-	return &InitialBlobAssociation{
+	return &initialBlobAssociation{
 		ObjectBlobID: objectBlobID,
 		StorageRef:   storageRef,
 		SHA256Hex:    blob.ObservedSHA256Hex,

@@ -21,7 +21,7 @@ type accessHandleRepository struct {
 func (repository accessHandleRepository) loadEvidence(
 	ctx context.Context,
 	recordID uuid.UUID,
-) (EvidenceAccessRecord, error) {
+) (evidenceAccessRecord, error) {
 	row := repository.db.QueryRow(ctx, `
 SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
        e.lifecycle_state, COALESCE(b.upload_state, ''),
@@ -34,7 +34,7 @@ SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.obje
   LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
  WHERE e.record_id = $1
 `, recordID)
-	var access EvidenceAccessRecord
+	var access evidenceAccessRecord
 	var objectBlobID sql.NullString
 	var storageKey sql.NullString
 	var sha256 sql.NullString
@@ -42,14 +42,14 @@ SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.obje
 		&access.EvidenceLifecycleState, &access.UploadState, &access.FilenameSource, &access.ContentType,
 		&access.SizeBytes, &sha256); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return EvidenceAccessRecord{}, ErrEvidenceNotFound
+			return evidenceAccessRecord{}, ErrEvidenceNotFound
 		}
-		return EvidenceAccessRecord{}, err
+		return evidenceAccessRecord{}, err
 	}
 	if objectBlobID.Valid {
 		parsed, err := uuid.Parse(objectBlobID.String)
 		if err != nil {
-			return EvidenceAccessRecord{}, err
+			return evidenceAccessRecord{}, err
 		}
 		access.ObjectBlobID = &parsed
 	}
@@ -67,7 +67,7 @@ SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.obje
 
 func (repository accessHandleRepository) insert(
 	ctx context.Context,
-	handle HandleRecord,
+	handle handleRecord,
 	issuedByUserID uuid.UUID,
 ) error {
 	_, err := repository.db.Exec(ctx, `
@@ -85,7 +85,7 @@ INSERT INTO evidence_access_handles (
 func (repository accessHandleRepository) load(
 	ctx context.Context,
 	token string,
-) (HandleRecord, error) {
+) (handleRecord, error) {
 	row := repository.db.QueryRow(ctx, `
 SELECT h.handle_token, h.incident_id, h.record_id, h.object_blob_id, b.storage_key,
        h.record_row_version, h.issuing_session_id, h.handle_kind, h.media_class, h.preview_kind, h.disposition,
@@ -94,14 +94,14 @@ SELECT h.handle_token, h.incident_id, h.record_id, h.object_blob_id, b.storage_k
   JOIN object_blobs b ON b.object_blob_id = h.object_blob_id
  WHERE h.handle_token = $1
 `, token)
-	var handle HandleRecord
+	var handle handleRecord
 	if err := row.Scan(&handle.Token, &handle.IncidentID, &handle.RecordID, &handle.ObjectBlobID, &handle.StorageKey,
 		&handle.RecordRowVersion, &handle.SessionID, &handle.HandleKind, &handle.MediaClass, &handle.PreviewKind, &handle.Disposition,
 		&handle.Filename, &handle.ContentType, &handle.SizeBytes, &handle.SHA256, &handle.EvidenceLifecycleState, &handle.UploadState, &handle.ExpiresAt, &handle.ConsumedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return HandleRecord{}, ErrBlobNotFound
+			return handleRecord{}, ErrBlobNotFound
 		}
-		return HandleRecord{}, err
+		return handleRecord{}, err
 	}
 	return handle, nil
 }
@@ -128,7 +128,7 @@ UPDATE evidence_access_handles
 
 func (repository accessHandleRepository) checkCurrent(
 	ctx context.Context,
-	handle HandleRecord,
+	handle handleRecord,
 ) (string, error) {
 	access, err := repository.loadEvidence(ctx, handle.RecordID)
 	if errors.Is(err, ErrEvidenceNotFound) {

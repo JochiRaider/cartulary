@@ -3,6 +3,7 @@ package evidence
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -10,8 +11,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -36,10 +40,14 @@ type TimelineAttachmentContribution interface {
 // OwnerRuntime is the immutable application-facing Evidence capability set.
 // It intentionally exposes no Store or database handle.
 type OwnerRuntime struct {
-	routes       RouteService
-	workbook     WorkbookContribution
+	postgres     postgres.DB
+	objectStore  objectstore.TypedStore
+	now          func() time.Time
+	routes       routeService
+	workbook     MutationContribution
 	attachments  TimelineAttachmentContribution
 	importCreate ownerfacade.ImportOwnerCreateFacade
+	cleanup      *CleanupDispatcher
 }
 
 type OwnerRuntimeDependencies struct {
@@ -47,10 +55,12 @@ type OwnerRuntimeDependencies struct {
 	ConflictTokens      *conflicttokens.ConflictTokenCodec
 	Revisions           *revisions.Appender
 	Collaboration       collaboration.IntentAppender
-	ObjectStore         objectstore.Store
+	ObjectStore         objectstore.TypedStore
 	ConflictFields      conflicttokens.FieldResolver
 	ConflictIdempotency conflicttokens.IdempotencyPort
 	Projections         evidenceprojection.Ports
+	CleanupObserver     CleanupObserver
+	Now                 func() time.Time
 }
 
 func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, error) {
@@ -73,6 +83,10 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 		return nil, fmt.Errorf("compose Evidence owner runtime: projection rows are required")
 	case dependencies.Projections.SupportEffects == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: support projection effects are required")
+	case dependencies.CleanupObserver == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: cleanup observer is required")
+	case dependencies.Now == nil:
+		return nil, fmt.Errorf("compose Evidence owner runtime: clock is required")
 	}
 	sourceMutations, err := newSourceMutationService(
 		dependencies.Postgres,
@@ -83,7 +97,7 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err != nil {
 		return nil, err
 	}
-	blobs, err := NewBlobLifecycleService(BlobLifecycleDependencies{
+	blobs, err := newBlobLifecycleService(blobLifecycleDependencies{
 		Postgres:       dependencies.Postgres,
 		Revisions:      dependencies.Revisions,
 		Projections:    dependencies.Projections.Rows,
@@ -93,15 +107,15 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err != nil {
 		return nil, err
 	}
-	access, err := NewAccessHandleService(dependencies.Postgres)
+	access, err := newAccessHandleService(dependencies.Postgres)
 	if err != nil {
 		return nil, err
 	}
-	routes, err := NewRouteOperations(blobs, access)
+	routes, err := newRouteOperations(blobs, access)
 	if err != nil {
 		return nil, err
 	}
-	workbook, err := newWorkbookFacade(
+	workbook, err := newMutationFacade(
 		dependencies.Postgres,
 		*dependencies.ConflictTokens,
 		dependencies.Revisions,
@@ -120,19 +134,49 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err != nil {
 		return nil, err
 	}
+	cleanupService, err := newCleanupService(dependencies.Postgres)
+	if err != nil {
+		return nil, err
+	}
+	cleanupDeleter, err := newCleanupObjectDeleter(dependencies.ObjectStore)
+	if err != nil {
+		return nil, err
+	}
+	cleanup, err := newCleanupDispatcher(
+		cleanupService,
+		cleanupDeleter,
+		dependencies.CleanupObserver,
+		dependencies.Now,
+	)
+	if err != nil {
+		return nil, err
+	}
 	return &OwnerRuntime{
+		postgres:     dependencies.Postgres,
+		objectStore:  dependencies.ObjectStore,
+		now:          dependencies.Now,
 		routes:       routes,
 		workbook:     workbook,
 		attachments:  timelineAttachmentReader{projections: dependencies.Projections.Rows},
 		importCreate: importCreate,
+		cleanup:      cleanup,
 	}, nil
 }
 
-func (runtime *OwnerRuntime) RouteService() RouteService {
-	return runtime.routes
+func (runtime *OwnerRuntime) RouteRegistrar(settings Settings) httpapi.RouteRegistrar {
+	return registerRoutes(settings, routeDependencies{
+		objectStore: runtime.objectStore,
+		now:         runtime.now,
+		operations:  runtime.routes,
+		admission: routeAdmission{
+			incidents: incidents.NewAccess(runtime.postgres),
+			auth:      authn.NewStore(runtime.postgres),
+			now:       runtime.now,
+		},
+	})
 }
 
-func (runtime *OwnerRuntime) WorkbookContribution() WorkbookContribution {
+func (runtime *OwnerRuntime) MutationContribution() MutationContribution {
 	return runtime.workbook
 }
 
@@ -144,8 +188,6 @@ func (runtime *OwnerRuntime) ImportCreateFacade() ownerfacade.ImportOwnerCreateF
 	return runtime.importCreate
 }
 
-// NewTimelineAttachmentContribution is an explicit narrow composition helper
-// for focused tests that do not construct the Server runtime.
-func NewTimelineAttachmentContribution(projectionRows evidenceprojection.Rows) TimelineAttachmentContribution {
-	return timelineAttachmentReader{projections: projectionRows}
+func (runtime *OwnerRuntime) CleanupDispatcher() *CleanupDispatcher {
+	return runtime.cleanup
 }

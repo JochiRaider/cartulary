@@ -10,14 +10,14 @@ import (
 func TestEvidenceCleanupDispatcherStartsAfterActivationRunsEveryFifteenMinutesAndStops(t *testing.T) {
 	sweeper := &dispatcherTestSweeper{calls: make(chan struct{}, 8)}
 	observer := &dispatcherTestObserver{observations: make(chan CleanupSweepObservation, 8)}
-	dispatcher, err := NewCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, func() time.Time {
+	dispatcher, err := newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, func() time.Time {
 		return time.Date(2026, time.August, 12, 18, 0, 0, 0, time.UTC)
 	})
 	if err != nil {
 		t.Fatalf("compose cleanup dispatcher: %v", err)
 	}
-	if dispatcher.Identity() != CleanupDispatcherIdentity || dispatcher.interval != 15*time.Minute {
-		t.Fatalf("cleanup dispatcher identity/interval = %q/%s", dispatcher.Identity(), dispatcher.interval)
+	if dispatcher.identity() != cleanupDispatcherIdentity || dispatcher.interval != 15*time.Minute {
+		t.Fatalf("cleanup dispatcher identity/interval = %q/%s", dispatcher.identity(), dispatcher.interval)
 	}
 	select {
 	case <-sweeper.calls:
@@ -50,14 +50,14 @@ func TestEvidenceCleanupDispatcherShutdownCancelsInFlightSweep(t *testing.T) {
 	started := make(chan struct{})
 	sweeper := &dispatcherTestSweeper{
 		calls: make(chan struct{}, 1),
-		run: func(ctx context.Context) (CleanupSweepResult, error) {
+		run: func(ctx context.Context) (cleanupSweepResult, error) {
 			close(started)
 			<-ctx.Done()
-			return CleanupSweepResult{}, ctx.Err()
+			return cleanupSweepResult{}, ctx.Err()
 		},
 	}
 	observer := &dispatcherTestObserver{observations: make(chan CleanupSweepObservation, 1)}
-	dispatcher, err := NewCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, time.Now)
+	dispatcher, err := newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, observer, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,11 +89,11 @@ func TestEvidenceCleanupDispatcherRejectsIncompleteDependencies(t *testing.T) {
 	sweeper := &dispatcherTestSweeper{calls: make(chan struct{}, 1)}
 	for name, build := range map[string]func() (*CleanupDispatcher, error){
 		"sweeper": func() (*CleanupDispatcher, error) {
-			return NewCleanupDispatcher(nil, dispatcherTestDeleter{}, observer, time.Now)
+			return newCleanupDispatcher(nil, dispatcherTestDeleter{}, observer, time.Now)
 		},
-		"deleter": func() (*CleanupDispatcher, error) { return NewCleanupDispatcher(sweeper, nil, observer, time.Now) },
+		"deleter": func() (*CleanupDispatcher, error) { return newCleanupDispatcher(sweeper, nil, observer, time.Now) },
 		"observer": func() (*CleanupDispatcher, error) {
-			return NewCleanupDispatcher(sweeper, dispatcherTestDeleter{}, nil, time.Now)
+			return newCleanupDispatcher(sweeper, dispatcherTestDeleter{}, nil, time.Now)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -108,14 +108,14 @@ type dispatcherTestSweeper struct {
 	mu    sync.Mutex
 	count int
 	calls chan struct{}
-	run   func(context.Context) (CleanupSweepResult, error)
+	run   func(context.Context) (cleanupSweepResult, error)
 }
 
 func (sweeper *dispatcherTestSweeper) SweepFailedUnattachedBlobs(
 	ctx context.Context,
-	_ CleanupObjectDeleter,
+	_ cleanupObjectDeleter,
 	_ time.Time,
-) (CleanupSweepResult, error) {
+) (cleanupSweepResult, error) {
 	sweeper.mu.Lock()
 	sweeper.count++
 	sweeper.mu.Unlock()
@@ -123,7 +123,7 @@ func (sweeper *dispatcherTestSweeper) SweepFailedUnattachedBlobs(
 	if sweeper.run != nil {
 		return sweeper.run(ctx)
 	}
-	return CleanupSweepResult{HealthSnapshotValid: true}, nil
+	return cleanupSweepResult{HealthSnapshotValid: true}, nil
 }
 
 func (sweeper *dispatcherTestSweeper) callCount() int {

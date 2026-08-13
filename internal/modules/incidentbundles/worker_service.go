@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles/sourceport"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -50,12 +51,13 @@ type incidentBundleWorker struct {
 	projectionRebuild importProjectionRebuilder
 	sourceCatalog     *sourceport.Catalog
 	historicalIntents historicalIntentPolicy
+	blobPort          *evidencemodule.IncidentBundleBlobPortability
 	limits            Limits
 	deps              httpapi.DependencySet
 	now               func() time.Time
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, limits Limits, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManager incidentBundleJobOperations, jobRunner incidentBundleJobRunner, storage BundleStorage, importFinalizer incidents.IncidentBundleImportFinalizer, jobFinalizer JobSuccessFinalizer, portability *PortabilityOrchestrator, transactions *crossownertransaction.Coordinator, projectionRebuild importProjectionRebuilder, sourceCatalog *sourceport.Catalog, historicalIntents historicalIntentPolicy, blobPort *evidencemodule.IncidentBundleBlobPortability, limits Limits, now func() time.Time) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:             store,
 		jobManager:        jobManager,
@@ -69,6 +71,7 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, jobManage
 		projectionRebuild: projectionRebuild,
 		sourceCatalog:     sourceCatalog,
 		historicalIntents: historicalIntents,
+		blobPort:          blobPort,
 		limits:            limits,
 		deps:              deps,
 		now:               now,
@@ -146,7 +149,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, execution j
 	}
 	bundleID := uuid.New()
 	exportedAt := w.now().UTC()
-	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore, portability: w.portability, sourceCatalog: w.sourceCatalog}
+	builder := BundleBuilder{pool: w.deps.Postgres, blobPort: w.blobPort, portability: w.portability, sourceCatalog: w.sourceCatalog}
 	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
 		w.results.completeFailedFromError(ctx, execution, "incident_bundle_export_rejected", err)
@@ -215,7 +218,7 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, execution j
 	requestID := incidents.ImportBundleRequestID(payload.JobID)
 	importer := Importer{
 		pool:              w.deps.Postgres,
-		objectStore:       w.deps.ObjectStore,
+		blobPort:          w.blobPort,
 		finalizer:         w.importFinalizer,
 		projectionRebuild: w.projectionRebuild,
 		sourceCatalog:     w.sourceCatalog,

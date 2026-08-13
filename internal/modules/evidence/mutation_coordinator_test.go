@@ -33,7 +33,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 	}
 	command := coordinatorCreateCommand()
 
-	if _, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Values}); !errors.Is(err, expectedFailure) {
+	if _, err := coordinator.createTx(context.Background(), nil, command, createParams{Values: command.Values}); !errors.Is(err, expectedFailure) {
 		t.Fatalf("createTx() error = %v, want injected source-row failure", err)
 	}
 	if want := []string{"incident", "record", "source-row"}; !reflect.DeepEqual(events, want) {
@@ -42,7 +42,7 @@ func TestEvidenceMutationCoordinatorEffectOrderAndFaultBoundary(t *testing.T) {
 
 	events = events[:0]
 	rows.failInsert = nil
-	result, err := coordinator.createTx(context.Background(), nil, command, WorkbookCreateParams{Values: command.Values})
+	result, err := coordinator.createTx(context.Background(), nil, command, createParams{Values: command.Values})
 	if err != nil {
 		t.Fatalf("createTx() success error = %v", err)
 	}
@@ -73,7 +73,7 @@ func coordinatorCreateCommand() evidenceCreateTxCommand {
 		IncidentID:   uuid.MustParse("c3b6b590-bf8f-489e-bfdd-5244074cd45e"),
 		ViewSchemaID: ViewSchemaID,
 		ClientTxnID:  "txn-evidence-coordinator",
-		Values: map[string]WorkbookFieldValue{
+		Values: map[string]FieldValue{
 			"evidence.title": {Text: &title},
 		},
 		RequestID: "request-evidence-coordinator",
@@ -110,21 +110,21 @@ type coordinatorSourceRows struct {
 	failInsert error
 }
 
-func (port *coordinatorSourceRows) InsertWorkbookRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, WorkbookCreateParams, time.Time) error {
+func (port *coordinatorSourceRows) insertRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, createParams, time.Time) error {
 	*port.events = append(*port.events, "source-row")
 	return port.failInsert
 }
 
-func (*coordinatorSourceRows) ValidateWorkbookLifecyclePatchTx(context.Context, pgx.Tx, uuid.UUID, []WorkbookLifecyclePatchChange) error {
-	return errors.New("unexpected ValidateWorkbookLifecyclePatchTx")
+func (*coordinatorSourceRows) validateLifecyclePatchTx(context.Context, pgx.Tx, uuid.UUID, []lifecyclePatchChange) error {
+	return errors.New("unexpected validateLifecyclePatchTx")
 }
 
-func (*coordinatorSourceRows) ApplyWorkbookDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, WorkbookFieldValue, time.Time) (bool, error) {
-	return false, errors.New("unexpected ApplyWorkbookDirectChangeTx")
+func (*coordinatorSourceRows) applyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, FieldValue, time.Time) (bool, error) {
+	return false, errors.New("unexpected applyDirectChangeTx")
 }
 
-func (*coordinatorSourceRows) TouchWorkbookRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error {
-	return errors.New("unexpected TouchWorkbookRowTx")
+func (*coordinatorSourceRows) touchRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error {
+	return errors.New("unexpected touchRowTx")
 }
 
 type coordinatorProjectionRows struct {

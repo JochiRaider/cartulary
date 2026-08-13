@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 
 	"github.com/google/uuid"
@@ -15,10 +16,17 @@ import (
 )
 
 type IncidentBundleBlobPortability struct {
-	ObjectStore objectstore.Store
+	store objectstore.TypedStore
 }
 
-func (p IncidentBundleBlobPortability) ExportBlobFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID, files map[string][]byte) error {
+func NewIncidentBundleBlobPortability(store objectstore.TypedStore) (*IncidentBundleBlobPortability, error) {
+	if store == nil {
+		return nil, errors.New("compose Evidence Incident Bundle blob portability: typed object store is required")
+	}
+	return &IncidentBundleBlobPortability{store: store}, nil
+}
+
+func (p *IncidentBundleBlobPortability) ExportBlobFiles(ctx context.Context, q incidentportability.Queryer, incidentID uuid.UUID, files map[string][]byte) error {
 	rows, err := q.Query(ctx, `
 SELECT storage_key, observed_sha256_hex
   FROM object_blobs
@@ -37,7 +45,10 @@ SELECT storage_key, observed_sha256_hex
 		if err := rows.Scan(&storageKey, &sha); err != nil {
 			return err
 		}
-		rc, _, err := p.ObjectStore.ReadObject(ctx, storageKey, objectstore.ReadOptions{})
+		rc, _, err := p.store.Get(ctx, objectstore.GetObjectRequest{
+			Key:     storageKey,
+			Purpose: objectstore.PurposeMigrationCopy,
+		})
 		if err != nil {
 			return &incidentportability.VerificationFailure{ReasonCode: "missing_required_blob"}
 		}
@@ -54,7 +65,7 @@ SELECT storage_key, observed_sha256_hex
 	return rows.Err()
 }
 
-func (p IncidentBundleBlobPortability) RewriteAndStageObjectBlobs(ctx context.Context, files map[string][]byte, incidentID uuid.UUID, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) ([]byte, []string, error) {
+func (p *IncidentBundleBlobPortability) RewriteAndStageObjectBlobs(ctx context.Context, files map[string][]byte, incidentID uuid.UUID, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) ([]byte, []string, error) {
 	rows, err := incidentportability.DecodeNDJSON(files["data/object_blobs.ndjson"])
 	if err != nil {
 		return nil, nil, err
@@ -105,7 +116,13 @@ func (p IncidentBundleBlobPortability) RewriteAndStageObjectBlobs(ctx context.Co
 		if contentType == "" {
 			contentType = "application/octet-stream"
 		}
-		if err := p.ObjectStore.PutObject(ctx, storageKey, bytes.NewReader(data), int64(len(data)), contentType); err != nil {
+		if _, err := p.store.Put(ctx, objectstore.PutObjectRequest{
+			Key:         storageKey,
+			Body:        bytes.NewReader(data),
+			Size:        int64(len(data)),
+			ContentType: contentType,
+			Purpose:     objectstore.PurposeMigrationCopy,
+		}); err != nil {
 			return nil, writtenKeys, err
 		}
 		writtenKeys = append(writtenKeys, storageKey)
@@ -118,9 +135,12 @@ func (p IncidentBundleBlobPortability) RewriteAndStageObjectBlobs(ctx context.Co
 	return buf.Bytes(), writtenKeys, nil
 }
 
-func (p IncidentBundleBlobPortability) CleanupStagedObjects(ctx context.Context, keys []string) {
+func (p *IncidentBundleBlobPortability) CleanupStagedObjects(ctx context.Context, keys []string) {
 	for _, key := range keys {
-		_ = p.ObjectStore.DeleteObject(ctx, key)
+		_ = p.store.Delete(ctx, objectstore.DeleteObjectRequest{
+			Key:     key,
+			Purpose: objectstore.PurposeStagedCleanup,
+		})
 	}
 }
 

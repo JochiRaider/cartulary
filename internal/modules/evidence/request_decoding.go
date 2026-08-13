@@ -1,5 +1,7 @@
 package evidence
 
+// This file owns strict route request decoding and transport payload helpers.
+
 import (
 	"crypto/rand"
 	"crypto/sha256"
@@ -28,7 +30,7 @@ const (
 	ViewSchemaID = "cartulary.view.evidence.v1"
 )
 
-func ReadBoundedBlobCreateRequest(reader io.Reader) ([]byte, *httpapi.APIError) {
+func readBoundedBlobCreateRequest(reader io.Reader) ([]byte, *httpapi.APIError) {
 	body, err := io.ReadAll(io.LimitReader(reader, blobCreateRequestBodyMaxBytes+1))
 	if err != nil || len(body) > blobCreateRequestBodyMaxBytes {
 		return nil, invalidRequest("invalid_blob_create_request", "", "request_not_object")
@@ -36,7 +38,7 @@ func ReadBoundedBlobCreateRequest(reader io.Reader) ([]byte, *httpapi.APIError) 
 	return body, nil
 }
 
-func DecodeBlobCreateIncidentID(body []byte) (uuid.UUID, *httpapi.APIError) {
+func decodeBlobCreateIncidentID(body []byte) (uuid.UUID, *httpapi.APIError) {
 	raw, apiErr := decodeStrictObject(strings.NewReader(string(body)), "invalid_blob_create_request")
 	if apiErr != nil {
 		return uuid.UUID{}, apiErr
@@ -79,7 +81,7 @@ var blobCreateServerManagedFields = map[string]struct{}{
 	"evidence_lifecycle_state": {},
 }
 
-type BlobCreateRequest struct {
+type blobCreateRequest struct {
 	IncidentID       uuid.UUID
 	ClientTxnID      string
 	ByteSize         int64
@@ -89,16 +91,16 @@ type BlobCreateRequest struct {
 	AcceptedContract map[string]any
 }
 
-type AttachBlobRequest struct {
+type attachBlobRequest struct {
 	ObjectBlobID   uuid.UUID
 	BaseRowVersion int64
 	ClientTxnID    string
 }
 
-func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateRequest, *httpapi.APIError) {
+func decodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (blobCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeStrictObject(reader, "invalid_blob_create_request")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
 		"incident_id": {}, "client_txn_id": {}, "byte_size": {},
@@ -107,28 +109,28 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
 			if _, managed := blobCreateServerManagedFields[key]; managed {
-				return BlobCreateRequest{}, invalidBlobCreate(key, "server_managed_field")
+				return blobCreateRequest{}, invalidBlobCreate(key, "server_managed_field")
 			}
-			return BlobCreateRequest{}, invalidBlobCreate(key, "unknown_field")
+			return blobCreateRequest{}, invalidBlobCreate(key, "unknown_field")
 		}
 	}
 	incidentID, apiErr := requiredBlobUUID(raw, "incident_id")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	clientTxnID, apiErr := requiredBlobString(raw, "client_txn_id")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	byteSize, apiErr := requiredBlobInt64(raw, "byte_size")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	if byteSize < 0 {
-		return BlobCreateRequest{}, invalidBlobCreate("byte_size", "invalid_byte_size")
+		return blobCreateRequest{}, invalidBlobCreate("byte_size", "invalid_byte_size")
 	}
 	if byteSize > maxByteSize {
-		return BlobCreateRequest{}, &httpapi.APIError{
+		return blobCreateRequest{}, &httpapi.APIError{
 			Status: http.StatusRequestEntityTooLarge,
 			Code:   "blob_create_rejected",
 			Details: map[string]any{
@@ -141,18 +143,18 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 	}
 	filenameHint, apiErr := optionalBlobTrimmedString(raw, "filename_hint")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	contentTypeHint, apiErr := optionalBlobTrimmedString(raw, "content_type_hint")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	sha256Hex, apiErr := optionalBlobTrimmedString(raw, "sha256_hex")
 	if apiErr != nil {
-		return BlobCreateRequest{}, apiErr
+		return blobCreateRequest{}, apiErr
 	}
 	if sha256Hex != nil && !sha256HexPattern.MatchString(*sha256Hex) {
-		return BlobCreateRequest{}, invalidBlobCreate("sha256_hex", "invalid_sha256_hex")
+		return blobCreateRequest{}, invalidBlobCreate("sha256_hex", "invalid_sha256_hex")
 	}
 	accepted := map[string]any{
 		"incident_id":       incidentID.String(),
@@ -161,43 +163,43 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 		"content_type_hint": nullableString(contentTypeHint),
 		"sha256_hex":        nullableString(sha256Hex),
 	}
-	return BlobCreateRequest{
+	return blobCreateRequest{
 		IncidentID: incidentID, ClientTxnID: clientTxnID, ByteSize: byteSize,
 		FilenameHint: filenameHint, ContentTypeHint: contentTypeHint, SHA256Hex: sha256Hex,
 		AcceptedContract: accepted,
 	}, nil
 }
 
-func DecodeAttachBlobRequest(reader io.Reader) (AttachBlobRequest, *httpapi.APIError) {
+func decodeAttachBlobRequest(reader io.Reader) (attachBlobRequest, *httpapi.APIError) {
 	raw, apiErr := decodeStrictObject(reader, "invalid_mutation_payload")
 	if apiErr != nil {
-		return AttachBlobRequest{}, apiErr
+		return attachBlobRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{"object_blob_id": {}, "base_row_version": {}, "client_txn_id": {}}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
-			return AttachBlobRequest{}, invalidMutationPayload(key, "unknown_field")
+			return attachBlobRequest{}, invalidMutationPayload(key, "unknown_field")
 		}
 	}
 	objectBlobID, apiErr := requiredUUID(raw, "object_blob_id", "invalid_mutation_payload")
 	if apiErr != nil {
-		return AttachBlobRequest{}, apiErr
+		return attachBlobRequest{}, apiErr
 	}
 	baseRowVersion, apiErr := requiredInt64(raw, "base_row_version", "invalid_mutation_payload")
 	if apiErr != nil {
-		return AttachBlobRequest{}, apiErr
+		return attachBlobRequest{}, apiErr
 	}
 	if baseRowVersion < 1 {
-		return AttachBlobRequest{}, invalidMutationPayload("base_row_version", "invalid_base_row_version")
+		return attachBlobRequest{}, invalidMutationPayload("base_row_version", "invalid_base_row_version")
 	}
 	clientTxnID, apiErr := requiredString(raw, "client_txn_id", "invalid_mutation_payload")
 	if apiErr != nil {
-		return AttachBlobRequest{}, apiErr
+		return attachBlobRequest{}, apiErr
 	}
-	return AttachBlobRequest{ObjectBlobID: objectBlobID, BaseRowVersion: baseRowVersion, ClientTxnID: clientTxnID}, nil
+	return attachBlobRequest{ObjectBlobID: objectBlobID, BaseRowVersion: baseRowVersion, ClientTxnID: clientTxnID}, nil
 }
 
-func DecodeHandleIssueRequest(reader io.Reader) *httpapi.APIError {
+func decodeHandleIssueRequest(reader io.Reader) *httpapi.APIError {
 	raw, apiErr := decodeStrictObject(reader, "invalid_evidence_handle_request")
 	if apiErr != nil {
 		return apiErr
@@ -208,7 +210,7 @@ func DecodeHandleIssueRequest(reader io.Reader) *httpapi.APIError {
 	return nil
 }
 
-func BlobCreateRequestHash(request BlobCreateRequest) []byte {
+func blobCreateRequestHash(request blobCreateRequest) []byte {
 	return hashRequestPayload(map[string]any{
 		"byte_size":         request.ByteSize,
 		"filename_hint":     nullableString(request.FilenameHint),
@@ -217,7 +219,7 @@ func BlobCreateRequestHash(request BlobCreateRequest) []byte {
 	})
 }
 
-func AttachBlobRequestHash(request AttachBlobRequest) []byte {
+func attachBlobRequestHash(request attachBlobRequest) []byte {
 	return hashRequestPayload(map[string]any{
 		"object_blob_id":   request.ObjectBlobID.String(),
 		"base_row_version": request.BaseRowVersion,

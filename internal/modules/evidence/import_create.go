@@ -9,11 +9,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 )
 
-type ImportCreateCommand = ownerfacade.ImportOwnerCreateCommand
+type importCreateCommand = ownerfacade.ImportOwnerCreateCommand
 
 func newImportCreateFacade(
 	facadeID string,
-	service *SourceMutationService,
+	service *sourceMutationService,
 ) (ownerfacade.ImportOwnerCreateFacade, error) {
 	if service == nil {
 		return nil, fmt.Errorf("compose Evidence import contribution: source mutations are required")
@@ -27,13 +27,13 @@ func newImportCreateFacade(
 	)
 }
 
-func (s *SourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
+func (s *sourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command importCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != ViewSchemaID {
 		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("evidence import surface %q not mapped", request.TargetViewSchemaID)
 	}
-	params := WorkbookCreateParams{Values: evidenceValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
-	if err := ValidateWorkbookCreateParams(params); err != nil {
+	params := createParams{Values: evidenceValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
+	if err := validateCreateParams(params); err != nil {
 		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	mutationOrder, err := command.AllocateMutationSequence(1)
@@ -63,10 +63,10 @@ func (s *SourceMutationService) CreateImportRowTx(ctx context.Context, tx pgx.Tx
 	}, nil
 }
 
-func evidenceValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]WorkbookFieldValue {
-	result := make(map[string]WorkbookFieldValue, len(values))
+func evidenceValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
+	result := make(map[string]FieldValue, len(values))
 	for field, value := range values {
-		result[field] = WorkbookFieldValue{
+		result[field] = FieldValue{
 			Text:      value.Text,
 			Timestamp: value.Timestamp,
 			UUID:      value.UUID,

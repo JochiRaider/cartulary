@@ -1,10 +1,10 @@
 package evidence_test
 
 import (
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -55,7 +55,7 @@ func TestReasonCodeRegistryConformance_Unit(t *testing.T) {
 	}
 	for _, forbidden := range []string{"blob_not_attachable", "incident_mismatch"} {
 		if containsString(attachReasons, forbidden) {
-			t.Fatalf("attach reason registry retained legacy reason %q: %v", forbidden, attachReasons)
+			t.Fatalf("attach reason registry retained retired reason %q: %v", forbidden, attachReasons)
 		}
 	}
 

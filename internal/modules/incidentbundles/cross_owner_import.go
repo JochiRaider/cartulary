@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/crossownertransaction"
+	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 const (
@@ -62,15 +62,15 @@ type ImportTransactionProvider struct {
 	now      func() time.Time
 }
 
-func NewImportTransactionProvider(pool *pgxpool.Pool, objects objectstore.Store, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
-	if pool == nil || objects == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil || jobs == nil {
+func NewImportTransactionProvider(pool *pgxpool.Pool, blobPort *evidencemodule.IncidentBundleBlobPortability, finalizer incidents.IncidentBundleImportFinalizer, projectionRebuild importProjectionRebuilder, historicalIntents historicalIntentPolicy, jobs jobRunnableValidator, now func() time.Time) (*ImportTransactionProvider, error) {
+	if pool == nil || blobPort == nil || finalizer == nil || projectionRebuild == nil || historicalIntents == nil || jobs == nil {
 		return nil, errors.New("incident bundle import transaction provider is incomplete")
 	}
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &ImportTransactionProvider{importer: Importer{
-		pool: pool, objectStore: objects, finalizer: finalizer, projectionRebuild: projectionRebuild,
+		pool: pool, blobPort: blobPort, finalizer: finalizer, projectionRebuild: projectionRebuild,
 		historicalIntents: historicalIntents,
 	}, jobs: jobs, now: now}, nil
 }

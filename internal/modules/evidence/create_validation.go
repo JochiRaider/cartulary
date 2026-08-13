@@ -6,7 +6,7 @@ import (
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 )
 
-func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
+func validateCreateParams(params createParams) error {
 	if value, ok := params.Values["evidence.storage_ref"]; ok &&
 		value.Text != nil &&
 		evidencepolicy.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
@@ -53,7 +53,7 @@ func ValidateWorkbookCreateParams(params WorkbookCreateParams) error {
 	return nil
 }
 
-func ValidateWorkbookDirectPatchChange(fieldKey string, value WorkbookFieldValue) error {
+func validateDirectPatchChange(fieldKey string, value FieldValue) error {
 	if fieldKey == "evidence.storage_ref" &&
 		value.Text != nil &&
 		evidencepolicy.IsServerManagedStorageRef(strings.TrimSpace(*value.Text)) {
@@ -65,12 +65,12 @@ func ValidateWorkbookDirectPatchChange(fieldKey string, value WorkbookFieldValue
 	return nil
 }
 
-func hasWorkbookText(values map[string]WorkbookFieldValue, field string) bool {
+func hasWorkbookText(values map[string]FieldValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
 }
 
-func hasWorkbookTimestamp(values map[string]WorkbookFieldValue, field string) bool {
+func hasWorkbookTimestamp(values map[string]FieldValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Timestamp != nil
 }

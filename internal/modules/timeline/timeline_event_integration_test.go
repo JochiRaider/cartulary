@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	platformws "github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	timelineadmission "github.com/JochiRaider/cartulary/internal/modules/timeline/admission"
@@ -26,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
@@ -1939,12 +1939,20 @@ func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.Ser
 	t.Helper()
 
 	projections := mustBuildProjectionRuntime(t, harness.Pool)
+	conflictTokens := conflicttest.NewCodec("timeline")
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		harness.Pool,
+		conflictTokens,
+		harness.Revisions.Appender(),
+		harness.Collaboration.IntentAppender(),
+		projections,
+	)
 	collaborators, err := timelineassembly.NewCollaborators(timelineassembly.Dependencies{
 		Postgres:            harness.Pool,
-		ConflictTokens:      conflicttest.NewCodec("timeline"),
+		ConflictTokens:      conflictTokens,
 		Revisions:           harness.Revisions.Appender(),
 		Collaboration:       harness.Collaboration.IntentAppender(),
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,
@@ -1959,7 +1967,7 @@ func timelineFacadeWithProjectionFailure(t testing.TB, harness *scenariotest.Ser
 	return timeline.NewFacade(
 		harness.Pool,
 		collaborators,
-		conflicttest.NewCodec("timeline"),
+		conflictTokens,
 	)
 }
 

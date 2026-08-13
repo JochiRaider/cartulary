@@ -47,8 +47,10 @@ func TestProjectionCapabilityCallerMatrix(t *testing.T) {
 		"internal/modules/entities/resolution_integration_test.go": {
 			".Projections.RebuildHosts(",
 		},
-		"internal/modules/evidence/integration_test.go": {
+		"internal/modules/evidence/lifecycle_integration_test.go": {
 			".Projections.EvidencePort(",
+		},
+		"internal/modules/evidence/projection_collaboration_integration_test.go": {
 			".Projections.RebuildTimeline(",
 		},
 		"internal/modules/indicators/resolution_integration_test.go": {

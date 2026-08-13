@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"net/http"
 	"strings"
@@ -14,7 +15,6 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -89,7 +89,7 @@ func TestHandleIssueEmptyBodyNonIdempotent_Unit(t *testing.T) {
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-handle-current-state")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := appsupport.NewEvidenceRouteOperations(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	store := newTestRouteOperations(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 

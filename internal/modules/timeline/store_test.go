@@ -12,7 +12,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -25,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
@@ -930,12 +930,20 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 	revisionComposition := revisionsupport.MustComposition(t)
 	appender := revisionComposition.Runtime.Appender()
 	projections := mustBuildProjectionRuntime(t, pool)
+	conflictTokens := conflicttest.NewCodec("timeline-query")
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		pool,
+		conflictTokens,
+		appender,
+		revisionComposition.Intents,
+		projections,
+	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
-		ConflictTokens:      conflicttest.NewCodec("timeline-query"),
+		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

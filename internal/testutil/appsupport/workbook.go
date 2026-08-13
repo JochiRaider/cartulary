@@ -33,48 +33,12 @@ func EvidenceProjectionRows(pool postgres.DB) evidenceprojection.Rows {
 	return mustBuildProjectionRuntime(pool).EvidencePorts().Rows
 }
 
-func NewEvidenceBlobLifecycleService(
-	pool postgres.DB,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-) *evidence.BlobLifecycleService {
-	projectionRuntime := mustBuildProjectionRuntime(pool)
-	service, err := evidence.NewBlobLifecycleService(evidence.BlobLifecycleDependencies{
-		Postgres:       pool,
-		Revisions:      appender,
-		Projections:    projectionRuntime.EvidencePorts().Rows,
-		SupportEffects: projectionRuntime.EvidencePorts().SupportEffects,
-		Collaboration:  intents,
-	})
-	if err != nil {
-		panic(err)
-	}
-	return service
-}
-
-func NewEvidenceRouteOperations(
-	pool postgres.DB,
-	appender *revisions.Appender,
-	intents collaboration.IntentAppender,
-) *evidence.RouteOperations {
-	blobs := NewEvidenceBlobLifecycleService(pool, appender, intents)
-	access, err := evidence.NewAccessHandleService(pool)
-	if err != nil {
-		panic(err)
-	}
-	operations, err := evidence.NewRouteOperations(blobs, access)
-	if err != nil {
-		panic(err)
-	}
-	return operations
-}
-
 func NewEvidenceOwnerRuntime(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	appender *revisions.Appender,
 	intents collaboration.IntentAppender,
-	objects objectstore.Store,
+	objects objectstore.TypedStore,
 	conflictFields conflicttokens.FieldResolver,
 	keepSaved conflicttokens.IdempotencyPort,
 	projectionRuntime *projectionassembly.Runtime,
@@ -88,6 +52,8 @@ func NewEvidenceOwnerRuntime(
 		ConflictFields:      conflictFields,
 		ConflictIdempotency: keepSaved,
 		Projections:         projectionRuntime.EvidencePorts(),
+		CleanupObserver:     evidenceCleanupObserver{},
+		Now:                 time.Now,
 	})
 	if err != nil {
 		panic(err)
@@ -95,7 +61,30 @@ func NewEvidenceOwnerRuntime(
 	return runtime
 }
 
-func UnavailableEvidenceObjectStore() objectstore.Store {
+func NewEvidenceOwnerRuntimeForTimeline(
+	pool postgres.DB,
+	conflictTokens conflicttokens.ConflictTokenCodec,
+	appender *revisions.Appender,
+	intents collaboration.IntentAppender,
+	projectionRuntime *projectionassembly.Runtime,
+) *evidence.OwnerRuntime {
+	conflictFields, err := revisionassembly.CurrentConflictFieldResolver()
+	if err != nil {
+		panic(err)
+	}
+	return NewEvidenceOwnerRuntime(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		UnavailableEvidenceObjectStore(),
+		conflictFields,
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime,
+	)
+}
+
+func UnavailableEvidenceObjectStore() objectstore.TypedStore {
 	return unavailableEvidenceObjectStore{}
 }
 
@@ -120,13 +109,22 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	appender := revisionRuntime.Appender()
 	conflictFields := revisionRuntime.ConflictFieldResolver()
 	projectionRuntime := mustBuildProjectionRuntime(pool)
-	evidenceAttachments := evidence.NewTimelineAttachmentContribution(projectionRuntime.EvidencePorts().Rows)
+	evidenceOwner := NewEvidenceOwnerRuntime(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		UnavailableEvidenceObjectStore(),
+		conflictFields,
+		workbookassembly.NewConflictIdempotencyPort(pool),
+		projectionRuntime,
+	)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
 		Collaboration:       intents,
-		EvidenceAttachments: evidenceAttachments,
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projectionRuntime.TimelinePorts().Writer,
 		EntityProjection:    projectionRuntime.EntityPorts().Writer,
 		AssessmentRows:      projectionRuntime.AssessmentPorts().Rows,
@@ -143,16 +141,6 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 	if err != nil {
 		panic(err)
 	}
-	evidenceOwner := NewEvidenceOwnerRuntime(
-		pool,
-		conflictTokens,
-		appender,
-		intents,
-		UnavailableEvidenceObjectStore(),
-		conflictFields,
-		workbookassembly.NewConflictIdempotencyPort(pool),
-		projectionRuntime,
-	)
 	taskDecisionMutation, err := workbookassembly.NewTaskDecisionMutationContribution(
 		pool,
 		conflictTokens,
@@ -182,7 +170,7 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
-		evidenceOwner.WorkbookContribution(),
+		evidenceOwner.MutationContribution(),
 		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
@@ -206,6 +194,11 @@ func NewWorkbookStore(pool postgres.DB, conflictTokens conflicttokens.ConflictTo
 }
 
 type unavailableEvidenceObjectStore struct{}
+
+type evidenceCleanupObserver struct{}
+
+func (evidenceCleanupObserver) ObserveCleanupSweep(context.Context, evidence.CleanupSweepObservation) {
+}
 
 func (unavailableEvidenceObjectStore) UploadTarget(context.Context, string, time.Time) (objectstore.UploadTarget, error) {
 	return objectstore.UploadTarget{}, errUnavailableEvidenceObjectStore
@@ -233,6 +226,34 @@ func (unavailableEvidenceObjectStore) ListObjects(context.Context, string) ([]ob
 
 func (unavailableEvidenceObjectStore) DeleteObject(context.Context, string) error {
 	return errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) CreateUploadTarget(context.Context, objectstore.UploadTargetRequest) (objectstore.UploadTarget, error) {
+	return objectstore.UploadTarget{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) Put(context.Context, objectstore.PutObjectRequest) (objectstore.PutObjectResult, error) {
+	return objectstore.PutObjectResult{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) Head(context.Context, objectstore.HeadObjectRequest) (objectstore.ObjectInfo, error) {
+	return objectstore.ObjectInfo{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) Get(context.Context, objectstore.GetObjectRequest) (io.ReadCloser, objectstore.ObjectInfo, error) {
+	return nil, objectstore.ObjectInfo{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) ListPrefix(context.Context, objectstore.ListPrefixRequest) (objectstore.ListPrefixResult, error) {
+	return objectstore.ListPrefixResult{}, errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) Delete(context.Context, objectstore.DeleteObjectRequest) error {
+	return errUnavailableEvidenceObjectStore
+}
+
+func (unavailableEvidenceObjectStore) EnsureBucketForDevTest(context.Context, objectstore.EnsureBucketRequest) (objectstore.EnsureBucketResult, error) {
+	return objectstore.EnsureBucketResult{}, errUnavailableEvidenceObjectStore
 }
 
 func (unavailableEvidenceObjectStore) Close() error { return nil }

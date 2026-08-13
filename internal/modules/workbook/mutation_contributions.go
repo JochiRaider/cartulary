@@ -468,9 +468,9 @@ func NewArtifactCreateProvider(viewSchemaID string, owner *artifacts.MutationFac
 	})
 }
 
-func NewEvidenceCreateProvider(owner evidence.WorkbookContribution) CreateProvider {
+func NewEvidenceCreateProvider(owner evidence.MutationContribution) CreateProvider {
 	return newGenericCreateProvider(EvidenceViewSchemaID, func(ctx context.Context, command CreateCommand, request CreateRequest) (MutationResult, error) {
-		result, err := owner.Create(ctx, evidence.WorkbookCreateCommand{
+		result, err := owner.Create(ctx, evidence.CreateCommand{
 			Actor:       command.Actor,
 			IncidentID:  command.IncidentID,
 			Request:     evidenceCreateRequestFromWorkbook(request),
@@ -624,9 +624,9 @@ func NewArtifactPatchProvider(owner *artifacts.MutationFacade) PatchProvider {
 	})
 }
 
-func NewEvidencePatchProvider(owner evidence.WorkbookContribution) PatchProvider {
+func NewEvidencePatchProvider(owner evidence.MutationContribution) PatchProvider {
 	return newGenericPatchProvider("evidence", []string{EvidenceViewSchemaID}, func(ctx context.Context, command PatchCommand, request PatchRequest) (MutationResult, error) {
-		result, err := owner.Patch(ctx, evidence.WorkbookPatchCommand{
+		result, err := owner.Patch(ctx, evidence.PatchCommand{
 			Actor:            command.Actor,
 			RecordID:         command.RecordID,
 			Request:          evidencePatchRequestFromWorkbook(request),
@@ -819,7 +819,7 @@ func NewArtifactConflictProvider(owner *artifacts.MutationFacade) ConflictProvid
 	)
 }
 
-func NewEvidenceConflictProvider(owner evidence.WorkbookContribution) ConflictProvider {
+func NewEvidenceConflictProvider(owner evidence.MutationContribution) ConflictProvider {
 	return newGenericConflictProvider(
 		"evidence",
 		[]string{EvidenceViewSchemaID},
@@ -829,12 +829,12 @@ func NewEvidenceConflictProvider(owner evidence.WorkbookContribution) ConflictPr
 			request ConflictResolveRequest,
 			patch *PatchRequest,
 		) (MutationResult, error) {
-			var ownerPatch *evidence.WorkbookPatchRequest
+			var ownerPatch *evidence.PatchRequest
 			if patch != nil {
 				converted := evidencePatchRequestFromWorkbook(*patch)
 				ownerPatch = &converted
 			}
-			result, err := owner.ResolveConflict(ctx, evidence.WorkbookConflictCommand{
+			result, err := owner.ResolveConflict(ctx, evidence.ConflictCommand{
 				Mechanics:      conflictMechanics(command, request.ClientTxnID),
 				Actor:          command.Actor,
 				ResolutionKind: request.ResolutionKind,

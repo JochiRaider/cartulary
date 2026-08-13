@@ -163,7 +163,7 @@ func Descriptor() providercontract.ProviderDescriptor {
 		FacadePackages: []string{"internal/modules/evidence/workbookprojection"},
 		RebuildAfter:   []string{"artifact"},
 		CharacterizationRefs: []string{
-			"internal/modules/evidence/integration_test.go",
+			"internal/modules/evidence/projection_collaboration_integration_test.go",
 			"internal/modules/projections/internal/runtime/query_test.go",
 		},
 	}

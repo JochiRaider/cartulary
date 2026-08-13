@@ -24,7 +24,7 @@ func (kernel evidenceSourceKernel) createRecordTx(
 	tx pgx.Tx,
 	incidentID uuid.UUID,
 	actorID uuid.UUID,
-	params WorkbookCreateParams,
+	params createParams,
 	now time.Time,
 ) (uuid.UUID, error) {
 	recordID, err := kernel.records.InsertTx(ctx, tx, records.InsertParams{
@@ -39,7 +39,7 @@ func (kernel evidenceSourceKernel) createRecordTx(
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if err := kernel.rows.InsertWorkbookRowTx(ctx, tx, recordID, incidentID, params, now); err != nil {
+	if err := kernel.rows.insertRowTx(ctx, tx, recordID, incidentID, params, now); err != nil {
 		return uuid.Nil, err
 	}
 	return recordID, nil

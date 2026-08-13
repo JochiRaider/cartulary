@@ -14,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
 
 	assessmenttest "github.com/JochiRaider/cartulary/internal/modules/assessments/testsupport"
@@ -48,12 +47,20 @@ func newEntityTestTimelineComposition(t testing.TB, pool postgres.DB) (*timeline
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
 	}
+	conflictTokens := conflicttest.NewCodec("timeline")
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		pool,
+		conflictTokens,
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+		projections,
+	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
-		ConflictTokens:      conflicttest.NewCodec("timeline"),
+		ConflictTokens:      conflictTokens,
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

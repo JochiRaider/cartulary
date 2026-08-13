@@ -542,7 +542,13 @@ func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) str
 		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
-	putResp, err := http.DefaultClient.Do(mustPutRequest(t, s.harness.Server.HTTP.URL, data["upload_target"].(map[string]any)["href"].(string), payload))
+	putResp, err := http.DefaultClient.Do(mustPutRequest(
+		t,
+		s.harness.Server.HTTP.URL,
+		data["upload_target"].(map[string]any)["href"].(string),
+		payload,
+		s.actorLogin,
+	))
 	if err != nil {
 		t.Fatalf("upload support object %s: %v", label, err)
 	}
@@ -569,10 +575,28 @@ func (s *SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {
 		appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
 		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
-	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
+	attachData := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
+	row := attachData["row"].(map[string]any)
+	availableResp := appsupport.DoJSON(
+		t,
+		http.MethodPatch,
+		s.harness.Server.HTTP.URL+"/api/v1/records/"+s.routeCtx.EvidenceRecordID,
+		map[string]any{
+			"view_schema_id":   workbookscenariotest.WorkbookEvidenceViewSchemaID,
+			"base_row_version": int(row["row_version"].(float64)),
+			"client_txn_id":    supportTxn(s.label+"-seed-available", s.routeKey),
+			"changes": []map[string]any{{
+				"field_key": "evidence.lifecycle_state",
+				"value":     "available",
+			}},
+		},
+		appsupport.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		appsupport.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, availableResp, http.StatusOK)
 }
 
-func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte) *http.Request {
+func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte, login appsupport.LoginResult) *http.Request {
 	t.Helper()
 
 	if strings.HasPrefix(url, "/") {
@@ -583,6 +607,8 @@ func mustPutRequest(t testing.TB, baseURL string, url string, payload []byte) *h
 		t.Fatalf("create object upload request: %v", err)
 	}
 	req.Header.Set("Content-Type", "text/plain")
+	appsupport.WithCookies(login.SessionCookie, login.CSRFCookie)(req)
+	appsupport.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value)(req)
 	return req
 }
 

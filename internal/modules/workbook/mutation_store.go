@@ -223,16 +223,16 @@ func adaptArtifactWorkbookOwnerError(err error) error {
 	return err
 }
 
-func evidenceValuesFromWorkbook(values map[string]ValueChange) map[string]evidence.WorkbookFieldValue {
-	result := make(map[string]evidence.WorkbookFieldValue, len(values))
+func evidenceValuesFromWorkbook(values map[string]ValueChange) map[string]evidence.FieldValue {
+	result := make(map[string]evidence.FieldValue, len(values))
 	for field, value := range values {
 		result[field] = evidenceValueFromWorkbook(value)
 	}
 	return result
 }
 
-func evidenceValueFromWorkbook(value ValueChange) evidence.WorkbookFieldValue {
-	return evidence.WorkbookFieldValue{
+func evidenceValueFromWorkbook(value ValueChange) evidence.FieldValue {
+	return evidence.FieldValue{
 		Text:      value.Text,
 		Timestamp: value.Timestamp,
 		UUID:      value.UUID,
@@ -241,8 +241,8 @@ func evidenceValueFromWorkbook(value ValueChange) evidence.WorkbookFieldValue {
 	}
 }
 
-func evidenceCreateRequestFromWorkbook(request CreateRequest) evidence.WorkbookCreateRequest {
-	converted := evidence.WorkbookCreateRequest{
+func evidenceCreateRequestFromWorkbook(request CreateRequest) evidence.CreateRequest {
+	converted := evidence.CreateRequest{
 		ViewSchemaID: request.ViewSchemaID,
 		ClientTxnID:  request.ClientTxnID,
 		Values:       evidenceValuesFromWorkbook(request.Values),
@@ -254,10 +254,10 @@ func evidenceCreateRequestFromWorkbook(request CreateRequest) evidence.WorkbookC
 	return converted
 }
 
-func evidencePatchRequestFromWorkbook(request PatchRequest) evidence.WorkbookPatchRequest {
-	changes := make([]evidence.WorkbookPatchChange, 0, len(request.Changes))
+func evidencePatchRequestFromWorkbook(request PatchRequest) evidence.PatchRequest {
+	changes := make([]evidence.PatchChange, 0, len(request.Changes))
 	for _, change := range request.Changes {
-		converted := evidence.WorkbookPatchChange{
+		converted := evidence.PatchChange{
 			FieldKey:       change.FieldKey,
 			CanonicalValue: change.CanonicalAny,
 		}
@@ -267,7 +267,7 @@ func evidencePatchRequestFromWorkbook(request PatchRequest) evidence.WorkbookPat
 		}
 		changes = append(changes, converted)
 	}
-	return evidence.WorkbookPatchRequest{
+	return evidence.PatchRequest{
 		ViewSchemaID:   request.ViewSchemaID,
 		BaseRowVersion: request.BaseRowVersion,
 		ClientTxnID:    request.ClientTxnID,
@@ -275,7 +275,7 @@ func evidencePatchRequestFromWorkbook(request PatchRequest) evidence.WorkbookPat
 	}
 }
 
-func mutationResultFromEvidenceWorkbook(result evidence.WorkbookMutationResult) MutationResult {
+func mutationResultFromEvidenceWorkbook(result evidence.MutationResult) MutationResult {
 	return MutationResult{
 		Payload:          result.Payload,
 		StatusCode:       result.StatusCode,

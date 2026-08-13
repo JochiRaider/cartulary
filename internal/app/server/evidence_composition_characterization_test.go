@@ -3,10 +3,13 @@ package server
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
@@ -69,10 +72,14 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	}
 	ownerType := reflect.TypeOf(evidence.OwnerRuntime{})
 	wantOwnerFields := map[string]reflect.Type{
-		"routes":       reflect.TypeOf((*evidence.RouteService)(nil)).Elem(),
-		"workbook":     reflect.TypeOf((*evidence.WorkbookContribution)(nil)).Elem(),
+		"postgres":     reflect.TypeOf((*postgres.DB)(nil)).Elem(),
+		"objectStore":  reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem(),
+		"now":          reflect.TypeOf((func() time.Time)(nil)),
+		"routes":       nil,
+		"workbook":     reflect.TypeOf((*evidence.MutationContribution)(nil)).Elem(),
 		"attachments":  reflect.TypeOf((*evidence.TimelineAttachmentContribution)(nil)).Elem(),
 		"importCreate": reflect.TypeOf((*ownerfacade.ImportOwnerCreateFacade)(nil)).Elem(),
+		"cleanup":      reflect.TypeOf((*evidence.CleanupDispatcher)(nil)),
 	}
 	if ownerType.NumField() != len(wantOwnerFields) {
 		t.Fatalf("Evidence owner runtime field count = %d, want %d", ownerType.NumField(), len(wantOwnerFields))
@@ -85,7 +92,10 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 		if field.IsExported() {
 			t.Fatalf("Evidence owner runtime field %q must remain private", fieldName)
 		}
-		if field.Type != wantType {
+		if wantType == nil && field.Type.Kind() != reflect.Interface {
+			t.Fatalf("Evidence owner runtime field %q type = %v, want private interface", fieldName, field.Type)
+		}
+		if wantType != nil && field.Type != wantType {
 			t.Fatalf("Evidence owner runtime field %q type = %v, want %v", fieldName, field.Type, wantType)
 		}
 	}

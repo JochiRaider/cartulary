@@ -43,21 +43,27 @@ func (service uploadCapabilityService) createTarget(
 // routeObjectStoreAdapter contains the transport-to-platform object-store
 // adaptation. It owns no Evidence database state or authorization decisions.
 type routeObjectStoreAdapter struct {
-	store objectstore.Store
+	store objectstore.TypedStore
 }
 
 func (adapter routeObjectStoreAdapter) observeUploadedObject(
 	ctx context.Context,
-	blob BlobRecord,
-) (*ObservedObject, error) {
+	blob blobRecord,
+) (*observedObject, error) {
 	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
 		return nil, err
 	}
-	stat, err := adapter.head(ctx, blob.StorageKey, objectstore.PurposeProductUpload)
+	stat, err := adapter.store.Head(ctx, objectstore.HeadObjectRequest{
+		Key:     blob.StorageKey,
+		Purpose: objectstore.PurposeProductUpload,
+	})
 	if err != nil {
 		return nil, err
 	}
-	object, _, err := adapter.get(ctx, blob.StorageKey, objectstore.ReadOptions{}, objectstore.PurposeProductRead)
+	object, _, err := adapter.store.Get(ctx, objectstore.GetObjectRequest{
+		Key:     blob.StorageKey,
+		Purpose: objectstore.PurposeProductRead,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -70,12 +76,12 @@ func (adapter routeObjectStoreAdapter) observeUploadedObject(
 	if contentType == "" {
 		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
 	}
-	return &ObservedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
+	return &observedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
 }
 
 func (adapter routeObjectStoreAdapter) verifyEvidenceObjectAvailable(
 	ctx context.Context,
-	access EvidenceAccessRecord,
+	access evidenceAccessRecord,
 ) (string, *httpapi.APIError) {
 	if access.StorageKey == nil || access.ObjectBlobID == nil {
 		return "evidence_inconsistent", nil
@@ -83,7 +89,10 @@ func (adapter routeObjectStoreAdapter) verifyEvidenceObjectAvailable(
 	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(*access.StorageKey, access.IncidentID, *access.ObjectBlobID); err != nil {
 		return "", objectStoreDependencyAPIError(err)
 	}
-	if _, err := adapter.head(ctx, *access.StorageKey, objectstore.PurposeProductRead); err != nil {
+	if _, err := adapter.store.Head(ctx, objectstore.HeadObjectRequest{
+		Key:     *access.StorageKey,
+		Purpose: objectstore.PurposeProductRead,
+	}); err != nil {
 		if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
 			return "", apiErr
 		}
@@ -100,28 +109,14 @@ func (adapter routeObjectStoreAdapter) put(
 	contentType string,
 	purpose objectstore.Purpose,
 ) error {
-	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
-		_, err := typed.Put(ctx, objectstore.PutObjectRequest{
-			Key:         key,
-			Body:        body,
-			Size:        size,
-			ContentType: contentType,
-			Purpose:     purpose,
-		})
-		return err
-	}
-	return adapter.store.PutObject(ctx, key, body, size, contentType)
-}
-
-func (adapter routeObjectStoreAdapter) head(
-	ctx context.Context,
-	key string,
-	purpose objectstore.Purpose,
-) (objectstore.ObjectInfo, error) {
-	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
-		return typed.Head(ctx, objectstore.HeadObjectRequest{Key: key, Purpose: purpose})
-	}
-	return adapter.store.StatObject(ctx, key)
+	_, err := adapter.store.Put(ctx, objectstore.PutObjectRequest{
+		Key:         key,
+		Body:        body,
+		Size:        size,
+		ContentType: contentType,
+		Purpose:     purpose,
+	})
+	return err
 }
 
 func (adapter routeObjectStoreAdapter) get(
@@ -130,13 +125,10 @@ func (adapter routeObjectStoreAdapter) get(
 	options objectstore.ReadOptions,
 	purpose objectstore.Purpose,
 ) (io.ReadCloser, objectstore.ObjectInfo, error) {
-	if typed, ok := adapter.store.(objectstore.TypedStore); ok {
-		return typed.Get(ctx, objectstore.GetObjectRequest{
-			Key:        key,
-			RangeStart: options.RangeStart,
-			RangeEnd:   options.RangeEnd,
-			Purpose:    purpose,
-		})
-	}
-	return adapter.store.ReadObject(ctx, key, options)
+	return adapter.store.Get(ctx, objectstore.GetObjectRequest{
+		Key:        key,
+		RangeStart: options.RangeStart,
+		RangeEnd:   options.RangeEnd,
+		Purpose:    purpose,
+	})
 }

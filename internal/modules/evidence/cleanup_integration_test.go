@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 )
@@ -40,7 +40,7 @@ SELECT COUNT(*) FROM evidence_blob_cleanup_claims WHERE object_blob_id = $1
 			t.Fatalf("count inert cleanup claims: %v", err)
 		}
 		if count != 0 {
-			t.Fatalf("server created %d cleanup claims before S09 dispatcher activation", count)
+			t.Fatalf("server created %d cleanup claims before readiness-gated dispatcher activation", count)
 		}
 		deleteCleanupFixture(t, harness, blobID)
 	})

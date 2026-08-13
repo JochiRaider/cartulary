@@ -5,9 +5,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -29,12 +29,19 @@ func newTestTimelineComposition(
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	projections := mustBuildProjectionRuntime(t, pool)
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		pool,
+		conflictTokens,
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+		projections,
+	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
 		ConflictTokens:      conflictTokens,
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

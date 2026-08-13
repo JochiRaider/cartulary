@@ -19,9 +19,9 @@ func appendEvidenceRecordChangeIntentsTx(
 	actorUserID uuid.UUID,
 	clientTxnID string,
 	changeSetID uuid.UUID,
-	primary AttachRecordChange,
+	primary attachRecordChange,
 	primaryRow map[string]any,
-	affected []AttachRecordChange,
+	affected []attachRecordChange,
 	createdAt time.Time,
 ) error {
 	if appender == nil {

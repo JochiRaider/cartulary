@@ -3,6 +3,7 @@ package evidence_test
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -25,7 +25,7 @@ func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	workbookStore := appsupport.NewWorkbookStore(harness.DB, conflicttest.NewCodec("workbook"))
 	revisionComposition := revisionsupport.MustComposition(t)
-	evidenceStore := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	evidenceStore := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 

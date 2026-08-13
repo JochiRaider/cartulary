@@ -1,5 +1,7 @@
 package evidence
 
+// Source mutation ports keep transaction coordination owner-private.
+
 import (
 	"context"
 	"time"
@@ -20,8 +22,8 @@ type evidenceRecordEnvelopePort interface {
 }
 
 type evidenceSourceMutationPort interface {
-	InsertWorkbookRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, WorkbookCreateParams, time.Time) error
-	ValidateWorkbookLifecyclePatchTx(context.Context, pgx.Tx, uuid.UUID, []WorkbookLifecyclePatchChange) error
-	ApplyWorkbookDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, WorkbookFieldValue, time.Time) (bool, error)
-	TouchWorkbookRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error
+	insertRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, createParams, time.Time) error
+	validateLifecyclePatchTx(context.Context, pgx.Tx, uuid.UUID, []lifecyclePatchChange) error
+	applyDirectChangeTx(context.Context, pgx.Tx, uuid.UUID, string, FieldValue, time.Time) (bool, error)
+	touchRowTx(context.Context, pgx.Tx, uuid.UUID, time.Time) error
 }

@@ -23,7 +23,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -268,12 +267,20 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose Projections: %v", err)
 	}
+	conflictTokens := conflicttest.NewCodec("timeline")
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		harness.DB,
+		conflictTokens,
+		revisionComposition.Runtime.Appender(),
+		revisionComposition.Intents,
+		projections,
+	)
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            harness.DB,
-		ConflictTokens:      conflicttest.NewCodec("timeline"),
+		ConflictTokens:      conflictTokens,
 		Revisions:           revisionComposition.Runtime.Appender(),
 		Collaboration:       revisionComposition.Intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

@@ -19,7 +19,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -614,7 +613,7 @@ func newCatalogBackedWorkbookStore(
 		projections.PartyPorts().Rows,
 		indicatorOwner,
 		timelineBundle.Facade,
-		evidenceOwner.WorkbookContribution(),
+		evidenceOwner.MutationContribution(),
 		artifactMutation,
 		taskDecisionMutation,
 		conflictTokens,
@@ -648,12 +647,20 @@ func newWorkbookTimelineComposition(
 	if err != nil {
 		t.Fatalf("compose projection runtime: %v", err)
 	}
+	conflictTokens := workbookTestConflictTokens()
+	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+		pool,
+		conflictTokens,
+		appender,
+		intents,
+		projections,
+	)
 	bundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            pool,
-		ConflictTokens:      workbookTestConflictTokens(),
+		ConflictTokens:      conflictTokens,
 		Revisions:           appender,
 		Collaboration:       intents,
-		EvidenceAttachments: evidence.NewTimelineAttachmentContribution(projections.EvidencePorts().Rows),
+		EvidenceAttachments: evidenceOwner.TimelineAttachmentContribution(),
 		TimelineProjection:  projections.TimelinePorts().Writer,
 		EntityProjection:    projections.EntityPorts().Writer,
 		AssessmentRows:      projections.AssessmentPorts().Rows,

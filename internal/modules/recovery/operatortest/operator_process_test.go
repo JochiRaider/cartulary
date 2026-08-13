@@ -1265,7 +1265,10 @@ func seedOperatorObjectBlob(t testing.TB, dsn string, actorID uuid.UUID, body []
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	blobID := uuid.New()
-	storageKey := blobref.MustObjectBlobStorageKey(incidentID, blobID)
+	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, blobID)
+	if err != nil {
+		t.Fatalf("build Evidence blob storage key: %v", err)
+	}
 	sum := sha256.Sum256(body)
 	sha := hex.EncodeToString(sum[:])
 	if _, err := db.ExecContext(context.Background(), `

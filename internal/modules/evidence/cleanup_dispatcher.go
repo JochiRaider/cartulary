@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	CleanupDispatcherIdentity = "evidence.failed_unattached_blob_cleanup.v1"
+	cleanupDispatcherIdentity = "evidence.failed_unattached_blob_cleanup.v1"
 	cleanupDispatchInterval   = 15 * time.Minute
 )
 
-type CleanupSweeper interface {
-	SweepFailedUnattachedBlobs(context.Context, CleanupObjectDeleter, time.Time) (CleanupSweepResult, error)
+type cleanupSweeper interface {
+	SweepFailedUnattachedBlobs(context.Context, cleanupObjectDeleter, time.Time) (cleanupSweepResult, error)
 }
 
 type CleanupSweepObservation struct {
@@ -31,8 +31,8 @@ type CleanupObserver interface {
 }
 
 type CleanupDispatcher struct {
-	sweeper  CleanupSweeper
-	deleter  CleanupObjectDeleter
+	sweeper  cleanupSweeper
+	deleter  cleanupObjectDeleter
 	observer CleanupObserver
 	now      func() time.Time
 	interval time.Duration
@@ -43,9 +43,9 @@ type CleanupDispatcher struct {
 	done   chan struct{}
 }
 
-func NewCleanupDispatcher(
-	sweeper CleanupSweeper,
-	deleter CleanupObjectDeleter,
+func newCleanupDispatcher(
+	sweeper cleanupSweeper,
+	deleter cleanupObjectDeleter,
 	observer CleanupObserver,
 	now func() time.Time,
 ) (*CleanupDispatcher, error) {
@@ -70,8 +70,8 @@ func NewCleanupDispatcher(
 	}, nil
 }
 
-func (d *CleanupDispatcher) Identity() string {
-	return CleanupDispatcherIdentity
+func (d *CleanupDispatcher) identity() string {
+	return cleanupDispatcherIdentity
 }
 
 // Start activates the private dispatcher. Application assembly calls Start
@@ -118,9 +118,9 @@ func (d *CleanupDispatcher) Close(ctx context.Context) error {
 	}
 }
 
-func (d *CleanupDispatcher) RunOnce(ctx context.Context) (CleanupSweepResult, error) {
+func (d *CleanupDispatcher) runOnce(ctx context.Context) (cleanupSweepResult, error) {
 	if d == nil || d.sweeper == nil || d.deleter == nil || d.observer == nil {
-		return CleanupSweepResult{}, errors.New("evidence cleanup dispatcher is not configured")
+		return cleanupSweepResult{}, errors.New("evidence cleanup dispatcher is not configured")
 	}
 	d.runMu.Lock()
 	defer d.runMu.Unlock()
@@ -141,7 +141,7 @@ func (d *CleanupDispatcher) RunOnce(ctx context.Context) (CleanupSweepResult, er
 
 func (d *CleanupDispatcher) run(ctx context.Context, done chan<- struct{}) {
 	defer close(done)
-	_, _ = d.RunOnce(ctx)
+	_, _ = d.runOnce(ctx)
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
 	for {
@@ -149,7 +149,7 @@ func (d *CleanupDispatcher) run(ctx context.Context, done chan<- struct{}) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, _ = d.RunOnce(ctx)
+			_, _ = d.runOnce(ctx)
 		}
 	}
 }

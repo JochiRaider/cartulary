@@ -3,6 +3,7 @@ package evidence_test
 import (
 	"context"
 	"errors"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,7 +14,6 @@ import (
 
 	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 
-	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
@@ -46,7 +46,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 
 	harness := appsupport.StartStore(t, "evidence_lifecycle-attach-validation")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
@@ -358,9 +358,9 @@ SELECT COUNT(*)
 }
 
 func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
-	harness := appsupport.StartStore(t, "evidence-blob-association-characterization")
+	harness := appsupport.StartStore(t, "evidence-blob-association-contract")
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
 	firstRecordID := seedEvidenceAttachmentRecord(t, harness.DB, incident.ID, actor.ID, "received")
@@ -412,7 +412,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	t.Cleanup(pool.Close)
 	harness := &appsupport.StoreHarness{DB: pool}
 	revisionComposition := revisionsupport.MustComposition(t)
-	store := appsupport.NewEvidenceBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
+	store := newTestBlobLifecycleService(harness.DB, revisionComposition.Runtime.Appender(), revisionComposition.Intents)
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
 	recordIDs := []uuid.UUID{

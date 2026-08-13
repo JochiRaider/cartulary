@@ -605,7 +605,7 @@ func (r *probeRunner) verifyNoPublicListingPrimitive(ctx context.Context) error 
 				return fmt.Errorf("public OpenAPI route inventory contains %q", forbidden)
 			}
 		}
-		routes, err := os.ReadFile(filepath.Join(root, "internal/modules/evidence/routes.go"))
+		routes, err := readEvidenceRouteSources(root)
 		if err != nil {
 			return err
 		}
@@ -624,7 +624,7 @@ func (r *probeRunner) verifySameOriginHandleContract(ctx context.Context) error 
 		if err != nil {
 			return err
 		}
-		routes, err := os.ReadFile(filepath.Join(root, "internal/modules/evidence/routes.go"))
+		routes, err := readEvidenceRouteSources(root)
 		if err != nil {
 			return err
 		}
@@ -640,6 +640,26 @@ func (r *probeRunner) verifySameOriginHandleContract(ctx context.Context) error 
 		}
 		return nil
 	})
+}
+
+func readEvidenceRouteSources(root string) ([]byte, error) {
+	files := []string{
+		"route_registration.go",
+		"route_blob_handlers.go",
+		"route_handle_handlers.go",
+		"route_error_translation.go",
+		"route_errors.go",
+	}
+	var sources strings.Builder
+	for _, name := range files {
+		body, err := os.ReadFile(filepath.Join(root, "internal/modules/evidence", name))
+		if err != nil {
+			return nil, err
+		}
+		sources.Write(body)
+		sources.WriteByte('\n')
+	}
+	return []byte(sources.String()), nil
 }
 
 func (r *probeRunner) verifyCleanupClassification(ctx context.Context) error {

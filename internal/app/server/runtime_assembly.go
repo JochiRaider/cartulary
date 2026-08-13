@@ -84,12 +84,17 @@ type Options struct {
 	ObserveRevisions       func(*revisionassembly.Runtime)
 }
 
+type evidenceCleanupLifecycle interface {
+	Start(context.Context) error
+	Close(context.Context) error
+}
+
 type Runtime struct {
 	handler                   http.Handler
 	stagedJanitor             *stagedobjects.Janitor
 	jobRunner                 *jobs.Runner
 	collaborationDispatcher   *collaboration.Dispatcher
-	evidenceCleanupDispatcher *evidence.CleanupDispatcher
+	evidenceCleanupDispatcher evidenceCleanupLifecycle
 	processLease              *processlease.ApplicationProcessLease
 	servingLease              *processlease.ApplicationRecoveryServingLease
 	lifecycle                 *processlifecycle.Controller
@@ -472,29 +477,30 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		}
 		extensionStateStore = stateStore
 	}
-	var objectStore objectstore.Store
+	var rawObjectStore objectstore.Store
 	if options.ObjectStore != nil {
-		objectStore = instrumentedObjectStore(
-			normalizedCfg.Telemetry.Enabled,
-			normalizedCfg.Telemetry.Resource.ServiceVersion,
-			options.ObjectStore,
-		)
+		rawObjectStore = options.ObjectStore
 	} else {
 		objectStoreSettings, settingsErr := objectstore.ResolveSettings(configassembly.ObjectStoreBinding(normalizedCfg), options.Env)
 		if settingsErr != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", settingsErr)
 		}
-		client, err := dependencies.setupObjectStore(ctx, objectStoreSettings, configassembly.ObjectStoreInstrumentation(normalizedCfg))
+		client, err := dependencies.setupObjectStore(ctx, objectStoreSettings, objectstore.Instrumentation{})
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("setup object store: %w", err)
 		}
-		objectStore = client
+		rawObjectStore = client
 		if client != nil {
 			runtime.own(func() { _ = client.Close() })
 		}
 	}
+	objectStore := instrumentedObjectStore(
+		normalizedCfg.Telemetry.Enabled,
+		normalizedCfg.Telemetry.Resource.ServiceVersion,
+		rawObjectStore,
+	)
 	var stagedObjectService *stagedobjects.Service
 	var stagedHealth *stagedobjects.Health
 	if extensionStateStore != nil && objectStore != nil {
@@ -558,6 +564,20 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
+	if _, ok := rawObjectStore.(objectstore.TypedStore); !ok {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence owner: typed object store is required")
+	}
+	typedObjectStore, ok := objectStore.(objectstore.TypedStore)
+	if !ok {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence owner: typed object store is required")
+	}
+	evidenceBlobPort, err := evidence.NewIncidentBundleBlobPortability(typedObjectStore)
+	if err != nil {
+		runtime.Close()
+		return nil, err
+	}
 	if enterpriseAuthenticationAdmitted {
 		if err := enterpriseauth.ReconcileProviderDefinitions(ctx, enterpriseProviderDefinitions, authn.NewStore(postgresHandle), now()); err != nil {
 			runtime.Close()
@@ -587,37 +607,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 		}
 	}
-	cleanupService, err := evidence.NewCleanupService(postgresHandle)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Evidence cleanup service: %w", err)
-	}
-	cleanupDeleter, err := evidence.NewCleanupObjectDeleter(objectStore)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	cleanupObserver, err := newEvidenceCleanupTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Evidence cleanup telemetry: %w", err)
-	}
-	runtime.evidenceCleanupDispatcher, err = evidence.NewCleanupDispatcher(
-		cleanupService,
-		cleanupDeleter,
-		cleanupObserver,
-		now,
-	)
-	if err != nil {
-		runtime.Close()
-		return nil, err
-	}
-	cleanupDispatcher := runtime.evidenceCleanupDispatcher
-	runtime.own(func() {
-		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_ = cleanupDispatcher.Close(closeCtx)
-	})
 	hub := dependencies.newCollaborationHub()
 	intentAppender := collaboration.NewIntentAppender()
 	runtime.collaborationDispatcher = collaboration.NewDispatcher(postgresHandle, hub, now)
@@ -795,20 +784,34 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Projections runtime: %w", err)
 	}
+	cleanupObserver, err := newEvidenceCleanupTelemetryObserver(normalizedCfg.Telemetry.Resource.ServiceVersion)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Evidence cleanup telemetry: %w", err)
+	}
 	evidenceOwner, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
 		Postgres:            postgresHandle,
 		ConflictTokens:      &workbookConflictTokens,
 		Revisions:           revisionRuntime.Appender(),
 		Collaboration:       intentAppender,
-		ObjectStore:         objectStore,
+		ObjectStore:         typedObjectStore,
 		ConflictFields:      revisionRuntime.ConflictFieldResolver(),
 		ConflictIdempotency: workbookassembly.NewConflictIdempotencyPort(postgresHandle),
 		Projections:         projectionRuntime.EvidencePorts(),
+		CleanupObserver:     cleanupObserver,
+		Now:                 now,
 	})
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Evidence owner: %w", err)
 	}
+	cleanupDispatcher := evidenceOwner.CleanupDispatcher()
+	runtime.evidenceCleanupDispatcher = cleanupDispatcher
+	runtime.own(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_ = cleanupDispatcher.Close(closeCtx)
+	})
 	timelineBundle, err := timelineassembly.NewBundle(timelineassembly.Dependencies{
 		Postgres:            postgresHandle,
 		ConflictTokens:      workbookConflictTokens,
@@ -871,7 +874,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	}
 	incidentBundleImportTransactions, err := incidentbundles.NewImportTransactionProvider(
 		postgresPool,
-		objectStore,
+		evidenceBlobPort,
 		incidentBundleImportFinalizer,
 		projectionRuntime.ImportRebuilder(),
 		historicalIntentPolicy,
@@ -942,6 +945,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		incidentbundles.WithProjectionRebuild(projectionRuntime.ImportRebuilder()),
 		incidentbundles.WithSourceCatalog(incidentSourceCatalog),
 		incidentbundles.WithHistoricalIntentPolicy(historicalIntentPolicy),
+		incidentbundles.WithEvidenceBlobPortability(evidenceBlobPort),
 	)
 	importOwnerLimits, importArchiveLimits := settingsProjection.Imports()
 	importOwnerRegistry, err := importassembly.NewOwnerCreateRegistry(
@@ -1076,7 +1080,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		projectionRuntime.PartyPorts().Rows,
 		indicatorOwner,
 		timelineFacade,
-		evidenceOwner.WorkbookContribution(),
+		evidenceOwner.MutationContribution(),
 		artifactMutation,
 		taskDecisionMutation,
 		workbookConflictTokens,
@@ -1110,10 +1114,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 			MergeStore:   timelineBundle.EntityMergeStore,
 			MentionStore: timelineBundle.EntityMentionStore,
 		})},
-		{id: "evidence", registrar: evidence.RegisterRoutes(
-			settingsProjection.Evidence(),
-			evidence.WithRouteService(evidenceOwner.RouteService()),
-		)},
+		{id: "evidence", registrar: evidenceOwner.RouteRegistrar(settingsProjection.Evidence())},
 		{
 			id: "workbook",
 			registrar: workbook.RegisterRoutes(workbook.RouteDependencies{
@@ -1260,7 +1261,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		options.ObserveCollaboration(hub, runtime.collaborationDispatcher, intentAppender)
 	}
 	if options.ObserveEvidenceCleanup != nil {
-		options.ObserveEvidenceCleanup(runtime.evidenceCleanupDispatcher)
+		options.ObserveEvidenceCleanup(cleanupDispatcher)
 	}
 	if options.ObserveProjections != nil {
 		options.ObserveProjections(projectionRuntime)
