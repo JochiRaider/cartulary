@@ -28,6 +28,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
 const postgresImage = "postgres:16-alpine"
@@ -172,7 +173,7 @@ func Start(t testing.TB) *Harness {
 
 	harness, err := StartShared(context.Background())
 	if err != nil {
-		t.Fatalf("%v", err)
+		failPostgresSetup(t, "start", err)
 	}
 
 	return harness
@@ -365,8 +366,10 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 	ticker := time.NewTicker(postgresHealthPollInterval)
 	defer ticker.Stop()
 
+	attempts := 0
 	var lastErr error
 	for {
+		attempts++
 		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, postgresClientAttemptTimeout)
 		err := pingAdminDSNFn(attemptCtx, h.adminDSN)
 		attemptCancel()
@@ -374,7 +377,7 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 			return nil
 		}
 		if isNonRetryablePostgresReadinessError(err) {
-			return &postgresReadinessError{LastErr: err}
+			return &postgresReadinessError{Attempts: attempts, LastErr: err}
 		}
 
 		lastErr = err
@@ -384,6 +387,7 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 				lastErr = readyCtx.Err()
 			}
 			return &postgresReadinessError{
+				Attempts:        attempts,
 				LastErr:         lastErr,
 				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
 			}
@@ -393,6 +397,7 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 }
 
 type postgresReadinessError struct {
+	Attempts        int
 	LastErr         error
 	DeadlineExpired bool
 }
@@ -1465,7 +1470,55 @@ func truncateIdentifier(value string, max int) string {
 }
 
 func (h *Harness) createDatabase(ctx context.Context, name string, templateDB string) error {
+	if err := suiteservices.CheckServiceDependencies(nil, "postgres"); err != nil {
+		return err
+	}
 	return createDatabaseFn(ctx, h.adminDSN, name, templateDB)
+}
+
+func failPostgresSetup(t testing.TB, defaultStage string, err error) {
+	t.Helper()
+	testfailure.Fail(t, postgresSetupEnvelope(defaultStage, err))
+}
+
+func postgresSetupEnvelope(defaultStage string, err error) testfailure.Envelope {
+	failureClass := "harness"
+	failureReason := "fixture_error"
+	stage := defaultStage
+	attempts := 0
+
+	var readinessErr *postgresReadinessError
+	if errors.As(err, &readinessErr) {
+		attempts = readinessErr.Attempts
+		if readinessErr.DeadlineExpired {
+			failureClass = "infra"
+			failureReason = "service_readiness_timeout"
+		} else if isNonRetryablePostgresReadinessError(readinessErr.LastErr) {
+			stage = "capability"
+		}
+	}
+	var startErr *testcontainersx.StartFailure
+	if errors.As(err, &startErr) && attempts == 0 {
+		attempts = startErr.AttemptsStarted
+	}
+	if errors.Is(err, context.Canceled) {
+		failureClass = "interrupted"
+		failureReason = "cancelled_or_interrupted"
+	}
+	var dependencyErr *suiteservices.ServiceDependencyError
+	if errors.As(err, &dependencyErr) {
+		stage = "dependency_guard"
+	}
+
+	return testfailure.NewEnvelope(
+		failureClass,
+		failureReason,
+		"pgtest",
+		"postgres",
+		stage,
+		attempts,
+		"not_required",
+	)
 }
 
 func pingAdminDSN(ctx context.Context, dsn string) error {

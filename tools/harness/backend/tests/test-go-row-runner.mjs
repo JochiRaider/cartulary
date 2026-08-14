@@ -53,6 +53,79 @@ assert.equal(readiness[0].failure_reason, "service_readiness_timeout");
 assert.equal(readiness[0].exit_code, 3);
 assert.deepEqual(readiness[0].failure_diagnostic, readinessEnvelope);
 
+const duplicateReadiness = adaptGoInvocation(invocation, {
+  status: 1,
+  stdout: [
+    ...["TestA", "TestA/readiness"].map((test) => JSON.stringify({
+      Action: "output",
+      Test: test,
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(readinessEnvelope)}\n`,
+    })),
+    JSON.stringify({ Action: "fail", Test: "TestA", Elapsed: 120 }),
+  ].join("\n"),
+});
+assert.equal(duplicateReadiness[0].failure_class, "infra");
+assert.equal(duplicateReadiness[0].failure_reason, "service_readiness_timeout");
+assert.deepEqual(duplicateReadiness[0].failure_diagnostic, readinessEnvelope);
+
+const conflictingReadiness = adaptGoInvocation(invocation, {
+  status: 1,
+  stdout: [
+    JSON.stringify({
+      Action: "output",
+      Test: "TestA",
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(readinessEnvelope)}\n`,
+    }),
+    JSON.stringify({
+      Action: "output",
+      Test: "TestA/readiness",
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify({ ...readinessEnvelope, cleanup_outcome: "failed" })}\n`,
+    }),
+    JSON.stringify({ Action: "fail", Test: "TestA", Elapsed: 120 }),
+  ].join("\n"),
+});
+assert.equal(conflictingReadiness[0].failure_class, "harness");
+assert.equal(conflictingReadiness[0].failure_reason, "scheduler_accounting_error");
+assert.equal(conflictingReadiness[0].exit_code, 11);
+assert.equal(conflictingReadiness[0].failure_diagnostic, null);
+
+const unrelatedReadiness = adaptGoInvocation(invocation, {
+  status: 1,
+  stdout: [
+    JSON.stringify({
+      Action: "output",
+      Test: "TestOther/readiness",
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(readinessEnvelope)}\n`,
+    }),
+    JSON.stringify({ Action: "fail", Test: "TestA", Elapsed: 0.01 }),
+  ].join("\n"),
+});
+assert.equal(unrelatedReadiness[0].failure_class, "product");
+assert.equal(unrelatedReadiness[0].failure_reason, "test_assertion_failure");
+assert.equal(unrelatedReadiness[0].exit_code, 10);
+assert.equal(unrelatedReadiness[0].failure_diagnostic, null);
+
+const cancelledEnvelope = {
+  ...readinessEnvelope,
+  failure_class: "interrupted",
+  failure_reason: "cancelled_or_interrupted",
+};
+const cancelled = adaptGoInvocation(invocation, {
+  status: 1,
+  stdout: [
+    JSON.stringify({
+      Action: "output",
+      Test: "TestA/readiness",
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(cancelledEnvelope)}\n`,
+    }),
+    JSON.stringify({ Action: "fail", Test: "TestA", Elapsed: 0.01 }),
+  ].join("\n"),
+});
+assert.equal(cancelled[0].terminal_state, "cancelled");
+assert.equal(cancelled[0].failure_class, "interrupted");
+assert.equal(cancelled[0].failure_reason, "cancelled_or_interrupted");
+assert.equal(cancelled[0].exit_code, 130);
+
 const malformed = adaptGoInvocation(invocation, {
   status: 1,
   stdout: [

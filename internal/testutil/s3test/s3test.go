@@ -645,6 +645,9 @@ func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 }
 
 func (h *Harness) createBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
+	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+		return err
+	}
 	start := time.Now()
 	client, err := h.Client(ctx)
 	if err != nil {

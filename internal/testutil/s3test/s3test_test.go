@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -457,6 +458,38 @@ func TestPackageBucketAdmissionProbesWithoutRemovingTheBucket(t *testing.T) {
 	if len(client.objects) != 0 {
 		t.Fatalf("package admission left probe objects: %#v", client.objects)
 	}
+	if got, want := client.calls, []string{"put", "head", "delete", "delete_verify"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("package admission mutation order mismatch: got=%#v want=%#v", got, want)
+	}
+}
+
+func TestObjectStoreMutationProbeRejectsSizeMismatch(t *testing.T) {
+	client := newFakeReadinessClient()
+	client.namespaces["package-bucket"] = true
+	client.headSizeDelta = 1
+
+	failure := runObjectStoreMutationProbe(context.Background(), client, objectStoreReadinessConfig{
+		CreateNamespace: false,
+		ListFirst:       false,
+		Bucket:          "package-bucket",
+		Key:             ".cartulary-readiness/package-probe",
+	})
+	if failure == nil || failure.Stage != "head" || failure.CleanupOutcome != "completed" {
+		t.Fatalf("expected size mismatch with completed cleanup, got %#v", failure)
+	}
+	if len(client.objects) != 0 {
+		t.Fatalf("size mismatch left probe objects: %#v", client.objects)
+	}
+}
+
+func TestCreateBucketRejectsOmittedServiceBeforeClientAcquisition(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
+
+	err := (&Harness{Endpoint: "invalid endpoint"}).CreateBucket(context.Background(), "guarded")
+	var dependencyErr *suiteservices.ServiceDependencyError
+	if !errors.As(err, &dependencyErr) || dependencyErr.Service != "object_store" || dependencyErr.Reason != "omitted" {
+		t.Fatalf("unexpected dependency error: %#v", err)
+	}
 }
 
 func TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure(t *testing.T) {
@@ -732,6 +765,7 @@ type fakeReadinessClient struct {
 	objects       map[string][]byte
 	failures      map[string]int
 	failureErrors map[string]error
+	headSizeDelta int64
 	calls         []string
 }
 
@@ -788,7 +822,7 @@ func (c *fakeReadinessClient) HeadSize(_ context.Context, bucket string, key str
 	if !exists {
 		return 0, minio.ErrorResponse{Code: "NoSuchKey", StatusCode: 404}
 	}
-	return int64(len(payload)), nil
+	return int64(len(payload)) + c.headSizeDelta, nil
 }
 
 func (c *fakeReadinessClient) Delete(_ context.Context, bucket string, key string) error {

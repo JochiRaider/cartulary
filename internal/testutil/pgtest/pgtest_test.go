@@ -112,6 +112,46 @@ func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
 	}
 }
 
+func TestCreateDatabaseRejectsOmittedServiceBeforeAcquisition(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "object_store")
+
+	oldCreate := createDatabaseFn
+	createCalls := 0
+	createDatabaseFn = func(context.Context, string, string, string) error {
+		createCalls++
+		return nil
+	}
+	t.Cleanup(func() {
+		createDatabaseFn = oldCreate
+	})
+
+	_, err := (&Harness{}).NewDatabase(context.Background(), "guarded")
+	var dependencyErr *suiteservices.ServiceDependencyError
+	if !errors.As(err, &dependencyErr) || dependencyErr.Service != "postgres" || dependencyErr.Reason != "omitted" {
+		t.Fatalf("unexpected dependency error: %#v", err)
+	}
+	if createCalls != 0 {
+		t.Fatalf("postgres acquisition ran before the dependency guard: calls=%d", createCalls)
+	}
+}
+
+func TestPostgresSetupEnvelopeNormalizesReadinessAndCancellation(t *testing.T) {
+	readiness := postgresSetupEnvelope("start", &postgresReadinessError{
+		Attempts:        17,
+		LastErr:         context.DeadlineExceeded,
+		DeadlineExpired: true,
+	})
+	if readiness.FailureClass != "infra" || readiness.FailureReason != "service_readiness_timeout" ||
+		readiness.Service != "postgres" || readiness.ReadinessStage != "start" || readiness.AttemptCount != 17 {
+		t.Fatalf("unexpected postgres readiness envelope: %#v", readiness)
+	}
+
+	cancelled := postgresSetupEnvelope("start", context.Canceled)
+	if cancelled.FailureClass != "interrupted" || cancelled.FailureReason != "cancelled_or_interrupted" {
+		t.Fatalf("unexpected postgres cancellation envelope: %#v", cancelled)
+	}
+}
+
 func TestDatabaseNamesAreUniqueAcrossSimulatedProcesses(t *testing.T) {
 	first := &Harness{suiteHash: "suitehash", processHash: "procaaaa"}
 	second := &Harness{suiteHash: "suitehash", processHash: "procbbbb"}

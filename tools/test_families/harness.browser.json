@@ -524,9 +524,11 @@
         "package": "./internal/testutil/s3test",
         "tests": [
           "TestAttachedObjectStoreUsesMutationProbeContract",
+          "TestCreateBucketRejectsOmittedServiceBeforeClientAcquisition",
           "TestObjectStoreMutationProbeDeadlineRetainsCleanupEvidence",
           "TestObjectStoreMutationProbePreservesPrimaryFailureDuringCleanupFailure",
           "TestObjectStoreMutationProbeRejectsCapabilitiesImmediately",
+          "TestObjectStoreMutationProbeRejectsSizeMismatch",
           "TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane",
           "TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure",
           "TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane",
