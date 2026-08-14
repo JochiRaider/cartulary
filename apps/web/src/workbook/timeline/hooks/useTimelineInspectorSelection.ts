@@ -16,7 +16,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WorkbookPresenceDraft } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookContinuityAnchor } from "../../continuity/workbookContinuityPort";
 import type { WorkbookInspectorState } from "../../models/workbookInspectorModel";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
@@ -109,23 +108,19 @@ export function useTimelineInspectorSelection({
 }
 
 export function useTimelineInspectorRowInteractions({
-  currentPresenceRef,
+  publishViewingPresence,
   rows,
   rowsRef,
   selectedRowId,
-  sendPresenceUpdate,
-  setCurrentPresence,
   setInspectorMessage,
   setIsInspectorOpen,
   setSelectedMentionRef,
   setSelectedRowId,
 }: {
-  readonly currentPresenceRef: MutableRefObject<WorkbookPresenceDraft>;
+  readonly publishViewingPresence: (recordId: string) => void;
   readonly rows: readonly WorkbookRow[];
   readonly rowsRef: TimelineRowsRef;
   readonly selectedRowId: string | null;
-  readonly sendPresenceUpdate: (presence: WorkbookPresenceDraft) => void;
-  readonly setCurrentPresence: Dispatch<SetStateAction<WorkbookPresenceDraft>>;
   readonly setInspectorMessage: (message: string | null) => void;
   readonly setIsInspectorOpen: Dispatch<SetStateAction<boolean>>;
   readonly setSelectedMentionRef: Dispatch<SetStateAction<string | null>>;
@@ -138,21 +133,9 @@ export function useTimelineInspectorRowInteractions({
     (recordId: string) => {
       setSelectedRowId(recordId);
       setInspectorMessage(null);
-      if (currentPresenceRef.current.mode === "editing") {
-        return;
-      }
-      const next = { fieldKey: null, mode: "viewing" as const, recordId };
-      currentPresenceRef.current = next;
-      setCurrentPresence(next);
-      sendPresenceUpdate(next);
+      publishViewingPresence(recordId);
     },
-    [
-      currentPresenceRef,
-      sendPresenceUpdate,
-      setCurrentPresence,
-      setInspectorMessage,
-      setSelectedRowId,
-    ],
+    [publishViewingPresence, setInspectorMessage, setSelectedRowId],
   );
 
   const openInspectorForRow = useCallback(
@@ -320,7 +303,6 @@ export function useTimelineInspectorRowInteractions({
 }
 
 export function useTimelineInspectorLifecycle({
-  cancelCreateRelatedWorkflow,
   cancelRowHistoryRequests,
   clearRowHistory,
   gridShellRef,
@@ -340,7 +322,6 @@ export function useTimelineInspectorLifecycle({
   setSelectedRowId,
   workbookFocusAnchorRef,
 }: {
-  readonly cancelCreateRelatedWorkflow: () => void;
   readonly cancelRowHistoryRequests: () => void;
   readonly clearRowHistory: () => void;
   readonly gridShellRef: MutableRefObject<HTMLDivElement | null>;
@@ -483,18 +464,14 @@ export function useTimelineInspectorLifecycle({
     previousInvalidationGenerationRef.current = inspectorInvalidationGeneration;
     setSelectedMentionRef(null);
     setSelectedResolveTargetId("");
-    setInspectorMessage(null);
-    cancelCreateRelatedWorkflow();
     setRowHistoryPendingAction(null);
     if (inspectorInvalidationCause !== "retarget") {
       clearRowHistory();
     }
   }, [
-    cancelCreateRelatedWorkflow,
     clearRowHistory,
     inspectorInvalidationCause,
     inspectorInvalidationGeneration,
-    setInspectorMessage,
     setRowHistoryPendingAction,
     setSelectedMentionRef,
     setSelectedResolveTargetId,

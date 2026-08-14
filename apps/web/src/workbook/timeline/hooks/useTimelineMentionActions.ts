@@ -5,6 +5,7 @@ import type {
   TimelineSourceRecordRequirement,
 } from "../models/timelineViewportContinuityModel";
 import type {
+  AutoResolutionNotice,
   DismissedMention,
   InspectorMention,
 } from "../models/workbookMentionChips";
@@ -384,7 +385,71 @@ export function useTimelineMentionActions({
     ],
   );
 
-  return { createEntityFromMention, submitMentionAction };
+  const handleUndoAutoResolutionNotice = useCallback(
+    (notice: AutoResolutionNotice) => {
+      const mention = timelineMentionForAutoResolutionNotice(
+        rowsRef.current,
+        notice,
+      );
+      if (mention !== null) {
+        submitMentionAction(mention, "revert_to_unresolved");
+      }
+    },
+    [rowsRef, submitMentionAction],
+  );
+
+  return {
+    createEntityFromMention,
+    handleUndoAutoResolutionNotice,
+    submitMentionAction,
+  };
+}
+
+export function timelineMentionForAutoResolutionNotice(
+  rows: readonly WorkbookRow[],
+  notice: AutoResolutionNotice,
+): InspectorMention | null {
+  const row = rows.find(
+    (candidate) => candidate.recordId === notice.rowRecordId,
+  );
+  if (row?.recordId === null || row === undefined) return null;
+  const activeItems =
+    notice.fieldKey === "timeline.identity_refs"
+      ? row.collectionValues.identityRefs
+      : row.collectionValues.hostRefs;
+  const activeItem = activeItems.find(
+    (item) =>
+      item.itemRef === notice.itemRef && item.itemKind === "resolved_ref",
+  );
+  if (activeItem === undefined) return null;
+
+  return {
+    rowRecordId: row.recordId,
+    fieldKey: notice.fieldKey,
+    entityType: activeItem.entityType,
+    itemRef: activeItem.itemRef,
+    rawText: activeItem.rawText,
+    resolvedRecordId: activeItem.resolvedRecordId,
+    mentionRowVersion: activeItem.mentionRowVersion,
+    resolutionMethod: activeItem.resolutionMethod,
+    autoResolved: activeItem.autoResolved,
+    status: "resolved",
+    chipState: activeItem.autoResolved ? "auto_resolved" : "resolved",
+    anchor: {
+      recordId: row.recordId,
+      fieldKey: notice.fieldKey,
+      itemRef: activeItem.itemRef,
+      entityMentionId: entityMentionIDFromItemRef(activeItem.itemRef),
+      targetEntityRecordId: activeItem.resolvedRecordId,
+    },
+    sourceKind: "entity_mention",
+    isActiveRelationshipValue: true,
+    priorTargetEntityRecordId: null,
+    displayText: activeItem.displayText,
+    provenance: activeItem.provenance,
+    confidence: activeItem.confidence,
+    matchedAliasText: activeItem.matchedAliasText,
+  };
 }
 
 function currentMentionFromRow(
@@ -420,8 +485,12 @@ function currentMentionFromRow(
 function entityMentionID(mention: InspectorMention): string | null {
   return (
     mention.anchor.entityMentionId ??
-    (mention.itemRef.startsWith("entity_mention:")
-      ? mention.itemRef.slice("entity_mention:".length) || null
-      : null)
+    entityMentionIDFromItemRef(mention.itemRef)
   );
+}
+
+function entityMentionIDFromItemRef(itemRef: string): string | null {
+  return itemRef.startsWith("entity_mention:")
+    ? itemRef.slice("entity_mention:".length) || null
+    : null;
 }

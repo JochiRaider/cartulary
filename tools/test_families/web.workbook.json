@@ -466,6 +466,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.mention_undo_current_committed_identity_ddf69011e7",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
+        "titles": [
+          "support TimelineWorkbookRuntimeFixture sends auto-resolution Undo with the current post-resolution row version"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.referencequerybroker_suite_7bd36b209a",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -482,6 +506,167 @@
           "ReferenceQueryBroker binds incident and authorization generation at construction",
           "ReferenceQueryBroker deduplicates in-flight work while keeping shared-consumer cancellation local",
           "ReferenceQueryBroker keeps identical queries isolated between Workbook broker instances"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_feature_policy_closed_semantic_routing_bbd0ade7b2",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/models/timelineWorkbookFeaturePolicy.test.ts",
+        "titles": [
+          "timelineWorkbookFeaturePolicy fails closed for unsupported schemas and altered semantic tuple members",
+          "timelineWorkbookFeaturePolicy resolves every canonical Timeline create-related and Indicator tuple"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_fill_planning_and_semantic_dispatch_c446e90622",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/bulk/useTimelineFillController.test.tsx",
+        "titles": [
+          "useTimelineFillController dispatches only the semantic bulk port and preserves save, refresh, focus, and conflict sequencing",
+          "useTimelineFillController plans one ordered versioned command from a committed visible scalar source",
+          "useTimelineFillController rejects every malformed, hidden, grouped, stale, pending, or non-editable fill atomically"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_inspector_feature_controller_a38c2d6f71",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineInspectorFeatureController.test.tsx",
+        "titles": [
+          "useTimelineInspectorFeatureController fails closed while owning cancellation, unavailable messages, and mutually exclusive selection",
+          "useTimelineInspectorFeatureController resets Indicator and generic workflows on subject, version, surface, lifecycle, and authorization changes",
+          "useTimelineInspectorFeatureController routes canonical features with Indicator precedence and no generic fallback"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_keyboard_event_and_focus_ownership_97dc4e9a17",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineKeyboardController.test.tsx",
+        "titles": [
+          "useTimelineKeyboardController owns collection commit and close behavior without unreachable editor shortcuts",
+          "useTimelineKeyboardController owns scalar commit, navigation, range, draft, unavailable, and inspector focus order",
+          "useTimelineKeyboardController owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_mention_auto_resolution_undo_ownership_9e834f7b55",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/useTimelineMentionActions.test.tsx",
+        "titles": [
+          "useTimelineMentionActions auto-resolution undo converts the current resolved item without conflating notice, mention, and entity identity",
+          "useTimelineMentionActions auto-resolution undo no-ops missing items and retains the existing rejection conflict path",
+          "useTimelineMentionActions auto-resolution undo re-reads the committed mention version and preserves accepted refresh and continuity sequencing"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.timeline_presence_derivation_and_publication_eb6a4ede0e",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/collaboration/useTimelinePresenceController.test.tsx",
+        "titles": [
+          "useTimelinePresenceController clears the local draft on surface or authorization lifecycle reset without publishing",
+          "useTimelinePresenceController derives row and editing-cell markers only from stable record and field identities",
+          "useTimelinePresenceController publishes coherent viewing and editing transitions and keeps selection from overriding an edit"
         ]
       },
       "evidence_class": "unit",
